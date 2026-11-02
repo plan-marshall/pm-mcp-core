@@ -704,10 +704,9 @@ range of `outcome_row`.
 == Lesson Record and File Format
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
-This section covers the record of a project lesson and the format of its file. The project lesson store
-holds one Markdown file `<lesson_id>.md` per lesson; its front matter is structured and its body is the narrative
-(`PM-IMPL-2`: the narrative stays Markdown, only the front matter is structured). The package holds the record and the file
-format; it holds no store operations (id allocation, resolver, revision, retirement, claim).
+This section covers the record of a project lesson and the format of its file; the store itself is § The Lesson Store.
+The project lesson store holds one Markdown file `<lesson_id>.md` per lesson; its front matter is structured and its body
+is the narrative (`PM-IMPL-2`: the narrative stays Markdown, only the front matter is structured).
 
 `LessonId` is the identifier of a lesson: the UTC date and hour of creation plus a per-hour sequence, at least three
 digits (`{spec}/store-schemas/10-job-and-lesson-records.adoc#lesson-record`). The store holds `<lesson_id>.md` per
@@ -727,17 +726,20 @@ body.
 
 `LessonCodec` reads and writes one file: the line `---`, the front matter, the line `---`, the body verbatim. The front
 matter is written as one JSON object in the order of the schema — a JSON object is a YAML 1.2 flow mapping — and read
-through a YAML library with the YAML 1.2 core schema (ADR core-store/061). The reader refuses an anchor, an alias, a
-tag, a second document, a duplicate or unknown member, a missing member and a mistyped member; it refuses a
-`format_version` other than 1, and an instant only in the shape `Instant.toString` writes, so what is read is written
-again byte for byte. The member lists are package-private constants in the order of the schema, and
-`LessonFrontMatterSchemaParityTest` compares them with the schema block of the specification.
+through a YAML library with the YAML 1.2 core schema (ADR core-store/061). The writer escapes every non-ASCII character,
+so a title, a statement or a source that carries a YAML line break (U+0085, U+2028, U+2029), a C1 control or a
+noncharacter reads back unchanged instead of being folded or refused by the YAML reader.
+The reader refuses an anchor, an alias, a tag, a second document, a duplicate or unknown
+member, a missing member and a mistyped member; it refuses a `format_version` other than 1, and an instant only in the
+shape `Instant.toString` writes — RFC 3339, UTC, suffix `Z` — so what is read is written again byte for byte; a
+`date-time` with an offset or another fraction spelling is refused. The member lists are package-private constants in the
+order of the schema, and `LessonFrontMatterSchemaParityTest` compares them with the schema block of the specification.
 
 A file that does not decode is not an exception: `decode` returns a sealed `Reading`, either `Readable(Lesson)` or
 `Unreadable(reason, detail)` with the reason `no_opening_fence`, `no_closing_fence`, `not_an_object`, `strict_reader` or
-`rule_violation`. Planned resolver behavior: a file without parseable front matter is listed as `present_unreadable`, never as
-`absent`. A write with missing or invalid front matter is rejected: `Lesson` cannot be built without a front matter, and
-every rule of the record is refused by its constructor before the codec sees it.
+`rule_violation`. The store resolves such a file to `present_unreadable`, never to `absent` (§ The Lesson Store). A write
+with missing or invalid front matter is rejected: `Lesson` cannot be built without a front matter, and every rule of the
+record is refused by its constructor before the codec sees it.
 
 === Invariants
 
@@ -754,9 +756,9 @@ every rule of the record is refused by its constructor before the codec sees it.
 |===
 |Symptom |Cause |What to do
 |`Unreadable` with `no_opening_fence` |the file does not start with the line `---` |the file is no lesson file; the
-planned resolver lists it `present_unreadable` with its path
+store lists it `present_unreadable` with its path
 |`Unreadable` with `no_closing_fence` |no second line `---` closes the front matter |the file is no lesson file; the
-planned resolver lists it `present_unreadable` with its path
+store lists it `present_unreadable` with its path
 |`Unreadable` with `not_an_object` |the front matter is a sequence or a scalar, not a mapping |read the detail; the
 front matter is an object, never a list
 |`Unreadable` with `strict_reader` |an anchor, an alias, a tag, a second document, a duplicate or unknown member, a
@@ -773,6 +775,88 @@ Tested by `LessonIdTest` (the grammar, the length bound, the file name, the hour
 file, one refusing case per reason, a file that is not UTF-8, an anchor, an alias and a tag) and `LessonFrontMatterSchemaParityTest` (the title,
 the members and their order, the required sets, the enumerations, the `lesson_id` pattern at its three places, the
 format version, the bounds and the absence of a dependent-required pair).
+
+[#_the_lesson_store]
+== The Lesson Store
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+`LessonStore` is the store of the project's lesson records: one file `<lesson_id>.md` per lesson below `lessons/` of the
+per-project machine store, with the journal `lessons/.transaction-journal.json` and the digest sidecar
+`lessons/.digests.json` of the lesson scope (`JournalScope.lessons`). It is built from the scope and takes no lock and
+opens no transaction of its own: every write is a target of the caller's `ScopeTransaction` of that scope, which holds
+the lesson store lock `locks/lessons.lock`. A transition that also writes outside the lesson store — the claim after the
+new plan scope, the end after the plan's terminal transaction — is ordered by its caller (Store Schemas § Transaction
+Journal, Writes outside the scope).
+
+**Allocation and creation.** `allocate(transaction, clock)` draws the UTC hour of the clock and the per-hour sequence that
+follows every lesson file of that hour and every lesson the transaction already holds, at least three digits and growing
+past `999`. The id is never reused, because a lesson file is never deleted. `create` adds a create target (`mustBeAbsent`)
+whose server-set members the store derives itself: `format_version` 1, the id, `created_at`, the status (`upstream_pending`
+for the audience `upstream`, `active` otherwise), revision 1 with its first `revisions` entry and the SHA-256 of the UTF-8
+body, and the null claim and retirement. The caller gives the title, component, category, bundle, rule, remedy,
+provenance, audience, `derived_from_untrusted`, `tool_version`, the non-empty sources and the body.
+
+**The two read flavours.** `list()` and `get(LessonId)` take no lock and read through `ScopeIntegrity.snapshot`: a file
+that differs from its sidecar entry is `found` with `StoreIntegrity.DIGEST_UNVERIFIED`, and `get(transaction, LessonId)`
+recovers the journal of the scope and decides through `ScopeIntegrity.verify`, so the same file is `store_tampered` there.
+Only the locked read raises `store_tampered` and `deleted_out_of_band`, and reports a file without an entry as
+`untracked`; the lock-free read decides nothing (ADR core-store/066). `LessonResolution` is the one sealed result:
+`found`, `absent`, `present_unreadable` (listed with its path, never omitted), `empty_shell` (a body without a
+non-whitespace character), `store_tampered`, `deleted_out_of_band` and `untracked`. The listing names only files whose
+name parses as `<lesson_id>.md`; a staged file `<lesson_id>.md.tmp.<transaction id>` and the sidecar are never lessons.
+`unclaimed()` is the candidate list of `source-lesson.choose` — `active`, `claim` null, resolved `found`, newest id first,
+the `derived_from_untrusted` mark travelling in the front matter — and `claims()` and `claimedBy(planId)` are the read of
+the plan's end, which lists an unreadable lesson separately by id, because no one can read or release its claim.
+
+**The transitions.** `revise` replaces the body wholesale as the next revision and never turns `derived_from_untrusted`
+back; a revision whose sources name a lesson of the kind `lesson` that is marked becomes marked itself.
+`retire` writes `retired` and `status: retired` in one transaction and leaves the file where it is; it refuses a
+retirement without its verdict's members (`completely_covered` needs a non-blank clause and input, `merged` and
+`superseded` need `into`, no other verdict takes one) and a retirement of anything but a found, unclaimed lesson. `claim`
+sets `claim{plan_id, claimed_at}`; `release` clears it and does not retire the lesson; `endClaimApplied` retires it with
+the verdict `applied` and clears the claim, so the plan stays the author in `retired.by`, which is what reach is computed
+from (ADR core-store/064). The release and the end are authorized by the durable `claim.plan_id` alone, never by their
+argument (R14 (2)); a transition that does not act returns `Unavailable` with the state it found — the resolution states,
+`claimed` with the claiming plan, `retired` and `unclaimed` (ADR core-store/065) — and a repeated end reports the
+retirement without writing.
+
+=== Invariants per crash window
+
+Every write is one `ScopeTransaction` commit in five steps. A write stopped at any of them leaves exactly what a killed
+process leaves, and `JournalRecovery` brings the store to one of the two stable states (R14 (8)):
+
+|===
+|Stopped after |What is on disk |What the recovery makes of it
+|stage |the staged file and no journal |the staged file is deleted; the lesson is the old one (or absent)
+|journal |the journal, the staged content and the old lesson |the journal is rolled forward; the lesson is the new one
+|apply |the new lesson, the old sidecar entry and the journal |the journal is rolled forward; the sidecar matches the new lesson
+|digests |the new lesson, its sidecar entry and the journal |the journal is rolled forward and deleted; nothing is rewritten
+|===
+
+* A lesson is always the old or the new one, never a torn file: a write replaces it by atomic rename.
+* The sidecar entry of a lesson matches its file after every recovery, and an entry is never written for a file that is
+  not there.
+* The staged namespace `<lesson_id>.md.tmp.<transaction id>` is disjoint from the legal names, so a listing never names a
+  staged file as a lesson (R14 (6)).
+* A test that asserts a file location derives the expected path from `LockKey.projectStore(base, projectId)` and
+  `lessons/`, never from the store object under test (R14 (9)).
+
+=== Failure Modes
+
+|===
+|Symptom |Cause |What to do
+|`found` with `DIGEST_UNVERIFIED` |the lock-free read saw a difference from the sidecar, or a journal of the scope is in flight |decide under the lock; the locked read answers `store_tampered` or `verified`
+|`store_tampered` |the file was edited outside a transaction |the operator's `accept-edit` re-baselines it; no store verb touches it
+|`deleted_out_of_band` |the file is gone but its sidecar entry remains |the lesson is not `absent`, and nothing retries it
+|`untracked` |a file exists without a sidecar entry |no transaction wrote it; the store does not act on it
+|`present_unreadable` |the front matter is missing or invalid |the lesson is listed with its path and is never a false absence
+|`IllegalStateException` on a commit |a `create` target exists already, or the transaction has no target |a create over an existing id is refused; a transition that changes nothing adds no target and must not be committed
+|===
+
+Tested by `LessonStoreTest` (allocation, creation, the transition table of create, revise and retire), `LessonResolverTest`
+(the fifteen ported fixtures, the four states, the three integrity states, the listing, the candidates, a property test),
+`LessonRevisionTest`, `LessonRetirementTest`, `LessonClaimTest` and `LessonStoreCrashTest` (the five steps of every write,
+two concurrent claims, a claim racing a retirement, the repeated release and end, the staged namespace).
 
 [#_operator_and_question_stores]
 == Operator and Question Stores, the Project Store and the Project Resolution

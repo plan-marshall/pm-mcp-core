@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -215,7 +214,7 @@ class LessonClaimTest {
         @ParameterizedTest
         @EnumSource(State.class)
         @DisplayName("of a lesson in another state changes nothing and reports the state")
-        void otherStates(State state) throws IOException {
+        void otherStates(State state) throws Exception {
             arrange(state);
             var before = bytesOrNull();
 
@@ -273,7 +272,7 @@ class LessonClaimTest {
         @ParameterizedTest
         @EnumSource(State.class)
         @DisplayName("of a lesson in another state changes nothing and reports the state")
-        void otherStates(State state) throws IOException {
+        void otherStates(State state) throws Exception {
             arrange(state);
             var before = bytesOrNull();
 
@@ -361,7 +360,7 @@ class LessonClaimTest {
         @ParameterizedTest
         @EnumSource(State.class)
         @DisplayName("of a lesson in another state changes nothing and reports the state")
-        void otherStates(State state) throws IOException {
+        void otherStates(State state) throws Exception {
             arrange(state);
             var before = bytesOrNull();
 
@@ -396,10 +395,10 @@ class LessonClaimTest {
 
             assertAll(
                     () -> assertEquals(1, outcomes.stream()
-                            .filter(outcome -> outcome instanceof LessonResolution.Claimed).count(),
+                                    .filter(outcome -> outcome instanceof LessonResolution.Claimed).count(),
                             "exactly one claim succeeded"),
                     () -> assertEquals(1, outcomes.stream()
-                            .filter(outcome -> outcome instanceof Unavailable).count(),
+                                    .filter(outcome -> outcome instanceof Unavailable).count(),
                             "exactly one claim was refused"),
                     () -> assertTrue(readFound().frontMatter().claim() != null, "the lesson is claimed once"));
         }
@@ -420,9 +419,9 @@ class LessonClaimTest {
             assertAll(
                     () -> assertTrue(claimed != retired, "one transition won and one was refused"),
                     () -> assertTrue(claimed
-                            ? retirement instanceof Unavailable claimRefused
+                                    ? retirement instanceof Unavailable claimRefused
                                     && claimRefused.refusal() == Refusal.CLAIMED
-                            : claim instanceof Unavailable retireRefused
+                                    : claim instanceof Unavailable retireRefused
                                     && retireRefused.refusal() == Refusal.RETIRED,
                             "the refused transition names the state the winner left"));
         }

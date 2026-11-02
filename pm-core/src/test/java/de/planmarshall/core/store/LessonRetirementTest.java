@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -258,7 +259,7 @@ class LessonRetirementTest {
 
         @Test
         @DisplayName("an unreadable lesson is reported present_unreadable, never absent")
-        void presentUnreadable() throws IOException {
+        void presentUnreadable() throws Exception {
             Files.writeString(expectedPath(LESSON_ID), "# No front matter\n");
             acceptEdit(LESSON_ID);
 
@@ -271,7 +272,7 @@ class LessonRetirementTest {
 
         @Test
         @DisplayName("an empty shell is reported empty_shell and is not retired")
-        void emptyShell() throws IOException {
+        void emptyShell() throws Exception {
             var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(LESSON_ID).build(), " \n");
             Files.write(expectedPath(LESSON_ID), LessonCodec.encode(lesson));
             acceptEdit(LESSON_ID);
@@ -302,7 +303,7 @@ class LessonRetirementTest {
 
         @Test
         @DisplayName("a lesson deleted out of band is reported deleted_out_of_band, never absent")
-        void deletedOutOfBand() throws IOException {
+        void deletedOutOfBand() throws Exception {
             create();
             Files.delete(expectedPath(LESSON_ID));
 
@@ -315,7 +316,7 @@ class LessonRetirementTest {
 
         @Test
         @DisplayName("a file without an entry is reported untracked")
-        void untracked() throws IOException {
+        void untracked() throws Exception {
             var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(LESSON_ID).build(), "# Body\n");
             Files.write(expectedPath(LESSON_ID), LessonCodec.encode(lesson));
 
@@ -345,7 +346,7 @@ class LessonRetirementTest {
 
             var found = assertInstanceOf(Found.class, store.get(LESSON_ID));
             assertAll(
-                    () -> assertFalse(java.util.Arrays.equals(before, Files.readAllBytes(expectedPath(LESSON_ID))),
+                    () -> assertFalse(Arrays.equals(before, Files.readAllBytes(expectedPath(LESSON_ID))),
                             "the file is rewritten in place"),
                     () -> assertEquals(retirement, found.lesson().frontMatter().retired(),
                             "the retirement is in the same file"),

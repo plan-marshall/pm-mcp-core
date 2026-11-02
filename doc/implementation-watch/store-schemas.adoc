@@ -529,32 +529,6 @@ nifi `2026-07-16-21-002` change-ledger worktree no-op); one defect filed as `…
 and `…:baseline-reconcile`.
 Source:: plan-marshall lessons-routing PLAN-LR-03 D2; truthful-signals (quality-aspect) PLAN-211 D8.
 
-[#PM-WATCH-STORE-17]
-=== PM-WATCH-STORE-17: A lesson edit never orphans its derivation
-
-Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record] (Revisions)
-Hazard:: A "trim" of a lesson whose sources were partly withdrawn was really a whole-body overwrite: it edited the
-conclusion while the unstated derivation stayed, so the lesson asserted what its surviving sources no longer
-supported.
-Guard:: A lesson update replaces the whole body as a new revision (`revision` + 1) whose `sources[]` must be non-empty
-and are recorded with the body digest in `revisions[]`; the lesson skill instructs regeneration from the remaining
-sources (or the prior lesson is superseded rather than edited in place). Test: an update without sources is
-refused; after two updates `revisions[]` holds three entries whose `body_sha256` matches each written body.
-Source:: plan-marshall instrumentation-substrate PLAN-09 deliverable 4 (§ The two absent mechanisms, regeneration instead of trimming); post-run-quality PLAN-PRQ-05 D3.
-
-[#PM-WATCH-STORE-18]
-=== PM-WATCH-STORE-18: Lesson reach is derivable
-
-Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
-Hazard:: Defect lessons sat for weeks without ever reaching a plan, and nothing measured it.
-Guard:: Lesson-to-plan links persist (for lesson-started plans the lesson's own `claim` and `retired.by` with verdict
-`applied`) so that reach (lessons with at least one consuming plan / all
-lessons) is computable from the lesson store and live plans, without archived plans.
-Fixture:: 194 lessons, 23 on post-run-quality defects, 0 reached a plan before the epic, oldest filed 2026-08-27; six
-first-party reports 2026-08-27 → 2026-09-15, none reached a plan for three weeks; reach 1 of 5 (two cloud-lane run
-reports; a lead, not a baseline).
-Source:: plan-marshall defect post-run-quality PLAN-PRQ-05 D4 (reach reading), PLAN-PRQ-09 § Provenance.
-
 [#PM-WATCH-STORE-19]
 === PM-WATCH-STORE-19: Lesson precision and confidence are candidates, not rules
 

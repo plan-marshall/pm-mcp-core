@@ -19,7 +19,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -27,7 +26,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -116,7 +114,7 @@ class LessonResolverTest {
     private Path copyFixture(String lessonId) throws IOException {
         var target = expectedPath(new LessonId(lessonId));
         try (InputStream resource = getClass().getResourceAsStream(
-                "/" + LessonFixtures.PORTED_DIRECTORY + "/" + lessonId + ".md")) {
+                     "/" + LessonFixtures.PORTED_DIRECTORY + "/" + lessonId + ".md")) {
             assertTrue(resource != null, "the fixture " + lessonId + " is committed");
             Files.write(target, resource.readAllBytes());
         }
@@ -139,7 +137,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("all fifteen list and resolve by the exact id they are listed under")
-        void allListAndResolve() throws IOException {
+        void allListAndResolve() throws Exception {
             for (var lessonId : ALL_LISTED) {
                 copyFixture(lessonId);
             }
@@ -158,7 +156,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("the nine YAML fixtures resolve found, under their file name although their front matter states another id")
-        void yamlFixturesAreFound() throws IOException {
+        void yamlFixturesAreFound() throws Exception {
             for (var lessonId : LessonFixtures.PORTED_YAML_IDS) {
                 copyFixture(lessonId);
             }
@@ -177,7 +175,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("the six headerless fixtures are present_unreadable and never absent")
-        void headerlessArePresentUnreadable() throws IOException {
+        void headerlessArePresentUnreadable() throws Exception {
             for (var lessonId : LessonFixtures.PORTED_HEADERLESS_IDS) {
                 copyFixture(lessonId);
             }
@@ -198,8 +196,8 @@ class LessonResolverTest {
         private boolean statedLegacyIdDiffers() {
             var resolution = store.get(new LessonId(LessonFixtures.PORTED_ID_YAML_FIRST));
             return resolution instanceof Found found
-                    && !found.lesson().frontMatter().lessonId().value()
-                            .equals(LessonFixtures.PORTED_ID_YAML_FIRST);
+                    && !LessonFixtures.PORTED_ID_YAML_FIRST
+                    .equals(found.lesson().frontMatter().lessonId().value());
         }
     }
 
@@ -236,7 +234,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("a body without a non-whitespace character is an empty shell")
-        void emptyShell() throws IOException {
+        void emptyShell() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-001");
             var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), " \n\t\n");
             Files.write(expectedPath(lessonId), LessonCodec.encode(lesson));
@@ -252,7 +250,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("a headerless file is present_unreadable with its path, never absent")
-        void presentUnreadable() throws IOException {
+        void presentUnreadable() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-001");
             Files.writeString(expectedPath(lessonId), "# No front matter\n");
 
@@ -296,7 +294,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("a deleted file is deleted_out_of_band and never absent")
-        void deletedOutOfBand() throws IOException {
+        void deletedOutOfBand() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-001");
             create(lessonId);
             Files.delete(expectedPath(lessonId));
@@ -312,7 +310,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("a file without an entry is untracked under the lock and unchecked without it")
-        void untracked() throws IOException {
+        void untracked() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-001");
             var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), "# Body\n");
             Files.write(expectedPath(lessonId), LessonCodec.encode(lesson));
@@ -335,7 +333,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("names only the files whose name parses as a lesson id")
-        void onlyLessonNames() throws IOException {
+        void onlyLessonNames() throws Exception {
             create(new LessonId("2026-11-02-09-001"));
             Files.writeString(lessons.pathBase().resolve("notes.md"), "{}");
             Files.writeString(lessons.pathBase().resolve("2026-11-02-09-002.md.tmp.0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b"),
@@ -350,7 +348,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("of a store without a directory is empty")
-        void absentDirectory() throws IOException {
+        void absentDirectory() throws Exception {
             Files.delete(lessons.pathBase());
 
             assertEquals(List.of(), store.list(), "an absent store lists nothing");
@@ -358,7 +356,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("lists the lessons of the sidecar whose file is gone, so an entry is never silent")
-        void sidecarEntriesAreListed() throws IOException {
+        void sidecarEntriesAreListed() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-001");
             create(lessonId);
             Files.delete(expectedPath(lessonId));
@@ -399,7 +397,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("claims separates the claimed lessons from the unreadable ids")
-        void claims() throws IOException {
+        void claims() throws Exception {
             var claimed = create(new LessonId("2026-11-02-09-001"));
             run(write -> store.claim(write, claimed.frontMatter().lessonId(), "a-plan", CLOCK.instant()));
             create(new LessonId("2026-11-02-09-002"));
@@ -425,7 +423,7 @@ class LessonResolverTest {
 
         @Test
         @DisplayName("no listed state of a generated store is reported absent")
-        void noListedStateIsAbsent() throws IOException {
+        void noListedStateIsAbsent() throws Exception {
             for (var seed = 0; seed < 100; seed++) {
                 resetStore();
                 var ids = buildState(seed);

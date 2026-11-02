@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -412,7 +413,7 @@ public sealed interface LessonResolution {
 
         /** @return the name of the refusal in a representation, the state's name for a resolution state */
         public String wireName() {
-            return state == null ? name().toLowerCase(java.util.Locale.ROOT) : state.wireName();
+            return state == null ? name().toLowerCase(Locale.ROOT) : state.wireName();
         }
     }
 }

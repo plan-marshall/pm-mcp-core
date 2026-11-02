@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,7 +41,6 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
 import de.planmarshall.core.store.LessonResolution.Found;
-import de.planmarshall.core.store.LessonResolution.Released;
 import de.planmarshall.core.store.ScopeTransaction.Step;
 
 /**
@@ -146,7 +146,7 @@ class LessonStoreCrashTest {
         var recorded = DigestSidecar.load(lessons.sidecarFile()).digest(lessonId.fileName());
         if (!Files.exists(file)) {
             assertEquals(Optional.empty(), recorded, "an absent lesson has no sidecar entry");
-            assertTrue(oldBytes == null, "the operation created the lesson, so it cannot be absent");
+            assertNull(oldBytes, "the operation created the lesson, so it cannot be absent");
             return false;
         }
         byte[] bytes;
@@ -377,7 +377,7 @@ class LessonStoreCrashTest {
 
         @Test
         @DisplayName("is disjoint from the legal names, so a staged file is never a lesson")
-        void stagedFileIsNeverALesson() throws IOException {
+        void stagedFileIsNeverALesson() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-601");
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
             var staged = lessons.pathBase().resolve(lessonId.fileName() + ".tmp.0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b");

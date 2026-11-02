@@ -15,12 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
-import java.io.Serial;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,7 +28,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -46,13 +45,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.store.LessonFrontMatter.Audience;
-import de.planmarshall.core.store.LessonFrontMatter.Category;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
 import de.planmarshall.core.store.LessonResolution.Found;
 import de.planmarshall.core.store.LessonResolution.Refusal;
 import de.planmarshall.core.store.LessonResolution.Unavailable;
-import de.planmarshall.core.store.ScopeTransaction.Step;
 
 /**
  * The store of the project lesson records (Store Schemas § Lesson Record; PM-IMPL-2, PM-IMPL-7): the id of the current
@@ -185,8 +182,8 @@ class LessonStoreTest {
                             "it carries the SHA-256 of the body"),
                     () -> assertEquals(newLesson.sources(), frontMatter.sources(),
                             "the current sources are the ones given"),
-                    () -> assertEquals(null, frontMatter.claim(), "a new lesson carries no claim"),
-                    () -> assertEquals(null, frontMatter.retired(), "a new lesson carries no retirement"),
+                    () -> assertNull(frontMatter.claim(), "a new lesson carries no claim"),
+                    () -> assertNull(frontMatter.retired(), "a new lesson carries no retirement"),
                     () -> assertTrue(frontMatter.promotions().isEmpty(), "a new lesson carries no promotion"),
                     () -> assertTrue(frontMatter.mergedFrom().isEmpty(), "a new lesson merges nothing"));
         }
@@ -547,14 +544,14 @@ class LessonStoreTest {
         @ParameterizedTest
         @EnumSource(Cell.class)
         @DisplayName("a revision acts on every found lesson, claimed or not, and on no other state")
-        void reviseEveryCell(Cell cell) throws IOException {
+        void reviseEveryCell(Cell cell) throws Exception {
             arrange(cell);
 
             var outcome = revise();
 
             switch (cell) {
                 case UNCLAIMED, CLAIMED_BY_A, CLAIMED_BY_B ->
-                        assertInstanceOf(LessonResolution.Revised.class, outcome, "a found lesson is revised");
+                    assertInstanceOf(LessonResolution.Revised.class, outcome, "a found lesson is revised");
                 case RETIRED -> assertEquals(LessonResolution.Refusal.RETIRED,
                         assertInstanceOf(LessonResolution.Unavailable.class, outcome).refusal(),
                         "a retired lesson is not revised");
@@ -573,7 +570,7 @@ class LessonStoreTest {
         @ParameterizedTest
         @EnumSource(Cell.class)
         @DisplayName("a retirement acts on an unclaimed found lesson and on no other state")
-        void retireEveryCell(Cell cell) throws IOException {
+        void retireEveryCell(Cell cell) throws Exception {
             arrange(cell);
 
             var outcome = retire();

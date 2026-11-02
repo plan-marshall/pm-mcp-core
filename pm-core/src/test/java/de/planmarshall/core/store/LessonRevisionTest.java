@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -247,7 +248,7 @@ class LessonRevisionTest {
             run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
 
             var found = assertInstanceOf(Found.class, store.get(lessonId));
-            assertTrue(!found.lesson().frontMatter().derivedFromUntrusted(),
+            assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),
                     "a revision that cites a trusted lesson stays unmarked");
         }
     }

@@ -556,8 +556,8 @@ public final class LessonStore {
      */
     @Builder
     public record NewLesson(String title, String component, Category category, @Nullable String bundle,
-            @Nullable String rule, Remedy remedy, Provenance provenance, Audience audience,
-            boolean derivedFromUntrusted, String toolVersion, List<Source> sources, String body) {
+    @Nullable String rule, Remedy remedy, Provenance provenance, Audience audience,
+    boolean derivedFromUntrusted, String toolVersion, List<Source> sources, String body) {
 
         /**
          * @throws NullPointerException if a component that the caller must give is {@code null}

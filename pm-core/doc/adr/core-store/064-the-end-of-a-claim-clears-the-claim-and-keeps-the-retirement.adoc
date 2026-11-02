@@ -1,0 +1,47 @@
+= ADR 064: The End of a Claim Clears the Claim and Keeps the Plan in `retired.by`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+A plan that lands its changes retires the lesson it claimed with the verdict `applied`, `by` the plan (Store Schemas §
+A Claimed Lesson Ends with the Landing). The record allows `claim` and `retired` together: `claim` is set by a claim and
+the schema does not forbid a retirement from carrying it, and PM-WATCH-STORE-18 computes reach from "the lesson's own
+`claim` and `retired.by` with verdict `applied`".
+
+The landing analysis of PLAN-V2-11 (claim S5) left the question open: does the end of a claim keep `claim` on the retired
+lesson, or clear it? The plan's hypothesis (Claim Labels) was that it clears it.
+
+== Decision
+
+`endClaimApplied` sets `retired{verdict: applied, by: plan_id}` and clears `claim` to `null` in one transaction. The link
+from the retired lesson to the plan stays in `retired.by`, and `release` clears `claim` without a retirement, so a
+lesson's `claim` is exactly "a plan is applying it now".
+
+== Alternatives Considered
+
+* Keep `claim` beside `retired`: reach stays derivable from either field, but a retired lesson would look claimed, and a
+  later reader of `claim` (the stale-claim harvester of the `stalled_lessons` population) would list a lesson that no
+  plan is applying.
+* Keep the claim and add a `claim.ended_at`: a new record member, which R13 and the schema parity test forbid without a
+  format change; and the claim's `plan_id` would then be duplicated by `retired.by`.
+
+== Consequences
+
+* `claims()` lists only the lessons a plan is applying; a retired lesson is never among them.
+* Reach is computed from `retired.by` with the verdict `applied`, which the end writes and never rewrites: a repeated end
+  reports the retirement without writing.
+* A reader that wants "the plan that applied this lesson" reads `retired.by`; a reader that wants "who holds it now" reads
+  `claim`.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas § A Claimed Lesson Ends with the Landing]
+* The landing analysis of PLAN-V2-11 (2026-11-02), claim S5
