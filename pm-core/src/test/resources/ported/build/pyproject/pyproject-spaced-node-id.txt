@@ -1,0 +1,17 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_setup_error_whose_node_id_carries_a_space_yields_one_record test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_spaced_node_id_record_resolves_its_block_not_just_its_presence
+# A parametrized node id that carries a space reaches the summary line intact, and both halves of the
+# header/summary pairing must tolerate it.
+log ==================================== ERRORS ====================================
+log ____________________ ERROR at setup of test_widget[a b] ____________________
+log test/test_widget.py:4: in a_fixture
+log     raise RuntimeError('boom')
+log E   RuntimeError: boom
+log =========================== short test summary info ============================
+log ERROR test/test_widget.py::test_widget[a b] - RuntimeError: boom
+log ======================== 10 passed, 1 error in 1.10s ========================
+status FAILURE
+success-marker true
+tests measured 10 0 0 10
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_COLLECTION_ERROR test/test_widget.py 4 - RuntimeError: boom

@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_mypy_no_errors
+# A clean mypy run carries none of the tool's own markers, so no parser claims the log.
+log Success: no issues found in 5 source files
+status SUCCESS
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 0

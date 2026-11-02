@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_summary_extraction_is_order_independent
+# The same counts rendered failing-dominant: the per-count patterns read the same figures.
+log =============== 1 failed, 10308 passed in 45.67s ===============
+status SUCCESS
+success-marker true
+tests measured 10308 1 0 10309
+no-tests-ran false
+diagnostic-count 0
