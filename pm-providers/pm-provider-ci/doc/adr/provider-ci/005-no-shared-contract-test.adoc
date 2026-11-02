@@ -1,0 +1,51 @@
+= ADR 005: No Shared Abstract Contract Test and No Test JAR for the Contract
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+Two adapters implement `CiProvider`, and a shared abstract test class published in a test JAR would let both prove the
+same contract in one place: the registry, the value invariants and the origin check, each asserted once.
+
+The repository publishes four `tests`-classified test JARs today — `pm-core`, `pm-provider-http`, `pm-workflow` and
+`pm-runtime` — because a consumer's tests reuse their generators or fixtures (CLAUDE.md § Generator Artifacts). A test
+JAR of `pm-provider-ci` would be a fifth, and a new one, because no consumer's tests reuse anything of this module. The
+standing constraint of the plan says a test JAR of this module is a dependency change that needs the operator's word, and
+the operator did not give it for this plan.
+
+The adapters also differ where the shared test would be weakest: the GitHub token kinds, the App identity, the pull-request
+flag, the GitLab bot user — each is adapter-specific and can only be tested against that adapter's mock server.
+
+== Decision
+
+The contract publishes no test JAR and no abstract contract test class. Each adapter tests the contract against its own
+mock web server (`GitHubCiProviderTest`, `GitLabCiProviderTest`), and the contract's own grammar, registry and value
+invariants are tested in `pm-provider-ci` without HTTP (`ForgeUrlTest`, `CiProvidersTest`, `ValueTypesTest`).
+
+== Alternatives Considered
+
+* *A test JAR with an abstract contract test.* It is the second test JAR of the repository, needs the operator's consent,
+  and duplicates the adapter-specific cases anyway.
+* *A test JAR that publishes the generator artifact only.* No adapter test needs a generator of a contract type; the
+  recorded-shape responses are literals of the wire format, which the repository allows.
+* *Put the shared cases in `pm-core:tests`.* The contract is no foundation type, and the rule keeps provider types out
+  of the foundation.
+
+== Consequences
+
+* The contract's own invariants are proven once, in its module, at the 80 % coverage bound.
+* Each adapter proves the operations it implements, with its own recorded shapes.
+* A consumer cannot reuse a contract test base; it reads the guide's mapping instead.
+
+== Source
+
+* Work package: PLAN-V2-12 `ci-contract-module` of the epic `pm-mcp-core-m2-m4-v2`.
+* Specification: Module Structure § `pm-provider-ci`; CLAUDE.md § Generator Artifacts.
+* ADR: link:../../../../../doc/adr/012-generator-artifacts.adoc[repository ADR 012].

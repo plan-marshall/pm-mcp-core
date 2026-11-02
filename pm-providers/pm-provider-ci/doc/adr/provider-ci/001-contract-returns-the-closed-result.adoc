@@ -1,0 +1,51 @@
+= ADR 001: The CI Contract Returns the Closed `Result` of the Shared HTTP Base
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+`pm-provider-http` declares the closed result of a provider operation: `OK`, `NOT_FOUND`, `REJECTED`, `AUTH_FAILED`,
+`PERMISSION_DENIED`, `RATE_LIMITED` (with the instant the limit resets) and `FAILED`
+(`pm-provider-http/src/main/java/de/planmarshall/provider/http/Result.java`). Every native provider adapter already
+answers with it, and the Module Structure Specification gives `pm-provider-ci` the same two dependencies as the adapters,
+`pm-core` and `pm-provider-http` (Module Structure § Dependency Rules).
+
+The CI operations could instead declare their own outcome type, or return provider-native values and let a consumer map
+them.
+
+== Decision
+
+`de.planmarshall.provider.ci.CiProvider` returns `de.planmarshall.provider.http.Result` for every operation, and the
+module depends on `pm-provider-http` for it. A refusal of the operation itself is `REJECTED` with the provider's reason,
+kept apart from `AUTH_FAILED`, `PERMISSION_DENIED`, `NOT_FOUND`, `RATE_LIMITED` with its `resetAt`, and `FAILED`. The
+contract adds no outcome and maps none away.
+
+== Alternatives Considered
+
+* *A CI-specific outcome type.* It would duplicate the closed set the adapters already answer, and a consumer would map
+  between two vocabularies that name the same failures.
+* *Provider-native values with no closed outcome.* A caller could not tell a credential refusal from a transport failure
+  without reading provider-specific payloads, and the state catalogue names those causes.
+* *A dependency on `pm-core` alone.* The shared base lives in `pm-provider-http`; a copy in `pm-core` would duplicate it
+  and reverse the dependency direction the Module Structure Specification states.
+
+== Consequences
+
+* The contract has one dependency for its result and one for the provider id pattern (`pm-core`), and no transport of its
+  own.
+* A consumer maps `Result` to the state catalogue's causes once (`provider-ci.adoc` § Mapping a Result), not per adapter.
+* A new outcome is a change to `pm-provider-http`, never a second vocabulary in this module.
+
+== Source
+
+* Work package: PLAN-V2-12 `ci-contract-module` of the epic `pm-mcp-core-m2-m4-v2`.
+* Specification: Module Structure § `pm-provider-ci`, § Dependency Rules; Job Runtime § Outcome Derivation; Credentials &
+  Enrolment § Cross-Repository Reads & Issues.
+* `pm-provider-http/src/main/java/de/planmarshall/provider/http/Result.java`.

@@ -1,0 +1,51 @@
+= ADR 004: A Pull Request Is No Issue for `ci.issue-view`
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+GitHub answers `GET /repos/{owner}/{repo}/issues/{n}` for a pull request number too, with a `pull_request` member beside
+the issue fields. GitLab numbers issues and merge requests apart, so `GET /projects/{id}/issues/{iid}` answers an issue
+there. The issue source of a start (`source-issue`) reads an issue; the pull request source (`source-pr`) is built by the
+follow-up plan `ci.pr-view` (PLAN-V2-62).
+
+An operation that answered a pull request as an issue would let the issue source store a pull request as an issue, with
+its title, body and state read from the wrong source contract.
+
+== Decision
+
+`ci.issue-view` refuses a number that names a pull request: the GitHub adapter flags the `pull_request` member of the
+response and answers `REJECTED` "is a pull request". `ForgeUrl` still recognises a pull-request URL and returns it as
+`Kind.PULL_REQUEST`, so the source can be routed to the follow-up read without parsing the URL twice.
+
+The contract's `Issue` therefore never carries a pull request.
+
+== Alternatives Considered
+
+* *Answer a pull request through the issue read.* It would conflate two source contracts with different manifests,
+  different stored files and a different read.
+* *Hide a pull request as `NOT_FOUND`.* The number exists; answering "not found" would send the operator to a wrong
+  diagnosis, and the follow-up plan needs the distinction.
+* *Drop pull-request URLs in the grammar.* The source of a start names a pull request by URL; recognising it now lets the
+  follow-up plan route it, and costs one flag.
+
+== Consequences
+
+* The issue source cannot store a pull request as an issue.
+* The pull-request plan extends `CiProvider` with its own operation and reuses `ForgeUrl.Kind.PULL_REQUEST`.
+* A consumer that receives `REJECTED` "is a pull request" routes to the pull-request source or refuses the reference.
+
+== Source
+
+* Work package: PLAN-V2-12 `ci-contract-module` of the epic `pm-mcp-core-m2-m4-v2`; follow-up PLAN-V2-62
+  `ci-contract-pull-request-view`.
+* Specification: State Catalogue 09 § Issues by Number or URL and § Pull Request Source; Phase Workflows 01 § Plan Source
+  Contracts.
+* `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java`.

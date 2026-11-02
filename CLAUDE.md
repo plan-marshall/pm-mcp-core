@@ -64,7 +64,8 @@ its own pull request.
   (minimum 80% instruction and branch coverage per module)
 - Tests (`{module}`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl {path} -am"`
   — only on the modules with tests: `pm-core`, `pm-workflow`, `pm-runtime`, and below `pm-providers/` each of
-  `pm-provider-http`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-sonar`
+  `pm-provider-http`, `pm-provider-ci`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`,
+  `pm-provider-sonar`
 - Integration tests (`pm-core`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-core -am"`
   — only on `pm-core`
 - Integration tests (`pm-runtime`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-runtime -am"`
@@ -125,8 +126,10 @@ them with a fixture project below `src/guard-controls`:
 - No module depends on Quarkus, CDI, Vert.x or an MCP library, nor on `pm-mcp-server` or a client binary module.
 - `pm-core` depends on `pm-api` alone among the modules of the product, and never on JGit or `cui-http`.
 - `pm-workflow` depends on `pm-core` alone among the modules of the product, and never on JGit or `cui-http`.
-- A provider module depends on `pm-core` and, for the shared HTTP base, on `pm-provider-http`; the contract modules
-  `pm-provider-git` and `pm-provider-http` on no other provider module.
+- A provider module depends on `pm-core`, on `pm-provider-http` for the shared HTTP base and on `pm-provider-ci` for
+  the CI contract; the contract modules `pm-provider-git` and `pm-provider-http` on no other provider module; a code
+  analysis adapter (`pm-provider-sonar`) on the shared HTTP base alone among the provider modules, because Sonar is no
+  CI provider and depends on no CI module.
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven

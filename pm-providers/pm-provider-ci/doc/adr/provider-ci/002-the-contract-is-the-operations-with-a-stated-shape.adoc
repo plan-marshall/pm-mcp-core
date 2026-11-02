@@ -1,0 +1,56 @@
+= ADR 002: The Contract Is the Operations With a Stated Shape and a Staged Consumer
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-01.
+
+== Context
+
+The Module Structure Specification gives `pm-provider-ci` the whole set of CI operations: the identity, the issue read and
+comment, the pull-request read and creation, the review threads, the merge and the queue, the check reads, and the four
+cross-repository reads with their grant. Only some of them have a field-level shape in the specification and a consumer
+staged behind them; the others have neither yet, and one of them (`ci.pr-view`) is the subject of its own plan
+(PLAN-V2-62).
+
+Building the whole set now would ship operations nothing consumes, against a shape no specification states, and would
+make every later plan amend the same classes.
+
+== Decision
+
+The contract holds the identity (`ci.whoami`), the issue read (`ci.issue-view`), the issue comment (`ci.issue-comment`),
+the URL grammar and the explicit registry. Everything else is *Remaining* and not started here: the pull-request read,
+the pull-request find/create/observe, the merge and queue operations, `ci.checks` with `checks_visible`, the review
+threads, the four cross-repository reads with the grant check (`grant_missing`), the CLI variant of every operation, the
+Forgejo adapter and the `Primitive` wrappers with the credential and origin resolution of the assembly.
+
+Each adapter implements only the cut. A GitHub or GitLab client method for a remaining operation stays where it is and is
+not wrapped (`GitHubClient` and `GitLabClient` already hold the merge, enqueue, review-thread and discussion operations).
+
+== Alternatives Considered
+
+* *Build the whole set now.* It would ship unconsumed operations against unstated shapes, and the pull-request plan would
+  have to re-cut them.
+* *Build a marker interface and fill it in per plan.* The interface would be empty for a plan that cannot test it, and
+  the ADR of the cut would be the interface's only content.
+* *Wait for the pull-request plan.* The staged consumers of the identity and the issue read (the project and machine
+  onboarding, and the issue source of a start) wait on this module; delaying it blocks them for an operation they do not
+  need.
+
+== Consequences
+
+* The cut is stated once, here and in the spec's Standing Constraints; a plan that builds a remaining operation extends
+  `CiProvider` and the adapters rather than replacing them.
+* The module is small enough to reach the repository's coverage bound.
+* A consumer that needs a remaining operation waits for its plan; the module's guide names the list so that it is not
+  rediscovered per plan.
+
+== Source
+
+* Work package: PLAN-V2-12 `ci-contract-module` of the epic `pm-mcp-core-m2-m4-v2`.
+* Specification: Module Structure § `pm-provider-ci`; State Catalogue 04, 05, 07, 09; Phase Workflows 01, 04, 06;
+  Credentials & Enrolment § Cross-Repository Reads & Issues.

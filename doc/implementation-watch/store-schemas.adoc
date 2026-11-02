@@ -574,8 +574,9 @@ Source:: plan-marshall defect post-run-quality PLAN-PRQ-05 D4 (reach reading), P
 Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
 Hazard:: The lesson corpus grows with no signal on accuracy or relevance, and confidence or decay mechanics could be
 built before anyone knows their cost or need.
-Guard:: The lesson front matter carries the optional `golden_label` and `labelled_at`, written only by the operator
-labelling action; a test asserts that an absent label reads as unlabelled, never as a verdict. A
+Guard:: The lesson front matter carried the optional `golden_label` and `labelled_at` until the decision of 2026-10-29 cut
+them with `audience_override` and `tool_version_override`, because no operator verb writes them; no label exists, so an
+absent label is never a verdict. A
 precision measure against an enumerated golden set, with its population published, is an activity after the lifecycle gate has opened
 whose labelling cost is published first. Confidence and decay (corroboration up; age and contradiction down;
 pruning; tool-output-derived lessons as the lowest-trust class) are specified only after that measurement shows a
@@ -612,20 +613,6 @@ control: a `local` lesson is never offered the release action (refused `audience
 Fixture:: `api-sheriff:maven-build` (local) vs the compiled finalize-step id `default:ci-verify` (upstream); #1050
 (`a7a657b00`).
 Source:: plan-marshall lessons-routing PLAN-LR-02 D4, PLAN-LR-03 D4.
-
-[#PM-WATCH-STORE-56]
-=== PM-WATCH-STORE-56: Open: lesson operator actions that no verb performs
-
-Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
-Hazard:: Undecided: `golden_label`/`labelled_at`, `audience_override`, `tool_version_override`, retiring a
-`present_unreadable` lesson, and releasing a stale claim each need an operator action, but the operator verb table
-has only `pm-operator lesson release`. Fields no verb writes are never set, and a lesson that only an operator can
-retire stays forever. Options: (1) a `pm-operator lesson` verb family; (2) remove the fields and paths without a
-verb (the golden label is already deferred). Recommendation: 2, unless the lesson slice needs one of them.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `store-schemas/10-job-and-lesson-records.adoc:249-357`, `cli-and-security/02-credentials-and-operator.adoc:180`
-(verb table).
 
 == Machine Lease Stores (`merge-queue.json`, `review-bot-windows.json`, `build-slots.json`, `model-slots.json`)
 

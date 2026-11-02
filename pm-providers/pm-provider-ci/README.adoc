@@ -1,0 +1,33 @@
+= `pm-provider-ci`
+:nofooter:
+
+`pm-provider-ci` is the CI provider contract of the engine. It declares the identity, issue read and issue comment
+operations of a forge, the value types of their answers, the URL grammar that resolves a source's URL to its forge,
+repository and number, and the explicit provider registry. The forge adapters `pm-provider-github` and
+`pm-provider-gitlab` implement it. What the module may depend on is stated in the
+https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
+
+== Package
+
+The line is the first sentence of the package's `package-info.java`.
+
+* `de.planmarshall.provider.ci`: the CI provider contract of the engine: the identity of the acting credential, one issue read and one issue comment, each answered with the closed `Result` of the shared HTTP base.
+
+== Build and Test
+
+Run from the root of the repository:
+
+* Tests: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-providers/pm-provider-ci -am"`
+
+The commands for the whole repository are in `CLAUDE.md`.
+
+== Test artifact
+
+The module publishes no generator artifact and no shared abstract contract test: each adapter tests the contract
+against its own mock web server.
+
+== Developer Documentation and ADRs
+
+The developer guide is link:doc/developer/provider-ci.adoc[`provider-ci.adoc`]. The ADRs of the module are below
+link:doc/adr/provider-ci/[`doc/adr/provider-ci/`]. The index of all ADRs of the repository is
+link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].

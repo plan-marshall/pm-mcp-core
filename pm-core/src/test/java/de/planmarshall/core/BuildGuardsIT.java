@@ -27,16 +27,18 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Controls of the build guards of this repository (PM-IMPL-1): each fixture project below
  * {@code src/guard-controls} breaks one rule of the root POM, and its build must fail in the enforcer
- * execution of that rule. Four fixtures are positive controls: a provider adapter that depends on the
- * shared HTTP base, and the test-scope test JARs of the foundation consumed by the engine, the runtime
- * and a provider, each admitted by the rule that governs it.
+ * execution of that rule. Five fixtures are positive controls: a provider adapter that depends on the
+ * shared HTTP base, a provider adapter that depends on the CI contract, and the test-scope test JARs of
+ * the foundation consumed by the engine, the runtime and a provider, each admitted by the rule that
+ * governs it.
  * <p>
  * Hazards the guards answer: a framework dependency in the engine ties the plain-Java modules to the
  * assembly; a dependency of the foundation on a module of the product other than {@code pm-api}, or on JGit
  * or {@code cui-http}, turns the dependency direction; so does the engine {@code pm-workflow} when it reaches a
  * provider module, {@code pm-runtime}, JGit or {@code cui-http}; a provider module that reaches the engine,
  * {@code pm-runtime} or another provider implementation sees internals it must not, and a contract module that
- * reaches another provider module does the same; {@code commonmark} or LSP4J outside {@code pm-runtime}
+ * reaches another provider module does the same; so does a code analysis adapter that reaches the CI contract
+ * module, which Sonar does not depend on; {@code commonmark} or LSP4J outside {@code pm-runtime}
  * spreads its dependencies; model-facing content in a module of this repository is published with its JAR; a
  * public repository that is asked for a coordinate of the product before the organisation registry learns the
  * coordinate and could answer (the fixture {@code central-before-registry} has its own {@code .mvn} with Maven
@@ -57,6 +59,8 @@ class BuildGuardsIT {
             "provider-product-module, validate, provider",
             "provider-sibling-module, validate, provider",
             "provider-contract-module, validate, provider-contract",
+            "provider-contract-ci-module, validate, provider-contract",
+            "provider-analysis-ci-module, validate, provider-analysis",
             "model-facing-content, prepare-package, no-model-facing-content",
             "runtime-workflow-tests, validate, runtime",
             "workflow-runtime-tests, validate, workflow",
@@ -103,6 +107,7 @@ class BuildGuardsIT {
 
     @ParameterizedTest(name = "{0} passes in {2}")
     @CsvSource({"provider-http-allowed, validate, provider",
+            "provider-ci-allowed, validate, provider",
             "workflow-core-tests, validate, workflow",
             "runtime-core-tests, validate, runtime",
             "provider-core-tests, validate, provider"})
