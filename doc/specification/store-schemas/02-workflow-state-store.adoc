@@ -85,12 +85,12 @@ The schema below is the closed contract of the whole document.
     "outcome": {
       "type": ["string", "null"],
       "enum": ["merged", "handed_back", "returned", "no_change", "cancelled", "abandoned", "released", "aborted", null],
-      "description": "Plan scopes only: the plan outcome, written by the transaction that enters the terminal (finalize.archive-plan for merged, handed_back, returned, and no_change, the last for a plan whose workflow found nothing to change, with merge_outcome no_pr; the entry into plan.aborted for cancelled and abandoned, the operator's end of a running or of a paused plan, for released, the release of the plan's project, and for aborted, the abort resolution of an integrity pause; state-catalogue/04, Cancelling and Abandoning Archive); required (non-null) once phase is completed or aborted, null before. Copied into the landing record beside merge_outcome."
+      "description": "Plan scopes only: the plan outcome, written by the transaction that enters the terminal (finalize.archive-plan for merged, handed_back, returned, and no_change, the last for a plan whose workflow found nothing to change, with merge_outcome no_pr; the entry into plan.aborted for cancelled and abandoned, the operator's end of a running or of a paused plan, for released, the release of the plan's project, and for aborted, the abort resolution of an integrity hold; state-catalogue/04, Cancelling and Abandoning Archive); required (non-null) once phase is completed or aborted, null before. Copied into the landing record beside merge_outcome."
     },
     "terminal_reason": {
       "type": ["string", "null"],
       "enum": ["completed", "cancelled", "released", null],
-      "description": "Epic scopes only: how the epic ended, written by its terminal transaction (completed by the operator's archive, cancelled by the operator's cancel, the cancel of an integrity pause included, released by the release of its project); the epic header's terminal_reason carries completed and cancelled in the ledger, while released is recorded only here, since a release never writes the ledger (store-schemas/04, Epic Header). Null while the epic lives."
+      "description": "Epic scopes only: how the epic ended, written by its terminal transaction (completed by the operator's archive, cancelled by the operator's cancel, the cancel of an integrity hold included, released by the release of its project); the epic header's terminal_reason carries completed and cancelled in the ledger, while released is recorded only here, since a release never writes the ledger (store-schemas/04, Epic Header). Null while the epic lives."
     },
     "instance_version": {
       "type": ["integer", "null"],
@@ -346,7 +346,7 @@ The schema below is the closed contract of the whole document.
           "amendment_id": { "type": "string", "pattern": "^A-[0-9]+$" },
           "at": { "type": "string", "format": "date-time" },
           "phase": { "type": "string" },
-          "source": { "type": "string", "enum": ["user", "model", "quorum", "refutation"], "description": "user: the operator's answer (channel web or cli); model: a model judgment such as continue_narrowed; quorum: an answer a quorum of the adjudication decided (channel quorum); refutation: an in-triage refutation, or the premise evidence of a lesson source carried from the bootstrap (continue of the source-lesson premise state), written by the plan's creation transaction." },
+          "source": { "type": "string", "enum": ["operator", "role", "quorum", "fact"], "description": "A decider kind (store-schemas/18, Decider Kind). operator: the operator's answer (channel web or cli); role: a model judgment such as continue_narrowed; quorum: an answer a quorum of the adjudication decided (channel quorum); fact: an in-triage refutation, or the premise evidence of a lesson source carried from the bootstrap (continue of the source-lesson premise state), written by the plan's creation transaction." },
           "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "The question record the answer belongs to; null for an amendment without a question." },
           "text": { "type": "string", "minLength": 1 },
           "supersedes": { "type": ["string", "null"], "pattern": "^A-[0-9]+$" },
@@ -454,7 +454,7 @@ The schema below is the closed contract of the whole document.
     },
     "pending_condition": {
       "type": ["object", "null"],
-      "description": "Engine-owned condition overlay on the current state (state-catalogue.adoc, Conditions; workflow-dsl.adoc, Condition Overlays). While set, state, phase, and call_stack are unchanged, the representation carries condition: <kind>, and only the condition's links are offered (none for integrity_breach, which rejects every pm_do with integrity_paused). precondition_unmet is an engine-raised precondition a bounded retry re-checks, with facts.reason from the closed list of state-catalogue.adoc, Condition precondition_unmet. A condition the operator resolves is shown to both clients as a hold with its acts (state-catalogue/01, Holds and Their Acts: kind condition, or integrity_pause for integrity_breach). At most one per scope; null when none.",
+      "description": "Engine-owned condition overlay on the current state (state-catalogue.adoc, Conditions; workflow-dsl.adoc, Condition Overlays). While set, state, phase, and call_stack are unchanged, the representation carries condition: <kind>, and only the condition's links are offered (none for integrity_breach, which rejects every pm_do with integrity_held). precondition_unmet is an engine-raised precondition a bounded retry re-checks, with facts.reason from the closed list of state-catalogue.adoc, Condition precondition_unmet. A condition the operator resolves is shown to both clients as a hold with its acts (state-catalogue/01, Holds and Their Acts: kind condition, or integrity_hold for integrity_breach). At most one per scope; null when none.",
       "required": ["kind", "facts", "raised_at"],
       "additionalProperties": false,
       "properties": {

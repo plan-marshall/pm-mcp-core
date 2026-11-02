@@ -241,7 +241,7 @@ Each aspect is a compiled sub-workflow of the machine scope (`scope subworkflow`
 [#state-catalogue-harness]
 === Harnesses: `harness`
 
-The scan, the probes, and a verification run the found programs as jobs, through the job launcher with the confinement of a job, never in the runtime's own process (link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]). The step cannot finish without one usable harness; a later run scans again, offers a harness found and not enrolled, shows an enrolled one no longer found as missing and offers its removal, and refuses to remove the default before another is chosen or a harness roles use before they are reassigned.
+The scan, the probes, and a verification run the found programs as jobs, through the job launcher with the confinement of a job, never in the runtime's own process (link:../harness-profiles/01-profile-schema.adoc#harness-scan[Harness Profiles Specification, Harness Scan]). The step cannot finish without one usable harness; a later run scans again, offers a harness found and not enrolled, shows an enrolled one no longer found as missing and offers its removal, and refuses to remove the default before another is chosen or a harness roles use before they are reassigned.
 
 [cols="2,1,1,2,3,2,2"]
 |===
@@ -261,7 +261,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.consent`; `harness.none` (`recheck`).
 |One scan: the `headless.executable` of every profile of the effective profile set, in the directories of the operator's login `PATH` (as the client sent it) and in the profile's `headless.install_locations`; only the version probe runs on what it finds.
 |`found` -> `harness.icons-consent`; `none_found` -> `harness.none`.
-|link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]
+|link:../harness-profiles/01-profile-schema.adoc#harness-scan[Harness Profiles Specification, Harness Scan]
 
 |[[state-harness.none]]`harness.none`
 |`machine`
@@ -269,7 +269,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.scan` (`none_found`); `harness.probe` (`all_failed`).
 |No usable harness: names how to install a known one (each profile's install hint) and offers to add another. `recheck`, `add`; the onboarding rests here until the operator acts.
 |`recheck` -> `harness.scan`; `add` -> `harness.add`.
-|link:../client-profiles/01-profile-schema.adoc#unknown-harness[Client Profiles Specification, Unknown Harness]
+|link:../harness-profiles/01-profile-schema.adoc#unknown-harness[Harness Profiles Specification, Unknown Harness]
 
 |[[state-harness.icons-consent]]`harness.icons-consent`
 |`machine`
@@ -277,7 +277,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.scan` (`found`).
 |Consent kind `fetch_icons`: fetch the makers' icons of the found harnesses once, through the runtime. Optional: `no` goes on with monograms.
 |`yes`, `yes_remember` -> `harness.fetch-icons`; `no` -> `harness.choose`.
-|link:../client-profiles/01-profile-schema.adoc#harness-icons[Client Profiles Specification, Harness Icons]
+|link:../harness-profiles/01-profile-schema.adoc#harness-icons[Harness Profiles Specification, Harness Icons]
 
 |[[state-harness.fetch-icons]]`harness.fetch-icons`
 |`machine`
@@ -285,15 +285,15 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.icons-consent` (`yes`, `yes_remember`).
 |Each icon of the `source` form fetched once through the outbound proxy and stored in `<PM_MCP_BASE>/icons/`; a failed fetch leaves the monogram.
 |`fetched` -> `harness.choose`.
-|link:../client-profiles/01-profile-schema.adoc#harness-icons[Client Profiles Specification, Harness Icons]
+|link:../harness-profiles/01-profile-schema.adoc#harness-icons[Harness Profiles Specification, Harness Icons]
 
 |[[state-harness.choose]]`harness.choose`
 |`machine`
 |`operator_wait`
 |`harness.icons-consent` (`no`), `harness.fetch-icons`; `harness.blocked` (`choose_again`); `harness.install-profile`; `harness.add` (`known`).
-|Every found harness with its version, supported or not, worker-eligible or not (a profile with `headless: null` or `worker.eligible: false` shown and never offered as a worker or the default), and what it reports of its token usage (`complete`, `partial` naming what is missing, `not_reported`); the harnesses listed in the order of their `client_id`; every supported worker-eligible one preselected, the first of them in that order the default. `choose` (the chosen ones, one the default); `add`.
+|Every found harness with its version, supported or not, worker-eligible or not (a profile with `headless: null` or `worker.eligible: false` shown and never offered as a worker or the default), and what it reports of its token usage (`complete`, `partial` naming what is missing, `not_reported`); the harnesses listed in the order of their `harness_id`; every supported worker-eligible one preselected, the first of them in that order the default. `choose` (the chosen ones, one the default); `add`.
 |`choose` -> `harness.probe-consent`; `add` -> `harness.add`.
-|link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]; link:../client-profiles/01-profile-schema.adoc#token-usage[Tokens, Not Money]
+|link:../harness-profiles/01-profile-schema.adoc#harness-scan[Harness Profiles Specification, Harness Scan]; link:../harness-profiles/01-profile-schema.adoc#token-usage[Tokens, Not Money]
 
 |[[state-harness.probe-consent]]`harness.probe-consent`
 |`machine`
@@ -301,7 +301,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.choose` (`choose`).
 |Consent kind `probe_harness_login`: run each chosen harness's login probe, its `headless.auth_probe` command, or one minimal headless call with its token cost.
 |`yes`, `yes_remember` -> `harness.probe`; `no` stays.
-|link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]
+|link:../harness-profiles/01-profile-schema.adoc#login-probe[Harness Profiles Specification, Login Probe]
 
 |[[state-harness.probe]]`harness.probe`
 |`machine`
@@ -309,7 +309,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.probe-consent`; `harness.blocked` (`recheck`).
 |Per chosen harness: its version in the supported range, logged in; each check a line ending in ✓ or ✗ with its cause.
 |`all_passed` -> `harness.confirm`; `one_failed` -> `harness.blocked`; `all_failed` -> `harness.none`.
-|link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]
+|link:../harness-profiles/01-profile-schema.adoc#login-probe[Harness Profiles Specification, Login Probe]
 
 |[[state-harness.blocked]]`harness.blocked`
 |`machine`
@@ -317,7 +317,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.probe` (`one_failed`).
 |Names the harness, the cause, and the fix (`logged_out`: the harness's login command). `recheck`; `leave_out` (not the last chosen harness); `choose_again`.
 |`recheck` -> `harness.probe`; `leave_out` -> `harness.confirm`; `choose_again` -> `harness.choose`.
-|link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]
+|link:../harness-profiles/01-profile-schema.adoc#login-probe[Harness Profiles Specification, Login Probe]
 
 |[[state-harness.confirm]]`harness.confirm`
 |`machine`
@@ -341,7 +341,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.none`, `harness.choose` (`add`); `harness.verify-profile` (`stage_failed`).
 |The draft profile as a form: the executable, a client id and name, and the interface statements profile verification needs (headless arguments, environment, MCP configuration, output and usage format, version probe), prefilled from the profile of the known harness the operator picks as the closest; after a failed stage, the stage, its finding, and the draft field to fix. A known harness not found where it is looked for is pointed at by its path, and its shipped profile is used. `submit`, `known`.
 |`submit` -> `harness.add-consent`; `known` -> `harness.choose`.
-|link:../client-profiles/01-profile-schema.adoc#unknown-harness[Client Profiles Specification, Unknown Harness]
+|link:../harness-profiles/01-profile-schema.adoc#unknown-harness[Harness Profiles Specification, Unknown Harness]
 
 |[[state-harness.add-consent]]`harness.add-consent`
 |`machine`
@@ -349,7 +349,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.add` (`submit`).
 |Consent kind `verify_harness_profile`, never remembered: run the harness to verify its draft, with the stages and their token cost. `yes`, `no`.
 |`yes` -> `harness.verify-profile`; `no` stays.
-|link:../client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles Specification, Profile Verification]
+|link:../harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles Specification, Profile Verification]
 
 |[[state-harness.verify-profile]]`harness.verify-profile`
 |`machine`
@@ -357,7 +357,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.add-consent` (`yes`).
 |Profile verification, one line per stage (the stages `events` and `usage` included), each ending in ✓ or ✗ with its finding.
 |`all_passed` -> `harness.add-confirm`; `stage_failed` -> `harness.add`.
-|link:../client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles Specification, Profile Verification]
+|link:../harness-profiles/01-profile-schema.adoc#profile-verification[Harness Profiles Specification, Profile Verification]
 
 |[[state-harness.add-confirm]]`harness.add-confirm`
 |`machine`
@@ -365,7 +365,7 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.verify-profile` (`all_passed`).
 |The verified profile to be installed, worker-eligible only if the verification shows it. `install`, `back`.
 |`install` -> `harness.install-profile`; `back` -> `harness.add`.
-|link:../client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles Specification, Profile Sets]
+|link:../harness-profiles/01-profile-schema.adoc#profile-sets[Harness Profiles Specification, Profile Sets]
 
 |[[state-harness.install-profile]]`harness.install-profile`
 |`machine`
@@ -373,5 +373,5 @@ The scan, the probes, and a verification run the found programs as jobs, through
 |`harness.add-confirm` (`install`).
 |Installs the profile into the machine profile set, with its verification's `usage_report`.
 |`installed` -> `harness.choose` (the added harness among the found ones).
-|link:../client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles Specification, Profile Sets]
+|link:../harness-profiles/01-profile-schema.adoc#profile-sets[Harness Profiles Specification, Profile Sets]
 |===

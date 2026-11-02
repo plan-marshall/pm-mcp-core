@@ -224,11 +224,11 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 
 |Step 2: Update Project Documentation
 |Appends executor and temp-file conventions to the project's agent documentation (`determine_mode fix-docs`).
-|*Retired*: there is no executor or script-call convention to document; agent-facing guidance ships with the client bundle (`pm-operator client install`) and the `skill://` resources.
+|*Retired*: there is no executor or script-call convention to document; agent-facing guidance ships with the harness bundle (`pm-operator harness install`) and the `skill://` resources.
 
 |Step 3: Ensure Executor Permission
 |Consults, then widens the host allow-list for `execute-script.py`.
-|*Retired*: there is no executor. Host permissions for the MCP server are written by `pm-operator client install`.
+|*Retired*: there is no executor. Host permissions for the MCP server are written by `pm-operator harness install`.
 
 |Step 4: Generate Executor
 |Generates `.plan/execute-script.py`.
@@ -292,11 +292,11 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 
 |Step 14: Permission Setup
 |Grants standing host permissions for routine commands.
-|*Retired*: replaced by `pm-operator client install`; the MCP tool surface needs no per-command approvals.
+|*Retired*: replaced by `pm-operator harness install`; the MCP tool surface needs no per-command approvals.
 
 |Step 14b: OpenCode Enforcement Apply
 |Copies the permission block into `opencode.json` and places the guard plugin.
-|*Retired*: script-call enforcement is moot without an executor; the OpenCode host configuration is written by `pm-operator client install opencode`.
+|*Retired*: script-call enforcement is moot without an executor; the OpenCode host configuration is written by `pm-operator harness install opencode`.
 
 |Step 15: Summary
 |Prints the wizard summary.
@@ -314,7 +314,7 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 
 |Stage 1 `regenerate-target-tree` (meta project)
 |Regenerates the generated target tree.
-|*Retired*: no generated target tree; client bundles are compiled into the binary.
+|*Retired*: no generated target tree; harness bundles are compiled into the binary.
 
 |Stage 1 `regenerate-executor`
 |Regenerates `.plan/execute-script.py`.
@@ -322,7 +322,7 @@ Every step of the `plan-marshall` first-run wizard and every stage sub-step and 
 
 |Stage 1 `cache-freshness-check` (consumer project)
 |Verifies the plugin cache is fresh.
-|*Retired*: there is no plugin cache; bundle and binary parity is reported by `pm-operator client status` and repaired by `pm-operator client update`.
+|*Retired*: there is no plugin cache; bundle and binary parity is reported by `pm-operator harness status` and repaired by `pm-operator harness update`.
 
 |Stage 1 `cache-retention-sweep` and nested gate `cache-retention-prune`
 |Sweeps and, on confirmation, prunes stale plugin-cache versions.

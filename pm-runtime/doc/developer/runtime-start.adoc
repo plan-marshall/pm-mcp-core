@@ -11,7 +11,7 @@
 
 == Purpose
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-harness-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
 periodic sweep of the runtime (<<_start_drain_and_recovery>>). It holds no Quarkus type: the assembly `pm-mcp-server`
@@ -68,7 +68,7 @@ PeriodicSweep.runOnce(now)            olderThan = now - PENDING_ENTRY_MAX_AGE
 [#_the_pending_record_step]
 == The Pending-Record Step
 
-_Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+_Requirements:_ link:{req}/13-harness-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 The only evidence that nobody will come back for a pending entry record is its age, the creation instant the record
 states. The step lists the candidates without a lock, then opens one lock transaction on the workspace lock and one
@@ -637,7 +637,7 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 == Specification Tracing
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/13-harness-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1]
 
 * Specification: link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
   Sweep], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry Record

@@ -65,5 +65,5 @@ single rule and a value per wait keep that decision testable without a running r
 * Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/9c9d99c/doc/plans/waits.adoc[`waits`]
 * link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime § Bounded Long-Poll & Progress-Reset Waiting Primitives]
 * link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits & Long-Polls]
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#worker-block[Client Profiles § Worker Block]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#worker-block[Client Profiles § Worker Block]
 * link:../../developer/workflow-engine.adoc#_waits_held_by_a_model[Workflow Engine Developer Guide § Waits Held by a Model]

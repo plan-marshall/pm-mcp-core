@@ -1,4 +1,4 @@
-= The client-profile values the question-loop follow-up measures
+= The harness-profile values the question-loop follow-up measures
 :nofooter:
 
 link:README.adoc[Work packages of `pm-mcp-core`] » `client-profile-measured-values`
@@ -12,9 +12,9 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 The specification sections named are the single statement of what each task builds; the values come from the runs of `plan-marshall-mcp` / `question-loop-follow-up`.
 
-. *The `headless.resumability` values* of the measured profiles, and the stage `resumability` with its expectation for a missing session: link:../specification/client-profiles/01-profile-schema.adoc#headless-resumability[Client Profiles § Resumability]; link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[§ Profile Verification].
-. *The member `headless.inline_settings`* validated by `core.profile` and merged by the launch, with its checked OpenCode 2.x values: link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[Client Profiles § Inline settings].
-. *A place in the schema*, or a recorded reason for none, for each finding of the follow-up the profile schema has no member for: link:../specification/client-profiles/01-profile-schema.adoc#headless-block[Client Profiles § Headless Block].
+. *The `headless.resumability` values* of the measured profiles, and the stage `resumability` with its expectation for a missing session: link:../specification/harness-profiles/01-profile-schema.adoc#headless-resumability[Harness Profiles § Resumability]; link:../specification/harness-profiles/01-profile-schema.adoc#profile-verification[§ Profile Verification].
+. *The member `headless.inline_settings`* validated by `core.profile` and merged by the launch, with its checked OpenCode 2.x values: link:../specification/harness-profiles/01-profile-schema.adoc#headless-inline-settings[Harness Profiles § Inline settings].
+. *A place in the schema*, or a recorded reason for none, for each finding of the follow-up the profile schema has no member for: link:../specification/harness-profiles/01-profile-schema.adoc#headless-block[Harness Profiles § Headless Block].
 . *The `questions` values of the shipped roles and the question bound*: link:../specification/model-work/01-roles-and-configuration.adoc#roles[Model Work § Roles as Configuration Artifacts]; link:../specification/model-work/06-envelopes-questions-deadlines.adoc#question-bound[Model Work § Question Bound].
 . *The values handed to `pm-api`* of `pm-mcp-clients` as the owed change.
 
@@ -24,12 +24,12 @@ Left out: the code of the stage `resumability` (link:question-continuation.adoc[
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2]; link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-2[PM-WORK-2]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/13-harness-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2]; link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-2[PM-WORK-2]
 * Specification: the sections the tasks name; link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]
-* Watch: link:../implementation-watch/client-profiles.adoc[Client Profiles]; link:../implementation-watch/model-work.adoc[Model Work]
+* Watch: link:../implementation-watch/harness-profiles.adoc[Harness Profiles]; link:../implementation-watch/model-work.adoc[Model Work]
 * Measured by: link:../../../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc[`plan-marshall-mcp` / `question-loop-follow-up`]
 
 == Done When
 
-* Watch: link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17].
+* Watch: link:../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17].
 * Tests: profile validation of `headless.inline_settings` (`null` and an object); the launch's merged inline configuration; the shipped profiles' `resumability` and the roles' `questions` values read back against the evaluation reference rows; the stage's expectation on a missing session.

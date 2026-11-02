@@ -42,7 +42,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-7[PM-EXT-7: Configuration Versioning, Validation & Zero-CoT Upgrades]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Client Identity]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Harness Identity]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
@@ -51,7 +51,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17: Dynamic Re-Planning of a Running Plan]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Log & Corpus Export]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_
@@ -78,7 +78,7 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 
 == Parts
 
-* link:store-schemas/01-format-and-session-log.adoc[Format Versioning & Pending Entry] — format versioning, atomic writes, the transaction journal, and the pending entry: its directory with the source directory, the transcript, and the decision stores, and its record with the bootstrap state
+* link:store-schemas/01-format-and-session-log.adoc[Format Versioning & Pending Entry] — format versioning, atomic writes, the transaction journal, and the pending entry: its directory with the source directory, the transcript, and the decision logs, and its record with the bootstrap state
 * link:store-schemas/02-workflow-state-store.adoc[Workflow State Store] — the workflow state store `mcp/status.json` of every scope, the machine scope's included (plan outcome, epic terminal reason, instance version, the operator's pause, the queue tasks of the current model state, policy counters, waiver requests, gaps, conditions), the plan's history, titles and names, the start of the current phase, and the merge outcome mapping
 * link:store-schemas/03-findings-and-review-records.adoc[Phases, Owed Items, Findings & Review Records] — phases as sub-workflows and the phase value of a record, owed items, the findings ledger, the analysis result record, component assessments, review participation, and the review-bot registry
 * link:store-schemas/04-epic-and-change-ledger.adoc[Epic & Change Ledger Records] — epic inbox and plan mailbox (the operator's acts on a plan among the messages), the epic ledger records (header with its sources and mode, queue row, findings and watches registers, landing record, kept landing envelope), the epic's drafts in its machine store (an open decomposition and an open review), and the change ledger
@@ -95,4 +95,4 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 * link:store-schemas/15-screening-and-grants.adoc[Screening & Access Grants] — the screen verdict cache of the two-level guard for external text and the access grant record
 * link:store-schemas/16-task-queue.adoc[Task Queue & Qualification Records] — the project's task queue: the queue task record (kind, role, entity, status, lease, attempts with their generation, off-track signals, consultations, outcome and reason) and the activity journal of a task; the role qualification record and the decision calibration record of a quorum declaration
 * link:store-schemas/17-re-planning.adoc[Re-Planning Records] — the plan's pending re-planning trigger, the re-planning records with their evidence keys, the revisions the operator accepted in a chat, and the follow-up plan records
-* link:store-schemas/18-decision-records.adoc[Decision Records] — the append-only decision store of every scope and entry (`decided` and `corrected` lines, the operator's answers among them) and the content-addressed facts snapshots of judgment decisions
+* link:store-schemas/18-decision-records.adoc[Decision Log] — the append-only decision log of every scope and entry (`decided` and `corrected` lines, the operator's answers among them) and the content-addressed facts snapshots of judgment decisions

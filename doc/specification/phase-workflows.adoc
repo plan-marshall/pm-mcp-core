@@ -45,7 +45,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-4[PM-EXT-4: Recipes as Workflows]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1: Decoupled Plain-Java Core Engine & Quarkus Assembly]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Log & Corpus Export]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5: Quantitative Triggers & Project Release]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
 

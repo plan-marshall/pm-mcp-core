@@ -23,7 +23,7 @@ sent only to the origin of the credential entry's `url`, and a redirect ends the
 The package reads the values of an endpoint profile through `core.profile.EndpointProfile`; it never parses a profile
 document itself. The profile is validated by `core.profile.ProfileValidator` at load time.
 
-Specification: `doc/specification/client-profiles/03-endpoint-harness.adoc`. The remote form and `system_one` are
+Specification: `doc/specification/harness-profiles/03-endpoint-harness.adoc`. The remote form and `system_one` are
 deferred (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-39[L-39]); their last specification is
 link:https://github.com/plan-marshall/pm-mcp-core/blob/51f551fc/doc/specification/client-profiles/04-judgment-endpoint.adoc[`client-profiles/04-judgment-endpoint.adoc` at 51f551fc].
 Design decisions: `adr/runtime-endpoint/`.

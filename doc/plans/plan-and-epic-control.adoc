@@ -19,7 +19,7 @@ The specification sections named are the single statement of what each task buil
 . *Holds and their acts* (UC-CTL-4), each act an operator endpoint, and no operator relay: link:../specification/state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue § Holds and Their Acts]; link:../specification/hypermedia-format/01-representation-and-link-forms.adoc#operator-command-relay[Hypermedia Format § No Operator Relay].
 . *Operator acts over the local API*, never workflow states: link:../specification/state-catalogue/01-conventions-generic-conditions.adoc#operator-flows[State Catalogue § Operator Flows That Are Not Workflow Units].
 
-Left out: the lesson claim itself (link:start-source-intake.adoc[`start-source-intake`]); the epic cancel the integrity pause offers as _abort_ (link:epic-resource-and-release.adoc[`epic-resource-and-release`]); the plan overrides' axes (link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]); the views in the clients.
+Left out: the lesson claim itself (link:start-source-intake.adoc[`start-source-intake`]); the epic cancel the integrity hold offers as _abort_ (link:epic-resource-and-release.adoc[`epic-resource-and-release`]); the plan overrides' axes (link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]); the views in the clients.
 
 == Trace
 

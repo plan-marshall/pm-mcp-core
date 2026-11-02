@@ -17,7 +17,7 @@ What the supervisor does is described in the link:../../../pm-runtime/doc/develo
 [#host-values]
 === Values per Host and per Role
 
-The supervisor takes its timing from the client profile of the worker's harness (link:../client-profiles/01-profile-schema.adoc[Client Profiles Specification, Worker Block]) and its recycling rules from the role's artifact (xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]). No value is compiled per role or per harness into the supervisor.
+The supervisor takes its timing from the harness profile of the worker's harness (link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Worker Block]) and its recycling rules from the role's artifact (xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]). No value is compiled per role or per harness into the supervisor.
 
 [cols="2,2,3"]
 |===
@@ -60,7 +60,7 @@ A `zero_tool` worker (the screener, the judge) has no MCP connection and makes n
 == A Worker Off Track
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, or changes files outside the plan task's footprint) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
+Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, or changes files outside the plan task's footprint) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
 
 [cols="1,4"]
 |===
@@ -126,7 +126,7 @@ What the start-failure guard does is described in the link:../../../pm-runtime/d
 [#start-collisions]
 === Starts of One Harness
 
-A harness that keeps its local state in one per-user store shares it between all its processes: a stalled worker that holds the store's lock makes every other start of the harness fail, and the operator's own sessions of it with them. Such a harness declares a per-worker data home in its client profile, so that no two workers and no worker and the operator's session share that store (`opencode`; link:../job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime Specification, Per-Worker Data Home]). _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-60[PM-WATCH-DISP-60]_
+A harness that keeps its local state in one per-user store shares it between all its processes: a stalled worker that holds the store's lock makes every other start of the harness fail, and the operator's own sessions of it with them. Such a harness declares a per-worker data home in its harness profile, so that no two workers and no worker and the operator's session share that store (`opencode`; link:../job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime Specification, Per-Worker Data Home]). _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-60[PM-WATCH-DISP-60]_
 
 [#warm-slots]
 == Model Slots & Warm Workers

@@ -28,15 +28,15 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-2[PM-CRED-2: Operator-Chosen Credential Store & Native Access]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-3[PM-CRED-3: Permission-Guarded File Credential Store]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-2[PM-SEC-2: Workspace Confinement & Path Traversal Prevention]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1: Single Version Authority & Embedded Client Bundles]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-5[PM-DIST-5: Multi-Host Concurrent Coexistence on One Machine]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1: Single Version Authority & Embedded Harness Bundles]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-5[PM-DIST-5: Multi-Harness Concurrent Coexistence on One Machine]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-2[PM-MIG-2: Separate State Trees & Legacy Coexistence]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-5[PM-MIG-5: Quantitative Triggers & Project Release]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-5[PM-SKILL-5: Skill Extensions]_
-* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Log & Corpus Export]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue]_

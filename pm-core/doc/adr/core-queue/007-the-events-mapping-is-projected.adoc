@@ -50,6 +50,6 @@ journal.
 
 == Source
 
-Work package `worker-activity`; link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#worker-activity[Client
+Work package `worker-activity`; link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#worker-activity[Client
 Profiles § What a Worker Does], link:../../../../doc/specification/model-work/04-worker-launch.adoc#worker-output[Model
 Work § Output Read While the Worker Runs].

@@ -1,0 +1,32 @@
+= Choices of the intent record and the one decider kind in the code
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `decision-log-renames`
+
+[horizontal]
+Roadmap item:: none: the code already built follows the names of the specification ("decision" names only the operator's decision, a question record; the record of every choice taken at a decision point is the scope's decision log; who took a choice is one closed set of decider kinds)
+Where:: pm-core (`core.store`, `core.spi.validation`)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+A rename only: no behaviour changes. Every record written with the old names stays readable: a reader accepts the old member name or value where the new one is absent, writes only the new one, and refuses a record that carries both member names.
+
+. *Intent record `choices[]`*: the member `decisions` of `intent.json` becomes `choices` in `IntentRecord`, `IntentCodec` and `ClarifiedRequestRenderer` (link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § Intent Record], link:../specification/store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas § Intent Record]); the item identifier stays `DC-<n>`, so amendments that name `DC` items and the history of earlier revisions keep resolving. An `intent.json` and a history entry with `decisions` are read.
+. *One decider kind*: `IntentRecord.Decider` becomes the one enum of decider kinds (`operator`, `quorum`, `role`, `server_rule`, `fact`; link:../specification/store-schemas/18-decision-records.adoc#decider-kind[Store Schemas § Decider Kind]) in `core.store`, used by the intent record's choices with the subset its schema lists; the value `model` of a stored choice reads as `role`. `BuilderCheck` records a `minor` answer with decider `role`.
+. *Amendment source*: the `source` of an intent amendment (`amendments[]` of `status.json`, link:../specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]) takes the decider kinds `operator`, `role`, `quorum`, `fact`; where the code reads it, the stored values `user`, `model` and `refutation` read as `operator`, `role` and `fact`.
+. *Decision log*: no code of the decision log exists yet; the package that builds it (link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`] and link:decision-engine.adoc[`decision-engine`]) writes `decision-log.jsonl`, the resource `pm://plan/{plan_id}/decision-log` and the decider kinds of this package from the start. Nothing named `decisions.jsonl` is written.
+. *Integrity hold*: no code of this repository names `integrity_pause`; the hold reason `integrity_hold` and the refusal `integrity_held` (link:../specification/state-catalogue/01-conventions-generic-conditions.adoc#condition-integrity_breach[State Catalogue, `integrity_breach`]) are written with these names by the package that builds the hold.
+. *Module documents*: the developer documents of `core.store` name `choices` and the decider kinds; the ADRs stay as written.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19]
+* Specification: the sections the tasks name; link:../Traceability.adoc[Traceability]
+* Watch: link:../implementation-watch/phase-workflows.adoc[Phase Workflows]; link:../implementation-watch/model-work.adoc[Model Work]
+
+== Done When
+
+* Tests: an `intent.json` with `decisions` and decider `model`, and a `status.json` with amendment sources `user`, `model` and `refutation`, read as before (a matched positive control with the new names and a negative control with both member names); `IntentRecordTest`, `BuilderCheckTest` and the parity tests of the changed schema blocks pass against the specification; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.

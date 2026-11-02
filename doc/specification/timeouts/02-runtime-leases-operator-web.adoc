@@ -240,13 +240,13 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—; an act that ends the plan closes it `cancelled`.
 |link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Store Schemas, Waiver Request Record]
 
-|[[integrity-pause]]Integrity pause
+|[[integrity-hold]]Integrity hold
 |No expiry: an `integrity_breach` hold ends only by `accept-edit` (re-baseline and re-verification) or, for a plan or epic scope, by its cancel, the abort that ends a plan with the outcome `aborted` and an epic as `cancelled`; a workspace breach and a lesson breach end only by `accept-edit`; a breached pending entry record ends by `accept-edit` or by abandoning the entry.
 |—
 |—
-|plan, epic, and workspace scopes, single lessons, and single bootstrap entities (a tampered enrolment pauses every running plan of the project)
+|plan, epic, and workspace scopes, single lessons, and single bootstrap entities (a tampered enrolment holds every running plan of the project)
 |—; the deadline of a prerequisite wait is held and processed after the pause ends.
-|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-integrity-pause[CLI & Security, Integrity Pause]
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-integrity-hold[CLI & Security, Integrity Hold]
 
 |[[access-grant-lifetime]]Access grant
 |No time expiry: a grant holds until the plan ends.

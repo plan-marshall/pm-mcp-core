@@ -43,5 +43,5 @@ verification writes for the test, never the content of the product.
 
 == Source
 
-Work package `worker-activity`; link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client
+Work package `worker-activity`; link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-verification[Client
 Profiles § Profile Verification].

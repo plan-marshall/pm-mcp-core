@@ -168,7 +168,7 @@ Source:: design review.
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime § Per-Worker Data Home],
 link:../specification/model-work/03-supervision-and-recycling.adoc#start-collisions[Model Work § Starts of One Harness],
-link:../specification/client-profiles/01-profile-schema.adoc#headless-data-home[Client Profiles § Normative Client Profile JSON Schema] (Per-worker data home)
+link:../specification/harness-profiles/01-profile-schema.adoc#headless-data-home[Harness Profiles § Normative Harness Profile JSON Schema] (Per-worker data home)
 Hazard:: A harness keeps its local state in one per-user store. A worker stopped in the middle of a step holds
 that store's write lock: every other worker of the harness exits at start, the start-failure guard stops the role
 before the stalled worker's silence deadline, its task is never submitted, and the operator's own interactive
@@ -430,9 +430,9 @@ Source:: design review.
 [#PM-WATCH-DISP-46]
 === PM-WATCH-DISP-46: A correction is appended, never written over, and an export takes the decision finally taken
 
-Anchor:: link:../specification/model-work/11-decision-records.adoc#decision-records[Model Work § Decision Records],
+Anchor:: link:../specification/model-work/11-decision-records.adoc#decision-records[Model Work § Decision Log],
 link:../specification/model-work/11-decision-records.adoc#corpus-export[§ Corpus Export],
-link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision Record],
+link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision-Log Record],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19]
 Hazard:: A store that keeps one current object per decision updates its `choice` when a later decision departs from
 it, so the original decision, its decider, and its confidence are lost and the threshold it was taken against can no
@@ -441,7 +441,7 @@ longer be calibrated; or the export reads the question record's `recommended` op
 re-planning reverted, and an operator waiver read as a correction turns a policy override into a reference.
 Guard:: Scenario test: a plan whose outline question the operator answers against the asker's recommendation, whose
 finding group is triaged `ACCEPT` and later `FIX`, whose re-planning names the change-type decision in `corrects`,
-and whose blocking Q-Gate verdict is waived: `decisions.jsonl` holds every `decided` line byte-identical after the
+and whose blocking Q-Gate verdict is waived: `decision-log.jsonl` holds every `decided` line byte-identical after the
 run, with one `corrected` line per departure (causes `reverted`, `replanned`, `overridden`), and the export writes
 the question item with the operator's `branch_key`, the triage item with `FIX`, no change-type item (skipped
 `corrected_without_choice`), and the Q-Gate item with the task's own verdict and the waiver only in `review.notes`;
@@ -456,7 +456,7 @@ Anchor:: link:../specification/model-work/10-decision-quorum.adoc#live-correctio
 Hazard:: The window is taken over the kind instead of the declaration digest, counts decisions before the calibration
 record or `escalated` records, reads the `decided` lines without folding their corrections, or counts `replanned` and
 `overridden`, so a declaration is demoted for another configuration's errors or never demoted at all.
-Guard:: Table test over decision stores of two plans and the workspace: a correction `answered_differently` among the
+Guard:: Table test over decision logs of two plans and the workspace: a correction `answered_differently` among the
 first 19 automatic decisions demotes, one among 20 does not, two among the last 20 do; a decision before the
 calibration's `graded_at`, one of another declaration digest of the same kind, an `escalated` record, and corrections
 `replanned` and `overridden` count nothing; a new calibration record lifts the demotion.
@@ -508,7 +508,7 @@ token or the host's session markers and acts beyond its job.
 Guard:: Per harness with a `headless` block, a launch-vector test asserts the exclusive per-call MCP configuration
 (only the job relay) where the profile declares `mcp_config.exclusive`; an environment test asserts that a worker
 holds its job token only, never the runtime token, and none of the host markers; an integration test runs one worker
-in a project with the client bundle installed and a global MCP entry in the operator's configuration and finds no
+in a project with the harness bundle installed and a global MCP entry in the operator's configuration and finds no
 second connection in the audit log and no tool of it in the worker's `tools/list`.
 Source:: design review.
 
@@ -541,7 +541,7 @@ Anchor:: link:../specification/model-work/07-untrusted-text-screening.adoc#scree
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: A model that reads untrusted content while it holds a tool can be steered by that content to read local
 files and carry them out.
-Guard:: For every client profile whose `headless.classes.zero_tool` is non-null, the composed launch of
+Guard:: For every harness profile whose `headless.classes.zero_tool` is non-null, the composed launch of
 a `screener` worker has zero tools, no MCP configuration, project and user settings off, and the empty `cwd/`
 subdirectory of its job-private directory as working directory, which it cannot write; a launch-vector test per
 profile fails on any tool, MCP entry, or loaded project setting; a role artifact of class `zero_tool` that names a
@@ -842,7 +842,7 @@ committed by `epic.commit-ledger` staging `epic/**` and `archived-epics/**` and 
 `epic.landing`; only then does `epic.next-work` take `archive_landed` (`epic.archived`) or `cancel_landed`
 (`epic.aborted`). Fixtures: a landing that fails or a commit that steps out keeps the epic non-terminal and resumes on
 the next ledger commit or default-branch advance; no plan starts and no task is served while the archive flag is set.
-Matched control: the cancel that resolves an integrity pause on the epic enters `epic.aborted` directly and
+Matched control: the cancel that resolves an integrity hold on the epic enters `epic.aborted` directly and
 commits nothing from the tampered ledger.
 Source:: design review.
 

@@ -186,15 +186,15 @@ routes `stepped_out`.
 Source:: design review.
 
 [#PM-WATCH-DSL-18]
-=== PM-WATCH-DSL-18: The integrity pause offers only its two acts and takes no transition
+=== PM-WATCH-DSL-18: The integrity hold offers only its two acts and takes no transition
 
-Anchor:: link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#waivers-and-integrity[Workflow DSL § Waivers, Waiver Requests & the Integrity Pause],
+Anchor:: link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#waivers-and-integrity[Workflow DSL § Waivers, Waiver Requests & the Integrity Hold],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-3[PM-WF-3]
 Hazard:: A paused scope still renders a link or takes a transition, or the pause restores the file or computes a
 difference over a store that cannot be trusted; accepting the edit clears the pause without re-verifying the store.
 Guard:: Scenario: a digest mismatch of `status.json` raises `integrity_breach`; the representation carries the
-condition and no link, every `pm_do` is refused with `integrity_paused`, and no transition of the scope is taken
-while it is set; both clients show the hold `integrity_pause` with the tampered file and its recorded and current
+condition and no link, every `pm_do` is refused with `integrity_held`, and no transition of the scope is taken
+while it is set; both clients show the hold `integrity_hold` with the tampered file and its recorded and current
 size and digest, and nothing is restored and no difference is computed; accepting the edit re-baselines and the
 engine re-verifies before the current state is re-rendered; the cancel ends the plan in `plan.aborted` with the
 outcome `aborted` (an epic `cancelled`); matched control: a non-integrity condition on the same state is remedied

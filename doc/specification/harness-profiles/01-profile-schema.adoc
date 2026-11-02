@@ -1,4 +1,4 @@
-= Client Profiles Specification: Client Profile Schema
+= Harness Profiles Specification: Harness Profile Schema
 :toc: left
 :toclevels: 3
 :toc-title: Table of Contents
@@ -6,25 +6,25 @@
 :source-highlighter: highlight.js
 :nofooter:
 
-link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles Specification] » Client Profile Schema
+link:../../Specification.adoc[Specification] » link:../harness-profiles.adoc[Harness Profiles Specification] » Harness Profile Schema
 
-== Normative Client Profile JSON Schema
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
+== Normative Harness Profile JSON Schema
+_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
 
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy]_
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy]_
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-5[PM-TOOL-5: Tool Schema Stability & Context Budget Discipline]_
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-A client profile is the one configuration document of a harness: `classpath:/profiles/<client_id>.json`, a resource of `pm-api` (`claude.json`, `opencode.json`, `antigravity.json`, `codex.json`), and every profile the operator installed for the machine or a project (<<profile-sets>>). Everything the system knows about a harness is in its profile and nowhere else (<<harness-as-data>>). Every profile is validated against the following JSON Schema (Draft 2020-12):
+A harness profile is the one configuration document of a harness: `classpath:/profiles/<harness_id>.json`, a resource of `pm-api` (`claude.json`, `opencode.json`, `antigravity.json`, `codex.json`), and every profile the operator installed for the machine or a project (<<profile-sets>>). Everything the system knows about a harness is in its profile and nowhere else (<<harness-as-data>>). Every profile is validated against the following JSON Schema (Draft 2020-12):
 
 [source,json]
 ----
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/client-profile-v1.json",
-  "title": "ClientProfile",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/harness-profile-v1.json",
+  "title": "HarnessProfile",
   "description": "Declarative runtime profile governing on-the-fly skill rendering, worker launch, the machine's harness scan and probes, activity and usage mapping, and bundle generation.",
   "type": "object",
   "$defs": {
@@ -59,12 +59,12 @@ A client profile is the one configuration document of a harness: `classpath:/pro
     "schema_version": {
       "type": "integer",
       "const": 1,
-      "description": "Version of the client profile schema."
+      "description": "Version of the harness profile schema."
     },
-    "client_id": {
+    "harness_id": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,31}$",
-      "description": "Canonical identifier of the client runtime; equal to the file name of the profile. The set of clients is the set of profiles."
+      "description": "Canonical identifier of the harness; equal to the file name of the profile. The set of clients is the set of profiles."
     },
     "display_name": {
       "type": "string",
@@ -558,7 +558,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
   },
   "required": [
     "schema_version",
-    "client_id",
+    "harness_id",
     "display_name",
     "min_daemon_version",
     "icon",
@@ -579,17 +579,17 @@ A client profile is the one configuration document of a harness: `classpath:/pro
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
-A harness is its profile: every fact about a harness that the runtime acts on (how it is found, launched, confined, read, and supervised) is a value of its profile document, never code, so a new harness or a new version of one is a new profile (link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide]).
+A harness is its profile: every fact about a harness that the runtime acts on (how it is found, launched, confined, read, and supervised) is a value of its profile document, never code, so a new harness or a new version of one is a new profile (link:../../../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide]).
 
 [#role-classes]
 === Role Classes of a Harness
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
+_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
 
 `headless.classes` states, per role class, whether the harness can run it and how far it holds a worker to the tools of its role.
 
 * *The screener needs a harness without tools*: `zero_tool` is the class of the screener and the judge, which read untrusted or ungraded text (link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener]), and of a commit-message or change-type role whose artifact sets it (link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]). It is the one class for which the harness must restrict the worker, and the restriction is total: no tool, no MCP connection, project and user settings off. A harness that cannot be started that way declares `zero_tool: null`, and no screener or judge role may name it. This is the only class restriction the system depends on.
 * *The other classes run no code the harness fetches or runs on its own*: a `writer` or `read_only` worker loads the project's instruction files and skill directories and no plugin, no hook, no MCP server, no environment value, and no model endpoint or proxy from any settings file of the project, the checkout, or the user, and connects to no MCP server but its job relay. Plugins update and run themselves, and hooks run without a tool call, so neither the role's tool set nor the job's confinement keeps their code out of the worktree that becomes the pull request. A harness whose launch of the class cannot be held to that declares the class `null`.
-* [[user-level-files]]*Nothing of the operator's own*: a `writer` or `read_only` worker loads no instruction file and no skill of the user (for example `~/.claude/CLAUDE.md`, `~/.claude/skills/`, `~/.agents/skills/`), wherever the harness looks for them, also where a home or data-home variable of the launch does not redirect that lookup. What a worker of a role knows is then the same on every machine, so its qualification and its start context do not depend on the operator's personal setup. The project's instruction files and skills load as before. _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]_
+* [[user-level-files]]*Nothing of the operator's own*: a `writer` or `read_only` worker loads no instruction file and no skill of the user (for example `~/.claude/CLAUDE.md`, `~/.claude/skills/`, `~/.agents/skills/`), wherever the harness looks for them, also where a home or data-home variable of the launch does not redirect that lookup. What a worker of a role knows is then the same on every machine, so its qualification and its start context do not depend on the operator's personal setup. The project's instruction files and skills load as before. _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]_
 * *Beyond that, a tool restriction is welcome and not required*: `writer` and `read_only` workers act on text that has passed the screener, inside the confinement of the job launcher, and the server limits what they can reach of `PM-MCP` on every request (link:../model-work/04-worker-launch.adoc#job-tool-sets[Model Work Specification, Tool Sets]). `tool_set: enforced` means the harness also limits the worker to the tools of its role; `tool_set: advisory` means it cannot, the worker runs with every tool of the harness, and the role's tool set only tells it which to use. Both are runnable. `pm-operator roles show <role>` reports an advisory tool set, so the operator sees which roles run unrestricted.
 * *Rules*, checked by profile validation: a non-null `zero_tool` requires `capabilities` to hold `project_settings_control`; a non-null `writer` or `read_only` requires `capabilities` to hold `extension_isolation`; a profile whose `mcp_config.exclusive` is `false` declares `writer`, `read_only`, and `zero_tool` all `null`, since such a harness cannot be kept from connecting; `worker.restricted_models` is non-null exactly when a class is `enforced`. The launch re-checks the class's capability and tool template (`LaunchComposer.requireClass`, link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]).
 
@@ -637,7 +637,7 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 *Usage pointers*: Usage is read from the harness output through `headless.usage`, never asked from a model. The same per-turn figures give the supervisor a warm worker's context size for its token budget (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]).
 
 [#headless-writable-paths]
-*Writable paths*: `headless.writable_paths` extends only the Landlock write set of workers. It lists the sub-paths a headless harness must write to run: its login or credential file, its caches, its session directory, and its own state file. Profile validation refuses an entry that equals, contains, or lies inside a settings, command, or skill file or directory the client's bundle manifest manages, and any shared configuration file in which the bundle owns an `enforcement` element (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]), so a harness home as a whole (`~/.claude`) is never an entry and a worker cannot rewrite the host's deny rules or the shim skill. The operator's own use of the harness and the bundle installer, which runs in `pm-mcpd`, are not restricted by it. `HeadlessBlock.writablePaths(home)` resolves the entries and `WorkerStart` hands them to the confinement of the worker (`JobConfinementComposer.forJob`, link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). The compiled entries:
+*Writable paths*: `headless.writable_paths` extends only the Landlock write set of workers. It lists the sub-paths a headless harness must write to run: its login or credential file, its caches, its session directory, and its own state file. Profile validation refuses an entry that equals, contains, or lies inside a settings, command, or skill file or directory the harness's bundle manifest manages, and any shared configuration file in which the bundle owns an `enforcement` element (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]), so a harness home as a whole (`~/.claude`) is never an entry and a worker cannot rewrite the host's deny rules or the shim skill. The operator's own use of the harness and the bundle installer, which runs in `pm-mcpd`, are not restricted by it. `HeadlessBlock.writablePaths(home)` resolves the entries and `WorkerStart` hands them to the confinement of the worker (`JobConfinementComposer.forJob`, link:../../../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide]). The compiled entries:
 
 [cols="1,4,2"]
 |===
@@ -676,11 +676,11 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 |Not measured.
 |===
 
-[[claude-state-file]]*The `claude` state file*: `~/.claude.json` holds the harness's own state, which a headless run rewrites. The bundle owns nothing in it (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc#bundle-content[Bundle Manifest, Bundle Content]), and a worker's own MCP configuration is the per-call one of its launch (`--strict-mcp-config`), so a worker that rewrites the file changes neither its own connection nor anything the bundle installed; the file stays in the write set, because the harness cannot run headless without rewriting it. _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
+[[claude-state-file]]*The `claude` state file*: `~/.claude.json` holds the harness's own state, which a headless run rewrites. The bundle owns nothing in it (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc#bundle-content[Bundle Manifest, Bundle Content]), and a worker's own MCP configuration is the per-call one of its launch (`--strict-mcp-config`), so a worker that rewrites the file changes neither its own connection nor anything the bundle installed; the file stays in the write set, because the harness cannot run headless without rewriting it. _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
 
 [[headless-data-home]]*Per-worker data home*: `headless.data_home` is declared for a harness whose local state is one per-user store that all its processes share, so that a stalled worker cannot hold that store's lock against every other worker and against the operator's own sessions. `opencode` declares `{"variable": "XDG_DATA_HOME", "login_file": "opencode/auth.json"}`: every worker gets its own data directory below its job-private directory, with the harness's login file copied in, and the directory is removed when the job settles (link:../job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime Specification, Per-Worker Data Home]). Profile validation refuses a `variable` that matches a credential pattern or that the job environment already sets. `claude` and `codex` declare `null`. _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-60[PM-WATCH-DISP-60]_
 
-[[headless-tool-result-limit]]*Tool-result limit*: `headless.tool_result_limit_chars` is the largest tool result the harness passes to its model whole. A harness that cuts a larger result keeps the full text where a worker restricted to the server's tools cannot read it, so the worker would lose the task's identifiers. The server therefore returns no tool result above the limit to a worker of that harness: identifiers and links come first, and the remaining content is named as parts below the limit, read through the harness's resource tools (link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]; value and basis: link:../timeouts/03-retention-host-config.adoc#tool-result-limit[Timeouts & Budgets Specification, Harness Tool-Result Limit]). `opencode` declares `32000`: its inline settings set the harness's own limit to `128000` bytes and lift its line limit out of reach (<<headless-inline-settings>>), and a quarter of the bytes is the character count no result of UTF-8 text can exceed; `claude` declares `null`. Profile validation refuses a non-null limit on a profile without `resource_tools`, and a limit above a quarter of a byte limit the profile's own inline settings set. _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
+[[headless-tool-result-limit]]*Tool-result limit*: `headless.tool_result_limit_chars` is the largest tool result the harness passes to its model whole. A harness that cuts a larger result keeps the full text where a worker restricted to the server's tools cannot read it, so the worker would lose the task's identifiers. The server therefore returns no tool result above the limit to a worker of that harness: identifiers and links come first, and the remaining content is named as parts below the limit, read through the harness's resource tools (link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]; value and basis: link:../timeouts/03-retention-host-config.adoc#tool-result-limit[Timeouts & Budgets Specification, Harness Tool-Result Limit]). `opencode` declares `32000`: its inline settings set the harness's own limit to `128000` bytes and lift its line limit out of reach (<<headless-inline-settings>>), and a quarter of the bytes is the character count no result of UTF-8 text can exceed; `claude` declares `null`. Profile validation refuses a non-null limit on a profile without `resource_tools`, and a limit above a quarter of a byte limit the profile's own inline settings set. _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
 
 [[headless-inline-settings]]*Inline settings*: a harness that bounds a worker by mechanisms of its own (a timeout on a model request, the size at which it cuts a tool result, the compaction of its context, the form in which it offers MCP tools) would act on the worker beside the server, unseen in its output stream. `headless.inline_settings` sets these mechanisms for every worker of the harness, in the harness's own configuration keys, so that the server's supervision and recycling are the only ones acting on the worker and every bound the harness keeps is a declared one. The server merges the object into the inline configuration document of the launch; the agent's own permissions and the MCP configuration of the job relay are rendered by the server and are never part of it. `opencode` (2.x) declares _(provisional until its verification has run)_:
 
@@ -705,7 +705,7 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 |The harness ends a model request without response headers after 300 s and one without a streamed chunk for 900 s by default, retries a timed-out request up to three times, and then ends the run. The values are set so that the harness ends a hung request, retries included, and the worker's process exits before the silence limit (<<worker-block>>); the verification measures them against a reasoning model, which may stream nothing for minutes.
 |===
 
-A setting the harness does not apply is not a setting: the verification checks the effect of every key, not its acceptance (_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]_). `claude`, `antigravity`, and `codex` declare `null`.
+A setting the harness does not apply is not a setting: the verification checks the effect of every key, not its acceptance (_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]_). `claude`, `antigravity`, and `codex` declare `null`.
 
 [[headless-resumability]]*Resumability*: `headless.resumability` says whether a worker of the harness can continue after it asked a question, in which form, and how long (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). `hold` is the worker holding its task in `pm_wait` until the answer and continuing in the same context, up to `max_hold_seconds`; `resume` is the worker ending with its harness session stored and a later generation resuming that session with the answer, through `argv` (with the session id read from the structured result at `session_id`), for sessions up to `max_age_seconds` old. A role uses a form only where its harness declares it and the role artifact asks for it; the harness capability alone never makes a worker wait. Every value comes from the stage `resumability` of the profile verification (<<profile-verification>>), and a form it did not measure is `false` or `null`. Profile validation refuses a `resume` whose `argv` holds `{{session_id}}` not exactly once, and a `resume` on a profile with `session_residue: ephemeral` and no way to launch without the flag. A resumable worker keeps its session files like `session_residue: persisted`, reported in both clients. The shipped values are below; the candidates the question-loop measurement found for a harness whose stage `resumability` has not run, with the measured figures per host, are rows of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers] (R1 for the hold, R2 for the resume), which only the stage can settle.
 
@@ -744,7 +744,7 @@ No value of this table is a measured one: a form the stage `resumability` did no
 
 [#worker-block]
 === Worker Block
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
+_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
@@ -779,7 +779,7 @@ The relay and the server need no other host value for workers: identity, role, a
 
 [#model-tiers]
 === Model Tiers & Models of a Harness
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
 * *Tiers*: `headless.model_tiers` maps each tier of the closed list `frontier`, `standard`, `fast` to the concrete model the harness takes for it, so the shipped default assignment, which names a tier per role, holds on any harness (link:../model-work/01-roles-and-configuration.adoc#default-assignment[Model Work Specification, Default Role Assignment]). A tier the harness has no model for is `null`; a role whose tier resolves to `null` on its harness is shown unresolved, and the operator chooses its model. The `steward` takes the model of the tier `standard` of the machine's default harness (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]). The values of a shipped profile are those the release graded; a mapped model must appear in `worker.restricted_models` where the class of a role assigned to it is `enforced`, which profile validation checks.
 * *Models probe*: `headless.models_probe` is an argument vector whose output lists the models the harness offers (one id per line, or a JSON array at its pointer), run without a shell, as a probe job (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]) of the onboarding's `catalogue` sub-workflow on the operator's consent (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent]); its result fills the models the operator chooses from in `catalogue.select`, each recorded with the source `probe` in the model catalogue (link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]). A harness that cannot list its models declares `null`, and the operator enters the model ids, recorded with the source `operator`.
@@ -788,19 +788,19 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 
 [#harness-scan]
 === Harness Scan
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1: Wrapper-First Execution & Enrolled Host Tools], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1: Wrapper-First Execution & Enrolled Host Tools], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
 
 The machine's onboarding finds the harnesses installed on the machine itself (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]):
 
 * *Where it looks*: `harness.scan` looks for the `headless.executable` of every profile in the effective profile set (shipped and machine profiles, <<profile-sets>>) in the directories of the operator's login `PATH`, which the terminal client sends with its request because the runtime's own environment is never an input (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#runtime-environment[Runtime & Interaction Model Specification, Environment]), and in the profile's `headless.install_locations` (paths with `~` and the platform's application directories). It runs only after the consent `scan_harnesses` (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent]).
 * *What it runs*: nothing but the profile's version probe (`identity.version_probe`, without a shell, with a bounded timeout) on what it finds, as a probe job (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]); a found executable is a candidate, with its path, its version, and whether the version lies in `headless.supported_versions`. Only `harness.enrol` records a candidate's absolute path and SHA-256 digest in the harness enrolment, as `pm-operator enrol-harness` does (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]).
 * *What it shows*: every profile of the set with its result: found (path, version), found outside the supported range, or not found with the profile's `install_hint`, rendered in the operator's interface language. A profile with `headless: null` or `worker.eligible: false` is shown and marked, never offered for enrolment as a worker host or as the default.
-* *The default harness*: `harness.enrol` records the default harness in `machine-config.json` as `harnesses.default` (a client id of `harnesses.json`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration]); a harness that is the default cannot be removed before another is chosen. The steward runs on it (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]).
-* *No closed list of harnesses*: the scan, the enrolment, the role validation, and every view take the harnesses from the effective profile set; no closed list of client ids refuses a harness the operator added (<<unknown-harness>>).
+* *The default harness*: `harness.enrol` records the default harness in `machine-config.json` as `harnesses.default` (a harness id of `harnesses.json`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration]); a harness that is the default cannot be removed before another is chosen. The steward runs on it (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]).
+* *No closed list of harnesses*: the scan, the enrolment, the role validation, and every view take the harnesses from the effective profile set; no closed list of harness ids refuses a harness the operator added (<<unknown-harness>>).
 
 [#login-probe]
 === Login Probe
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
 
 A harness is logged in through its own login, never through `PM-MCP` (*No harness credentials* above), and the onboarding checks it before the first worker starts:
 
@@ -825,17 +825,17 @@ Harnesses update themselves, so the digest of an enrolled harness executable cha
 
 [#harness-icons]
 === Harness Icons
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
 
 A harness is shown where the harness itself is shown (the harness lists, a role's assignment) by its icon, never as the product's own mark, in a heading, or anywhere that suggests that its maker endorses `PM-MCP`.
 
 * *Two forms*: the profile's `icon` names either `source`, the URL of the maker's official icon file, or `bundled`, the name of an icon shipped in the binary, which only an icon whose maker gave written permission to ship it may use.
-* *Fetched by the runtime, never by the browser*: an icon of the form `source` is fetched by the runtime, once, from its URL, through the proxy settings of the runtime's outbound requests, on the operator's consent `fetch_icons`, asked in `harness.icons-consent` after the scan; with _no_ the monograms are shown and the step goes on. The fetched file (SVG or PNG, at most `256` KiB, an SVG stripped of scripts, external references, and event attributes) is stored in the machine store `<PM_MCP_BASE>/icons/<client_id>.<ext>` (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]) and served to the web app from the runtime's own origin (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-security-headers[CLI, Coordination & Security Specification, Request Validation & Security Headers]). A browser never loads it from the maker's server, which would send the operator's address to that server on every view and break the content security policy.
-* *Monogram*: without a fetched or bundled icon, a harness is shown by a generated monogram, the initials of its `display_name` on a colour derived from its `client_id` (the first bytes of its SHA-256 as a hue), the same in both clients. The monogram is the icon of every harness; a profile gains its `source` or `bundled` icon only once its maker's terms or a confirmation allow it. No shipped profile declares one; the bundling of makers' icons is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-21[Later Improvements, L-21]).
+* *Fetched by the runtime, never by the browser*: an icon of the form `source` is fetched by the runtime, once, from its URL, through the proxy settings of the runtime's outbound requests, on the operator's consent `fetch_icons`, asked in `harness.icons-consent` after the scan; with _no_ the monograms are shown and the step goes on. The fetched file (SVG or PNG, at most `256` KiB, an SVG stripped of scripts, external references, and event attributes) is stored in the machine store `<PM_MCP_BASE>/icons/<harness_id>.<ext>` (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]) and served to the web app from the runtime's own origin (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-security-headers[CLI, Coordination & Security Specification, Request Validation & Security Headers]). A browser never loads it from the maker's server, which would send the operator's address to that server on every view and break the content security policy.
+* *Monogram*: without a fetched or bundled icon, a harness is shown by a generated monogram, the initials of its `display_name` on a colour derived from its `harness_id` (the first bytes of its SHA-256 as a hue), the same in both clients. The monogram is the icon of every harness; a profile gains its `source` or `bundled` icon only once its maker's terms or a confirmation allow it. No shipped profile declares one; the bundling of makers' icons is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-21[Later Improvements, L-21]).
 
 [#token-usage]
 === Tokens, Not Money
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
 Usage is read from the harness output through `headless.usage`, never asked from a model.
 
@@ -860,26 +860,26 @@ The shipped declarations: `claude` maps its `stream-json` events (`assistant` te
 [#profile-sets]
 === Profile Sets
 
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy]_
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy]_
 
-The effective profile set is the compiled profiles, each replaced as a whole by the machine profile of its `client_id` and that by the project profile (<<profile-override-hierarchy>>); every installed profile is valid only with the verification record bound to its content. The onboarding writes the machine and project sets (link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide]).
+The effective profile set is the compiled profiles, each replaced as a whole by the machine profile of its `harness_id` and that by the project profile (<<profile-override-hierarchy>>); every installed profile is valid only with the verification record bound to its content. The onboarding writes the machine and project sets (link:../../../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide]).
 
 [#profile-verification]
 === Profile Verification
 
-_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]_
+_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]_
 
-`pm-operator profile verify <client_id>` tests a harness on this machine and emits its profile. It is the only way a profile comes into being: the shipped profiles are its output on the release's reference machines, and the values of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference] are its measurements.
+`pm-operator profile verify <harness_id>` tests a harness on this machine and emits its profile. It is the only way a profile comes into being: the shipped profiles are its output on the release's reference machines, and the values of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference] are its measurements.
 
-*What the operator gives and what the tool finds out.* A harness's command line cannot be discovered, so the operator supplies a *draft*: a profile document in which only the statements about the harness's interface are filled in (`headless.executable`, `argv`, `env`, `mcp_config`, the `args` of each class to be tested, `inline_settings`, `output`, `usage`, `events`, `auth_probe`, `models_probe`, `model_tiers`, `install_locations`, `identity.version_probe`, `tools`, `skill_loading`). In the onboarding the draft is entered as a form (<<unknown-harness>>). Without `--draft` the effective profile of the `client_id` is the draft, which is how a profile is verified again after a harness update. Everything else the tool measures, and every statement of the draft it can test, it tests.
+*What the operator gives and what the tool finds out.* A harness's command line cannot be discovered, so the operator supplies a *draft*: a profile document in which only the statements about the harness's interface are filled in (`headless.executable`, `argv`, `env`, `mcp_config`, the `args` of each class to be tested, `inline_settings`, `output`, `usage`, `events`, `auth_probe`, `models_probe`, `model_tiers`, `install_locations`, `identity.version_probe`, `tools`, `skill_loading`). In the onboarding the draft is entered as a form (<<unknown-harness>>). Without `--draft` the effective profile of the `harness_id` is the draft, which is how a profile is verified again after a harness update. Everything else the tool measures, and every statement of the draft it can test, it tests.
 
 [source,text]
 ----
-pm-operator profile verify <client_id> [--draft <file>] [--executable <path>]
+pm-operator profile verify <harness_id> [--draft <file>] [--executable <path>]
                                        [--stage <stage>]... [--trials <n>]     [op]
-pm-operator profile install <client_id> [--project]                             [op]
-pm-operator profile show <client_id> [--candidate] [--project]
-pm-operator profile remove <client_id> [--project]                              [op]
+pm-operator profile install <harness_id> [--project]                             [op]
+pm-operator profile show <harness_id> [--candidate] [--project]
+pm-operator profile remove <harness_id> [--project]                              [op]
 ----
 
 *How it runs.* The verb is a request to the runtime, which runs the stages as jobs of its own: the real job launcher, the real job relay `pm-mcp serve --job`, and the real supervisor, with compiled probe tasks in place of a plan. No project is involved: every probe worker runs in a workspace of its own that the runtime creates in the user's temporary directory (`pm-mcp-probe-<run_id>/`, mode `0700`) and removes afterwards; it lies outside `<PM_MCP_BASE>`, which no job may read or write, and it is the only project root in the worker's write set. The harness uses the operator's own login, so a run costs model tokens; the verb prints the stages, the number of worker starts, and the trials before it starts and asks for confirmation. A probe worker is confined like every job where the platform has a confinement.
@@ -949,13 +949,13 @@ link:03-endpoint-harness.adoc#endpoint-verification[Endpoint Harness § Verifica
 no session. The endpoint profile's members are settled as that section states; its `profile_kind` tells the two kinds
 apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness § Endpoint Profile Schema]).
 
-*Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<client_id>.json` and its verification record beside it, and changes nothing that is in force.
+*Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<harness_id>.json` and its verification record beside it, and changes nothing that is in force.
 
 [source,json]
 ----
 {
   "format_version": 1,
-  "client_id": "antigravity",
+  "harness_id": "antigravity",
   "profile_schema_version": 1,
   "profile_digest": "sha256:9f2c…",
   "verified_at": "2026-10-08T08:36:00Z",
@@ -999,26 +999,26 @@ apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness §
 ** A `writer` or `read_only` class is non-null when its base task passed and `isolation` measured an exclusive configuration with extension isolation for its launch, with the `tool_set` the stage measured.
 ** `tool_result_limit_chars` is the largest offered size that passed when a larger one failed, and `null` only when every offered size passed; when the smallest one fails, the stage `limits` fails.
 ** A value whose stage did not run keeps the draft's value with `status: declared` where the schema requires one, and the three claims above fall back to their closed side.
-* *Install*: `pm-operator profile install <client_id>` shows the candidate against the effective profile value by value, lists every value that is `declared` or `not_measured`, asks the operator to confirm the proposed detection signals, and on confirmation moves candidate and record into the machine set (<<profile-sets>>) under the lock of the machine store. The runtime loads it for workers started afterwards; running workers keep the profile of their job record.
+* *Install*: `pm-operator profile install <harness_id>` shows the candidate against the effective profile value by value, lists every value that is `declared` or `not_measured`, asks the operator to confirm the proposed detection signals, and on confirmation moves candidate and record into the machine set (<<profile-sets>>) under the lock of the machine store. The runtime loads it for workers started afterwards; running workers keep the profile of their job record.
 * *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on, the `egress` stage as `passed` or as `unenforced` while the operator's acceptance of unenforced egress holds for the machine (link:../job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime Specification, Worker Egress Proxy]; when the acceptance is withdrawn, no further worker of that harness starts); a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers.
 
 [#unknown-harness]
 === Unknown Harness
-_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Client Identity], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Harness Identity], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
 
 A machine whose harness has no shipped or installed profile can still be onboarded: the onboarding's `harness.add` offers it beside the found harnesses as a secondary choice, and directly when the scan found none.
 
 * *The draft as a form*: `harness.add` takes the draft in either client as a form instead of a file: the executable (its absolute path), a client id and a display name, and the interface statements the verification needs from the operator (the headless arguments, the environment, the MCP configuration, the output and usage format, the version probe, and where known the login probe, the models probe, and the tiers), prefilled from the profile of the known harness the operator picks as the closest. The form validates every field as profile validation does (<<profile-hardening>>) before anything runs.
 * *Verified, stage by stage*: `harness.verify-profile` runs the profile verification (<<profile-verification>>) as a sub-workflow of the onboarding, after the consent `verify_harness_profile` of `harness.add-consent`, which states the expected tokens of the run; both clients show each stage as a line with ✓ or ✗, and a failed stage names the draft field it concerns, back to the form.
 * *Installed and enrolled*: the verified profile is installed into the machine profile set (<<profile-sets>>) and its harness enrolled like a found harness (<<harness-scan>>); it is eligible as a worker host only where the verification shows it, and otherwise shown and marked like every ineligible harness.
-* *No closed list refuses it*: no closed list of client ids (the scan, the enrolment, the role validation, the profile sets, the views) refuses a harness the operator added; a client id is valid where it matches the pattern of `client_id` and names a profile of the effective set. A client bundle exists only for the hosts the release ships a bundle for (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]); an added harness runs as a worker without one, since the runtime composes every worker's launch itself.
+* *No closed list refuses it*: no closed list of harness ids (the scan, the enrolment, the role validation, the profile sets, the views) refuses a harness the operator added; a harness id is valid where it matches the pattern of `harness_id` and names a profile of the effective set. A harness bundle exists only for the hosts the release ships a bundle for (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]); an added harness runs as a worker without one, since the runtime composes every worker's launch itself.
 
 [#profile-hardening]
 === A Profile Is Untrusted Input
 
 A profile, a draft, and a verification record are validated as untrusted input: a closed shape, bounded strings, the
 model-readable character set, the launch and path rules, and one pattern per string member, each rule with a refusing fixture
-(link:../../../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide]).
+(link:../../../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide]).
 
 *Claims.* No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool`
 class and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform
@@ -1029,11 +1029,11 @@ and the runtime consults it before every start and refuses an ineligible profile
 [#profile-override-hierarchy]
 === Profile Override Hierarchy
 
-The runtime resolves a client profile from four layers in order of increasing precedence:
+The runtime resolves a harness profile from four layers in order of increasing precedence:
 
-1. *Compiled Binary Baseline* (`classpath:/profiles/<client_id>.json`): The profile documents compiled into the binaries (<<harness-as-data>>).
-2. *Machine Profile* (`<PM_MCP_BASE>/profiles/<client_id>.json`): A verified profile the operator installed on the machine; it replaces the compiled document of the same `client_id` as a whole (<<profile-sets>>).
-3. *Project Profile* (`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`): A verified profile the operator installed for one project; it replaces the machine or compiled document as a whole for that project's workers (<<profile-sets>>).
-4. *Machine-Wide Operator Overrides* (`machine-config.json`, the closed object `client_profiles.<client_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration]): Optional override of the connection settings `bounded_wait_seconds`, `idle_timeout_seconds`, and `progress_resets_timeout` across all repositories on the workstation, set with `pm-operator config`. No other profile key can be overridden: the `worker` block, the `headless` block, and the `detection` and `identity` objects that form the host-detection table (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/01-host-detection.adoc#host-detection-table[Host-Detection Table]) are never touched by an override.
+1. *Compiled Binary Baseline* (`classpath:/profiles/<harness_id>.json`): The profile documents compiled into the binaries (<<harness-as-data>>).
+2. *Machine Profile* (`<PM_MCP_BASE>/profiles/<harness_id>.json`): A verified profile the operator installed on the machine; it replaces the compiled document of the same `harness_id` as a whole (<<profile-sets>>).
+3. *Project Profile* (`<PM_MCP_BASE>/projects/<project_id>/profiles/<harness_id>.json`): A verified profile the operator installed for one project; it replaces the machine or compiled document as a whole for that project's workers (<<profile-sets>>).
+4. *Machine-Wide Operator Overrides* (`machine-config.json`, the closed object `harness_profiles.<harness_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration]): Optional override of the connection settings `bounded_wait_seconds`, `idle_timeout_seconds`, and `progress_resets_timeout` across all repositories on the workstation, set with `pm-operator config`. No other profile key can be overridden: the `worker` block, the `headless` block, and the `detection` and `identity` objects that form the host-detection table (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/01-host-detection.adoc#host-detection-table[Host-Detection Table]) are never touched by an override.
 
-Harness, model, and effort of a worker come only from the operator's role configuration, the role's effective values (its artifact, the role assignments, and the plan's override; link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]), operator files, rendered into the `{{model}}` and `{{effort}}` slots of `headless`; a profile carries no model choice beyond the map of the default assignment's tiers (<<model-tiers>>). A change of the role configuration applies to the next worker of the role; nothing is re-installed. No git-tracked configuration carries client profile overrides, role sets, or model pins (`PM-WORK-1`, `PM-EXT-6`); the closed team schemas admit no such key, so a `client_profiles` block in a team file is the finding `unknown_config_key` (`config_invalid`).
+Harness, model, and effort of a worker come only from the operator's role configuration, the role's effective values (its artifact, the role assignments, and the plan's override; link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]), operator files, rendered into the `{{model}}` and `{{effort}}` slots of `headless`; a profile carries no model choice beyond the map of the default assignment's tiers (<<model-tiers>>). A change of the role configuration applies to the next worker of the role; nothing is re-installed. No git-tracked configuration carries harness profile overrides, role sets, or model pins (`PM-WORK-1`, `PM-EXT-6`); the closed team schemas admit no such key, so a `harness_profiles` block in a team file is the finding `unknown_config_key` (`config_invalid`).

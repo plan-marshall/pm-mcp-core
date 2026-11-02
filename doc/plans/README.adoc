@@ -27,6 +27,18 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |nothing
 |Milestone 4 (cleanup of code already built for Milestones 4, 8, and 14)
 
+|link:harness-renames.adoc[`harness-renames`]
+|The harness side named harness in the code: `client_id` becomes `harness_id` in the profiles, verification records, enrolment store and audit details, `clientId` becomes `harnessId`; records with the old names stay readable
+|`open`
+|nothing
+|Milestone 4 (rename of code already built)
+
+|link:decision-log-renames.adoc[`decision-log-renames`]
+|The intent record's `decisions[]` becomes `choices[]`, one enum of decider kinds for choices and amendment sources; records with the old names stay readable
+|`open`
+|nothing
+|Milestone 4 (rename of code already built)
+
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
@@ -46,7 +58,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 4
 
 |link:client-profile-measured-values.adoc[`client-profile-measured-values`]
-|The client-profile values the question-loop follow-up measures: the `headless.resumability` values of the shipped profiles, the `headless.inline_settings` member and its provisional values, and the stage `resumability` checked against the measured hosts
+|The harness-profile values the question-loop follow-up measures: the `headless.resumability` values of the shipped profiles, the `headless.inline_settings` member and its provisional values, and the stage `resumability` checked against the measured hosts
 |`open`
 |`plan-marshall-mcp` / `question-loop-follow-up`
 |Milestones 4 and 14
@@ -72,7 +84,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:decision-engine.adoc[`decision-engine`]
 |Decisions as the operator meets them: structure, interpretation, support, channels
 |`open`
-|`start-source-intake` (the entry's decision stores and their move)
+|`start-source-intake` (the entry's decision logs and their move)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
@@ -94,7 +106,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:start-source-intake.adoc[`start-source-intake`]
-|The entry as a directory with its decision stores and transcript, the source directory and the move at creation, screened once stored and failing closed, rate limits, documents copied or moved, a claimed lesson ending with the landing
+|The entry as a directory with its decision logs and transcript, the source directory and the move at creation, screened once stored and failing closed, rate limits, documents copied or moved, a claimed lesson ending with the landing
 |`open`
 |`machine-onboarding-unit`; `project-onboarding-unit`; `lesson-store`
 |Milestones 3, 10, and 12; the client work of `pm-mcp-clients`
@@ -138,7 +150,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]
 |The epic as a resource and its actions: next plan, archive check, cancel; the release of a project
 |`open`
-|`plan-and-epic-control` (coupling: the bullet _Holds and their acts_ there offers the epic cancel built here as an integrity pause's resolution _abort_; recorded on this edge, not as a reverse dependency)
+|`plan-and-epic-control` (coupling: the bullet _Holds and their acts_ there offers the epic cancel built here as an integrity hold's resolution _abort_; recorded on this edge, not as a reverse dependency)
 |Milestones 6 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-decomposition.adoc[`epic-decomposition`]
@@ -192,13 +204,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`judgment-votes`
 |A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form; dropped: the judgment vote is deferred (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-39[Later Improvements, L-39])
 |`dropped`
-|`decision-engine` (the vote members of the decision record); `decision-quorum-and-calibration` (the decision declarations, the adjudication unit, and the calibration)
+|`decision-engine` (the vote members of the decision-log record); `decision-quorum-and-calibration` (the decision declarations, the adjudication unit, and the calibration)
 |Milestone 14
 
 |link:own-calls.adoc[`own-calls`]
 |Own calls of a writer: the choices a task settled that the plan left open, submitted with the task, checked by the server, and recorded as decisions
 |`blocked`
-|`decision-engine` (the decision records); `phase-sub-workflows`; the task envelope with its `submit` link and the Task Diff Record (no work package)
+|`decision-engine` (the decision-log records); `phase-sub-workflows`; the task envelope with its `submit` link and the Task Diff Record (no work package)
 |Milestone 9
 
 |link:change-map.adoc[`change-map`]
@@ -214,7 +226,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 6
 
 |link:client-profile-rendering.adoc[`client-profile-rendering`]
-|The on-the-fly placeholder rendering of the client profiles: the placeholder table, the rendering invariants and the per-variant digest, the calibration axis, the host-resident surface inventory
+|The on-the-fly placeholder rendering of the harness profiles: the placeholder table, the rendering invariants and the per-variant digest, the calibration axis, the host-resident surface inventory
 |`open`
 |nothing
 |Milestone 14

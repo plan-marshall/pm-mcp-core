@@ -9,7 +9,7 @@ The plain-Java engine of [plan-marshall-mcp](https://github.com/plan-marshall/pl
 | [`pm-providers`](pm-providers/README.adoc) | The provider modules and their shared HTTP infrastructure: [`pm-provider-git`](pm-providers/pm-provider-git/README.adoc), [`pm-provider-http`](pm-providers/pm-provider-http/README.adoc), [`pm-provider-ci`](pm-providers/pm-provider-ci/README.adoc), [`pm-provider-github`](pm-providers/pm-provider-github/README.adoc), [`pm-provider-gitlab`](pm-providers/pm-provider-gitlab/README.adoc), [`pm-provider-sonar`](pm-providers/pm-provider-sonar/README.adoc) |
 | [`pm-runtime`](pm-runtime/README.adoc) | The daemon's logic that needs no framework: the runtime start, the credential stores, the language server client, the ingestion validator |
 
-The architectural decision records of the repository and of its modules are indexed in
+The architectural decision-log records of the repository and of its modules are indexed in
 [`doc/adr/README.adoc`](doc/adr/README.adoc).
 
 No module here uses Quarkus, CDI, Vert.x or an MCP library; the Quarkus assembly that wires them is `pm-mcp-server`

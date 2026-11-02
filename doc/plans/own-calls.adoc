@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `own-calls`
 
 [horizontal]
 Roadmap item:: _Implement the own calls of a writer_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-workflow (the parameter of `submit:TASK-NNN`, its checks, and the records); pm-core (the named parameter schema `own-call`, the decision record at the point `execute.own-call`)
+Where:: pm-workflow (the parameter of `submit:TASK-NNN`, its checks, and the records); pm-core (the named parameter schema `own-call`, the decision-log record at the point `execute.own-call`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks

@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `decision-engine`
 
 [horizontal]
 Roadmap item:: the operator wait and decisions with their structure (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap]); link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-2[Use Cases, UC-PLN-2]
-Where:: pm-workflow (the decision's states, the interpretation and read-back); pm-core (the decision record, its revisions, the support per option); pm-runtime (the open decisions across scopes, the channel `cli`, the answer endpoint)
+Where:: pm-workflow (the decision's states, the interpretation and read-back); pm-core (the decision-log record, its revisions, the support per option); pm-runtime (the open decisions across scopes, the channel `cli`, the answer endpoint)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
@@ -18,9 +18,9 @@ The specification sections named are the single statement of what each task buil
 . *Own words* and the interpreting role `interpret`: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work § Answers in the Operator's Own Words].
 . *Answers and amendments*: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#answers-and-amendments[Model Work § Answers & Amendments].
 . *The question record and the answer endpoint* with its refusals: link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas § Question Record], link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#cli-answers[§ Answers from the Terminal Client].
-. *Room for Chat before answering* in `decision.answer` and the decision record: § Delivery to the Operator, _Chat before answering_.
+. *Room for Chat before answering* in `decision.answer` and the decision-log record: § Delivery to the Operator, _Chat before answering_.
 
-Left out: the chat, its routing and its rules (link:chat.adoc[`chat`]); the entry's decision stores and their move (link:start-source-intake.adoc[`start-source-intake`]); the quorum (link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`]); the client side (`pm-mcp-clients` / `decision-contract`).
+Left out: the chat, its routing and its rules (link:chat.adoc[`chat`]); the entry's decision logs and their move (link:start-source-intake.adoc[`start-source-intake`]); the quorum (link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`]); the client side (`pm-mcp-clients` / `decision-contract`).
 
 == Trace
 
@@ -28,7 +28,7 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 * Use case: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-2[UC-PLN-2]
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-12[PM-WF-12]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-18[PM-WF-18]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-20[PM-WF-20]
-* Specification: the sections the tasks name; link:../specification/model-work/06-envelopes-questions-deadlines.adoc[Model Work § Questions]; link:../specification/model-work/10-decision-quorum.adoc[§ Decision Quorum]; link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision Record]
+* Specification: the sections the tasks name; link:../specification/model-work/06-envelopes-questions-deadlines.adoc[Model Work § Questions]; link:../specification/model-work/10-decision-quorum.adoc[§ Decision Quorum]; link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision-Log Record]
 * Watch: link:../implementation-watch/model-work.adoc[Model Work]
 
 == Done When

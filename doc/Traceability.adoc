@@ -187,7 +187,7 @@ Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/Stal
 Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_scope_detection[Runtime Start Developer Guide § The Stalled-Scope Detection], link:../pm-runtime/doc/adr/runtime-start/015-stall-derived-on-read-one-record-per-episode.adoc[ADR runtime-start/015]
 
 Implementation (the connection independence of the two calls a model holds, as far as the library module
-`pm-workflow` carries it: the server selects a bounded long-poll or a progress-reset wait from the client profile and
+`pm-workflow` carries it: the server selects a bounded long-poll or a progress-reset wait from the harness profile and
 the request's progress token, and a progress wait emits a frame at every interval before the answer, at least one, so a host never reads the hold as
 an idle connection and the call never ends as a transport timeout. Not implemented yet: the relay and the MCP tool
 binding; the worker supervision that reads the profile is implemented in `runtime.worker`):
@@ -202,7 +202,7 @@ link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-co
 Implementation (the worker side of the continuation, as far as the library module `pm-runtime` carries it and not yet
 wired into the runtime `pm-mcpd`: a worker's next step is answered by the runtime and never chosen by the worker — the
 supervisor holds each generation's end request so the transport answers its next wait with `end`, receives the calls the
-worker makes, and reads the client profile's bounded wait, acknowledgement deadline and silence grace for the supervision
+worker makes, and reads the harness profile's bounded wait, acknowledgement deadline and silence grace for the supervision
 it drives; a lost worker is ended, fenced and its task offered again, and an idle warm worker is ended rather than kept
 alive by the transport): link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java[WorkerSupervisor],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerCalls.java[WorkerCalls],
@@ -318,7 +318,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/RoleUse.java[Ro
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/model/CompositionRefusal.java[CompositionRefusal]
 
 Implementation (the `worker-launch` part of bullets 3, 4 and 5's service side, `runtime.launch`): the launch of a worker
-of an enrolled harness from the role's effective configuration and the harness's client profile — the model tier rendered,
+of an enrolled harness from the role's effective configuration and the harness's harness profile — the model tier rendered,
 the effort narrowed, the working directory fixed, the tool set and the per-call MCP configuration composed, the launch
 prompt with its shared prefix and the writing skill derived from the link schemas, the job token minted and only its
 digest recorded, the harness enrolment store with its HMAC sidecar and its launch-time verification and self-update, and
@@ -1049,7 +1049,7 @@ link:../pm-runtime/doc/adr/runtime-credentials/010-the-aspect-runs-the-delivered
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-3[PM-CRED-3]
 
-Implementation (in part: the file store as the recorded store `file`, its enumeration of `<credential_key>.json` and `<project>/<credential_key>.json` with the naming and permission checks, and its write by a store move; the credential schema, the token refresh of a `github_app` entry and the deny rules of the client bundles are not implemented yet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/FileSecretStore.java[FileSecretStore],
+Implementation (in part: the file store as the recorded store `file`, its enumeration of `<credential_key>.json` and `<project>/<credential_key>.json` with the naming and permission checks, and its write by a store move; the credential schema, the token refresh of a `github_app` entry and the deny rules of the harness bundles are not implemented yet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/FileSecretStore.java[FileSecretStore],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java[CredentialStoreChoice],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreMove.java[CredentialStoreMove]
 
@@ -1321,7 +1321,7 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/runtime-lifec
 == link:../../plan-marshall-documentation/doc/requirements/10-distribution.adoc[Distribution]
 
 [#PM-DIST-1]
-=== PM-DIST-1: Single Version Authority & Embedded Client Bundles
+=== PM-DIST-1: Single Version Authority & Embedded Harness Bundles
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1]
 
@@ -1461,7 +1461,7 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualificati
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification)
 
-== link:../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc[Client Profiles]
+== link:../../plan-marshall-documentation/doc/requirements/13-harness-profiles.adoc[Harness Profiles]
 
 [#PM-CLIENT-2]
 === PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation
@@ -1469,14 +1469,14 @@ Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
 
 Implementation (the role side of bullet 1's *Models & Effort* and *Headless Model Jobs* dimensions, as far as the library
-modules carry it: the facts of a validated client profile that a role is validated and resolved against — worker
+modules carry it: the facts of a validated harness profile that a role is validated and resolved against — worker
 eligibility, the models that accept a restricted tool set, the classes the harness runs, the effort values per model, the
 model tiers, the context-budget fallback, the idle wakeups, the resumability that cuts a role's continuation bounds, and
 the harness's ask-user tool that no role may name — projected from the profile document; a role of a class the harness
 cannot run is invalid with `harness_class_not_runnable`, and the steward takes its model from the harness's tier
 `standard`. Also the endpoint profile of the same sets: `profile_kind: "endpoint"`, its closed document, the locality
 combinations the schema cannot express — the remote form of the protocol `system_one` included — and the projection the
-runtime reads (Client Profiles § Endpoint Harness, § Judgment Endpoint; ADRs core-profile/010, /011 and /012). Also the
+runtime reads (Harness Profiles § Endpoint Harness, § Judgment Endpoint; ADRs core-profile/010, /011 and /012). Also the
 protocol `system_one`: the two typed requests of a judgment task with the options in opposite orders, the server's check
 of each answer against the requested versioned id and the question's options, the remote form's credential read at the
 moment of a request and sent only to the entry's origin without a redirect, the one record of a task, and the
@@ -1530,7 +1530,7 @@ link:../pm-runtime/doc/adr/runtime-endpoint/006-system-one-through-cui-http-pinn
 link:../pm-runtime/doc/adr/runtime-endpoint/007-judgment-verification-without-classes-and-with-billed-limits.adoc[007]
 
 [#PM-CLIENT-5]
-=== PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy
+=== PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]
 
@@ -1561,7 +1561,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessEnrolment
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedUsageFixturesTest.java[ShippedUsageFixturesTest]
 
 Documentation (the usage stage and the usage report):
-link:../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide],
+link:../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide],
 link:../pm-runtime/doc/developer/runtime-launch.adoc[Worker Launch Developer Guide],
 link:../pm-core/doc/adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR core-profile/007],
 link:../pm-runtime/doc/adr/runtime-launch/007-the-usage-report-keeps-the-start-context.adoc[ADR runtime-launch/007]
@@ -1573,7 +1573,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.j
 link:../pm-core/src/test/java/de/planmarshall/core/profile/CanonicalJsonTest.java[CanonicalJsonTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileNeutralityArchTest.java[ProfileNeutralityArchTest]
 
-Documentation: link:../pm-core/doc/developer/core-profile.adoc[Client Profiles Developer Guide],
+Documentation: link:../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide],
 link:../pm-core/doc/adr/core-profile/001-hand-written-closed-validator-over-jackson-core.adoc[ADR core-profile/001],
 link:../pm-core/doc/adr/core-profile/002-canonical-digest-and-hmac-sidecar.adoc[ADR core-profile/002],
 link:../pm-core/doc/adr/core-profile/003-refused-profile-is-a-value-next-set-in-force.adoc[ADR core-profile/003],
@@ -1740,7 +1740,7 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-4[PM-IMPL-4
 
 Implementation (the waits of the two calls a model holds, as far as the library module `pm-workflow` carries them: the
 bounded long-poll and the progress-reset wait are values over their start and window, the progress frames are the
-intervals after the start up to the answer, and the server selects the wait from the client profile's
+intervals after the start up to the answer, and the server selects the wait from the harness profile's
 `connection.progress_resets_timeout` and the request's `_meta.progressToken`; the bounded window and the machine's
 progress upper bound are validated at their specification bounds. Not implemented yet: the MCP tool binding, the
 relay's `notifications/progress` sender, and the cancellation of a held call):
@@ -2133,7 +2133,7 @@ effective model catalogue, the project's else the machine's, with `model_not_all
 profile and the catalogue with the ten reasons of the table; the composition check with `role_undefined` and
 `class_mismatch`, at composition and at task creation; the one model caller with the judge and steward skipping Qualify,
 and the steward's harness from `harnesses.default` of `machine-config.json` and its model from the tier `standard`; and an
-endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Client Profiles § Endpoint
+endpoint harness runs the class `zero_tool` alone, its projection carrying no other class (Harness Profiles § Endpoint
 Harness, ADR core-profile/011). Not
 traced here: the launch's use of the escalation assignment (bullet 9, whose storage
 and validation are traced below), the shipped artifacts, tiers,
@@ -2387,7 +2387,7 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/qualificati
 
 Documentation: link:../pm-core/doc/developer/core-role.adoc[Role Developer Guide] (§ Role Qualification), link:../pm-workflow/doc/developer/workflow-model.adoc[The One Model Caller Developer Guide] (§ The Grading Run and the Qualification Lookup), link:../pm-core/doc/adr/core-role/003-qualification-measurements-decided-at-every-check.adoc[ADR core-role/003], link:../pm-core/doc/adr/core-role/004-grading-through-ports-not-a-worker-runtime.adoc[ADR core-role/004], link:../pm-workflow/doc/adr/workflow-model/002-the-grading-run-in-workflow-model.adoc[ADR workflow-model/002]
 
-The weights identity of an endpoint harness (Client Profiles § Weights Identity): the identity of every allowed model's
+The weights identity of an endpoint harness (Harness Profiles § Weights Identity): the identity of every allowed model's
 weights is read at enrolment, at every start of the runtime and at every project setup run, recorded beside the model in
 the harness enrolment, and it is a member of the qualification digest, so a model whose weights changed is unqualified
 until it is graded again; the change is audited `harness_updated`, naming the model and both identities:

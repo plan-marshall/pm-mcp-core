@@ -1,4 +1,4 @@
-= Client Profiles Specification: Endpoint Harness
+= Harness Profiles Specification: Endpoint Harness
 :toc: left
 :toclevels: 3
 :toc-title: Table of Contents
@@ -6,13 +6,13 @@
 :source-highlighter: highlight.js
 :nofooter:
 
-link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles Specification] » Endpoint Harness
+link:../../Specification.adoc[Specification] » link:../harness-profiles.adoc[Harness Profiles Specification] » Endpoint Harness
 
 [#endpoint-harness]
 == A Model on This Machine
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner) is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]; the commit message and the change type where an artifact of their roles sets the class, link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]), and no other. It is described by an endpoint profile of the same profile sets, verification and override rules as a client profile. The runtime never starts, stops or configures the serving program, and no task text reaches a program other than the enrolled one. Nothing an endpoint is given leaves the machine, so untrusted text screened on it reaches no model provider. A judgment role, which answers a typed question with a probability per option, is deferred (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-39[L-39]).
+A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner) is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]; the commit message and the change type where an artifact of their roles sets the class, link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]), and no other. It is described by an endpoint profile of the same profile sets, verification and override rules as a harness profile. The runtime never starts, stops or configures the serving program, and no task text reaches a program other than the enrolled one. Nothing an endpoint is given leaves the machine, so untrusted text screened on it reaches no model provider. A judgment role, which answers a typed question with a probability per option, is deferred (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-39[L-39]).
 
 * *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own
   terms; the runtime only sends requests to it and checks before each request that the program listening on the profile's
@@ -33,15 +33,15 @@ A model that a program of the machine serves over HTTP on the loopback interface
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/endpoint-profile.json",
   "title": "EndpointProfile",
   "type": "object",
-  "required": ["profile_kind", "schema_version", "client_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
+  "required": ["profile_kind", "schema_version", "harness_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
   "additionalProperties": false,
   "properties": {
     "profile_kind": { "type": "string", "const": "endpoint" },
     "schema_version": { "type": "integer", "const": 1 },
-    "client_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+    "harness_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
     "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
     "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "icon": { "description": "As the icon of a client profile (Client Profile Schema)." },
+    "icon": { "description": "As the icon of a harness profile (Harness Profile Schema)." },
     "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
     "identity": {
       "type": "object",
@@ -52,7 +52,7 @@ A model that a program of the machine serves over HTTP on the loopback interface
         "version_pattern": { "type": "string" }
       }
     },
-    "update_evidence": { "description": "As headless.update_evidence of a client profile (Update Evidence)." },
+    "update_evidence": { "description": "As headless.update_evidence of a harness profile (Update Evidence)." },
     "endpoint": {
       "type": "object",
       "required": ["protocol", "base_url", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
@@ -69,7 +69,7 @@ A model that a program of the machine serves over HTTP on the loopback interface
         "request_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 3600 }
       }
     },
-    "model_tiers": { "description": "As headless.model_tiers of a client profile (Model Tiers & Models of a Harness)." },
+    "model_tiers": { "description": "As headless.model_tiers of a harness profile (Model Tiers & Models of a Harness)." },
     "weights_probe": { "$ref": "#/$defs/weights_probe" }
   },
   "$defs": {
@@ -89,7 +89,7 @@ A model that a program of the machine serves over HTTP on the loopback interface
 }
 ----
 
-Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source.
+Profile validation applies the rules of a harness profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source.
 
 [#endpoint-request]
 === The Request

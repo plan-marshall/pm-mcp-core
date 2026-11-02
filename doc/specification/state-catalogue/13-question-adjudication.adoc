@@ -46,7 +46,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |the caller's phase value
 |`terminal`
 |`adjudicate.decide` (`agreed`).
-|Terminal `decided` (class `success`): its transaction writes one `question.adjudicate` decision record per question (reason `agreement`, every vote), the set's `adjudicated` lines naming them, and answers every question with its agreed option, `channel: quorum`; the question state's call resolves `answered` without delivering the decision.
+|Terminal `decided` (class `success`): its transaction writes one `question.adjudicate` decision-log record per question (reason `agreement`, every vote), the set's `adjudicated` lines naming them, and answers every question with its agreed option, `channel: quorum`; the question state's call resolves `answered` without delivering the decision.
 |Returns `decided` to the question state.
 |link:../model-work/10-decision-quorum.adoc#adjudication-record[Model Work Specification, Record, Delivery & Audit]
 
@@ -54,7 +54,7 @@ The adjudication, its decision declarations, the blind input, the decision rule,
 |the caller's phase value
 |`terminal`
 |`adjudicate.check` (`ineligible`); `adjudicate.vote` (`lost`); `adjudicate.decide` (`not_agreed`).
-|Terminal `escalated` (class `success`): where a quorum voted, its transaction writes one `question.adjudicate` decision record per question with the reason and the votes taken, the set's `adjudicated` lines naming them; the decision then carries the support of each option.
+|Terminal `escalated` (class `success`): where a quorum voted, its transaction writes one `question.adjudicate` decision-log record per question with the reason and the votes taken, the set's `adjudicated` lines naming them; the decision then carries the support of each option.
 |Returns `escalated` to the question state, whose call of `decision` delivers the set to the operator as one decision (xref:16-decision.adoc#state-catalogue-decision[Decision]).
 |link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
 |===

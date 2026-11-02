@@ -72,7 +72,7 @@ Aggregates are never persisted; they are derived in views from `rows[]`.
         { "type": "string", "enum": ["unmeasured", "not_applicable"] }
       ]
     },
-    "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of an enrolled harness (identifiers.adoc, client_id), an operator-added harness included." },
+    "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of an enrolled harness (identifiers.adoc, harness_id), an operator-added harness included." },
     "phase": { "type": "string", "enum": ["phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-6-finalize"] },
     "taskRow": {
       "type": "object",
@@ -156,7 +156,7 @@ Aggregates are never persisted; they are derived in views from `rows[]`.
       "properties": {
         "kind": { "const": "wait" },
         "phase": { "$ref": "#/$defs/phase" },
-        "wait_reason": { "type": "string", "enum": ["build", "git", "ci", "model_job", "review_bot_window", "operator_wait", "paused", "merge_queue", "merge_mutex", "server_retry", "provider_rate_limit", "prerequisite", "integrity_pause"], "description": "Wait attribution reason (operator_wait: an operator wait of the plan, a decision or a waiver request among them; paused: the operator's pause; integrity_pause: the scope paused by an integrity_breach, recorded deliberate false); the closed enum and the mapping of every wait to one reason are defined in job-runtime.adoc, Wait Attribution." },
+        "wait_reason": { "type": "string", "enum": ["build", "git", "ci", "model_job", "review_bot_window", "operator_wait", "paused", "merge_queue", "merge_mutex", "server_retry", "provider_rate_limit", "prerequisite", "integrity_hold"], "description": "Wait attribution reason (operator_wait: an operator wait of the plan, a decision or a waiver request among them; paused: the operator's pause; integrity_hold: the scope held by an integrity_breach, recorded deliberate false); the closed enum and the mapping of every wait to one reason are defined in job-runtime.adoc, Wait Attribution." },
         "deliberate": { "type": "boolean" },
         "duration_ms": { "type": "integer", "minimum": 0 },
         "started_at": { "type": "string", "format": "date-time" }

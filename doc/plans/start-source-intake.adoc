@@ -12,7 +12,7 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 The specification sections named are the single statement of what each task builds. Each task builds on the setup gate, the source units and the other sources of link:start-from-clients.adoc[`start-from-clients`].
 
-. *The entry as a directory*, replacing the file form of `PendingEntryStore`, `EntryId`, `PendingEntryReader` and its codec, with its integrity pause: link:../specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry].
+. *The entry as a directory*, replacing the file form of `PendingEntryStore`, `EntryId`, `PendingEntryReader` and its codec, with its integrity hold: link:../specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry].
 . *An entry never expires*: the code's maximum age and the sweep step that removes older records go; the sweep keeps only the removal of a cut-off directory: link:../specification/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry]; link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle § Periodic Sweep].
 . *The source directory and the move at creation*, the manifest, `origin`, the epic header, `request.md` and `epic.decompose` reading them: link:../specification/filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout § The Source Directory].
 . *An epic's sources in its ledger*: § The Source Directory.
@@ -38,4 +38,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-42[PM-WATCH-STORE-42], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-58[PM-WATCH-STORE-58].
-* Tests: an entry opened as its directory and its creation moving sources, transcript and decision stores, the directory deleted last; a tampered entry; a manifest entry per stored source; a failed screening, a failing screener and a screener without qualified configuration; a rate-limited issue and pull request; an entry older than a day still offered, and a cut-off directory swept; documents with each mode; a claimed lesson on a merge, a push and every other end; `PendingEntrySchemaParityTest` and `AuditSchemaParityTest.enums` without `@Disabled`.
+* Tests: an entry opened as its directory and its creation moving sources, transcript and decision logs, the directory deleted last; a tampered entry; a manifest entry per stored source; a failed screening, a failing screener and a screener without qualified configuration; a rate-limited issue and pull request; an entry older than a day still offered, and a cut-off directory swept; documents with each mode; a claimed lesson on a merge, a push and every other end; `PendingEntrySchemaParityTest` and `AuditSchemaParityTest.enums` without `@Disabled`.

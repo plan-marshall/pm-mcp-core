@@ -109,7 +109,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-2-refine`
 |`job`
 |`refine.analyze` (`builder_check`, once per plan).
-|`job llm builder role qgate`: `facts` carry the intent record only; the entity submits `submit:builder-check` (`questions:schema[builder-questions]`). The server adds the `minor` answers to the record as decisions of decider `model` and appends a `refine.builder-check` decision record.
+|`job llm builder role qgate`: `facts` carry the intent record only; the entity submits `submit:builder-check` (`questions:schema[builder-questions]`). The server adds the `minor` answers to the record as choices of decider `role` and appends a `refine.builder-check` decision-log record.
 |`ask` (operator questions, relaunch unused) -> `refine.awaiting_answers`; `continue` (none, or the relaunch spent: kept as `facts.builder_open_questions`) -> `refine.qgate` (lesson-derived) or `refine.ready`; `infeasible`, `lost`, and an unqualified `qgate` record `not_run` and continue the same way.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows Specification, Builder Check]
 
@@ -125,7 +125,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-2-refine`
 |`auto`
 |`refine.hypothesis-refuted` (`continue_narrowed`).
-|`auto refine.record-narrowing`: writes the narrowed scope as an `amendments[]` entry (`source: model`), listed in the pull request body and the landing record.
+|`auto refine.record-narrowing`: writes the narrowed scope as an `amendments[]` entry (`source: role`), listed in the pull request body and the landing record.
 |`recorded` -> `refine.ready`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows Specification, Open Hypotheses of Epic Plans]
 

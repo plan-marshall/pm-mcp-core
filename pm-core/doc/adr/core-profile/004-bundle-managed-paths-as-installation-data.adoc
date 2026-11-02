@@ -45,5 +45,5 @@ installed.
 == Source
 
 * Work package `profile-loader` (PLAN-19)
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#headless-writable-paths[Client Profiles § Writable Paths]
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#harness-as-data[Client Profiles § The Profile Is the Harness]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#headless-writable-paths[Client Profiles § Writable Paths]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#harness-as-data[Client Profiles § The Profile Is the Harness]

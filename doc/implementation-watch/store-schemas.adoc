@@ -97,7 +97,7 @@ Hazard:: `plan-marshall` init wrote files one by one; a failure between writes l
 status or references, reported as a created plan.
 Guard:: The `start.create-scope` transaction of the plan bootstrap builds the complete plan directory (`request.md`,
 `references.json`, `mcp/status.json`, `mcp/digests.json`, and the copies of the entry's source directory,
-transcript, and decision stores) in a sibling temporary
+transcript, and decision logs) in a sibling temporary
 directory and publishes it with one atomic directory rename; startup recovery deletes orphaned temporary init directories; a plan directory without `mcp/status.json`
 is never listed. Test: inject a fault after each file write → no plan visible, the pending entry not
 consumed.
@@ -443,7 +443,7 @@ link:../specification/timeouts/01-job-budgets-and-waits.adoc#waiver-wait[Timeout
 Hazard:: A timer left on a decision or a waiver request decides it on the operator's behalf after a restart or a
 pause; two answers racing in one instant (from both clients, or an answer and a withdrawal) both apply.
 Guard:: Tests on a test clock: a decision and a waiver request advanced by any span, across a runtime restart and an
-integrity pause, stay open with no record field that names an expiry and no default applied; two answers in the
+integrity hold, stay open with no record field that names an expiry and no default applied; two answers in the
 same instant (web and terminal client) settle exactly one of them (the first committed transaction), the other
 refused `already_answered`; an answer after the request was closed (`cancelled` by a plan end) is refused and
 changes nothing.

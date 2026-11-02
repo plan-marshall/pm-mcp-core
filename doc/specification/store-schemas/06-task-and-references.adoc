@@ -249,7 +249,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json",
   "title": "IntentRecord",
   "type": "object",
-  "required": ["why", "goal", "criteria", "current_behaviour", "repairs", "non_goals", "constraints", "decisions", "assumptions", "open_questions", "deferred", "source_claims"],
+  "required": ["why", "goal", "criteria", "current_behaviour", "repairs", "non_goals", "constraints", "choices", "assumptions", "open_questions", "deferred", "source_claims"],
   "additionalProperties": false,
   "properties": {
     "why": { "type": "string", "minLength": 20, "maxLength": 1000 },
@@ -296,7 +296,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
         }
       }
     },
-    "decisions": {
+    "choices": {
       "type": "array", "maxItems": 30,
       "items": {
         "type": "object",
@@ -306,7 +306,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
           "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
           "text": { "type": "string", "minLength": 5, "maxLength": 500 },
           "options_weighed": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
-          "decider": { "type": "string", "enum": ["operator", "quorum", "model", "fact"] },
+          "decider": { "type": "string", "enum": ["operator", "quorum", "role", "fact"], "description": "A decider kind (store-schemas/18, Decider Kind): role is the role's own call." },
           "question_id": { "type": ["string", "null"], "description": "The answered part, for decider operator or quorum; null otherwise." },
           "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." },
           "adr": {

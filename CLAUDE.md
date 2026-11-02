@@ -20,7 +20,7 @@ never repeat the listing here. The specifications this repository implements liv
 documented in. The requirements, use cases, roadmap, the shared specifications (`module-structure.adoc` among them),
 `implementation-watch/cross-cutting.adoc`, and the concept and user documentation live in the documentation
 repository `plan-marshall/plan-marshall-documentation`; the developer documentation of a package and the architectural
-decision records (ADRs) live in the module (section "Module Documentation"). The code documentation (Javadoc and
+decision-log records (ADRs) live in the module (section "Module Documentation"). The code documentation (Javadoc and
 `package-info.java`) and the work package files with their index below `doc/plans/` live here as well. A plan changes
 the specification, watch and traceability here in its own pull request; it opens a pull request in the documentation
 only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there. Every concrete

@@ -36,7 +36,7 @@ Source:: design review.
 
 Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle § Stalled Plans],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
-Hazard:: A plan waiting for the operator (an operator wait never ended by time, like the integrity pause and a
+Hazard:: A plan waiting for the operator (an operator wait never ended by time, like the integrity hold and a
 pause) is invisible, or is treated as a bounded wait and expires.
 Guard:: Aged fixture: a plan resting in an operator wait (an open decision) beyond the stalled threshold is listed by
 `pm-operator status`, the web app, and the event stream as waiting for an answer with the decision named, never as

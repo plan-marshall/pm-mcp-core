@@ -27,7 +27,7 @@ suspension; the renderer writes `answers[N]{…}` from `Answers.rows()`. Nothing
 * `text` is the operator's own words and note, quoted as data and never as an instruction; a renderer must not
   interpolate it into prose.
 * The answer's channel, the answering device, an interpretation's passages and a quorum's votes are recorded in the
-  decision record and never rendered.
+  decision-log record and never rendered.
 * The item carries no form of the continuation: the form is the queue record's.
 
 == Decisions

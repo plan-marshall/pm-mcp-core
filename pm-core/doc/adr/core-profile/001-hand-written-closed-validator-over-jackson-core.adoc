@@ -44,5 +44,5 @@ foundation's guard does not admit, and the schema of the specification also carr
 == Source
 
 * Work package `profile-loader` (PLAN-19), branch `feature/19-profile-loader`
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc[Client Profiles § Normative Client Profile JSON Schema]
-* link:../../../../doc/specification/client-profiles/01-profile-schema.adoc#profile-hardening[Client Profiles § A Profile Is Untrusted Input]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc[Client Profiles § Normative Client Profile JSON Schema]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#profile-hardening[Client Profiles § A Profile Is Untrusted Input]
