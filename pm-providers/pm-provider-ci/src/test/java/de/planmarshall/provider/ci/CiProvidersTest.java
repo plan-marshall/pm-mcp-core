@@ -43,9 +43,9 @@ class CiProvidersTest {
         var registry = new CiProviders(List.of(github, gitlab));
 
         assertAll("the registry lookup",
-                                () -> assertTrue(registry.find("github").isPresent(), "a registered id is found"),
-                                () -> assertEquals(gitlab, registry.find("gitlab").orElseThrow(), "the provider is returned"),
-                                () -> assertTrue(registry.find("forgejo").isEmpty(), "an unknown id is empty"));
+                () -> assertTrue(registry.find("github").isPresent(), "a registered id is found"),
+                () -> assertEquals(gitlab, registry.find("gitlab").orElseThrow(), "the provider is returned"),
+                () -> assertTrue(registry.find("forgejo").isEmpty(), "an unknown id is empty"));
     }
 
     @Test

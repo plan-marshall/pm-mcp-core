@@ -82,8 +82,8 @@ public record RepositoryRef(String forge, String origin, String ownerOrPath, Str
             throw new IllegalArgumentException("the origin '%s' is not a URL".formatted(origin), e);
         }
         if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getUserInfo() != null
-                                || uri.getQuery() != null || uri.getFragment() != null
-                                || !(uri.getPath() == null || uri.getPath().isEmpty() || "/".equals(uri.getPath()))) {
+                || uri.getQuery() != null || uri.getFragment() != null
+                || !(uri.getPath() == null || uri.getPath().isEmpty() || "/".equals(uri.getPath()))) {
             throw new IllegalArgumentException("the origin '%s' is not an https origin without a path".formatted(origin));
         }
         String host = uri.getHost().toLowerCase(Locale.ROOT);
