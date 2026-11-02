@@ -53,6 +53,10 @@ package reports the first package's counts.
 |Every TAP summary block is summed. The original reads the first occurrence of each summary line.
 |`ported/build/npm-tap/deliberate-tap-two-blocks.txt`
 
+|A TAP summary whose `# tests` total is not the sum of its parts is `TestCounts.Unmeasured`. The original reports the
+total beside its parts, which reads as four independent facts.
+|`ported/build/npm-tap/deliberate-tap-unmeasured-tests.txt`
+
 |A measured zero is a measurement. TAP prints no positive "no tests" marker, so a filter that matched nothing reports
 `# tests 0` as a measured zero and never a `no_tests_ran` verdict (PM-WATCH-JOB-11).
 |`ported/build/npm-tap/deliberate-tap-zero-tests.txt`

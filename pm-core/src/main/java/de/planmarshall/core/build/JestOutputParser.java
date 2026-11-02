@@ -89,7 +89,8 @@ public class JestOutputParser {
         for (String line : lines) {
             Matcher fail = FAIL_HEADER.matcher(line);
             if (fail.matches()) {
-                currentFile = fail.group(1).strip();
+                String file = fail.group(1).strip();
+                currentFile = file.isBlank() ? null : file;
                 continue;
             }
             if (line.strip().startsWith(TEST_MARKER)) {

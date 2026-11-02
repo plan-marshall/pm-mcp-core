@@ -31,9 +31,11 @@ import lombok.experimental.UtilityClass;
  * The native parse of a pyproject (Python) build log, ported from {@code build-pyproject/_pyproject_cmd_parse.py}.
  * <p>
  * A pyproject log commonly carries the output of several tools of one verify run, so the parser detects each tool by its
- * own content marker and combines the results: mypy ({@code path:line: error: message}) as {@link Category#TYPE_ERROR},
- * ruff ({@code path:line:column: CODE message}) as {@link Category#LINT_ERROR}, and pytest's {@code FAILED} and
- * {@code ERROR} short-summary lines as {@link Category#TEST_FAILURE} and {@link Category#TEST_COLLECTION_ERROR}.
+ * own content marker and combines the results: mypy ({@code path:line: error: message}), whose category is the first match
+ * of the original's Python pattern table (a type error by default, an import failure for an import message, and a lint or
+ * test-failure category for a message that table places so), ruff ({@code path:line:column: CODE message}) as
+ * {@link Category#LINT_ERROR}, and pytest's {@code FAILED} and {@code ERROR} short-summary lines as
+ * {@link Category#TEST_FAILURE} and {@link Category#TEST_COLLECTION_ERROR}.
  * <p>
  * The pytest parse follows the original: a block under the {@code FAILURES} or {@code ERRORS} banner supplies the location
  * (the deepest {@code path.py:NN} frame of its traceback, ahead of any captured-output section) and, for a collection error
@@ -109,11 +111,13 @@ public class PyprojectOutputParser {
      * wins, and a message that matches none stays a {@link Category#TYPE_ERROR}.
      */
     private static final List<PythonCategory> PYTHON_CATEGORIES = List.of(
-            new PythonCategory(Category.TYPE_ERROR, List.of("\\.py:\\d+: error:", "incompatible type",
-                    "incompatible return value", "has no attribute", "missing positional argument")),
-            new PythonCategory(Category.LINT_ERROR, List.of("\\.py:\\d+:\\d+: [A-Z]+\\d+", "ruff")),
-            new PythonCategory(Category.TEST_FAILURE, List.of("^FAILED ", "AssertionError", "assert ")),
-            new PythonCategory(Category.IMPORT_ERROR, List.of("ModuleNotFoundError", "ImportError", "No module named")));
+            new PythonCategory(Category.TYPE_ERROR,
+                    matchers("\\.py:\\d+: error:", "incompatible type", "incompatible return value",
+                            "has no attribute", "missing positional argument")),
+            new PythonCategory(Category.LINT_ERROR, matchers("\\.py:\\d+:\\d+: [A-Z]+\\d+", "ruff")),
+            new PythonCategory(Category.TEST_FAILURE, matchers("^FAILED ", "AssertionError", "assert ")),
+            new PythonCategory(Category.IMPORT_ERROR,
+                    matchers("ModuleNotFoundError", "ImportError", "No module named")));
 
     /**
      * Parses a pyproject build log.
@@ -190,8 +194,8 @@ public class PyprojectOutputParser {
      */
     private static Category categoryOf(String message) {
         for (PythonCategory category : PYTHON_CATEGORIES) {
-            for (String pattern : category.patterns()) {
-                if (pythonPatternMatches(pattern, message)) {
+            for (PythonPattern pattern : category.patterns()) {
+                if (pattern.matches(message)) {
                     return category.category();
                 }
             }
@@ -199,11 +203,14 @@ public class PyprojectOutputParser {
         return Category.TYPE_ERROR;
     }
 
-    private static boolean pythonPatternMatches(String pattern, String message) {
-        if (PATTERN_METACHARACTERS.matcher(pattern).find()) {
-            return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(message).find();
+    private static List<PythonPattern> matchers(String... patterns) {
+        var matchers = new ArrayList<PythonPattern>();
+        for (String pattern : patterns) {
+            matchers.add(PATTERN_METACHARACTERS.matcher(pattern).find()
+                    ? new PythonPattern.Regex(Pattern.compile(pattern, Pattern.CASE_INSENSITIVE))
+                    : new PythonPattern.Literal(pattern.toLowerCase(Locale.ROOT)));
         }
-        return message.toLowerCase(Locale.ROOT).contains(pattern.toLowerCase(Locale.ROOT));
+        return List.copyOf(matchers);
     }
 
     private static List<Diagnostic> ruffDiagnostics(List<String> lines) {
@@ -254,8 +261,14 @@ public class PyprojectOutputParser {
             String terse = testName == null ? "Error collecting " + error.file() : "Error in " + testName;
             String key = testName == null ? error.file() : pytestBlockKey(testName);
             String block = consume(errorBlocks, errorCursors, key);
-            String message = error.message() != null ? error.message()
-                    : block == null ? terse : exceptionMessage(block).orElse(terse);
+            String message;
+            if (error.message() != null) {
+                message = error.message();
+            } else if (block == null) {
+                message = terse;
+            } else {
+                message = exceptionMessage(block).orElse(terse);
+            }
             add(diagnostics, seen, pytestDiagnostic(error.file(), block == null ? null : frame(block), message,
                     Category.TEST_COLLECTION_ERROR));
         }
@@ -555,8 +568,49 @@ public class PyprojectOutputParser {
      * One category of the original's Python pattern table.
      *
      * @param category the category the patterns assign
-     * @param patterns the patterns, in the original's order
+     * @param patterns the compiled patterns, in the original's order
      */
-    private record PythonCategory(Category category, List<String> patterns) {
+    private record PythonCategory(Category category, List<PythonPattern> patterns) {
+    }
+
+    /**
+     * One pattern of the original's Python table: a case-insensitive regular expression matched anywhere, or a
+     * case-insensitive literal substring.
+     */
+    private sealed interface PythonPattern {
+
+        /**
+         * Whether the message matches this pattern.
+         *
+         * @param message the message to inspect
+         * @return {@code true} when the pattern matches
+         */
+        boolean matches(String message);
+
+        /**
+         * A literal pattern, matched as a case-insensitive substring.
+         *
+         * @param lower the pattern in lower case
+         */
+        record Literal(String lower) implements PythonPattern {
+
+            @Override
+            public boolean matches(String message) {
+                return message.toLowerCase(Locale.ROOT).contains(lower);
+            }
+        }
+
+        /**
+         * A regular-expression pattern, matched case-insensitively anywhere in the message.
+         *
+         * @param pattern the compiled expression
+         */
+        record Regex(Pattern pattern) implements PythonPattern {
+
+            @Override
+            public boolean matches(String message) {
+                return pattern.matcher(message).find();
+            }
+        }
     }
 }

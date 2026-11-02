@@ -65,6 +65,17 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
                         build.diagnostics().getFirst().message(), "The YAML error supplies the message"));
     }
 
+    @Test
+    @DisplayName("ignores a not-ok line that names no test")
+    void ignoresABlankTestName() {
+        ParsedBuild build = TapOutputParser.parse(
+                "not ok 1 -   \n# tests 1\n# pass 0\n# fail 1\n# skipped 0\n");
+
+        assertAll(
+                () -> assertEquals(0, build.diagnostics().size(), "A line with no test identity files nothing"),
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "No filed diagnostic means no red status"));
+    }
+
     @Override
     ParsedBuild parse(String logText) {
         return TapOutputParser.parse(logText);

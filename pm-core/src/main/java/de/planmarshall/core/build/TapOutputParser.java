@@ -110,6 +110,10 @@ public class TapOutputParser {
             String testName = notOk.group(1).strip();
             var cursor = new Cursor(index + 1);
             var block = yamlBlock(lines, cursor);
+            index = cursor.index;
+            if (testName.isBlank()) {
+                continue;
+            }
             String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
             Location location = location(block.location());
             var diagnostic = new Diagnostic(location.file(), location.line(), null,
@@ -118,7 +122,6 @@ public class TapOutputParser {
             if (seen.add(DiagnosticCollector.key(diagnostic))) {
                 diagnostics.add(diagnostic);
             }
-            index = cursor.index;
         }
         return List.copyOf(diagnostics);
     }

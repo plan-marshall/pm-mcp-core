@@ -1,6 +1,6 @@
 deliberate: deliberate-tap-unmeasured-tests
-# A summary whose `# tests` total is not the sum of its parts is no measurement: the original publishes the
-# total beside zero parts, which reads as four independent facts and is none of them.
+# A summary whose `# tests` total is not the sum of its parts is no measurement: the original reports the
+# total beside its parts, which reads as four independent facts and is none of them.
 log TAP version 13
 log 1..2
 log # tests 5

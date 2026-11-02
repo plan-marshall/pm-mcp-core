@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -60,6 +61,21 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
                         "The test marker supplies the message"),
                 () -> assertTrue(build.diagnostics().getFirst().stackTrace().endsWith("src/a.test.ts:7:9)"),
                         "The stack ends at the failure frame"));
+    }
+
+    @Test
+    @DisplayName("ignores a FAIL header that names no suite")
+    void ignoresABlankSuite() {
+        ParsedBuild build = JestOutputParser.parse("FAIL   \n"
+                + "  ● a › b\n"
+                + "\n"
+                + "      at Object.<anonymous> (src/a.ts:3:1)\n"
+                + "\n"
+                + "Tests:       1 failed, 0 passed, 1 total\n");
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The block is still filed as one diagnostic"),
+                () -> assertNull(build.diagnostics().getFirst().file(), "A blank suite header names no file"));
     }
 
     @Override
