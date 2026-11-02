@@ -307,8 +307,8 @@ public final class LessonStore {
         }
         candidates.sort(Comparator
                 .comparing((LessonResolution.Found found) -> found.lessonId().hourPrefix())
-                .thenComparingInt(found -> found.lessonId().value().length())
-                .thenComparing(found -> found.lessonId().value())
+                .thenComparingInt(found -> normalized(sequenceOf(found.lessonId())).length())
+                .thenComparing(found -> normalized(sequenceOf(found.lessonId())))
                 .reversed());
         return List.copyOf(candidates);
     }
@@ -395,7 +395,7 @@ public final class LessonStore {
                 .build();
         var lesson = new Lesson(next, body);
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));
-        return new LessonResolution.Revised(lesson);
+        return new LessonResolution.Revised(lessonId, lesson);
     }
 
     /**
@@ -434,7 +434,7 @@ public final class LessonStore {
                 .build();
         var lesson = new Lesson(retired, found.lesson().body());
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));
-        return new LessonResolution.Retired(lesson);
+        return new LessonResolution.Retired(lessonId, lesson);
     }
 
     // ---------------------------------------------------------------- claim, release and the end of a claim
@@ -472,7 +472,7 @@ public final class LessonStore {
         var claimed = frontMatter.toBuilder().claim(new Claim(planId, now)).build();
         var lesson = new Lesson(claimed, found.lesson().body());
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));
-        return new LessonResolution.Claimed(lesson);
+        return new LessonResolution.Claimed(lessonId, lesson);
     }
 
     /**
@@ -508,7 +508,7 @@ public final class LessonStore {
         var released = frontMatter.toBuilder().claim(null).build();
         var lesson = new Lesson(released, found.lesson().body());
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));
-        return new LessonResolution.Released(lesson);
+        return new LessonResolution.Released(lessonId, lesson);
     }
 
     /**
@@ -538,7 +538,7 @@ public final class LessonStore {
         if (frontMatter.status() == Status.RETIRED) {
             var recorded = frontMatter.retired();
             if (recorded != null && recorded.verdict() == Verdict.APPLIED && planId.equals(recorded.by())) {
-                return new LessonResolution.Retired(found.lesson());
+                return new LessonResolution.Retired(lessonId, found.lesson());
             }
             return new LessonResolution.Unavailable(lessonId, LessonResolution.Refusal.RETIRED, null);
         }
@@ -563,7 +563,7 @@ public final class LessonStore {
                 .build();
         var lesson = new Lesson(retired, found.lesson().body());
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));
-        return new LessonResolution.Retired(lesson);
+        return new LessonResolution.Retired(lessonId, lesson);
     }
 
     /** The reason recorded by the end of a claim, whose verdict is the plan's landing. */
@@ -659,37 +659,44 @@ public final class LessonStore {
 
     /** The next sequence string of the hour: one past every sequence present on disk, in the sidecar or in a target. */
     private String nextSequence(ScopeTransaction transaction, String hour) {
+        var lessonIds = new ArrayList<>(lessonIds());
+        transaction.targetPaths().stream().filter(path -> path.indexOf('/') < 0)
+                .map(LessonId::fromFileName).flatMap(Optional::stream).forEach(lessonIds::add);
         String highest = null;
-        for (var lessonId : lessonIds()) {
-            if (!lessonId.hourPrefix().equals(hour)) {
-                continue;
-            }
-            var present = lessonId.value().substring(LessonId.HOUR_PREFIX_LENGTH + 1);
-            if (highest == null || isHigher(present, highest)) {
-                highest = present;
-            }
-        }
-        for (var targetPath : transaction.targetPaths()) {
-            var target = targetPath.indexOf('/') < 0 ? LessonId.fromFileName(targetPath) : Optional.<LessonId>empty();
-            if (target.isEmpty() || !target.get().hourPrefix().equals(hour)) {
-                continue;
-            }
-            var present = target.get().value().substring(LessonId.HOUR_PREFIX_LENGTH + 1);
-            if (highest == null || isHigher(present, highest)) {
-                highest = present;
+        for (var lessonId : lessonIds) {
+            if (lessonId.hourPrefix().equals(hour)) {
+                var sequence = sequenceOf(lessonId);
+                if (highest == null || isHigher(sequence, highest)) {
+                    highest = sequence;
+                }
             }
         }
         return highest == null ? FIRST_SEQUENCE : increment(highest);
     }
 
+    /** @param lessonId a lesson @return its per-hour sequence as it is written */
+    private static String sequenceOf(LessonId lessonId) {
+        return lessonId.value().substring(LessonId.HOUR_PREFIX_LENGTH + 1);
+    }
+
+    /**
+     * @param sequence a per-hour sequence, which the identifier grammar admits with leading zeros
+     * @return the same number without leading zeros, so two spellings of one number compare equal
+     */
+    private static String normalized(String sequence) {
+        var stripped = sequence.replaceFirst("^0+", "");
+        return stripped.isEmpty() ? "0" : stripped;
+    }
+
     /**
      * @param candidate a sequence of the same hour
      * @param current   the highest sequence seen so far
-     * @return whether the candidate is higher: a longer digit string is a higher number, then the digits compare
+     * @return whether the candidate is a higher number, its leading zeros removed first
      */
     private static boolean isHigher(String candidate, String current) {
-        return candidate.length() == current.length() ? candidate.compareTo(current) > 0
-                : candidate.length() > current.length();
+        var higher = normalized(candidate);
+        var lower = normalized(current);
+        return higher.length() == lower.length() ? higher.compareTo(lower) > 0 : higher.length() > lower.length();
     }
 
     /** @param sequence a sequence of the hour; @return the next one, a digit longer when every digit was a nine */
@@ -711,25 +718,33 @@ public final class LessonStore {
      * @return whether one of them names a lesson of the kind {@code lesson} that is marked untrusted
      */
     private boolean citesUntrustedLesson(ScopeTransaction transaction, List<Source> sources) {
-        for (var source : sources) {
-            var cited = source.kind() == Source.Kind.LESSON ? LessonId.parse(source.ref()) : Optional.<LessonId>empty();
-            if (cited.isEmpty()) {
-                continue;
-            }
-            var pending = transaction.targetContent(storePath(cited.get()));
-            if (pending.isPresent()) {
-                if (LessonCodec.decode(pending.get()) instanceof LessonCodec.Readable readable
-                        && readable.lesson().frontMatter().derivedFromUntrusted()) {
-                    return true;
-                }
-                continue;
-            }
-            if (get(transaction, cited.get()) instanceof LessonResolution.Found found
-                    && found.lesson().frontMatter().derivedFromUntrusted()) {
-                return true;
-            }
+        return sources.stream().anyMatch(source -> citesUntrustedLesson(transaction, source));
+    }
+
+    private boolean citesUntrustedLesson(ScopeTransaction transaction, Source source) {
+        if (source.kind() != Source.Kind.LESSON) {
+            return false;
         }
-        return false;
+        var cited = LessonId.parse(source.ref());
+        if (cited.isEmpty()) {
+            return false;
+        }
+        return transaction.targetContent(storePath(cited.get())).map(LessonStore::isUntrusted)
+                .orElseGet(() -> isUntrusted(get(transaction, cited.get())));
+    }
+
+    private static boolean isUntrusted(byte[] content) {
+        return LessonCodec.decode(content) instanceof LessonCodec.Readable(Lesson lesson)
+                && lesson.frontMatter().derivedFromUntrusted();
+    }
+
+    private static boolean isUntrusted(LessonResolution resolution) {
+        var lesson = switch (resolution) {
+            case LessonResolution.Found(LessonId _, Lesson found, Path _, StoreIntegrity _) -> found;
+            case LessonResolution.EmptyShell(LessonId _, Lesson shell, Path _, StoreIntegrity _) -> shell;
+            default -> null;
+        };
+        return lesson != null && lesson.frontMatter().derivedFromUntrusted();
     }
 
     private static List<Revision> append(List<Revision> revisions, Revision next) {
