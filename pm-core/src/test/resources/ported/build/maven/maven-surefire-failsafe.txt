@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_sums_every_summary_block
+# One module, two test plugins: the Surefire summary of 724 tests with 3 skipped and the Failsafe summary of 7 tests.
+# The total is the sum of both blocks and by_runner attributes each to its own runner.
+log-file maven-verify-surefire-failsafe.log
+status SUCCESS
+success-marker true
+tests measured 728 0 3 731
+by-runner surefire 721
+by-runner failsafe 7
+no-tests-ran false
+diagnostic-count 0

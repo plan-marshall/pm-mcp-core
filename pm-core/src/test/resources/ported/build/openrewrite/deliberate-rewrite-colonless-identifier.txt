@@ -1,0 +1,10 @@
+deliberate: deliberate-rewrite-colonless-identifier
+# Deliberate change (the fail-closed rule of ADR core-build/002): a line that carries a finding identifier but no longer
+# matches the pinned template is a parse error, never silently skipped into an observed run with zero findings. Here the
+# identifier lost its colon, so neither the template nor the "observed" state applies.
+log [INFO] --- rewrite-maven-plugin:5.42.0:run (default-cli) @ example-app ---
+log CUI_REWRITE-100 Finding located near src/main/java/de/cuioss/example/PaymentService.java:3:9 by TestRecipe: TODO
+log [INFO] BUILD SUCCESS
+domain active
+verdict PARSE_ERROR
+finding-count 0

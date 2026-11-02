@@ -1,0 +1,14 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_execution_header_forms_attribute_to_their_runner
+# Maven 3.9 and 4 print the short `failsafe:` token of an integration-test execution.
+log [INFO] --- failsafe:3.5.2:integration-test (default) @ core ---
+log [INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.042 s -- in probe.CoreIT
+log [INFO]
+log [INFO] Results:
+log [INFO]
+log [INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 1
+tests measured 4 0 1 5
+by-runner failsafe 4
+status FAILURE
+success-marker false
+no-tests-ran false
+diagnostic-count 0

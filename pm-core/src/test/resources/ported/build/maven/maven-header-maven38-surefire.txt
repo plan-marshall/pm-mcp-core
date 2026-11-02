@@ -1,0 +1,15 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_parse_log_execution_header_forms_attribute_to_their_runner
+# Maven 3.8 prints the long `maven-surefire-plugin:` token of a Surefire execution; the summary after `Results:` is
+# attributed to it, and the per-class line of the same block is not counted twice.
+log [INFO] --- maven-surefire-plugin:3.5.2:test (default-test) @ core ---
+log [WARNING] Tests run: 5, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.042 s -- in probe.CoreTest
+log [INFO]
+log [INFO] Results:
+log [INFO]
+log [WARNING] Tests run: 5, Failures: 0, Errors: 0, Skipped: 1
+tests measured 4 0 1 5
+by-runner surefire 4
+status FAILURE
+success-marker false
+no-tests-ran false
+diagnostic-count 0

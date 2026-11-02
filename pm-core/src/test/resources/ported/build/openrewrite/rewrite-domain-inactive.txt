@@ -1,0 +1,6 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestDomainInactiveVerdict::test_domain_inactive_verdict test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestDomainInactiveVerdict::test_domain_inactive_is_never_clean
+# The build reached `rewrite:run`, but no active domain provides the parser: a first-class skip, never a false clean.
+log-file rewrite-run-observed.log
+domain inactive
+verdict DOMAIN_INACTIVE
+finding-count 0

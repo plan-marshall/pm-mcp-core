@@ -1,0 +1,11 @@
+deliberate: deliberate-unmeasured-on-success
+# Deliberate change: a successful build whose summaries cannot be aggregated reports `unmeasured`, never `tests_run: 0`.
+# The log is the quiet shape of maven-quiet-unmeasured (`[INFO] Results:` suppressed) over a green build; the count line
+# is present but unclassifiable, so the population carries no number at all.
+log [INFO] BUILD SUCCESS
+log [INFO] Tests run: 340, Failures: 1, Errors: 0, Skipped: 0
+status SUCCESS
+success-marker true
+tests unmeasured
+no-tests-ran false
+diagnostic-count 0

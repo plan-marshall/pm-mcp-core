@@ -1,0 +1,11 @@
+deliberate: deliberate-gradle-no-tests-marker
+# A green Gradle build prints no count line at all, so the absence of a count is never read as a verdict. The verdict
+# needs Gradle's own statement that its filter matched no test.
+log > Task :core:test
+log No tests found for given includes: [**/FooTest*]
+log BUILD SUCCESSFUL in 3s
+status SUCCESS
+success-marker true
+tests none
+no-tests-ran true
+diagnostic-count 0
