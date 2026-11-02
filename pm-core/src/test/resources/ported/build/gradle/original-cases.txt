@@ -1,0 +1,22 @@
+# Roster of the pytest cases of test/plan-marshall/build-gradle/test_gradle_cmd_parse.py, the suite of
+# _gradle_cmd_parse.py. Every case is mapped to the fixtures derived from it, or excluded with the reason it has no
+# fixture. The pin is the commit the fixtures were derived from (see ../PROVENANCE.adoc).
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-gradle/test_gradle_cmd_parse.py
+
+case test_parse_log_success_returns_tuple -> gradle-success
+case test_parse_log_success_build_status -> gradle-success
+case test_parse_log_success_no_errors -> gradle-success
+case test_parse_log_success_issues_are_issue_objects -> gradle-success
+case test_parse_log_failure_build_status -> gradle-failure
+case test_parse_log_failure_has_errors -> gradle-failure
+case test_parse_log_failure_error_fields -> gradle-failure
+case test_parse_log_failure_has_warnings -> gradle-failure
+case test_parse_log_failure_warning_category -> gradle-failure
+case test_parse_log_test_failure_build_status -> gradle-test-failure
+case test_parse_log_test_failure_test_summary -> gradle-test-failure
+case test_issue_to_dict -> gradle-failure
+case test_test_summary_to_dict -> gradle-test-failure
+case test_parse_log_file_not_found excluded: the Java parse takes the log text; the file read is BuildLogText, whose refusal has its own test
+case test_parse_log_no_tests -> gradle-no-tests
+case test_parse_log_deduplicates_issues -> gradle-deduplicated

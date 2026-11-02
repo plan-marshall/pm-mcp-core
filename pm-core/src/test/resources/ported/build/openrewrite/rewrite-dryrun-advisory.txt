@@ -1,0 +1,7 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestNotObservedVerdict::test_dryrun_advisory_yields_not_observed test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestReachedRewriteRun::test_dryrun_advisory_fixture_did_not_reach_rewrite_run
+# A dryRun-only build: the log carries the advisory prose that names `rewrite:run`, but no goal-execution banner. It never
+# executed the run goal, so the verdict is not_observed and the domain state is not consulted.
+log-file rewrite-run-dryrun-advisory.log
+domain inactive
+verdict NOT_OBSERVED
+finding-count 0

@@ -1,0 +1,6 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_rewrite_log.py::TestReachedRewriteRun::test_unrelated_log_does_not_match
+# A goal execution of another plugin is no OpenRewrite run.
+log [INFO] --- maven-compiler-plugin:3.11.0:compile ---
+domain active
+verdict NOT_OBSERVED
+finding-count 0

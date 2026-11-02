@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_control_failing_test_count_line_is_still_filed
+# CONTROL of the zero-failure skip: a count line that reports failures is filed, at error level and as a test failure.
+log [ERROR] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+status FAILURE
+success-marker false
+tests unmeasured
+no-tests-ran false
+diagnostic ERROR TEST_FAILURE - - - Tests run: 5, Failures: 2, Errors: 0, Skipped: 0

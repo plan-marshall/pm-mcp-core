@@ -1,0 +1,13 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_deduplicates_issues
+# The same compiler error three times is one diagnostic: the deduplication key is category, file, line and the first 100
+# characters of the message.
+log /path/to/File.java:10: error: cannot find symbol
+log /path/to/File.java:10: error: cannot find symbol
+log /path/to/File.java:10: error: cannot find symbol
+log BUILD SUCCESSFUL in 1s
+status SUCCESS
+success-marker true
+tests none
+no-tests-ran false
+diagnostic ERROR COMPILATION_ERROR /path/to/File.java 10 - /path/to/File.java:10: error: cannot find symbol
+diagnostic-count 1

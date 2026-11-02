@@ -1,0 +1,53 @@
+= Fixture provenance of the native build output parsers
+
+Records where the plain-file fixtures below this directory come from, as the Store Schemas specification requires of a
+ported primitive (_Ported-Primitive Tests_, `PM-TEST-2`).
+
+== The original
+
+The originals are the `plan-marshall` parser modules and their pytest suites, read by hand in the sibling checkout
+`../plan-marshall` at
+
+----
+commit 7b7e08f088b6c1b333147aeb2c636325da31b0b6
+----
+
+(the head of the sibling checkout at the time the fixtures were derived; the plan spec's `b1609ec3e` names an older
+revision of the same sources). The paths, all below
+`marketplace/bundles/` and `test/` of that checkout:
+
+[cols="2,3",options="header"]
+|===
+|Fixture directory |Original
+
+|`maven/`
+|`plan-marshall/skills/build-maven/scripts/_maven_cmd_parse.py`, `plan-marshall/skills/script-shared/scripts/build/_build_parse.py`, `plan-marshall/skills/script-shared/scripts/build/_build_jvm_patterns.py`, and the suite `test/plan-marshall/build-maven/test_maven_cmd_parse.py` with its log fixtures `test/plan-marshall/build-maven/fixtures/log-test-data/`
+
+|`gradle/`
+|`plan-marshall/skills/build-gradle/scripts/_gradle_cmd_parse.py` and the suite `test/plan-marshall/build-gradle/test_gradle_cmd_parse.py` with its log fixtures
+
+|`openrewrite/`
+|`pm-dev-java-cui/skills/parse-rewrite-log/scripts/parse_rewrite_log.py`, its corpus `test/pm-dev-java-cui/parse-rewrite-log/fixtures/warn-corpus/`, and the call site `plan-marshall/skills/build-maven/scripts/_maven_cmd_rewrite_log.py` with the suite `test/plan-marshall/build-maven/test_maven_rewrite_log.py`
+
+|`jvm-patterns/`
+|the shared table `plan-marshall/skills/script-shared/scripts/build/_build_jvm_patterns.py` and the category cases of the two parser suites
+|===
+
+== What a `*.log` file is
+
+A `*.log` file beside a fixture is the *original's own log fixture*, copied byte for byte. It is test data, never an
+oracle: no test runs Python, starts a `plan-marshall` script, reads the sibling checkout, or compares a Java result with a
+Python result, live or recorded.
+
+== What a `*.txt` file is
+
+One scenario per file, headed `original: plan-marshall@<commit> <pytest path>::<case>` when it is derived from a pytest
+case, or `deliberate: <name>` when it asserts a deliberate change of this port (never a value of the original). The
+roster `original-cases.txt` of each directory lists every case of its suites, mapped to its fixtures or excluded with a
+reason.
+
+== Pinned by hand, never by the suite
+
+The expected values of a `*.txt` fixture are read out of the original log by hand, the way the pytest suite derives them.
+Where a comment names the original's own assertion (for example "the original asserts the message list"), the fixture
+carries the same expectation.

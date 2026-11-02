@@ -1,0 +1,10 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_surefire_goal_failure_is_not_a_deprecation_warning test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_genuine_javac_tag_lines_keep_their_category test/plan-marshall/build-maven/test_maven_cmd_parse.py::test_control_unescaped_bracket_detector_flags_a_bare_tag
+# The category cases of the Maven suite against the compiled table. A bracketed javac tag is an escaped regex, so it
+# matches the tag itself; the control is the letter `d`, which a bare `[deprecation]` character class would match and the
+# escaped tag does not. The goal-failure line of Surefire carries no tag and is no deprecation warning.
+categorize other Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin
+categorize deprecation_warning [deprecation] foo() in Bar has been deprecated
+categorize deprecation_warning Bar.java:[12,5] [deprecation] foo() in Bar
+categorize unchecked_warning [unchecked] unchecked call to add(E) as a member of the raw type List
+categorize other d
+categorize deprecation_warning [deprecation]

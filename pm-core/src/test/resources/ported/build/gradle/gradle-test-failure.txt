@@ -1,0 +1,16 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_test_failure_build_status test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_parse_log_test_failure_test_summary test/plan-marshall/build-gradle/test_gradle_cmd_parse.py::test_test_summary_to_dict
+# A test failure: two failing tests, and the `5 tests completed, 2 failed` block the counts come from. The stack frames
+# are not diagnostics; the failure line and the assertion body are, and the BUILD FAILED banner carries the
+# `FAILED` pattern of the table.
+log-file gradle-test-failure-real.log
+status FAILURE
+success-marker false
+tests measured 3 2 0 5
+no-tests-ran false
+diagnostic ERROR TEST_FAILURE - - - GenshinServiceTest > testGetCharacterById() FAILED
+diagnostic ERROR TEST_FAILURE - - - org.opentest4j.AssertionFailedError: expected: <Diluc> but was: <null>
+diagnostic ERROR TEST_FAILURE - - - GenshinServiceTest > testCalculateDamage() FAILED
+diagnostic ERROR TEST_FAILURE - - - 5 tests completed, 2 failed
+diagnostic ERROR TEST_FAILURE - - - FAILURE: Build failed with an exception.
+diagnostic ERROR TEST_FAILURE - - - Execution failed for task ':test'.
+diagnostic ERROR TEST_FAILURE - - - BUILD FAILED in 15s
