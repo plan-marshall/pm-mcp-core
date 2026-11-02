@@ -1,0 +1,32 @@
+= Finalize: the prune reasons of a delta and the hand-over of `landing.files`
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `finalize-prune-and-land-files`
+
+[horizontal]
+Roadmap item:: _Implement the landing axis_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow packages `workflow.plan` (`PruneReason`) and `workflow.finalize` (the default roster, `FinalizePipelineValidator`)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The prune reasons `no_code_delta` and `no_production_delta`* in `PruneReason`, in the order of the enum: link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], `prune_reason`; where each is set: link:../specification/phase-workflows/04-finalize-step-bands.adoc#finalize-step-bands[Phase Workflows § Finalize Step Ordering Bands], the step catalogue (`prunable` (`no_code_delta`)), and link:../specification/phase-workflows/03-q-gate-and-execute.adoc#mutation-step[§ Mutation Step].
+. *The hand-over `default:land-files`* at order `70` in the default roster, pruned with `plan_default` against `default:branch-cleanup` where the plan's landing is not `landing.files`: § Finalize Step Ordering Bands, the step catalogue, row `70`; link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#landing-variants[§ Landing Variants]; link:../specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes].
+. *Rule 1 of the pipeline validator over the composed instance*: two steps at one order are refused per plan instance, after the axis pruning, so that the two steps at `70` of the default roster pass: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#_build_time_startup_static_invariant_verification_finalizepipelinevalidator[§ Build-Time & Startup Static Invariant Verification]; link:../../pm-workflow/doc/developer/workflow-finalize.adoc#_the_rules[Finalize Pipeline Developer Guide § The Rules].
+
+Left out: the state `finalize.land-files` and the landing variants' states (the milestone's other packages, not cut yet).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* Specification: the sections the tasks name; link:../specification/state-catalogue/18-plan-unit-axes-short-landings.adoc[State Catalogue § Plan Unit Axes & Short Landings]
+* Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-39[PM-WATCH-PHASE-39]; link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-55[PM-WATCH-PHASE-55]; link:../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-3[PM-WATCH-DSL-3]
+
+== Done When
+
+* Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-39[PM-WATCH-PHASE-39], link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-55[PM-WATCH-PHASE-55], link:../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-3[PM-WATCH-DSL-3].
+* Tests: `PlanInstanceHeaderTest` with `SPEC_PRUNE_REASONS` as the schema lists them; a plan without a code delta pruning its `prunable` steps with `no_code_delta`, and the mutation step pruned with `no_production_delta`; the default roster passing the validator, `default:land-files` composed only under `landing.files` and pruned `plan_default` otherwise; two steps at one order in one composed instance refused (control).

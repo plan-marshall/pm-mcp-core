@@ -1,0 +1,33 @@
+= Removal of the code of the deferred mechanisms
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `z3-deferred-code-removal`
+
+[horizontal]
+Roadmap item:: none: the code removed implements mechanisms deferred to link:../../../plan-marshall-documentation/doc/later-improvements.adoc[Later Improvements] (L-36 to L-40)
+Where:: pm-core (`core.store`, `core.spi.validation`, `core.findings`, `core.profile`, `core.role.qualification`, `core.queue`); pm-workflow (`workflow.model`, `workflow.dsl`); pm-runtime (`runtime.endpoint`, `runtime.launch`, `runtime.enrolment`)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what the code keeps; everything else of the classes named goes, with its tests, and the `Traceability.adoc` lines and module documents that name it follow in the same pull request.
+
+. *Capability specs and EARS* (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36]): `CapabilitySpec`, `CapabilityIndex` and `EarsForm` with their tests; `IntentRecord` without `verified_by` and `capability`, `non_goals` as link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § Intent Record] states; `BuilderCheck` facts without the capability index (link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[§ Builder Check]); the advisory `self_assessed_full_confidence` dropped (link:../specification/phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[§ Quality Dimensions]); `FindingSourceKind.CAPABILITY_TESTS` with the enum value `capability_tests` of the finding's `source` in link:../specification/store-schemas/03-findings-and-review-records.adoc[Store Schemas § Findings & Review Records] and `FindingSourceKeyTest`; the Traceability lines of PM-WF-10 that name these classes and ADR core-spi/003.
+. *Interfaces and key links of an outline deliverable* (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-41[L-41]): `OutlineValidator` without them: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows § Outline Validation Gate].
+. *The protocol `system_one` and the judgment vote* (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-39[L-39]): `JudgmentClient`, `JudgmentEndpoint`, `JudgmentVerification`, `SystemOneRequest`, `SystemOneAnswer`, `ProfileStages.JUDGMENT_STAGES`; `locality` and `credential_key` out of `EndpointProfile`, `ProfileValidator` and `ProfileLoader` (link:../specification/client-profiles/03-endpoint-harness.adoc#endpoint-profile-schema[Client Profiles § Endpoint Profile Schema]) with the fixtures of `EndpointProfileValidatorTest`; the remote `HarnessEnrolment.Binding` of `HarnessEnrolmentStore` (link:../specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness Enrolment Store]); the judgment class of `RoleUse` (link:../specification/model-work/01-roles-and-configuration.adoc#roles[Model Work § Roles as Configuration Artifacts]); the Traceability lines of the judgment endpoint and the sections of the module documents `runtime-endpoint.adoc` and `workflow-model.adoc` that describe them.
+. *Qualification and decision records beyond the baseline* (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-37[L-37], link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-38[L-38]): the qualification record without the interval, `confirmed`, the costly answers, the confusion matrix and the derived items, and `RoleTopics` without the exclusion of an unconfirmed decision: link:../specification/store-schemas/16-task-queue.adoc#qualification-record[Store Schemas § Role Qualification Record], link:../specification/model-work/01-roles-and-configuration.adoc#qualification-records[Model Work § Qualification Records]; the decision record without `rationale_origin`, `probabilities` and `shadowed`: link:../specification/store-schemas/18-decision-records.adoc#decision-record[Store Schemas § Decision Record].
+. *Navigation figures* (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-40[L-40]): `NavigationFigures`, `NavigationVocabulary`, `Figure`; the metrics member `attempt_end` (`AttemptEnd`) with `AttemptEndParityTest` and its cases in `MetricsStoreTest`: link:../specification/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas § Metrics Store]; the Traceability lines that name them. The activity-journal kind `attempt_end` stays (link:../specification/store-schemas/16-task-queue.adoc#activity-journal[§ Activity Journal], `TaskQueueSchemaParityTest`).
+. *Stale Javadoc*: the class documentation of `EnrolmentCheck` (the enter request and operator verbs it says do not exist yet) and `WorkflowParser` (the identifier length bounds and the project-unit refusal of an `instance` line it calls the work of later stages) state what the code does.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+* Specification: the sections the tasks name; link:../Traceability.adoc[Traceability]
+* Watch: link:../implementation-watch/phase-workflows.adoc[Phase Workflows]; link:../implementation-watch/model-work.adoc[Model Work]; link:../implementation-watch/client-profiles.adoc[Client Profiles]
+
+== Done When
+
+* Watch: none anchored to the removed mechanisms; the items of the kept sections (link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-109[PM-WATCH-PHASE-109], link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-46[PM-WATCH-DISP-46], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-26[PM-WATCH-STORE-26]) still hold.
+* Tests: no class, test, resource or Traceability line names a removed type or member; the parity tests of the changed schema blocks (`FindingSourceKeyTest`, `TaskQueueSchemaParityTest`) pass against the specification; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.

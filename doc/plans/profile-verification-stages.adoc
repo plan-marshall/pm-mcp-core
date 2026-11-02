@@ -1,0 +1,31 @@
+= The stages `usage` and `settings` of the profile verification
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `profile-verification-stages`
+
+[horizontal]
+Roadmap item:: _Implement the profile verification `pm-operator profile verify`_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-core package `core.profile` (`VerificationRecord`, its closed stage names); pm-runtime (the stages run as jobs of the runtime)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The stage `usage`*: its probe tasks, the comparison with the harness's own record, and the values it settles: link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification], the stage table, row `usage`; link:../specification/client-profiles/01-profile-schema.adoc#headless-usage[§ Usage].
+. *The stage `settings`*, its name added to the closed stage names of the verification record: § Profile Verification, the stage table, row `settings`; link:../specification/client-profiles/01-profile-schema.adoc#headless-inline-settings[§ Inline settings].
+
+Left out: the other stages of the verification; the measured values of the shipped profiles (`client-profile-measured-values`).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+* Specification: the sections the tasks name; link:../specification/client-profiles/01-profile-schema.adoc#token-usage[§ Tokens, Not Money]
+* Watch: link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16]; link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]
+
+== Done When
+
+* Watch: link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-16[PM-WATCH-CLIENT-16], link:../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17].
+* Tests: a verification record with the stage `settings` read and one with an unknown stage refused; per stage, against a fixture harness, the values it settles recorded and a declared pointer or key without effect reported as failed; `settings` `not_run` for a draft whose `headless.inline_settings` is `null`.

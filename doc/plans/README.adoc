@@ -21,6 +21,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |nothing
 |Milestones 3 and 4
 
+|link:z3-deferred-code-removal.adoc[`z3-deferred-code-removal`]
+|The code of the deferred mechanisms removed (capability specs and EARS, interfaces and key links, the protocol `system_one` and the judgment vote, the qualification and decision members beyond the baseline, the navigation figures; link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36] to link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-41[L-41]), and stale class documentation corrected
+|`open`
+|nothing
+|Milestone 4 (cleanup of code already built for Milestones 4, 8, and 14)
+
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
@@ -52,9 +58,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 4
 
 |link:qualification-evidence.adoc[`qualification-evidence`]
-|What a role's qualification figures rest on: the `thin` mark of a topic and its record member (the rest is deferred, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-37[L-37])
+|What a role's qualification figures rest on: the `thin` mark of a topic and its record member, and the record member `judge_check` with a grading the judge instrument check does not refuse (the rest is deferred, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-37[L-37])
 |`open`
-|nothing
+|`z3-deferred-code-removal` (the same record and codec)
 |Milestone 4
 
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
@@ -255,11 +261,107 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`finalize-pipeline-and-merge`
 |Milestone 10
 
+|link:self-review-submission-shape.adoc[`self-review-submission-shape`]
+|The self-review's submission as specified: `criteria`, `unclaimed`, the optional `conflicts`, and `unexplained_coordinates[]` in its facts; outside the window: starts when its milestone is planned
+|`open`
+|`z3-deferred-code-removal`; `change-map` (the change map the facts read)
+|Milestone 10
+
+|link:initial-lane-router.adoc[`initial-lane-router`]
+|The initial planning-lane router with its `lane_route` record, the bound of the clarification batch, the builder check's overflow, and the outline review's revisions of a light plan; outside the window: starts when its milestone is planned
+|`open`
+|`z3-deferred-code-removal`; `phase-sub-workflows`
+|Milestone 8
+
+|link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
+|The prune reasons `no_code_delta` and `no_production_delta`, the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
+|`open`
+|nothing
+|Milestone 10
+
+|link:epic-surface-and-ended-acts.adoc[`epic-surface-and-ended-acts`]
+|The declared surface of an epic's row with untracked paths, the staging check and its overlap, and the acts refused on an ended epic; outside the window: starts when its milestone is planned
+|`open`
+|`epic-resource-and-release` (the epic's acts)
+|Milestone 12
+
+|link:profile-verification-stages.adoc[`profile-verification-stages`]
+|The stages `usage` and `settings` of the profile verification; outside the window: starts when its milestone is planned
+|`open`
+|nothing
+|Milestone 14
+
 |link:lesson-store.adoc[`lesson-store`]
 |The project's lesson store around the lesson record: its id allocation, resolver, revision, retirement and claim under the lesson store lock
 |`open`
 |nothing
 |Milestones 5 and 7
+
+|`audit-trail`
+|Anchored audit trail
+|`done`
+|
+|
+
+|`corpus-sources`
+|Corpus sources fetched at pinned commits
+|`done`
+|
+|
+
+|`diagram-generator`
+|Diagram and table generators
+|`done`
+|
+|
+
+|`enrolment-store`
+|Enrolment store, lifecycle gate and enrolment integrity
+|`done`
+|
+|
+
+|`lock-manager-and-leases`
+|Runtime lock manager, lease records, and the stale lease sweep
+|`done`
+|
+|
+
+|`plan-instance`
+|Plan instance composition
+|`done`
+|
+|
+
+|`project-units-and-invariants`
+|Loader of project-owned units and the compiled invariants
+|`done`
+|
+|
+
+|`runtime-lifecycle`
+|Runtime lifecycle: bounded verification, drain, recovery, sweep, version mismatch
+|`done`
+|
+|
+
+|`service-unit`
+|Per-user service unit
+|`done`
+|
+|
+
+|`workflow-engine`
+|State machine interpreter and sub-workflow execution
+|`done`
+|
+|
+
+|`workspace-confinement`
+|Workspace confinement
+|`done`
+|
+|
 |===
 
 [#how]

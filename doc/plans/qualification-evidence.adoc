@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `qualification-evidence`
 
 [horizontal]
 Roadmap item:: _Implement role qualification `pm-operator roles qualify`_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-core package `core.role.qualification` (the topic result, the record and its codec)
+Where:: pm-core package `core.role.qualification` (the topic result, the record and its codec, `JudgeInstrumentCheck`, `GradingOutcome`); pm-workflow (`RoleGrader`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
@@ -14,6 +14,7 @@ The specification sections named are the single statement of what each task buil
 
 . *The mark `thin`* beside each topic's graded item count, never a condition of validity: link:../specification/model-work/01-roles-and-configuration.adoc#qualification-records[Model Work § Qualification Records].
 . *The member `thin`* of every topic result, written and read by the codec: link:../specification/store-schemas/16-task-queue.adoc#qualification-record[Store Schemas § Role Qualification Record].
+. *The member `judge_check`* written and read by `QualificationRecordCodec`, and a role grading that the judge instrument check no longer refuses (`JUDGE_UNCHECKED` out of the role grading of `RoleGrader` and `JudgeInstrumentCheck`; the conformance harness keeps `judge_unchecked`): § Role Qualification Record; link:../specification/model-work/01-roles-and-configuration.adoc#judge-instrument-check[Model Work § Judge Instrument Check]; link:../specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#behavioural-conformance-harness[Workflow DSL § Behavioural Conformance Harness]. The module document `workflow-model.adoc` follows.
 
 Left out: the rendering of the mark in the clients. Dropped: the items left out of a grading, the costly answers and the confusion matrix, the interval, and the confirmed-only agreement (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-37[L-37]); with them the share of `plan-marshall-mcp` / `corpus-costly-answers-and-tags` this package tested against.
 
@@ -28,4 +29,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: none anchored to the mark; the trace matrix names any it finds.
-* Tests: a topic below the compiled item count marked `thin` and one at it not marked; validity unchanged by the mark; a record round-tripping through the codec with the member.
+* Tests: a topic below the compiled item count marked `thin` and one at it not marked; validity unchanged by the mark; a record round-tripping through the codec with the member; a record with `judge_check` `passed`, one with `failed` and one without the member round-tripping, an unknown value refused; a role grading without a judge check record proceeding and recording no `judge_check`; a parity test of the schema block of the qualification record against the codec.
