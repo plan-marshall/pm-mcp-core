@@ -117,12 +117,14 @@ A consumer that compares a `plan-marshall` result with this one sees the eleven 
 held surprises, and no others. A change of any ported behaviour must now either keep its fixture green or change the
 fixture and this record with it.
 
-The counts rules are now implemented for all nine parsers, so PM-WATCH-JOB-11 and PM-WATCH-JOB-12 have a named test each
-and are deleted from the implementation watch; the specification's table of the six parsers is replaced by the
+The counts rules are now implemented for all nine parsers, so PM-WATCH-JOB-11's guard is carried by fixtures of every
+parser (the item is kept, because the requirement documentation links to it) and PM-WATCH-JOB-12 has a named test and is
+deleted from the implementation watch; the specification's table of the six parsers is replaced by the
 "Implemented by" paragraph that points at the developer guide.
 
 == Source
 
 Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-28-native-build-parsers-npm-and-python`;
 specification `doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items
-PM-WATCH-JOB-11 and PM-WATCH-JOB-12 (closed here and deleted from the watch document); requirement `PM-TEST-2`.
+PM-WATCH-JOB-11 (kept, its guard now carried by every parser) and PM-WATCH-JOB-12 (closed here and deleted from the watch
+document); requirement `PM-TEST-2`.
