@@ -67,13 +67,13 @@ class AstNodeModelTest {
             var values = new ArrayList<>(List.of(first, second));
             var enumOf = new ParamType.EnumOf(values);
 
-            values.add(Generators.letterStrings(1, 8).next());
+            var extra = text();
+            values.add(extra);
             var copied = enumOf.values();
 
             assertAll(
                     () -> assertEquals(List.of(first, second), copied),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> copied.add(Generators.letterStrings(1, 8).next())));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copied.add(extra)));
         }
 
         @Test

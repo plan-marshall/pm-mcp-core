@@ -139,9 +139,10 @@ class QuestionBoundTest {
     @Test
     @DisplayName("a key names its entry or plan task")
     void keyNamesItsTarget() {
+        var taskId = Generators.letterStrings(1, 8).next();
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> new Key(Axis.STATE_ENTRY, " ")),
-                () -> assertThrows(NullPointerException.class,
-                        () -> new Key(null, Generators.letterStrings(1, 8).next())));
+                () -> assertThrows(NullPointerException.class, () -> new Key(null, taskId)));
     }
 }

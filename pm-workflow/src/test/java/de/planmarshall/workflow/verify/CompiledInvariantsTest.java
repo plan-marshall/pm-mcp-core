@@ -188,9 +188,9 @@ class CompiledInvariantsTest {
         @DisplayName("cannot be changed by a caller")
         void unmodifiable() {
             var parameters = CompiledInvariants.remediationBudgetParameters();
+            var budget = Generators.letterStrings(1, 8).next();
 
-            assertThrows(UnsupportedOperationException.class,
-                    () -> parameters.add(Generators.letterStrings(1, 8).next()));
+            assertThrows(UnsupportedOperationException.class, () -> parameters.add(budget));
         }
     }
 
