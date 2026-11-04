@@ -39,11 +39,14 @@ Each site is decided from the code, not from the Sonar message, and belongs to e
   is a real state of the object.
 ** (a) A `@Nullable` record component defaulted in a `@NullMarked` method is read once into a local and the local is
   tested: `var threshold = item.grading().passThreshold();` then
-  `return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;`. The double call
-  `item.grading().passThreshold() == null ? DEFAULT_PASS_THRESHOLD : item.grading().passThreshold()` and
-  `Objects.requireNonNullElse(item.grading().passThreshold(), DEFAULT_PASS_THRESHOLD)` were **not accepted by the
-  analysis of `main` at `70bc999f`**: the analyser cannot prove that a second call returns the same value, so the
-  second read still looks nullable, while a local is a value its flow analysis narrows.
+  `return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;`. The form of
+  `EndpointProfile.Endpoint.readinessOrModelsPath()`, which defaults a `@Nullable` record component this way, is not
+  among the open `java:S2637` issues of `main` at `70bc999f`. The double-call ternary
+  `item.grading().passThreshold() == null ? DEFAULT_PASS_THRESHOLD : item.grading().passThreshold()` was flagged
+  before #282 replaced it, and `Objects.requireNonNullElse(item.grading().passThreshold(), DEFAULT_PASS_THRESHOLD)`
+  was still flagged at `70bc999f`: neither form was accepted by the analysis of `main` at `70bc999f`. Until the
+  analysis of `main` after this plan's merge reports the local form accepted, that acceptance is a prediction from
+  the same-shape site, not a measurement.
 ** (b) A field that is non-null once a required key was read is `@Nullable` at its declaration, with
   `Objects.requireNonNull(field, "field")` where it is handed on. `QualificationSettingsCodec` does this for
   `rewritten` and `UnitFrontmatterReader` does it for `modificationDate`, whose `complete(...)` runs only after the
@@ -90,6 +93,8 @@ as a `@Nullable` member.
 
 * Pull requests #264 (D1, `core.store` and `core.queue`), #268 (D2, the other `pm-core` packages) and #274 (D3,
   `pm-workflow`, `pm-runtime` and the providers) of PLAN-V2-110.
+* Class (c) statements (a) to (c): PLAN-V2-112, `main-green-reliability-bugs`, staged from the two open `java:S2637`
+  bugs of `main` at `70bc999f`.
 * Work package: link:../../doc/plans/README.adoc[`doc/plans/`] — PLAN-V2-110, `null-contract-main-green`.
 * Specification sections: `Client Profiles` § Endpoint Profile Schema and § Remote Form; `Store Schemas` § Queue
   Task Record, § Activity Journal and § Workflow State Store; `Job Runtime` § Pipeline and Subprocesses.
