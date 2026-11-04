@@ -740,8 +740,8 @@ public final class LessonStore {
 
     private static boolean isUntrusted(LessonResolution resolution) {
         var lesson = switch (resolution) {
-            case LessonResolution.Found(LessonId _, Lesson found, Path _, StoreIntegrity _) -> found;
-            case LessonResolution.EmptyShell(LessonId _, Lesson shell, Path _, StoreIntegrity _) -> shell;
+            case LessonResolution.Found(_, Lesson found, _, _) -> found;
+            case LessonResolution.EmptyShell(_, Lesson shell, _, _) -> shell;
             default -> null;
         };
         return lesson != null && lesson.frontMatter().derivedFromUntrusted();

@@ -324,6 +324,21 @@ class LessonStoreTest {
         }
 
         @Test
+        @DisplayName("counts an all-zero sequence as the number zero")
+        void allZeroSequence() {
+            run(write -> store.create(write, new LessonId("2026-10-13-09-000"),
+                    LessonFixtures.newLesson().build(), CLOCK));
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(lessons.lockKey());
+                var drawn = store.allocate(ScopeTransaction.open(transaction, lessons, audit, CLOCK), CLOCK);
+
+                assertEquals("2026-10-13-09-001", drawn.value(),
+                        "000 is the number 0, so the next sequence is 001");
+            }
+        }
+
+        @Test
         @DisplayName("counts a sequence written with leading zeros as the number it is")
         void leadingZeros() {
             run(write -> store.create(write, new LessonId("2026-10-13-09-999"),
