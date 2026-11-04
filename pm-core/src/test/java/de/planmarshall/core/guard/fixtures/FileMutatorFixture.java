@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.guard.fixtures;
 
+import de.cuioss.test.generator.Generators;
 import java.io.File;
 import java.io.IOException;
 
@@ -29,8 +30,10 @@ public final class FileMutatorFixture {
      */
     public static boolean mutate(File file, File target) throws IOException {
         file.deleteOnExit();
-        var changed = file.createNewFile() && file.mkdir() && file.mkdirs() && file.setWritable(true)
-                && file.setReadOnly() && file.setLastModified(0L) && file.setExecutable(false);
+        var changed = file.createNewFile() && file.mkdir() && file.mkdirs()
+                && file.setWritable(Generators.booleans().next()) && file.setReadOnly()
+                && file.setLastModified(Generators.longs(1, 1_000_000).next())
+                && file.setExecutable(Generators.booleans().next());
         return changed && file.renameTo(target) && target.delete();
     }
 }

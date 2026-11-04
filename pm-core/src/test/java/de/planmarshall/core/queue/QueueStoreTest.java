@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -29,10 +31,15 @@ import de.planmarshall.core.store.StoreRefusal;
  * The queue store: a record is written and read under the queue lock, the machine scope has its own queue, and a file
  * that is not a queue task record is no task.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the refusal cases call one throwing method per case, by design
 @DisplayName("Queue store")
 class QueueStoreTest {
+
+    private static String taskId() {
+        return "qt-" + "%016x".formatted(Generators.longs().next());
+    }
 
     @Nested
     @DisplayName("paths")
@@ -71,7 +78,7 @@ class QueueStoreTest {
         @DisplayName("a record is created and read back")
         void createAndRead(@TempDir Path base) {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            var task = QueueFixtures.queued("qt-0000000000000001").build();
+            var task = QueueFixtures.queued(taskId()).build();
 
             store.create(task);
 
@@ -85,7 +92,7 @@ class QueueStoreTest {
         @DisplayName("a record that exists is not created twice")
         void duplicate(@TempDir Path base) {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            var task = QueueFixtures.queued("qt-0000000000000001").build();
+            var task = QueueFixtures.queued(taskId()).build();
             store.create(task);
 
             assertThrows(IllegalArgumentException.class, () -> store.create(task));
@@ -95,23 +102,26 @@ class QueueStoreTest {
         @DisplayName("a record states the id of its file name")
         void idMismatch(@TempDir Path base) throws Exception {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            var task = QueueFixtures.queued("qt-0000000000000001").build();
+            var id = taskId();
+            var otherId = taskId();
+            var task = QueueFixtures.queued(id).build();
             Files.createDirectories(store.directory());
-            Files.write(store.directory().resolve("qt-0000000000000002.json"),
+            Files.write(store.directory().resolve(otherId + ".json"),
                     QueueTaskRecordCodec.write(task));
 
-            assertThrows(StoreRefusal.class, () -> store.read("qt-0000000000000002"));
+            assertThrows(StoreRefusal.class, () -> store.read(otherId));
         }
 
         @Test
         @DisplayName("the listing names only queue task records")
         void listing(@TempDir Path base) throws Exception {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            store.create(QueueFixtures.queued("qt-0000000000000001").build());
+            var id = taskId();
+            store.create(QueueFixtures.queued(id).build());
             Files.writeString(store.directory().resolve("fences.json"), "{}");
             Files.writeString(store.directory().resolve("notes.txt"), "not a task");
 
-            assertEquals(List.of(new QueueTaskId("qt-0000000000000001")),
+            assertEquals(List.of(new QueueTaskId(id)),
                     List.copyOf(store.queueTaskIds()));
         }
 
@@ -119,8 +129,8 @@ class QueueStoreTest {
         @DisplayName("updateAll revises every record in one transaction and keeps the ids")
         void updateAll(@TempDir Path base) {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            var first = QueueFixtures.queued("qt-0000000000000001").build();
-            var second = QueueFixtures.queued("qt-0000000000000002").build();
+            var first = QueueFixtures.queued(taskId()).build();
+            var second = QueueFixtures.queued(taskId()).build();
             store.create(first);
             store.create(second);
 
@@ -138,8 +148,8 @@ class QueueStoreTest {
         @DisplayName("updateAll refuses an invalid revision before it writes anything")
         void updateAllRefusesInvalidRecord(@TempDir Path base) {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            var first = QueueFixtures.queued("qt-0000000000000001").build();
-            var second = QueueFixtures.queued("qt-0000000000000002").build();
+            var first = QueueFixtures.queued(taskId()).build();
+            var second = QueueFixtures.queued(taskId()).build();
             store.create(first);
             store.create(second);
 
@@ -156,15 +166,16 @@ class QueueStoreTest {
         @DisplayName("updateAll refuses a revision that drops or renames a record")
         void updateAllRefusesAnotherSet(@TempDir Path base) {
             var store = QueueStore.ofProject(base, "project-a", new TestLocks());
-            var task = QueueFixtures.queued("qt-0000000000000001").build();
+            var task = QueueFixtures.queued(taskId()).build();
             store.create(task);
+            var renamed = taskId();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> store.updateAll(records -> List.of())),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> store.updateAll(records -> List.of(task.withQueueTaskId(
-                                    "qt-0000000000000002")))));
+                                    renamed)))));
         }
     }
 }

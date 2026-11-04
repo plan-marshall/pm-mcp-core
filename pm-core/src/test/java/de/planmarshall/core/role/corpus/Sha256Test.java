@@ -27,6 +27,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * The SHA-256 of a source file or LFS object (PM-WORK-6): the known test vectors of FIPS 180-2, from bytes and from a
  * stream, and the comparison with an expected hash.
  */
+// Every datum in this class is a contract: the FIPS 180-2 test vectors and their hashes.
 @DisplayName("SHA-256")
 class Sha256Test {
 

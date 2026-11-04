@@ -15,9 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -32,11 +35,18 @@ import de.planmarshall.core.store.StoreRefusal;
 /**
  * The shapes {@code consents.json} accepts and refuses (Store Schemas § Consent Before Acting).
  */
+@EnableGeneratorController
 @DisplayName("Consent codec")
 class ConsentCodecTest {
 
-    private static final Instant GRANTED = Instant.parse("2026-10-29T10:00:00Z");
-    private static final String SHA = "a".repeat(64);
+    private static final Instant GRANTED = Instant.ofEpochSecond(
+            Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final String SHA = "%064x".formatted(Generators.longs().next());
+    private static final String PROJECT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String SCRIPT = "bin/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT)
+            + ".sh";
+    private static final String DEVICE = "dev-"
+            + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
 
     @TempDir
     Path base;
@@ -59,28 +69,31 @@ class ConsentCodecTest {
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
                         + entry("scan_harnesses").replace("\"cli\"", "\"telepathy\"") + "]}", "channel"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("scan_harnesses").replace(", \"granted_at\":\"2026-10-29T10:00:00Z\"", "") + "]}",
+                        + entry("scan_harnesses").replace(", \"granted_at\":\"" + GRANTED + "\"", "") + "]}",
                         "granted_at"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("scan_harnesses").replace("}", ", \"project_id\":\"pm-mcp-core\"}") + "]}", "project"),
+                        + entry("scan_harnesses").replace("}", ", \"project_id\":\"" + PROJECT + "\"}") + "]}",
+                        "project"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("inspect_checkout").replace("\"project_id\":\"pm-mcp-core\", ", "") + "]}", "project"),
+                        + entry("inspect_checkout").replace("\"project_id\":\"" + PROJECT + "\", ", "") + "]}",
+                        "project"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
                         + entry("run_checkout_scripts").replace("\"scripts\":[], ", "") + "]}", "scripts"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
                         + entry("scan_harnesses").replace("}", ", \"scripts\":[]}") + "]}", "scripts"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("run_checkout_scripts").replace("\"project_id\":\"pm-mcp-core\", \"scripts\":[]",
-                        "\"project_id\":\"pm-mcp-core\", \"scripts\":[{\"path\":\"a\",\"sha256\":\"nope\"}]") + "]}",
+                        + entry("run_checkout_scripts").replace("\"project_id\":\"" + PROJECT + "\", \"scripts\":[]",
+                        "\"project_id\":\"" + PROJECT + "\", \"scripts\":[{\"path\":\"" + SCRIPT
+                                + "\",\"sha256\":\"nope\"}]") + "]}",
                         "digest"));
     }
 
     private static String entry(String kind) {
         var parsed = ConsentKind.of(kind).orElseThrow();
-        var project = parsed.projectScoped() ? "\"project_id\":\"pm-mcp-core\", " : "";
+        var project = parsed.projectScoped() ? "\"project_id\":\"" + PROJECT + "\", " : "";
         var scripts = parsed.scriptScoped() ? "\"scripts\":[], " : "";
         return "{\"kind\":\"" + kind + "\", " + project + scripts
-                + "\"granted_at\":\"2026-10-29T10:00:00Z\", \"channel\":\"cli\"}";
+                + "\"granted_at\":\"" + GRANTED + "\", \"channel\":\"cli\"}";
     }
 
     @ParameterizedTest(name = "{1}")
@@ -97,16 +110,17 @@ class ConsentCodecTest {
     @Test
     @DisplayName("writes and reads back every member of an entry, including the web device and the scripts")
     void roundTrip() {
-        var consent = Consent.checkoutScripts("pm-mcp-core", List.of(new ConsentScript("bin/build.sh", SHA)),
-                GRANTED, Consent.Channel.WEB, Optional.of("dev-0123456789ab"));
+        var revision = Generators.longs(0L, 1_000L).next();
+        var consent = Consent.checkoutScripts(PROJECT, List.of(new ConsentScript(SCRIPT, SHA)),
+                GRANTED, Consent.Channel.WEB, Optional.of(DEVICE));
 
-        var document = ConsentCodec.write(List.of(consent), 7);
+        var document = ConsentCodec.write(List.of(consent), revision);
         var read = ConsentCodec.read(file(), document);
 
         assertAll(
-                () -> assertEquals(7L, read.revision()),
+                () -> assertEquals(revision, read.revision()),
                 () -> assertEquals(List.of(consent), read.consents()),
-                () -> assertTrue(new String(document, UTF_8).contains("\"scripts\":[{\"path\":\"bin/build.sh\"")));
+                () -> assertTrue(new String(document, UTF_8).contains("\"scripts\":[{\"path\":\"" + SCRIPT + "\"")));
     }
 
     @Test

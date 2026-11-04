@@ -33,6 +33,7 @@ import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
  * the line it starts on. Every test runs under a default locale with non-Latin digits, so the numbers of a refusal
  * must be ASCII digits.
  */
+// Every datum in this class is a contract: the CSV documents under test and the rows and refusals they yield.
 @ExtendWith(NonLatinDigits.class)
 @DisplayName("CSV row reader")
 class CsvRowReaderTest {

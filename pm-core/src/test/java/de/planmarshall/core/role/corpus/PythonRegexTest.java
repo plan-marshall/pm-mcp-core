@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * expected result is what {@code bool(re.search(pattern, value))} answers in Python 3 (Unicode 16) for the same pattern
  * and string.
  */
+// Every datum in this class is a contract: the pinned results of Python's re.search for each pattern and value.
 @DisplayName("Python regex")
 class PythonRegexTest {
 

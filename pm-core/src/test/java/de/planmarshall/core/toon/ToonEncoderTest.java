@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -35,6 +37,7 @@ import de.planmarshall.core.toon.ToonValue.ToonNumber;
 import de.planmarshall.core.toon.ToonValue.ToonObject;
 import de.planmarshall.core.toon.ToonValue.ToonString;
 
+@EnableGeneratorController
 @DisplayName("ToonEncoder")
 class ToonEncoderTest {
 
@@ -201,7 +204,9 @@ class ToonEncoderTest {
         @Test
         @DisplayName("refuses duplicate keys")
         void duplicateKey() {
-            var builder = ToonObject.builder().add("a", 1).add("a", 2);
+            var key = Generators.letterStrings(1, 8).next();
+            var builder = ToonObject.builder().add(key, Generators.integers(0, 1_000).next())
+                    .add(key, Generators.integers(0, 1_000).next());
 
             var refusal = assertThrows(ToonEncodingException.class, builder::build);
 

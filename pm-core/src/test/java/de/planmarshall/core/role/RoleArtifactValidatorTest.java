@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * member, a missing member, {@code recycling} missing for {@code warm} or present for {@code fresh}, an {@code off_track}
  * threshold above the compiled one, and {@code questions} or {@code off_track} on a {@code zero_tool} role.
  */
+@EnableGeneratorController
 @DisplayName("Role artifact validation")
 class RoleArtifactValidatorTest {
 
@@ -60,33 +63,41 @@ class RoleArtifactValidatorTest {
     @Test
     @DisplayName("a warm artifact declares its recycling")
     void warmRecyclingLoads() {
+        var idleWakeups = Generators.integers(1, 100).next();
+        var tokenBudget = Generators.integers(10_000, 100_000).next();
+        var tasksPerGeneration = Generators.integers(1, 20).next();
         var artifact = RoleFixtures.valid()
                 .set("/form", "warm")
-                .set("/recycling", recycling(2, 50_000, 10))
+                .set("/recycling", recycling(idleWakeups, tokenBudget, tasksPerGeneration))
                 .artifact();
 
         assertAll(
                 () -> assertEquals(RoleForm.WARM, artifact.form()),
-                () -> assertEquals(2, artifact.recycling().idleWakeups()),
-                () -> assertEquals(50_000, artifact.recycling().tokenBudget()),
-                () -> assertEquals(10, artifact.recycling().tasksPerGeneration()));
+                () -> assertEquals(idleWakeups, artifact.recycling().idleWakeups()),
+                () -> assertEquals(tokenBudget, artifact.recycling().tokenBudget()),
+                () -> assertEquals(tasksPerGeneration, artifact.recycling().tasksPerGeneration()));
     }
 
     @Test
     @DisplayName("questions, context budget and off_track load where the schema allows them")
     void optionalMembersLoad() {
+        var contextBudget = Generators.integers(10_000, 500_000).next();
+        var hold = Generators.integers(0, 3_600).next();
+        var resume = Generators.integers(0, 604_800).next();
+        var threshold = Generators.integers(1, 5).next();
         var artifact = RoleFixtures.valid()
-                .set("/context_budget_tokens", 120_000)
-                .set("/questions", map("hold_seconds", 300, "resume_within_seconds", 86_400))
-                .set("/off_track", map("repeating", map("threshold", 3, "action", "nudge"),
+                .set("/context_budget_tokens", contextBudget)
+                .set("/questions", map("hold_seconds", hold, "resume_within_seconds", resume))
+                .set("/off_track", map("repeating", map("threshold", threshold, "action", "nudge"),
                         "no_progress", map("action", "yield")))
                 .artifact();
 
         assertAll(
-                () -> assertEquals(120_000, artifact.contextBudgetTokens()),
-                () -> assertEquals(300, artifact.questions().holdSeconds()),
-                () -> assertEquals(86_400, artifact.questions().resumeWithinSeconds()),
-                () -> assertEquals(3.0, artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).threshold()),
+                () -> assertEquals(contextBudget, artifact.contextBudgetTokens()),
+                () -> assertEquals(hold, artifact.questions().holdSeconds()),
+                () -> assertEquals(resume, artifact.questions().resumeWithinSeconds()),
+                () -> assertEquals((double) threshold,
+                        artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).threshold()),
                 () -> assertEquals(RoleArtifact.OffTrackAction.NUDGE,
                         artifact.offTrack().get(RoleArtifact.OffTrackSignal.REPEATING).action()),
                 () -> assertNull(artifact.offTrack().get(RoleArtifact.OffTrackSignal.NO_PROGRESS).threshold()),

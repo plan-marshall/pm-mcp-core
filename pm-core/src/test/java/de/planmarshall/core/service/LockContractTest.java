@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
@@ -23,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.MatchResult;
@@ -38,17 +41,21 @@ import de.planmarshall.core.store.LockKey;
  * The contract of the lock manager towards its callers (PM-IMPL-7): what a refused out-of-order acquisition hands to
  * the audit log and to the failing call.
  */
+@EnableGeneratorController
 @DisplayName("Lock contract")
 class LockContractTest {
 
     private static final Path BASE = Path.of("/pm-base");
-    private static final String PROJECT = "sample-project";
+    private static final String PROJECT =
+            "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN_ID =
+            "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final LockKey WORKSPACE = LockKey.workspace(BASE, PROJECT);
     private static final LockKey QUEUE = LockKey.queue(BASE, PROJECT);
-    private static final LockKey PLAN = LockKey.plan(BASE, PROJECT, "plan-one");
-    private static final String WORKSPACE_LOCK = "/pm-base/projects/sample-project/locks/workspace.lock";
-    private static final String QUEUE_LOCK = "/pm-base/projects/sample-project/locks/queue.lock";
-    private static final String PLAN_LOCK = "/pm-base/projects/sample-project/locks/plan-plan-one.lock";
+    private static final LockKey PLAN = LockKey.plan(BASE, PROJECT, PLAN_ID);
+    private static final String WORKSPACE_LOCK = "/pm-base/projects/" + PROJECT + "/locks/workspace.lock";
+    private static final String QUEUE_LOCK = "/pm-base/projects/" + PROJECT + "/locks/queue.lock";
+    private static final String PLAN_LOCK = "/pm-base/projects/" + PROJECT + "/locks/plan-" + PLAN_ID + ".lock";
 
     @Nested
     @DisplayName("audit event")
@@ -156,14 +163,15 @@ class LockContractTest {
         @DisplayName("a fault without a reason, a message or details is refused")
         void missingArguments() {
             Map<String, Object> details = Map.of();
+            var message = Generators.letterStrings(5, 20).next();
 
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new InternalFaultException(null, "message", details)),
+                            () -> new InternalFaultException(null, message, details)),
                     () -> assertThrows(NullPointerException.class,
                             () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, null, details)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, "message", null)));
+                            () -> new InternalFaultException(Reason.LOCK_ORDER_VIOLATION, message, null)));
         }
 
         @Test

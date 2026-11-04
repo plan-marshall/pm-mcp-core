@@ -25,6 +25,7 @@ import de.planmarshall.core.profile.EndpointProfileFixtures;
  * {@code zero_tool} and no other, has no restricted models and no resumability, and its context budget is the endpoint's
  * {@code context_tokens} less its {@code answer_reserve_tokens}.
  */
+// Every datum in this class is a contract: the fixture's ids, tiers and budget are what the projection asserts.
 @DisplayName("Endpoint harness class rule")
 class HarnessProfileEndpointTest {
 

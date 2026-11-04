@@ -34,6 +34,7 @@ import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
  * value as its JSON text, a blank last line allowed, any other malformed line refused with its number. Every test runs
  * under a default locale with non-Latin digits, so the line a refusal names must be ASCII digits.
  */
+// Every datum in this class is a contract: the JSON Lines documents under test and the rows and refusals they yield.
 @ExtendWith(NonLatinDigits.class)
 @DisplayName("JSON Lines row reader")
 class JsonlRowReaderTest {

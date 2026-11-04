@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.URI;
@@ -51,14 +53,15 @@ import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
  * has a case unless it is listed in {@link #SCHEMA_ONLY}, and every pattern constant of the records has a case unless
  * it is listed in {@link #RECORD_ONLY}. A new pattern on either side without a case fails the test.
  */
+@EnableGeneratorController
 @DisplayName("Corpus record patterns and schema patterns")
 class CorpusPatternParityTest {
 
     private static final String MANIFEST = "source-manifest.schema.json";
     private static final String OVERLAY = "source-overlay.schema.json";
     private static final String ITEM = "imported-item.schema.json";
-    private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
-    private static final String HASH = "a".repeat(64);
+    private static final String COMMIT = "%040x".formatted(Generators.longs().next());
+    private static final String HASH = "%064x".formatted(Generators.longs().next());
     private static final URI REPOSITORY = URI.create("https://github.com/example/sample-set");
 
     /** The line separators of Java's default {@code .} that Python's {@code .} crosses. */

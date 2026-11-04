@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +38,7 @@ import de.planmarshall.core.store.QualificationSettings;
  * must be measured, and every topic must reach the current agreement level and exceed its constant baseline by the
  * margin. The levels are read at every check, so a changed level applies to an existing qualification.
  */
+@EnableGeneratorController
 @DisplayName("Qualification check")
 class QualificationCheckTest {
 
@@ -144,10 +148,10 @@ class QualificationCheckTest {
         var qualification = QualificationFixtures.qualification(Map.of(Topic.OWN, NINETY, Topic.GENERIC, NINETY));
         var check = check(QualificationFixtures.bothTopics());
 
-        var staleDigest = check.check(QualificationFixtures.ROLE, qualification, "b".repeat(64),
-                QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
+        var staleDigest = check.check(QualificationFixtures.ROLE, qualification,
+                "%064x".formatted(Generators.longs().next()), QualificationFixtures.CORPUS_REVISION, RoleForm.FRESH);
         var staleCorpus = check.check(QualificationFixtures.ROLE, qualification, QualificationFixtures.DIGEST,
-                "corpus-8", RoleForm.FRESH);
+                QualificationFixtures.CORPUS_REVISION + "-stale", RoleForm.FRESH);
 
         assertAll(
                 () -> assertEquals(List.of(Code.STALE_DIGEST), codes(staleDigest)),
@@ -171,8 +175,12 @@ class QualificationCheckTest {
     @DisplayName("a record with an ungraded item qualifies no form")
     void ungradedItem() {
         var graded = QualificationFixtures.qualification(Map.of(Topic.OWN, NINETY, Topic.GENERIC, NINETY));
-        var ungraded = new QualificationRecord.ItemResult("review/ungraded", RoleForm.FRESH, Checkout.CURRENT,
-                JsonNode.nullValue(), Grade.ungraded(), TokenTotal.measured(10), 5L);
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var ungraded = new QualificationRecord.ItemResult(
+                topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), RoleForm.FRESH,
+                Checkout.CURRENT, JsonNode.nullValue(), Grade.ungraded(),
+                TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                (long) Generators.integers(1, 100).next());
         var qualification = new QualificationRecord(graded.role(), graded.qualificationDigest(),
                 graded.configuration(), graded.corpusRevision(), graded.missedSources(), graded.forms(), null, 1,
                 graded.gradedAt(), List.of(ungraded));
@@ -298,14 +306,19 @@ class QualificationCheckTest {
     @Test
     @DisplayName("the screener's catch rate is measured from the runs of its suspicious items")
     void catchRate() {
-        var suspicious = QualificationFixtures.item("screen/injected", QualificationFixtures.ROLE, "suspicious")
-                .build();
-        var clean = QualificationFixtures.item("screen/clean", QualificationFixtures.ROLE, "clean").build();
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var cleanAnswer = "c" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var suspicious = QualificationFixtures.item(
+                topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
+                QualificationFixtures.ROLE, "suspicious").build();
+        var clean = QualificationFixtures.item(
+                topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
+                QualificationFixtures.ROLE, cleanAnswer).build();
         var qualification = QualificationFixtures.qualification(Map.of(Topic.OWN, NINETY));
         var results = new ArrayList<QualificationRecord.ItemResult>();
         results.add(result(suspicious.id(), "suspicious"));
-        results.add(result(suspicious.id(), "clean"));
-        results.add(result(clean.id(), "clean"));
+        results.add(result(suspicious.id(), cleanAnswer));
+        results.add(result(clean.id(), cleanAnswer));
         var measured = new QualificationRecord(qualification.role(), qualification.qualificationDigest(), qualification.configuration(),
                 qualification.corpusRevision(), List.of(), qualification.forms(), null, 0, qualification.gradedAt(), results);
         var topics = new RoleTopics(EnumSet.of(Topic.OWN));
@@ -337,8 +350,9 @@ class QualificationCheckTest {
 
     private static QualificationRecord.ItemResult result(String itemId, String answer) {
         return new QualificationRecord.ItemResult(itemId, RoleForm.FRESH, Checkout.CURRENT,
-                JsonNode.string(answer), Grade.of("suspicious".equals(answer)),
-                TokenTotal.measured(10), 5L);
+                JsonNode.string(answer), Grade.of(QualificationCheck.SUSPICIOUS.equals(answer)),
+                TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                (long) Generators.integers(1, 100).next());
     }
 
     private static QualificationCheck check(RoleTopics topics) {

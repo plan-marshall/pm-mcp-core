@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.queue;
 
+import de.cuioss.test.generator.Generators;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,11 +39,12 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
  */
 final class QueueFixtures {
 
-    static final String GENERATION = "l-0123456789abcdef";
-    static final String OTHER_GENERATION = "l-fedcba9876543210";
-    static final String DIGEST = "a".repeat(64);
-    static final String OTHER_DIGEST = "b".repeat(64);
-    static final Instant AT = Instant.parse("2026-10-23T10:00:00Z");
+    static final String GENERATION = "l-" + "%016x".formatted(Generators.longs().next());
+    static final String OTHER_GENERATION = "l-" + "%016x".formatted(Generators.longs().next());
+    static final String DIGEST = "%064x".formatted(Generators.longs().next());
+    static final String OTHER_DIGEST = "%064x".formatted(Generators.longs().next());
+    static final Instant AT =
+            Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
     static final String PLAN = "plan-a";
 
     private QueueFixtures() {
@@ -60,7 +62,7 @@ final class QueueFixtures {
                 .taskClass(TaskClass.WRITER)
                 .scope(planScope())
                 .entity("envelope-1")
-                .stateId("build.execute")
+                .stateId(Generators.letterStrings(3, 12).next())
                 .formDowngraded(false)
                 .status(Status.QUEUED)
                 .continuation(null)
@@ -94,8 +96,9 @@ final class QueueFixtures {
     }
 
     static Continuation continuation() {
-        return new Continuation("Q-001", ContinuationForm.RESUME, null, "session-1", AT.plusSeconds(3),
-                AT.plusSeconds(3600), DIGEST, "c".repeat(40), null);
+        return new Continuation("Q-001", ContinuationForm.RESUME, null,
+                "s-" + Generators.longs(1, Long.MAX_VALUE).next(), AT.plusSeconds(3),
+                AT.plusSeconds(3600), DIGEST, "%040x".formatted(Generators.longs().next()), null);
     }
 
     static Signal agentStarted(int attempt, Instant at) {
@@ -103,8 +106,8 @@ final class QueueFixtures {
     }
 
     static Consultation answeredConsultation(String consultationId) {
-        return new Consultation(consultationId, "reviewer", GENERATION, AT, ConsultationStatus.ANSWERED, "the answer",
-                AT.plusSeconds(5), AT.plusSeconds(6), DeliveredTo.WAIT);
+        return new Consultation(consultationId, "reviewer", GENERATION, AT, ConsultationStatus.ANSWERED,
+                Generators.letterStrings(3, 20).next(), AT.plusSeconds(5), AT.plusSeconds(6), DeliveredTo.WAIT);
     }
 
     static QueueTaskRecord withAttempts(QueueTaskRecord task, Attempt... attempts) {

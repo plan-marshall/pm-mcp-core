@@ -15,10 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,25 +32,27 @@ import org.junit.jupiter.api.Test;
  * of the enrolment store (PM-EXEC-2, PM-SEC-4, PM-SEC-5). Each event has its name, its category, its outcome and
  * exactly the details the specification names.
  */
+@EnableGeneratorController
 @DisplayName("Audit event")
 class AuditEventTest {
 
-    private static final String TRANSACTION_ID = "01970000-0000-7000-8000-000000000001";
+    private static final String TRANSACTION_ID = Generators.letterStrings(8, 20).next();
 
     @Test
     @DisplayName("a torn tail repair names the store, the bytes cut off, their SHA-256 and the id of the repair")
     void jsonlTailRepaired() {
         var store = Path.of("/base/projects/pm-mcp-core/plans/a-plan/findings.jsonl");
-        var sha = "a".repeat(64);
+        var sha = "%064x".formatted(Generators.longs().next());
+        var truncatedBytes = Generators.longs(1, 10_000).next();
 
-        var event = AuditEvent.jsonlTailRepaired(store, 17, sha, TRANSACTION_ID);
+        var event = AuditEvent.jsonlTailRepaired(store, truncatedBytes, sha, TRANSACTION_ID);
 
         assertAll(
                 () -> assertEquals("jsonl_tail_repaired", event.event()),
                 () -> assertEquals("store", event.category()),
                 () -> assertEquals("succeeded", event.outcome()),
-                () -> assertEquals(Map.of("store", store.toString(), "truncated_bytes", 17L, "truncated_sha256", sha,
-                        "transaction_id", TRANSACTION_ID), event.details()));
+                () -> assertEquals(Map.of("store", store.toString(), "truncated_bytes", truncatedBytes,
+                        "truncated_sha256", sha, "transaction_id", TRANSACTION_ID), event.details()));
     }
 
     @Test
@@ -66,47 +71,53 @@ class AuditEventTest {
     @Test
     @DisplayName("a stall record is one transition warning with the scope, the state, the cause and the span")
     void planStalled() {
-        var progress = Instant.parse("2026-10-20T10:00:00Z");
+        var progress = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        var scopeId = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var idleSeconds = Generators.longs(1, 100_000).next();
 
-        var event = AuditEvent.planStalled("plan", "a-plan", "execute.review", "no_progress", progress, 610);
+        var event = AuditEvent.planStalled("plan", scopeId, "execute.review", "no_progress", progress, idleSeconds);
 
         assertAll(
                 () -> assertEquals("plan_stalled", event.event()),
                 () -> assertEquals("transition", event.category()),
                 () -> assertEquals("warning", event.outcome()),
-                () -> assertEquals(Map.of("scope_type", "plan", "scope_id", "a-plan", "state", "execute.review",
-                                "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds", 610L),
-                        event.details()));
+                () -> assertEquals(Map.of("scope_type", "plan", "scope_id", scopeId, "state", "execute.review",
+                        "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds",
+                        idleSeconds), event.details()));
     }
 
     @Test
     @DisplayName("a stall record without its scope, state, cause or instant is refused")
     void planStalledRefusesMissingValues() {
-        var progress = Instant.parse("2026-10-20T10:00:00Z");
+        var progress = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        var scopeId = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var state = Generators.letterStrings(3, 10).next();
+        var idleSeconds = Generators.longs(1, 1_000).next();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled(null, "a-plan", "s", "no_progress", progress, 1)),
+                        () -> AuditEvent.planStalled(null, scopeId, state, "no_progress", progress, idleSeconds)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", null, "s", "no_progress", progress, 1)),
+                        () -> AuditEvent.planStalled("plan", null, state, "no_progress", progress, idleSeconds)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", "a-plan", null, "no_progress", progress, 1)),
+                        () -> AuditEvent.planStalled("plan", scopeId, null, "no_progress", progress, idleSeconds)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", "a-plan", "s", null, progress, 1)),
+                        () -> AuditEvent.planStalled("plan", scopeId, state, null, progress, idleSeconds)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.planStalled("plan", "a-plan", "s", "no_progress", null, 1)));
+                        () -> AuditEvent.planStalled("plan", scopeId, state, "no_progress", null, idleSeconds)));
     }
 
     @Nested
     @DisplayName("worker start failures")
     class WorkerStartFailures {
 
-        private static final String PROJECT = "pm-mcp-core";
+        private static final String PROJECT =
+                "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
         @Test
         @DisplayName("a start failure is a failed operator record naming the project, role, harness and error text")
         void workerStartFailed() {
-            var detail = "the harness exited before its first call";
+            var detail = Generators.letterStrings(10, 60).next();
 
             var event = AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", detail);
 
@@ -122,13 +133,15 @@ class AuditEventTest {
         @Test
         @DisplayName("a start failure without its project, role, harness or error text is refused")
         void workerStartFailedRefusesMissingValues() {
+            var detail = Generators.letterStrings(5, 20).next();
+
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(null, "supervisor", "claude", "detail")),
+                            () -> AuditEvent.workerStartFailed(null, "supervisor", "claude", detail)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(PROJECT, null, "claude", "detail")),
+                            () -> AuditEvent.workerStartFailed(PROJECT, null, "claude", detail)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", null, "detail")),
+                            () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", null, detail)),
                     () -> assertThrows(NullPointerException.class,
                             () -> AuditEvent.workerStartFailed(PROJECT, "supervisor", "claude", null)));
         }
@@ -141,16 +154,17 @@ class AuditEventTest {
         @Test
         @DisplayName("for a plan scope it names the scope type, the scope id, the transaction and the targets")
         void planScope() {
-            var event = AuditEvent.transactionRolledForward("plan", "a-plan", TRANSACTION_ID,
-                    List.of("mcp/status.json", "findings.jsonl"));
+            var scopeId = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+            var targets = List.of("mcp/status.json", "findings.jsonl");
+
+            var event = AuditEvent.transactionRolledForward("plan", scopeId, TRANSACTION_ID, targets);
 
             assertAll(
                     () -> assertEquals("transaction_rolled_forward", event.event()),
                     () -> assertEquals("store", event.category()),
                     () -> assertEquals("succeeded", event.outcome()),
-                    () -> assertEquals(Map.of("scope_type", "plan", "scope_id", "a-plan", "transaction_id",
-                                    TRANSACTION_ID, "targets", List.of("mcp/status.json", "findings.jsonl")),
-                            event.details()));
+                    () -> assertEquals(Map.of("scope_type", "plan", "scope_id", scopeId, "transaction_id",
+                            TRANSACTION_ID, "targets", targets), event.details()));
         }
 
         /** The matched case to the one above: the workspace scope has no id, so the detail is left out. */
@@ -170,8 +184,9 @@ class AuditEventTest {
         @DisplayName("the targets are copied: a later change of the caller's list does not reach the record")
         void targetsCopied() {
             var targets = new ArrayList<>(List.of("mcp/status.json"));
+            var scopeId = "e" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
-            var event = AuditEvent.transactionRolledForward("epic", "an-epic", TRANSACTION_ID, targets);
+            var event = AuditEvent.transactionRolledForward("epic", scopeId, TRANSACTION_ID, targets);
             targets.add("status.json");
 
             assertEquals(List.of("mcp/status.json"), event.details().get("targets"));
@@ -181,31 +196,35 @@ class AuditEventTest {
     @Test
     @DisplayName("a removed pending entry record names the entry, its store, its creation instant and the transaction")
     void pendingEntryRemoved() {
-        var event = AuditEvent.pendingEntryRemoved("ent-0123abcd", "pending/ent-0123abcd.json",
-                "2026-10-13T08:00:00Z", TRANSACTION_ID);
+        var entryId = "ent-" + Generators.letterStrings(4, 8).next().toLowerCase(Locale.ROOT);
+        var store = "pending/" + entryId + ".json";
+        var createdAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()).toString();
+
+        var event = AuditEvent.pendingEntryRemoved(entryId, store, createdAt, TRANSACTION_ID);
 
         assertAll(
                 () -> assertEquals("pending_entry_removed", event.event()),
                 () -> assertEquals(AuditEvent.PENDING_ENTRY_REMOVED, event.event()),
                 () -> assertEquals("store", event.category()),
                 () -> assertEquals("succeeded", event.outcome()),
-                () -> assertEquals(Map.of("entry_id", "ent-0123abcd", "store", "pending/ent-0123abcd.json",
-                        "created_at", "2026-10-13T08:00:00Z", "transaction_id", TRANSACTION_ID), event.details()),
+                () -> assertEquals(Map.of("entry_id", entryId, "store", store, "created_at", createdAt,
+                        "transaction_id", TRANSACTION_ID), event.details()),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(null, "s", "c", TRANSACTION_ID)),
+                        () -> AuditEvent.pendingEntryRemoved(null, store, createdAt, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved("e", null, "c", TRANSACTION_ID)),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, null, createdAt, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved("e", "s", null, TRANSACTION_ID)),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, store, null, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved("e", "s", "c", null)));
+                        () -> AuditEvent.pendingEntryRemoved(entryId, store, createdAt, null)));
     }
 
     @Nested
     @DisplayName("enrolment events")
     class Enrolment {
 
-        private static final String PROJECT = "pm-mcp-core";
+        private static final String PROJECT =
+                "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
         @Test
         @DisplayName("a tampered enrolment is a refused security event naming the project and the reason")
@@ -347,33 +366,46 @@ class AuditEventTest {
     @DisplayName("a missing store, scope type, transaction, target list, project or reason is refused")
     void missingArguments() {
         var targets = List.of("mcp/status.json");
-        var store = Path.of("a");
-        var project = "pm-mcp-core";
+        var store = Path.of(Generators.letterStrings(3, 10).next());
+        var storeName = Generators.letterStrings(5, 20).next();
+        var project = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var scopeId = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var reconciliation = Generators.letterStrings(5, 20).next();
+        var reason = Generators.letterStrings(5, 20).next();
+        var sha = "%064x".formatted(Generators.longs().next());
+        var truncatedBytes = Generators.longs(1, 1_000).next();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.jsonlTailRepaired(null, 1, "a", TRANSACTION_ID)),
+                        () -> AuditEvent.jsonlTailRepaired(null, truncatedBytes, sha, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.jsonlTailRepaired(store, 1, null, TRANSACTION_ID)),
+                        () -> AuditEvent.jsonlTailRepaired(store, truncatedBytes, null, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.jsonlTailRepaired(store, 1, "a", null)),
+                        () -> AuditEvent.jsonlTailRepaired(store, truncatedBytes, sha, null)),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.transactionRolledForward(null, null, TRANSACTION_ID, targets)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.transactionRolledForward("plan", "a-plan", null, targets)),
+                        () -> AuditEvent.transactionRolledForward("plan", scopeId, null, targets)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.transactionRolledForward("plan", "a-plan", TRANSACTION_ID, null)),
+                        () -> AuditEvent.transactionRolledForward("plan", scopeId, TRANSACTION_ID, null)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.crossScopeReconciled(null, "s", TRANSACTION_ID)),
+                        () -> AuditEvent.crossScopeReconciled(null, storeName, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.crossScopeReconciled("r", null, TRANSACTION_ID)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.crossScopeReconciled("r", "s", null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentTampered(null, "r")),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentTampered(project, null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(null, "r")),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(project, null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInvalid(null, "r")),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInvalid(project, null)),
+                        () -> AuditEvent.crossScopeReconciled(reconciliation, null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.crossScopeReconciled(reconciliation, storeName, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentTampered(null, reason)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentTampered(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentInsecure(null, reason)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentInsecure(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentInvalid(null, reason)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentInvalid(project, null)),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.enrolmentWritten(null, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(project, null)),

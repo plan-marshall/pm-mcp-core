@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +40,7 @@ import de.planmarshall.core.store.QualificationSettings;
  * wire names of the enumerations, the token total, the grade, the graded configuration, the offer and the plan, and the
  * guards each value refuses.
  */
+@EnableGeneratorController
 @DisplayName("Qualification values")
 class QualificationValueTest {
 
@@ -102,7 +106,7 @@ class QualificationValueTest {
         var noTools = List.<String>of();
         var noDigests = Map.<String, String>of();
         var notADigest = Map.of("skill://pm/role/x/SKILL.md", "not-a-digest");
-        var otherSkill = Map.of("other/x", "a".repeat(64));
+        var otherSkill = Map.of("other/x", "%064x".formatted(Generators.longs().next()));
 
         assertThrows(IllegalArgumentException.class, () -> new GradedConfiguration("Bad Harness", "1.4", "m", null,
                 noTools, RoleClass.WRITER, noDigests));
@@ -117,12 +121,15 @@ class QualificationValueTest {
     }
 
     private static JudgeConfiguration judge() {
+        var rightAnswer = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var wrongAnswer = "b" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var question = Generators.letterStrings(5, 30).next();
         return new JudgeConfiguration(QualificationFixtures.role("judge", RoleClass.ZERO_TOOL, RoleForm.FRESH),
-                Set.of("acme-sibling"), List.of(
-                        new JudgeCheck.Item("judge/right", "Is it right?", "", "a right answer", "a right answer",
-                                JudgeCheck.Label.RIGHT),
-                        new JudgeCheck.Item("judge/wrong", "Is it right?", "", "a wrong answer", "a wrong answer",
-                                JudgeCheck.Label.WRONG)));
+                Set.of("s" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)), List.of(
+                        new JudgeCheck.Item("judge/r-" + Generators.letterStrings(3, 10).next().toLowerCase(
+                                Locale.ROOT), question, "", rightAnswer, rightAnswer, JudgeCheck.Label.RIGHT),
+                        new JudgeCheck.Item("judge/w-" + Generators.letterStrings(3, 10).next().toLowerCase(
+                                Locale.ROOT), question, "", wrongAnswer, wrongAnswer, JudgeCheck.Label.WRONG)));
     }
 
     @Test
@@ -131,7 +138,8 @@ class QualificationValueTest {
         var judge = judge();
         var role = QualificationFixtures.role("implement", RoleClass.WRITER, RoleForm.FRESH);
         var noSources = new ImportResult(List.of(), List.of());
-        var repository = URI.create("https://example.org/x");
+        var repository = URI.create("https://example.org/"
+                + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT));
         var noPrevious = Optional.<QualificationRecord>empty();
         var noForms = List.<RoleForm>of();
         var noTopics = List.<Topic>of();
@@ -148,7 +156,8 @@ class QualificationValueTest {
         assertFalse(GradingProfile.single().repeated());
         assertThrows(IllegalArgumentException.class, () -> new GradingProfile(0));
         assertThrows(IllegalArgumentException.class, () -> new GradingOutcome.Declined(false));
-        assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null, "x"));
+        assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null,
+                Generators.letterStrings(3, 20).next()));
     }
 
     @Test
@@ -173,8 +182,14 @@ class QualificationValueTest {
     @DisplayName("a suspicious item of another role does not raise this role's runs")
     void suspiciousOfAnotherRole() {
         var judge = judge();
-        var own = QualificationFixtures.item("review/own", "review-code", "clean").build();
-        var foreign = QualificationFixtures.item("screen/injected", "screener", "suspicious").build();
+        var topics = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var own = QualificationFixtures.item(
+                topics + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), "review-code",
+                "c" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)).build();
+        var foreign = QualificationFixtures.item(
+                "u" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/"
+                        + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
+                "f" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), "suspicious").build();
         var plan = new GradingPlan(QualificationFixtures.role("review-code", RoleClass.READ_ONLY,
                         RoleForm.FRESH), List.of(own, foreign), new ImportResult(List.of(), List.of()),
                 QualificationFixtures.CORPUS_REVISION, QualificationFixtures.REPOSITORY, GradingProfile.single(),
@@ -213,12 +228,16 @@ class QualificationValueTest {
     @DisplayName("the role topics refuse null and answer whether a topic is required")
     void topicSet() {
         var topics = QualificationFixtures.bothTopics();
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var id = topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var role = "r" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var answer = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
         assertTrue(topics.contains(Topic.OWN));
         assertTrue(topics.contains(Topic.GENERIC));
         assertThrows(NullPointerException.class, () -> new RoleTopics(null));
-        assertTrue(RoleTopics.counts(QualificationFixtures.item("review/x", "review-code", "clean").build()));
-        assertFalse(RoleTopics.counts(QualificationFixtures.item("review/x", "review-code", "clean")
+        assertTrue(RoleTopics.counts(QualificationFixtures.item(id, role, answer).build()));
+        assertFalse(RoleTopics.counts(QualificationFixtures.item(id, role, answer)
                 .status(ImportedItem.ReviewStatus.RETIRED).build()));
     }
 

@@ -22,6 +22,7 @@ import de.planmarshall.core.ProductCorpus;
  * The corpus validator accepts the corpus's own items of plan-marshall-mcp (PM-WORK-6) as present in the checkout
  * {@code pm.product.root} names; skipped, with the path named, when the checkout is absent.
  */
+// Every datum in this class is a contract: the product corpus it validates, and it carries no datum of its own.
 @DisplayName("Product corpus validation")
 class ProductCorpusValidationTest {
 

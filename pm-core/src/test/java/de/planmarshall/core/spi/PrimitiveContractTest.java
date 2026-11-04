@@ -15,9 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -36,10 +39,19 @@ import de.planmarshall.core.spi.TestPrimitives.CompleteParams;
 import de.planmarshall.core.spi.TestPrimitives.FailOutcome;
 import de.planmarshall.core.spi.TestPrimitives.StartJobParams;
 
+@EnableGeneratorController
 @DisplayName("Contract of the primitive SPI")
 class PrimitiveContractTest {
 
-    private static final String PLAN_ID = "primitive-spi";
+    private static final String PLAN_ID = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+
+    private static final String SUBJECT = Generators.letterStrings(5, 20).next();
+
+    private static final String OTHER_SUBJECT = Generators.letterStrings(5, 20).next();
+
+    private static final String ADDED_FACT = Generators.letterStrings(5, 15).next();
+
+    private static final String LATER_VALUE = Generators.letterStrings(5, 20).next();
 
     static List<TestPrimitives.Case> oneForEveryOutcomeClass() {
         return TestPrimitives.oneForEveryOutcomeClass();
@@ -111,18 +123,18 @@ class PrimitiveContractTest {
         @DisplayName("a primitive reads the identifier of the plan or epic the call addresses")
         void planScope() {
             var result = new TestPrimitives.Complete().execute(TestPrimitives.scope(PLAN_ID),
-                    new CompleteParams("request"));
+                    new CompleteParams(SUBJECT));
 
-            assertEquals(Map.of("subject", "request", "scope", PLAN_ID), result.updatedFacts());
+            assertEquals(Map.of("subject", SUBJECT, "scope", PLAN_ID), result.updatedFacts());
         }
 
         @Test
         @DisplayName("the workspace scope has no identifier")
         void workspaceScope() {
             var result = new TestPrimitives.Complete().execute(TestPrimitives.workspace(),
-                    new CompleteParams("request"));
+                    new CompleteParams(SUBJECT));
 
-            assertEquals(Map.of("subject", "request"), result.updatedFacts());
+            assertEquals(Map.of("subject", SUBJECT), result.updatedFacts());
         }
     }
 
@@ -173,7 +185,7 @@ class PrimitiveContractTest {
             var factWithoutValue = new HashMap<String, Object>();
             factWithoutValue.put("subject", null);
             var factWithoutName = new HashMap<String, Object>();
-            factWithoutName.put(null, "request");
+            factWithoutName.put(null, SUBJECT);
             return Stream.of(
                     Arguments.of("outcome", (Executable) () -> new PrimitiveResult<CompleteOutcome>(null, Map.of(),
                             Optional.empty())),
@@ -200,22 +212,22 @@ class PrimitiveContractTest {
         @DisplayName("keeps its own copy of the facts")
         void copiesFacts() {
             var facts = new HashMap<String, Object>();
-            facts.put("subject", "request");
+            facts.put("subject", SUBJECT);
             var result = new PrimitiveResult<>(CompleteOutcome.DONE, facts, Optional.empty());
 
-            facts.put("subject", "changed");
-            facts.put("added", "later");
+            facts.put("subject", OTHER_SUBJECT);
+            facts.put(ADDED_FACT, LATER_VALUE);
 
-            assertEquals(Map.of("subject", "request"), result.updatedFacts());
+            assertEquals(Map.of("subject", SUBJECT), result.updatedFacts());
         }
 
         @Test
         @DisplayName("hands out facts that cannot be changed")
         void factsAreUnmodifiable() {
-            var result = new PrimitiveResult<>(CompleteOutcome.DONE, Map.of("subject", "request"), Optional.empty());
+            var result = new PrimitiveResult<>(CompleteOutcome.DONE, Map.of("subject", SUBJECT), Optional.empty());
             var facts = result.updatedFacts();
 
-            assertThrows(UnsupportedOperationException.class, () -> facts.put("added", "later"));
+            assertThrows(UnsupportedOperationException.class, () -> facts.put(ADDED_FACT, LATER_VALUE));
         }
     }
 }

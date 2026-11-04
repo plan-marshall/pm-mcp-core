@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +27,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * Each activity entry has the members of its own kind and no others, its bounds are enforced, and every kind
  * round-trips through the codec.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the assertion table names one throwing builder call per case, by design
 @DisplayName("Activity entry validation")
@@ -37,24 +40,34 @@ class ActivityEntryValidationTest {
     @Test
     @DisplayName("every kind round-trips")
     void everyKind() {
+        var text = Generators.letterStrings(1, 50).next();
+        var toolName = Generators.letterStrings(1, 32).next();
+        var toolTarget = Generators.letterStrings(1, 64).next();
+        var resultBytes = Generators.integers(0, 100_000).next();
+        var failed = Generators.booleans().next();
+        var path = Generators.letterStrings(1, 64).next();
+        var inputTokens = Generators.integers(0, 10_000).next();
+        var linkTarget = "TASK-" + Generators.integers(100, 999).next();
+        var questionId = "Q-" + Generators.integers(100, 999).next();
+        var unmappedLines = Generators.integers(0, 100).next();
         var entries = List.of(
-                base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT).text("hello").truncated(true).build(),
+                base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT).text(text).truncated(true).build(),
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_CALL)
-                        .tool(new ActivityEntry.Tool("bash", "ls -la")).build(),
+                        .tool(new ActivityEntry.Tool(toolName, toolTarget)).build(),
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_RESULT)
-                        .result(new ActivityEntry.Result(12, false)).build(),
-                base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.FILE_CHANGED).path("src/Main.java").build(),
+                        .result(new ActivityEntry.Result(resultBytes, failed)).build(),
+                base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.FILE_CHANGED).path(path).build(),
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN)
                         .stopReason(ActivityEntry.StopReason.END_TURN)
-                        .usage("{\"input_tokens\":12,\"note\":\"ü\"}").build(),
+                        .usage("{\"input_tokens\":" + inputTokens + ",\"note\":\"ü\"}").build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.LINK)
-                        .link(new ActivityEntry.Link(ActivityEntry.LinkRelation.ACK, "TASK-007")).build(),
-                base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.QUESTION).questionId("Q-001").build(),
-                base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ANSWER_ACK).questionId("Q-001").build(),
+                        .link(new ActivityEntry.Link(ActivityEntry.LinkRelation.ACK, linkTarget)).build(),
+                base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.QUESTION).questionId(questionId).build(),
+                base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ANSWER_ACK).questionId(questionId).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL)
                         .signal(new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.RESTART)).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).end("off_track")
-                        .unmappedLines(2).build());
+                        .unmappedLines(unmappedLines).build());
 
         for (var entry : entries) {
             assertEquals(entry, ActivityEntryCodec.read(Path.of("entry.jsonl"), ActivityEntryCodec.write(entry)),

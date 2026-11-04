@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.guard.fixtures;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
@@ -32,9 +33,9 @@ public final class NioSocketFixture {
         try (var socket = SocketChannel.open(); var server = ServerSocketChannel.open();
              var datagram = DatagramChannel.open(); var asyncSocket = AsynchronousSocketChannel.open();
              var asyncServer = AsynchronousServerSocketChannel.open()) {
-            socket.configureBlocking(false);
-            server.configureBlocking(false);
-            datagram.configureBlocking(false);
+            socket.configureBlocking(Generators.booleans().next());
+            server.configureBlocking(Generators.booleans().next());
+            datagram.configureBlocking(Generators.booleans().next());
             asyncSocket.isOpen();
             asyncServer.isOpen();
         }

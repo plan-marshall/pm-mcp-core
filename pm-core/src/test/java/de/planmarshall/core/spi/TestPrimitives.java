@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.spi;
 
+import de.cuioss.test.generator.Generators;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,7 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
 final class TestPrimitives {
 
     /** The job identifier the job-starting primitive reports. */
-    static final String SPAWNED_JOB_ID = "b-0123456789abcdef";
+    static final String SPAWNED_JOB_ID = "b-" + "%016x".formatted(Generators.longs().next());
 
     private TestPrimitives() {
     }
@@ -34,7 +35,8 @@ final class TestPrimitives {
      */
     static List<Case> oneForEveryOutcomeClass() {
         return List.of(
-                new Case(new Complete(), new CompleteParams("request"), OutcomeClass.SUCCESS, "done"),
+                new Case(new Complete(), new CompleteParams(Generators.letterStrings(5, 20).next()),
+                        OutcomeClass.SUCCESS, "done"),
                 new Case(fixed("test.skip-absent", SkipParams.class, SkipOutcome.class, SkipOutcome.SKIPPED_NO_INPUT),
                         new SkipParams(), OutcomeClass.SKIP, "skipped_no_input"),
                 new Case(fixed("test.fail", FailParams.class, FailOutcome.class, FailOutcome.FAILED),

@@ -12,6 +12,8 @@ package de.planmarshall.core.queue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,13 +34,18 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
  * {@link QueueTaskRecord#validate()} refuses every combination the schema rules out, and each nested record refuses its
  * own broken form. The record is built member by member, so these are the checks of the write and read boundary.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the assertion table names one throwing builder call per case, by design
 @DisplayName("Queue task record validation")
 class QueueTaskRecordValidationTest {
 
+    private static String taskId() {
+        return "qt-" + "%016x".formatted(Generators.longs().next());
+    }
+
     private static QueueTaskRecord.QueueTaskRecordBuilder base() {
-        return QueueFixtures.queued("qt-0000000000000001");
+        return QueueFixtures.queued(taskId());
     }
 
     @Test
@@ -54,7 +61,7 @@ class QueueTaskRecordValidationTest {
     @Test
     @DisplayName("a closed task holding a lease is refused")
     void closedWithLease() {
-        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted("qt-0000000000000001")
+        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
                 .withLease(QueueFixtures.lease(QueueFixtures.GENERATION)).validate());
     }
 
@@ -68,9 +75,9 @@ class QueueTaskRecordValidationTest {
     @Test
     @DisplayName("lost is the only outcome with a reason")
     void reasons() {
-        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.lostAttemptsSpent("qt-0000000000000002")
+        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.lostAttemptsSpent(taskId())
                 .withReason(null).validate());
-        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted("qt-0000000000000003")
+        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
                 .withReason(LostReason.WITHDRAWN).validate());
     }
 
@@ -83,7 +90,7 @@ class QueueTaskRecordValidationTest {
         assertThrows(IllegalArgumentException.class, () -> base().status(Status.CLOSED)
                 .outcome(Outcome.LOST).reason(LostReason.ROLE_UNDEFINED).closedAt(QueueFixtures.AT.plusSeconds(1))
                 .build().validate());
-        assertDoesNotThrow(() -> QueueFixtures.lostRoleUndefined("qt-0000000000000004").validate());
+        assertDoesNotThrow(() -> QueueFixtures.lostRoleUndefined(taskId()).validate());
     }
 
     @Test
@@ -91,10 +98,10 @@ class QueueTaskRecordValidationTest {
     void consultation() {
         assertThrows(IllegalArgumentException.class,
                 () -> base().kind(Kind.CONSULTATION).build().validate());
-        assertThrows(IllegalArgumentException.class, () -> base().consultationOf("qt-0000000000000002").build()
+        assertThrows(IllegalArgumentException.class, () -> base().consultationOf(taskId()).build()
                 .validate());
         assertThrows(IllegalArgumentException.class, () -> QueueFixtures
-                .consultation("qt-0000000000000005", "qt-0000000000000001").withEntity("envelope-1")
+                .consultation(taskId(), taskId()).withEntity("envelope-1")
                 .validate());
     }
 
@@ -103,14 +110,14 @@ class QueueTaskRecordValidationTest {
     void question() {
         assertThrows(IllegalArgumentException.class, () -> base().status(Status.CLOSED)
                 .outcome(Outcome.ASKED).closedAt(QueueFixtures.AT.plusSeconds(1)).build().validate());
-        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted("qt-0000000000000006")
+        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
                 .withQuestionId("Q-001").validate());
     }
 
     @Test
     @DisplayName("the attempts are numbered from 1 without a gap")
     void attemptNumbers() {
-        var task = QueueFixtures.queued("qt-0000000000000007")
+        var task = QueueFixtures.queued(taskId())
                 .attempts(List.of(QueueFixtures.attempt(2, QueueFixtures.GENERATION, QueueFixtures.AT))).build();
 
         assertThrows(IllegalArgumentException.class, task::validate);
@@ -119,7 +126,7 @@ class QueueTaskRecordValidationTest {
     @Test
     @DisplayName("a task closes after it was created")
     void closedBeforeCreated() {
-        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted("qt-0000000000000008")
+        assertThrows(IllegalArgumentException.class, () -> QueueFixtures.closedSubmitted(taskId())
                 .withClosedAt(QueueFixtures.AT.minusSeconds(1)).validate());
     }
 
@@ -187,19 +194,21 @@ class QueueTaskRecordValidationTest {
     @Test
     @DisplayName("a consultation refuses its broken forms")
     void consultationRecord() {
+        var id = taskId();
+        var answer = Generators.letterStrings(3, 20).next();
         assertThrows(IllegalArgumentException.class, () -> new Consultation("bad", "reviewer",
                 QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new Consultation("qt-0000000000000001", "Reviewer",
+        assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "Reviewer",
                 QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new Consultation("qt-0000000000000001", "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, "an answer", null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> new Consultation("qt-0000000000000001", "reviewer",
+        assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
+                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, answer, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
                 QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.OPEN, null,
                 QueueFixtures.AT.plusSeconds(1), null, null));
-        assertThrows(IllegalArgumentException.class, () -> new Consultation("qt-0000000000000001", "reviewer",
-                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, "answer",
+        assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
+                QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, answer,
                 QueueFixtures.AT.plusSeconds(1), QueueFixtures.AT.plusSeconds(2), null));
-        assertThrows(IllegalArgumentException.class, () -> new Consultation("qt-0000000000000001", "reviewer",
+        assertThrows(IllegalArgumentException.class, () -> new Consultation(id, "reviewer",
                 QueueFixtures.GENERATION, QueueFixtures.AT, ConsultationStatus.ANSWERED, "a".repeat(4001),
                 QueueFixtures.AT.plusSeconds(1), null, null));
     }
@@ -216,13 +225,13 @@ class QueueTaskRecordValidationTest {
     @Test
     @DisplayName("the valid fixtures pass the validation")
     void valid() {
-        assertDoesNotThrow(() -> QueueFixtures.queued("qt-0000000000000009").build().validate());
-        assertDoesNotThrow(() -> QueueFixtures.suspended("qt-0000000000000010").validate());
-        assertDoesNotThrow(() -> QueueFixtures.closedSubmitted("qt-0000000000000011").validate());
-        assertDoesNotThrow(() -> QueueFixtures.consultation("qt-0000000000000012", "qt-0000000000000001").validate());
-        assertDoesNotThrow(() -> QueueFixtures.queued("qt-0000000000000013")
+        assertDoesNotThrow(() -> QueueFixtures.queued(taskId()).build().validate());
+        assertDoesNotThrow(() -> QueueFixtures.suspended(taskId()).validate());
+        assertDoesNotThrow(() -> QueueFixtures.closedSubmitted(taskId()).validate());
+        assertDoesNotThrow(() -> QueueFixtures.consultation(taskId(), taskId()).validate());
+        assertDoesNotThrow(() -> QueueFixtures.queued(taskId())
                 .status(Status.SUSPENDED).continuation(QueueFixtures.continuation()).build().validate());
-        assertDoesNotThrow(() -> QueueFixtures.queued("qt-0000000000000014")
+        assertDoesNotThrow(() -> QueueFixtures.queued(taskId())
                 .taskClass(TaskClass.READ_ONLY).build().validate());
     }
 }

@@ -15,10 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
  * the plan's override, each later level overriding only what it names; read afresh at every resolution; and the steward's
  * configuration taken from the machine instead of its artifact.
  */
+@EnableGeneratorController
 @DisplayName("Effective role configuration")
 class RoleEffectiveConfigurationTest {
 
@@ -208,8 +212,9 @@ class RoleEffectiveConfigurationTest {
     @Test
     @DisplayName("an absent role is undefined without a validation reason")
     void absentRoleIsUndefined() {
+        var absent = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var resolution = new RoleCatalog(RoleFixtures.shippedValid(), RoleFixtures.environment())
-                .resolve("review-code", RoleAssignment.none());
+                .resolve(absent, RoleAssignment.none());
 
         assertAll(
                 () -> assertInstanceOf(RoleResolution.Undefined.class, resolution),
@@ -249,7 +254,7 @@ class RoleEffectiveConfigurationTest {
         @DisplayName("is never model_not_allowed")
         void stewardSkipsTheModelCatalogue() {
             var environment = RoleFixtures.environment().machineCatalogue(RoleFixtures.catalogue(RoleFixtures.HARNESS,
-                    "another-model"));
+                    "n" + Generators.letterStrings(3, 12).next()));
             var sets = RoleFixtures.shipped(Map.of(RoleCatalog.STEWARD, stewardArtifact()));
 
             var role = defined(new RoleCatalog(sets, environment).resolveSteward());
@@ -287,9 +292,9 @@ class RoleEffectiveConfigurationTest {
     private static byte[] stewardArtifact() {
         return RoleFixtures.valid()
                 .set("/name", RoleCatalog.STEWARD)
-                .set("/description", "The machine's advisor.")
-                .set("/harness", "other-harness")
-                .set("/model", "other-model")
+                .set("/description", Generators.letterStrings(10, 60).next())
+                .set("/harness", "o" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT))
+                .set("/model", "o" + Generators.letterStrings(3, 12).next())
                 .set("/skills", List.of("skill://pm/role/steward/SKILL.md"))
                 .bytes();
     }

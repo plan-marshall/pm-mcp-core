@@ -24,6 +24,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * The outcome of a fetch step (PM-WORK-6, PM-EXEC-5): its detail never carries the user information of a URI.
  */
+// Every datum in this class is a contract: the URIs and their redacted details, which the test asserts.
 @DisplayName("Source fetch outcome")
 class SourceFetchTest {
 

@@ -18,6 +18,8 @@ import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -52,12 +54,17 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
  * write is valid against its schema. The schemas are read from the specification of this repository below
  * {@value SpecificationDocument#ROOT_PROPERTY}.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the schema table builds each value under test in its assertion, by design
 @DisplayName("Task queue schema parity")
 class TaskQueueSchemaParityTest {
 
     private static final String DOCUMENT = "store-schemas/16-task-queue.adoc";
+
+    private static String taskId() {
+        return "qt-" + "%016x".formatted(Generators.longs().next());
+    }
 
     private static Map<?, ?> schema(String anchor) {
         return SpecificationDocument.object(
@@ -163,16 +170,17 @@ class TaskQueueSchemaParityTest {
         @DisplayName("the format version stays 1, and every written record is valid against the schema")
         void documents() {
             var validator = validator(ANCHOR);
-            var asking = QueueFixtures.queued("qt-0000000000000001")
-                    .consultations(List.of(QueueFixtures.answeredConsultation("qt-0000000000000002")))
+            var askingId = taskId();
+            var asking = QueueFixtures.queued(askingId)
+                    .consultations(List.of(QueueFixtures.answeredConsultation(taskId())))
                     .build();
             var records = List.of(
-                    QueueFixtures.queued("qt-0000000000000003").build(),
-                    QueueFixtures.closedSubmitted("qt-0000000000000004"),
-                    QueueFixtures.lostAttemptsSpent("qt-0000000000000005"),
-                    QueueFixtures.lostRoleUndefined("qt-0000000000000006"),
-                    QueueFixtures.suspended("qt-0000000000000007"),
-                    QueueFixtures.consultation("qt-0000000000000008", "qt-0000000000000001"),
+                    QueueFixtures.queued(taskId()).build(),
+                    QueueFixtures.closedSubmitted(taskId()),
+                    QueueFixtures.lostAttemptsSpent(taskId()),
+                    QueueFixtures.lostRoleUndefined(taskId()),
+                    QueueFixtures.suspended(taskId()),
+                    QueueFixtures.consultation(taskId(), askingId),
                     asking);
 
             assertAll(() -> assertEquals(1, ((Number) member(schema(ANCHOR), "format_version").get("const"))

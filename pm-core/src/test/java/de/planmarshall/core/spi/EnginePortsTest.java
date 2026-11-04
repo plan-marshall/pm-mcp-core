@@ -16,10 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -46,10 +49,13 @@ import de.planmarshall.core.store.EntryId;
  * still awaiting its answer and the state would rest forever; a pending entry record that cannot be read must stay
  * distinguishable from a live one, otherwise a broken store would be taken for a bootstrap that can be addressed.
  */
+@EnableGeneratorController
 @DisplayName("Engine ports of the core SPI")
 class EnginePortsTest {
 
-    private static final String JOB_ID_HEX = "0123456789abcdef";
+    private static final String JOB_ID_HEX = "%016x".formatted(Generators.longs().next());
+
+    private static final String SCOPE_ID = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     @Nested
     @DisplayName("JobStarter")
@@ -104,12 +110,13 @@ class EnginePortsTest {
         @Test
         @DisplayName("a refusal is a value carrying its reason, a blank reason is refused")
         void refusalIsAValue() {
-            var starter = (JobStarter) request -> new StartResult.Refused("runtime draining");
+            var reason = Generators.letterStrings(5, 20).next();
+            var starter = (JobStarter) request -> new StartResult.Refused(reason);
 
-            var result = starter.start(new StartRequest(Optional.of("my-plan"), "build.verify", "build.run"));
+            var result = starter.start(new StartRequest(Optional.of(SCOPE_ID), "build.verify", "build.run"));
 
             assertAll(
-                    () -> assertEquals("runtime draining", assertInstanceOf(StartResult.Refused.class, result)
+                    () -> assertEquals(reason, assertInstanceOf(StartResult.Refused.class, result)
                             .reason()),
                     () -> assertThrows(IllegalArgumentException.class, () -> new StartResult.Refused(" ")),
                     () -> assertThrows(NullPointerException.class, () -> new StartResult.Refused(null)));
@@ -162,9 +169,9 @@ class EnginePortsTest {
                 return new Created("qt-%016x".formatted(requests.size()));
             };
 
-            var first = creator.create(new CreateRequest(Optional.of("my-plan"), "plan.review", "TASK-001",
+            var first = creator.create(new CreateRequest(Optional.of(SCOPE_ID), "plan.review", "TASK-001",
                     "review-code"));
-            var second = creator.create(new CreateRequest(Optional.of("my-plan"), "plan.review", "TASK-002",
+            var second = creator.create(new CreateRequest(Optional.of(SCOPE_ID), "plan.review", "TASK-002",
                     "review-code"));
 
             assertAll(
@@ -196,7 +203,7 @@ class EnginePortsTest {
         @ValueSource(strings = {"Q-001", "Q-999999", "Q-0042"})
         @DisplayName("a question_id of ^Q-[0-9]{3,6}$ is accepted")
         void acceptsQuestionId(String questionId) {
-            var request = new ReadRequest(Optional.of("my-plan"), questionId);
+            var request = new ReadRequest(Optional.of(SCOPE_ID), questionId);
 
             assertEquals(questionId, request.questionId());
         }
@@ -214,14 +221,15 @@ class EnginePortsTest {
         @Test
         @DisplayName("the read has three distinct results: open, resolved with its outcome, unreadable")
         void readIsTriState() {
+            var unreadableReason = Generators.letterStrings(10, 40).next();
             var records = Map.<String, QuestionRead>of(
                     "Q-001", new QuestionRead.Open(),
                     "Q-002", new QuestionRead.Resolved("answered"),
-                    "Q-003", new QuestionRead.Unreadable("questions.jsonl: line 3 is not JSON"));
+                    "Q-003", new QuestionRead.Unreadable(unreadableReason));
             QuestionRecordReader reader = request -> records.get(request.questionId());
 
             var routes = List.of("Q-001", "Q-002", "Q-003").stream()
-                    .map(id -> route(reader.read(new ReadRequest(Optional.of("my-plan"), id))))
+                    .map(id -> route(reader.read(new ReadRequest(Optional.of(SCOPE_ID), id))))
                     .toList();
 
             assertEquals(List.of("rest", "take answered", "could not read"), routes);
@@ -230,7 +238,7 @@ class EnginePortsTest {
         @Test
         @DisplayName("an unreadable record is never equal to an open one")
         void unreadableIsNotOpen() {
-            QuestionRead unreadable = new QuestionRead.Unreadable("record absent");
+            QuestionRead unreadable = new QuestionRead.Unreadable(Generators.letterStrings(5, 20).next());
 
             assertAll(
                     () -> assertNotEquals(new QuestionRead.Open(), unreadable),
@@ -288,11 +296,12 @@ class EnginePortsTest {
         @Test
         @DisplayName("the read has three distinct results: live with its kind, deleted, unreadable")
         void readIsTriState() {
+            var unreadableReason = Generators.letterStrings(10, 40).next();
             var records = Map.<String, EntryRead>of(
                     "ent-0000000a", new EntryRead.Live("plan"),
                     "ent-0000000b", new EntryRead.Live("epic"),
                     "ent-0000000c", new EntryRead.Deleted(),
-                    "ent-0000000d", new EntryRead.Unreadable("pending/ent-0000000d.json is not JSON"));
+                    "ent-0000000d", new EntryRead.Unreadable(unreadableReason));
             PendingEntryReader reader = request -> records.get(request.entryId().value());
 
             var routes = List.of("ent-0000000a", "ent-0000000b", "ent-0000000c", "ent-0000000d").stream()
@@ -308,7 +317,7 @@ class EnginePortsTest {
             EntryRead live = new EntryRead.Live("plan");
 
             assertAll(
-                    () -> assertNotEquals(live, new EntryRead.Unreadable("record locked")),
+                    () -> assertNotEquals(live, new EntryRead.Unreadable(Generators.letterStrings(5, 20).next())),
                     () -> assertNotEquals(live, new EntryRead.Deleted()),
                     () -> assertEquals(new EntryRead.Deleted(), new EntryRead.Deleted()),
                     () -> assertEquals(live, new EntryRead.Live("plan")));
@@ -340,13 +349,14 @@ class EnginePortsTest {
         @Test
         @DisplayName("a test double drives time deterministically")
         void doubleDrivesTime() {
-            var instants = new ArrayList<>(List.of(Instant.parse("2026-01-01T00:00:00Z"),
-                    Instant.parse("2026-01-01T00:05:00Z")));
+            var first = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+            var second = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+            var instants = new ArrayList<>(List.of(first, second));
             WorkflowClock clock = instants::removeFirst;
 
             assertAll(
-                    () -> assertEquals(Instant.parse("2026-01-01T00:00:00Z"), clock.now()),
-                    () -> assertEquals(Instant.parse("2026-01-01T00:05:00Z"), clock.now()));
+                    () -> assertEquals(first, clock.now()),
+                    () -> assertEquals(second, clock.now()));
         }
     }
 }

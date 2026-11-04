@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+// Every datum in this class is a contract: the enum values and their wire names.
 @DisplayName("AnalysisStatus")
 class AnalysisStatusTest {
 

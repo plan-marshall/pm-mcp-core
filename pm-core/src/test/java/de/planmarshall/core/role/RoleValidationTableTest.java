@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,6 +36,7 @@ import de.planmarshall.core.profile.EnrolledHarness;
  * the table has a refusing fixture, and a valid artifact passes. The reason {@code session_first_not_permitted} is not
  * part of the table and is not reported.
  */
+@EnableGeneratorController
 @DisplayName("Validation against the client profile")
 class RoleValidationTableTest {
 
@@ -57,13 +60,15 @@ class RoleValidationTableTest {
     @DisplayName("the steward passes although the catalogue does not allow its model")
     void stewardSkipsTheModelCatalogue() {
         check(RoleFixtures.valid().artifact(), RoleFixtures.harness(),
-                RoleFixtures.catalogue(RoleFixtures.HARNESS, "another-model"), new EffortValue(null),
-                RoleFixtures.environment(), true);
+                RoleFixtures.catalogue(RoleFixtures.HARNESS, "n" + Generators.letterStrings(3, 12).next()),
+                new EffortValue(null), RoleFixtures.environment(), true);
     }
 
     static Stream<Arguments> refusals() {
         var environment = RoleFixtures.environment();
         environment.unresolvedSkill("skill://pm/role/missing/SKILL.md");
+        var notAllowedModel = "n" + Generators.letterStrings(3, 12).next();
+        var restrictedModel = "r" + Generators.letterStrings(3, 12).next();
         return Stream.of(
                 Arguments.of(RoleFixtures.valid().artifact(), Optional.empty(), Optional.of(RoleFixtures.enrolled()),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
@@ -85,7 +90,7 @@ class RoleValidationTableTest {
                         Optional.of(RoleFixtures.catalogue()), environment, false,
                         RoleValidationReason.HARNESS_UNKNOWN, "the harness is not enrolled"),
                 Arguments.of(RoleFixtures.valid().set("/class", "writer").artifact(),
-                        Optional.of(restricted("other-model")), Optional.of(RoleFixtures.enrolled()),
+                        Optional.of(restricted(restrictedModel)), Optional.of(RoleFixtures.enrolled()),
                         Optional.of(RoleFixtures.catalogue()), environment, false,
                         RoleValidationReason.MODEL_RESTRICTED, "the model refuses a restricted tool set"),
                 Arguments.of(RoleFixtures.valid().set("/effort", "low").artifact(),
@@ -98,7 +103,7 @@ class RoleValidationTableTest {
                         RoleValidationReason.EFFORT_UNSUPPORTED, "the model takes no effort flag"),
                 Arguments.of(RoleFixtures.valid().artifact(), Optional.of(RoleFixtures.harness()),
                         Optional.of(RoleFixtures.enrolled()),
-                        Optional.of(RoleFixtures.catalogue(RoleFixtures.HARNESS, "another-model")), environment, false,
+                        Optional.of(RoleFixtures.catalogue(RoleFixtures.HARNESS, notAllowedModel)), environment, false,
                         RoleValidationReason.MODEL_NOT_ALLOWED, "the effective catalogue does not allow the model"),
                 Arguments.of(tools(List.of("pm_state", "pm_do", "pm_skill", "pm_skill_file")).artifact(),
                         Optional.of(RoleFixtures.harness()), Optional.of(RoleFixtures.enrolled()),

@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * changes neither; a change of {@code harness}, {@code model}, {@code effort}, {@code tools}, {@code class}, a skill
  * digest or the harness major.minor changes both; the weights identity changes only the qualification digest.
  */
+@EnableGeneratorController
 @DisplayName("Role digests")
 class RoleDigestTest {
 
@@ -46,20 +49,30 @@ class RoleDigestTest {
     }
 
     static Stream<Arguments> edits() {
+        var count = Generators.integers(3, 16).next();
+        var budgetFloor = Generators.integers(301, 86_400).next();
+        var contextBudget = Generators.integers(10_000, 500_000).next();
+        var idleWakeups = Generators.integers(1, 100).next();
+        var tokenBudget = Generators.integers(10_000, 100_000).next();
+        var tasksPerGeneration = Generators.integers(1, 20).next();
+        var hold = Generators.integers(0, 3_600).next();
+        var resume = Generators.integers(0, 604_800).next();
+        var threshold = Generators.integers(1, 5).next();
+        var description = Generators.letterStrings(10, 60).next();
         return Stream.of(
-                Arguments.of("count", RoleFixtures.valid().set("/count", 4), true, false),
-                Arguments.of("budget_floor_seconds", RoleFixtures.valid().set("/budget_floor_seconds", 600), true,
-                        false),
-                Arguments.of("context_budget_tokens", RoleFixtures.valid().set("/context_budget_tokens", 120_000), true,
-                        false),
+                Arguments.of("count", RoleFixtures.valid().set("/count", count), true, false),
+                Arguments.of("budget_floor_seconds", RoleFixtures.valid().set("/budget_floor_seconds", budgetFloor),
+                        true, false),
+                Arguments.of("context_budget_tokens", RoleFixtures.valid().set("/context_budget_tokens", contextBudget),
+                        true, false),
                 Arguments.of("recycling and form", RoleFixtures.valid().set("/form", "warm").set("/recycling",
-                        map("idle_wakeups", 2, "token_budget", 50_000, "tasks_per_generation", 10)), true, false),
+                        map("idle_wakeups", idleWakeups, "token_budget", tokenBudget,
+                                "tasks_per_generation", tasksPerGeneration)), true, false),
                 Arguments.of("questions", RoleFixtures.valid().set("/questions",
-                        map("hold_seconds", 300, "resume_within_seconds", 86_400)), true, false),
+                        map("hold_seconds", hold, "resume_within_seconds", resume)), true, false),
                 Arguments.of("off_track", RoleFixtures.valid().set("/off_track", map("repeating",
-                        map("threshold", 3, "action", "nudge"))), true, false),
-                Arguments.of("description", RoleFixtures.valid().set("/description", "Another description."), false,
-                        false),
+                        map("threshold", threshold, "action", "nudge"))), true, false),
+                Arguments.of("description", RoleFixtures.valid().set("/description", description), false, false),
                 Arguments.of("tools", RoleFixtures.valid().set("/tools",
                         List.of("pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file", "pm_lsp")), true, true),
                 Arguments.of("class", RoleFixtures.valid().set("/class", "writer"), true, true));
@@ -81,17 +94,20 @@ class RoleDigestTest {
     }
 
     static Stream<Arguments> effectiveEdits() {
+        var harness = "h" + Generators.letterStrings(3, 12).next();
+        var model = "n" + Generators.letterStrings(3, 12).next();
+        var weightsIdentity = Generators.letterStrings(5, 20).next();
         return Stream.of(
-                Arguments.of("harness", "acme-two", RoleFixtures.MODEL, new EffortValue(null), "1.4", Optional.empty(),
+                Arguments.of("harness", harness, RoleFixtures.MODEL, new EffortValue(null), "1.4", Optional.empty(),
                         true, true),
-                Arguments.of("model", RoleFixtures.HARNESS, "acme-fast", new EffortValue(null), "1.4", Optional.empty(),
+                Arguments.of("model", RoleFixtures.HARNESS, model, new EffortValue(null), "1.4", Optional.empty(),
                         true, true),
                 Arguments.of("effort", RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue("medium"), "1.4",
                         Optional.empty(), true, true),
                 Arguments.of("harness major.minor", RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null),
                         "2.0", Optional.empty(), true, true),
                 Arguments.of("weights identity", RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null), "1.4",
-                        Optional.of("weights-a"), false, true));
+                        Optional.of(weightsIdentity), false, true));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -114,7 +130,8 @@ class RoleDigestTest {
     void skillDigestChangesBoth() {
         var base = base();
         var edited = role(RoleFixtures.valid().artifact(), RoleFixtures.HARNESS, RoleFixtures.MODEL,
-                new EffortValue(null), List.of(new RoleSkill("skill://pm/role/implement/SKILL.md", "b".repeat(64))),
+                new EffortValue(null), List.of(new RoleSkill("skill://pm/role/implement/SKILL.md",
+                        "%064x".formatted(Generators.longs().next()))),
                 "1.4", Optional.empty());
 
         assertAll(
@@ -125,11 +142,16 @@ class RoleDigestTest {
     @Test
     @DisplayName("a recycling edit alone changes only the configuration digest")
     void recyclingChangesConfigurationOnly() {
+        var idleWakeups = Generators.integers(1, 99).next();
+        var tokenBudget = Generators.integers(10_000, 50_000).next();
+        var tasksPerGeneration = Generators.integers(1, 20).next();
         var before = role(RoleFixtures.valid().set("/form", "warm").set("/recycling",
-                        map("idle_wakeups", 2, "token_budget", 50_000, "tasks_per_generation", 10)).artifact(),
+                        map("idle_wakeups", idleWakeups, "token_budget", tokenBudget,
+                                "tasks_per_generation", tasksPerGeneration)).artifact(),
                 RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null), skills(), "1.4", Optional.empty());
         var after = role(RoleFixtures.valid().set("/form", "warm").set("/recycling",
-                        map("idle_wakeups", 3, "token_budget", 60_000, "tasks_per_generation", 20)).artifact(),
+                        map("idle_wakeups", idleWakeups + 1, "token_budget", tokenBudget + 1_000,
+                                "tasks_per_generation", tasksPerGeneration + 1)).artifact(),
                 RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null), skills(), "1.4", Optional.empty());
 
         assertAll(

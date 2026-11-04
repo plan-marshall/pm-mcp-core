@@ -20,6 +20,7 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
  * The primitives that pin the registry's reason checks: one malformed declaration per refusal, a primitive whose
  * outcome declares reasons for each admitting class, and one whose old and new defects compete for the refusal.
  */
+// Every datum in this class is a contract: the fixture ids, wire names, condition kinds and case descriptions.
 @UtilityClass
 class ReasonPrimitives {
 

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * The canonical JSON of a profile (RFC 8785): sorted members, one string spelling, one number spelling, and a digest
  * over the canonical bytes (PM-CLIENT-5).
  */
+// Every datum in this class is a contract: the canonical JSON spellings and the digest format it asserts.
 @DisplayName("Canonical JSON")
 class CanonicalJsonTest {
 

@@ -11,11 +11,18 @@ package de.planmarshall.core.profile;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import de.cuioss.test.generator.Generators;
+import java.util.Locale;
+
 /**
  * A valid endpoint profile and its variants, for the tests of the endpoint profile schema (Client Profiles § Endpoint
  * Profile Schema).
  */
 public final class EndpointProfileFixtures {
+
+    private static final String LOCAL_NAME = "Local " + Generators.letterStrings(3, 10).next();
+    private static final String REMOTE_NAME = "Hosted " + Generators.letterStrings(3, 10).next();
+    private static final String REMOTE_MODEL = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     private EndpointProfileFixtures() {
     }
@@ -26,7 +33,7 @@ public final class EndpointProfileFixtures {
               "profile_kind": "endpoint",
               "schema_version": 1,
               "client_id": "local-runner",
-              "display_name": "Local Runner",
+              "display_name": "%1$s",
               "min_daemon_version": "0.1.0",
               "icon": null,
               "executable": "ollama",
@@ -48,7 +55,7 @@ public final class EndpointProfileFixtures {
               "model_tiers": {"frontier": "big", "standard": "mid", "fast": "small"},
               "weights_probe": {"source": "models_listing", "pointer": "/digest", "argv": null, "pattern": null}
             }
-            """;
+            """.formatted(LOCAL_NAME);
 
     /**
      * The valid document of the remote form (Client Profiles § Remote Form): one hosted service, enrolled by the
@@ -59,7 +66,7 @@ public final class EndpointProfileFixtures {
               "profile_kind": "endpoint",
               "schema_version": 1,
               "client_id": "hosted-judge",
-              "display_name": "Hosted Judge",
+              "display_name": "%1$s",
               "min_daemon_version": "0.1.0",
               "icon": null,
               "executable": null,
@@ -78,11 +85,11 @@ public final class EndpointProfileFixtures {
                 "answer_reserve_tokens": 512,
                 "request_timeout_seconds": 60
               },
-              "model_tiers": {"frontier": "judge-2026-01-01", "standard": "judge-2026-01-01",
-                "fast": "judge-2026-01-01"},
+              "model_tiers": {"frontier": "%2$s", "standard": "%2$s",
+                "fast": "%2$s"},
               "weights_probe": null
             }
-            """;
+            """.formatted(REMOTE_NAME, REMOTE_MODEL);
 
     /**
      * @param document a profile document

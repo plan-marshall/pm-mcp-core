@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.role.qualification;
 
+import de.cuioss.test.generator.Generators;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +20,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,15 +47,30 @@ final class QualificationFixtures {
 
     static final String ROLE = "review-code";
     static final String GENERIC_ROLE = "worker";
-    static final String HARNESS = "acme-cli";
-    static final String MODEL = "acme-standard";
-    static final String JUDGE_MODEL = "acme-judge";
+    static final String HARNESS = "c" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    static final String MODEL = "m" + Generators.letterStrings(3, 12).next();
+    static final String JUDGE_MODEL = "j" + Generators.letterStrings(3, 12).next();
     static final String VERSION = "1.4";
-    static final String DIGEST = "a".repeat(64);
-    static final String CORPUS_REVISION = "corpus-7";
-    static final URI REPOSITORY = URI.create("https://example.org/plan-marshall/pm-mcp-core");
-    static final URI DATASET = URI.create("https://example.org/datasets/reviews");
-    static final Instant GRADED_AT = Instant.parse("2026-10-26T10:00:00Z");
+    static final String DIGEST = "%064x".formatted(Generators.longs().next());
+    static final String CORPUS_REVISION = "corpus-" + Generators.integers(1, 99).next();
+    static final URI REPOSITORY = URI.create("https://example.org/"
+            + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT));
+    static final URI DATASET = URI.create("https://example.org/datasets/"
+            + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT));
+    static final Instant GRADED_AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+
+    private static final String FRONTIER_MODEL = "x" + Generators.letterStrings(3, 12).next();
+    private static final String FAST_MODEL = "y" + Generators.letterStrings(3, 12).next();
+    private static final int CONTEXT_BUDGET = Generators.integers(200_000, 900_000).next();
+    private static final int IDLE_WAKEUPS = Generators.integers(1, 10).next();
+    private static final int MAX_HOLD_SECONDS = Generators.integers(301, 3_600).next();
+    private static final int MAX_RESUME_SECONDS = Generators.integers(1, 604_800).next();
+    private static final int ITEM_COUNT = Generators.integers(1, 50).next();
+    private static final int TOTAL_TOKENS = Generators.integers(1_000, 10_000).next();
+    private static final int DURATION_MILLIS = Generators.integers(1, 1_000).next();
+    private static final String OWN_TOPIC = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String GENERIC_TOPIC = "u" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String CORPUS_ANSWER = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     private QualificationFixtures() {
     }
@@ -95,9 +112,9 @@ final class QualificationFixtures {
         private ImportedItem.GradingMethod method = ImportedItem.GradingMethod.EXACT_CHOICE;
         private ImportedItem.ReviewStatus status = ImportedItem.ReviewStatus.CONFIRMED;
         private URI repository = DATASET;
-        private String commit = "b".repeat(40);
+        private String commit = "%040x".formatted(Generators.longs().next());
         private List<String> choices;
-        private String denominator = "no";
+        private String denominator = Generators.letterStrings(2, 5).next();
 
         private Item(String id, String role, String topic, String answer) {
             this.id = id;
@@ -161,15 +178,23 @@ final class QualificationFixtures {
                     : List.of(answer == null ? denominator : answer, denominator);
             var reference = closed ? answer : null;
             var rubric = closed ? List.<ImportedItem.RubricItem>of()
-                    : List.of(new ImportedItem.RubricItem("R1", "The defect is found."));
-            var input = new ImportedItem.Input("Is the work right?", "", closed ? offered : null,
+                    : List.of(new ImportedItem.RubricItem("r" + Generators.letterStrings(3, 8).next(),
+                    Generators.letterStrings(5, 30).next()));
+            var input = new ImportedItem.Input(Generators.letterStrings(5, 30).next(), "", closed ? offered : null,
                     closed ? null : JsonValue.parse("{\"type\":\"string\"}".getBytes(StandardCharsets.UTF_8)));
-            var target = new ImportedItem.Target(reference, "The reference says so.", List.of(), rubric, false);
+            var target = new ImportedItem.Target(reference, Generators.letterStrings(5, 30).next(), List.of(), rubric,
+                    false);
             var grading = new ImportedItem.Grading(method, null, null);
-            var provenance = new ImportedItem.Provenance(LocalDate.of(2026, 1, 1),
-                    new ImportedItem.Origin(repository, commit, "data/rows.csv", 2), List.of("created 2026-01-01"));
-            var review = new ImportedItem.Review(status, "operator", LocalDate.of(2026, 1, 2), null);
-            return new ImportedItem(id, topic, role, "A title", List.of("tag"), null, input, target, grading,
+            var provenance = new ImportedItem.Provenance(
+                    LocalDate.ofEpochDay(Generators.longs(19_000, 21_000).next()),
+                    new ImportedItem.Origin(repository, commit,
+                            Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/rows.csv",
+                            Generators.integers(1, 100).next()),
+                    List.of(Generators.letterStrings(5, 30).next()));
+            var review = new ImportedItem.Review(status, Generators.letterStrings(3, 10).next(),
+                    LocalDate.ofEpochDay(Generators.longs(19_000, 21_000).next()), null);
+            return new ImportedItem(id, topic, role, Generators.letterStrings(5, 30).next(),
+                    List.of(Generators.letterStrings(2, 10).next()), null, input, target, grading,
                     provenance, review, null, "canary");
         }
     }
@@ -191,9 +216,9 @@ final class QualificationFixtures {
     static QualificationRecord qualification(Map<Topic, BigDecimal> freshAgreements,
             Map<Topic, BigDecimal> warmAgreements, BigDecimal gap) {
         var forms = new LinkedHashMap<RoleForm, QualificationRecord.FormResult>();
-        forms.put(RoleForm.FRESH, form(freshAgreements, 10));
+        forms.put(RoleForm.FRESH, form(freshAgreements, ITEM_COUNT));
         if (!warmAgreements.isEmpty()) {
-            forms.put(RoleForm.WARM, form(warmAgreements, 10));
+            forms.put(RoleForm.WARM, form(warmAgreements, ITEM_COUNT));
         }
         return new QualificationRecord(ROLE, DIGEST, configuration(), CORPUS_REVISION, List.of(), forms,
                 warmAgreements.isEmpty() ? null : gap, 0, GRADED_AT, List.of());
@@ -206,14 +231,15 @@ final class QualificationFixtures {
      */
     static QualificationRecord recordWithBaseline(Map<Topic, BigDecimal> agreements, BigDecimal baseline) {
         var form = new QualificationRecord.FormResult(
-                topics(agreements, baseline, 10), 10, TokenTotal.measured(4_000), 1_000);
+                topics(agreements, baseline, ITEM_COUNT), ITEM_COUNT, TokenTotal.measured(TOTAL_TOKENS),
+                DURATION_MILLIS);
         return new QualificationRecord(ROLE, DIGEST, configuration(), CORPUS_REVISION, List.of(),
                 Map.of(RoleForm.FRESH, form), null, 0, GRADED_AT, List.of());
     }
 
     static QualificationRecord.FormResult form(Map<Topic, BigDecimal> agreements, int items) {
         return new QualificationRecord.FormResult(topics(agreements, BigDecimal.ZERO, items), items,
-                TokenTotal.measured(4_000), 1_000);
+                TokenTotal.measured(TOTAL_TOKENS), DURATION_MILLIS);
     }
 
     private static Map<Topic, QualificationRecord.TopicResult> topics(Map<Topic, BigDecimal> agreements,
@@ -243,8 +269,10 @@ final class QualificationFixtures {
 
     /** @return the items of a corpus with one own and one generic item */
     static List<ImportedItem> corpus() {
-        return List.of(item("review/clean-plan", ROLE, "clean").build(),
-                item("review/generic", GENERIC_ROLE, "clean").build());
+        return List.of(item(OWN_TOPIC + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), ROLE,
+                        CORPUS_ANSWER).build(),
+                item(GENERIC_TOPIC + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
+                        GENERIC_ROLE, CORPUS_ANSWER).build());
     }
 
     /**
@@ -259,13 +287,18 @@ final class QualificationFixtures {
                 ? "[]"
                 : "[\"pm_wait\",\"pm_state\",\"pm_do\",\"pm_skill\",\"pm_skill_file\"]";
         var recycling = form == RoleForm.WARM
-                ? ",\"recycling\":{\"idle_wakeups\":null,\"token_budget\":10000,\"tasks_per_generation\":null}"
+                ? ",\"recycling\":{\"idle_wakeups\":null,\"token_budget\":%d,\"tasks_per_generation\":null}".formatted(
+                Generators.integers(10_000, 100_000).next())
                 : "";
+        var description = Generators.letterStrings(10, 60).next();
+        var count = Generators.integers(1, 16).next();
+        var budgetFloor = Generators.integers(60, 3_600).next();
         var json = """
-                {"format_version":1,"name":"%s","description":"A role.","class":"%s","tools":%s,
-                 "harness":"%s","model":"%s","effort":null,"form":"%s","count":2,
-                 "skills":["skill://pm/role/%s/SKILL.md"],"budget_floor_seconds":300%s}
-                """.formatted(name, roleClass.wireName(), tools, HARNESS, MODEL, form.wireName(), name, recycling);
+                {"format_version":1,"name":"%s","description":"%s","class":"%s","tools":%s,
+                 "harness":"%s","model":"%s","effort":null,"form":"%s","count":%d,
+                 "skills":["skill://pm/role/%s/SKILL.md"],"budget_floor_seconds":%d%s}
+                """.formatted(name, description, roleClass.wireName(), tools, HARNESS, MODEL, form.wireName(), count,
+                name, budgetFloor, recycling);
         var artifact = RoleArtifactValidator.validate(
                 json.getBytes(StandardCharsets.UTF_8), name);
         var classes = new EnumMap<RoleClass,
@@ -279,8 +312,9 @@ final class QualificationFixtures {
                 HarnessProfile.ToolSet.ENFORCED);
         var profile = new HarnessProfile(HARNESS, true, true, Set.of("*"),
                 classes, Map.of(MODEL, List.of("medium", "high"), JUDGE_MODEL, List.of("medium", "high")),
-                Map.of("frontier", "acme-frontier", "standard", MODEL, "fast", "acme-fast"), 400_000, 3,
-                new HarnessProfile.Resumability(true, 600, true, 604_800), "ask_user");
+                Map.of("frontier", FRONTIER_MODEL, "standard", MODEL, "fast", FAST_MODEL), CONTEXT_BUDGET,
+                IDLE_WAKEUPS, new HarnessProfile.Resumability(true, MAX_HOLD_SECONDS, true, MAX_RESUME_SECONDS),
+                "ask_user");
         return EffectiveRole.of(artifact, HARNESS, MODEL,
                 new EffortValue(null),
                 List.of(new RoleSkill("skill://pm/role/" + name + "/SKILL.md", DIGEST)),

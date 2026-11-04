@@ -33,6 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
 
+// Every datum in this class is a contract: the fixture ids, refusal reasons and asserted messages.
 @DisplayName("Registry of primitives")
 class PrimitiveRegistryTest {
 

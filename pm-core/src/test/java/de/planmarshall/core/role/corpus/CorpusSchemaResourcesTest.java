@@ -54,6 +54,7 @@ import de.planmarshall.core.role.corpus.SourceOverlay.Row;
  * The three schema resources of the corpus formats (PM-WORK-6): every document a codec writes is valid against its
  * schema, and every schema is closed at every level and uses only the keyword subset the corpus validator evaluates.
  */
+// Every datum in this class is a contract: the shared corpus fixtures, their wire names and the schema keywords.
 @DisplayName("Corpus schema resources")
 class CorpusSchemaResourcesTest {
 

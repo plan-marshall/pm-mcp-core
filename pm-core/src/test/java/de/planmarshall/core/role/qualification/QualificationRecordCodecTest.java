@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
@@ -34,8 +37,12 @@ import de.planmarshall.core.store.StoreRefusal;
  * written, an ungraded score and an unmeasured token count keep their marks, an object answer survives, and whatever
  * does not parse is a refusal naming the file, never an empty record.
  */
+@EnableGeneratorController
 @DisplayName("Qualification record codec")
 class QualificationRecordCodecTest {
+
+    private static final String DIGEST = "%064x".formatted(Generators.longs().next());
+    private static final String CORPUS_REVISION = "corpus-" + Generators.integers(1, 99).next();
 
     @TempDir
     Path directory;
@@ -100,8 +107,8 @@ class QualificationRecordCodecTest {
     @DisplayName("a record without the fresh form is refused at construction")
     void freshRequired() {
         assertRefused(() -> new QualificationRecord(
-                "review-code", "a".repeat(64), QualificationFixtures.configuration(), "corpus-7", List.of(),
-                Map.of(), null, 0, QualificationFixtures.GRADED_AT, List.of()));
+                QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(), CORPUS_REVISION,
+                List.of(), Map.of(), null, 0, QualificationFixtures.GRADED_AT, List.of()));
     }
 
     @Test
@@ -109,8 +116,8 @@ class QualificationRecordCodecTest {
     void gapNeedsBothForms() {
         var fresh = QualificationFixtures.form(Map.of(Topic.OWN, new BigDecimal("90")), 10);
         assertRefused(() -> new QualificationRecord(
-                "review-code", "a".repeat(64), QualificationFixtures.configuration(), "corpus-7", List.of(),
-                Map.of(RoleForm.FRESH, fresh), BigDecimal.ONE, 0, QualificationFixtures.GRADED_AT,
+                QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(), CORPUS_REVISION,
+                List.of(), Map.of(RoleForm.FRESH, fresh), BigDecimal.ONE, 0, QualificationFixtures.GRADED_AT,
                 List.of()));
     }
 
@@ -148,6 +155,8 @@ class QualificationRecordCodecTest {
     }
 
     private static QualificationRecord fullRecord() {
+        var itemId = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/clean-plan";
+        var itemAnswer = Generators.letterStrings(3, 10).next();
         var fresh = new QualificationRecord.FormResult(
                 Map.of(
                         Topic.OWN, new QualificationRecord.TopicResult(new BigDecimal("90"),
@@ -163,13 +172,13 @@ class QualificationRecordCodecTest {
                                 new BigDecimal("70"), 12)),
                 22, TokenTotal.unmeasured(), 2_000);
         var items = List.of(
-                new QualificationRecord.ItemResult("review/clean-plan", RoleForm.FRESH, Checkout.CURRENT,
-                        JsonNode.string("clean"), Grade.of(true), TokenTotal.measured(1_200, 900, 300), 500L),
-                new QualificationRecord.ItemResult("review/clean-plan", RoleForm.WARM, Checkout.ITEM_COMMIT,
+                new QualificationRecord.ItemResult(itemId, RoleForm.FRESH, Checkout.CURRENT,
+                        JsonNode.string(itemAnswer), Grade.of(true), TokenTotal.measured(1_200, 900, 300), 500L),
+                new QualificationRecord.ItemResult(itemId, RoleForm.WARM, Checkout.ITEM_COMMIT,
                         JsonNode.object(Map.of("detail", JsonNode.string("a defect"))), Grade.ungraded(),
                         TokenTotal.unmeasured(), null));
-        return new QualificationRecord("review-code", "a".repeat(64), QualificationFixtures.configuration(),
-                "corpus-7", List.of("reviews"),
+        return new QualificationRecord(QualificationFixtures.ROLE, DIGEST, QualificationFixtures.configuration(),
+                CORPUS_REVISION, List.of("reviews"),
                 Map.of(RoleForm.FRESH, fresh, RoleForm.WARM, warm), new BigDecimal("5"), 1,
                 QualificationFixtures.GRADED_AT, items);
     }

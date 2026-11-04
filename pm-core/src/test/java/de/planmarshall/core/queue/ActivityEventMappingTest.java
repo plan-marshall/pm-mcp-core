@@ -26,6 +26,7 @@ import de.planmarshall.core.profile.JsonDocument;
  * The events mapping a client profile declares is projected onto the closed activity kinds, so the runtime reads the
  * pointers and never the profile document (Client Profiles § What a Worker Does).
  */
+// Every datum in this class is a contract: the event-mapping documents, their JSON members and harness kind names.
 @DisplayName("Activity event mapping")
 class ActivityEventMappingTest {
 
