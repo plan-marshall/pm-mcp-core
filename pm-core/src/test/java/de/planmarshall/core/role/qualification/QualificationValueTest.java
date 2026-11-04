@@ -156,8 +156,8 @@ class QualificationValueTest {
         assertFalse(GradingProfile.single().repeated());
         assertThrows(IllegalArgumentException.class, () -> new GradingProfile(0));
         assertThrows(IllegalArgumentException.class, () -> new GradingOutcome.Declined(false));
-        assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null,
-                Generators.letterStrings(3, 20).next()));
+        var detail = Generators.letterStrings(3, 20).next();
+        assertThrows(NullPointerException.class, () -> new GradingOutcome.Refused(null, detail));
     }
 
     @Test

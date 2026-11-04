@@ -41,6 +41,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 @EnableGeneratorController
 @DisplayName("Production packages are @NullMarked")
+@SuppressWarnings("java:S5976") // the three source shapes fail for different reasons; merging them would hide which one fired
 class NullMarkedPackagesTest {
 
     private static final String PRODUCTION_SOURCE = "src/main/java";

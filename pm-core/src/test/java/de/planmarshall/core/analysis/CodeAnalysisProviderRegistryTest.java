@@ -80,11 +80,11 @@ class CodeAnalysisProviderRegistryTest {
         var registry = new CodeAnalysisProviderRegistry(
                 List.of(new NamedProvider(PROVIDER), new NamedProvider(OTHER), new NamedProvider(THIRD)));
         var ids = registry.ids();
+        var added = Generators.letterStrings(3, 10).next();
 
         assertAll(
                 () -> assertEquals(List.of(PROVIDER, OTHER, THIRD), new ArrayList<>(ids)),
-                () -> assertThrows(UnsupportedOperationException.class,
-                        () -> ids.add(Generators.letterStrings(3, 10).next())));
+                () -> assertThrows(UnsupportedOperationException.class, () -> ids.add(added)));
     }
 
     @Test
