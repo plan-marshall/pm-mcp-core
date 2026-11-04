@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 
@@ -151,7 +152,7 @@ class SetupGateTest {
     void foreignScopeIsRefused() {
         var plan = machineStatus("onboard.completed", null).toBuilder()
                 .scopeType(JournalScopeType.PLAN)
-                .scopeId("scope-" + Generators.letterStrings(3, 8).next().toLowerCase(java.util.Locale.ROOT))
+                .scopeId("scope-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT))
                 .build();
 
         assertThrows(IllegalArgumentException.class, () -> MachineOnboarding.fromStatus(plan));

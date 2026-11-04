@@ -405,7 +405,7 @@ class AstNodeModelTest {
                     new GuardExpr.And(new GuardExpr.AllTasksCompleted(), new GuardExpr.CustomPredicate(predicate)));
 
             assertEquals("((in_worktree and not has_open_findings) or (all_tasks_completed and predicate:" + predicate
-                            + "))",
+                    + "))",
                     render(expr));
         }
 

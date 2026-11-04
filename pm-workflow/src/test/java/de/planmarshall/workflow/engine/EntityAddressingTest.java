@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -66,7 +67,7 @@ class EntityAddressingTest {
     private static final String WORKFLOW_ENRICHMENT = "enrich-pm-workflow";
     private static final String LESSON_TASK = "qt-00000000000000a1";
     private static final String PLAN_TASK = "qt-00000000000000b2";
-    private static final String EPIC_ID = "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(java.util.Locale.ROOT);
+    private static final String EPIC_ID = "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     private static final String EPIC_UNIT = """
             ---
@@ -341,7 +342,7 @@ class EntityAddressingTest {
             var unregistered = new EntityAddressResolver(fixtures.entryReader, EntityKindRegistry.defaults());
             var lessonAddress = EntityAddress.workspace(LESSON_TASK);
             var otherPlanAddress = EntityAddress.plan(
-                    "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(java.util.Locale.ROOT), PLAN_TASK);
+                    "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT), PLAN_TASK);
             var coreAddress = EntityAddress.workspace(CORE_ENRICHMENT);
             var planStatus = planReviewing();
             var planDefinition = planUnit();

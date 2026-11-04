@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 
@@ -42,7 +43,7 @@ import de.planmarshall.workflow.verify.WorkflowCatalog;
 class OperatorWaitTest {
 
     private static final String WAITING_PLAN =
-            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(java.util.Locale.ROOT);
+            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     private static final String NOTE = Generators.letterStrings(1, 40).next();
 

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Locale;
 import java.util.Map;
 
 
@@ -160,7 +161,7 @@ class LoopBackBudgetTest {
         @DisplayName("Should refuse another scope than a plan, an unknown class and a negative budget")
         void shouldRefuseInvalidCharges() {
             var epic = plan.toBuilder().scopeType(JournalScopeType.EPIC)
-                    .scopeId("scope-" + Generators.letterStrings(3, 12).next().toLowerCase(java.util.Locale.ROOT))
+                    .scopeId("scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT))
                     .phase("epic").build();
 
             assertAll(

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -168,7 +169,7 @@ class WorkflowEngineTest {
 
             var ended = assertInstanceOf(EngineStep.Ended.class,
                     engine.start(JournalScopeType.EPIC,
-                            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(java.util.Locale.ROOT)));
+                            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT)));
 
             assertAll(
                     () -> assertEquals("aborted", ended.outcomeId()),
