@@ -39,14 +39,14 @@ Each site is decided from the code, not from the Sonar message, and belongs to e
   is a real state of the object.
 ** (a) A `@Nullable` record component defaulted in a `@NullMarked` method is read once into a local and the local is
   tested: `var threshold = item.grading().passThreshold();` then
-  `return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;`. The form of
-  `EndpointProfile.Endpoint.readinessOrModelsPath()`, which defaults a `@Nullable` record component this way, is not
-  among the open `java:S2637` issues of `main` at `70bc999f`. The double-call ternary
+  `return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;`. The local form is not flagged by the analysis of
+  `main` at `70bc999f`: `CallGraphExpansion.entered(...)` holds a `Map.get(...)` in a local and defaults it with the
+  same ternary, and it is not among the two open `java:S2637` issues. The double-call ternary
   `item.grading().passThreshold() == null ? DEFAULT_PASS_THRESHOLD : item.grading().passThreshold()` was flagged
   before #282 replaced it, and `Objects.requireNonNullElse(item.grading().passThreshold(), DEFAULT_PASS_THRESHOLD)`
-  was still flagged at `70bc999f`: neither form was accepted by the analysis of `main` at `70bc999f`. Until the
-  analysis of `main` after this plan's merge reports the local form accepted, that acceptance is a prediction from
-  the same-shape site, not a measurement.
+  was still flagged at `70bc999f`: neither form was accepted. No record accessor of this tree carries the exact
+  local form, so until the analysis of `main` after this plan's merge reports it accepted, that acceptance is a
+  prediction from the local-form site, not a measurement.
 ** (b) A field that is non-null once a required key was read is `@Nullable` at its declaration, with
   `Objects.requireNonNull(field, "field")` where it is handed on. `QualificationSettingsCodec` does this for
   `rewritten` and `UnitFrontmatterReader` does it for `modificationDate`, whose `complete(...)` runs only after the
