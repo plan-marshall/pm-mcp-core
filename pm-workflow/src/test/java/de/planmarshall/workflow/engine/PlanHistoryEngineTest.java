@@ -32,6 +32,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LockKey;
@@ -46,6 +48,7 @@ import de.planmarshall.core.store.WorkflowStatusStore;
  * of the transaction that writes the status, so the state change and its history are one journaled write, and the lines
  * name the states entered and left, the sub-workflows called and returned and the instance version in force.
  */
+@EnableGeneratorController
 @DisplayName("Plan history of one advance")
 class PlanHistoryEngineTest {
 
@@ -61,7 +64,7 @@ class PlanHistoryEngineTest {
                     failed -> handed_back
             """;
 
-    private static final int INSTANCE_VERSION = 3;
+    private static final int INSTANCE_VERSION = Generators.integers(1, 99).next();
 
     @TempDir
     Path base;

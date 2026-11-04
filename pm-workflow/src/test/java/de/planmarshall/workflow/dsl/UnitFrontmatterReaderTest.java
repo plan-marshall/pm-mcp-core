@@ -37,6 +37,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
@@ -48,6 +50,7 @@ import de.planmarshall.workflow.unit.ProjectUnitLoader;
  * line and the column. A general YAML loader resolves tags, anchors, aliases and merge keys, which is the hazard the
  * reader of its own closes.
  */
+@EnableGeneratorController
 @DisplayName("UnitFrontmatterReader")
 class UnitFrontmatterReaderTest {
 
@@ -524,11 +527,13 @@ class UnitFrontmatterReaderTest {
         @MethodSource("acceptedLetters")
         @DisplayName("accepts a plain ASCII and a plain non-ASCII letter in every field")
         void acceptsLetter(String field, String letter) {
+            var prefix = Generators.letterStrings(1, 3).next();
+            var suffix = Generators.letterStrings(1, 3).next();
             var value = switch (field) {
-                case "name" -> "n" + letter + "me";
-                case "description" -> "d" + letter;
-                case "author" -> "Erik" + letter;
-                default -> "Eintr" + letter + "g";
+                case "name" -> prefix + letter + suffix;
+                case "description" -> prefix + letter;
+                case "author" -> prefix + letter;
+                default -> prefix + letter + suffix;
             };
             var frontmatter = read(unit(replaced(field, field + ": " + value))).frontmatter();
 

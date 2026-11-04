@@ -41,6 +41,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
@@ -63,6 +65,7 @@ import de.planmarshall.workflow.verify.WorkflowCatalog;
  * unwinds exactly one frame and the caller routes it, a spent condition unwinds every frame to the fallback in one
  * transaction without any caller's {@code stepped_out} route, and calls nest four deep.
  */
+@EnableGeneratorController
 @DisplayName("Sub-workflow execution")
 class SubWorkflowExecutionTest {
 
@@ -470,11 +473,12 @@ class SubWorkflowExecutionTest {
     class Return {
 
         static Stream<Arguments> resultRecords() {
+            var present = Generators.letterStrings(1, 8).next();
             return Stream.of(
                     Arguments.of(Map.of("pushed", true), "completed"),
                     Arguments.of(Map.of("pushed", false), "execute.local"),
                     Arguments.of(Map.of(), "execute.local"),
-                    Arguments.of(Map.of("pushed", "a1b2c3"), "completed"));
+                    Arguments.of(Map.of("pushed", present), "completed"));
         }
 
         @ParameterizedTest(name = "{0} -> {1}")
@@ -679,7 +683,7 @@ class SubWorkflowExecutionTest {
         void shouldRoundTripThroughStore() {
             var args = new LinkedHashMap<String, CallValue>();
             args.put("mode", new CallValue.EnumValue("strict"));
-            args.put("rounds", new CallValue.IntValue(3));
+            args.put("rounds", new CallValue.IntValue(Generators.integers(1, 5).next()));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
             var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", "sub.args", "repair",
                     args, T0.toString()));

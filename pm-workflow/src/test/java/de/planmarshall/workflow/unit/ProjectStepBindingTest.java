@@ -33,6 +33,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
@@ -44,6 +46,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
  * passes. Reading the declarations and the bindings is left to later packages, so the test passes both in.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("Project step binding")
 class ProjectStepBindingTest {
 
@@ -57,9 +60,12 @@ class ProjectStepBindingTest {
 
     private Path project;
 
+    private String projectId;
+
     @BeforeEach
     void project() throws IOException {
         project = Files.createDirectories(temp.toRealPath().resolve("project"));
+        projectId = Generators.letterStrings(4, 12).next();
     }
 
     private static List<FinalizeStepDescriptor> declared() {
@@ -85,7 +91,7 @@ class ProjectStepBindingTest {
         mutation.ifPresentOrElse(change -> UnitFixtures.writeProject(project, change),
                 () -> UnitFixtures.writeProject(project));
 
-        var result = UnitFixtures.load("binding", project, steps, bound);
+        var result = UnitFixtures.load(projectId, project, steps, bound);
 
         var unbound = result.findings().stream()
                 .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).toList();
@@ -103,7 +109,7 @@ class ProjectStepBindingTest {
     void agreeingTriple() {
         UnitFixtures.writeProject(project, COMPLETES_PROJECT_STEP);
 
-        var result = UnitFixtures.load("binding", project, declared(), Set.of(PROJECT_STEP));
+        var result = UnitFixtures.load(projectId, project, declared(), Set.of(PROJECT_STEP));
 
         assertAll(
                 () -> assertTrue(result.isVerified(), result.findings()::toString),
@@ -119,7 +125,7 @@ class ProjectStepBindingTest {
                         + "            completes " + PROJECT_STEP + " as done");
         UnitFixtures.writeProject(project, COMPLETES_PROJECT_STEP, twice);
 
-        var result = UnitFixtures.load("binding", project, List.of(), Set.of());
+        var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
 
         assertEquals(1, result.findings().stream()
                         .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).count(),

@@ -56,6 +56,7 @@ import de.planmarshall.core.store.JournalScopeType;
  * @param workers    the worker declarations, at most one per role, in the order of the script; copied
  * @param directives the steps, in the order of the script; copied
  */
+// Every datum in this class is a contract: the script syntax, the directive names and the exact refusal messages.
 record ScenarioScript(String name, List<ScenarioDirective.Worker> workers, List<ScenarioDirective> directives) {
 
     /**

@@ -20,6 +20,7 @@ import de.planmarshall.core.store.LockKey;
  * A lock manager for the tests of the task protocol: it takes no lock of the operating system and answers
  * {@link LockTransaction#holds(LockKey)} for the keys a transaction acquired until it closes.
  */
+// Every datum in this class is a contract: the class is a lock-manager double and holds no test data.
 final class TestLocks implements LockManager {
 
     @Override

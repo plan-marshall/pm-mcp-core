@@ -30,6 +30,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
@@ -45,6 +47,7 @@ import de.planmarshall.workflow.plan.WaivedGate;
  * fixture instance equal their golden files as well, name the same pruned elements and waived gates, and refuse an
  * active state the instance does not have.
  */
+@EnableGeneratorController
 @DisplayName("WorkflowDiagramGenerator")
 class WorkflowDiagramGeneratorTest {
 
@@ -145,7 +148,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should refuse an active state the unit does not have")
         void shouldRefuseUnknownActiveState() {
-            var unknown = Optional.of("build.unknown");
+            var unknown = Optional.of("build.unknown-" + Generators.longs(1, Long.MAX_VALUE).next());
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
@@ -504,7 +507,8 @@ class WorkflowDiagramGeneratorTest {
         void shouldRefuseUnknownActiveState(String form, String golden, InstanceForm render) {
             assertAll(form,
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> render.apply(instance, Optional.of("finalize.unknown"))),
+                            () -> render.apply(instance,
+                                    Optional.of("finalize.unknown-" + Generators.longs(1, Long.MAX_VALUE).next()))),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> render.apply(instance, Optional.of("finalize.merge-dispatch"))));
         }
@@ -614,9 +618,10 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should quote a plain title without escaping anything in it")
         void shouldQuotePlainTitle() {
-            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId("plain-plan"), Optional.empty());
+            var planId = Generators.letterStrings(1, 8).next();
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId(planId), Optional.empty());
 
-            assertEquals("---\ntitle: \"plan plain-plan v3 (plan)\"\n---\n", frontMatter(rendered), rendered);
+            assertEquals("---\ntitle: \"plan " + planId + " v3 (plan)\"\n---\n", frontMatter(rendered), rendered);
         }
 
         private PlanInstance withPlanId(String planId) {

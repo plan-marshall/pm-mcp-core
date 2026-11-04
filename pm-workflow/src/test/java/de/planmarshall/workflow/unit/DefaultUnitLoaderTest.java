@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -49,6 +51,7 @@ import de.planmarshall.workflow.verify.VerificationRule;
  * {@code DEFAULT_UNIT_REFUSED}.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("DefaultUnitLoader")
 class DefaultUnitLoaderTest {
 
@@ -235,8 +238,9 @@ class DefaultUnitLoaderTest {
         @Test
         @DisplayName("refuses a default unit that drops a released state name (Rule 5)")
         void releasedStateDropped() {
+            var releasedState = "dropped." + Generators.letterStrings(4, 12).next();
             var loader = new DefaultUnitLoader(DefaultUnitLoaderTest.class.getClassLoader(), InvariantFixtures.ROOT,
-                    UnitFixtures.UNIT_FILES, UnitFixtures.context(), Map.of("replan", List.of("replan.dropped")));
+                    UnitFixtures.UNIT_FILES, UnitFixtures.context(), Map.of("replan", List.of(releasedState)));
 
             var result = loader.load();
 

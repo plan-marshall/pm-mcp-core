@@ -25,6 +25,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.AuditAnchor;
 import de.planmarshall.core.store.AuditLog;
 import de.planmarshall.core.store.JsonlStoreFile;
@@ -33,6 +35,7 @@ import de.planmarshall.core.store.JsonlStoreFile;
  * The {@code agent_started} detection is written into the machine's audit log as one {@code security} record naming
  * the executable (Model Work § A Worker Off Track).
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the audit case builds the event in its assertion, by design
 @DisplayName("Agent-started security audit")
@@ -42,11 +45,14 @@ class AuditLogSecurityAuditTest {
     @DisplayName("the detection is a security record naming the executable, the generation and the task")
     void recordsTheDetection(@TempDir Path base) throws Exception {
         Files.createDirectories(base.resolve("logs"));
+        var executable = "/usr/local/bin/" + Generators.letterStrings(4, 12).next();
+        var attempt = Generators.integers(1, 10).next();
+        var actor = "actor-" + Generators.letterStrings(3, 10).next();
         var clock = Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC);
-        var auditLog = new AuditLog(base, AuditAnchor.NONE, clock, "tester");
+        var auditLog = new AuditLog(base, AuditAnchor.NONE, clock, actor);
         var audit = new AuditLogSecurityAudit(auditLog, new TestLocks(), clock, base);
-        var event = new SecurityAudit.Event("/usr/local/bin/opencode", TaskFixtures.GENERATION,
-                "qt-0000000000000001", 2, Instant.parse("2026-10-23T10:00:00Z"));
+        var event = new SecurityAudit.Event(executable, TaskFixtures.GENERATION,
+                "qt-0000000000000001", attempt, Instant.parse("2026-10-23T10:00:00Z"));
 
         audit.agentStarted(event);
 
@@ -57,8 +63,8 @@ class AuditLogSecurityAuditTest {
                 () -> assertTrue(line.contains("\"category\":\"security\""), line),
                 () -> assertTrue(line.contains("\"event\":\"agent_started\""), line),
                 () -> assertTrue(line.contains("\"actor\":\"supervisor\""), line),
-                () -> assertTrue(line.contains("\"executable\":\"/usr/local/bin/opencode\""), line),
+                () -> assertTrue(line.contains("\"executable\":\"" + executable + "\""), line),
                 () -> assertTrue(line.contains("\"generation_id\":\"" + TaskFixtures.GENERATION + "\""), line),
-                () -> assertTrue(line.contains("\"attempt\":2"), line));
+                () -> assertTrue(line.contains("\"attempt\":" + attempt), line));
     }
 }

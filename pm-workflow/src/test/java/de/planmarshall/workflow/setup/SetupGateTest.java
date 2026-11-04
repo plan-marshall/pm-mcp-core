@@ -25,6 +25,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.WorkflowStatus;
@@ -35,6 +37,7 @@ import de.planmarshall.core.store.WorkflowStatus;
  * step is refused {@code onboarding_incomplete} with 409, and the onboarding itself and the operator's verbs stay
  * open. Once the first run reached its resting state, every act is admitted.
  */
+@EnableGeneratorController
 @DisplayName("Machine onboarding setup gate")
 class SetupGateTest {
 
@@ -126,8 +129,9 @@ class SetupGateTest {
         var withList = MachineOnboarding.fromStatus(machineStatus("onboard.harnesses", "\"first_run\""));
         var withoutList = MachineOnboarding.fromStatus(machineStatusWithoutSteps("onboard.mode", "\"first_run\""));
 
+        var unknownStep = "unknown-" + Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("typo", withList)),
+                () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep(unknownStep, withList)),
                 () -> assertInstanceOf(SetupGate.Refused.class, SetupGate.decideStep("language", withoutList)));
     }
 
@@ -147,7 +151,7 @@ class SetupGateTest {
     void foreignScopeIsRefused() {
         var plan = machineStatus("onboard.completed", null).toBuilder()
                 .scopeType(JournalScopeType.PLAN)
-                .scopeId("some-plan")
+                .scopeId("scope-" + Generators.letterStrings(3, 8).next().toLowerCase(java.util.Locale.ROOT))
                 .build();
 
         assertThrows(IllegalArgumentException.class, () -> MachineOnboarding.fromStatus(plan));

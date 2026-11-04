@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.SourceLocation;
 
 /**
@@ -34,10 +36,12 @@ import de.planmarshall.workflow.ast.SourceLocation;
  * violation that refuses a missing component, and a result that keeps an immutable copy of its violations, its only
  * component, and passes when it holds none.
  */
+@EnableGeneratorController
 @DisplayName("VerificationResult, Violation and VerificationRule")
 class VerificationResultTest {
 
-    private static final SourceLocation LOCATION = new SourceLocation("inline.pmwf", 1, 1);
+    private static final SourceLocation LOCATION = new SourceLocation(
+            "inline-" + Generators.letterStrings(1, 8).next() + ".pmwf", 1, 1);
 
     @Test
     @DisplayName("Should name the specification rule of every check")
@@ -83,7 +87,9 @@ class VerificationResultTest {
     @Test
     @DisplayName("Should keep an immutable copy of the violations and pass only without one")
     void shouldCopyViolations() {
-        var violation = new Violation(VerificationRule.REACHABILITY, "verify.entry", LOCATION, "unreachable");
+        var stateId = Generators.letterStrings(1, 8).next();
+        var message = Generators.letterStrings(1, 8).next();
+        var violation = new Violation(VerificationRule.REACHABILITY, stateId, LOCATION, message);
         var source = new ArrayList<>(List.of(violation));
 
         var result = new VerificationResult(source);
@@ -119,11 +125,13 @@ class VerificationResultTest {
     @DisplayName("Should refuse a violation with a missing component")
     void shouldRefuseIncompleteViolation() {
         var rule = VerificationRule.EXIT_PATH;
+        var stateId = Generators.letterStrings(1, 8).next();
+        var message = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new Violation(null, "s", LOCATION, "m")),
-                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, null, LOCATION, "m")),
-                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, "s", null, "m")),
-                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, "s", LOCATION, null)));
+                () -> assertThrows(NullPointerException.class, () -> new Violation(null, stateId, LOCATION, message)),
+                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, null, LOCATION, message)),
+                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, stateId, null, message)),
+                () -> assertThrows(NullPointerException.class, () -> new Violation(rule, stateId, LOCATION, null)));
     }
 
     @Test

@@ -32,6 +32,7 @@ import de.planmarshall.workflow.scenario.ScenarioReplayRunner.Snapshot;
  * {@code mcp/status.json} bytes after every step, and a unit with one changed transition writes the same bytes up to
  * the step that takes it and then fails at the script's next {@code assert_state}, which names its line.
  */
+// Every datum in this class is a contract: the scenario script under test, its step lines and the fixture paths.
 @DisplayName("Scenario determinism")
 class ScenarioDeterminismTest {
 

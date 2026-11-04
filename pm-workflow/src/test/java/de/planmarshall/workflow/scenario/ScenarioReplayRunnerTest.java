@@ -33,6 +33,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatusStore;
@@ -44,6 +46,7 @@ import de.planmarshall.workflow.scenario.ScenarioReplayRunner.ScenarioFailure;
  * script fails at the step's line with the expected and the actual value, and the stored status bytes are kept after
  * every step.
  */
+@EnableGeneratorController
 @DisplayName("Scenario replay runner")
 class ScenarioReplayRunnerTest {
 
@@ -318,50 +321,54 @@ class ScenarioReplayRunnerTest {
         @Test
         @DisplayName("Should give a link of the operator wait the parameters the script names")
         void shouldGiveTheLinkItsParameters() {
+            var note = Generators.letterStrings(1, 8).next();
             var runner = operatorRunner(directory);
 
             runner.run(ScenarioScript.read("""
                     scenario operator-parameters
                     start plan scenario-operator
-                    operator_do choose cli {"note":"go"}
+                    operator_do choose cli {"note":"%s"}
                     assert_state completed
-                    """));
+                    """.formatted(note)));
 
             var stored = new WorkflowStatusStore(ScenarioFixtures.scope(directory, JournalScopeType.PLAN,
                     "scenario-operator"));
             assertAll(
                     () -> assertEquals("completed", stored.read().orElseThrow().state()),
-                    () -> assertEquals(List.of("go"), runner.fixtures().note.notes(),
+                    () -> assertEquals(List.of(note), runner.fixtures().note.notes(),
                             "the primitive received the parameter the script named"));
         }
 
         @Test
         @DisplayName("Should refuse an act the resting operator wait does not offer, at the step's line")
         void shouldFailAnActTheStateDoesNotOffer() {
+            var unknown = "z" + Generators.letterStrings(4, 10).next();
             var runner = operatorRunner(directory);
             var script = ScenarioScript.read("""
                     scenario operator-unknown-link
                     start plan scenario-operator
-                    operator_do unknown web
-                    """);
+                    operator_do %s web
+                    """.formatted(unknown));
 
             var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
 
             assertAll(
                     () -> assertEquals(3, failure.line()),
-                    () -> assertTrue(failure.getMessage().contains("offers no link 'unknown'"),
+                    () -> assertTrue(failure.getMessage().contains("offers no link '" + unknown + "'"),
                             failure.getMessage()));
         }
 
         @Test
         @DisplayName("Should refuse a link whose declared free parameter the act omits, at the step's line")
         void shouldFailAnActWithoutItsFreeParameter() {
+            var otherName = Generators.letterStrings(5, 10).next();
+            var otherValue = Generators.letterStrings(1, 8).next();
             var runner = operatorRunner(directory);
             var script = ScenarioScript.read("""
                     scenario operator-missing-parameter
                     start plan scenario-operator
-                    operator_do choose cli {"other":"x"}
-                    """);
+                    operator_do choose cli {"%s":"%s"}
+                    """.formatted(otherName, otherValue));
 
             var failure = assertThrows(ScenarioFailure.class, () -> runner.run(script));
 
@@ -374,8 +381,9 @@ class ScenarioReplayRunnerTest {
         @Test
         @DisplayName("Should replay an operator script twice to the same bytes after every step")
         void shouldReplayAnOperatorScriptToTheSameBytes() throws Exception {
+            var secondDirectory = Generators.letterStrings(4, 10).next();
             var first = operatorRunner(directory);
-            var second = operatorRunner(Files.createDirectory(directory.resolve("second")));
+            var second = operatorRunner(Files.createDirectory(directory.resolve(secondDirectory)));
 
             first.run(ScenarioScript.read(OPERATOR_SCRIPT));
             second.run(ScenarioScript.read(OPERATOR_SCRIPT));

@@ -16,40 +16,69 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Locale;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+
 /**
  * {@code facts.answers} (Hypermedia Format § Answers to Earlier Questions): the items a continued task or the task of a
  * re-entered state carries, in the specification's columns.
  */
+@EnableGeneratorController
 @DisplayName("Answer facts")
 class AnswersTest {
 
+    private static String questionId() {
+        return questionId(100, 999_999);
+    }
+
+    private static String questionId(int min, int max) {
+        return "Q-%03d".formatted(Generators.integers(min, max).next());
+    }
+
+    private static String taskId() {
+        return "TASK-%03d".formatted(Generators.integers(100, 999_999).next());
+    }
+
+    private static String branchKey() {
+        return "option_" + Generators.letterStrings(1, 8).next().toLowerCase(Locale.ROOT);
+    }
+
     private static AnswerFact fact(String questionId, String planTaskId) {
-        return new AnswerFact(questionId, planTaskId, "Which contract?",
-                "option_a", "Option A", "the operator's note", AnswerFact.Kind.CHOSEN);
+        return new AnswerFact(questionId, planTaskId, Generators.letterStrings(1, 40).next(),
+                branchKey(), Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 40).next(),
+                AnswerFact.Kind.CHOSEN);
     }
 
     @Test
     @DisplayName("an item renders the specification's columns in their order")
     void columns() {
-        var row = fact("Q-007", "TASK-003").cells();
+        var askedQuestionId = questionId();
+        var askedTaskId = taskId();
+        var questionText = Generators.letterStrings(1, 40).next();
+        var key = branchKey();
+        var label = Generators.letterStrings(1, 20).next();
+        var text = Generators.letterStrings(1, 40).next();
+        var row = new AnswerFact(askedQuestionId, askedTaskId, questionText, key, label, text,
+                AnswerFact.Kind.CHOSEN).cells();
 
         assertAll(
                 () -> assertEquals(AnswerFact.COLUMNS, List.of("question_id", "plan_task_id", "question_text", "branch_key", "label",
                         "text", "kind")),
-                () -> assertEquals(List.of("Q-007", "TASK-003", "Which contract?", "option_a", "Option A",
-                        "the operator's note", "chosen"), row));
+                () -> assertEquals(List.of(askedQuestionId, askedTaskId, questionText, key, label, text, "chosen"),
+                        row));
     }
 
     @Test
     @DisplayName("a question of another class than task carries no plan task, and no words render empty")
     void optionalColumns() {
-        var row = new AnswerFact("Q-008", null, "Which scope?", "value", "the workspace", null,
-                AnswerFact.Kind.INTERPRETED).cells();
+        var row = new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), branchKey(),
+                Generators.letterStrings(1, 20).next(), null, AnswerFact.Kind.INTERPRETED).cells();
 
         assertAll(
                 () -> assertEquals("", row.get(1)),
@@ -60,19 +89,24 @@ class AnswersTest {
     @Test
     @DisplayName("the answers table carries one row per item, in the order the questions closed")
     void table() {
-        var answers = Answers.empty().plus(fact("Q-007", "TASK-003")).plus(fact("Q-008", null));
+        var first = fact(questionId(100, 499_999), taskId());
+        var second = fact(questionId(500_000, 999_999), null);
+        var answers = Answers.empty().plus(first).plus(second);
 
         assertAll(
                 () -> assertFalse(answers.isEmpty()),
                 () -> assertEquals(2, answers.rows().size()),
-                () -> assertEquals("Q-007", answers.rows().getFirst().getFirst()),
-                () -> assertEquals("Q-008", answers.rows().get(1).getFirst()));
+                () -> assertEquals(first.questionId(), answers.rows().getFirst().getFirst()),
+                () -> assertEquals(second.questionId(), answers.rows().get(1).getFirst()));
     }
 
     @Test
     @DisplayName("a retried delivery of the same question replaces its item instead of doubling it")
     void idempotentDelivery() {
-        var answers = Answers.empty().plus(fact("Q-007", "TASK-003")).plus(fact("Q-007", "TASK-003"));
+        var askedQuestionId = questionId();
+        var askedTaskId = taskId();
+        var answers = Answers.empty().plus(fact(askedQuestionId, askedTaskId))
+                .plus(fact(askedQuestionId, askedTaskId));
 
         assertEquals(1, answers.rows().size());
     }
@@ -80,8 +114,8 @@ class AnswersTest {
     @Test
     @DisplayName("the answers of two tasks merge by question")
     void merge() {
-        var earlier = Answers.empty().plus(fact("Q-007", "TASK-003"));
-        var later = Answers.empty().plus(fact("Q-008", null));
+        var earlier = Answers.empty().plus(fact(questionId(100, 499_999), taskId()));
+        var later = Answers.empty().plus(fact(questionId(500_000, 999_999), null));
 
         assertAll(
                 () -> assertEquals(2, earlier.plusAll(later).rows().size()),
@@ -112,15 +146,20 @@ class AnswersTest {
     @Test
     @DisplayName("the selected keys of a several answer and the two reserved keys are branch keys")
     void branchKeys() {
+        var several = branchKey() + "+" + branchKey();
         assertAll(
-                () -> assertEquals("option_a+option_b",
-                        new AnswerFact("Q-007", null, "Which?", "option_a+option_b", "A, B", null,
+                () -> assertEquals(several,
+                        new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), several,
+                                Generators.letterStrings(1, 20).next(), null,
                                 AnswerFact.Kind.CHOSEN).branchKey()),
+                // "value" and "own" are the two reserved branch keys of the specification
                 () -> assertEquals("value",
-                        new AnswerFact("Q-007", null, "Which?", "value", "3", null,
+                        new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), "value",
+                                Generators.letterStrings(1, 20).next(), null,
                                 AnswerFact.Kind.CHOSEN).branchKey()),
                 () -> assertEquals("own",
-                        new AnswerFact("Q-007", null, "Which?", "own", "mine", "my words",
+                        new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), "own",
+                                Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 40).next(),
                                 AnswerFact.Kind.OWN_OPTION).branchKey()));
     }
 }

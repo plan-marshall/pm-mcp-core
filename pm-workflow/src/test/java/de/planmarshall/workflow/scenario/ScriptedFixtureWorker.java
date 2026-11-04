@@ -30,6 +30,7 @@ import de.planmarshall.workflow.engine.EngineEvent;
  * the task protocol. A task the worker has no declared outcome left for is a scenario failure naming the role, and so
  * is a declared outcome no task took ({@link #remaining()}).
  */
+// Every datum in this class is a contract: the failure-message templates the tests assert exactly.
 final class ScriptedFixtureWorker {
 
     private final String role;

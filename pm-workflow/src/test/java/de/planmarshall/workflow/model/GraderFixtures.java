@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
@@ -57,12 +58,13 @@ import de.planmarshall.core.store.LockKey;
  */
 final class GraderFixtures {
 
+    // The role, harness, model and source names are fixture identifiers; COMMIT and NOW are wire-format values.
     static final String ROLE = "review-code";
     static final String GENERIC_ROLE = "worker";
     static final String HARNESS = "acme-cli";
     static final String MODEL = "acme-standard";
     static final String JUDGE_MODEL = "acme-judge";
-    static final String VERSION = "1.4";
+    static final String VERSION = "1." + Generators.integers(0, 99).next();
     static final String CORPUS_REVISION = "corpus-7";
     static final URI PROJECT_REPOSITORY = URI.create("https://example.org/plan-marshall/pm-mcp-core");
     static final URI DATASET = URI.create("https://example.org/datasets/reviews");
@@ -157,16 +159,23 @@ final class GraderFixtures {
             var topic = id.substring(0, id.lastIndexOf('/'));
             var closed = method.isClosed();
             var offered = List.of(answer == null ? "clean" : answer, "clean".equals(answer) ? "defective" : "clean");
-            var input = new ImportedItem.Input("Is the work right?", "", closed ? offered : null,
+            var question = Generators.letterStrings(5, 30).next();
+            var title = Generators.letterStrings(3, 20).next();
+            var rationale = Generators.letterStrings(5, 40).next();
+            var rubricText = Generators.letterStrings(5, 40).next();
+            var reviewer = Generators.letterStrings(3, 20).next();
+            var provenance = Generators.letterStrings(3, 20).next();
+            var canary = Generators.letterStrings(3, 20).next();
+            var input = new ImportedItem.Input(question, "", closed ? offered : null,
                     closed ? null : JsonValue.parse("{\"type\":\"string\"}"
                             .getBytes(StandardCharsets.UTF_8)));
-            var target = new ImportedItem.Target(closed ? answer : null, "The reference says so.", List.of(),
-                    closed ? List.of() : List.of(new ImportedItem.RubricItem("R1", "The defect is found.")), false);
-            return new ImportedItem(id, topic, role, "A title", List.of(), null, input, target,
+            var target = new ImportedItem.Target(closed ? answer : null, rationale, List.of(),
+                    closed ? List.of() : List.of(new ImportedItem.RubricItem("R1", rubricText)), false);
+            return new ImportedItem(id, topic, role, title, List.of(), null, input, target,
                     new ImportedItem.Grading(method, null, null),
                     new ImportedItem.Provenance(LocalDate.of(2026, 1, 1),
-                            new ImportedItem.Origin(repository, commit, "data/rows.csv", 2), List.of("created")),
-                    new ImportedItem.Review(status, "operator", LocalDate.of(2026, 1, 2), null), null, "canary");
+                            new ImportedItem.Origin(repository, commit, "data/rows.csv", 2), List.of(provenance)),
+                    new ImportedItem.Review(status, reviewer, LocalDate.of(2026, 1, 2), null), null, canary);
         }
     }
 
@@ -179,23 +188,25 @@ final class GraderFixtures {
     static ImportResult partial() {
         return new ImportResult(List.of(new ImportResult.CoveredSource("reviews", 2)),
                 List.of(new ImportResult.MissedSource("papers", ImportResult.Reason.PIN_MISSING, "data/rows.csv",
-                        "the pin is absent")));
+                        Generators.letterStrings(5, 40).next())));
     }
 
     /** @return the import a hash mismatch failed */
     static ImportResult failed() {
         return new ImportResult(List.of(),
                 List.of(new ImportResult.MissedSource("papers", ImportResult.Reason.HASH_MISMATCH, "data/rows.csv",
-                        "the hash is not the pinned one")));
+                        Generators.letterStrings(5, 40).next())));
     }
 
     /** @return the judge items of a balanced check */
     static List<JudgeCheck.Item> judgeItems() {
+        var question = Generators.letterStrings(5, 30).next();
+        var right = Generators.letterStrings(5, 20).next();
+        var wrong = Generators.letterStrings(5, 20).next() + "-a";
+        var otherWrong = Generators.letterStrings(5, 20).next() + "-b";
         return List.of(
-                new JudgeCheck.Item("judge/right-1", "Is the answer right?", "", "a right answer", "a right answer",
-                        JudgeCheck.Label.RIGHT),
-                new JudgeCheck.Item("judge/wrong-1", "Is the answer right?", "", "a wrong answer",
-                        "another wrong answer", JudgeCheck.Label.WRONG));
+                new JudgeCheck.Item("judge/right-1", question, "", right, right, JudgeCheck.Label.RIGHT),
+                new JudgeCheck.Item("judge/wrong-1", question, "", wrong, otherWrong, JudgeCheck.Label.WRONG));
     }
 
     /** @return the judge configuration of the fixture judge */
@@ -314,7 +325,7 @@ final class GraderFixtures {
             }
             var answer = formAnswers.getOrDefault(key,
                     answers.getOrDefault(request.item().id(), request.item().target().answer() == null
-                            ? "the defect is found"
+                            ? Generators.letterStrings(3, 20).next()
                             : request.item().target().answer()));
             return Optional.of(new GradedAnswer(answer, TokenTotal.measured(tokens), 100));
         }

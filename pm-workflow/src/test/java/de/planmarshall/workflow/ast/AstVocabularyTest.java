@@ -20,19 +20,26 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+
+@EnableGeneratorController
 @DisplayName("Source location, scopes and unit types of the tree")
 class AstVocabularyTest {
 
     @Test
     @DisplayName("a source location names resource, line and column")
     void sourceLocation() {
-        var location = new SourceLocation("fixture.unit", 12, 3);
+        var resource = Generators.letterStrings(1, 8).next() + ".unit";
+        var line = Generators.integers(1, 500).next();
+        var column = Generators.integers(1, 80).next();
+        var location = new SourceLocation(resource, line, column);
 
-        assertEquals("fixture.unit", location.resourceName());
-        assertEquals(12, location.line());
-        assertEquals(3, location.column());
-        assertEquals(new SourceLocation("fixture.unit", 12, 3), location);
-        assertNotEquals(new SourceLocation("fixture.unit", 12, 4), location);
+        assertEquals(resource, location.resourceName());
+        assertEquals(line, location.line());
+        assertEquals(column, location.column());
+        assertEquals(new SourceLocation(resource, line, column), location);
+        assertNotEquals(new SourceLocation(resource, line, column + 1), location);
     }
 
     @Test

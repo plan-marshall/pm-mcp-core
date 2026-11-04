@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 
@@ -45,6 +46,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.OutcomeTransition;
@@ -65,6 +68,7 @@ import de.planmarshall.workflow.verify.InvariantFixtures;
  * version that lacks the current state or a call-stack state is refused {@code position_not_contained}, one that
  * breaks a check {@code invariant_failed}, as a value, and the version in force stays.
  */
+@EnableGeneratorController
 @DisplayName("PlanInstanceComposer")
 class PlanInstanceComposerTest {
 
@@ -299,13 +303,14 @@ class PlanInstanceComposerTest {
         void eventAndPrevious() {
             var previous = Optional.of(version1());
             var facts = facts().build();
+            var otherPlan = "other-" + Generators.letterStrings(1, 8).next().toLowerCase(Locale.ROOT);
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.START, facts,
                             previous, List.of(), AT_START)),
                     () -> assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.PLAN, facts,
                             Optional.empty(), List.of(), AT_START)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> request("other-plan",
+                    () -> assertThrows(IllegalArgumentException.class, () -> request(otherPlan,
                             CompositionEvent.PLAN, facts, previous, List.of(), AT_START)));
         }
 
@@ -428,13 +433,15 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a raise binds the budget of its policy with the waiver as the source")
         void raise() {
+            var raised = Generators.integers(4, 5).next();
             var instance = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(version1()), List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", 4)), AT_START)));
+                    Optional.of(version1()), List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", raised)),
+                    AT_START)));
 
             assertAll(
-                    () -> assertEquals(BoundArgument.fromWaiver(new CallValue.IntValue(4), "W-1"),
+                    () -> assertEquals(BoundArgument.fromWaiver(new CallValue.IntValue(raised), "W-1"),
                             remediationCall(instance).args().get("fix_budget")),
-                    () -> assertEquals(new CallValue.IntValue(4),
+                    () -> assertEquals(new CallValue.IntValue(raised),
                             remediationState(instance).paramBindings().get("fix_budget")),
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(1), TEMPLATE_FILE),
                             remediationCall(instance).args().get("retry_budget")));
@@ -444,7 +451,8 @@ class PlanInstanceComposerTest {
         @DisplayName("a raise of another policy binds nothing at this call")
         void raiseOfAnotherPolicy() {
             var instance = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(version1()), List.of(Waiver.raise("W-1", "fix_budget:ci-failure", 4)), AT_START)));
+                    Optional.of(version1()), List.of(Waiver.raise("W-1", "fix_budget:ci-failure",
+                            Generators.integers(4, 5).next())), AT_START)));
 
             assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(3), TEMPLATE_FILE),
                     remediationCall(instance).args().get("fix_budget"));
@@ -467,7 +475,7 @@ class PlanInstanceComposerTest {
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "fix_budget:x",
                             Waiver.Mode.RAISE, Optional.empty())),
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "ci_check:build",
-                            Waiver.Mode.MET, Optional.of(1))),
+                            Waiver.Mode.MET, Optional.of(Generators.integers(1, 10).next()))),
                     () -> assertEquals(Optional.of(Waiver.Mode.RAISE), Waiver.Mode.fromWireName("raise")),
                     () -> assertEquals(Optional.empty(), Waiver.met("W-1", "ci_check:build").raisedUnit()));
         }

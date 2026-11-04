@@ -33,6 +33,7 @@ import de.planmarshall.core.log.CoreLogMessages;
  * The holder numbers every message of {@code pm-workflow} once (PM-IMPL-1): two messages with one identifier cannot
  * be told apart in a log, and an identifier outside the range of its level reads as another level.
  */
+// Every datum in this class is a contract: the log-message identifiers, their level ranges and their templates.
 @DisplayName("WorkflowLogMessages")
 class WorkflowLogMessagesTest {
 

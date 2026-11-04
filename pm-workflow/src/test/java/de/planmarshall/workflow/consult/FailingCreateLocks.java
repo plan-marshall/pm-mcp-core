@@ -12,6 +12,7 @@ package de.planmarshall.workflow.consult;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 
@@ -28,7 +29,7 @@ final class FailingCreateLocks implements LockManager {
     @Override
     public LockTransaction openTransaction() {
         if (++opened == 2) {
-            throw new UncheckedIOException(new IOException("injected creation failure"));
+            throw new UncheckedIOException(new IOException(Generators.letterStrings(10, 40).next()));
         }
         return delegate.openTransaction();
     }

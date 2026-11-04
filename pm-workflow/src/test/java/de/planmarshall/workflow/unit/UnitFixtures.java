@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
@@ -57,7 +58,10 @@ final class UnitFixtures {
     static final String DEFAULT_AUTHOR = "plan-marshall";
 
     /** The author of the fixture units written into a project, a person. */
-    static final String PROJECT_AUTHOR = "Erika Mustermann";
+    static final String PROJECT_AUTHOR = Generators.letterStrings(4, 12).next();
+
+    /** The author of the other person a fixture unit names. */
+    static final String OTHER_PERSON_AUTHOR = Generators.letterStrings(4, 12).next();
 
     /** The author line of a fixture unit written into a project. */
     static final String PROJECT_AUTHOR_LINE = "author: " + PROJECT_AUTHOR;
@@ -68,7 +72,7 @@ final class UnitFixtures {
 
     /** The re-planning unit placed in the project names another person as its author. */
     static final Mutation OTHER_PERSON = new Mutation("a project unit names another person",
-            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: Max Mustermann");
+            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: " + OTHER_PERSON_AUTHOR);
 
     /** The project step of the binding tests. */
     static final String PROJECT_STEP = "project:lint";
@@ -157,7 +161,7 @@ final class UnitFixtures {
 
     /**
      * Writes every fixture unit into a directory as a project unit, each mutation applied to its file. A project unit
-     * is made by a person, so the author {@value #DEFAULT_AUTHOR} of the default unit becomes {@value #PROJECT_AUTHOR};
+     * is made by a person, so the author {@value #DEFAULT_AUTHOR} of the default unit becomes {@link #PROJECT_AUTHOR};
      * the line count stays.
      *
      * @param directory the directory, created when missing

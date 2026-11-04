@@ -53,6 +53,7 @@ import de.planmarshall.workflow.verify.SchemaRegistry;
  * ({@link #mergedComposer()}, {@link #mergedRequest}), whose phase files hold both lanes and their per-lane rework
  * routes.
  */
+// Every datum in this class is a contract: the fixture identifiers, instant and DSL documents are the fixed inputs the tests assert against.
 final class PlanFixtures {
 
     /** The classpath resource of the plan template. */

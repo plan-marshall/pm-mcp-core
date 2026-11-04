@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.HarnessProfile;
@@ -40,7 +41,7 @@ final class ModelFixtures {
 
     static final String HARNESS = "acme-cli";
     static final String MODEL = "acme-standard";
-    static final String VERSION = "1.4";
+    static final String VERSION = "1." + Generators.integers(0, 99).next();
     static final String QUEUE_TASK = "qt-0123456789abcdef";
     static final String DIGEST = "a".repeat(64);
 
@@ -100,7 +101,7 @@ final class ModelFixtures {
     static RoleResolver resolver(Map<String, EffectiveRole> roles) {
         return name -> roles.containsKey(name)
                 ? new RoleResolution.Defined(roles.get(name))
-                : new RoleResolution.Undefined(name, Optional.empty(), "the role is absent");
+                : new RoleResolution.Undefined(name, Optional.empty(), Generators.letterStrings(5, 30).next());
     }
 
     /** The qualification lookup of the tests; a lookup of a skipped role fails the test. */

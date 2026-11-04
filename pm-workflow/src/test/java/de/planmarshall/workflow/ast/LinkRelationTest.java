@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
+// Every datum in this class is a contract: link relations, their default forms and the closed enum vocabulary.
 @DisplayName("LinkRelation")
 class LinkRelationTest {
 

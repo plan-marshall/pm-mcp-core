@@ -26,6 +26,7 @@ import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
+// Every datum in this class is a contract: the only literal is the sentinel location NOWHERE.
 /**
  * Replaces every {@link SourceLocation} of a tree by {@link #NOWHERE}, so two trees can be compared by their structure
  * alone: an expected tree built in a test, or a tree read back from printed source.
