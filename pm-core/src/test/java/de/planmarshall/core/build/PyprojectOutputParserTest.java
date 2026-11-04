@@ -108,8 +108,10 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("reads a stub-file and a column-numbered mypy line")
     void readsTheWiderMypyForms() {
-        ParsedBuild build = PyprojectOutputParser.parse("src/types.pyi:12: error: Missing return statement\n"
-                + "src/app.py:12:5: error: Incompatible types in assignment\n");
+        ParsedBuild build = PyprojectOutputParser.parse("""
+                src/types.pyi:12: error: Missing return statement
+                src/app.py:12:5: error: Incompatible types in assignment
+                """);
 
         assertAll(
                 () -> assertEquals(2, build.diagnostics().size(), "Both mypy forms file one diagnostic"),
@@ -125,9 +127,10 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
     @Test
     @DisplayName("files a FAILED line whose node id carries a space")
     void filesASpacedFailedId() {
-        ParsedBuild build = PyprojectOutputParser.parse(
-                "FAILED test/test_api.py::test_case[a b] - AssertionError: boom\n"
-                        + "==================== 1 failed in 0.50s ====================\n");
+        ParsedBuild build = PyprojectOutputParser.parse("""
+                FAILED test/test_api.py::test_case[a b] - AssertionError: boom
+                ==================== 1 failed in 0.50s ====================
+                """);
 
         assertAll(
                 () -> assertEquals(1, build.diagnostics().size(), "The spaced node id files one diagnostic"),

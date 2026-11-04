@@ -61,8 +61,10 @@ class EslintOutputParserTest {
     @Test
     @DisplayName("drops a position that does not fit an int")
     void dropsAnUnrepresentablePosition() {
-        EslintResult result = EslintOutputParser.parse("./src/a.ts\n"
-                + "   99999999999999999999:7  error  a message  rule-name\n");
+        EslintResult result = EslintOutputParser.parse("""
+                ./src/a.ts
+                   99999999999999999999:7  error  a message  rule-name
+                """);
 
         assertAll(
                 () -> assertEquals(1, result.build().diagnostics().size(), "The row is still filed"),

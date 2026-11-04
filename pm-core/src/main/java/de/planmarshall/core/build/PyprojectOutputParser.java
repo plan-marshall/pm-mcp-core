@@ -342,7 +342,7 @@ public class PyprojectOutputParser {
     }
 
     private static boolean hasPytestOutput(List<String> lines) {
-        if (lines.stream().anyMatch(line -> line.contains("FAILED "))) {
+        if (lines.stream().anyMatch(line -> line.contains(FAILED_PREFIX))) {
             return true;
         }
         if (lines.stream().anyMatch(line -> parseErrorLine(line) != null)) {
