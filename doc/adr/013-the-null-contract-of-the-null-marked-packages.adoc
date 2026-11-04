@@ -37,6 +37,20 @@ Each site is decided from the code, not from the Sonar message, and belongs to e
   returns is `Optional<T>`: the return type, the `return null` and every caller change, and a `@Nullable` return is
   never written. A field flagged "not initialized in this constructor" is initialised, or is `@Nullable` where null
   is a real state of the object.
+** (a) A `@Nullable` record component defaulted in a `@NullMarked` method is read once into a local and the local is
+  tested: `var threshold = item.grading().passThreshold();` then
+  `return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;`. The double call
+  `item.grading().passThreshold() == null ? DEFAULT_PASS_THRESHOLD : item.grading().passThreshold()` and
+  `Objects.requireNonNullElse(item.grading().passThreshold(), DEFAULT_PASS_THRESHOLD)` were **not accepted by the
+  analysis of `main` at `70bc999f`**: the analyser cannot prove that a second call returns the same value, so the
+  second read still looks nullable, while a local is a value its flow analysis narrows.
+** (b) A field that is non-null once a required key was read is `@Nullable` at its declaration, with
+  `Objects.requireNonNull(field, "field")` where it is handed on. `QualificationSettingsCodec` does this for
+  `rewritten` and `UnitFrontmatterReader` does it for `modificationDate`, whose `complete(...)` runs only after the
+  `REQUIRED_KEYS` check has proved that `modification_date` was read.
+** (c) The analysis of a pull request is scoped to its new code and does not prove `main`: #282 reported "0 open
+  issues" for a rewritten line that the analysis of `main` still flagged. The proof of a null-rule fix is therefore
+  the read of `branch=main` after the merge, never the pull request's own result alone.
 
 A method that must keep the flagged shape because an external type forces it (an override of a JDK or library
 method whose contract permits null, a `CompletableFuture<Void>` completion) carries an inline
