@@ -60,8 +60,8 @@ final class UnitFixtures {
     /** The author of the fixture units written into a project, a person. */
     static final String PROJECT_AUTHOR = Generators.letterStrings(4, 12).next();
 
-    /** The author of the other person a fixture unit names. */
-    static final String OTHER_PERSON_AUTHOR = Generators.letterStrings(4, 12).next();
+    /** The author of the other person a fixture unit names; distinct from {@link #PROJECT_AUTHOR} by its suffix. */
+    static final String OTHER_PERSON_AUTHOR = Generators.letterStrings(4, 12).next() + "-other";
 
     /** The author line of a fixture unit written into a project. */
     static final String PROJECT_AUTHOR_LINE = "author: " + PROJECT_AUTHOR;

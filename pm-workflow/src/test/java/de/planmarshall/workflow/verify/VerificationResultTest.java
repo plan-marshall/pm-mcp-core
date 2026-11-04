@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.SourceLocation;
+import de.planmarshall.workflow.testing.generators.WorkflowGenerators;
 
 /**
  * The values of the static verifier (PM-IMPL-5): the rule vocabulary with the specification rule of every check, a
@@ -40,8 +41,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
 @DisplayName("VerificationResult, Violation and VerificationRule")
 class VerificationResultTest {
 
-    private static final SourceLocation LOCATION = new SourceLocation(
-            "inline-" + Generators.letterStrings(1, 8).next() + ".pmwf", 1, 1);
+    private static final SourceLocation LOCATION = WorkflowGenerators.sourceLocations().next();
 
     @Test
     @DisplayName("Should name the specification rule of every check")

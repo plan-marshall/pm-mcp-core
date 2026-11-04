@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 
@@ -35,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.OutcomeClass;
+import de.planmarshall.workflow.testing.generators.WorkflowGenerators;
 
 /**
  * The node model of the immutable tree (PM-IMPL-5, PM-WF-16): records copy the collections they are given, maps keep
@@ -44,9 +46,14 @@ import de.planmarshall.core.spi.OutcomeClass;
 @DisplayName("Node model of the tree")
 class AstNodeModelTest {
 
-    private static final SourceLocation LOCATION = new SourceLocation(
-            "fixture-" + Generators.longs(1, Long.MAX_VALUE).next() + ".pmwf",
-            Generators.integers(1, 500).next(), Generators.integers(1, 80).next());
+    private static final SourceLocation LOCATION = WorkflowGenerators.sourceLocations().next();
+
+    private static final AtomicInteger UNIQUE = new AtomicInteger();
+
+    /** @return a generated text that is unique within this class, for values a map or a list must keep apart */
+    private static String text() {
+        return Generators.letterStrings(3, 8).next() + "-" + UNIQUE.incrementAndGet();
+    }
 
     @Nested
     @DisplayName("Defensive copies")
@@ -55,8 +62,8 @@ class AstNodeModelTest {
         @Test
         @DisplayName("a list passed to a record is copied and cannot be changed through the accessor")
         void listIsCopied() {
-            var first = Generators.letterStrings(1, 8).next();
-            var second = Generators.letterStrings(1, 8).next();
+            var first = text();
+            var second = text();
             var values = new ArrayList<>(List.of(first, second));
             var enumOf = new ParamType.EnumOf(values);
 
@@ -197,14 +204,14 @@ class AstNodeModelTest {
         @Test
         @DisplayName("the entry bindings of the definition are copied and keep their order")
         void entryBindingsAreCopied() {
-            var reviewState = Generators.letterStrings(1, 8).next();
-            var repairState = Generators.letterStrings(1, 8).next();
+            var reviewState = text();
+            var repairState = text();
             var states = new LinkedHashMap<String, StateNode>();
             states.put(reviewState, terminalState(reviewState));
             states.put(repairState, terminalState(repairState));
             var bindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
-            var second = Generators.letterStrings(1, 8).next();
-            var first = Generators.letterStrings(1, 8).next();
+            var second = text();
+            var first = text();
             bindings.put(second, new WorkflowDefinition.EntryBinding(repairState, LOCATION));
             bindings.put(first, new WorkflowDefinition.EntryBinding(reviewState, LOCATION));
             var definition = definition(bindings, states);
@@ -239,18 +246,15 @@ class AstNodeModelTest {
         @Test
         @DisplayName("a unit with entries starts at every entry-bound state once, in binding order")
         void entryBoundStates() {
-            var reviewState = Generators.letterStrings(1, 8).next();
-            var repairState = Generators.letterStrings(1, 8).next();
+            var reviewState = text();
+            var repairState = text();
             var states = new LinkedHashMap<String, StateNode>();
             states.put(reviewState, terminalState(reviewState));
             states.put(repairState, terminalState(repairState));
             var bindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
-            bindings.put(Generators.letterStrings(1, 8).next(),
-                    new WorkflowDefinition.EntryBinding(repairState, LOCATION));
-            bindings.put(Generators.letterStrings(1, 8).next(),
-                    new WorkflowDefinition.EntryBinding(reviewState, LOCATION));
-            bindings.put(Generators.letterStrings(1, 8).next(),
-                    new WorkflowDefinition.EntryBinding(repairState, LOCATION));
+            bindings.put(text(), new WorkflowDefinition.EntryBinding(repairState, LOCATION));
+            bindings.put(text(), new WorkflowDefinition.EntryBinding(reviewState, LOCATION));
+            bindings.put(text(), new WorkflowDefinition.EntryBinding(repairState, LOCATION));
 
             var definition = definition(bindings, states);
 
@@ -332,8 +336,7 @@ class AstNodeModelTest {
         @Test
         @DisplayName("the states of a definition keep the order in which they were declared")
         void statesKeepOrder() {
-            var ids = List.of(Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
-                    Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next());
+            var ids = List.of(text(), text(), text(), text());
             var states = new LinkedHashMap<String, StateNode>();
             for (var id : ids) {
                 states.put(id, terminalState(id));
@@ -347,15 +350,14 @@ class AstNodeModelTest {
         @Test
         @DisplayName("the parameter bindings of a call and the bound arguments of a frame keep their order")
         void bindingsKeepOrder() {
-            var z = Generators.letterStrings(1, 8).next();
-            var a = Generators.letterStrings(1, 8).next();
-            var m = Generators.letterStrings(1, 8).next();
-            var entry = Generators.letterStrings(1, 8).next();
+            var z = text();
+            var a = text();
+            var m = text();
+            var entry = text();
             var bindings = new LinkedHashMap<String, CallValue>();
             bindings.put(z, new CallValue.IntValue(Generators.integers(0, 1_000).next()));
-            bindings.put(a, new CallValue.EnumValue(Generators.letterStrings(1, 8).next()));
-            bindings.put(m, new CallValue.EnumList(List.of(Generators.letterStrings(1, 8).next(),
-                    Generators.letterStrings(1, 8).next())));
+            bindings.put(a, new CallValue.EnumValue(text()));
+            bindings.put(m, new CallValue.EnumList(List.of(text(), text())));
 
             var call = new StateBehavior.SubWorkflowCall(Generators.letterStrings(1, 8).next(), Optional.empty(),
                     bindings, List.of());
@@ -418,8 +420,7 @@ class AstNodeModelTest {
                             Optional.of(Generators.integers(11, 100).next())),
                     new ParamType.Int(Optional.of(Generators.integers(0, 10).next()),
                             Optional.of(Generators.integers(11, 100).next())),
-                    new ParamType.EnumOf(List.of(Generators.letterStrings(1, 8).next(),
-                            Generators.letterStrings(1, 8).next())),
+                    new ParamType.EnumOf(List.of(text(), text())),
                     new ParamType.SchemaRef(schemaName),
                     new ParamType.ListOf(new ParamType.EnumOf(List.of(Generators.letterStrings(1, 8).next()))));
 
@@ -433,8 +434,8 @@ class AstNodeModelTest {
         void callValueIsClosed() {
             var value = Generators.letterStrings(1, 8).next();
             var number = Generators.integers(0, 1_000).next();
-            var first = Generators.letterStrings(1, 8).next();
-            var second = Generators.letterStrings(1, 8).next();
+            var first = text();
+            var second = text();
             List<CallValue> values = List.of(new CallValue.EnumValue(value), new CallValue.IntValue(number),
                     new CallValue.EnumList(List.of(first, second)));
 

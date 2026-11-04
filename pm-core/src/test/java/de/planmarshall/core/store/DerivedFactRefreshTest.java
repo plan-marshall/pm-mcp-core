@@ -336,7 +336,7 @@ class DerivedFactRefreshTest {
                     () -> assertFalse(reason.contains(value.toJson()),
                             "The value text is not in the reason"),
                     () -> assertTrue(reason.contains("The operator-only fact kind '" + key.kind().wireName()
-                                    + "' has 1 schema violation(s)"),
+                            + "' has 1 schema violation(s)"),
                             "The reason names the kind and the violation count"));
         }
 
