@@ -39,8 +39,8 @@ import org.junit.jupiter.api.io.TempDir;
 @DisplayName("Effective role configuration")
 class RoleEffectiveConfigurationTest {
 
-    private static final String FRONTIER = "acme-frontier";
-    private static final String FAST = "acme-fast";
+    private static final String FRONTIER = RoleFixtures.FRONTIER_MODEL;
+    private static final String FAST = RoleFixtures.FAST_MODEL;
 
     @TempDir
     Path project;

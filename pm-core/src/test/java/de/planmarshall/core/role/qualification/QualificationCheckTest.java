@@ -308,12 +308,11 @@ class QualificationCheckTest {
     void catchRate() {
         var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var cleanAnswer = "c" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var suspiciousId = topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var suspicious = QualificationFixtures.item(
-                topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
-                QualificationFixtures.ROLE, "suspicious").build();
+                suspiciousId, QualificationFixtures.ROLE, "suspicious").build();
         var clean = QualificationFixtures.item(
-                topic + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
-                QualificationFixtures.ROLE, cleanAnswer).build();
+                suspiciousId + "-clean", QualificationFixtures.ROLE, cleanAnswer).build();
         var qualification = QualificationFixtures.qualification(Map.of(Topic.OWN, NINETY));
         var results = new ArrayList<QualificationRecord.ItemResult>();
         results.add(result(suspicious.id(), "suspicious"));

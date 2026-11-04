@@ -53,7 +53,7 @@ class AnalysisResultTest {
             Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
     private static final String ANALYSIS_REF = Generators.letterStrings(5, 20).next();
     private static final String METRIC = Generators.letterStrings(3, 20).next();
-    private static final String THRESHOLD = Integer.toString(Generators.integers(1, 100).next());
+    private static final String THRESHOLD = Integer.toString(Generators.integers(92, 100).next());
     private static final Condition PASSED_CONDITION = new Condition("new_coverage", Comparator.LT, THRESHOLD, "91.5",
             GateResult.PASSED);
     private static final Condition FAILED_CONDITION = new Condition("new_violations", Comparator.GT, "0", "3",

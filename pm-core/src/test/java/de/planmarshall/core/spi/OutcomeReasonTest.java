@@ -28,6 +28,7 @@ import de.planmarshall.core.store.WorkflowStatus;
  * The reason of an outcome maps to a closed set of conditions, and that set must not drift from the kinds the status
  * store persists (PM-IMPL-5, Workflow DSL § Outcomes and Reasons).
  */
+// Every datum in this class is a contract: the mappable condition kinds and the reasons' own wire names.
 @EnableGeneratorController
 @DisplayName("Contract of an outcome reason")
 class OutcomeReasonTest {

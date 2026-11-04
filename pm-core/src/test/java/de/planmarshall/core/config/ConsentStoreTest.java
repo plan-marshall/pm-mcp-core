@@ -54,10 +54,9 @@ class ConsentStoreTest {
     private static final String PROJECT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String OTHER_PROJECT = "o" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String ANY_PROJECT = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String SCRIPT = "scripts/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT)
-            + ".sh";
-    private static final String OTHER_SCRIPT = "scripts/"
-            + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT) + ".sh";
+    private static final String SCRIPT_BASE = Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String SCRIPT = "scripts/" + SCRIPT_BASE + ".sh";
+    private static final String OTHER_SCRIPT = "scripts/" + SCRIPT_BASE + "-other.sh";
     private static final String DEVICE = "dev-"
             + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
 

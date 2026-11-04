@@ -64,7 +64,7 @@ final class QualificationFixtures {
     private static final int CONTEXT_BUDGET = Generators.integers(200_000, 900_000).next();
     private static final int IDLE_WAKEUPS = Generators.integers(1, 10).next();
     private static final int MAX_HOLD_SECONDS = Generators.integers(301, 3_600).next();
-    private static final int MAX_RESUME_SECONDS = Generators.integers(1, 604_800).next();
+    private static final int MAX_RESUME_SECONDS = Generators.integers(601, 604_800).next();
     private static final int ITEM_COUNT = Generators.integers(1, 50).next();
     private static final int TOTAL_TOKENS = Generators.integers(1_000, 10_000).next();
     private static final int DURATION_MILLIS = Generators.integers(1, 1_000).next();
