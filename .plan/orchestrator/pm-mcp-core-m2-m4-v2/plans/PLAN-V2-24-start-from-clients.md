@@ -114,7 +114,7 @@ Written by `pm-mcp-core-m2-m4/cleanup`, measured against `main` at `f4a1bd07`. T
 
 ### Open questions for the outline
 
-- Owner of the lesson store (reader, writer, retire verb, claim, remedy, `derived_from_untrusted`) and of `source-lesson.screen/.flagged/.unscreened` and the `stored_untrusted` outcome (this plan or `start-source-intake`); `ci.issue-view` has no provider implementation or work package (the same blocker as `forgejo-provider`); where default units live (`plan-marshall-mcp`); one owner of the verifier rule `SESSION_DRIVEN_LINKS` between PLAN-42 and this plan (R15).
+- The lesson store itself (reader, writer, retire, claim, remedy, `derived_from_untrusted`) is PLAN-V2-16, merged (#284, `70bc999f`); the owner of `source-lesson.screen/.flagged/.unscreened` and the `stored_untrusted` outcome is still open (this plan or `start-source-intake`); `ci.issue-view` has no provider implementation or work package (the same blocker as `forgejo-provider`); where default units live (`plan-marshall-mcp`); one owner of the verifier rule `SESSION_DRIVEN_LINKS` between PLAN-42 and this plan (R15).
 
 ## Re-grounding Record (2026-10-25, HEAD `88ec9c70`)
 
