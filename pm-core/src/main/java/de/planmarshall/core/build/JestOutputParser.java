@@ -41,12 +41,17 @@ public class JestOutputParser {
 
     private static final String TEST_MARKER = "●";
 
+    private static final String TESTS_PREFIX = "Tests:";
+
     private static final String STACK_FRAME = "at ";
 
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern FAIL_HEADER = Pattern.compile("^\\s*FAIL\\s+(.+)$");
 
     private static final Pattern STACK_LOCATION = Pattern.compile(":(\\d+):\\d+\\)?$");
+
+    /** The failed count of a summary line, read independently of the full summary pattern. */
+    private static final Pattern FAILED_COUNT = Pattern.compile("\\b(\\d+) failed\\b");
 
     @SuppressWarnings({"java:S5843", "java:S8786"}) // ported pattern; the fixtures pin its behaviour
     private static final Pattern SUMMARY =
@@ -188,15 +193,17 @@ public class JestOutputParser {
      * @return whether a failed test count was printed
      */
     private static boolean printsFailedSummary(List<String> lines) {
-        for (String line : lines) {
-            Matcher matcher = SUMMARY.matcher(line);
-            while (matcher.find()) {
-                if (parseCount(matcher.group(1)) > 0) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return lines.stream()
+                .filter(line -> line.strip().startsWith(TESTS_PREFIX))
+                .anyMatch(line -> {
+                    Matcher matcher = FAILED_COUNT.matcher(line);
+                    while (matcher.find()) {
+                        if (parseCount(matcher.group(1)) > 0) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
     }
 
     private static long parseCount(@Nullable String digits) {

@@ -99,6 +99,7 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
         assertAll(
                 () -> assertInstanceOf(TestCounts.Unmeasured.class, build.testCounts(),
                         "A summary the pattern cannot read is no measurement"),
+                () -> assertEquals(BuildStatus.FAILURE, build.status(), "Its printed failure count is red"),
                 () -> assertFalse(build.noTestsRan(), "An unmeasured population is no no-tests verdict"));
     }
 
