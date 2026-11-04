@@ -78,16 +78,20 @@ class ScoringTest {
     @Test
     @DisplayName("a declared pass threshold wins over the default")
     void declaredThresholdWins() {
-        var declared = BigDecimal.valueOf(Generators.integers(6, 10).next()).movePointLeft(1);
-        var item = withPassThreshold(QualificationFixtures.item("review/rubric", QualificationFixtures.ROLE, null)
-                .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build(), declared);
+        var above = BigDecimal.valueOf(Generators.integers(6, 10).next()).movePointLeft(1);
+        var below = BigDecimal.valueOf(Generators.integers(1, 4).next()).movePointLeft(1);
+        var itemAbove = rubricItemWith(above);
+        var itemBelow = rubricItemWith(below);
 
         assertAll(
-                () -> assertEquals(declared, Scoring.threshold(item),
-                        "the declared threshold is the item's threshold"),
-                () -> assertTrue(Scoring.right(item, declared), "a score at the declared threshold passes"),
-                () -> assertFalse(Scoring.right(item, Scoring.DEFAULT_PASS_THRESHOLD),
-                        "the compiled default does not pass"));
+                () -> assertEquals(above, Scoring.threshold(itemAbove),
+                        "a threshold above the default is kept"),
+                () -> assertEquals(below, Scoring.threshold(itemBelow),
+                        "a threshold below the default is kept"),
+                () -> assertTrue(Scoring.right(itemAbove, above), "a score at the declared threshold passes"),
+                () -> assertFalse(Scoring.right(itemAbove, Scoring.DEFAULT_PASS_THRESHOLD),
+                        "the compiled default does not pass above it"),
+                () -> assertTrue(Scoring.right(itemBelow, below), "a lower declared threshold passes"));
     }
 
     @Test
@@ -109,6 +113,11 @@ class ScoringTest {
         var item = QualificationFixtures.item("review/clean-plan", QualificationFixtures.ROLE, "clean").build();
 
         assertFalse(Scoring.judged(item));
+    }
+
+    private static ImportedItem rubricItemWith(BigDecimal passThreshold) {
+        return withPassThreshold(QualificationFixtures.item("review/rubric", QualificationFixtures.ROLE, null)
+                .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build(), passThreshold);
     }
 
     private static ImportedItem withPassThreshold(ImportedItem item, BigDecimal passThreshold) {
