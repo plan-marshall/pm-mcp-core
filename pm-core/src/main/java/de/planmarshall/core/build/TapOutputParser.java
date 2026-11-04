@@ -94,9 +94,22 @@ public class TapOutputParser {
         List<String> lines = withoutCarriageReturns(List.of(logText.split("\n", -1)));
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
-        BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
+        BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
         return new ParsedBuild(diagnostics, status, false, testCounts,
                 ParsedBuild.noTestsRanFrom(status, false, testCounts, false));
+    }
+
+    /**
+     * Whether the log printed a failure marker: a {@code not ok} line or a {@code # fail} count above zero. The status
+     * is what the tool printed, so a failure marker without a filed diagnostic (a {@code not ok} line that names no test
+     * and carries no message) is still red.
+     *
+     * @param lines the log lines
+     * @return whether a failure marker was printed
+     */
+    private static boolean printsFailure(List<String> lines) {
+        return lines.stream()
+                .anyMatch(line -> NOT_OK.matcher(line).find() || count(FAILED, line).orElse(0L) > 0);
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

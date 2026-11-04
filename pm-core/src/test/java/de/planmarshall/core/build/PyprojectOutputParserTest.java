@@ -105,6 +105,37 @@ class PyprojectOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertEquals(BuildStatus.SUCCESS, build.status(), "The log carries no failing diagnostic"));
     }
 
+    @Test
+    @DisplayName("reads a stub-file and a column-numbered mypy line")
+    void readsTheWiderMypyForms() {
+        ParsedBuild build = PyprojectOutputParser.parse("src/types.pyi:12: error: Missing return statement\n"
+                + "src/app.py:12:5: error: Incompatible types in assignment\n");
+
+        assertAll(
+                () -> assertEquals(2, build.diagnostics().size(), "Both mypy forms file one diagnostic"),
+                () -> assertEquals("src/types.pyi", build.diagnostics().getFirst().file(),
+                        "The stub path is reported"),
+                () -> assertEquals(Integer.valueOf(12), build.diagnostics().getFirst().line(),
+                        "The stub line is carried"),
+                () -> assertEquals("src/app.py", build.diagnostics().get(1).file(),
+                        "The column form names its file"),
+                () -> assertEquals(BuildStatus.FAILURE, build.status(), "A failing mypy run is red"));
+    }
+
+    @Test
+    @DisplayName("files a FAILED line whose node id carries a space")
+    void filesASpacedFailedId() {
+        ParsedBuild build = PyprojectOutputParser.parse(
+                "FAILED test/test_api.py::test_case[a b] - AssertionError: boom\n"
+                        + "==================== 1 failed in 0.50s ====================\n");
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The spaced node id files one diagnostic"),
+                () -> assertEquals("test/test_api.py", build.diagnostics().getFirst().file(), "The path is reported"),
+                () -> assertEquals("AssertionError: boom", build.diagnostics().getFirst().message(),
+                        "The summary tail is the message"));
+    }
+
     @Override
     ParsedBuild parse(String logText) {
         return PyprojectOutputParser.parse(logText);

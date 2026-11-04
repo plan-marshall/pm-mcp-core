@@ -33,7 +33,8 @@ import lombok.Builder;
  * of the parse, not a component of the result.</li>
  * </ul>
  *
- * @param diagnostics   the diagnostics in log order, never null
+ * @param diagnostics   the diagnostics in log order — or, for a log that several tools wrote, grouped by tool in the
+ *                      order the parser handles them — never null
  * @param status        the status derived from the tool's markers, never null
  * @param successMarker whether the tool printed its positive success marker
  * @param testCounts    the test counts, or {@code null} when the log carried none

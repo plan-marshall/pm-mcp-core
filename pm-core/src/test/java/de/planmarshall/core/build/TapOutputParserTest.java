@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
@@ -47,7 +48,7 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
                   location: '/p/App.test.js:15:5'
                   error: 'Expected "Hello" but got "Goodbye"'
                   stack: |
-                    at TestContext.<anonymous> (file:///p/App.test.js:15:5)
+                        at TestContext.<anonymous> (file:///p/App.test.js:15:5)
                   ...
                 # tests 1
                 # pass 0
@@ -64,7 +65,9 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertEquals(Integer.valueOf(15), build.diagnostics().getFirst().line(),
                         "The YAML location supplies the line"),
                 () -> assertEquals("Expected \"Hello\" but got \"Goodbye",
-                        build.diagnostics().getFirst().message(), "The YAML error supplies the message"));
+                        build.diagnostics().getFirst().message(), "The YAML error supplies the message"),
+                () -> assertTrue(build.diagnostics().getFirst().stackTrace().contains("App.test.js:15:5"),
+                        "The YAML stack supplies a frame of the diagnostic"));
     }
 
     @Test
@@ -76,7 +79,7 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
 
         assertAll(
                 () -> assertEquals(0, build.diagnostics().size(), "A line with no identity and no message files nothing"),
-                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "No filed diagnostic means no red status"));
+                () -> assertEquals(BuildStatus.FAILURE, build.status(), "A printed not-ok marker is a red status"));
     }
 
     @Test

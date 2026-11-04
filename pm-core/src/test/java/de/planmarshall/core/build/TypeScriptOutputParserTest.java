@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
@@ -53,6 +54,19 @@ class TypeScriptOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertEquals(Integer.valueOf(4), build.diagnostics().getFirst().column(), "The column is carried"),
                 () -> assertEquals("TS2339: Property 'x' does not exist on type 'Y'.",
                         build.diagnostics().getFirst().message(), "The code prefixes the message"));
+    }
+
+    @Test
+    @DisplayName("drops a position that does not fit an int")
+    void dropsAnUnrepresentablePosition() {
+        ParsedBuild build = TypeScriptOutputParser.parse(
+                "src/a.ts(99999999999999999999,7): error TS2322: Type 'string' is not assignable to type 'number'.\n");
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The diagnostic is still filed"),
+                () -> assertEquals("src/a.ts", build.diagnostics().getFirst().file(), "The file is kept"),
+                () -> assertNull(build.diagnostics().getFirst().line(), "An unrepresentable line is absent"),
+                () -> assertNull(build.diagnostics().getFirst().column(), "The column follows its line"));
     }
 
     @Override

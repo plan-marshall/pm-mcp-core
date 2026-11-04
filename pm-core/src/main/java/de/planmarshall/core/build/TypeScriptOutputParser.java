@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.build;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -81,9 +83,25 @@ public class TypeScriptOutputParser {
             return Optional.empty();
         }
         String message = matcher.group(5) + ": " + matcher.group(6);
-        return Optional.of(new Diagnostic(matcher.group(1), Integer.valueOf(matcher.group(2)),
-                Integer.valueOf(matcher.group(3)), DiagnosticCollector.stored(message), Category.COMPILATION_ERROR,
-                Severity.ERROR, null));
+        Integer line = position(matcher.group(2));
+        Integer column = line == null ? null : position(matcher.group(3));
+        return Optional.of(new Diagnostic(matcher.group(1), line, column, DiagnosticCollector.stored(message),
+                Category.COMPILATION_ERROR, Severity.ERROR, null));
+    }
+
+    /**
+     * Reads a line or column number, or reports it absent when the digits do not fit an {@code int}: a hostile or
+     * truncated log must not make the parse throw.
+     *
+     * @param digits the digit run of the line or column
+     * @return the number, or {@code null} when it is not representable
+     */
+    private static @Nullable Integer position(String digits) {
+        try {
+            return Integer.valueOf(digits);
+        } catch (NumberFormatException _) {
+            return null;
+        }
     }
 
     private static String withoutCarriageReturn(String line) {

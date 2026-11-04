@@ -182,12 +182,14 @@ pyproject except where a pytest summary reports a passed count.
 * *TAP* — each `not ok N - <name>` line is a `TEST_FAILURE`; the YAML block that follows supplies `error`, `location` and
   `stack`, and without a block the test's own name is the message. The `# tests` / `# pass` / `# fail` / `# skipped`
   block supplies the counts.
-* *pyproject* — the log is scanned for mypy (`path:line: error: message`), ruff (`path:line:column: CODE message`) and
-  pytest (`FAILED` and collection/setup `ERROR` short-summary lines), each tool independently, and the diagnostics are
-  combined in that order. A pytest failure or error resolves its `FAILURES` or `ERRORS` block by the node id the summary
-  line names, takes the deepest `path.py:NN` frame of the block's traceback as its location (ignoring captured-output
-  sections), and — for a collection error whose summary line carries no message tail — the exception line of the block's
-  `E` gutter. A trailing `@<group>` of a pytest-xdist node id is stripped before the block is looked up.
+* *pyproject* — the log is scanned for mypy (`path:line: error: message`, including a `.pyi` stub path and a
+  `path:line:column:` run), ruff (`path:line:column: CODE message`) and pytest (`FAILED` and collection/setup `ERROR`
+  short-summary lines), each tool independently, and the diagnostics are combined in that order — a multi-tool log is
+  grouped by tool, not sorted by line. A pytest failure or error resolves its `FAILURES` or `ERRORS` block by the node id
+  the summary line names, takes the deepest `path.py:NN` frame of the block's traceback as its location (ignoring
+  captured-output sections), and — for a collection error whose summary line carries no message tail — the exception line
+  of the block's `E` gutter. A trailing `@<group>` of a pytest-xdist node id is stripped before the block is looked up, and
+  a node id that carries a space or the ` - ` delimiter is split outside its parameter brackets.
 
 === Counts of the Six
 
@@ -225,10 +227,12 @@ that the Gradle counts sum every block, and that an OpenRewrite format drift is 
 drop and the passing-count skip are *not* changes: the original does both.
 
 The six JavaScript and Python parsers add their own changes
-(link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003]), each again with a
-`deliberate:` fixture: one npm diagnostic per error block rather than only the first, both `tsc` forms scanned, the ESLint
-problem summary reported, every summary block summed, a contradictory summary reported `unmeasured`, the pytest location
-taken from the deepest traceback frame, and a pytest-xdist `@<group>` suffix stripped.
+(link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003]), each with a
+`deliberate:` fixture or a named unit test: one npm diagnostic per error block rather than only the first, both `tsc`
+forms scanned, the ESLint problem summary reported, every summary block summed, a contradictory summary reported
+`unmeasured`, the pytest location taken from the deepest traceback frame, a pytest-xdist `@<group>` suffix stripped, the
+wider mypy forms (a `.pyi` path and a column-numbered line) read, a spaced pytest `FAILED` node id filed, and a TAP
+failure marker turning the status red even when no diagnostic is filed.
 
 == Ported Tests and Fixture Provenance
 

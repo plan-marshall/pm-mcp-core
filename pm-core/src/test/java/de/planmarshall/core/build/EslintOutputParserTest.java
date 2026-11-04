@@ -9,6 +9,9 @@
  */
 package de.planmarshall.core.build;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -53,6 +56,18 @@ class EslintOutputParserTest {
 
         PortedExpectations.eslint(fixture, result, consumed);
         BuildLogFixtures.assertConsumed(fixture, consumed);
+    }
+
+    @Test
+    @DisplayName("drops a position that does not fit an int")
+    void dropsAnUnrepresentablePosition() {
+        EslintResult result = EslintOutputParser.parse("./src/a.ts\n"
+                + "   99999999999999999999:7  error  a message  rule-name\n");
+
+        assertAll(
+                () -> assertEquals(1, result.build().diagnostics().size(), "The row is still filed"),
+                () -> assertNull(result.build().diagnostics().getFirst().line(),
+                        "An unrepresentable line is absent"));
     }
 
     @Test

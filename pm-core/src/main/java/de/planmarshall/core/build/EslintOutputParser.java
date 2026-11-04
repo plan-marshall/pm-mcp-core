@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.build;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -126,8 +128,25 @@ public class EslintOutputParser {
         }
         String rule = remainder.substring(tokenStart, end);
         Severity severity = ERROR.equals(head.group(3)) ? Severity.ERROR : Severity.WARNING;
-        return Optional.of(new Diagnostic(file, Integer.valueOf(head.group(1)), Integer.valueOf(head.group(2)),
+        Integer lineNumber = position(head.group(1));
+        Integer column = lineNumber == null ? null : position(head.group(2));
+        return Optional.of(new Diagnostic(file, lineNumber, column,
                 DiagnosticCollector.stored(rule + ": " + message), Category.LINT_ERROR, severity, null));
+    }
+
+    /**
+     * Reads a line or column number, or reports it absent when the digits do not fit an {@code int}: a hostile or
+     * truncated log must not make the parse throw.
+     *
+     * @param digits the digit run of the line or column
+     * @return the number, or {@code null} when it is not representable
+     */
+    private static @Nullable Integer position(String digits) {
+        try {
+            return Integer.valueOf(digits);
+        } catch (NumberFormatException _) {
+            return null;
+        }
     }
 
     private static int endWithoutTrailingWhitespace(String text) {

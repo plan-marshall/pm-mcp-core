@@ -67,18 +67,17 @@ public class PyprojectOutputParser {
 
     private static final String PY_FILE = ".py";
 
-    private static final Pattern MYPY_DETECT = Pattern.compile("\\.py:\\d+: error:");
+    private static final Pattern MYPY_DETECT = Pattern.compile("\\.pyi?:\\d+(?::\\d+)?: error:");
 
     private static final Pattern RUFF_DETECT = Pattern.compile("\\.py:\\d+:\\d+: [A-Z]+\\d+");
 
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
-    private static final Pattern MYPY = Pattern.compile("^(.+\\.py):(\\d+): error: (.+)$");
+    private static final Pattern MYPY = Pattern.compile("^(.+\\.pyi?):(\\d+)(?::\\d+)?: error: (.+)$");
 
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern RUFF = Pattern.compile("^(.+\\.py):(\\d+):(\\d+): ([A-Z]+\\d+) (.+)$");
 
-    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
-    private static final Pattern FAILED_LINE = Pattern.compile("^FAILED (.+\\.py)::(\\S+)(?: - (.+))?$");
+    private static final String FAILED_PREFIX = "FAILED ";
 
     private static final Pattern FAILURES_BANNER_LINE = Pattern.compile("^=+ FAILURES =+\\s*$");
 
@@ -244,14 +243,59 @@ public class PyprojectOutputParser {
         Map<String, List<String>> blocks = blocks(lines, FAILURES_BANNER_LINE, PyprojectOutputParser::pytestBlockKey);
         var cursors = new HashMap<String, Integer>();
         for (String line : lines) {
-            Matcher failed = FAILED_LINE.matcher(line);
-            if (failed.matches()) {
-                String testName = withoutXdistGroup(failed.group(2));
-                String message = failed.group(3) == null ? "Test " + testName + " failed" : failed.group(3);
+            ParsedError failed = parseFailedLine(line);
+            if (failed != null) {
+                String testName = failed.testName() == null ? failed.file() : withoutXdistGroup(failed.testName());
+                String message = failed.message() == null ? "Test " + testName + " failed" : failed.message();
                 String block = consume(blocks, cursors, pytestBlockKey(testName));
-                add(diagnostics, seen, pytestDiagnostic(failed.group(1), block, message, Category.TEST_FAILURE));
+                add(diagnostics, seen, pytestDiagnostic(failed.file(), block, message, Category.TEST_FAILURE));
             }
         }
+    }
+
+    /**
+     * Parses a pytest {@code FAILED <path>::<node>[ - <message>]} short-summary line.
+     * <p>
+     * The path is the first {@code .py} whose remainder starts a node id, and the node id is split from its message
+     * outside parameter brackets, so a parametrized id that carries a space (or the delimiter itself) is still a
+     * failure the parser reports.
+     *
+     * @param line the line to inspect
+     * @return the parsed line, or {@code null} when it is no failure short-summary line
+     */
+    private static @Nullable ParsedError parseFailedLine(String line) {
+        if (!line.startsWith(FAILED_PREFIX)) {
+            return null;
+        }
+        String rest = line.substring(FAILED_PREFIX.length());
+        int searchFrom = 0;
+        int start = rest.indexOf(PY_FILE, searchFrom);
+        while (start >= 0) {
+            ParsedError parsed = failedAt(rest, start);
+            if (parsed != null) {
+                return parsed;
+            }
+            searchFrom = start + PY_FILE.length();
+            start = rest.indexOf(PY_FILE, searchFrom);
+        }
+        return null;
+    }
+
+    private static @Nullable ParsedError failedAt(String rest, int start) {
+        if (start < 1) {
+            return null;
+        }
+        int end = start + PY_FILE.length();
+        String tail = rest.substring(end);
+        if (!tail.startsWith(NODE_SEPARATOR)) {
+            return null;
+        }
+        String nodeTail = tail.substring(NODE_SEPARATOR.length());
+        if (nodeTail.isEmpty()) {
+            return null;
+        }
+        String[] parts = splitErrorTail(nodeTail);
+        return new ParsedError(rest.substring(0, end), parts[0], parts[1]);
     }
 
     private static void addErrors(List<String> lines, List<Diagnostic> diagnostics, Set<String> seen) {

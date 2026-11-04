@@ -24,7 +24,8 @@ original defines a pattern for and never reads.
 
 == Decision
 
-The port reproduces each original's parsing and changes eleven behaviours on purpose, one per `deliberate:` fixture:
+The port reproduces each original's parsing and changes fourteen behaviours on purpose, one per `deliberate:` fixture or
+named unit test:
 
 [cols="2,3",options="header"]
 |===
@@ -72,6 +73,21 @@ message with no line (PM-WATCH-JOB-12).
 
 |Every pytest summary line is summed rather than the last one read, so a matrix run reports the sum of its runs.
 |`ported/build/pyproject/deliberate-pyproject-multi-summary.txt`
+
+|A mypy diagnostic is read from a `.pyi` stub path and from a `--show-column-numbers` line. The original's pattern takes
+only `.py` followed directly by the line, so a log carrying only those forms yields no diagnostic — and, because the status
+is derived from the diagnostics, a failing run would read as green.
+|`PyprojectOutputParserTest.readsTheWiderMypyForms`
+
+|A pytest `FAILED` line whose node id carries a space is a failure. The original's `\S+` node-id capture matches no such
+line, so the failure disappears and a red run reads as green; the port splits the id outside its parameter brackets, as it
+already does for an `ERROR` line.
+|`PyprojectOutputParserTest.filesASpacedFailedId`
+
+|A TAP log that prints a failure marker is `FAILURE` even when the marker names no test and no diagnostic is filed. The
+original derives the status from the filed issues, so a red run could read as green; the port derives it from what the tool
+printed, as the model's `status` rule requires.
+|`TapOutputParserTest.ignoresABlankTestName`
 |===
 
 Everything else is held as in the original, including the behaviours that look surprising:
@@ -84,6 +100,8 @@ Everything else is held as in the original, including the behaviours that look s
   original's: the six rows of its log fixture are placed and the two the pattern cannot take are not.
 * A pytest issue carries no `stackTrace`: the original's `collect_stack_traces` matches only `at ` and `Caused by:` frames,
   which a Python traceback does not print.
+* A TAP `stack:` continuation line is kept when it is indented by eight spaces, the indentation node's runner emits; the
+  original tests the same fixed width, so a shallower block loses its stack rather than the port guessing the key's indent.
 
 * An npm generic error's message is the block's first reportable line, and that line is the `npm ERR! code` line itself,
   so the message reads `CODE: code CODE`. The original does the same, because its first-line scan starts at the code line.
@@ -113,7 +131,7 @@ Everything else is held as in the original, including the behaviours that look s
 
 == Consequences
 
-A consumer that compares a `plan-marshall` result with this one sees the eleven differences of the table plus the nine
+A consumer that compares a `plan-marshall` result with this one sees the fourteen differences of the table plus the ten
 held surprises, and no others. A change of any ported behaviour must now either keep its fixture green or change the
 fixture and this record with it.
 
