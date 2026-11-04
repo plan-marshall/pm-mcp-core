@@ -25,6 +25,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
  * Descriptors and rosters written for the finalize tests, never copied from the steps of the product: a builder of one
  * descriptor and a roster that passes every rule of {@link FinalizePipelineValidator}.
  */
+// Fixture helper, not a test class: the step ids and the roster are the fixture contract, the rest is generated.
 final class FinalizeFixtures {
 
     private FinalizeFixtures() {

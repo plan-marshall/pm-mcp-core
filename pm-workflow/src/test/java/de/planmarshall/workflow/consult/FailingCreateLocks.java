@@ -20,6 +20,7 @@ import de.planmarshall.core.service.LockTransaction;
  * A lock manager for the test of a failed consultation-task creation: the first transaction is served, the second — the
  * one {@code QueueStore.create} opens — fails, and every later one is served again.
  */
+// Fixture helper, not a test class: the injected failure message is generated data.
 final class FailingCreateLocks implements LockManager {
 
     private final LockManager delegate = new ConsultTestLocks();

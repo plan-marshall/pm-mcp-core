@@ -37,6 +37,7 @@ import de.planmarshall.core.role.RoleSkill;
  * The fixtures name a generic harness and generic roles; a test that needs a role the specification fixes by name (the
  * judge, the steward) names it explicitly.
  */
+// Fixture helper, not a test class: the harness, role and wire ids are the fixture contract, the rest is generated.
 final class ModelFixtures {
 
     static final String HARNESS = "acme-cli";

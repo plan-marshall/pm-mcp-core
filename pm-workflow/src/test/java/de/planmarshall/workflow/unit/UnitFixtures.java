@@ -40,6 +40,7 @@ import de.planmarshall.workflow.verify.SchemaRegistry;
  * A refusing project is the passing one with named {@link Mutation}s: a text that occurs exactly once in one file,
  * replaced by another. The named mutations of this class are the ones several tests share.
  */
+// Fixture helper, not a test class: the unit texts and ids are the fixture contract, the authors are generated.
 final class UnitFixtures {
 
     /** The project-ownable unit files of the tests: the phase files of the plan unit, then the sub-workflows. */
