@@ -11,6 +11,8 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,6 +79,17 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
         assertAll(
                 () -> assertEquals(1, build.diagnostics().size(), "The block is still filed as one diagnostic"),
                 () -> assertNull(build.diagnostics().getFirst().file(), "A blank suite header names no file"));
+    }
+
+    @Test
+    @DisplayName("reports a Tests summary the pattern cannot read as unmeasured")
+    void reportsAnUnreadSummaryAsUnmeasured() {
+        ParsedBuild build = JestOutputParser.parse("PASS src/a.test.ts\nTests:       1 failed, 1 todo, 2 total\n");
+
+        assertAll(
+                () -> assertInstanceOf(TestCounts.Unmeasured.class, build.testCounts(),
+                        "A summary the pattern cannot read is no measurement"),
+                () -> assertFalse(build.noTestsRan(), "An unmeasured population is no no-tests verdict"));
     }
 
     @Override

@@ -24,7 +24,7 @@ original defines a pattern for and never reads.
 
 == Decision
 
-The port reproduces each original's parsing and changes fourteen behaviours on purpose, one per `deliberate:` fixture or
+The port reproduces each original's parsing and changes fifteen behaviours on purpose, one per `deliberate:` fixture or
 named unit test:
 
 [cols="2,3",options="header"]
@@ -88,6 +88,10 @@ already does for an `ERROR` line.
 original derives the status from the filed issues, so a red run could read as green; the port derives it from what the tool
 printed, as the model's `status` rule requires.
 |`TapOutputParserTest.ignoresABlankTestName`
+
+|A Jest `Tests:` line the summary pattern cannot read — a `todo` component, for example — is `TestCounts.Unmeasured`. The
+original returns no count at all, which the model reads as "the log carried no count line".
+|`JestOutputParserTest.reportsAnUnreadSummaryAsUnmeasured`
 |===
 
 Everything else is held as in the original, including the behaviours that look surprising:
@@ -102,6 +106,8 @@ Everything else is held as in the original, including the behaviours that look s
   which a Python traceback does not print.
 * A TAP `stack:` continuation line is kept when it is indented by eight spaces, the indentation node's runner emits; the
   original tests the same fixed width, so a shallower block loses its stack rather than the port guessing the key's indent.
+* The ESLint file scope lasts until the next accepted file header, as in the original: a line the header pattern rejects
+  does not end the scope, so a row below it is filed under the last file the pattern accepted.
 
 * An npm generic error's message is the block's first reportable line, and that line is the `npm ERR! code` line itself,
   so the message reads `CODE: code CODE`. The original does the same, because its first-line scan starts at the code line.
@@ -131,7 +137,7 @@ Everything else is held as in the original, including the behaviours that look s
 
 == Consequences
 
-A consumer that compares a `plan-marshall` result with this one sees the fourteen differences of the table plus the ten
+A consumer that compares a `plan-marshall` result with this one sees the fifteen differences of the table plus the ten
 held surprises, and no others. A change of any ported behaviour must now either keep its fixture green or change the
 fixture and this record with it.
 

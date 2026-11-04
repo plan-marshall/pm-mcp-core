@@ -49,8 +49,8 @@ public record EslintResult(ParsedBuild build, @Nullable ProblemCounts problems) 
          *
          * @return {@code errors + warnings}
          */
-        public int total() {
-            return errors + warnings;
+        public long total() {
+            return (long) errors + warnings;
         }
     }
 }

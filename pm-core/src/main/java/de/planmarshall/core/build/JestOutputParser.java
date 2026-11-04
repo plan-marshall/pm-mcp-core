@@ -151,6 +151,8 @@ public class JestOutputParser {
         long skipped = 0;
         boolean found = false;
         boolean inconsistent = false;
+        boolean unreadSummary = lines.stream()
+                .anyMatch(line -> line.strip().startsWith("Tests:") && !SUMMARY.matcher(line).find());
         for (String line : lines) {
             Matcher matcher = SUMMARY.matcher(line);
             while (matcher.find()) {
@@ -168,10 +170,10 @@ public class JestOutputParser {
                 skipped += Math.max(blockSkipped, 0);
             }
         }
-        if (!found) {
+        if (!found && !unreadSummary) {
             return Optional.empty();
         }
-        return Optional.of(inconsistent || passed > Integer.MAX_VALUE || failed > Integer.MAX_VALUE
+        return Optional.of(inconsistent || unreadSummary || passed > Integer.MAX_VALUE || failed > Integer.MAX_VALUE
                 || skipped > Integer.MAX_VALUE
                 ? TestCounts.unmeasured()
                 : TestCounts.from(passed, failed, skipped, null));

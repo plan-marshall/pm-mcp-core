@@ -231,8 +231,8 @@ The six JavaScript and Python parsers add their own changes
 `deliberate:` fixture or a named unit test: one npm diagnostic per error block rather than only the first, both `tsc`
 forms scanned, the ESLint problem summary reported, every summary block summed, a contradictory summary reported
 `unmeasured`, the pytest location taken from the deepest traceback frame, a pytest-xdist `@<group>` suffix stripped, the
-wider mypy forms (a `.pyi` path and a column-numbered line) read, a spaced pytest `FAILED` node id filed, and a TAP
-failure marker turning the status red even when no diagnostic is filed.
+wider mypy forms (a `.pyi` path and a column-numbered line) read, a spaced pytest `FAILED` node id filed, an unread Jest
+`Tests:` summary reported `unmeasured`, and a TAP failure marker turning the status red even when no diagnostic is filed.
 
 == Ported Tests and Fixture Provenance
 
