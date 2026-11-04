@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -29,7 +28,6 @@ import de.planmarshall.core.store.WorkflowStatus;
  * store persists (PM-IMPL-5, Workflow DSL § Outcomes and Reasons).
  */
 // Every datum in this class is a contract: the mappable condition kinds and the reasons' own wire names.
-@EnableGeneratorController
 @DisplayName("Contract of an outcome reason")
 class OutcomeReasonTest {
 

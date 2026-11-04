@@ -70,8 +70,8 @@ class EffectiveRoleFactsTest {
     @Test
     @DisplayName("an artifact bound below the harness maximum keeps its own value")
     void questionsBelowHarnessMax() {
-        var hold = Generators.integers(1, 300).next();
-        var resume = Generators.integers(1, 600).next();
+        var hold = Generators.integers(1, 299).next();
+        var resume = Generators.integers(1, 599).next();
         var artifact = RoleFixtures.valid()
                 .set("/questions", map("hold_seconds", hold, "resume_within_seconds", resume)).artifact();
         var profile = profile(new HarnessProfile.Resumability(true, 300, true, 600),
