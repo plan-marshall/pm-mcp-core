@@ -2,10 +2,10 @@
   "id": "PLAN-V2-05",
   "slug": "derived-facts-store-operations",
   "workstream": "WS-05",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-05-derived-facts-store-operations",
+  "pr": "272",
+  "landing": "landings/PLAN-V2-05.md",
   "seq": 5
 }

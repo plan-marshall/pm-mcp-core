@@ -48,6 +48,7 @@ Implement the second part of the work package `build-parsers-and-gate-honesty`: 
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
+- **Read the landing analysis of PLAN-V2-08 at the outline** (`landings/PLAN-V2-08.md`, owner-register Wa59; decide each at refine, R07): I1 (the Gradle count line is whole-line anchored where the original searches a substring, undeclared in ADR `core-build/002`; the same question for each count line you port), I2 (the overflow paths of the shipped parsers have no parser-level fixture; give each new parser one), C3 (two regexes of the shipped parsers are polynomial on a hostile line and `BuildLogText.read` has no size cap; do not copy the pattern shape) and C5 (the stale `JvmCategoryPatterns` Javadoc). The expected surface is unchanged.
 - **Fixtures, not the sibling checkout.** Expected values are derived from the original and committed as plain files; the commit of the `plan-marshall` checkout they were derived from is recorded in the fixture directory (the checkout is the sibling `../plan-marshall`, never read by a test; no Python runs in the build).
 - **Log messages: none expected** (a parser is a pure function of text).
 - No new dependency (`CLAUDE.md`).

@@ -49,6 +49,7 @@ Connect the nine native parsers to the job runner and deliver the `failed_unpars
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
 - Log messages: if a message is added for a refused or unreadable log, it goes into the holder of the module that logs it (R12); the plan says so in its inbox message.
+- **Read the landing analysis of PLAN-V2-08 at the outline** (`landings/PLAN-V2-08.md`, owner-register Wa59; decide each at refine, R07): C1 (an ambiguous Maven count line makes the population `Unmeasured`, so a green build with `Failures: 1` loses its failed signal; ADR `core-build/002` defers it to this plan), S3 (a log with no count line yields an empty `Optional<TestCounts>`, which neither `measured` nor `unmeasured` names) and C2 (`[ERROR]` beside `BUILD SUCCESS` reads `FAILURE`, so `status` and `successMarker` can disagree). The expected surface is unchanged.
 - A change to `SubprocessJobRunner.OutputParser` is a change to a public interface of `pm-runtime` used by the assembly in `plan-marshall-mcp` (R16(2)): the outline says whether a source-compatible overload suffices and names the follow-up there.
 
 ## Claim Labels
