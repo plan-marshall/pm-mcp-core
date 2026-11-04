@@ -37,8 +37,8 @@ import de.planmarshall.core.findings.FindingScope;
 class CodeAnalysisProviderRegistryTest {
 
     private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String OTHER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String THIRD = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER = "q" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String THIRD = "r" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     /** A provider that only names itself; its operations are never called by the registry. */
     private record NamedProvider(String id) implements CodeAnalysisProvider {

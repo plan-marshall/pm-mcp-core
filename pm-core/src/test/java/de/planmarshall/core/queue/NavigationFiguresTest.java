@@ -24,7 +24,7 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * Each navigation figure is derived with its population and the right sentinel where the population cannot be read, and
@@ -167,15 +167,15 @@ class NavigationFiguresTest {
     @Test
     @DisplayName("the residency of a skill names its in-band bytes and the sections read on demand")
     void residency() {
-        var required = List.of(
-                new RoleSkill("skill://pm/implementation/SKILL.md", "%064x".formatted(Generators.longs().next())),
-                new RoleSkill("skill://pm/testing/SKILL.md", "%064x".formatted(Generators.longs().next())));
+        var skill = CoreGenerators.roleSkills().next();
+        var other = CoreGenerators.roleSkills().next();
+        var required = List.of(skill, other);
         var figures = NavigationFigures.derive(List.of(
-                        call(1, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-one"),
-                        call(2, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-two"),
-                        call(3, "pm_skill", "skill://pm/implementation/SKILL.md")),
+                        call(1, "pm_skill", skill.uri() + "#anchor-one"),
+                        call(2, "pm_skill", skill.uri() + "#anchor-two"),
+                        call(3, "pm_skill", skill.uri())),
                 VOCABULARY, required,
-                Map.of("skill://pm/implementation/SKILL.md", 4096L));
+                Map.of(skill.uri(), 4096L));
 
         assertAll(
                 () -> assertEquals(2, figures.residency().size()),

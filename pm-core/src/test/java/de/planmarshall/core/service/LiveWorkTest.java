@@ -93,7 +93,7 @@ class LiveWorkTest {
         @DisplayName("names every item of the project it was asked for")
         void namesItems() {
             var projectId = Generators.letterStrings(5, 20).next();
-            var otherProject = Generators.letterStrings(5, 20).next();
+            var otherProject = projectId + "-" + Generators.letterStrings(1, 5).next();
             var planId = Generators.letterStrings(3, 10).next();
             var jobId = Generators.letterStrings(3, 10).next();
             var items = List.of(new Item(Kind.PLAN, planId), new Item(Kind.JOB, jobId));

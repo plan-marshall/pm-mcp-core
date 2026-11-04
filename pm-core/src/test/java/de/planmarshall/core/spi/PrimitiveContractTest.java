@@ -47,9 +47,9 @@ class PrimitiveContractTest {
 
     private static final String SUBJECT = Generators.letterStrings(5, 20).next();
 
-    private static final String OTHER_SUBJECT = Generators.letterStrings(5, 20).next();
+    private static final String OTHER_SUBJECT = SUBJECT + "-" + Generators.letterStrings(1, 5).next();
 
-    private static final String ADDED_FACT = Generators.letterStrings(5, 15).next();
+    private static final String ADDED_FACT = "fact-" + Generators.letterStrings(3, 10).next();
 
     private static final String LATER_VALUE = Generators.letterStrings(5, 20).next();
 

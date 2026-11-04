@@ -9,7 +9,6 @@
  */
 package de.planmarshall.core.guard.fixtures;
 
-import de.cuioss.test.generator.Generators;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -35,7 +34,7 @@ public final class InMemoryPrinterFixture {
             writer.print(line);
         }
         var bytes = new ByteArrayOutputStream();
-        try (var stream = new PrintStream(bytes, Generators.booleans().next(), StandardCharsets.UTF_8)) {
+        try (var stream = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
             stream.print(line);
         }
         return text + bytes.toString(StandardCharsets.UTF_8);

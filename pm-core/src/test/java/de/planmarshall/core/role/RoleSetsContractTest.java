@@ -16,33 +16,29 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.valueobjects.junit5.contracts.ShouldHandleObjectContracts;
 import java.io.Serializable;
-import java.nio.file.Path;
-import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The canonical object methods of the role sets (PM-WORK-1): the shipped roles and the two directories are the value,
- * and {@link RoleSets.ShippedRole} compares the document bytes by content.
+ * The canonical object methods of a shipped role (PM-WORK-1): the document bytes identify the value, and the mutable
+ * array is compared by content rather than by identity. The record around it has compiler-generated equality; this
+ * class is the one that carries the hand-written contract.
  */
 @EnableGeneratorController
-@DisplayName("Contract of the role sets")
-class RoleSetsContractTest implements ShouldHandleObjectContracts<RoleSets> {
+@DisplayName("Contract of a shipped role")
+class RoleSetsContractTest implements ShouldHandleObjectContracts<RoleSets.ShippedRole> {
 
     @Override
-    public RoleSets getUnderTest() {
-        var shipped = Map.of(Generators.letterStrings(1, 8).next(),
-                new RoleSets.ShippedRole(Generators.letterStrings(1, 40).next().getBytes(UTF_8)));
-        return new RoleSets(shipped, Path.of(Generators.letterStrings(1, 8).next()),
-                Path.of(Generators.letterStrings(1, 8).next()));
+    public RoleSets.ShippedRole getUnderTest() {
+        return new RoleSets.ShippedRole(Generators.letterStrings(1, 40).next().getBytes(UTF_8));
     }
 
-    /** The sets name directories of the machine; they are resolved in place, never serialized. */
+    /** The document is handed on as bytes; Java serialization is not part of its contract. */
     @Override
     @Test
-    @DisplayName("the role sets are deliberately not Serializable")
+    @DisplayName("a shipped role is deliberately not Serializable")
     public void shouldImplementSerializable() {
-        assertFalse(Serializable.class.isAssignableFrom(RoleSets.class),
-                "The role sets are not Java-serialized; their directories are resolved in place");
+        assertFalse(Serializable.class.isAssignableFrom(RoleSets.ShippedRole.class),
+                "The shipped role is not Java-serialized; its document bytes are the wire form");
     }
 }
