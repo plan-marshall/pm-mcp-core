@@ -82,6 +82,16 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
+    @DisplayName("reads a failed Tests summary as a red status without a filed diagnostic")
+    void readsAFailedSummaryAsFailure() {
+        ParsedBuild build = JestOutputParser.parse("PASS src/a.test.ts\nTests:       1 failed, 2 passed, 3 total\n");
+
+        assertAll(
+                () -> assertEquals(0, build.diagnostics().size(), "The log carries no FAIL block"),
+                () -> assertEquals(BuildStatus.FAILURE, build.status(), "The printed failure count is red"));
+    }
+
+    @Test
     @DisplayName("reports a Tests summary the pattern cannot read as unmeasured")
     void reportsAnUnreadSummaryAsUnmeasured() {
         ParsedBuild build = JestOutputParser.parse("PASS src/a.test.ts\nTests:       1 failed, 1 todo, 2 total\n");

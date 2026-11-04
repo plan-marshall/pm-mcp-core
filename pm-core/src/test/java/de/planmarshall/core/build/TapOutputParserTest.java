@@ -71,6 +71,16 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
+    @DisplayName("reads a bare not-ok line as a red status")
+    void readsABareNotOkLineAsFailure() {
+        ParsedBuild build = TapOutputParser.parse("TAP version 13\n1..1\nnot ok 1\n");
+
+        assertAll(
+                () -> assertEquals(0, build.diagnostics().size(), "A test point with no name files nothing"),
+                () -> assertEquals(BuildStatus.FAILURE, build.status(), "The printed marker is a red status"));
+    }
+
+    @Test
     @DisplayName("ignores a not-ok line that carries no message at all")
     void ignoresABlankTestName() {
         String logText = String.join("\n", "not ok 1 -   ", "# tests 1", "# pass 0", "# fail 1", "# skipped 0");

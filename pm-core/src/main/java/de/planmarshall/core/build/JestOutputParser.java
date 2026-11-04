@@ -78,7 +78,8 @@ public class JestOutputParser {
         List<String> lines = withoutCarriageReturns(List.of(logText.split("\n", -1)));
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
-        BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
+        BuildStatus status = diagnostics.isEmpty() && !printsFailedSummary(lines)
+                ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
         return new ParsedBuild(diagnostics, status, false, testCounts,
                 ParsedBuild.noTestsRanFrom(status, false, testCounts, false));
     }
@@ -177,6 +178,25 @@ public class JestOutputParser {
                 || skipped > Integer.MAX_VALUE
                 ? TestCounts.unmeasured()
                 : TestCounts.from(passed, failed, skipped, null));
+    }
+
+    /**
+     * Whether the log printed a failed test count: a {@code Tests:} block whose failed count is above zero. The status is
+     * what the tool printed, so a failed summary without a filed diagnostic (truncated output) is still red.
+     *
+     * @param lines the log lines
+     * @return whether a failed test count was printed
+     */
+    private static boolean printsFailedSummary(List<String> lines) {
+        for (String line : lines) {
+            Matcher matcher = SUMMARY.matcher(line);
+            while (matcher.find()) {
+                if (parseCount(matcher.group(1)) > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static long parseCount(@Nullable String digits) {

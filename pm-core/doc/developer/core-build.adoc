@@ -232,7 +232,8 @@ The six JavaScript and Python parsers add their own changes
 forms scanned, the ESLint problem summary reported, every summary block summed, a contradictory summary reported
 `unmeasured`, the pytest location taken from the deepest traceback frame, a pytest-xdist `@<group>` suffix stripped, the
 wider mypy forms (a `.pyi` path and a column-numbered line) read, a spaced pytest `FAILED` node id filed, an unread Jest
-`Tests:` summary reported `unmeasured`, and a TAP failure marker turning the status red even when no diagnostic is filed.
+`Tests:` summary reported `unmeasured`, and a printed failure marker (a TAP `not ok` without a description, a Jest `Tests:`
+failure count) turning the status red even when no diagnostic is filed.
 
 == Ported Tests and Fixture Provenance
 

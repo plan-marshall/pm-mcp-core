@@ -84,10 +84,12 @@ line, so the failure disappears and a red run reads as green; the port splits th
 already does for an `ERROR` line.
 |`PyprojectOutputParserTest.filesASpacedFailedId`
 
-|A TAP log that prints a failure marker is `FAILURE` even when the marker names no test and no diagnostic is filed. The
-original derives the status from the filed issues, so a red run could read as green; the port derives it from what the tool
-printed, as the model's `status` rule requires.
-|`TapOutputParserTest.ignoresABlankTestName`
+|A log that prints a failure marker is `FAILURE` even when no diagnostic is filed — a TAP `not ok` test point without a
+description, or a Jest `Tests:` line with a failed count and no `FAIL` block. The original derives the status from the filed
+issues, so a red run could read as green; the port derives it from what the tool printed, as the model's `status` rule
+requires.
+|`TapOutputParserTest.ignoresABlankTestName`, `TapOutputParserTest.readsABareNotOkLineAsFailure`,
+`JestOutputParserTest.readsAFailedSummaryAsFailure`
 
 |A Jest `Tests:` line the summary pattern cannot read — a `todo` component, for example — is `TestCounts.Unmeasured`. The
 original returns no count at all, which the model reads as "the log carried no count line".

@@ -58,6 +58,9 @@ public class TapOutputParser {
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern NOT_OK = Pattern.compile("^\\s*not ok\\s+\\d+\\s*-\\s*(.+)$");
 
+    /** A `not ok` test point, with or without its description: TAP permits both. */
+    private static final Pattern NOT_OK_MARKER = Pattern.compile("^\\s*not ok\\b");
+
     private static final Pattern LOCATION = Pattern.compile("^(.+):(\\d+):\\d+");
 
     private static final Pattern TESTS = Pattern.compile("^#\\s*tests\\s+(\\d+)");
@@ -109,7 +112,7 @@ public class TapOutputParser {
      */
     private static boolean printsFailure(List<String> lines) {
         return lines.stream()
-                .anyMatch(line -> NOT_OK.matcher(line).find() || count(FAILED, line).orElse(0L) > 0);
+                .anyMatch(line -> NOT_OK_MARKER.matcher(line).find() || count(FAILED, line).orElse(0L) > 0);
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
