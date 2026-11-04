@@ -38,6 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * told apart in a log, and an identifier outside the range of its level reads as another level. Its prefix is the
  * prefix of no other holder of the repository.
  */
+// Every datum in this class is a contract: log-message identifiers, templates, prefixes and level ranges.
 @DisplayName("CoreLogMessages")
 class CoreLogMessagesTest {
 
@@ -103,6 +104,8 @@ class CoreLogMessagesTest {
         return Stream.of(
                 Arguments.of(CoreLogMessages.INFO.ENROLMENT_PAIR_COMPLETED, "PM_CORE-1",
                         "Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'"),
+                Arguments.of(CoreLogMessages.WARN.AUDIT_RECORD_DEFERRED, "PM_CORE-100",
+                        "Audit record '%s' with transaction id '%s' not handed over, kept owed in '%s': %s"),
                 Arguments.of(CoreLogMessages.WARN.ENROLMENT_PAIR_DISCARDED, "PM_CORE-101",
                         "Incomplete staged write of the enrolment of project '%s' discarded, "
                                 + "the enrolment is as it was before the write: %s"),
@@ -114,7 +117,7 @@ class CoreLogMessagesTest {
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("namedRecords")
-    @DisplayName("the records of the enrolment pair and of the corpus import carry their identifier and template")
+    @DisplayName("the named records carry their identifier and template")
     void namedRecord(LogRecord logRecord, String identifier, String template) {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
