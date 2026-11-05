@@ -47,6 +47,7 @@ import de.planmarshall.core.store.QualificationSettingsStore;
  * level and allowed gap — so a changed level applies to an existing record without re-grading, and a warm artifact
  * whose record qualifies only fresh is run fresh.
  */
+// Every datum in this class is a contract: agreement levels, digests, fixture paths and the settings document.
 @DisplayName("Recorded qualification")
 class RecordedQualificationTest {
 

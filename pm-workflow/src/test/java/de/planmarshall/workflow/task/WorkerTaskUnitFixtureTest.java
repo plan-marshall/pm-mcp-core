@@ -40,6 +40,7 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * and terminals, and the protocol's own transitions end at the terminal the fixture names (Model Work § The
  * {@code worker-task} Sub-Workflow).
  */
+// Every datum in this class is a contract: the fixture resource, its DSL state and exit names, and the outcome classes.
 @SuppressWarnings("java:S5778")
 // the fixture test calls one failing parse per case, by design
 @DisplayName("Worker-task fixture unit")

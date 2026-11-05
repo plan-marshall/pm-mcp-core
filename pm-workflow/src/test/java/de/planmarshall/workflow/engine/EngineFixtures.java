@@ -57,6 +57,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <p>
  * One instance serves one test: its primitives keep the outcomes a test scripted and count their calls.
  */
+// Every datum in this class is a contract: the DSL documents and the wire names they bind, plus the fixture ids and clock anchor.
 final class EngineFixtures {
 
     /** The instant the manual clock starts at. */

@@ -26,6 +26,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueStore;
@@ -41,10 +43,16 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
  * attempt, the pause of a plan, an off-track restart, the {@code agent_started} detection, and the suspension that
  * spends no re-offer.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol re-offers")
 class TaskProtocolReOfferTest {
+
+    private static final double MEASUREMENT = Generators.integers(1, 10).next();
+    private static final double THRESHOLD = Generators.integers(1, 10).next();
+    private static final int RE_OFFER_BUDGET = Generators.integers(1, 10).next();
+    private static final String EXECUTABLE = "/usr/local/bin/" + Generators.letterStrings(4, 12).next();
 
     private record Harness(QueueStore queue, TaskProtocol protocol, TaskFixtures.RecordingAudit audit) {
     }
@@ -132,15 +140,15 @@ class TaskProtocolReOfferTest {
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
                 harness.protocol().offTrack(call,
-                        new OffTrackSignal(SignalName.REPEATING, SignalAction.RESTART, 4, 3), 3,
-                        TaskFixtures.AT.plusSeconds(2)));
+                        new OffTrackSignal(SignalName.REPEATING, SignalAction.RESTART, MEASUREMENT, THRESHOLD),
+                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2)));
 
         var task = reported.task();
         assertAll(
                 () -> assertEquals(Status.QUEUED, task.status()),
                 () -> assertEquals(1, task.signals().size()),
                 () -> assertEquals(SignalName.REPEATING, task.signals().getFirst().signal()),
-                () -> assertEquals(4, task.signals().getFirst().measurement()),
+                () -> assertEquals(MEASUREMENT, task.signals().getFirst().measurement()),
                 () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end()),
                 () -> assertEquals(1, task.spentReOffers()));
     }
@@ -152,8 +160,9 @@ class TaskProtocolReOfferTest {
         var call = acknowledged(harness);
 
         var reported = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().offTrack(call, new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5),
-                        3, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().offTrack(call,
+                        new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.SHOW, MEASUREMENT, THRESHOLD),
+                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2)));
 
         assertAll(
                 () -> assertEquals(Status.EXECUTING, reported.task().status()),
@@ -166,13 +175,14 @@ class TaskProtocolReOfferTest {
     void signalActionConflict(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
-        harness.protocol().offTrack(call, new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5), 3,
-                TaskFixtures.AT.plusSeconds(2));
+        harness.protocol().offTrack(call,
+                new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.SHOW, MEASUREMENT, THRESHOLD),
+                RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2));
 
         var refused = assertInstanceOf(CallResult.Refused.class,
                 harness.protocol().offTrack(call,
-                        new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.RESTART, 7, 5), 3,
-                        TaskFixtures.AT.plusSeconds(3)));
+                        new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.RESTART, MEASUREMENT, THRESHOLD),
+                        RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(3)));
 
         assertAll(
                 () -> assertEquals(TaskRefusal.INVALID_LINK_ARGS, refused.refusal()),
@@ -185,11 +195,11 @@ class TaskProtocolReOfferTest {
     void signalOnce(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
-        var signal = new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.NUDGE, 7, 5);
+        var signal = new OffTrackSignal(SignalName.NO_PROGRESS, SignalAction.NUDGE, MEASUREMENT, THRESHOLD);
 
-        harness.protocol().offTrack(call, signal, 3, TaskFixtures.AT.plusSeconds(2));
+        harness.protocol().offTrack(call, signal, RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2));
         var second = assertInstanceOf(CallResult.Accepted.class,
-                harness.protocol().offTrack(call, signal, 3, TaskFixtures.AT.plusSeconds(3)));
+                harness.protocol().offTrack(call, signal, RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(3)));
 
         assertEquals(1, second.task().signals().size());
     }
@@ -199,10 +209,11 @@ class TaskProtocolReOfferTest {
     void agentStarted(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
-        var event = new SecurityAudit.Event("/usr/local/bin/opencode", TaskFixtures.GENERATION,
+        var event = new SecurityAudit.Event(EXECUTABLE, TaskFixtures.GENERATION,
                 call.queueTaskId(), 1, TaskFixtures.AT.plusSeconds(2));
 
-        var reported = assertInstanceOf(CallResult.Accepted.class, harness.protocol().agentStarted(call, event, 3));
+        var reported = assertInstanceOf(CallResult.Accepted.class,
+                harness.protocol().agentStarted(call, event, RE_OFFER_BUDGET));
 
         var task = reported.task();
         assertAll(
@@ -214,7 +225,7 @@ class TaskProtocolReOfferTest {
                 () -> assertEquals(TaskFixtures.AT.plusSeconds(2), task.signals().getFirst().at()),
                 () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end()),
                 () -> assertEquals(1, harness.audit().events().size()),
-                () -> assertEquals("/usr/local/bin/opencode",
+                () -> assertEquals(EXECUTABLE,
                         harness.audit().events().getFirst().executable()));
     }
 
@@ -273,8 +284,8 @@ class TaskProtocolReOfferTest {
         protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
 
         protocol.offTrack(TaskFixtures.call(offered),
-                new OffTrackSignal(QueueTaskRecord.SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5), 3,
-                TaskFixtures.AT.plusSeconds(2));
+                new OffTrackSignal(QueueTaskRecord.SignalName.NO_PROGRESS, SignalAction.SHOW, MEASUREMENT, THRESHOLD),
+                RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2));
 
         var journal = ActivityJournal.ofScope(base, "project-a",
                 TaskFixtures.planScope(), locks);
@@ -298,8 +309,8 @@ class TaskProtocolReOfferTest {
         protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
 
         var result = protocol.offTrack(TaskFixtures.call(offered),
-                new OffTrackSignal(QueueTaskRecord.SignalName.NO_PROGRESS, SignalAction.SHOW, 7, 5), 3,
-                TaskFixtures.AT.plusSeconds(2));
+                new OffTrackSignal(QueueTaskRecord.SignalName.NO_PROGRESS, SignalAction.SHOW, MEASUREMENT, THRESHOLD),
+                RE_OFFER_BUDGET, TaskFixtures.AT.plusSeconds(2));
 
         assertAll(
                 () -> assertInstanceOf(CallResult.Accepted.class, result, "the accepted signal call completes"),
@@ -320,10 +331,10 @@ class TaskProtocolReOfferTest {
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT));
         protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
-        var event = new SecurityAudit.Event("/usr/local/bin/opencode", TaskFixtures.GENERATION,
+        var event = new SecurityAudit.Event(EXECUTABLE, TaskFixtures.GENERATION,
                 offered.queueTaskId(), 1, TaskFixtures.AT.plusSeconds(2));
 
-        protocol.agentStarted(TaskFixtures.call(offered), event, 3);
+        protocol.agentStarted(TaskFixtures.call(offered), event, RE_OFFER_BUDGET);
 
         var entries = ActivityJournal.ofScope(base, "project-a", TaskFixtures.planScope(), locks)
                 .entries("qt-0000000000000001");

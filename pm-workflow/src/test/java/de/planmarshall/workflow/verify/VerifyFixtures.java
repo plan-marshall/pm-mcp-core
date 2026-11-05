@@ -35,6 +35,7 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * passes, {@code verify/refused/*.pmwf}, units with one planted defect each, and {@code verify/fuzz/*.pmwf}, the units
  * of the transition fuzzer. Every fixture is written for the tests, never copied from a unit of the product.
  */
+// Every datum in this class is a contract: fixture paths, the expectation grammar and the inline DSL frontmatter.
 final class VerifyFixtures {
 
     /** The directory of the units every check passes. */

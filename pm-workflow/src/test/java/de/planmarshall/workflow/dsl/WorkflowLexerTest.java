@@ -25,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+// Every datum in this class is a contract: the tokenizer source under test and its expected tokens.
 /**
  * The line-oriented tokenizer of the workflow language (PM-IMPL-5): comments, positions, token classes and the JSON
  * token of an {@code instance} line.

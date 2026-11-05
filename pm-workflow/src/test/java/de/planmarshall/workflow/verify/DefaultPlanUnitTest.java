@@ -39,6 +39,7 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  *
  * @since 0.1
  */
+// Every datum in this class is a contract: shipped unit ids, phase names, entry bindings and the fuzzer seed.
 @DisplayName("Default plan unit")
 class DefaultPlanUnitTest {
 

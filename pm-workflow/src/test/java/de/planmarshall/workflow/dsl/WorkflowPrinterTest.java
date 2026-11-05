@@ -35,6 +35,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.GuardSpec;
 import de.planmarshall.workflow.ast.LinkAction;
@@ -57,6 +59,7 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * with the same tree, source locations aside; canonical source prints to itself; guards carry exactly the parentheses
  * their precedence needs, and every link names its form.
  */
+@EnableGeneratorController
 @DisplayName("WorkflowPrinter")
 class WorkflowPrinterTest {
 
@@ -180,7 +183,8 @@ class WorkflowPrinterTest {
 
     /** A workspace unit whose only state rests on the given links. */
     private static WorkflowDefinition unitWithLinks(LinkSpec... links) {
-        var frontmatter = new UnitFrontmatter("Demo unit", "A unit written for the printer tests.", UnitType.SYSTEM,
+        var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 20).next(),
+                Generators.letterStrings(1, 40).next(), UnitType.SYSTEM,
                 "workflow.default", List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(),
                 NOWHERE);
         return unitWith(frontmatter, links);
@@ -339,7 +343,8 @@ class WorkflowPrinterTest {
         @DisplayName("quotes every value the reader's isPlain refuses and reads it back unchanged, so the printer "
                 + "never emits a value the reader refuses")
         void quotesEveryValuePlainRefuses(String value) {
-            var frontmatter = new UnitFrontmatter("Demo unit", value, UnitType.SYSTEM, "workflow.default", List.of(),
+            var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 20).next(), value, UnitType.SYSTEM,
+                    "workflow.default", List.of(),
                     List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
             var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
 

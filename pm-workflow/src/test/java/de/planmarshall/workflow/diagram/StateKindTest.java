@@ -26,6 +26,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.StateBehavior;
 
 /**
@@ -33,23 +35,30 @@ import de.planmarshall.workflow.ast.StateBehavior;
  * apart, maps to the label the State Catalogue's <em>Kind</em> column uses, a task state included as {@code job},
  * and every kind is the label of some variant, so the kind vocabulary holds no label without a behaviour.
  */
+@EnableGeneratorController
 @DisplayName("StateKind")
 class StateKindTest {
 
     static Stream<Arguments> behaviours() {
         return Stream.of(
                 Arguments.of("link state", new StateBehavior.InteractiveLinks(List.of()), "link"),
-                Arguments.of("auto state", new StateBehavior.AutoStep("diagram.prepare", List.of()), "auto"),
-                Arguments.of("job state", new StateBehavior.JobStep("diagram.build", false, List.of()), "job"),
-                Arguments.of("composite job state", new StateBehavior.JobStep("diagram.build", true, List.of()),
+                Arguments.of("auto state", new StateBehavior.AutoStep(Generators.letterStrings(1, 8).next(), List.of()),
+                        "auto"),
+                Arguments.of("job state",
+                        new StateBehavior.JobStep(Generators.letterStrings(1, 8).next(), false, List.of()), "job"),
+                Arguments.of("composite job state",
+                        new StateBehavior.JobStep(Generators.letterStrings(1, 8).next(), true, List.of()),
                         "composite_job"),
-                Arguments.of("task state", new StateBehavior.ModelJob("change", Optional.of("reviewer"),
-                        Optional.empty(), Optional.empty(), StateBehavior.AskForm.NONE, List.of(), List.of()), "job"),
-                Arguments.of("call state", new StateBehavior.SubWorkflowCall("diagram.callee", Optional.empty(),
+                Arguments.of("task state", new StateBehavior.ModelJob(Generators.letterStrings(1, 8).next(),
+                        Optional.of(Generators.letterStrings(1, 8).next()), Optional.empty(), Optional.empty(),
+                        StateBehavior.AskForm.NONE, List.of(), List.of()), "job"),
+                Arguments.of("call state", new StateBehavior.SubWorkflowCall(
+                        Generators.letterStrings(1, 8).next(), Optional.empty(), Map.of(), List.of()), "call"),
+                Arguments.of("call state through a named entry", new StateBehavior.SubWorkflowCall(
+                        Generators.letterStrings(1, 8).next(), Optional.of(Generators.letterStrings(1, 8).next()),
                         Map.of(), List.of()), "call"),
-                Arguments.of("call state through a named entry", new StateBehavior.SubWorkflowCall("diagram.callee",
-                        Optional.of("review"), Map.of(), List.of()), "call"),
-                Arguments.of("question state", new StateBehavior.QuestionWait("clarification", List.of()),
+                Arguments.of("question state",
+                        new StateBehavior.QuestionWait(Generators.letterStrings(1, 8).next(), List.of()),
                         "awaiting_user"),
                 Arguments.of("terminal state", new StateBehavior.TerminalState(), "terminal"));
     }

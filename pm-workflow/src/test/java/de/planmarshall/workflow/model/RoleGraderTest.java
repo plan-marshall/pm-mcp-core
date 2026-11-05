@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
@@ -57,6 +59,7 @@ import de.planmarshall.core.role.qualification.Topic;
  * offered five times; an item of the project's repository is graded at its origin commit, or in the checkout when that
  * commit is missing; and the record holds every item's tokens and the form's totals.
  */
+@EnableGeneratorController
 @DisplayName("Role grading run")
 class RoleGraderTest {
 
@@ -399,8 +402,9 @@ class RoleGraderTest {
         @DisplayName("a changed digest re-grades every item")
         void changedDigestRegrades() {
             var fixtures = new Fixtures();
+            var otherModel = Generators.letterStrings(5, 12).next();
             var otherRole = ModelFixtures.roleIn(GraderFixtures.ROLE, RoleClass.READ_ONLY, RoleForm.FRESH,
-                    GraderFixtures.HARNESS, "acme-other");
+                    GraderFixtures.HARNESS, otherModel);
             var previous = GraderFixtures.qualification(Map.of(Topic.OWN, BigDecimal.valueOf(100)));
 
             var rerun = GraderFixtures.plan(otherRole, corpus(), fixtures.judgeConfiguration(),

@@ -36,6 +36,7 @@ import de.planmarshall.workflow.verify.InvariantFixtures;
  * leaves out and why, not only that a state is absent. The returned {@link InstancePruner.Pruned#steps()} record is the
  * one the instance header carries as {@code header().steps()}.
  */
+// Every datum in this class is a contract: the DSL source, its state and link ids and the fixture step ids are the subject.
 @DisplayName("InstancePruner")
 class InstancePrunerTest {
 

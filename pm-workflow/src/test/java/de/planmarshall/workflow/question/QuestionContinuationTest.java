@@ -21,6 +21,8 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.FallbackReason;
 import de.planmarshall.core.role.RoleArtifact;
@@ -30,6 +32,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
  * The server's choice of the form of a continuation (Model Work § Continuing after a Question): the state, the role
  * artifact and the harness decide it, and the model never does.
  */
+@EnableGeneratorController
 @DisplayName("Question continuation forms")
 class QuestionContinuationTest {
 
@@ -42,12 +45,15 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("an ask state of a role that may hold holds, with the hold limit of the role")
     void holds() {
-        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(600, 3600), AT);
+        var holdSeconds = Generators.integers(1, 3600).next();
+        var resumeSeconds = Generators.integers(1, 7200).next();
+        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false,
+                bounds(holdSeconds, resumeSeconds), AT);
 
         assertAll(
                 () -> assertEquals(QuestionContinuation.Form.HOLD, decision.form()),
                 () -> assertTrue(decision.holds()),
-                () -> assertEquals(AT.plusSeconds(600), decision.holdUntil()),
+                () -> assertEquals(AT.plusSeconds(holdSeconds), decision.holdUntil()),
                 () -> assertNull(decision.resumeUntil()),
                 () -> assertNull(decision.fallbackReason()));
     }
@@ -55,7 +61,8 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("the hold precedes the resume where the role allows both")
     void holdPrecedesResume() {
-        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(600, 3600), AT);
+        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false,
+                bounds(Generators.integers(1, 3600).next(), Generators.integers(1, 7200).next()), AT);
 
         assertEquals(QuestionContinuation.Form.HOLD, decision.form());
     }
@@ -63,19 +70,21 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("a role that may only resume suspends the task, with the resume limit of the role")
     void resumes() {
-        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, 3600), AT);
+        var resumeSeconds = Generators.integers(1, 7200).next();
+        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, resumeSeconds), AT);
 
         assertAll(
                 () -> assertEquals(QuestionContinuation.Form.RESUME, decision.form()),
                 () -> assertTrue(decision.resumes()),
-                () -> assertEquals(AT.plusSeconds(3600), decision.resumeUntil()),
+                () -> assertEquals(AT.plusSeconds(resumeSeconds), decision.resumeUntil()),
                 () -> assertNull(decision.holdUntil()));
     }
 
     @Test
     @DisplayName("an ask fresh state never continues")
     void askFreshFallsBack() {
-        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK_FRESH, false, bounds(600, 3600), AT);
+        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK_FRESH, false,
+                bounds(Generators.integers(1, 3600).next(), Generators.integers(1, 7200).next()), AT);
 
         assertAll(
                 () -> assertEquals(QuestionContinuation.Form.FALLBACK, decision.form()),
@@ -85,7 +94,8 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("an envelope task continues whichever form its state declares")
     void envelopeTaskAlwaysContinues() {
-        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK_FRESH, true, bounds(600, 3600), AT);
+        var decision = QuestionContinuation.decide(StateBehavior.AskForm.ASK_FRESH, true,
+                bounds(Generators.integers(1, 3600).next(), Generators.integers(1, 7200).next()), AT);
 
         assertEquals(QuestionContinuation.Form.HOLD, decision.form());
     }
@@ -104,10 +114,11 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("after a hold the task suspends where it may resume and falls back otherwise")
     void afterHold() {
-        var resumed = QuestionContinuation.afterHold(StateBehavior.AskForm.ASK, false, bounds(600, 3600),
-                AT.plusSeconds(600));
-        var expired = QuestionContinuation.afterHold(StateBehavior.AskForm.ASK, false, bounds(600, 0),
-                AT.plusSeconds(600));
+        var holdSeconds = Generators.integers(1, 3600).next();
+        var resumed = QuestionContinuation.afterHold(StateBehavior.AskForm.ASK, false,
+                bounds(holdSeconds, Generators.integers(1, 7200).next()), AT.plusSeconds(holdSeconds));
+        var expired = QuestionContinuation.afterHold(StateBehavior.AskForm.ASK, false, bounds(holdSeconds, 0),
+                AT.plusSeconds(holdSeconds));
 
         assertAll(
                 () -> assertEquals(QuestionContinuation.Form.RESUME, resumed.form()),
@@ -117,7 +128,7 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("a state without an ask link files no question to continue")
     void withoutAsk() {
-        var bounds = bounds(600, 0);
+        var bounds = bounds(Generators.integers(1, 3600).next(), 0);
 
         assertThrows(IllegalArgumentException.class,
                 () -> QuestionContinuation.decide(StateBehavior.AskForm.NONE, false, bounds, AT));
@@ -136,8 +147,10 @@ class QuestionContinuationTest {
     @Test
     @DisplayName("a hold and a resume name their queue-record form, a fallback names none")
     void recordForms() {
-        var hold = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(600, 0), AT);
-        var resume = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false, bounds(0, 3600), AT);
+        var hold = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false,
+                bounds(Generators.integers(1, 3600).next(), 0), AT);
+        var resume = QuestionContinuation.decide(StateBehavior.AskForm.ASK, false,
+                bounds(0, Generators.integers(1, 7200).next()), AT);
 
         assertAll(
                 () -> assertEquals(QueueTaskRecord.ContinuationForm.HOLD, hold.recordForm().orElseThrow()),

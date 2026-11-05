@@ -23,6 +23,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.WaiverRecord;
@@ -40,6 +42,7 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * Requests): the waiver wait has no expiry by time, and its {@code declined} outcome leaves it on the unit's exhausted
  * transition.
  */
+@EnableGeneratorController
 @DisplayName("Waiver request decline")
 class WaiverDeclineTest {
 
@@ -71,14 +74,19 @@ class WaiverDeclineTest {
     @DisplayName("Should keep a declined waiver request as the request's outcome in the status document")
     void declinedRequestRoundTrips() {
         var requested = Instant.parse("2026-10-26T10:00:00Z");
-        var declined = new WaiverRequest("WR-1", "retry_budget:ci-failure", "remediation.ci-failure",
-                "the runner is flaky", null, requested, WaiverRequestOutcome.DECLINED, null,
-                new WaiverRequest.Answered(WaiverRecord.Channel.WEB, "dev-0123456789ab", "not enough evidence",
-                        requested.plusSeconds(60)),
+        var requestId = "WR-" + Generators.integers(1, 999_999).next();
+        var gate = "gate-" + Generators.letterStrings(1, 8).next();
+        var policy = "remediation-" + Generators.letterStrings(1, 8).next();
+        var rationale = Generators.letterStrings(1, 80).next();
+        var answerReason = Generators.letterStrings(1, 80).next();
+        var declined = new WaiverRequest(requestId, gate, policy, rationale, null, requested,
+                WaiverRequestOutcome.DECLINED, null,
+                new WaiverRequest.Answered(WaiverRecord.Channel.WEB, "dev-0123456789ab", answerReason,
+                        requested.plusSeconds(Generators.integers(1, 3600).next())),
                 null);
         var status = WorkflowStatus.builder()
                 .scopeType(JournalScopeType.PLAN)
-                .scopeId("waiver-plan")
+                .scopeId("waiver-" + Generators.integers(1, 999_999).next())
                 .phase("phase-5-execute")
                 .state("execute.wait")
                 .callStack(List.of())
@@ -96,7 +104,7 @@ class WaiverDeclineTest {
         assertAll(
                 () -> assertEquals(1, read.waiverRequests().size()),
                 () -> assertEquals(WaiverRequestOutcome.DECLINED, read.waiverRequests().getFirst().outcome()),
-                () -> assertEquals("not enough evidence",
+                () -> assertEquals(answerReason,
                         read.waiverRequests().getFirst().answered().reason()));
     }
 }

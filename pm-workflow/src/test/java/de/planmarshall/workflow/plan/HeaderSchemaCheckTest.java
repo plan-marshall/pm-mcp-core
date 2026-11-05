@@ -43,6 +43,7 @@ import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
  * violation, named by the JSON pointer of the member. A text that is no single JSON value is one violation, never an
  * exception.
  */
+// Every datum in this class is a contract: the schema, its JSON pointers, enum names, patterns and boundary values are the subject.
 @DisplayName("HeaderSchemaCheck")
 class HeaderSchemaCheckTest {
 

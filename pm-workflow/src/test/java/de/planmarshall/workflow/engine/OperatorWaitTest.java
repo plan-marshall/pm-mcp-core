@@ -18,12 +18,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.store.JournalScopeType;
@@ -35,8 +38,14 @@ import de.planmarshall.workflow.verify.WorkflowCatalog;
  * operator's act, opens no task, binds no job, holds no worker and no model slot, and nothing decides it by time. One
  * plan waiting does not hold another one back.
  */
+@EnableGeneratorController
 @DisplayName("Operator wait")
 class OperatorWaitTest {
+
+    private static final String WAITING_PLAN =
+            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+
+    private static final String NOTE = Generators.letterStrings(1, 40).next();
 
     private static final String STATES = """
             state execute.wait
@@ -64,7 +73,7 @@ class OperatorWaitTest {
         var engine = fixtures.engine(EngineFixtures.plan("execute.wait", STATES));
 
         var started = assertInstanceOf(EngineStep.Resting.class,
-                engine.start(JournalScopeType.PLAN, "waiting-plan"));
+                engine.start(JournalScopeType.PLAN, WAITING_PLAN));
         var status = started.status();
         var wait = engine.restingWait(status).orElseThrow();
         assertAll(
@@ -90,7 +99,7 @@ class OperatorWaitTest {
         var missingParameters = new EngineEvent.OperatorAct("execute.wait", "choose");
         assertThrows(IllegalArgumentException.class, () -> engine.advance(status, missingParameters),
                 "a link with free parameters needs its submission");
-        var surplusParameters = new EngineEvent.OperatorAct("execute.wait", "proceed", Map.of("note", "go"));
+        var surplusParameters = new EngineEvent.OperatorAct("execute.wait", "proceed", Map.of("note", NOTE));
         assertThrows(IllegalArgumentException.class, () -> engine.advance(status, surplusParameters),
                 "a link without free parameters accepts none");
 
@@ -107,7 +116,7 @@ class OperatorWaitTest {
     void otherPlansRunOn() {
         var engine = fixtures.engine(EngineFixtures.plan("execute.wait", STATES));
         var waiting = assertInstanceOf(EngineStep.Resting.class,
-                engine.start(JournalScopeType.PLAN, "waiting-plan")).status();
+                engine.start(JournalScopeType.PLAN, WAITING_PLAN)).status();
         var running = fixtures.planStatus(EngineFixtures.EXECUTE, "execute.build").toBuilder()
                 .activeJob(new WorkflowStatus.ActiveJob("execute.build", "b-0000000000000001"))
                 .activeJobs(Map.of("test.build",
@@ -144,12 +153,12 @@ class OperatorWaitTest {
         var engine = new WorkflowEngine(unit, WorkflowCatalog.empty(),
                 fixtures.validator(), fixtures.registry(), binder, fixtures.ports());
         var status = assertInstanceOf(EngineStep.Resting.class,
-                engine.start(JournalScopeType.PLAN, "waiting-plan")).status();
+                engine.start(JournalScopeType.PLAN, WAITING_PLAN)).status();
 
-        engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "choose", Map.of("note", "go")));
+        engine.advance(status, new EngineEvent.OperatorAct("execute.wait", "choose", Map.of("note", NOTE)));
 
-        assertEquals(List.of(Map.of("note", "go")), seen);
-        assertEquals(List.of("go"), fixtures.note.notes);
+        assertEquals(List.of(Map.of("note", NOTE)), seen);
+        assertEquals(List.of(NOTE), fixtures.note.notes);
     }
 
     private static Record bindParameters(Primitive<?, ?> primitive, Map<String, String> parameters) {

@@ -21,6 +21,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
@@ -48,9 +51,11 @@ import de.planmarshall.workflow.task.WaitRequest;
  * link rules, the serving by the task protocol, the answer through the next wait, the delivery to a successor after a
  * fence, the {@code unavailable} delivery of a lost consultation and the {@code consultation_ids} of a submit.
  */
+@EnableGeneratorController
 @DisplayName("Consultation through the server")
 class ConsultationServiceTest {
 
+    // A queue task id in the wire format, deliberately absent from the store.
     private static final String UNKNOWN_CONSULTATION = "qt-00000000000000ff";
 
     @TempDir
@@ -80,8 +85,8 @@ class ConsultationServiceTest {
                 service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
                         ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
         var second = assertInstanceOf(ConsultationOutcome.Refused.class,
-                service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, "again",
-                        ConsultationFixtures.AT.plusSeconds(1)));
+                service.answer(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION,
+                        Generators.letterStrings(3, 20).next(), ConsultationFixtures.AT.plusSeconds(1)));
 
         var fact = answered.facts().getFirst();
         var consultation = queue.read(opened.consultationId()).orElseThrow();
@@ -141,7 +146,7 @@ class ConsultationServiceTest {
     @DisplayName("a fourth consult link of a task is not offered and a fourth consultation is refused")
     void fourthConsultLinkNotOffered() {
         for (var role : List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER,
-                "third-reviewer")) {
+                ConsultationFixtures.THIRD_REVIEWER)) {
             var opened = opened(role);
             serve(opened.consultationId(), ConsultationFixtures.CONSULTED_GENERATION, role);
             assertInstanceOf(ConsultationOutcome.Answered.class,
@@ -149,11 +154,12 @@ class ConsultationServiceTest {
                             ConsultationFixtures.ANSWER, ConsultationFixtures.AT));
         }
 
+        var fourthRole = "fourth-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var asker = queue.read(ConsultationFixtures.ASKER).orElseThrow();
         var links = service.links(asker, List.of(ConsultationFixtures.REVIEWER, ConsultationFixtures.SECOND_REVIEWER,
-                "third-reviewer", "fourth-reviewer"));
+                ConsultationFixtures.THIRD_REVIEWER, fourthRole));
         var fourth = assertInstanceOf(ConsultationOutcome.Refused.class,
-                service.open(ConsultationFixtures.request("fourth-reviewer", RoleClass.READ_ONLY)));
+                service.open(ConsultationFixtures.request(fourthRole, RoleClass.READ_ONLY)));
 
         assertAll(
                 () -> assertEquals(3, asker.consultations().size()),

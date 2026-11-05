@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.ConfigurableKey;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.Lane;
@@ -24,6 +25,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
  * Descriptors and rosters written for the finalize tests, never copied from the steps of the product: a builder of one
  * descriptor and a roster that passes every rule of {@link FinalizePipelineValidator}.
  */
+// Fixture helper, not a test class: the step ids and the roster are the fixture contract, the rest is generated.
 final class FinalizeFixtures {
 
     private FinalizeFixtures() {
@@ -56,9 +58,10 @@ final class FinalizeFixtures {
                 step("default:push", 11).build(),
                 step("default:create-pr", 20).build(),
                 step("default:automatic-review", 30).mutatesSource().headDependent(InputScope.REMOTE_STATE)
-                        .filesFindings("review_bot").build(),
-                step("default:sonar-roundtrip", 40).headDependent(InputScope.DECLARED, "sonar_quality_gate")
-                        .filesFindings("sonar").build(),
+                        .filesFindings(Generators.letterStrings(3, 12).next()).build(),
+                step("default:sonar-roundtrip", 40)
+                        .headDependent(InputScope.DECLARED, Generators.letterStrings(3, 15).next())
+                        .filesFindings(Generators.letterStrings(3, 12).next()).build(),
                 step("default:branch-cleanup", 70).reads("worktree").destroys("worktree").build(),
                 step("default:plan-retrospective", 995).postRunReview().reads("metrics")
                         .recordsFacts("measured_until").build(),
@@ -186,7 +189,8 @@ final class FinalizeFixtures {
         }
 
         FinalizeStepDescriptor build() {
-            return new FinalizeStepDescriptor(name, order, true, Set.of(), "a step written for the test", mutatesSource,
+            return new FinalizeStepDescriptor(name, order, true, Set.of(), Generators.letterStrings(1, 40).next(),
+                    mutatesSource,
                     headDependent, inputScope, verdictInputs, false, postRunReview, reads, destroys, recordsFacts,
                     Optional.empty(), List.of(), List.of(), Optional.empty(), List.of(), Optional.empty(),
                     filesFindings);
@@ -200,10 +204,12 @@ final class FinalizeFixtures {
      */
     static FinalizeStepDescriptor full() {
         return new FinalizeStepDescriptor("default:automatic-review", 30, true, Set.of("standard"),
-                "reviews the pull request", true, true, Optional.of(InputScope.DECLARED), List.of("review_head"),
+                Generators.letterStrings(1, 40).next(), true, true, Optional.of(InputScope.DECLARED),
+                List.of(Generators.letterStrings(3, 12).next()),
                 false, false, List.of("worktree"), List.of(), List.of("work_performed"),
                 Optional.of(new Lane(LaneClass.ADVERSARIAL, Optional.of("standard"), Optional.empty(), "M")),
                 List.of("default:create-pr"), List.of(new ConfigurableKey("required_bots", "coderabbit", "the bots")),
-                Optional.of("reviewer"), List.of("pr_number"), Optional.of("untested paths"), List.of("review_bot"));
+                Optional.of(Generators.letterStrings(3, 12).next()), List.of(Generators.letterStrings(3, 12).next()),
+                Optional.of("untested paths"), List.of(Generators.letterStrings(3, 12).next()));
     }
 }

@@ -18,6 +18,7 @@ import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -25,6 +26,8 @@ import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.AttemptEnd;
 import de.planmarshall.core.store.HarnessUsage;
 import de.planmarshall.core.store.Measurement;
@@ -36,6 +39,7 @@ import de.planmarshall.workflow.epic.EpicTokens;
  * The token facts of a running plan and of an epic (PM-WF-14, Model Work § Usage Reporting &amp; Spend Classes): the
  * total with its split and coverage derived on read, and no limit, budget line or projection.
  */
+@EnableGeneratorController
 @DisplayName("Token facts of a plan and an epic")
 class PlanTokensTest {
 
@@ -48,19 +52,24 @@ class PlanTokensTest {
     }
 
     private static MetricsRow row(String task, HarnessUsage usage) {
-        return MetricsRow.builder().queueTaskId("qt-" + "0".repeat(15) + task).attempt(1).role("writer")
-                .jobId("l-0123456789abcdef").generationId("l-0123456789abcdef").harness("opencode")
-                .harnessVersion("1.2.3").model("deepseek-v4.1-flash").effort("high")
+        return MetricsRow.builder().queueTaskId("qt-" + "0".repeat(15) + task).attempt(1)
+                .role(Generators.letterStrings(2, 12).next().toLowerCase(Locale.ROOT))
+                .jobId("l-0123456789abcdef").generationId("l-0123456789abcdef")
+                .harness(Generators.letterStrings(2, 12).next().toLowerCase(Locale.ROOT))
+                .harnessVersion(Generators.letterStrings(1, 12).next())
+                .model(Generators.letterStrings(1, 24).next()).effort(Generators.letterStrings(1, 8).next())
                 .form(MetricsRow.Form.FRESH).outcome(MetricsRow.Outcome.SUBMITTED).attemptEnd(AttemptEnd.CLOSED)
                 .causeClass(MetricsRow.CauseClass.BENIGN).spendClass(MetricsRow.SpendClass.SUBMITTED)
-                .population(MetricsRow.Population.MODEL_JOB).usage(usage).durationMs(1_000L)
+                .population(MetricsRow.Population.MODEL_JOB).usage(usage)
+                .durationMs((long) Generators.integers(1, 10_000).next())
                 .durationBasis(MetricsRow.DurationBasis.PROCESS).recordedAt(RECORDED_AT).build();
     }
 
     @Test
     @DisplayName("a plan's token facts carry the total, its split and its coverage")
     void planCarriesTotalSplitAndCoverage() {
-        var tokens = PlanTokens.of("plan-a", List.of(row("1", usage(100, 40, 10, 5, 0)),
+        var planId = Generators.letterStrings(3, 12).next();
+        var tokens = PlanTokens.of(planId, List.of(row("1", usage(100, 40, 10, 5, 0)),
                 row("2", usage(200, 60, 0, 0, 10))));
 
         var aggregate = tokens.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
@@ -68,13 +77,14 @@ class PlanTokensTest {
                 () -> assertEquals(OptionalLong.of(315), aggregate.tokensIn()),
                 () -> assertEquals(OptionalLong.of(110), aggregate.tokensOut()),
                 () -> assertEquals(2, aggregate.rows()), () -> assertFalse(aggregate.totalIsFloor()),
-                () -> assertEquals("plan-a", tokens.planId()));
+                () -> assertEquals(planId, tokens.planId()));
     }
 
     @Test
     @DisplayName("a plan with no metrics row has no figure")
     void emptyPlanHasNoFigure() {
-        var tokens = PlanTokens.empty("plan-a");
+        var planId = Generators.letterStrings(3, 12).next();
+        var tokens = PlanTokens.empty(planId);
 
         assertAll(() -> assertTrue(tokens.aggregate(UsageAggregate.Population.MODEL_JOB).isEmpty()),
                 () -> assertTrue(tokens.byPopulation().isEmpty()));
@@ -83,17 +93,21 @@ class PlanTokensTest {
     @Test
     @DisplayName("an epic sums its plans and its own rows, and a floor in a part makes the whole a floor")
     void epicSumsPlansAndOwnRows() {
-        var first = PlanTokens.of("plan-a", List.of(row("1", usage(100, 40, 0, 0, 0))));
-        var second = PlanTokens.of("plan-b", List.of(row("2", usage(200, 60, 0, 0, 0))));
-        var refused = MetricsRow.refused("qt-" + "0".repeat(15) + "3", "writer", null,
+        var firstPlanId = Generators.letterStrings(3, 12).next();
+        var secondPlanId = Generators.letterStrings(3, 12).next();
+        var epicId = Generators.letterStrings(3, 12).next();
+        var first = PlanTokens.of(firstPlanId, List.of(row("1", usage(100, 40, 0, 0, 0))));
+        var second = PlanTokens.of(secondPlanId, List.of(row("2", usage(200, 60, 0, 0, 0))));
+        var refused = MetricsRow.refused("qt-" + "0".repeat(15) + "3",
+                Generators.letterStrings(2, 12).next().toLowerCase(Locale.ROOT), null,
                 MetricsRow.Outcome.INFEASIBLE, MetricsRow.SpendClass.UNMEASURED, MetricsRow.Population.MODEL_JOB,
                 RECORDED_AT);
-        var epic = EpicTokens.of("epic-1", List.of(refused), List.of(first, second));
+        var epic = EpicTokens.of(epicId, List.of(refused), List.of(first, second));
 
         var aggregate = epic.aggregate(UsageAggregate.Population.MODEL_JOB).orElseThrow();
         assertAll(() -> assertEquals(OptionalLong.of(400), aggregate.totalTokens()),
                 () -> assertEquals(3, aggregate.populationCount()), () -> assertEquals(1, aggregate.rowsUnmeasured()),
-                () -> assertTrue(aggregate.totalIsFloor()), () -> assertEquals("epic-1", epic.epicId()),
+                () -> assertTrue(aggregate.totalIsFloor()), () -> assertEquals(epicId, epic.epicId()),
                 () -> assertEquals(OptionalLong.empty(), aggregate.tokensIn()),
                 () -> assertEquals(OptionalLong.empty(), aggregate.tokensOut()));
     }

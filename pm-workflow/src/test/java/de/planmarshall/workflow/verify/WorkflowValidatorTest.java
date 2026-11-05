@@ -41,6 +41,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * checks, one fixture per check; the unit that uses every construct passes every check; inline units are the matched
  * controls of the exemptions and cover the variants of each check.
  */
+// Every datum in this class is a contract: fixture file names, inline DSL sources, rule names and refusal messages.
 @DisplayName("WorkflowValidator")
 class WorkflowValidatorTest {
 

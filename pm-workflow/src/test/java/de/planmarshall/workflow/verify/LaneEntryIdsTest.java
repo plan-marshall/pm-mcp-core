@@ -22,6 +22,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
  * The two lane entry ids of {@link LaneEntryIds} are the ids the default plan unit declares: a rename of either
  * constant without the matching fixture change fails here, so the holder and the unit cannot drift apart.
  */
+// Every datum in this class is a contract: the two lane entry ids the production holder and the default unit declare.
 @DisplayName("LaneEntryIds")
 class LaneEntryIdsTest {
 

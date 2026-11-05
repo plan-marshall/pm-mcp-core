@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,6 +24,8 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
@@ -37,9 +40,11 @@ import de.planmarshall.core.role.RoleValidationReason;
  * role, its class, the state and the required class. The controls compose the writer's envelope kind, the screener's
  * screen kind and the judge's {@code zero_tool} kind with their roles.
  */
+@EnableGeneratorController
 @DisplayName("Role composition")
 class RoleCompositionTest {
 
+    // The fixture state id is the key the composition is exercised with.
     private static final String STATE = "implement.envelope-3";
 
     @Test
@@ -146,8 +151,9 @@ class RoleCompositionTest {
     @Test
     @DisplayName("an invalid role is role_undefined with its validation reason")
     void invalidRoleCarriesItsReason() {
+        var detail = Generators.letterStrings(10, 40).next();
         RoleResolver resolver = name -> new RoleResolution.Undefined(name,
-                Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), "the catalogue does not allow the model");
+                Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), detail);
         var composition = new RoleComposition(resolver);
 
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "implement"));
@@ -155,7 +161,7 @@ class RoleCompositionTest {
         assertAll(
                 () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason()),
                 () -> assertEquals(Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), refusal.validationReason()),
-                () -> assertEquals("the catalogue does not allow the model", refusal.detail()));
+                () -> assertEquals(detail, refusal.detail()));
     }
 
     @Test
@@ -191,11 +197,12 @@ class RoleCompositionTest {
     private static RoleComposition composition(Map<String, EffectiveRole> roles) {
         RoleResolver resolver = name -> roles.containsKey(name)
                 ? new RoleResolution.Defined(roles.get(name))
-                : new RoleResolution.Undefined(name, Optional.empty(), "the role is absent");
+                : new RoleResolution.Undefined(name, Optional.empty(), Generators.letterStrings(5, 30).next());
         return new RoleComposition(resolver);
     }
 
     private static EffectiveRole role(RoleClass roleClass, RoleForm form) {
-        return ModelFixtures.role("role-x", roleClass, form);
+        return ModelFixtures.role("role-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
+                roleClass, form);
     }
 }
