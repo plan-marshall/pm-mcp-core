@@ -362,7 +362,8 @@ public final class GitHubClient {
      * @param name   the repository name
      * @param number the pull-request number
      * @return the changed paths in GitHub's order; {@code complete} is {@code false} when the page cap (or a next
-     *         link outside the origin) cut the list; {@code FAILED} when a page is not a JSON array
+     *         link outside the origin) cut the list; {@code FAILED} when a page is not a JSON array or an entry
+     *         carries no usable {@code filename}
      */
     public Result<List<String>> pullRequestFiles(String owner, String name, int number) {
         PagedResult pages = http.getAll(REPOS + owner + "/" + name + PULLS + number + "/files?per_page=100",
@@ -375,7 +376,13 @@ public final class GitHubClient {
             if (!(Json.parseOrNull(page).orElse(null) instanceof List<?> files)) {
                 return Result.of(Result.Outcome.FAILED, "a changed-files page is not a JSON array");
             }
-            files.forEach(file -> text(file, "filename").ifPresent(paths::add));
+            for (Object file : files) {
+                Optional<String> filename = text(file, "filename");
+                if (filename.isEmpty()) {
+                    return Result.of(Result.Outcome.FAILED, "a changed-files entry carries no usable filename");
+                }
+                paths.add(filename.get());
+            }
         }
         return Result.ok(List.copyOf(paths), pages.complete());
     }

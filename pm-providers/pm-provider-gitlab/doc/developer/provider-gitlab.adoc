@@ -84,14 +84,15 @@ forge is refused with `REJECTED` before a request is sent. The read is the same 
 following REST reads, each with the project path or id URL-encoded:
 
 . `GET /projects/{id}/merge_requests/{iid}` (`GitLabClient.mergeRequest`): the state, title, description,
-  `target_branch`, `source_branch`, `sha`, `source_project_id`, `target_project_id` and `allow_collaboration`. A body
+  `target_branch`, `source_branch`, `sha`, `source_project_id`, `target_project_id`, `allow_collaboration` and
+  whether `changes_count` is the string `1000+` (GitLab's diff limit capped the changed files). A body
   without the state, title, branches, `sha` or target project is `FAILED`. GitLab numbers issues and merge requests
   apart, so an issue iid without a merge request of the same iid is `NOT_FOUND`.
 . `GET /projects/{id}/merge_requests/{iid}/diffs?per_page=100` (`GitLabClient.mergeRequestDiffs`): the `new_path` of each
   diff, through the `Link` pagination of the shared base. The paginated diffs endpoint exists from GitLab 15.7 on, which
   is the minimum version of the read; a page that is not a JSON array, or a diff without a usable `new_path`, is `FAILED`
-  with a fixed reason, because GitLab gives no changed-file count to prove the list whole and a dropped diff would read
-  as `COMPLETE`.
+  with a fixed reason, because the read compares no changed-file count with the list and a dropped diff would read as
+  `COMPLETE`.
 . `GET /projects/{id}` (`GitLabClient.project`), by the numeric id of the target or the source project: the project's
   `path_with_namespace` and whether the credential's access level, as a project member (`permissions.project_access`)
   or a group member (`permissions.group_access`), is Developer (30) or above. A response that carries neither level
@@ -102,9 +103,12 @@ following REST reads, each with the project path or id URL-encoded:
 for that passage
 (link:../../../pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[`provider.ci` ADR 008]).
 
-*The page cap.* The diffs read stops after `MAX_PAGES` (50) pages of 100 diffs; a list the page cap (or a next link
-outside the origin) cut is `PAGE_CAP`, every other list `COMPLETE`. The read compares the list with no changed-file
-count of the merge request, so it never answers `PROVIDER_RESULT_CAP`.
+*The two caps of the changed paths.* The diffs read stops after `MAX_PAGES` (50) pages of 100 diffs; a list the page
+cap (or a next link outside the origin) cut is `PAGE_CAP`. GitLab itself lists no file past its diff limit (1000 files
+by default) and does not paginate beyond it; it states the condition in the merge request's `changes_count`, which is
+then the string `1000+` instead of a number. A list read to its last page of a merge request with `changes_count`
+`1000+` is `PROVIDER_RESULT_CAP`. `PAGE_CAP` comes first: a read the local cap stopped ended before GitLab's limit
+could be seen. Every other list is `COMPLETE`.
 
 *`headWritable` for a same-project and a fork merge request.*
 
@@ -157,7 +161,8 @@ it:
 * *A missing issue is not found.* `issueView` answers `NOT_FOUND` for a missing issue and sends no merge-request probe;
   GitLab numbers issues and merge requests apart, so only the pull-request view may read a merge-request number.
 * *A merge request in any state is a value.* `closed`, `merged` and `locked` are `OK` with their mapped state, and a
-  diff list cut by the page cap is `PAGE_CAP`, never presented as the whole list.
+  diff list cut by the page cap is `PAGE_CAP` and one cut by GitLab's diff limit `PROVIDER_RESULT_CAP`, never presented
+  as the whole list.
 
 == Extending the Package
 
@@ -182,7 +187,8 @@ user id and a blank milestone title, a rate limit, a `403`, a `404`, a malformed
 comment with its derived URL; and the merge-request read: the four GitLab states with `locked` as `CLOSED`, a
 same-project merge request with and without Developer access, a fork with and without collaboration, a source project
 GitLab no longer knows, a failing source-project read of a fork, a failing target-project read with collaboration, a
-diff without a `new_path`, the page cap of the diffs, a missing merge request, a rate limit with its reset instant, a
+diff without a `new_path`, the page cap of the diffs, GitLab's diff limit (`changes_count` `1000+`) as
+`PROVIDER_RESULT_CAP` and behind the page cap, a missing merge request, a rate limit with its reset instant, a
 `403`, a malformed body and a merge request on another origin.
 link:{test}/GlabCommandsTest.java[`GlabCommandsTest`]:: the vector of every operation, the body on standard input and
 never in the vector, the validated identifiers, the refusal of a value that would read as a flag, and the closed

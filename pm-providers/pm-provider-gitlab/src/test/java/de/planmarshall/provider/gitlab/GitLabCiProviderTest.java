@@ -758,6 +758,32 @@ class GitLabCiProviderTest {
                         "every page up to the cap is kept"));
     }
 
+    @ParameterizedTest(name = "changes_count {0} with page cap {1} is {2}")
+    @DisplayName("prView names GitLab's diff limit as PROVIDER_RESULT_CAP, after the local PAGE_CAP")
+    @CsvSource({"'1000+', false, PROVIDER_RESULT_CAP", "'3', false, COMPLETE", "'1000+', true, PAGE_CAP"})
+    // "1000+" is GitLab's wire format for a list its diff limit capped; the outcome names are the contract's
+    void reportsProviderResultCap(String changesCount, boolean pageCapped, PullRequest.PathCompleteness expected,
+            MockWebServer server) {
+        var fixture = fixture();
+        var mergeRequest = mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false);
+        mergeRequest.put("changes_count", changesCount);
+        primeMergeRequest(fixture, mergeRequest);
+        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 30, null));
+        if (pageCapped) {
+            String next = "http://" + server.getHostName() + ":" + server.getPort() + DIFFS_PATH
+                    + "?per_page=100&page=2";
+            prime(DIFFS_PATH, new MockResponse.Builder().code(200).addHeader("Content-Type", "application/json")
+                    .addHeader("Link", "<" + next + ">; rel=\"next\"").body(Json.write(diffsBody(fixture.paths())))
+                    .build());
+        }
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the completeness of changes_count " + changesCount,
+                () -> assertEquals(expected, read.pathCompleteness(), "the completeness follows the caps"),
+                () -> assertFalse(read.changedPaths().isEmpty(), "the listed paths are kept"));
+    }
+
     @ParameterizedTest(name = "HTTP {0} is {1}")
     @DisplayName("prView maps a refused merge-request read by its status")
     @CsvSource({"404, NOT_FOUND", "403, PERMISSION_DENIED", "500, FAILED"})

@@ -122,7 +122,9 @@ makes up to three REST reads, the same for every state of the pull request:
   state, title, base ref, head ref, head commit or changed-file count, is `FAILED`. An issue number is answered `404` by
   GitHub and is `NOT_FOUND`. The head is a fork when its repository is another than the base's (`base.repo.full_name`).
 . `GET /repos/{owner}/{repo}/pulls/{n}/files?per_page=100` (`GitHubClient.pullRequestFiles`): the `filename` of each
-  changed file, through the `Link` pagination of the shared base. A page that is not a JSON array is `FAILED`.
+  changed file, through the `Link` pagination of the shared base. A page that is not a JSON array, or an entry without
+  a usable `filename`, is `FAILED`: a dropped entry would shorten the list and be reported as `PROVIDER_RESULT_CAP`, a
+  cap the forge never applied.
 . `GET /repos/{owner}/{repo}` (`GitHubClient.canPush`): the `permissions.push` member of the repository the head is
   writable by, read only when it decides the answer.
 
@@ -179,7 +181,7 @@ read with its structured fields, a pull request number, an anonymous private iss
 base repository, every state as a value, a fork head with and without maintainer edits and push, a deleted head
 repository, an absent `push` member, the page cap (`PAGE_CAP`) and a list shorter than `changed_files`
 (`PROVIDER_RESULT_CAP`), a refused read of the pull request, its files and the permission, a rate limit with its reset
-instant, a malformed pull-request body and files page, a pull request on another origin or forge, and the App
+instant, a malformed pull-request body and files page, a changed-files entry without a filename, a pull request on another origin or forge, and the App
 provider's `push` read with the user access token.
 link:{test}/InstallationTokensTest.java[`InstallationTokensTest`]:: a mint with a fresh JWT, reuse until the margin, a
 fresh mint after it, the key read per mint, the redaction registration, and a failed mint.

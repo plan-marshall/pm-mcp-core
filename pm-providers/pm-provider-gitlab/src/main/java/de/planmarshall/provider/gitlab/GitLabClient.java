@@ -52,6 +52,11 @@ public final class GitLabClient {
     private static final String ACCESS_LEVEL = "access_level";
     private static final String STATE = "state";
     private static final String TITLE = "title";
+    /**
+     * The {@code changes_count} with which GitLab states that its diff limit (1000 files by default) capped the
+     * changed files of a merge request.
+     */
+    static final String CHANGES_COUNT_CAPPED = "1000+";
     /** The status with which {@code personal_access_tokens/self} refuses a token of another type. */
     private static final int NOT_A_PERSONAL_ACCESS_TOKEN = 400;
 
@@ -114,11 +119,14 @@ public final class GitLabClient {
      * @param targetProjectId    the id of the target project
      * @param allowCollaboration whether the author allows the members of the target project to push to the source
      *                           branch
+     * @param providerResultCap  whether GitLab states that its diff limit capped the changed files: its
+     *                           {@code changes_count} is the string {@value GitLabClient#CHANGES_COUNT_CAPPED}, and
+     *                           its diff APIs list no file past the limit
      */
     @Builder
     public record MergeRequestPayload(PullRequest.State state, String title, String body, String baseBranch,
     String headBranch, String headSha, @Nullable String sourceProjectRef,
-    String targetProjectId, boolean allowCollaboration) {
+    String targetProjectId, boolean allowCollaboration, boolean providerResultCap) {
 
         /**
          * @return the id of the source project; empty when GitLab no longer knows it (a deleted fork)
@@ -360,7 +368,9 @@ public final class GitLabClient {
                 .body(Json.string(json, "description").orElse("")).baseBranch(baseBranch.get())
                 .headBranch(headBranch.get()).headSha(headSha.get())
                 .sourceProjectRef(text(json, "source_project_id").orElse(null)).targetProjectId(targetProjectId.get())
-                .allowCollaboration(Json.bool(json, "allow_collaboration")).build());
+                .allowCollaboration(Json.bool(json, "allow_collaboration"))
+                .providerResultCap(Json.string(json, "changes_count").filter(CHANGES_COUNT_CAPPED::equals).isPresent())
+                .build());
     }
 
     /**
@@ -370,7 +380,7 @@ public final class GitLabClient {
      * @param iid the merge-request iid
      * @return the new paths of the diffs in GitLab's order; {@code complete} is {@code false} when the page cap (or a
      *         next link outside the origin) cut the list; {@code FAILED} when a page is not a JSON array or a diff
-     *         carries no usable {@code new_path}, because GitLab gives no count to prove the list whole and a dropped
+     *         carries no usable {@code new_path}, because the read compares no count against the list and a dropped
      *         diff would otherwise read as {@code complete}
      */
     public Result<List<String>> mergeRequestDiffs(long iid) {

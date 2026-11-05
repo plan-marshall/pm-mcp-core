@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -942,6 +943,27 @@ class GitHubCiProviderTest {
         var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
 
         assertEquals(Result.Outcome.FAILED, result.outcome(), "a files page without an array fails");
+    }
+
+    @Test
+    @DisplayName("prView answers a changed-files entry without a filename with FAILED, not PROVIDER_RESULT_CAP")
+    void refusesFilesEntryWithoutFilename(MockWebServer server) {
+        var fixture = fixture();
+        prime(fixture, pullBody(fixture, "open", false, "cuioss", false, fixture.paths().size() + 1));
+        var entries = new ArrayList<Object>(filesBody(fixture.paths()));
+        entries.add(Generators.integers(1, fixture.paths().size()).next(),
+                Map.of("status", Generators.letterStrings(3, 10).next()));
+        filesResponse.set(json(200, entries));
+
+        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+
+        assertAll("the entry without a filename",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
+                        "an entry without a filename is a failure"),
+                // the reason text is the contract of the failure
+                () -> assertTrue(result.detail().contains("a changed-files entry carries no usable filename"),
+                        "the reason names the entry without a filename"),
+                () -> assertEquals(2, server.getRequestCount(), "no permission read follows the failed read"));
     }
 
     @Test

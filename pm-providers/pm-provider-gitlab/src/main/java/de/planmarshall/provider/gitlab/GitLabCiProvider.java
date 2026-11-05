@@ -184,9 +184,22 @@ public final class GitLabCiProvider implements CiProvider {
                 .baseBranch(payload.baseBranch()).headBranch(payload.headBranch()).headSha(payload.headSha())
                 .headRepositoryRef(resolved.repositoryRef()).headWritable(resolved.writable())
                 .changedPaths(diffs.value().orElseThrow())
-                .pathCompleteness(diffs.complete() ? PullRequest.PathCompleteness.COMPLETE
-                        : PullRequest.PathCompleteness.PAGE_CAP)
+                .pathCompleteness(completeness(diffs.complete(), payload.providerResultCap()))
                 .build());
+    }
+
+    /**
+     * The completeness of the changed paths: {@code PAGE_CAP} when the local page cap stopped the read, which comes
+     * first because the read then ended before GitLab's diff limit could be seen; {@code PROVIDER_RESULT_CAP} when the
+     * merge request states that GitLab's diff limit capped the list ({@code changes_count} {@code 1000+});
+     * {@code COMPLETE} otherwise.
+     */
+    private static PullRequest.PathCompleteness completeness(boolean allPagesRead, boolean providerResultCap) {
+        if (!allPagesRead) {
+            return PullRequest.PathCompleteness.PAGE_CAP;
+        }
+        return providerResultCap ? PullRequest.PathCompleteness.PROVIDER_RESULT_CAP
+                : PullRequest.PathCompleteness.COMPLETE;
     }
 
     /**
