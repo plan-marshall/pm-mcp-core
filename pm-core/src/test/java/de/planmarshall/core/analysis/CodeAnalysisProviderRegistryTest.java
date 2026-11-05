@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,8 +32,13 @@ import de.planmarshall.core.findings.FindingScope;
 /**
  * The registry of code analysis providers (PM-IMPL-1): members passed to its constructor, found by their id.
  */
+@EnableGeneratorController
 @DisplayName("Code analysis provider registry")
 class CodeAnalysisProviderRegistryTest {
+
+    private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER = "q" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String THIRD = "r" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     /** A provider that only names itself; its operations are never called by the registry. */
     private record NamedProvider(String id) implements CodeAnalysisProvider {
@@ -49,49 +57,50 @@ class CodeAnalysisProviderRegistryTest {
     @Test
     @DisplayName("a provider registered under its id is found")
     void found() {
-        var provider = new NamedProvider("sonar");
-        var registry = new CodeAnalysisProviderRegistry(List.of(provider, new NamedProvider("code-scan")));
+        var provider = new NamedProvider(PROVIDER);
+        var registry = new CodeAnalysisProviderRegistry(List.of(provider, new NamedProvider(OTHER)));
 
-        assertSame(provider, registry.find("sonar").orElseThrow());
+        assertSame(provider, registry.find(PROVIDER).orElseThrow());
     }
 
     @Test
     @DisplayName("an unregistered id answers empty")
     void unregistered() {
-        var registry = new CodeAnalysisProviderRegistry(List.of(new NamedProvider("sonar")));
+        var registry = new CodeAnalysisProviderRegistry(List.of(new NamedProvider(PROVIDER)));
 
         assertAll(
-                () -> assertEquals(Optional.empty(), registry.find("code-scan")),
+                () -> assertEquals(Optional.empty(), registry.find(OTHER)),
                 () -> assertEquals(Optional.empty(), registry.find(null)),
-                () -> assertEquals(Optional.empty(), new CodeAnalysisProviderRegistry(List.of()).find("sonar")));
+                () -> assertEquals(Optional.empty(), new CodeAnalysisProviderRegistry(List.of()).find(PROVIDER)));
     }
 
     @Test
     @DisplayName("ids lists the registered ids in the order the providers were passed, and cannot be changed")
     void ids() {
         var registry = new CodeAnalysisProviderRegistry(
-                List.of(new NamedProvider("sonar"), new NamedProvider("code-scan"), new NamedProvider("lint-9")));
+                List.of(new NamedProvider(PROVIDER), new NamedProvider(OTHER), new NamedProvider(THIRD)));
         var ids = registry.ids();
+        var added = Generators.letterStrings(3, 10).next();
 
         assertAll(
-                () -> assertEquals(List.of("sonar", "code-scan", "lint-9"), new ArrayList<>(ids)),
-                () -> assertThrows(UnsupportedOperationException.class, () -> ids.add("other")));
+                () -> assertEquals(List.of(PROVIDER, OTHER, THIRD), new ArrayList<>(ids)),
+                () -> assertThrows(UnsupportedOperationException.class, () -> ids.add(added)));
     }
 
     @Test
     @DisplayName("the registry keeps its members when the passed collection changes")
     void immutable() {
-        var providers = new ArrayList<CodeAnalysisProvider>(List.of(new NamedProvider("sonar")));
+        var providers = new ArrayList<CodeAnalysisProvider>(List.of(new NamedProvider(PROVIDER)));
         var registry = new CodeAnalysisProviderRegistry(providers);
-        providers.add(new NamedProvider("code-scan"));
+        providers.add(new NamedProvider(OTHER));
 
-        assertEquals(Optional.empty(), registry.find("code-scan"));
+        assertEquals(Optional.empty(), registry.find(OTHER));
     }
 
     @Test
     @DisplayName("a second provider under the same id is refused")
     void duplicate() {
-        var providers = List.of(new NamedProvider("sonar"), new NamedProvider("sonar"));
+        var providers = List.of(new NamedProvider(PROVIDER), new NamedProvider(PROVIDER));
 
         assertThrows(IllegalArgumentException.class, () -> new CodeAnalysisProviderRegistry(providers));
     }

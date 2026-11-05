@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -39,16 +42,29 @@ import de.planmarshall.core.role.RoleValidationReason;
  * by the effective catalogue and the effort is one the harness accepts — each value against its own harness, the
  * escalation included.
  */
+@EnableGeneratorController
 @DisplayName("Role assignment validation")
 class RoleAssignmentValidationTest {
 
-    private static final String HARNESS = "acme-cli";
-    private static final String ESCALATION_HARNESS = "beta-cli";
-    private static final String MODEL = "acme-standard";
+    private static final String HARNESS = "p" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String ESCALATION_HARNESS = "q" + Generators.letterStrings(3, 8).next()
+            .toLowerCase(Locale.ROOT);
+    private static final String MODEL = "m" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String ESCALATION_MODEL = "e" + Generators.letterStrings(3, 8).next()
+            .toLowerCase(Locale.ROOT);
+    private static final String FAST_MODEL = "f" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String UNSUPPORTED_MODEL = "u" + Generators.letterStrings(3, 8).next()
+            .toLowerCase(Locale.ROOT);
     private static final String ROLE = "implement";
+    private static final String ARTIFACT_DESCRIPTION = Generators.letterStrings(10, 40).next();
+    private static final String EXECUTABLE = Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String VERSION = "%d.%d.%d".formatted(Generators.integers(1, 9).next(),
+            Generators.integers(0, 20).next(), Generators.integers(0, 20).next());
+    private static final String EXECUTABLE_SHA = "sha256:" + "%064x".formatted(Generators.longs().next());
+    private static final int BUDGET_FLOOR = Generators.integers(1, 1_000_000).next();
 
     private static RoleArtifact artifact(RoleClass roleClass) {
-        return new RoleArtifact(1, ROLE, "Implements the tasks of a plan.", roleClass,
+        return new RoleArtifact(1, ROLE, ARTIFACT_DESCRIPTION, roleClass,
                 List.of("pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file"), HARNESS, MODEL,
                 new EffortValue(null), RoleForm.FRESH, 2, List.of("skill://pm/role/implement/SKILL.md"), null, 300,
                 null, null, Map.of());
@@ -61,16 +77,16 @@ class RoleAssignmentValidationTest {
     private static HarnessProfile profile(String clientId) {
         return new HarnessProfile(clientId, true, false, Set.of(), Map.of(RoleClass.WRITER,
                         HarnessProfile.ToolSet.ENFORCED, RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY),
-                Map.of(MODEL, List.of("low", "medium", "high")), Map.of("standard", MODEL), 400_000, null,
+                Map.of(MODEL, List.of("low", "medium", "high")), Map.of("standard", MODEL), BUDGET_FLOOR, null,
                 new HarnessProfile.Resumability(false, null, false, null), "ask_user");
     }
 
     private static EnrolledHarness enrolled() {
-        return new EnrolledHarness("acme", "1.4.2", "sha256:" + "0".repeat(64));
+        return new EnrolledHarness(EXECUTABLE, VERSION, EXECUTABLE_SHA);
     }
 
     private static ModelCatalogue catalogue() {
-        return new ModelCatalogue(Map.of(HARNESS, Set.of(MODEL), ESCALATION_HARNESS, Set.of("beta-standard")));
+        return new ModelCatalogue(Map.of(HARNESS, Set.of(MODEL), ESCALATION_HARNESS, Set.of(ESCALATION_MODEL)));
     }
 
     private static Function<String, Optional<HarnessProfile>> profiles(HarnessProfile... profiles) {
@@ -129,14 +145,14 @@ class RoleAssignmentValidationTest {
     void refusals() {
         var base = profile();
         var ineligible = new HarnessProfile(HARNESS, false, false, Set.of(), base.classes(),
-                base.modelEfforts(), base.modelTiers(), 400_000, null, base.resumability(), "ask_user");
+                base.modelEfforts(), base.modelTiers(), BUDGET_FLOOR, null, base.resumability(), "ask_user");
         var noReadOnly = new HarnessProfile(HARNESS, true, false, Set.of(),
                 Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED), base.modelEfforts(),
-                base.modelTiers(), 400_000, null, base.resumability(), "ask_user");
+                base.modelTiers(), BUDGET_FLOOR, null, base.resumability(), "ask_user");
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high");
         var artifact = artifact(RoleClass.READ_ONLY);
         var machineCatalogue = catalogue();
-        var fastOnly = new ModelCatalogue(Map.of(HARNESS, Set.of("acme-fast")));
+        var fastOnly = new ModelCatalogue(Map.of(HARNESS, Set.of(FAST_MODEL)));
         var facts = Optional.of(machineCatalogue);
         var fastFacts = Optional.of(fastOnly);
         var noFacts = Optional.<ModelCatalogue>empty();
@@ -144,7 +160,7 @@ class RoleAssignmentValidationTest {
                 new HarnessProfile[]{ineligible}, new String[]{HARNESS}, facts));
         var classRefused = assertThrows(RoleRefusal.class, () -> require(value, artifact,
                 new HarnessProfile[]{noReadOnly}, new String[]{HARNESS}, facts));
-        var unsupportedEffort = RoleAssignmentValue.of(HARNESS, "acme-frontier", "high");
+        var unsupportedEffort = RoleAssignmentValue.of(HARNESS, UNSUPPORTED_MODEL, "high");
         var effortRefused = assertThrows(RoleRefusal.class, () -> require(unsupportedEffort, artifact));
         var refusedModel = assertThrows(RoleRefusal.class, () -> require(value, artifact,
                 new HarnessProfile[]{base}, new String[]{HARNESS}, fastFacts));
@@ -178,7 +194,7 @@ class RoleAssignmentValidationTest {
     @Test
     @DisplayName("the escalation's enrolment is looked up by its own harness")
     void escalationEnrolmentOnItsOwnHarness() {
-        var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());
+        var escalation = new Escalation(ESCALATION_HARNESS, ESCALATION_MODEL, Optional.empty());
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var artifact = artifact(RoleClass.READ_ONLY);
         var bothHarnesses = new HarnessProfile[]{profile(), profile(ESCALATION_HARNESS)};
@@ -192,13 +208,13 @@ class RoleAssignmentValidationTest {
 
         assertAll(
                 () -> assertEquals(RoleValidationReason.HARNESS_UNKNOWN, reason),
-                () -> assertEquals("the harness 'beta-cli' is not enrolled", detail));
+                () -> assertEquals("the harness '" + ESCALATION_HARNESS + "' is not enrolled", detail));
     }
 
     @Test
     @DisplayName("the escalation is validated against its own harness")
     void escalationOnAnotherHarness() {
-        var escalation = new Escalation(ESCALATION_HARNESS, "beta-standard", Optional.empty());
+        var escalation = new Escalation(ESCALATION_HARNESS, ESCALATION_MODEL, Optional.empty());
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var withoutBeta = new HarnessProfile[]{profile()};
         var artifact = artifact(RoleClass.READ_ONLY);
@@ -215,7 +231,7 @@ class RoleAssignmentValidationTest {
     @Test
     @DisplayName("an escalation the catalogue does not allow is refused")
     void escalationNotAllowed() {
-        var escalation = new Escalation(HARNESS, "acme-fast", Optional.empty());
+        var escalation = new Escalation(HARNESS, FAST_MODEL, Optional.empty());
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var artifact = artifact(RoleClass.READ_ONLY);
 

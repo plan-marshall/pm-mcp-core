@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,10 +24,13 @@ import org.junit.jupiter.api.Test;
  * verifying-binary control, and the closed shape keeps refusing a missing member, an undeclared member and a record
  * without a {@code tool} at all.
  */
+@EnableGeneratorController
 @DisplayName("The tool component of a verification record")
 class VerificationRecordToolTest {
 
-    private static final String DIGEST = "sha256:" + "0".repeat(64);
+    private static final String DIGEST = "sha256:" + "%064x".formatted(Generators.longs().next());
+    private static final String TOOL_VERSION = Generators.integers(1, 9).next() + ".0.99";
+    private static final String TOOL_COMMIT = "%07x".formatted(Generators.integers(0, 0x0FFFFFF).next());
 
     private static VerificationRecord readWithTool(String toolMember) {
         return VerificationRecord.read(document(toolMember), "verification.json");
@@ -52,18 +57,20 @@ class VerificationRecordToolTest {
     @Test
     @DisplayName("the reader keeps the tool version and the tool commit")
     void toolVersionAndCommit() {
-        var verificationRecord = readWithTool("\"tool\": {\"version\": \"0.1.99\", \"commit\": \"1a2b3c4\"},");
+        var verificationRecord = readWithTool("\"tool\": {\"version\": \"" + TOOL_VERSION + "\", \"commit\": \""
+                + TOOL_COMMIT + "\"},");
 
         assertAll(
-                () -> assertEquals("0.1.99", verificationRecord.tool().version(), "the version is kept as recorded"),
-                () -> assertEquals("1a2b3c4", verificationRecord.tool().commit(), "the commit is kept as recorded"));
+                () -> assertEquals(TOOL_VERSION, verificationRecord.tool().version(),
+                        "the version is kept as recorded"),
+                () -> assertEquals(TOOL_COMMIT, verificationRecord.tool().commit(), "the commit is kept as recorded"));
     }
 
     @Test
     @DisplayName("a tool without its version is refused at its pointer")
     void missingVersion() {
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> readWithTool("\"tool\": {\"commit\": \"1a2b3c4\"},"));
+                () -> readWithTool("\"tool\": {\"commit\": \"" + TOOL_COMMIT + "\"},"));
 
         assertAll(
                 () -> assertEquals("/tool/version", refusal.pointer(), "the refusal names the missing version"),
@@ -75,7 +82,7 @@ class VerificationRecordToolTest {
     @DisplayName("a tool without its commit is refused at its pointer")
     void missingCommit() {
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> readWithTool("\"tool\": {\"version\": \"0.1.99\"},"));
+                () -> readWithTool("\"tool\": {\"version\": \"" + TOOL_VERSION + "\"},"));
 
         assertAll(
                 () -> assertEquals("/tool/commit", refusal.pointer(), "the refusal names the missing commit"),
@@ -87,7 +94,8 @@ class VerificationRecordToolTest {
     @DisplayName("a tool carrying an undeclared member is refused at that member")
     void unknownMember() {
         var refusal = assertThrows(ProfileRefusal.class,
-                () -> readWithTool("\"tool\": {\"version\": \"0.1.99\", \"commit\": \"1a2b3c4\", \"dirty\": true},"));
+                () -> readWithTool("\"tool\": {\"version\": \"" + TOOL_VERSION + "\", \"commit\": \"" + TOOL_COMMIT
+                        + "\", \"dirty\": true},"));
 
         assertAll(
                 () -> assertEquals("/tool/dirty", refusal.pointer(), "the refusal names the undeclared member"),

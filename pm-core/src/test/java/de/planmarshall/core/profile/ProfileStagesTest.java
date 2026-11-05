@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,13 +36,18 @@ import de.planmarshall.core.profile.ProfileStages.UsageCoverage;
  * stage compares the parsed figures with the harness's own record field by field (PM-CLIENT-5, Profile Verification).
  * The stages of an endpoint are held here too, a judgment endpoint's without the {@code classes} stage.
  */
+@EnableGeneratorController
 @DisplayName("Profile verification stages")
 class ProfileStagesTest {
+
+    private static final String JUDGE_MODEL = Generators.letterStrings(5, 20).next();
+    private static final String WRITER_MODEL = Generators.letterStrings(3, 10).next();
+    private static final String READ_ONLY_MODEL = WRITER_MODEL + "-b";
 
     @Test
     @DisplayName("a judgment endpoint records three stages and settles no executable")
     void judgmentEndpointStages() {
-        var identity = new ProfileStages.EndpointIdentity(true, null, null, List.of("judge-2026-01-01"), Map.of());
+        var identity = new ProfileStages.EndpointIdentity(true, null, null, List.of(JUDGE_MODEL), Map.of());
         var launch = new ProfileStages.EndpointLaunch(true, true, "enforced", true,
                 Map.of("two_options_ascending", "valid", "one_option", "valid"));
         var verification = ProfileStages.EndpointVerification.judgment(identity, launch,
@@ -282,11 +289,11 @@ class ProfileStagesTest {
                 """);
 
         var result = ProfileStages.usage(loaded, firstTurn, Map.of(),
-                List.of(new StartContextInput("writer", "model-a", firstTurn),
-                        new StartContextInput("read_only", "model-b", withoutCacheRead)));
+                List.of(new StartContextInput("writer", WRITER_MODEL, firstTurn),
+                        new StartContextInput("read_only", READ_ONLY_MODEL, withoutCacheRead)));
 
-        assertAll(() -> assertEquals(List.of(new StartContext("writer", "model-a", OptionalLong.of(115)),
-                new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext()));
+        assertAll(() -> assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(115)),
+                new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext()));
     }
 
     @Test
@@ -301,11 +308,11 @@ class ProfileStagesTest {
                 """);
 
         var result = ProfileStages.usage(loaded, firstTurn, Map.of(),
-                List.of(new StartContextInput("writer", "model-a", firstTurn),
-                        new StartContextInput("read_only", "model-b", negative)));
+                List.of(new StartContextInput("writer", WRITER_MODEL, firstTurn),
+                        new StartContextInput("read_only", READ_ONLY_MODEL, negative)));
 
-        assertEquals(List.of(new StartContext("writer", "model-a", OptionalLong.of(10)),
-                new StartContext("read_only", "model-b", OptionalLong.empty())), result.startContext());
+        assertEquals(List.of(new StartContext("writer", WRITER_MODEL, OptionalLong.of(10)),
+                new StartContext("read_only", READ_ONLY_MODEL, OptionalLong.empty())), result.startContext());
     }
 
     @Test
