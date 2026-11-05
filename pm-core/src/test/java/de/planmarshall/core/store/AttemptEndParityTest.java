@@ -25,6 +25,7 @@ import de.planmarshall.core.queue.QueueTaskRecord;
  * because {@code core.queue} depends on {@code core.store} and not the other way round. This test keeps them equal: a
  * value added to one without the other would make the copy at the write site fail or be dropped.
  */
+// Every datum in this class is a contract: the wire names of the two enums are the parity under test.
 @DisplayName("The end of an attempt")
 class AttemptEndParityTest {
 
@@ -36,7 +37,8 @@ class AttemptEndParityTest {
     @DisplayName("has the same wire names in the metrics row and in the queue task record")
     void wireNames() {
         assertEquals(wireNames(QueueTaskRecord.AttemptEnd.values(), value -> wireName(value)),
-                wireNames(AttemptEnd.values(), value -> wireName(value)));
+                wireNames(AttemptEnd.values(), value -> wireName(value)),
+                "Both vocabularies expose the same wire names");
     }
 
     private static String wireName(Enum<?> value) {

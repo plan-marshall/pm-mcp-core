@@ -51,18 +51,18 @@ class DerivedFactStoreTest {
     private static final DerivedFactKey LOCAL_KEY = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
     private static final DerivedFactKey NETWORK_KEY = new DerivedFactKey(DerivedFactKind.MERGE_METHODS_ALLOWED, null);
 
-    /** A schema-valid payload; the member value is generated, the member name is the fixture schema. */
-    private static final String VALUE = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
-
     @TempDir
     Path base;
 
     private Path file;
     private DerivedFactKinds kinds;
     private DerivedFactStore store;
+    /** A schema-valid payload; the member value is generated, the member name is the fixture schema. */
+    private String value;
 
     @BeforeEach
     void createStore() {
+        value = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
         file = base.resolve("derived-facts.json");
         kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec(DerivedFact.DerivationClass.LOCAL));
@@ -106,7 +106,7 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("reads as empty and as an absent fact")
         void readsAbsent() {
-            assertAll(
+            assertAll("The empty store reads as empty",
                     () -> assertTrue(store.snapshot().facts().isEmpty(), "No entry is stored yet"),
                     () -> assertTrue(store.fact(LOCAL_KEY).isEmpty(), "The fact entry is absent"),
                     () -> assertInstanceOf(DerivedFactReading.Absent.class, store.reading(LOCAL_KEY, NOW),
@@ -123,14 +123,14 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("a current local fact inside its validity is a value")
         void currentLocalIsValue() throws Exception {
-            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, VALUE,
+            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, value,
                     DerivedFact.DerivationClass.LOCAL, NOW.minusSeconds(3600), "a".repeat(64),
                     DerivedFact.State.CURRENT, null);
             write(LOCAL_KEY, fact);
 
             var reading = store.reading(LOCAL_KEY, NOW);
 
-            assertAll(
+            assertAll("A current local fact is a value",
                     () -> assertEquals(new DerivedFactReading.Value(fact), reading, "The reading carries the entry"),
                     () -> assertTrue(reading.couldNotEvaluate().isEmpty(), "A current fact can be evaluated"));
         }
@@ -138,7 +138,7 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("a local fact never expires by time")
         void localNeverExpires() throws Exception {
-            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, VALUE,
+            var fact = entry(DerivedFactKind.MODULE_DISCOVERY, value,
                     DerivedFact.DerivationClass.LOCAL, NOW.minusSeconds(10_000_000), "a".repeat(64),
                     DerivedFact.State.CURRENT, null);
             write(LOCAL_KEY, fact);
@@ -151,7 +151,7 @@ class DerivedFactStoreTest {
         @DisplayName("a stale entry is indeterminate with its kind and stored reason")
         void staleIsIndeterminate() throws Exception {
             var failure = new DerivedFact.Failure("the provider refused", NOW.minusSeconds(60));
-            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, VALUE,
+            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, value,
                     DerivedFact.DerivationClass.NETWORK, NOW.minusSeconds(120), "a".repeat(64),
                     DerivedFact.State.STALE, failure));
 
@@ -159,7 +159,7 @@ class DerivedFactStoreTest {
 
             var indeterminate = assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                     "A stale entry is indeterminate");
-            assertAll(
+            assertAll("A stale entry is indeterminate",
                     () -> assertEquals("merge_methods_allowed: the provider refused", indeterminate.reason(),
                             "The reason names the kind and the stored failure"),
                     () -> assertEquals(indeterminate.reason(), reading.couldNotEvaluate().orElseThrow(),
@@ -188,10 +188,10 @@ class DerivedFactStoreTest {
         @Test
         @DisplayName("a current network fact expires exactly at derived_at plus 86400 s")
         void networkExpiresAtTheValidityPeriod() throws Exception {
-            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, VALUE,
+            write(NETWORK_KEY, entry(DerivedFactKind.MERGE_METHODS_ALLOWED, value,
                     DerivedFact.DerivationClass.NETWORK, NOW, "a".repeat(64), DerivedFact.State.CURRENT, null));
 
-            assertAll(
+            assertAll("A network fact expires at its validity period",
                     () -> assertInstanceOf(DerivedFactReading.Value.class,
                             store.reading(NETWORK_KEY, NOW.plusSeconds(86_399)), "One second before is current"),
                     () -> assertInstanceOf(DerivedFactReading.Expired.class,
@@ -214,7 +214,7 @@ class DerivedFactStoreTest {
 
             var refusal = assertThrows(StoreRefusal.class, store::snapshot, "The content cannot be read");
 
-            assertAll(
+            assertAll("An unreadable store file is refused",
                     () -> assertEquals(file, refusal.file(), "The refusal names the store file"),
                     () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
                             "The outcome is unreadable"));
@@ -236,7 +236,7 @@ class DerivedFactStoreTest {
 
             var refusal = assertThrows(StoreRefusal.class, store::snapshot, "The version is not accepted");
 
-            assertAll(
+            assertAll("Another format version is refused",
                     () -> assertEquals(file, refusal.file(), "The refusal names the store file"),
                     () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, refusal.outcome(),
                             "The outcome names the newer version"));
@@ -263,7 +263,7 @@ class DerivedFactStoreTest {
     @Test
     @DisplayName("a stored entry is answered by the fact accessor")
     void factAccessor() throws Exception {
-        var fact = entry(DerivedFactKind.MODULE_DISCOVERY, VALUE,
+        var fact = entry(DerivedFactKind.MODULE_DISCOVERY, value,
                 DerivedFact.DerivationClass.LOCAL, NOW, "a".repeat(64), DerivedFact.State.CURRENT, null);
         write(LOCAL_KEY, fact);
 

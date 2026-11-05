@@ -12,9 +12,11 @@ package de.planmarshall.provider.github;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,8 +46,9 @@ import de.planmarshall.provider.http.TokenSource;
  * <p>
  * A provider is bound to one web origin and one credential. A personal access token acts with its own user and
  * reports its kind from the token prefix and its expiry from the {@code github-authentication-token-expiration}
- * response header; a GitHub App acts with two identities, its bot identity and the operator whose user access token
- * authors the writes.
+ * response header, read in the {@code yyyy-MM-dd HH:mm:ss z} form and in the ISO and offset forms of the same
+ * instant; a header the adapter cannot read is reported as no expiry, never as an error. A GitHub App acts with two
+ * identities, its bot identity and the operator whose user access token authors the writes.
  *
  * @since 0.1
  */
@@ -59,7 +62,17 @@ public final class GitHubCiProvider implements CiProvider {
     private static final String SCOPES_HEADER = "x-oauth-scopes";
     private static final String EXPIRY_HEADER = "github-authentication-token-expiration";
     private static final DateTimeFormatter GITHUB_EXPIRY_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z", Locale.ROOT);
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss z", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT);
+    private static final List<DateTimeFormatter> GITHUB_OFFSET_FORMATS = List.of(
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss xx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss xxx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT));
 
     private final String origin;
     private final HttpClient http;
@@ -118,18 +131,18 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public Result<Identity> whoami(@Nullable RepositoryRef repository) {
-        String refusal = refusalFor(repository);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(repository);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         return appClient == null ? tokenIdentity(repository) : appIdentity(repository);
     }
 
     @Override
     public Result<Issue> issueView(IssueRef issue) {
-        String refusal = refusalFor(issue);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(issue);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         Result<GitHubClient.IssuePayload> payload = client.issue(issue.repository().ownerOrPath(),
                 issue.repository().name(), issue.number());
@@ -143,9 +156,9 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public Result<IssueComment> issueComment(IssueRef issue, String body) {
-        String refusal = refusalFor(issue);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(issue);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         if (body.isBlank()) {
             return Result.of(Result.Outcome.REJECTED, "a comment body is never blank");
@@ -162,23 +175,21 @@ public final class GitHubCiProvider implements CiProvider {
                 + repository.name() + "/issues/" + issue.number() + "#issuecomment-" + commentId));
     }
 
-    @Nullable
-    private String refusalFor(IssueRef issue) {
+    private Optional<String> refusalFor(IssueRef issue) {
         return refusalFor(issue.repository());
     }
 
-    @Nullable
-    private String refusalFor(@Nullable RepositoryRef repository) {
+    private Optional<String> refusalFor(@Nullable RepositoryRef repository) {
         if (repository == null) {
-            return null;
+            return Optional.empty();
         }
         if (!PROVIDER_ID.equals(repository.forge())) {
-            return "the repository is on the forge " + repository.forge();
+            return Optional.of("the repository is on the forge " + repository.forge());
         }
         if (!origin.equals(repository.origin())) {
-            return "the repository is on another origin";
+            return Optional.of("the repository is on another origin");
         }
-        return null;
+        return Optional.empty();
     }
 
     private Result<Identity> tokenIdentity(@Nullable RepositoryRef repository) {
@@ -186,8 +197,8 @@ public final class GitHubCiProvider implements CiProvider {
         if (token.isEmpty()) {
             return Result.of(Result.Outcome.AUTH_FAILED, "no GitHub credential is available");
         }
-        TokenKind kind = kindOf(token.get());
-        if (kind == null) {
+        Optional<TokenKind> kind = kindOf(token.get());
+        if (kind.isEmpty()) {
             return Result.of(Result.Outcome.FAILED, "the token prefix names no GitHub token kind");
         }
         ResponseWithHeaders user = http.getWithHeaders("user");
@@ -204,7 +215,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (!permissions.isOk()) {
             return permissions.asFailure();
         }
-        return Result.ok(Identity.builder().login(login.get()).userId(userId.get()).tokenKind(kind)
+        return Result.ok(Identity.builder().login(login.get()).userId(userId.get()).tokenKind(kind.get())
                 .permissions(permissions.value().orElseThrow())
                 .scopes(user.header(SCOPES_HEADER).map(GitHubCiProvider::scopes).orElse(List.of()))
                 .expiresAt(user.header(EXPIRY_HEADER).flatMap(GitHubCiProvider::instantOf).orElse(null)).build());
@@ -261,15 +272,14 @@ public final class GitHubCiProvider implements CiProvider {
         return Result.ok(Map.copyOf(byName));
     }
 
-    @Nullable
-    private static TokenKind kindOf(String token) {
+    private static Optional<TokenKind> kindOf(String token) {
         if (token.startsWith(TOKEN_HEADER_PREFIX_FINE_GRAINED)) {
-            return TokenKind.GITHUB_FINE_GRAINED_PAT;
+            return Optional.of(TokenKind.GITHUB_FINE_GRAINED_PAT);
         }
         if (token.startsWith(TOKEN_HEADER_PREFIX_CLASSIC)) {
-            return TokenKind.GITHUB_CLASSIC_PAT;
+            return Optional.of(TokenKind.GITHUB_CLASSIC_PAT);
         }
-        return null;
+        return Optional.empty();
     }
 
     private static List<String> scopes(String header) {
@@ -280,8 +290,19 @@ public final class GitHubCiProvider implements CiProvider {
         try {
             return Optional.of(ZonedDateTime.parse(value, GITHUB_EXPIRY_FORMAT).toInstant());
         } catch (DateTimeParseException _) {
-            return instantOrEmpty(value);
+            return instantFromOffset(value);
         }
+    }
+
+    private static Optional<Instant> instantFromOffset(String value) {
+        for (DateTimeFormatter format : GITHUB_OFFSET_FORMATS) {
+            try {
+                return Optional.of(OffsetDateTime.parse(value, format).toInstant());
+            } catch (DateTimeParseException _) {
+                // the value is not in this offset form; try the next one
+            }
+        }
+        return instantOrEmpty(value);
     }
 
     private static Optional<Instant> instantOrEmpty(String value) {

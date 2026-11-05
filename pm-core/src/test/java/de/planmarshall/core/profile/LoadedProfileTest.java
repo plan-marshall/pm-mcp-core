@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,13 +25,17 @@ import org.junit.jupiter.api.Test;
  * The value semantics of a loaded profile and of a shipped profile: the document bytes are compared by their content,
  * a class is runnable exactly when the document declares it, and a headless path resolves on the document.
  */
+@EnableGeneratorController
 class LoadedProfileTest {
+
+    private static final String DISPLAY_NAME = "Acme CLI " + Generators.letterStrings(3, 8).next();
+    private static final String OTHER_DISPLAY_NAME = DISPLAY_NAME + " other";
 
     @Test
     @DisplayName("two profiles of the same document are equal, hash alike and name their bytes")
     void sameDocumentIsEqual() {
-        var first = loaded("Acme CLI");
-        var second = loaded("Acme CLI");
+        var first = loaded(DISPLAY_NAME);
+        var second = loaded(DISPLAY_NAME);
 
         assertAll(
                 () -> assertEquals(first, second),
@@ -41,13 +47,13 @@ class LoadedProfileTest {
     @Test
     @DisplayName("a different document is a different profile")
     void differentDocumentIsNotEqual() {
-        assertNotEquals(loaded("Acme CLI"), loaded("Acme CLI Other"));
+        assertNotEquals(loaded(DISPLAY_NAME), loaded(OTHER_DISPLAY_NAME));
     }
 
     @Test
     @DisplayName("a class is runnable exactly when the profile declares it")
     void classRunnableFollowsTheDocument() {
-        var loaded = loaded("Acme CLI");
+        var loaded = loaded(DISPLAY_NAME);
 
         assertAll(
                 () -> assertTrue(loaded.classRunnable("writer")),
@@ -59,7 +65,7 @@ class LoadedProfileTest {
     @Test
     @DisplayName("a headless path resolves, and a profile without a headless block has none")
     void headlessPathResolves() {
-        var loaded = loaded("Acme CLI");
+        var loaded = loaded(DISPLAY_NAME);
         var withoutHeadless = loaded(ProfileFixtures.valid().set("/headless", null).set("/worker/eligible", false));
 
         assertAll(

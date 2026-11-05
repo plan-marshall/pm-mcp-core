@@ -32,6 +32,7 @@ import java.util.Map;
  * {@code -Dpm.specification.root=<path>}). The specification is part of the repository, so an unset property, a
  * missing specification directory, document or schema block is a failure, never a skipped test.
  */
+// Every datum of this class is a contract: specification paths, AsciiDoc markers and error messages.
 public final class SpecificationDocument {
 
     /** The system property naming the root of the repository that holds {@code doc/specification}. */

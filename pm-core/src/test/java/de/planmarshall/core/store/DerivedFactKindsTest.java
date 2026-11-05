@@ -77,7 +77,7 @@ class DerivedFactKindsTest {
 
         registry.register(DerivedFactKind.MODULE_DISCOVERY, spec);
 
-        assertAll(
+        assertAll("A registered kind answers its specification",
                 () -> assertEquals(Optional.of(spec), registry.spec(DerivedFactKind.MODULE_DISCOVERY),
                         "The registered kind answers its specification"),
                 () -> assertEquals(Set.of(DerivedFact.DerivationClass.LOCAL), spec.classes(),
@@ -104,7 +104,7 @@ class DerivedFactKindsTest {
     void specOutsideItsShapeIsRefused() {
         var notAnObject = value("[]");
 
-        assertAll(
+        assertAll("A spec outside its shape is refused",
                 () -> assertThrows(IllegalArgumentException.class, () -> specWithSchema(notAnObject),
                         "A schema that is not an object is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> specWithClasses(Set.of()),
@@ -132,7 +132,7 @@ class DerivedFactKindsTest {
         var registry = new DerivedFactKinds();
         registry.register(DerivedFactKind.MODULE_DISCOVERY, fixtureSpec());
 
-        assertAll(
+        assertAll("A refused value reports every violation",
                 () -> assertFalse(registry.validate(DerivedFactKind.MODULE_DISCOVERY, value("{\"name\":\"x\"}"))
                         .isEmpty(), "A missing required member is reported"),
                 () -> assertFalse(registry.validate(DerivedFactKind.MODULE_DISCOVERY,
@@ -149,7 +149,7 @@ class DerivedFactKindsTest {
     void operatorOnlyIsIndependentOfRegistration() {
         var registry = new DerivedFactKinds();
 
-        assertAll(
+        assertAll("Operator-only is independent of registration",
                 () -> assertTrue(registry.isOperatorOnly(DerivedFactKind.AGENT_IDENTITY),
                         "agent_identity is operator-only"),
                 () -> assertTrue(Arrays.stream(DerivedFactKind.values())
@@ -164,12 +164,14 @@ class DerivedFactKindsTest {
         var registry = new DerivedFactKinds();
         var empty = value("{}");
 
-        assertAll(
+        assertAll("A fresh registry registers nothing",
                 () -> assertTrue(Arrays.stream(DerivedFactKind.values())
                                 .allMatch(kind -> registry.spec(kind).isEmpty()),
                         "A fresh registry registers no kind"),
-                () -> assertAll(Arrays.stream(DerivedFactKind.values())
-                        .map(kind -> (Executable) () -> assertThrows(IllegalStateException.class,
-                                () -> registry.validate(kind, empty)))));
+                () -> assertAll("A fresh registry validates no value",
+                        Arrays.stream(DerivedFactKind.values())
+                                .map(kind -> (Executable) () -> assertThrows(IllegalStateException.class,
+                                        () -> registry.validate(kind, empty),
+                                        "An unregistered kind cannot be validated"))));
     }
 }

@@ -15,12 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -47,7 +49,6 @@ import de.planmarshall.core.store.DerivedFactDerivation.DerivationOutcome.Derive
 class DerivedFactStoreConcurrencyTest {
 
     private static final Instant NOW = Instant.parse("2026-10-29T12:00:00Z");
-    private static final String PROJECT = "pm-mcp-core";
     private static final String DIGEST = "a".repeat(64);
     private static final String SCHEMA = "{\"type\":\"object\",\"required\":[\"name\"],"
             + "\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"}}}";
@@ -57,15 +58,25 @@ class DerivedFactStoreConcurrencyTest {
     @TempDir
     Path base;
 
+    private String project;
+    private String plan;
+    private String derivation;
+    private String firstName;
+    private String secondName;
     private DerivedFactStore store;
 
     @BeforeEach
     void createStore() {
+        project = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        plan = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        derivation = Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        firstName = "first-" + Generators.letterStrings(3, 10).next();
+        secondName = "second-" + Generators.letterStrings(3, 10).next();
         var kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec());
         kinds.register(DerivedFactKind.PUSH_REMOTE, spec());
         store = new DerivedFactStore(
-                new AtomicStoreFile(base.resolve("derived-facts.json"), LockKey.derivedFacts(base, PROJECT)),
+                new AtomicStoreFile(base.resolve("derived-facts.json"), LockKey.derivedFacts(base, project)),
                 new SerializingLockManager(), kinds);
     }
 
@@ -74,7 +85,7 @@ class DerivedFactStoreConcurrencyTest {
                 .schema(JsonValue.parse(SCHEMA.getBytes(UTF_8)))
                 .classes(Set.of(DerivedFact.DerivationClass.LOCAL))
                 .qualifierAllowed(false)
-                .inputs("the fixture inputs of the kind")
+                .inputs(Generators.letterStrings(5, 40).next())
                 .build();
     }
 
@@ -99,15 +110,15 @@ class DerivedFactStoreConcurrencyTest {
         return JsonValue.parse(("{\"name\":\"" + name + "\"}").getBytes(UTF_8));
     }
 
-    private static DerivedFactDerivation.Derivation valueOf(String name) {
-        return () -> new Derived(payload(name), "fixture", DerivedFact.DerivationClass.LOCAL);
+    private DerivedFactDerivation.Derivation valueOf(String name) {
+        return () -> new Derived(payload(name), derivation, DerivedFact.DerivationClass.LOCAL);
     }
 
     private void seed(DerivedFactKey key, Instant derivedAt) throws IOException {
         var entry = DerivedFact.builder()
                 .kind(key.kind())
                 .value(JsonValue.parse("{\"name\":\"newer\"}".getBytes(UTF_8)))
-                .source(new DerivedFact.Source("fixture", DerivedFact.DerivationClass.LOCAL))
+                .source(new DerivedFact.Source(derivation, DerivedFact.DerivationClass.LOCAL))
                 .inputDigest(DIGEST)
                 .derivedAt(derivedAt)
                 .state(DerivedFact.State.CURRENT)
@@ -120,11 +131,11 @@ class DerivedFactStoreConcurrencyTest {
     @DisplayName("smoke: two threads refreshing two different keys lose no entry")
     void twoDifferentKeys() throws Exception {
         runConcurrently(
-                () -> store.refresh(FIRST, DIGEST, valueOf("first"), NOW.plusSeconds(1)),
-                () -> store.refresh(SECOND, DIGEST, valueOf("second"), NOW));
+                () -> store.refresh(FIRST, DIGEST, valueOf(firstName), NOW.plusSeconds(1)),
+                () -> store.refresh(SECOND, DIGEST, valueOf(secondName), NOW));
 
         var facts = store.snapshot().facts();
-        assertAll(
+        assertAll("Two concurrent keys lose no entry",
                 () -> assertEquals(2, facts.size(), "Both entries are stored"),
                 () -> assertTrue(facts.containsKey(FIRST), "The first entry is stored"),
                 () -> assertTrue(facts.containsKey(SECOND), "The second entry is stored"));
@@ -133,19 +144,19 @@ class DerivedFactStoreConcurrencyTest {
     @Test
     @DisplayName("smoke: two threads refreshing the same key lose no update")
     void twoRefreshersOfOneKey() throws Exception {
-        // "first" and "second" identify the two results; they are the fixture's data.
+        // The two generated names identify the two results; the winner decides the expected instant.
         runConcurrently(
-                () -> store.refresh(FIRST, DIGEST, valueOf("first"), NOW),
-                () -> store.refresh(FIRST, DIGEST, valueOf("second"), NOW.plusSeconds(1)));
+                () -> store.refresh(FIRST, DIGEST, valueOf(firstName), NOW),
+                () -> store.refresh(FIRST, DIGEST, valueOf(secondName), NOW.plusSeconds(1)));
 
         var facts = store.snapshot().facts();
         var entry = facts.get(FIRST);
-        var firstStored = payload("first").equals(entry.value());
+        var firstStored = payload(firstName).equals(entry.value());
         var expectedDerivedAt = firstStored ? NOW : NOW.plusSeconds(1);
-        assertAll(
+        assertAll("Two refreshers of one key lose no update",
                 () -> assertEquals(1, facts.size(), "Exactly one entry is stored"),
                 () -> assertEquals(DerivedFact.State.CURRENT, entry.state(), "The entry is current"),
-                () -> assertTrue(firstStored || payload("second").equals(entry.value()),
+                () -> assertTrue(firstStored || payload(secondName).equals(entry.value()),
                         "The stored value is one of the two results"),
                 () -> assertEquals(expectedDerivedAt, entry.derivedAt(),
                         "The entry names the instant of its own value"));
@@ -155,16 +166,16 @@ class DerivedFactStoreConcurrencyTest {
     @DisplayName("a nested refresh of a second key inside the first derivation keeps both entries")
     void nestedRefreshOfASecondKey() {
         var reading = store.refresh(FIRST, DIGEST, () -> {
-            store.refresh(SECOND, DIGEST, valueOf("second"), NOW);
-            return new Derived(payload("first"), "fixture", DerivedFact.DerivationClass.LOCAL);
+            store.refresh(SECOND, DIGEST, valueOf(secondName), NOW);
+            return new Derived(payload(firstName), derivation, DerivedFact.DerivationClass.LOCAL);
         }, NOW.plusSeconds(1));
 
         var facts = store.snapshot().facts();
-        assertAll(
+        assertAll("A nested refresh keeps both entries",
                 () -> assertEquals(2, facts.size(), "Both entries are stored"),
-                () -> assertEquals(payload("first"), facts.get(FIRST).value(),
+                () -> assertEquals(payload(firstName), facts.get(FIRST).value(),
                         "The first entry carries the outer value"),
-                () -> assertEquals(payload("second"), facts.get(SECOND).value(),
+                () -> assertEquals(payload(secondName), facts.get(SECOND).value(),
                         "The second entry carries the nested value"),
                 () -> assertEquals(new DerivedFactReading.Value(facts.get(FIRST)), reading,
                         "The outer reading is its own stored entry"));
@@ -176,9 +187,9 @@ class DerivedFactStoreConcurrencyTest {
         seed(FIRST, NOW.plusSeconds(10));
         var newer = store.fact(FIRST).orElseThrow();
 
-        var reading = store.refresh(FIRST, DIGEST, valueOf("older"), NOW);
+        var reading = store.refresh(FIRST, DIGEST, valueOf(firstName), NOW);
 
-        assertAll(
+        assertAll("A refresh keeps the newer stored result",
                 () -> assertEquals(new DerivedFactReading.Value(newer), reading,
                         "The newer stored entry is returned"),
                 () -> assertEquals(newer, store.fact(FIRST).orElseThrow(),
@@ -189,13 +200,13 @@ class DerivedFactStoreConcurrencyTest {
     @DisplayName("a write keeps a newer stored result of the same digest")
     void updateKeepsANewerStoredResult() {
         var reading = store.refresh(FIRST, DIGEST, () -> {
-            store.refresh(FIRST, DIGEST, valueOf("newer"), NOW.plusSeconds(10));
-            return new Derived(payload("older"), "fixture", DerivedFact.DerivationClass.LOCAL);
+            store.refresh(FIRST, DIGEST, valueOf(secondName), NOW.plusSeconds(10));
+            return new Derived(payload(firstName), derivation, DerivedFact.DerivationClass.LOCAL);
         }, NOW);
 
         var stored = store.fact(FIRST).orElseThrow();
-        assertAll(
-                () -> assertEquals(payload("newer"), stored.value(), "The newer stored value is kept"),
+        assertAll("A write keeps the newer stored result",
+                () -> assertEquals(payload(secondName), stored.value(), "The newer stored value is kept"),
                 () -> assertEquals(NOW.plusSeconds(10), stored.derivedAt(), "The newer instant is kept"),
                 () -> assertEquals(new DerivedFactReading.Value(stored), reading,
                         "The kept entry is the reading returned"));
@@ -204,21 +215,21 @@ class DerivedFactStoreConcurrencyTest {
     @Test
     @DisplayName("the derived-facts lock is taken after a held plan and workspace key")
     void lockOrderAfterTheScopeLocks() {
-        var workspace = LockKey.workspace(base, PROJECT);
-        var plan = LockKey.plan(base, PROJECT, "plan-one");
-        var derivedFacts = LockKey.derivedFacts(base, PROJECT);
+        var workspace = LockKey.workspace(base, project);
+        var planKey = LockKey.plan(base, project, plan);
+        var derivedFacts = LockKey.derivedFacts(base, project);
 
-        assertInstanceOf(LockOrder.Permitted.class, LockOrder.check(List.of(workspace, plan), derivedFacts),
+        assertInstanceOf(LockOrder.Permitted.class, LockOrder.check(List.of(workspace, planKey), derivedFacts),
                 "The derived-facts lock is taken after the scope locks");
     }
 
     @Test
     @DisplayName("a plan key requested while the derived-facts lock is held is refused")
     void planKeyAfterTheDerivedFactsLock() {
-        var plan = LockKey.plan(base, PROJECT, "plan-one");
-        var derivedFacts = LockKey.derivedFacts(base, PROJECT);
+        var planKey = LockKey.plan(base, project, plan);
+        var derivedFacts = LockKey.derivedFacts(base, project);
 
-        assertInstanceOf(LockOrder.Violation.class, LockOrder.check(Set.of(derivedFacts), plan),
+        assertInstanceOf(LockOrder.Violation.class, LockOrder.check(Set.of(derivedFacts), planKey),
                 "No scope lock is taken after the derived-facts lock");
     }
 }

@@ -39,7 +39,7 @@ class DerivedFactKindTest {
         var kinds = DerivedFactKind.values();
         var wireNames = Arrays.stream(kinds).map(DerivedFactKind::wireName).toList();
 
-        assertAll(
+        assertAll("Every kind round-trips its wire name",
                 () -> assertFalse(wireNames.isEmpty(), "The enumeration declares at least one kind"),
                 () -> assertEquals(wireNames.size(),
                         wireNames.stream().distinct().count(), "Every wire name is distinct"),
@@ -56,7 +56,7 @@ class DerivedFactKindTest {
     void agentIdentityAloneIsOperatorOnly() {
         var operatorOnly = Arrays.stream(DerivedFactKind.values()).filter(DerivedFactKind::operatorOnly).toList();
 
-        assertAll(
+        assertAll("Agent identity alone is operator-only",
                 () -> assertEquals(List.of(DerivedFactKind.AGENT_IDENTITY), operatorOnly,
                         "agent_identity alone is operator-only"),
                 () -> assertTrue(DerivedFactKind.AGENT_IDENTITY.operatorOnly(),
@@ -70,7 +70,7 @@ class DerivedFactKindTest {
     void unknownWireNameIsRefused() {
         var unknown = "not_a_kind_" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
-        assertAll(
+        assertAll("An unknown wire name is refused",
                 () -> assertEquals(Optional.empty(), DerivedFactKind.fromWireName(unknown),
                         "An unknown wire name resolves to no kind"),
                 () -> assertTrue(Arrays.stream(DerivedFactKind.values())

@@ -15,8 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -36,29 +39,41 @@ import de.planmarshall.core.role.RoleSets;
  * Role Assignment): the default's tier on the preferred harness, the model the harness maps it to, the narrowed effort,
  * a role the default cannot meet reported without a value, and the steward outside the assignment.
  */
+@EnableGeneratorController
 @DisplayName("Role assignment proposal")
 class RoleAssignmentProposalTest {
 
+    private static final String HARNESS = "p" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String FALLBACK_HARNESS = "q" + Generators.letterStrings(3, 8).next()
+            .toLowerCase(Locale.ROOT);
+    private static final String STANDARD_MODEL = "m" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String FRONTIER_MODEL = "r" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String FAST_MODEL = "f" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String ROLE_DESCRIPTION = Generators.letterStrings(10, 40).next();
+    private static final int BUDGET_FLOOR = Generators.integers(1, 1_000_000).next();
+
     private static final String DOCUMENT = """
             {"format_version":1,"roles":{
-              "implement":{"tier":"standard","effort":"high","preferred_harness":"acme-cli",
+              "implement":{"tier":"standard","effort":"high","preferred_harness":"%s",
                            "advisory":"Implements the tasks of a plan."},
-              "outline":{"tier":"standard","effort":"max","preferred_harness":"acme-cli",
+              "outline":{"tier":"standard","effort":"max","preferred_harness":"%s",
                          "advisory":"Outlines the solution."},
-              "screener":{"tier":"fast","effort":"high","preferred_harness":"acme-cli",
+              "screener":{"tier":"fast","effort":"high","preferred_harness":"%s",
                           "advisory":"Screens untrusted text."},
-              "steward":{"tier":"standard","effort":"medium","preferred_harness":"acme-cli",
-                         "advisory":"Advises the operator."}}}""";
+              "steward":{"tier":"standard","effort":"medium","preferred_harness":"%s",
+                         "advisory":"Advises the operator."}}}"""
+            .formatted(HARNESS, HARNESS, HARNESS, HARNESS);
 
     private static byte[] artifact(String name, RoleClass roleClass) {
         var tools = roleClass == RoleClass.WRITER
                 ? "\"pm_wait\",\"pm_state\",\"pm_do\",\"pm_skill\",\"pm_skill_file\",\"pm_build\",\"pm_lsp\""
                 : "\"pm_wait\",\"pm_state\",\"pm_do\",\"pm_skill\",\"pm_skill_file\",\"pm_lsp\"";
         return """
-                {"format_version":1,"name":"%s","description":"A role of the test.","class":"%s","tools":[%s],
-                 "harness":"acme-cli","model":"acme-standard","effort":null,"form":"fresh","count":2,
+                {"format_version":1,"name":"%s","description":"%s","class":"%s","tools":[%s],
+                 "harness":"%s","model":"%s","effort":null,"form":"fresh","count":2,
                  "skills":["skill://pm/role/%s/SKILL.md"],"budget_floor_seconds":300}"""
-                .formatted(name, roleClass.wireName(), tools, name).getBytes(UTF_8);
+                .formatted(name, ROLE_DESCRIPTION, roleClass.wireName(), tools, HARNESS, STANDARD_MODEL, name)
+                .getBytes(UTF_8);
     }
 
     private static RoleSet roleSet() {
@@ -74,23 +89,23 @@ class RoleAssignmentProposalTest {
     }
 
     private static HarnessProfile profile() {
-        return new HarnessProfile("acme-cli", true, false, Set.of(),
+        return new HarnessProfile(HARNESS, true, false, Set.of(),
                 Map.of(RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY, RoleClass.WRITER,
                         HarnessProfile.ToolSet.ENFORCED),
-                Map.of("acme-standard", List.of("low", "medium", "high"), "acme-frontier", List.of(),
-                        "acme-fast", List.of()),
-                Map.of("frontier", "acme-frontier", "standard", "acme-standard", "fast", "acme-fast"),
-                400_000, null, new HarnessProfile.Resumability(false, null, false, null), "ask_user");
+                Map.of(STANDARD_MODEL, List.of("low", "medium", "high"), FRONTIER_MODEL, List.of(),
+                        FAST_MODEL, List.of()),
+                Map.of("frontier", FRONTIER_MODEL, "standard", STANDARD_MODEL, "fast", FAST_MODEL),
+                BUDGET_FLOOR, null, new HarnessProfile.Resumability(false, null, false, null), "ask_user");
     }
 
     private static Optional<ModelCatalogue> catalogue() {
         return Optional.of(new ModelCatalogue(
-                Map.of("acme-cli", Set.of("acme-standard", "acme-frontier", "acme-fast"))));
+                Map.of(HARNESS, Set.of(STANDARD_MODEL, FRONTIER_MODEL, FAST_MODEL))));
     }
 
     private static Map<String, RoleAssignmentProposal.Proposal> propose(Optional<ModelCatalogue> catalogue) {
         return RoleAssignmentProposal.propose(roleSet(), defaults(),
-                List.of(new RoleAssignmentProposal.Harness("acme-cli", profile())), catalogue);
+                List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue);
     }
 
     @Test
@@ -115,8 +130,8 @@ class RoleAssignmentProposalTest {
                 () -> assertEquals("standard", proposal.tier()),
                 () -> assertEquals("Implements the tasks of a plan.", proposal.advisory()),
                 () -> assertTrue(proposal.unresolved().isEmpty()),
-                () -> assertEquals("acme-cli", value.harness()),
-                () -> assertEquals("acme-standard", value.model()),
+                () -> assertEquals(HARNESS, value.harness()),
+                () -> assertEquals(STANDARD_MODEL, value.model()),
                 () -> assertEquals(EffortSetting.VALUE, value.effort()),
                 () -> assertEquals(Optional.of(new EffortValue("high")), value.effortValue()),
                 () -> assertEquals(Optional.of(new EffortValue("high")),
@@ -139,7 +154,7 @@ class RoleAssignmentProposalTest {
         var screener = propose(catalogue()).get("screener").assignment().orElseThrow();
 
         assertAll(
-                () -> assertEquals("acme-fast", screener.model()),
+                () -> assertEquals(FAST_MODEL, screener.model()),
                 () -> assertEquals(EffortSetting.DEFAULT, screener.effort()),
                 () -> assertTrue(screener.effortValue().isEmpty()));
     }
@@ -147,7 +162,7 @@ class RoleAssignmentProposalTest {
     @Test
     @DisplayName("a model the catalogue does not allow is reported without a value")
     void modelNotAllowed() {
-        var proposal = propose(Optional.of(new ModelCatalogue(Map.of("acme-cli", Set.of("acme-fast")))))
+        var proposal = propose(Optional.of(new ModelCatalogue(Map.of(HARNESS, Set.of(FAST_MODEL)))))
                 .get("implement");
 
         assertAll(
@@ -186,7 +201,7 @@ class RoleAssignmentProposalTest {
                 "replan", new RoleSets.ShippedRole(artifact("replan", RoleClass.READ_ONLY)))));
 
         var proposals = RoleAssignmentProposal.propose(set, defaults(),
-                List.of(new RoleAssignmentProposal.Harness("acme-cli", profile())), catalogue());
+                List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue());
 
         assertAll(
                 () -> assertTrue(proposals.get("replan").assignment().isEmpty()),
@@ -197,19 +212,20 @@ class RoleAssignmentProposalTest {
     @Test
     @DisplayName("the preferred harness wins where it is enrolled, else the first enrolled harness whose profile runs the class")
     void harnessResolution() {
-        var first = new RoleAssignmentProposal.Harness("acme-cli", profile());
-        var second = new RoleAssignmentProposal.Harness("beta-cli", profile());
-        var both = Optional.of(new ModelCatalogue(Map.of("acme-cli", Set.of("acme-standard"),
-                "beta-cli", Set.of("acme-standard"))));
+        var first = new RoleAssignmentProposal.Harness(HARNESS, profile());
+        var second = new RoleAssignmentProposal.Harness(FALLBACK_HARNESS, profile());
+        var both = Optional.of(new ModelCatalogue(Map.of(HARNESS, Set.of(STANDARD_MODEL),
+                FALLBACK_HARNESS, Set.of(STANDARD_MODEL))));
         var defaults = DefaultAssignment.read(Path.of("default-assignment.json"), """
                 {"format_version":1,"roles":{"implement":{"tier":"standard","effort":"high",
-                 "preferred_harness":"beta-cli","advisory":"Implements."}}}""".getBytes(UTF_8));
+                 "preferred_harness":"%s","advisory":"Implements."}}}""".formatted(FALLBACK_HARNESS).getBytes(UTF_8));
 
         var preferred = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first, second), both);
         var fallback = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first), both);
 
         assertAll(
-                () -> assertEquals("beta-cli", preferred.get("implement").assignment().orElseThrow().harness()),
-                () -> assertEquals("acme-cli", fallback.get("implement").assignment().orElseThrow().harness()));
+                () -> assertEquals(FALLBACK_HARNESS,
+                        preferred.get("implement").assignment().orElseThrow().harness()),
+                () -> assertEquals(HARNESS, fallback.get("implement").assignment().orElseThrow().harness()));
     }
 }

@@ -17,12 +17,15 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,18 +44,23 @@ import de.planmarshall.core.store.ChangeLedgerRecord.WorktreeShaFailure;
  * the working-tree digest it was observed on, or the failure of the git invocation that could not measure one, written
  * through the scope's transaction and covered by its sidecar.
  */
+@EnableGeneratorController
 @DisplayName("Change ledger")
 class ChangeLedgerTest {
 
-    private static final Instant RECORDED_AT = Instant.parse("2026-10-22T10:00:00Z");
     private static final String DIGEST = "a".repeat(64);
     private static final String COMMIT = "b".repeat(40);
     private static final String PROJECT = "pm-mcp-core";
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneOffset.UTC);
 
     @TempDir
     Path base;
 
+    private Instant recordedAt;
+    private Clock clock;
+    private String plan;
+    private String otherPlan;
+    private String taskId;
+    private String deliverableId;
     private JournalScope scope;
     private Path file;
     private ChangeLedger ledger;
@@ -61,7 +69,14 @@ class ChangeLedgerTest {
 
     @BeforeEach
     void createLedger() throws Exception {
-        scope = JournalScope.plan(base, PROJECT, "some-plan");
+        recordedAt = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
+        clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next()),
+                ZoneOffset.UTC);
+        plan = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        otherPlan = "other-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        taskId = "TASK-" + Generators.integers(1, 999).next();
+        deliverableId = "D" + Generators.integers(1, 99).next();
+        scope = JournalScope.plan(base, PROJECT, plan);
         Files.createDirectories(scope.journalFile().getParent());
         file = scope.resolve(ChangeLedger.FILE_NAME);
         ledger = new ChangeLedger(scope);
@@ -73,7 +88,7 @@ class ChangeLedgerTest {
     private void commit(Consumer<ScopeTransaction> write) {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var scopeTransaction = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            var scopeTransaction = ScopeTransaction.open(transaction, scope, audit, clock);
             write.accept(scopeTransaction);
             scopeTransaction.commit();
         }
@@ -90,10 +105,10 @@ class ChangeLedgerTest {
         }
     }
 
-    private static ChangeLedgerRecord changeRow() {
+    private ChangeLedgerRecord changeRow() {
         return ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha(DIGEST)
                 .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).changedPaths(List.of("a.txt"))
-                .commitSha(COMMIT).changeOrigin(ChangeOrigin.PLAN_CHANGE).recordedAt(RECORDED_AT).build();
+                .commitSha(COMMIT).changeOrigin(ChangeOrigin.PLAN_CHANGE).recordedAt(recordedAt).build();
     }
 
     private static ChangeLedgerRecord value(JsonlStoreFile.Entry<ChangeLedgerRecord> entry) {
@@ -115,11 +130,15 @@ class ChangeLedgerTest {
 
             var entries = ledger.read();
 
-            assertAll(
-                    () -> assertEquals(2, entries.size()),
-                    () -> assertEquals(changeRow(), value(entries.getFirst())),
-                    () -> assertEquals(List.of("b.txt"), value(entries.getLast()).changedPaths()),
-                    () -> assertTrue(Files.readString(file).endsWith("\n")));
+            assertAll("The rows are read back in append order",
+                    () -> assertEquals(2, entries.size(),
+                            "Both appended rows are read back"),
+                    () -> assertEquals(changeRow(), value(entries.getFirst()),
+                            "The first row is the first append"),
+                    () -> assertEquals(List.of("b.txt"), value(entries.getLast()).changedPaths(),
+                            "The last row carries its own changed path"),
+                    () -> assertTrue(Files.readString(file).endsWith("\n"),
+                            "The ledger file ends with a newline"));
         }
 
         @Test
@@ -129,10 +148,11 @@ class ChangeLedgerTest {
                     128, null);
 
             var row = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha("unavailable")
-                    .worktreeShaVersion(1).worktreeShaFailure(failure).recordedAt(RECORDED_AT).build();
+                    .worktreeShaVersion(1).worktreeShaFailure(failure).recordedAt(recordedAt).build();
             append(row);
 
-            assertEquals(failure, value(ledger.read().getFirst()).worktreeShaFailure());
+            assertEquals(failure, value(ledger.read().getFirst()).worktreeShaFailure(),
+                    "The row carries how the git invocation failed");
         }
 
         @Test
@@ -140,11 +160,12 @@ class ChangeLedgerTest {
         void buildRow() {
             var row = ChangeLedgerRecord.builder().kind(Kind.BUILD).worktreeSha(DIGEST).worktreeShaVersion(1)
                     .gateKind("quality-gate").outcome(Outcome.SUCCEEDED).durationMs(1200L)
-                    .jobId("b-0123456789abcdef").recordedAt(RECORDED_AT).build();
+                    .jobId("b-0123456789abcdef").recordedAt(recordedAt).build();
 
             append(row);
 
-            assertEquals(row, value(ledger.read().getFirst()));
+            assertEquals(row, value(ledger.read().getFirst()),
+                    "The build row round-trips with its gate and outcome");
         }
 
         @Test
@@ -155,22 +176,24 @@ class ChangeLedgerTest {
             var row = ChangeLedgerRecord.builder().kind(Kind.BASELINE_RED).worktreeSha(DIGEST).worktreeShaVersion(1)
                     .gateKind("verify").outcome(Outcome.FAILED).expect(ChangeLedgerRecord.Expect.RED)
                     .expectResult(ChangeLedgerRecord.ExpectResult.EXPECTED_RED).baseline(baseline)
-                    .deliverableId("D1").durationMs(0L).recordedAt(RECORDED_AT).build();
+                    .deliverableId(deliverableId).durationMs(0L).recordedAt(recordedAt).build();
 
             append(row);
 
-            assertEquals(row, value(ledger.read().getFirst()));
+            assertEquals(row, value(ledger.read().getFirst()),
+                    "The baseline-red row round-trips with its proof");
         }
 
         @Test
         @DisplayName("a task-diff row carries its task and its paths")
         void taskDiffRow() {
             var row = ChangeLedgerRecord.builder().kind(Kind.TASK_DIFF).worktreeSha(DIGEST).worktreeShaVersion(1)
-                    .taskId("TASK-1").changedPaths(List.of("a.txt", "b.txt")).recordedAt(RECORDED_AT).build();
+                    .taskId(taskId).changedPaths(List.of("a.txt", "b.txt")).recordedAt(recordedAt).build();
 
             append(row);
 
-            assertEquals(row, value(ledger.read().getFirst()));
+            assertEquals(row, value(ledger.read().getFirst()),
+                    "The task-diff row round-trips with its task and paths");
         }
     }
 
@@ -185,8 +208,9 @@ class ChangeLedgerTest {
 
             var digest = DigestSidecar.load(scope.sidecarFile()).digest(ChangeLedger.FILE_NAME);
 
-            assertAll(
-                    () -> assertEquals(Optional.of(StoreDigest.of(Files.readAllBytes(file))), digest),
+            assertAll("The appended line has its sidecar entry",
+                    () -> assertEquals(Optional.of(StoreDigest.of(Files.readAllBytes(file))), digest,
+                            "The sidecar digest is the digest of the ledger"),
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"));
         }
 
@@ -202,23 +226,25 @@ class ChangeLedgerTest {
             var outcome = verify(ChangeLedger.FILE_NAME);
 
             assertEquals(new ScopeIntegrity.Mismatch(ChangeLedger.FILE_NAME, recorded,
-                    Optional.of(StoreDigest.of(edited))), outcome);
+                            Optional.of(StoreDigest.of(edited))), outcome,
+                    "The edited ledger is a mismatch of the integrity check");
         }
 
         @Test
         @DisplayName("a transaction of another scope is refused")
         void otherScope() throws Exception {
-            var other = JournalScope.plan(base, PROJECT, "another-plan");
+            var other = JournalScope.plan(base, PROJECT, otherPlan);
             Files.createDirectories(other.journalFile().getParent());
 
-            assertThrows(IllegalArgumentException.class, () -> appendInTransactionOf(other));
+            assertThrows(IllegalArgumentException.class, () -> appendInTransactionOf(other),
+                    "A transaction of another scope is refused");
         }
 
         /** Appends this ledger's row in a transaction of another scope. */
         private void appendInTransactionOf(JournalScope other) {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(other.lockKey());
-                var scopeTransaction = ScopeTransaction.open(transaction, other, audit, CLOCK);
+                var scopeTransaction = ScopeTransaction.open(transaction, other, audit, clock);
                 ledger.append(scopeTransaction, changeRow());
             }
         }
@@ -232,51 +258,62 @@ class ChangeLedgerTest {
         @DisplayName("ties an unavailable digest to its failure and a baseline to the baseline_red kind")
         void refusals() {
             var unavailableWithoutFailure = ChangeLedgerRecord.builder().kind(Kind.JOB)
-                    .worktreeSha("unavailable").worktreeShaVersion(1).recordedAt(RECORDED_AT);
+                    .worktreeSha("unavailable").worktreeShaVersion(1).recordedAt(recordedAt);
             var failureWithDigest = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
                     .worktreeShaVersion(1).worktreeShaFailure(new WorktreeShaFailure(List.of("git", "status"),
                     WorktreeShaFailure.FailureKind.SIGNAL, null, 9))
-                    .recordedAt(RECORDED_AT);
+                    .recordedAt(recordedAt);
             var taskDiffWithoutTask = ChangeLedgerRecord.builder().kind(Kind.TASK_DIFF).worktreeSha(DIGEST)
-                    .worktreeShaVersion(1).recordedAt(RECORDED_AT);
+                    .worktreeShaVersion(1).recordedAt(recordedAt);
             var taskOnAnotherKind = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
-                    .worktreeShaVersion(1).taskId("TASK-1").recordedAt(RECORDED_AT);
+                    .worktreeShaVersion(1).taskId(taskId).recordedAt(recordedAt);
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, unavailableWithoutFailure::build),
-                    () -> assertThrows(IllegalArgumentException.class, failureWithDigest::build),
-                    () -> assertThrows(IllegalArgumentException.class, taskDiffWithoutTask::build),
-                    () -> assertThrows(IllegalArgumentException.class, taskOnAnotherKind::build));
+            assertAll("A row outside its kind's shape is refused",
+                    () -> assertThrows(IllegalArgumentException.class, unavailableWithoutFailure::build,
+                            "An unavailable digest needs its failure"),
+                    () -> assertThrows(IllegalArgumentException.class, failureWithDigest::build,
+                            "A failure needs an unavailable digest"),
+                    () -> assertThrows(IllegalArgumentException.class, taskDiffWithoutTask::build,
+                            "A task-diff row needs its task"),
+                    () -> assertThrows(IllegalArgumentException.class, taskOnAnotherKind::build,
+                            "Only a task-diff row may name a task"));
         }
 
         @Test
         @DisplayName("refuses a broken digest, version, gate, job, commit, duration and baseline")
         void moreRefusals() {
             var badSha = ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha("not-a-digest")
-                    .worktreeShaVersion(1).recordedAt(RECORDED_AT);
+                    .worktreeShaVersion(1).recordedAt(recordedAt);
             var badVersion = ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha(DIGEST)
-                    .worktreeShaVersion(2).recordedAt(RECORDED_AT);
+                    .worktreeShaVersion(2).recordedAt(recordedAt);
             var badGate = ChangeLedgerRecord.builder().kind(Kind.BUILD).worktreeSha(DIGEST).worktreeShaVersion(1)
-                    .gateKind("clean").recordedAt(RECORDED_AT);
+                    .gateKind("clean").recordedAt(recordedAt);
             var badJob = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST).worktreeShaVersion(1)
-                    .jobId("x-0123456789abcdef").recordedAt(RECORDED_AT);
+                    .jobId("x-0123456789abcdef").recordedAt(recordedAt);
             var badCommit = ChangeLedgerRecord.builder().kind(Kind.CHANGE).worktreeSha(DIGEST)
-                    .worktreeShaVersion(1).commitSha("abc").recordedAt(RECORDED_AT);
+                    .worktreeShaVersion(1).commitSha("abc").recordedAt(recordedAt);
             var badDuration = ChangeLedgerRecord.builder().kind(Kind.BUILD).worktreeSha(DIGEST)
-                    .worktreeShaVersion(1).durationMs(-1L).recordedAt(RECORDED_AT);
+                    .worktreeShaVersion(1).durationMs(-1L).recordedAt(recordedAt);
             var baselineOnAnotherKind = ChangeLedgerRecord.builder().kind(Kind.JOB).worktreeSha(DIGEST)
-                    .worktreeShaVersion(1).recordedAt(RECORDED_AT)
+                    .worktreeShaVersion(1).recordedAt(recordedAt)
                     .baseline(new ChangeLedgerRecord.Baseline("verify", COMMIT, COMMIT,
                             ChangeLedgerRecord.Baseline.ProofSource.LOCAL_MERGE_BASE_BUILD, DIGEST, List.of(DIGEST)));
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, badSha::build),
-                    () -> assertThrows(IllegalArgumentException.class, badVersion::build),
-                    () -> assertThrows(IllegalArgumentException.class, badGate::build),
-                    () -> assertThrows(IllegalArgumentException.class, badJob::build),
-                    () -> assertThrows(IllegalArgumentException.class, badCommit::build),
-                    () -> assertThrows(IllegalArgumentException.class, badDuration::build),
-                    () -> assertThrows(IllegalArgumentException.class, baselineOnAnotherKind::build));
+            assertAll("A malformed row member is refused",
+                    () -> assertThrows(IllegalArgumentException.class, badSha::build,
+                            "A worktree sha that is no digest is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, badVersion::build,
+                            "An unknown worktree sha version is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, badGate::build,
+                            "A gate kind outside the vocabulary is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, badJob::build,
+                            "A job id outside its grammar is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, badCommit::build,
+                            "A commit sha that is no digest is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, badDuration::build,
+                            "A negative duration is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, baselineOnAnotherKind::build,
+                            "Only a baseline-red row may carry a baseline"));
         }
 
         @Test
@@ -287,10 +324,13 @@ class ChangeLedgerTest {
 
             var entries = ledger.read();
 
-            assertAll(
-                    () -> assertInstanceOf(JsonlStoreFile.Refused.class, entries.getFirst()),
-                    () -> assertEquals(1L, entries.getFirst().line()),
-                    () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast()));
+            assertAll("A line that does not parse stays in the ledger",
+                    () -> assertInstanceOf(JsonlStoreFile.Refused.class, entries.getFirst(),
+                            "The unparsable line is refused in place"),
+                    () -> assertEquals(1L, entries.getFirst().line(),
+                            "The refused line reports its line number"),
+                    () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast(),
+                            "The next line stays readable"));
         }
 
         @Test
@@ -303,9 +343,11 @@ class ChangeLedgerTest {
 
             var entries = ledger.read();
 
-            assertAll(
-                    () -> assertInstanceOf(JsonlStoreFile.Refused.class, entries.getFirst()),
-                    () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast()));
+            assertAll("An out-of-range version is refused line by line",
+                    () -> assertInstanceOf(JsonlStoreFile.Refused.class, entries.getFirst(),
+                            "The line with an out-of-range version is refused"),
+                    () -> assertInstanceOf(JsonlStoreFile.Accepted.class, entries.getLast(),
+                            "The next line stays readable"));
         }
     }
 
@@ -318,10 +360,12 @@ class ChangeLedgerTest {
         void workspacePath() {
             var workspace = JournalScope.workspace(base, PROJECT);
 
-            assertAll(
-                    () -> assertEquals("workspace/change-ledger.jsonl", new ChangeLedger(workspace).storePath()),
+            assertAll("The workspace ledger sits in the workspace directory",
+                    () -> assertEquals("workspace/change-ledger.jsonl", new ChangeLedger(workspace).storePath(),
+                            "The store path is the workspace-relative one"),
                     () -> assertEquals(workspace.resolve("workspace/change-ledger.jsonl"),
-                            new ChangeLedger(workspace).store()));
+                            new ChangeLedger(workspace).store(),
+                            "The store file resolves below the workspace"));
         }
 
         @Test
@@ -329,7 +373,8 @@ class ChangeLedgerTest {
         void lessonStore() {
             var lessons = JournalScope.lessons(base, PROJECT);
 
-            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(lessons));
+            assertThrows(IllegalArgumentException.class, () -> new ChangeLedger(lessons),
+                    "A lesson store has no change ledger");
         }
     }
 }
