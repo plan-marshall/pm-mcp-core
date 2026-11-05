@@ -12,8 +12,9 @@ Accepted.
 == Context
 
 ADR 004 ("A Pull Request Is No Issue for `ci.issue-view`") names the GitHub `pull_request` member of the issue read and
-never mentions GitLab. GitLab numbers issues and merge requests apart, as the Javadoc of `GitLabClient.issue` records, so
-`GET /projects/{id}/issues/{iid}` answers an issue there and a merge-request iid is a different number space.
+never mentions the GitLab merge-request probe. GitLab numbers issues and merge requests apart, as ADR 004 and the Javadoc
+of `GitLabClient.issue` record, so `GET /projects/{id}/issues/{iid}` answers an issue there and a merge-request iid is a
+different number space.
 
 The adapter as shipped by PLAN-V2-12 answered a `NOT_FOUND` of the issue read by probing
 `GET /projects/{id}/merge_requests/{iid}` and answering `REJECTED` ("is a pull request, or an issue the credential cannot
