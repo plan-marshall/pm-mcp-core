@@ -44,7 +44,8 @@ class LockKeyTest {
     private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String PLAN = "plan-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
     private static final String EPIC = "epic-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
-    private static final String ENTRY = "ent-" + Generators.integers(1000, 9999).next();
+    private static final String ENTRY = "ent-"
+            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next());
     private static final Path PROJECT_STORE = BASE.resolve("projects").resolve(PROJECT);
     private static final Path PROJECT_LOCKS = PROJECT_STORE.resolve("locks");
     private static final Path MACHINE_LOCKS = BASE.resolve("locks");

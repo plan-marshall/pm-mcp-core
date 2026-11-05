@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -46,7 +45,6 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * test input and stays byte-stable (R10).
  */
 // Every datum in this class is a contract: the schema path, heading and its member/enum/bound names.
-@EnableGeneratorController
 @DisplayName("Lesson front matter schema parity")
 class LessonFrontMatterSchemaParityTest {
 

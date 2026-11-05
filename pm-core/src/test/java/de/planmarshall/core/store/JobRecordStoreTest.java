@@ -69,7 +69,8 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 class JobRecordStoreTest {
 
     private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String ENTRY = "ent-" + Generators.integers(1000, 9999).next();
+    private static final String ENTRY = "ent-"
+            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next());
     private static final String EPIC = "epic-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final Scope MACHINE = new Scope(Scope.Type.MACHINE, null);
     private static final Scope ENTRY_SCOPE = new Scope(Scope.Type.ENTRY, ENTRY);
@@ -163,7 +164,7 @@ class JobRecordStoreTest {
             var machine = JobRecordStore.ofMachine(base);
             var entry = JobRecordStore.ofEntry(base, ENTRY);
             var otherEntry = new Scope(Scope.Type.ENTRY,
-                    "ent-other-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT));
+                    "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next()));
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE)),

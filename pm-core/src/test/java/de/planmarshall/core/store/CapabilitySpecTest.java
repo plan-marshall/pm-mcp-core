@@ -117,7 +117,8 @@ class CapabilitySpecTest {
     @DisplayName("A spec round-trips through its codec")
     @Test
     void specRoundTrips() {
-        var spec = new CapabilitySpec("intent-record", Generators.letterStrings(20, 40).next(),
+        var purpose = "The plan's intent, its \"quotes\" & revisions " + Generators.letterStrings(10, 20).next();
+        var spec = new CapabilitySpec("intent-record", purpose,
                 List.of(requirement("round-trip", "plan-a", List.of("TestA.java"))));
         var reread = CapabilitySpec.read(Path.of("intent-record.json"), CapabilitySpec.write(spec));
         assertEquals(spec, reread);
@@ -135,7 +136,8 @@ class CapabilitySpecTest {
     @DisplayName("A nested capability spec is read under its path name")
     @Test
     void indexReadsANestedCapability(@TempDir Path root) throws Exception {
-        var spec = new CapabilitySpec("http/headers", Generators.letterStrings(20, 40).next(),
+        var purpose = "HTTP headers, with \"quotes\" & spaces " + Generators.letterStrings(10, 20).next();
+        var spec = new CapabilitySpec("http/headers", purpose,
                 List.of(requirement("round-trip", "plan-a", List.of())));
         var directory = root.resolve(".marshall/capabilities/http");
         Files.createDirectories(directory);

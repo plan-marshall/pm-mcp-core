@@ -322,12 +322,14 @@ class LessonCodecTest {
         var lesson = new Lesson(LessonFrontMatter.builder()
                 .formatVersion(LessonFrontMatter.FORMAT_VERSION)
                 .lessonId(LessonFixtures.lessonId())
-                .title(LessonFixtures.text())
+                .title("The plan's lesson, with \"quotes\" & spaces " + LessonFixtures.text())
                 .component(LessonFixtures.text())
                 .category(Category.ARCH_CONSTRAINT)
                 .bundle(Generators.letterStrings(1, 20).next())
                 .rule(LessonFixtures.text())
-                .remedy(new Remedy(Remedy.Kind.WIRE_CHECK, LessonFixtures.statement(), LessonFixtures.text()))
+                .remedy(new Remedy(Remedy.Kind.WIRE_CHECK,
+                        "Keep the operator's note, with \"quotes\" and spaces " + LessonFixtures.text(),
+                        LessonFixtures.text()))
                 .recurrenceCount(Generators.integers(LessonFrontMatter.MIN_RECURRENCE_COUNT, 10).next())
                 .lastSeen(LessonFixtures.date())
                 .status(Status.RETIRED)

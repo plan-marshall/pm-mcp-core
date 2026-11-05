@@ -25,7 +25,6 @@ import de.planmarshall.core.service.LockTransaction;
  * <p>
  * It asserts no lock order: a test of the order uses the lock manager of the runtime.
  */
-// Every datum in this class is a contract: the class holds no test datum of its own, only the keys a test hands it.
 final class RecordingLockManager implements LockManager {
 
     private final List<LockKey> acquisitions = new ArrayList<>();

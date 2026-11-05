@@ -24,7 +24,6 @@ import de.planmarshall.core.service.LockTransaction;
  * The transactions of one thread are not serialized against each other, which is the re-entrancy of the lock the
  * store's own transaction does not use.
  */
-// Every datum in this class is a contract: the class holds no test datum of its own, only the keys a test hands it.
 final class SerializingLockManager implements LockManager {
 
     private final ReentrantLock mutex = new ReentrantLock();
