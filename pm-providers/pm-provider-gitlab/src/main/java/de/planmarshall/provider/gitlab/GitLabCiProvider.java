@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,6 +27,8 @@ import de.planmarshall.provider.ci.Identity;
 import de.planmarshall.provider.ci.Issue;
 import de.planmarshall.provider.ci.IssueComment;
 import de.planmarshall.provider.ci.IssueRef;
+import de.planmarshall.provider.ci.PullRequest;
+import de.planmarshall.provider.ci.PullRequestRef;
 import de.planmarshall.provider.ci.RepositoryRef;
 import de.planmarshall.provider.ci.TokenKind;
 import de.planmarshall.provider.http.HttpClient;
@@ -34,8 +37,15 @@ import de.planmarshall.provider.http.Response;
 import de.planmarshall.provider.http.Result;
 
 /**
- * GitLab as a CI provider: {@code ci.whoami}, {@code ci.issue-view} and {@code ci.issue-comment} on the native
- * variant, over the shared HTTP base and {@link GitLabClient}.
+ * GitLab as a CI provider: {@code ci.whoami}, {@code ci.issue-view}, {@code ci.issue-comment} and
+ * {@code ci.pr-view} on the native variant, over the shared HTTP base and {@link GitLabClient}.
+ * <p>
+ * {@code ci.pr-view} reads the merge request, its diffs and the projects that decide the head, for every state:
+ * {@code opened} is {@link PullRequest.State#OPEN}, {@code merged} {@link PullRequest.State#MERGED}, {@code closed}
+ * and {@code locked} {@link PullRequest.State#CLOSED}. The head is writable for a same-project merge request when the
+ * credential has Developer access or more on the project; for a fork when the author allows collaboration and the
+ * credential has Developer access or more on the target project; never for a source project GitLab no longer knows.
+ * The changed-path list is {@link PullRequest.PathCompleteness#PAGE_CAP} when the page cap cut it.
  * <p>
  * A provider is bound to one web origin and one credential. The acting identity is the token identity the client
  * already reads ({@code personal_access_tokens/self}, with the {@code GET /user} fallback for a token that is no
@@ -137,6 +147,83 @@ public final class GitLabCiProvider implements CiProvider {
                 + repository.name() + WEB_ISSUE_PATH + issue.number() + "#note_" + noteId));
     }
 
+    @Override
+    public Result<PullRequest> prView(PullRequestRef pullRequest) {
+        RepositoryRef repository = pullRequest.repository();
+        Optional<String> refusal = refusalFor(repository);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
+        }
+        GitLabClient client = client(repository);
+        Result<GitLabClient.MergeRequestPayload> read = client.mergeRequest(pullRequest.number());
+        if (!read.isOk()) {
+            return read.asFailure();
+        }
+        GitLabClient.MergeRequestPayload payload = read.value().orElseThrow();
+        Result<List<String>> diffs = client.mergeRequestDiffs(pullRequest.number());
+        if (!diffs.isOk()) {
+            return diffs.asFailure();
+        }
+        Result<Head> head = head(repository, client, payload);
+        if (!head.isOk()) {
+            return head.asFailure();
+        }
+        Head resolved = head.value().orElseThrow();
+        return Result.ok(PullRequest.builder().state(payload.state()).title(payload.title()).body(payload.body())
+                .baseBranch(payload.baseBranch()).headBranch(payload.headBranch()).headSha(payload.headSha())
+                .headRepositoryRef(resolved.repositoryRef()).headWritable(resolved.writable())
+                .changedPaths(diffs.value().orElseThrow())
+                .pathCompleteness(diffs.complete() ? PullRequest.PathCompleteness.COMPLETE
+                        : PullRequest.PathCompleteness.PAGE_CAP)
+                .build());
+    }
+
+    /**
+     * The head of a merge request and whether the credential can push to it.
+     *
+     * @param repositoryRef the repository the source branch lives in; {@code null} when GitLab no longer knows it
+     * @param writable      whether the credential can push to the source branch
+     */
+    private record Head(@Nullable RepositoryRef repositoryRef, boolean writable) {
+    }
+
+    /**
+     * The head of a merge request: the addressed repository for a same-project merge request, writable with
+     * Developer access on it; the source project for a fork, writable when the author allows collaboration and the
+     * credential has Developer access on the target project; none and not writable for a source project GitLab no
+     * longer knows.
+     */
+    private Result<Head> head(RepositoryRef base, GitLabClient client, GitLabClient.MergeRequestPayload payload) {
+        if (!payload.fork()) {
+            Result<GitLabClient.Project> project = client.project(payload.targetProjectId());
+            return project.isOk() ? Result.ok(new Head(base, project.value().orElseThrow().developerAccess()))
+                    : project.asFailure();
+        }
+        Optional<String> sourceId = payload.sourceProject();
+        if (sourceId.isEmpty()) {
+            return Result.ok(new Head(null, false));
+        }
+        Result<GitLabClient.Project> source = client.project(sourceId.get());
+        if (source.outcome() == Result.Outcome.NOT_FOUND) {
+            return Result.ok(new Head(null, false));
+        }
+        if (!source.isOk()) {
+            return source.asFailure();
+        }
+        Optional<RepositoryRef> sourceRepository = repositoryOf(source.value().orElseThrow().path());
+        if (sourceRepository.isEmpty()) {
+            return Result.of(Result.Outcome.FAILED, "the source project path is no repository path");
+        }
+        if (!payload.allowCollaboration()) {
+            return Result.ok(new Head(sourceRepository.get(), false));
+        }
+        Result<GitLabClient.Project> target = client.project(payload.targetProjectId());
+        if (!target.isOk()) {
+            return target.asFailure();
+        }
+        return Result.ok(new Head(sourceRepository.get(), target.value().orElseThrow().developerAccess()));
+    }
+
     private Optional<String> refusalFor(@Nullable RepositoryRef repository) {
         if (repository == null
                 || (PROVIDER_ID.equals(repository.forge()) && origin.equals(repository.origin()))) {
@@ -157,6 +244,20 @@ public final class GitLabCiProvider implements CiProvider {
     @SuppressWarnings("java:S1075") // the GitLab project-path grammar, not a configurable endpoint
     private static String projectPath(RepositoryRef repository) {
         return repository.ownerOrPath() + "/" + repository.name();
+    }
+
+    /** @return the repository of a GitLab project path {@code group/sub/project}; empty when it is no such path */
+    private Optional<RepositoryRef> repositoryOf(String path) {
+        int slash = path.lastIndexOf('/');
+        if (slash < 1) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(new RepositoryRef(PROVIDER_ID, origin, path.substring(0, slash),
+                    path.substring(slash + 1)));
+        } catch (IllegalArgumentException _) {
+            return Optional.empty();
+        }
     }
 
     private Result<Map<String, String>> permissions(@Nullable RepositoryRef repository) {
