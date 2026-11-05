@@ -215,7 +215,7 @@ class BuildOutputParserTest {
                 """);
 
         assertAll(
-                () -> assertTrue(parse.successMarker(), "the banner is there"),
+                () -> assertTrue(parse.successMarker(), "the success banner is present"),
                 () -> assertTrue(parse.contradictingEvidence(), "the error contradicts the banner"),
                 () -> assertEquals(new Outcome(Fate.INDETERMINATE, 8), outcome(parse, 0)));
     }
@@ -266,16 +266,30 @@ class BuildOutputParserTest {
     class NpmMarkers {
 
         @Test
-        @DisplayName("select the TypeScript scanner from the TS code and not the error parser")
+        @DisplayName("select the TypeScript scanner from the TS code before the npm error parser")
         void typeScriptBeforeNpmErrors() {
             var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:verify@web"), """
                     npm ERR! code ELIFECYCLE
+                    npm ERR! code ENOENT
                     src/a.ts(1,2): error TS2304: Cannot find name 'x'.
                     """);
 
             assertAll(
-                    () -> assertEquals(1, parse.diagnostics(), "only the tsc error is filed"),
+                    () -> assertEquals(1, parse.diagnostics(), "only the tsc error is filed, not the npm blocks"),
                     () -> assertTrue(parse.contradictingEvidence(), "the tsc error contradicts a success"));
+        }
+
+        @Test
+        @DisplayName("select the npm parser from a colour-coded log")
+        void colourCodedNpmErrors() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:verify@web"), """
+                    \u001B[31mnpm ERR!\u001B[39m code E404
+                    \u001B[31mnpm ERR!\u001B[39m 404 'missing' is not in this registry
+                    """);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the stripped npm error block is filed"),
+                    () -> assertEquals(new Outcome(Fate.FAILED, 9), outcome(parse, 1)));
         }
     }
 }

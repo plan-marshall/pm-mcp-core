@@ -28,14 +28,17 @@ The interface is a public seam of `pm-runtime` that the assembly `plan-marshall-
 
 * `SubprocessJobRunner.OutputParser.parse(JobRecord job, String output)` replaces `parse(JobId.Kind kind, String
   output)`, and the runner calls it with the job record at the existing call site in `settle`.
-* `BuildOutputParser` (package `runtime.job`) implements the seam for build jobs. It takes the first component of the
-  budget key as the build system and selects `MavenOutputParser`, `GradleOutputParser`, `PyprojectOutputParser`, or, for
-  `npm`, the npm error parser or the TypeScript, ESLint, Jest and TAP scanner whose markers the log carries. It maps a
-  `ParsedBuild` to `JobEvidence.ParseResult`: the tool's positive success marker, the number of located diagnostics and
-  the contradicting evidence (a located diagnostic or a measured failing test count). A job of another kind, a key of an
-  unknown build system and a log no scanner recognises yield `ParseResult.NOTHING`.
+* `BuildOutputParser` (package `runtime.job`) implements the seam for build jobs. It strips the log's ANSI escapes and
+  takes the first component of the budget key as the build system, selecting `MavenOutputParser`,
+  `GradleOutputParser`, `PyprojectOutputParser`, or, for `npm`, the npm error parser or the TypeScript, ESLint, Jest and
+  TAP scanner whose markers the log carries. It maps a `ParsedBuild` to `JobEvidence.ParseResult`: the tool's positive
+  success marker, the number of located diagnostics and the contradicting evidence (an error-severity diagnostic, the
+  errors of ESLint's printed summary, or a measured failing test count). A job of another kind, a key of an unknown build
+  system and a log no scanner recognises yield `ParseResult.NOTHING`. `OpenRewriteLogParser` is not dispatched: it
+  reports the findings of a rewrite run, not a build's success or failure.
 * `JobSettlement.of(store, lockManager, Map<Name, SettlementStep> replacements)` is added beside the existing factory.
-  A name the map does not carry keeps the default step; a replacement filed under another name than its own is refused.
+  A name the map does not carry keeps the default step; a replacement filed under another name than its own, or one
+  that replaces the implemented `FATE` or `SLOT_RELEASE` step, is refused.
   `SubprocessJobRunner` takes the same map through its builder (`settlementSteps`) and passes it to every settlement of
   its own jobs.
 

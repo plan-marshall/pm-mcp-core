@@ -99,7 +99,7 @@ class UnparsedEvidenceTest {
     @Test
     @DisplayName("never splits a UTF-8 character at the byte bound")
     void cutsAtACharacterBoundary() {
-        var log = "x".repeat(3001) + "é".repeat(3000);
+        var log = "€".repeat(1400);
 
         var evidence = UnparsedEvidence.of(PLAN, JOB, log);
 
@@ -107,7 +107,7 @@ class UnparsedEvidenceTest {
                 () -> assertTrue(evidence.excerpt().getBytes(StandardCharsets.UTF_8).length
                         <= UnparsedEvidence.MAX_BYTES, "the byte bound holds"),
                 () -> assertFalse(evidence.excerpt().contains("\uFFFD"), "no character is cut in half"),
-                () -> assertTrue(evidence.excerpt().endsWith("é"), "the tail is kept"));
+                () -> assertTrue(evidence.excerpt().endsWith("€"), "the excerpt keeps the end of the line"));
     }
 
     @Test

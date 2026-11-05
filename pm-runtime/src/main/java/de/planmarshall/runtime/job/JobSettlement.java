@@ -83,14 +83,16 @@ public final class JobSettlement {
      * The settlement of this runtime with the caller's steps in place of the named seams.
      * <p>
      * A package that brings one of the stores replaces only its step and leaves the fixed write order as it is. Every
-     * name the map does not carry keeps the default step of {@link #of(JobRecordStore, LockManager)}.
+     * name the map does not carry keeps the default step of {@link #of(JobRecordStore, LockManager)}. Only the named
+     * seams may be replaced; the two implemented steps, {@code FATE} and {@code SLOT_RELEASE}, are the settlement's own.
      *
      * @param store       the job records of the job's store
      * @param lockManager the lock manager of the runtime
      * @param replacements the steps by the name they replace
      * @return the settlement
      * @throws NullPointerException     if a component or a replacement is {@code null}
-     * @throws IllegalArgumentException if a replacement names a step other than its key
+     * @throws IllegalArgumentException if a replacement names a step other than its key, or replaces an implemented
+     *                                  step
      */
     public static JobSettlement of(JobRecordStore store, LockManager lockManager,
             Map<Name, SettlementStep> replacements) {
@@ -128,8 +130,16 @@ public final class JobSettlement {
                 throw new IllegalArgumentException("A replacement step is filed under another name than its own: "
                         + name);
             }
+            if (!isSeam(name)) {
+                throw new IllegalArgumentException("The implemented settlement step %s cannot be replaced"
+                        .formatted(name));
+            }
         }
         return Map.copyOf(checked);
+    }
+
+    private static boolean isSeam(Name name) {
+        return name != Name.FATE && name != Name.SLOT_RELEASE;
     }
 
     /**

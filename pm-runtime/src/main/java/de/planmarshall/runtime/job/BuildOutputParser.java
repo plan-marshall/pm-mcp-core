@@ -12,6 +12,9 @@ package de.planmarshall.runtime.job;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
+import de.planmarshall.core.build.BuildLogText;
 import de.planmarshall.core.build.EslintOutputParser;
 import de.planmarshall.core.build.EslintResult;
 import de.planmarshall.core.build.GradleOutputParser;
@@ -74,7 +77,8 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
         if (job.kind() != JobId.Kind.BUILD) {
             return JobEvidence.ParseResult.NOTHING;
         }
-        return system(job).flatMap(buildSystem -> parse(buildSystem, output))
+        var text = BuildLogText.stripAnsi(output);
+        return system(job).flatMap(buildSystem -> parse(buildSystem, text))
                 .orElse(JobEvidence.ParseResult.NOTHING);
     }
 
@@ -126,7 +130,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
                 Optional.empty());
     }
 
-    private static boolean failingTests(TestCounts counts) {
+    private static boolean failingTests(@Nullable TestCounts counts) {
         return counts instanceof TestCounts.Measured measured && measured.failed() > 0;
     }
 }

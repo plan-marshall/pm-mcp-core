@@ -1877,6 +1877,27 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("refuses a misnamed settlement step at construction")
+        void refusesAMisnamedSettlementStep() {
+            var misnamed = new SettlementStep() {
+
+                @Override
+                public Name name() {
+                    return Name.TIMING_OBSERVATION;
+                }
+
+                @Override
+                public Outcome run(Settled settled) {
+                    return new Outcome.Done("ran");
+                }
+            };
+
+            assertThrows(IllegalArgumentException.class, () -> runner(new TerminationProtocol(
+                    ProcessGroupSignals.system()), environment(), (job, output) -> SUCCESS,
+                    request -> Optional.empty(), null, Map.of(Name.METRICS_ROW, misnamed)));
+        }
+
+        @Test
         @DisplayName("an unparsed build keeps its raw log and yields the bounded evidence")
         void failedUnparsedKeepsTheRawLogAndYieldsTheEvidence() throws Exception {
             var wrapper = fixture.root.resolve(JobEnrolmentFixture.MVNW);

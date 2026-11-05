@@ -70,7 +70,7 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
      * @param jobId  the id of the build job
      * @param rawLog the raw job log, the launch report included
      * @return the bounded, redacted evidence and the URI of the full log
-     * @throws NullPointerException     if the job, its id or the raw log is {@code null}
+     * @throws NullPointerException     if the plan id, job id or raw log is {@code null}
      * @throws IllegalArgumentException if the plan id is blank
      */
     public static UnparsedEvidence of(String planId, JobId jobId, String rawLog) {
@@ -85,7 +85,7 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
     private static String tail(String rawLog) {
         List<String> lines = rawLog.lines().toList();
         var from = Math.max(0, lines.size() - MAX_LINES);
-        var redacted = SecretRedactor.redactText(String.join("\n", lines.subList(from, lines.size()))).orElse("");
+        var redacted = SecretRedactor.redactText(String.join("\n", lines.subList(from, lines.size()))).orElseThrow();
         return capped(redacted);
     }
 

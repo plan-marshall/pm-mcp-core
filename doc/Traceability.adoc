@@ -949,6 +949,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java[Job
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/TerminationProtocolTest.java[TerminationProtocolTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/OutcomeDerivationTest.java[OutcomeDerivationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/BuildOutputParserTest.java[BuildOutputParserTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[ProbeJobTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryStepTest.java[JobRecoveryStepTest],
@@ -962,10 +963,12 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_launch_and_launch_report[§ L
 link:../pm-runtime/doc/developer/runtime-job.adoc#_job_log[§ Job Log],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_termination[§ Termination],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_outcome_derivation[§ Outcome Derivation],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_build_output_parsing[§ Build Output Parsing],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_settlement[§ Settlement],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[§ Probe Jobs],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
-link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant]
+link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant],
+link:../pm-runtime/doc/adr/runtime-job/015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR runtime-job/015]
 
 [#PM-EXEC-5]
 === PM-EXEC-5: Git & Provider Operations: Native and CLI Variants

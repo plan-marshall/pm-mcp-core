@@ -279,7 +279,7 @@ _Requirement:_ link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
 
 == Specification Tracing
 
-* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
+* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime Specification § Unparseable Output Fallback]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
   PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
   by every parser of the package
