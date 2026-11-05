@@ -36,8 +36,7 @@ public enum GitHubOperation {
     /** Adding a pull request to the merge queue. */
     MERGE_QUEUE_ENQUEUE(Map.of(Permission.CONTENTS, Permission.WRITE, Permission.PULL_REQUESTS, Permission.WRITE)),
     /**
-     * Reading one pull request ({@code ci.pr-view}): the pull request, its changed files and the repository the
-     * permission fact is read from.
+     * Reading one pull request ({@code ci.pr-view}): the permission set the specification names for this read.
      */
     PULL_REQUEST_READ(Map.of(Permission.PULL_REQUESTS, Permission.READ, Permission.CONTENTS, Permission.READ,
             Permission.METADATA, Permission.READ));

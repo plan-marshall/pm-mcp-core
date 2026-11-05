@@ -89,7 +89,9 @@ following REST reads, each with the project path or id URL-encoded:
   apart, so an issue iid without a merge request of the same iid is `NOT_FOUND`.
 . `GET /projects/{id}/merge_requests/{iid}/diffs?per_page=100` (`GitLabClient.mergeRequestDiffs`): the `new_path` of each
   diff, through the `Link` pagination of the shared base. The paginated diffs endpoint exists from GitLab 15.7 on, which
-  is the minimum version of the read; a page that is not a JSON array is `FAILED`.
+  is the minimum version of the read; a page that is not a JSON array, or a diff without a usable `new_path`, is `FAILED`
+  with a fixed reason, because GitLab gives no changed-file count to prove the list whole and a dropped diff would read
+  as `COMPLETE`.
 . `GET /projects/{id}` (`GitLabClient.project`), by the numeric id of the target or the source project: the project's
   `path_with_namespace` and whether the credential's access level, as a project member (`permissions.project_access`)
   or a group member (`permissions.group_access`), is Developer (30) or above. A response that carries neither level
@@ -119,7 +121,10 @@ link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-creden
 007]. A refused read of the merge request, its diffs or a project is mapped to its outcome by the shared base, and a
 rate limit is `RATE_LIMITED` with its reset instant. `NOT_FOUND` says that the merge request does not exist, so a `404`
 of the diffs or of a target project read after the merge request was read is `FAILED` with a fixed reason; on GitLab
-older than 15.7 the diffs endpoint does not exist, and the reason names the minimum version.
+older than 15.7 the diffs endpoint does not exist, and the reason names the minimum version. The one `404` of a later
+read that is a value is the source-project read of a fork (a deleted or hidden fork: the head repository is absent and
+the head not writable); every other non-`OK` outcome of a later read, such as a `403` or a `500` of the source project or
+a failure of the target-project read, is propagated as the failure it is.
 
 == The `glab` Variant
 
@@ -176,7 +181,8 @@ issue of a nested group project with its structured fields, a missing issue besi
 user id and a blank milestone title, a rate limit, a `403`, a `404`, a malformed body, an issue on another origin and a
 comment with its derived URL; and the merge-request read: the four GitLab states with `locked` as `CLOSED`, a
 same-project merge request with and without Developer access, a fork with and without collaboration, a source project
-GitLab no longer knows, the page cap of the diffs, a missing merge request, a rate limit with its reset instant, a
+GitLab no longer knows, a failing source-project read of a fork, a failing target-project read with collaboration, a
+diff without a `new_path`, the page cap of the diffs, a missing merge request, a rate limit with its reset instant, a
 `403`, a malformed body and a merge request on another origin.
 link:{test}/GlabCommandsTest.java[`GlabCommandsTest`]:: the vector of every operation, the body on standard input and
 never in the vector, the validated identifiers, the refusal of a value that would read as a flag, and the closed

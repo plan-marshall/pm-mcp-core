@@ -367,7 +367,9 @@ public final class GitLabClient {
      *
      * @param iid the merge-request iid
      * @return the new paths of the diffs in GitLab's order; {@code complete} is {@code false} when the page cap (or a
-     *         next link outside the origin) cut the list; {@code FAILED} when a page is not a JSON array
+     *         next link outside the origin) cut the list; {@code FAILED} when a page is not a JSON array or a diff
+     *         carries no usable {@code new_path}, because GitLab gives no count to prove the list whole and a dropped
+     *         diff would otherwise read as {@code complete}
      */
     public Result<List<String>> mergeRequestDiffs(long iid) {
         PagedResult pages = http.getAll(project + MERGE_REQUESTS + iid + "/diffs?per_page=100", MAX_PAGES);
@@ -379,7 +381,13 @@ public final class GitLabClient {
             if (!(Json.parseOrNull(page).orElse(null) instanceof List<?> diffs)) {
                 return Result.of(Result.Outcome.FAILED, "a merge-request diffs page is not a JSON array");
             }
-            diffs.forEach(diff -> text(diff, "new_path").ifPresent(paths::add));
+            for (Object diff : diffs) {
+                Optional<String> path = text(diff, "new_path");
+                if (path.isEmpty()) {
+                    return Result.of(Result.Outcome.FAILED, "a merge-request diff carries no new path");
+                }
+                paths.add(path.get());
+            }
         }
         return Result.ok(List.copyOf(paths), pages.complete());
     }

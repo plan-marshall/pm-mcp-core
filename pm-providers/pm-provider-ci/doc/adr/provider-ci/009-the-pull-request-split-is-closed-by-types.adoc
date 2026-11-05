@@ -31,11 +31,13 @@ request on GitHub, while GitLab numbers issues and merge requests apart.
   `GET /projects/{id}/merge_requests/{iid}`), and the forge answers `404`; no issue endpoint is probed. GitLab numbers
   issues and merge requests apart, so an issue iid that equals the iid of a merge request reads that merge request.
 * `NOT_FOUND` says that the pull request does not exist, and nothing else. Once the pull request has been read, a
-  `404` of a read that follows it (the changed files of GitHub, the diffs or a project of GitLab) is `FAILED` with a
-  fixed reason that carries no remote text; on GitLab older than 15.7 the diffs endpoint does not exist, and an
-  existing merge request must not read as missing. The one `404` that is no failure is the `push` read of GitHub,
-  which reads as not writable
-  (link:007-head-writable-is-the-credentials-push-fact.adoc[ADR 007]).
+  `404` of a read that follows it (the changed files of GitHub, the diffs or the target project of GitLab) is `FAILED`
+  with a fixed reason that carries no remote text; on GitLab older than 15.7 the diffs endpoint does not exist, and an
+  existing merge request must not read as missing. Two `404` answers of a later read are no failure and are `OK`
+  values: the `push` read of GitHub, which reads as not writable
+  (link:007-head-writable-is-the-credentials-push-fact.adoc[ADR 007]), and the source-project read of a GitLab fork,
+  which reads as an absent head repository that is not writable (a deleted or hidden fork). Every other non-`OK`
+  outcome of a later read is propagated as the failure it is.
 * `issueComment` gets no pull-request guard. It keeps its signature and its behaviour; a comment on a pull request is
   an operation of the review and finalize slice, which brings its own reference and permission set.
 

@@ -46,9 +46,11 @@ import de.planmarshall.provider.http.Result;
  * credential has Developer access or more on the project; for a fork when the author allows collaboration and the
  * credential has Developer access or more on the target project; never for a source project GitLab no longer knows.
  * The changed-path list is {@link PullRequest.PathCompleteness#PAGE_CAP} when the page cap cut it. Once the merge
- * request has been read, a {@code 404} of a later read (the diffs endpoint of GitLab before 15.7, a project the
- * credential cannot see) is {@link de.planmarshall.provider.http.Result.Outcome#FAILED} with a fixed reason, never
- * {@code NOT_FOUND}, which says that the merge request does not exist.
+ * request has been read, a {@code 404} of a later read (the diffs endpoint of GitLab before 15.7, the target
+ * project the credential cannot see) is {@link de.planmarshall.provider.http.Result.Outcome#FAILED} with a fixed
+ * reason, never {@code NOT_FOUND}, which says that the merge request does not exist. The one {@code 404} of a later
+ * read that is a value is the source-project read of a fork: a deleted or hidden fork gives an absent head
+ * repository that is not writable. Every other non-{@code OK} outcome of a later read is propagated.
  * <p>
  * A provider is bound to one web origin and one credential. The acting identity is the token identity the client
  * already reads ({@code personal_access_tokens/self}, with the {@code GET /user} fallback for a token that is no

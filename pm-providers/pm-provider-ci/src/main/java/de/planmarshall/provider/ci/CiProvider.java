@@ -83,9 +83,14 @@ public interface CiProvider {
      * @return the pull request; {@code NOT_FOUND} when no pull request has the number; on GitHub that includes a
      *         number that names an issue, and on GitLab a number that names an issue and no merge request, because
      *         GitLab numbers the two apart and an issue iid equal to a merge-request iid reads that merge request;
-     *         {@code FAILED} when a read that follows the pull-request read finds no resource, never
-     *         {@code NOT_FOUND}; {@code REJECTED} when the pull request is on another origin or of another forge,
-     *         before anything is sent
+     *         {@code FAILED} when a read that follows the pull-request read (the changed files, the diffs or the
+     *         target project) answers {@code 404}, never {@code NOT_FOUND}, which says that the pull request does
+     *         not exist; two {@code 404} answers of a later read are no failure and read as an {@code OK} value: the
+     *         push-fact read of GitHub (the credential cannot see the repository, so the head is not writable) and
+     *         the source-project read of a GitLab fork (a deleted or hidden fork, so the head repository is absent
+     *         and the head is not writable); every other non-{@code OK} outcome of a later read is propagated;
+     *         {@code REJECTED} when the pull request is on another origin or of another forge, before anything is
+     *         sent
      */
     Result<PullRequest> prView(PullRequestRef pullRequest);
 }

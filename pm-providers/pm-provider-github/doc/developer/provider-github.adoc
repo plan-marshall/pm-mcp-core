@@ -149,8 +149,8 @@ member therefore never decides the answer
 007]).
 
 *The permission set.* An installation token for the pull-request read is minted for `GitHubOperation.PULL_REQUEST_READ`:
-`pull_requests: read`, `contents: read` and `metadata: read`, the pull request, its files and the repository the
-permission fact is read from.
+`pull_requests: read`, `contents: read` and `metadata: read`, the set the specification names for this read. The
+installation token never reads the permission fact; the user access token does.
 
 A refused read (a `404`, a `403`, a `401` or a `5xx`) on the pull request or its files is mapped to its outcome by the
 shared base, and a rate limit is `RATE_LIMITED` with its reset instant; nothing is read after a refused read. Two cases

@@ -820,6 +820,60 @@ class GitLabCiProviderTest {
     }
 
     @Test
+    @DisplayName("prView answers a diff without a new path with FAILED, never a shortened COMPLETE list")
+    void refusesDiffWithoutNewPath(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeSameProject(fixture, 30);
+        prime(DIFFS_PATH, json(200, List.of(Map.of("old_path", fixture.paths().getFirst(), "new_path",
+                fixture.paths().getFirst()), Map.of("old_path", remote))));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the diff without a new path",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "a dropped diff is a failure"),
+                () -> assertTrue(result.detail().contains("new path"), "the reason names the missing member"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"),
+                () -> assertEquals(2, server.getRequestCount(), "no project read follows the failed diffs read"));
+    }
+
+    @ParameterizedTest(name = "HTTP {0} is {1}")
+    @DisplayName("prView propagates a failing source project read of a fork other than 404")
+    @CsvSource({"403, PERMISSION_DENIED", "500, FAILED"})
+    // the statuses and outcome names are the HTTP and contract vocabulary
+    void propagatesFailingSourceProjectRead(int status, Result.Outcome expected, MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        prime(PROJECTS_PATH + "/" + forkId, json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the failing source project read",
+                () -> assertEquals(expected, result.outcome(), "the failure is propagated as it is"),
+                () -> assertEquals(3, server.getRequestCount(), "no target project read follows the failure"));
+    }
+
+    @ParameterizedTest(name = "HTTP {0} is {1}")
+    @DisplayName("prView answers a failing target project read of a collaborating fork as a failure")
+    @CsvSource({"404, FAILED", "403, PERMISSION_DENIED", "500, FAILED"})
+    // the statuses and outcome names are the HTTP and contract vocabulary
+    void failsOnFailingTargetProjectRead(int status, Result.Outcome expected, MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        primeProject(forkId, projectBody(forkGroup() + "/pm", 40, null));
+        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(),
+                json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the failing target project read",
+                () -> assertEquals(expected, result.outcome(), "the target read failure is not a value"),
+                () -> assertEquals(4, server.getRequestCount(), "the target project read was the last request"));
+    }
+
+    @Test
     @DisplayName("prView maps a refused diffs read")
     void mapsRefusedDiffs(MockWebServer server) {
         var fixture = fixture();
