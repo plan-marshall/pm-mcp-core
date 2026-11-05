@@ -210,7 +210,12 @@ public final class JobSettlement {
      * and the settlement turns any runtime fault into a {@link Outcome.Failed} so a settlement of an already-ended job
      * never escapes to the caller. The fate step is the exception: its fault propagates so the runner's last-resort
      * path can retry the record write.
+     * <p>
+     * The catch is the last-resort handler the specification names (Job Runtime § Outcome Derivation, Write order at
+     * job end): the fate may already be durable, and a later step's fault must not hide the record from the settlement
+     * wait. It is a {@code RuntimeException} rather than {@code Throwable}: an {@code Error} is not contained.
      */
+    @SuppressWarnings("java:S1181")
     private static Outcome run(SettlementStep step, Settled settled) {
         try {
             return Objects.requireNonNull(step.run(settled), "outcome");
