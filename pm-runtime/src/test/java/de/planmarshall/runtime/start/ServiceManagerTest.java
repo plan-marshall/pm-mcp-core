@@ -17,8 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,107 +34,134 @@ import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 /**
  * The service managers of the service-managed start mode (PM-ARCH-7): the exact {@code launchctl} and
  * {@code systemctl --user} commands of load, disable and unload, the exit codes that mean "not loaded", and the
- * failure that names a failing command. Every command goes to a recording fake; no test starts a process.
+ * failure that names a failing command. Every command goes to a recording fake; no test starts a process. The
+ * command words, the job label, the unit name and the "not loaded" exit codes are the contract of the service
+ * managers; the user id, the home directory, the other exit codes and the command output are generated.
  */
+@EnableGeneratorController
 @DisplayName("Service manager")
 class ServiceManagerTest {
 
-    private static final long UID = 501;
-    private static final Path LAUNCH_AGENT = Path.of("/Users/someone/Library/LaunchAgents/de.planmarshall.mcpd.plist");
-    private static final Path SYSTEMD_UNIT = Path.of("/home/someone/.config/systemd/user/pm-mcpd.service");
+    /** Contract literals: the launchd job label and the systemd unit name of the daemon. */
+    private static final String LABEL = "de.planmarshall.mcpd";
+    private static final String UNIT = "pm-mcpd.service";
 
-    private static final List<String> BOOTOUT = List.of("launchctl", "bootout", "gui/501/de.planmarshall.mcpd");
-    private static final List<String> BOOTSTRAP = List.of("launchctl", "bootstrap", "gui/501", LAUNCH_AGENT.toString());
+    private final long uid = Generators.integers(500, 60_000).next();
+    private final String user = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    // Fixture paths: where launchd and systemd keep the per-user unit
+    private final Path launchAgent = Path.of("/Users/" + user + "/Library/LaunchAgents/" + LABEL + ".plist");
+    private final Path systemdUnit = Path.of("/home/" + user + "/.config/systemd/user/" + UNIT);
+    private final String output = Generators.letterStrings(3, 40).next();
+
+    private final List<String> bootout = List.of("launchctl", "bootout", "gui/" + uid + "/" + LABEL);
+    private final List<String> bootstrap = List.of("launchctl", "bootstrap", "gui/" + uid, launchAgent.toString());
     private static final List<String> DAEMON_RELOAD = List.of("systemctl", "--user", "daemon-reload");
-    private static final List<String> ENABLE = List.of("systemctl", "--user", "enable", "--now", "pm-mcpd.service");
-    private static final List<String> DISABLE = List.of("systemctl", "--user", "disable", "pm-mcpd.service");
-    private static final List<String> STOP = List.of("systemctl", "--user", "stop", "pm-mcpd.service");
+    private static final List<String> ENABLE = List.of("systemctl", "--user", "enable", "--now", UNIT);
+    private static final List<String> DISABLE = List.of("systemctl", "--user", "disable", UNIT);
+    private static final List<String> STOP = List.of("systemctl", "--user", "stop", UNIT);
+
+    /** @return a generated failing exit code that is none of the given ones */
+    private static int failingExitCode(Set<Integer> excluded) {
+        int exitCode;
+        do {
+            exitCode = Generators.integers(1, 255).next();
+        } while (excluded.contains(exitCode));
+        return exitCode;
+    }
 
     @Nested
     @DisplayName("launchd")
     class Launchd {
 
+        /** Contract literals: the exit codes of bootout that mean the job is not loaded. */
+        private static final Set<Integer> NOT_LOADED = Set.of(3, 113);
+
         private final RecordingProcessCall call = new RecordingProcessCall();
-        private final ServiceManager manager = new LaunchdServiceManager(call, UID);
+        private final ServiceManager manager = new LaunchdServiceManager(call, uid);
 
         @Test
         @DisplayName("boots an existing job out and bootstraps the LaunchAgent into the GUI domain on load")
         void shouldLoad() {
-            manager.load(LAUNCH_AGENT);
+            manager.load(launchAgent);
 
-            assertEquals(List.of(BOOTOUT, BOOTSTRAP), call.commands());
+            assertEquals(List.of(bootout, bootstrap), call.commands(), "the load must boot out, then bootstrap");
         }
 
         @ParameterizedTest(name = "bootout exit code {0}")
         @ValueSource(ints = {3, 113})
-        @DisplayName("treats a job that is not loaded as success on a reinstall")
+        @DisplayName("treats a job that is not loaded as success on a reinstall (the specified exit codes)")
         void shouldLoadWhenNotLoaded(int exitCode) {
-            call.thenAnswer(exitCode, "Boot-out failed: No such process");
+            call.thenAnswer(exitCode, output);
 
-            manager.load(LAUNCH_AGENT);
+            manager.load(launchAgent);
 
-            assertEquals(List.of(BOOTOUT, BOOTSTRAP), call.commands());
+            assertEquals(List.of(bootout, bootstrap), call.commands(), "a job not loaded must still be bootstrapped");
         }
 
         @Test
         @DisplayName("fails the load when bootstrap exits non-zero, naming the command and its output")
         void shouldFailOnBootstrap() {
-            call.thenAnswer(0, "").thenAnswer(5, "Bootstrap failed: 5: Input/output error\n");
+            var exitCode = failingExitCode(Set.of());
+            call.thenAnswer(0, "").thenAnswer(exitCode, output + "\n");
 
-            var thrown = assertThrows(ServiceUnitException.class, () -> manager.load(LAUNCH_AGENT));
+            var thrown = assertThrows(ServiceUnitException.class, () -> manager.load(launchAgent),
+                    "a failing bootstrap must fail the load");
 
-            assertEquals("Command 'launchctl bootstrap gui/501 " + LAUNCH_AGENT
-                    + "' exited with 5: Bootstrap failed: 5: Input/output error", thrown.getMessage());
+            assertEquals("Command 'launchctl bootstrap gui/" + uid + " " + launchAgent + "' exited with " + exitCode
+                    + ": " + output, thrown.getMessage(), "the failure must name the command and output");
         }
 
         @Test
         @DisplayName("fails the load without bootstrapping when bootout exits with another code")
         void shouldFailOnBootout() {
-            call.thenAnswer(1, "Boot-out failed: 1: Operation not permitted");
+            var exitCode = failingExitCode(NOT_LOADED);
+            call.thenAnswer(exitCode, output);
 
-            var thrown = assertThrows(ServiceUnitException.class, () -> manager.load(LAUNCH_AGENT));
+            var thrown = assertThrows(ServiceUnitException.class, () -> manager.load(launchAgent),
+                    "a failing bootout must fail the load");
 
             assertAll(
                     () -> assertTrue(thrown.getMessage().startsWith(
-                                    "Command 'launchctl bootout gui/501/de.planmarshall.mcpd' exited with 1"),
-                            thrown.getMessage()),
-                    () -> assertEquals(List.of(BOOTOUT), call.commands()));
+                            "Command 'launchctl bootout gui/" + uid + "/" + LABEL + "' exited with " + exitCode),
+                            "the failure must name the bootout command"),
+                    () -> assertEquals(List.of(bootout), call.commands(), "no bootstrap after a failing bootout"));
         }
 
         @Test
         @DisplayName("issues no command on disable, since removing the LaunchAgent disables the job")
         void shouldDisableWithoutCommand() {
-            manager.disable(LAUNCH_AGENT);
+            manager.disable(launchAgent);
 
-            assertEquals(List.of(), call.commands());
+            assertEquals(List.of(), call.commands(), "the disable must issue no launchd command");
         }
 
         @Test
         @DisplayName("boots the job out on unload")
         void shouldUnload() {
-            manager.unload(LAUNCH_AGENT);
+            manager.unload(launchAgent);
 
-            assertEquals(List.of(BOOTOUT), call.commands());
+            assertEquals(List.of(bootout), call.commands(), "the unload must boot the job out");
         }
 
         @ParameterizedTest(name = "bootout exit code {0}")
         @ValueSource(ints = {3, 113})
-        @DisplayName("treats a job that is not loaded as success on unload")
+        @DisplayName("treats a job that is not loaded as success on unload (the specified exit codes)")
         void shouldUnloadWhenNotLoaded(int exitCode) {
-            call.thenAnswer(exitCode, "Boot-out failed: No such process");
+            call.thenAnswer(exitCode, output);
 
-            assertDoesNotThrow(() -> manager.unload(LAUNCH_AGENT));
+            assertDoesNotThrow(() -> manager.unload(launchAgent), "a job not loaded must unload without failure");
         }
 
         @Test
         @DisplayName("passes on a command that cannot be started")
         void shouldPassOnStartFailure() {
-            var failure = new ServiceUnitException("Command 'launchctl bootout' could not run");
+            var failure = new ServiceUnitException(Generators.letterStrings(3, 40).next());
             call.thenFail(failure);
 
-            var thrown = assertThrows(ServiceUnitException.class, () -> manager.unload(LAUNCH_AGENT));
+            var thrown = assertThrows(ServiceUnitException.class, () -> manager.unload(launchAgent),
+                    "a command that cannot start must fail the unload");
 
-            assertSame(failure, thrown);
+            assertSame(failure, thrown, "the start failure must be passed on unchanged");
         }
     }
 
@@ -138,86 +169,96 @@ class ServiceManagerTest {
     @DisplayName("systemd")
     class Systemd {
 
+        /** Contract literal: the exit code of stop that means the unit is not loaded. */
+        private static final int NOT_LOADED = 5;
+
         private final RecordingProcessCall call = new RecordingProcessCall();
         private final ServiceManager manager = new SystemdServiceManager(call);
 
         @Test
         @DisplayName("reloads the user manager and enables and starts the unit on load")
         void shouldLoad() {
-            manager.load(SYSTEMD_UNIT);
+            manager.load(systemdUnit);
 
-            assertEquals(List.of(DAEMON_RELOAD, ENABLE), call.commands());
+            assertEquals(List.of(DAEMON_RELOAD, ENABLE), call.commands(), "the load must reload, then enable");
         }
 
         @Test
         @DisplayName("fails the load when enable exits non-zero, naming the command and its output")
         void shouldFailOnEnable() {
-            call.thenAnswer(0, "").thenAnswer(1, "Failed to enable unit: Unit file pm-mcpd.service does not exist.");
+            var exitCode = failingExitCode(Set.of());
+            call.thenAnswer(0, "").thenAnswer(exitCode, output);
 
-            var thrown = assertThrows(ServiceUnitException.class, () -> manager.load(SYSTEMD_UNIT));
+            var thrown = assertThrows(ServiceUnitException.class, () -> manager.load(systemdUnit),
+                    "a failing enable must fail the load");
 
-            assertEquals("Command 'systemctl --user enable --now pm-mcpd.service' exited with 1: "
-                    + "Failed to enable unit: Unit file pm-mcpd.service does not exist.", thrown.getMessage());
+            assertEquals("Command 'systemctl --user enable --now " + UNIT + "' exited with " + exitCode + ": "
+                    + output, thrown.getMessage(), "the failure must name the command and output");
         }
 
         @Test
         @DisplayName("fails the load without enabling when daemon-reload exits non-zero")
         void shouldFailOnDaemonReload() {
-            call.thenAnswer(1, "Failed to connect to bus");
+            call.thenAnswer(failingExitCode(Set.of()), output);
 
-            assertThrows(ServiceUnitException.class, () -> manager.load(SYSTEMD_UNIT));
+            assertThrows(ServiceUnitException.class, () -> manager.load(systemdUnit),
+                    "a failing daemon-reload must fail the load");
 
-            assertEquals(List.of(DAEMON_RELOAD), call.commands());
+            assertEquals(List.of(DAEMON_RELOAD), call.commands(), "no enable after a failing daemon-reload");
         }
 
         @Test
         @DisplayName("disables the unit without stopping it")
         void shouldDisable() {
-            manager.disable(SYSTEMD_UNIT);
+            manager.disable(systemdUnit);
 
-            assertEquals(List.of(DISABLE), call.commands());
+            assertEquals(List.of(DISABLE), call.commands(), "the disable must not stop the unit");
         }
 
         @Test
         @DisplayName("fails the disable when it exits non-zero")
         void shouldFailOnDisable() {
-            call.thenAnswer(1, "Failed to disable unit");
+            call.thenAnswer(failingExitCode(Set.of()), output);
 
-            var thrown = assertThrows(ServiceUnitException.class, () -> manager.disable(SYSTEMD_UNIT));
+            var thrown = assertThrows(ServiceUnitException.class, () -> manager.disable(systemdUnit),
+                    "a failing disable must fail");
 
-            assertTrue(thrown.getMessage().startsWith("Command 'systemctl --user disable pm-mcpd.service'"),
-                    thrown.getMessage());
+            assertTrue(thrown.getMessage().startsWith("Command 'systemctl --user disable " + UNIT + "'"),
+                    "the failure must name the disable command");
         }
 
         @Test
         @DisplayName("stops the unit and reloads the user manager on unload")
         void shouldUnload() {
-            manager.unload(SYSTEMD_UNIT);
+            manager.unload(systemdUnit);
 
-            assertEquals(List.of(STOP, DAEMON_RELOAD), call.commands());
+            assertEquals(List.of(STOP, DAEMON_RELOAD), call.commands(), "the unload must stop, then reload");
         }
 
         @Test
-        @DisplayName("treats a unit that is not loaded as success on unload")
+        @DisplayName("treats a unit that is not loaded as success on unload (the specified exit code 5)")
         void shouldUnloadWhenNotLoaded() {
-            call.thenAnswer(5, "Failed to stop pm-mcpd.service: Unit pm-mcpd.service not loaded.");
+            call.thenAnswer(NOT_LOADED, output);
 
-            manager.unload(SYSTEMD_UNIT);
+            manager.unload(systemdUnit);
 
-            assertEquals(List.of(STOP, DAEMON_RELOAD), call.commands());
+            assertEquals(List.of(STOP, DAEMON_RELOAD), call.commands(), "a unit not loaded must still be reloaded");
         }
 
         @Test
         @DisplayName("fails the unload when stop exits with another code")
         void shouldFailOnStop() {
-            call.thenAnswer(1, "Job for pm-mcpd.service failed");
+            var exitCode = failingExitCode(Set.of(NOT_LOADED));
+            call.thenAnswer(exitCode, output);
 
-            var thrown = assertThrows(ServiceUnitException.class, () -> manager.unload(SYSTEMD_UNIT));
+            var thrown = assertThrows(ServiceUnitException.class, () -> manager.unload(systemdUnit),
+                    "a failing stop must fail the unload");
 
             assertAll(
                     () -> assertTrue(thrown.getMessage().startsWith(
-                            "Command 'systemctl --user stop pm-mcpd.service' exited with 1"), thrown.getMessage()),
-                    () -> assertEquals(List.of(STOP), call.commands()));
+                            "Command 'systemctl --user stop " + UNIT + "' exited with " + exitCode),
+                            "the failure must name the stop command"),
+                    () -> assertEquals(List.of(STOP), call.commands(), "no reload after a failing stop"));
         }
     }
 
@@ -228,33 +269,36 @@ class ServiceManagerTest {
         @Test
         @DisplayName("is launchd for the launchd platform")
         void shouldBeLaunchd() {
-            var manager = ServiceManager.forPlatform(Platform.LAUNCHD, new RecordingProcessCall(), UID);
+            var manager = ServiceManager.forPlatform(Platform.LAUNCHD, new RecordingProcessCall(), uid);
 
-            assertInstanceOf(LaunchdServiceManager.class, manager);
+            assertInstanceOf(LaunchdServiceManager.class, manager, "launchd must get the launchd manager");
         }
 
         @Test
         @DisplayName("is systemd for the systemd platform")
         void shouldBeSystemd() {
-            var manager = ServiceManager.forPlatform(Platform.SYSTEMD, new RecordingProcessCall(), UID);
+            var manager = ServiceManager.forPlatform(Platform.SYSTEMD, new RecordingProcessCall(), uid);
 
-            assertInstanceOf(SystemdServiceManager.class, manager);
+            assertInstanceOf(SystemdServiceManager.class, manager, "systemd must get the systemd manager");
         }
 
         @Test
         @DisplayName("names the user id in the launchd GUI domain")
         void shouldUseUid() {
             var call = new RecordingProcessCall();
+            var otherUid = uid + Generators.integers(1, 1000).next();
 
-            ServiceManager.forPlatform(Platform.LAUNCHD, call, 1234).unload(LAUNCH_AGENT);
+            ServiceManager.forPlatform(Platform.LAUNCHD, call, otherUid).unload(launchAgent);
 
-            assertEquals(List.of(List.of("launchctl", "bootout", "gui/1234/de.planmarshall.mcpd")), call.commands());
+            assertEquals(List.of(List.of("launchctl", "bootout", "gui/" + otherUid + "/" + LABEL)), call.commands(),
+                    "the GUI domain must name the given user id");
         }
 
         @Test
         @DisplayName("refuses a missing process call")
         void shouldRefuseNullCall() {
-            assertThrows(NullPointerException.class, () -> ServiceManager.forPlatform(Platform.SYSTEMD, null, UID));
+            assertThrows(NullPointerException.class, () -> ServiceManager.forPlatform(Platform.SYSTEMD, null, uid),
+                    "a missing process call must be refused");
         }
     }
 }
