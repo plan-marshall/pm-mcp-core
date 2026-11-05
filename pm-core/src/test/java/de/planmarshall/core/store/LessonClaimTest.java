@@ -52,12 +52,13 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
 @DisplayName("Lesson claim")
 class LessonClaimTest {
 
-    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
     private static final Instant NOW = CLOCK.instant();
     private static final LessonId LESSON_ID = new LessonId("2026-11-02-09-001");
-    private static final String PLAN_A = "plan-a-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String PLAN_B = "plan-b-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+
+    private String project;
+    private String planA;
+    private String planB;
 
     @TempDir
     Path base;
@@ -80,7 +81,10 @@ class LessonClaimTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        lessons = JournalScope.lessons(base, PROJECT);
+        project = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        planA = "plan-a-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        planB = "plan-b-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        lessons = JournalScope.lessons(base, project);
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
@@ -112,7 +116,7 @@ class LessonClaimTest {
     }
 
     private Path expectedPath() {
-        return LockKey.projectStore(base, PROJECT).resolve("lessons").resolve(LESSON_ID.fileName());
+        return LockKey.projectStore(base, project).resolve("lessons").resolve(LESSON_ID.fileName());
     }
 
     private void acceptEdit() {
@@ -128,11 +132,11 @@ class LessonClaimTest {
             case UNCLAIMED -> create();
             case CLAIMED_BY_A -> {
                 create();
-                run(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
+                run(write -> store.claim(write, LESSON_ID, planA, NOW));
             }
             case CLAIMED_BY_B -> {
                 create();
-                run(write -> store.claim(write, LESSON_ID, PLAN_B, NOW));
+                run(write -> store.claim(write, LESSON_ID, planB, NOW));
             }
             case RETIRED -> {
                 create();
@@ -195,16 +199,17 @@ class LessonClaimTest {
         void setsTheClaim() {
             create();
 
-            var outcome = inTransaction(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = inTransaction(write -> store.claim(write, LESSON_ID, planA, NOW));
 
-            var claimed = assertInstanceOf(LessonResolution.Claimed.class, outcome);
+            var claimed = assertInstanceOf(LessonResolution.Claimed.class, outcome,
+                    "an unclaimed lesson is claimed");
             var claim = claimed.lesson().frontMatter().claim();
-            assertAll(
-                    () -> assertEquals(PLAN_A, claim.planId(), "the claim names the plan"),
+            assertAll("a claim sets the plan and instant from the file",
+                    () -> assertEquals(planA, claim.planId(), "the claim names the plan"),
                     () -> assertEquals(NOW, claim.claimedAt(), "the claim carries the instant"),
                     () -> assertEquals(Status.ACTIVE, claimed.lesson().frontMatter().status(),
                             "the status stays active"),
-                    () -> assertEquals(PLAN_A, readFound().frontMatter().claim().planId(),
+                    () -> assertEquals(planA, readFound().frontMatter().claim().planId(),
                             "the claim is recorded"));
         }
 
@@ -215,13 +220,13 @@ class LessonClaimTest {
             arrange(state);
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, planA, NOW));
 
             switch (state) {
                 case UNCLAIMED -> assertInstanceOf(LessonResolution.Claimed.class, outcome,
                         "an unclaimed lesson is claimed");
-                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
-                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, PLAN_B);
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, planA);
+                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, planB);
                 case RETIRED -> refused(outcome, Refusal.RETIRED, null);
                 default -> refused(outcome, resolutionRefusal(state), null);
             }
@@ -237,13 +242,13 @@ class LessonClaimTest {
             arrange(state);
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, PLAN_B, NOW));
+            var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, planB, NOW));
 
             switch (state) {
                 case UNCLAIMED -> assertInstanceOf(LessonResolution.Claimed.class, outcome,
                         "an unclaimed lesson is claimed");
-                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
-                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, PLAN_B);
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, planA);
+                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, planB);
                 case RETIRED -> refused(outcome, Refusal.RETIRED, null);
                 default -> refused(outcome, resolutionRefusal(state), null);
             }
@@ -261,12 +266,13 @@ class LessonClaimTest {
         @DisplayName("clears the claim and leaves the lesson active")
         void clearsTheClaim() {
             create();
-            run(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
+            run(write -> store.claim(write, LESSON_ID, planA, NOW));
 
-            var outcome = inTransaction(write -> store.release(write, LESSON_ID, PLAN_A));
+            var outcome = inTransaction(write -> store.release(write, LESSON_ID, planA));
 
-            var released = assertInstanceOf(LessonResolution.Released.class, outcome);
-            assertAll(
+            var released = assertInstanceOf(LessonResolution.Released.class, outcome,
+                    "the plan's own claim is released");
+            assertAll("a release clears the claim and leaves the lesson active",
                     () -> assertNull(released.lesson().frontMatter().claim(), "the claim is cleared"),
                     () -> assertEquals(Status.ACTIVE, released.lesson().frontMatter().status(),
                             "the lesson is not retired"),
@@ -279,11 +285,12 @@ class LessonClaimTest {
             inTransaction(write -> store.create(write, LESSON_ID,
                     LessonFixtures.newLesson()
                             .audience(LessonFrontMatter.Audience.UPSTREAM).build(), CLOCK));
-            run(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
+            run(write -> store.claim(write, LESSON_ID, planA, NOW));
 
-            var outcome = inTransaction(write -> store.release(write, LESSON_ID, PLAN_A));
+            var outcome = inTransaction(write -> store.release(write, LESSON_ID, planA));
 
-            var released = assertInstanceOf(LessonResolution.Released.class, outcome);
+            var released = assertInstanceOf(LessonResolution.Released.class, outcome,
+                    "the plan's own claim is released");
             assertEquals(Status.UPSTREAM_PENDING, released.lesson().frontMatter().status(),
                     "a release does not retire and does not reclassify");
         }
@@ -295,13 +302,13 @@ class LessonClaimTest {
             arrange(state);
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.release(write, LESSON_ID, PLAN_A));
+            var outcome = withoutCommit(write -> store.release(write, LESSON_ID, planA));
 
             switch (state) {
                 case CLAIMED_BY_A -> assertInstanceOf(LessonResolution.Released.class, outcome,
                         "the plan's own claim is released");
                 case UNCLAIMED -> refused(outcome, Refusal.UNCLAIMED, null);
-                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, PLAN_B);
+                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, planB);
                 case RETIRED -> refused(outcome, Refusal.RETIRED, null);
                 default -> refused(outcome, resolutionRefusal(state), null);
             }
@@ -317,13 +324,13 @@ class LessonClaimTest {
             arrange(state);
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.release(write, LESSON_ID, PLAN_B));
+            var outcome = withoutCommit(write -> store.release(write, LESSON_ID, planB));
 
             switch (state) {
                 case CLAIMED_BY_B -> assertInstanceOf(LessonResolution.Released.class, outcome,
                         "the plan's own claim is released");
                 case UNCLAIMED -> refused(outcome, Refusal.UNCLAIMED, null);
-                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, planA);
                 case RETIRED -> refused(outcome, Refusal.RETIRED, null);
                 default -> refused(outcome, resolutionRefusal(state), null);
             }
@@ -341,15 +348,16 @@ class LessonClaimTest {
         @DisplayName("retires with the verdict applied by the plan and clears the claim")
         void applied() {
             create();
-            run(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
+            run(write -> store.claim(write, LESSON_ID, planA, NOW));
 
-            var outcome = inTransaction(write -> store.endClaimApplied(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = inTransaction(write -> store.endClaimApplied(write, LESSON_ID, planA, NOW));
 
-            var retired = assertInstanceOf(LessonResolution.Retired.class, outcome);
+            var retired = assertInstanceOf(LessonResolution.Retired.class, outcome,
+                    "the claim ends with a retirement");
             var retirement = retired.lesson().frontMatter().retired();
-            assertAll(
+            assertAll("the end of a claim retires with the applied verdict",
                     () -> assertEquals(Verdict.APPLIED, retirement.verdict(), "the verdict is applied"),
-                    () -> assertEquals(PLAN_A, retirement.by(), "the plan is the author"),
+                    () -> assertEquals(planA, retirement.by(), "the plan is the author"),
                     () -> assertEquals(NOW, retirement.at(), "the instant is the one given"),
                     () -> assertEquals(LessonStore.END_OF_CLAIM_REASON, retirement.reason(),
                             "the reason states the landing"),
@@ -359,7 +367,7 @@ class LessonClaimTest {
                             "the claim is cleared and the plan stays in retired.by"),
                     () -> assertEquals(Status.RETIRED, retired.lesson().frontMatter().status(),
                             "the lesson is retired"),
-                    () -> assertEquals(PLAN_A, readFound().frontMatter().retired().by(),
+                    () -> assertEquals(planA, readFound().frontMatter().retired().by(),
                             "reach is derivable from retired.by"));
         }
 
@@ -367,13 +375,13 @@ class LessonClaimTest {
         @DisplayName("a second call after the end is a no-op that reports the retirement")
         void repeatedIsANoOp() {
             create();
-            run(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
-            run(write -> store.endClaimApplied(write, LESSON_ID, PLAN_A, NOW));
+            run(write -> store.claim(write, LESSON_ID, planA, NOW));
+            run(write -> store.endClaimApplied(write, LESSON_ID, planA, NOW));
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, planA, NOW));
 
-            assertAll(
+            assertAll("a repeated end reports the retirement and writes nothing",
                     () -> assertInstanceOf(LessonResolution.Retired.class, outcome,
                             "a repeated end reports the retirement"),
                     () -> assertUnchanged(before));
@@ -383,10 +391,10 @@ class LessonClaimTest {
         @DisplayName("after a release changes nothing and reports that no claim is held")
         void afterRelease() {
             create();
-            run(write -> store.claim(write, LESSON_ID, PLAN_A, NOW));
-            run(write -> store.release(write, LESSON_ID, PLAN_A));
+            run(write -> store.claim(write, LESSON_ID, planA, NOW));
+            run(write -> store.release(write, LESSON_ID, planA));
 
-            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, planA, NOW));
 
             refused(outcome, Refusal.UNCLAIMED, null);
         }
@@ -397,7 +405,7 @@ class LessonClaimTest {
             create();
             run(write -> store.retire(write, LESSON_ID, LessonFixtures.retirement(Verdict.OBSOLETE).build()));
 
-            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, planA, NOW));
 
             refused(outcome, Refusal.RETIRED, null);
         }
@@ -409,13 +417,13 @@ class LessonClaimTest {
             arrange(state);
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, PLAN_A, NOW));
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, planA, NOW));
 
             switch (state) {
                 case CLAIMED_BY_A -> assertInstanceOf(LessonResolution.Retired.class, outcome,
                         "the plan's own claim is retired applied");
                 case UNCLAIMED -> refused(outcome, Refusal.UNCLAIMED, null);
-                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, PLAN_B);
+                case CLAIMED_BY_B -> refused(outcome, Refusal.CLAIMED, planB);
                 case RETIRED -> refused(outcome, Refusal.RETIRED, null);
                 default -> refused(outcome, resolutionRefusal(state), null);
             }
@@ -431,13 +439,13 @@ class LessonClaimTest {
             arrange(state);
             var before = bytesOrNull();
 
-            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, PLAN_B, NOW));
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, LESSON_ID, planB, NOW));
 
             switch (state) {
                 case CLAIMED_BY_B -> assertInstanceOf(LessonResolution.Retired.class, outcome,
                         "the plan's own claim is retired applied");
                 case UNCLAIMED -> refused(outcome, Refusal.UNCLAIMED, null);
-                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, PLAN_A);
+                case CLAIMED_BY_A -> refused(outcome, Refusal.CLAIMED, planA);
                 case RETIRED -> refused(outcome, Refusal.RETIRED, null);
                 default -> refused(outcome, resolutionRefusal(state), null);
             }

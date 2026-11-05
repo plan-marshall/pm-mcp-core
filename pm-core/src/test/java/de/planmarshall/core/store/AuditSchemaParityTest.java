@@ -120,10 +120,13 @@ class AuditSchemaParityTest {
         void members() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertFalse(AuditSchemaParityTest.members(schema).isEmpty()),
-                    () -> assertEquals(AuditCodec.RECORD_FIELDS, AuditSchemaParityTest.members(schema)),
-                    () -> assertEquals(AuditCodec.RECORD_REQUIRED, required(schema)));
+            assertAll("codec fields match the schema members",
+                    () -> assertFalse(AuditSchemaParityTest.members(schema).isEmpty(),
+                            "the schema has at least one member"),
+                    () -> assertEquals(AuditCodec.RECORD_FIELDS, AuditSchemaParityTest.members(schema),
+                            "the record fields are the schema members in order"),
+                    () -> assertEquals(AuditCodec.RECORD_REQUIRED, required(schema),
+                            "the required record fields match the schema"));
         }
 
         @Test
@@ -131,10 +134,13 @@ class AuditSchemaParityTest {
         void enums() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertEquals(enumOf(schema, "category"), wireNames(Category.values(), Category::wireName)),
-                    () -> assertEquals(enumOf(schema, "outcome"), wireNames(Outcome.values(), Outcome::wireName)),
-                    () -> assertEquals(enumOf(schema, "scope_type"), wireNames(Scope.values(), Scope::wireName)));
+            assertAll("enums have the schema's values",
+                    () -> assertEquals(enumOf(schema, "category"), wireNames(Category.values(), Category::wireName),
+                            "the category values are the schema's"),
+                    () -> assertEquals(enumOf(schema, "outcome"), wireNames(Outcome.values(), Outcome::wireName),
+                            "the outcome values are the schema's"),
+                    () -> assertEquals(enumOf(schema, "scope_type"), wireNames(Scope.values(), Scope::wireName),
+                            "the scope type values are the schema's"));
         }
 
         @Test
@@ -142,10 +148,13 @@ class AuditSchemaParityTest {
         void forms() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertEquals(pattern(schema, "event_id"), anchored(AuditRecord.EVENT_ID)),
-                    () -> assertEquals(pattern(schema, "prev_hash"), anchored(AuditRecord.HASH)),
-                    () -> assertEquals(AuditRecord.FORMAT_VERSION, formatVersion(schema)));
+            assertAll("id, hash and format version forms match",
+                    () -> assertEquals(pattern(schema, "event_id"), anchored(AuditRecord.EVENT_ID),
+                            "the event id pattern is the schema's"),
+                    () -> assertEquals(pattern(schema, "prev_hash"), anchored(AuditRecord.HASH),
+                            "the prev_hash pattern is the schema's"),
+                    () -> assertEquals(AuditRecord.FORMAT_VERSION, formatVersion(schema),
+                            "the format version is the schema's"));
         }
 
         @Test
@@ -166,7 +175,7 @@ class AuditSchemaParityTest {
                             + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next()));
             var validator = validator(ANCHOR);
 
-            assertAll(
+            assertAll("written records are valid against the schema",
                     () -> assertValid(validator, AuditCodec.writeRecord(scoped)),
                     () -> assertValid(validator, AuditCodec.writeRecord(machine)),
                     () -> assertValid(validator, AuditCodec.writeRecord(entry)));
@@ -184,9 +193,11 @@ class AuditSchemaParityTest {
         void members() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertEquals(AuditCodec.HEAD_FIELDS, AuditSchemaParityTest.members(schema)),
-                    () -> assertEquals(AuditCodec.HEAD_FIELDS, required(schema)));
+            assertAll("head fields match the schema members",
+                    () -> assertEquals(AuditCodec.HEAD_FIELDS, AuditSchemaParityTest.members(schema),
+                            "the head fields are the schema members in order"),
+                    () -> assertEquals(AuditCodec.HEAD_FIELDS, required(schema),
+                            "every head field is required by the schema"));
         }
 
         @Test
@@ -194,12 +205,17 @@ class AuditSchemaParityTest {
         void forms() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertEquals(AuditHeadRecord.CURRENT_LOG_FILE, member(schema, "file").get("const")),
-                    () -> assertEquals(pattern(schema, "head_hash"), anchored(AuditRecord.HASH)),
-                    () -> assertEquals(pattern(schema, "index_head_hash"), anchored(AuditRecord.HASH)),
-                    () -> assertEquals(pattern(schema, "hmac"), anchored(AuditRecord.HASH)),
-                    () -> assertEquals(AuditHeadRecord.FORMAT_VERSION, formatVersion(schema)));
+            assertAll("head forms and file match the schema",
+                    () -> assertEquals(AuditHeadRecord.CURRENT_LOG_FILE, member(schema, "file").get("const"),
+                            "the file is the current log file"),
+                    () -> assertEquals(pattern(schema, "head_hash"), anchored(AuditRecord.HASH),
+                            "the head_hash pattern is the schema's"),
+                    () -> assertEquals(pattern(schema, "index_head_hash"), anchored(AuditRecord.HASH),
+                            "the index head hash pattern is the schema's"),
+                    () -> assertEquals(pattern(schema, "hmac"), anchored(AuditRecord.HASH),
+                            "the hmac pattern is the schema's"),
+                    () -> assertEquals(AuditHeadRecord.FORMAT_VERSION, formatVersion(schema),
+                            "the format version is the schema's"));
         }
 
         @Test
@@ -207,7 +223,7 @@ class AuditSchemaParityTest {
         void valid() {
             var validator = validator(ANCHOR);
 
-            assertAll(
+            assertAll("written heads are valid against the schema",
                     () -> assertValid(validator,
                             AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE,
                                     Generators.longs(1, 1_000).next(), EVENT_ID, HASH, AuditCodec.GENESIS_HASH,
@@ -229,9 +245,11 @@ class AuditSchemaParityTest {
         void members() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertEquals(AuditCodec.INDEX_FIELDS, AuditSchemaParityTest.members(schema)),
-                    () -> assertEquals(AuditCodec.INDEX_FIELDS, required(schema)));
+            assertAll("index fields match the schema members",
+                    () -> assertEquals(AuditCodec.INDEX_FIELDS, AuditSchemaParityTest.members(schema),
+                            "the index fields are the schema members in order"),
+                    () -> assertEquals(AuditCodec.INDEX_FIELDS, required(schema),
+                            "every index field is required by the schema"));
         }
 
         @Test
@@ -239,12 +257,17 @@ class AuditSchemaParityTest {
         void forms() {
             var schema = schema(ANCHOR);
 
-            assertAll(
-                    () -> assertEquals(pattern(schema, "file"), anchored(AuditIndexEntry.ROTATED_FILE_FORM)),
-                    () -> assertEquals(pattern(schema, "prev_hash"), anchored(AuditRecord.HASH)),
-                    () -> assertEquals(pattern(schema, "checkpoint_hash"), anchored(AuditRecord.HASH)),
-                    () -> assertEquals(1, ((Number) member(schema, "record_count").get("minimum")).intValue()),
-                    () -> assertEquals(AuditIndexEntry.FORMAT_VERSION, formatVersion(schema)));
+            assertAll("index forms match the schema's patterns",
+                    () -> assertEquals(pattern(schema, "file"), anchored(AuditIndexEntry.ROTATED_FILE_FORM),
+                            "the rotated file pattern is the schema's"),
+                    () -> assertEquals(pattern(schema, "prev_hash"), anchored(AuditRecord.HASH),
+                            "the prev_hash pattern is the schema's"),
+                    () -> assertEquals(pattern(schema, "checkpoint_hash"), anchored(AuditRecord.HASH),
+                            "the checkpoint hash pattern is the schema's"),
+                    () -> assertEquals(1, ((Number) member(schema, "record_count").get("minimum")).intValue(),
+                            "the record count minimum is one"),
+                    () -> assertEquals(AuditIndexEntry.FORMAT_VERSION, formatVersion(schema),
+                            "the format version is the schema's"));
         }
 
         @Test

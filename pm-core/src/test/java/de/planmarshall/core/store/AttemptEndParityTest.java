@@ -37,7 +37,8 @@ class AttemptEndParityTest {
     @DisplayName("has the same wire names in the metrics row and in the queue task record")
     void wireNames() {
         assertEquals(wireNames(QueueTaskRecord.AttemptEnd.values(), value -> wireName(value)),
-                wireNames(AttemptEnd.values(), value -> wireName(value)));
+                wireNames(AttemptEnd.values(), value -> wireName(value)),
+                "Both vocabularies expose the same wire names");
     }
 
     private static String wireName(Enum<?> value) {

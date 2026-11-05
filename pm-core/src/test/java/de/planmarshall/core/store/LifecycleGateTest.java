@@ -24,6 +24,7 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -39,11 +40,9 @@ import de.planmarshall.core.store.ProjectEnrolment.Build;
  * the only other position exists for this test.
  */
 @EnableGeneratorController
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisplayName("Lifecycle gate")
 class LifecycleGateTest {
-
-    private static final Instant RELEASED_AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L)
-            .next());
 
     private static ProjectEnrolment enrolment(boolean pilot, Instant releasedAt) {
         var projectId = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
@@ -60,14 +59,15 @@ class LifecycleGateTest {
         assertFalse(LifecycleGate.RELEASE.isOpen(), "The released gate is closed");
     }
 
-    static Stream<Arguments> decisions() {
+    Stream<Arguments> decisions() {
+        var releasedAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
         return Stream.of(
                 Arguments.of("closed, not a pilot", false, false, null, Decision.LIFECYCLE_CLOSED),
                 Arguments.of("closed, pilot", false, true, null, Decision.ADMITTED),
-                Arguments.of("closed, released pilot", false, true, RELEASED_AT, Decision.LIFECYCLE_CLOSED),
+                Arguments.of("closed, released pilot", false, true, releasedAt, Decision.LIFECYCLE_CLOSED),
                 Arguments.of("open, not a pilot", true, false, null, Decision.ADMITTED),
                 Arguments.of("open, pilot", true, true, null, Decision.ADMITTED),
-                Arguments.of("open, released", true, false, RELEASED_AT, Decision.LIFECYCLE_CLOSED));
+                Arguments.of("open, released", true, false, releasedAt, Decision.LIFECYCLE_CLOSED));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -83,7 +83,7 @@ class LifecycleGateTest {
     @Test
     @DisplayName("the release gate refuses a non-pilot project and admits a pilot one")
     void releaseGate() {
-        assertAll(
+        assertAll("The released gate decides by pilot and release",
                 () -> assertEquals(Decision.LIFECYCLE_CLOSED, LifecycleGate.RELEASE.decide(enrolment(false, null)),
                         "A non-pilot project is refused while closed"),
                 () -> assertEquals(Decision.ADMITTED, LifecycleGate.RELEASE.decide(enrolment(true, null)),

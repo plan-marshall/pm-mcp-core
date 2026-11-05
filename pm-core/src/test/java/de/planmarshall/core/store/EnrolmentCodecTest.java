@@ -136,26 +136,39 @@ class EnrolmentCodecTest {
         void full() {
             var enrolment = read(FULL);
 
-            assertAll(
-                    () -> assertEquals(FULL, text(EnrolmentCodec.write(enrolment))),
-                    () -> assertEquals("pm-mcp-core", enrolment.projectId()),
-                    () -> assertTrue(enrolment.pilot()),
-                    () -> assertEquals(ContainerEngine.DOCKER, enrolment.containerEngine()),
-                    () -> assertFalse(enrolment.isReleased()),
-                    () -> assertEquals(WrapperName.PW, enrolment.wrappers().get(1).name()),
-                    () -> assertEquals(Interpreter.PYTHON3, enrolment.wrappers().get(1).interpreter()),
-                    () -> assertTrue(enrolment.wrappers().getFirst().pinnedFiles().get(1).mustBeAbsent()),
-                    () -> assertEquals(HostToolName.ASCIIDOCTOR, enrolment.hostTools().get(1).name()),
+            assertAll("the full document should round trip",
+                    () -> assertEquals(FULL, text(EnrolmentCodec.write(enrolment)),
+                            "The full document should be written back byte for byte"),
+                    () -> assertEquals("pm-mcp-core", enrolment.projectId(),
+                            "The project id should be read from the document"),
+                    () -> assertTrue(enrolment.pilot(), "The pilot flag should be read as true"),
+                    () -> assertEquals(ContainerEngine.DOCKER, enrolment.containerEngine(),
+                            "The container engine should be read as docker"),
+                    () -> assertFalse(enrolment.isReleased(),
+                            "An enrolment with no release should not be released"),
+                    () -> assertEquals(WrapperName.PW, enrolment.wrappers().get(1).name(),
+                            "The second wrapper should keep its wire name"),
+                    () -> assertEquals(Interpreter.PYTHON3, enrolment.wrappers().get(1).interpreter(),
+                            "The second wrapper should keep its interpreter"),
+                    () -> assertTrue(enrolment.wrappers().getFirst().pinnedFiles().get(1).mustBeAbsent(),
+                            "The unpinned file should be read as absent"),
+                    () -> assertEquals(HostToolName.ASCIIDOCTOR, enrolment.hostTools().get(1).name(),
+                            "The second host tool should keep its wire name"),
                     () -> assertEquals(List.of(new Argv.Literal("verify"), new Argv.Literal("-Pintegration-tests"),
                                     new Argv.ModuleGroup(List.of("-pl", "{module}"))),
                             enrolment.build().canonicalTemplates().get(BuildSystem.MAVEN).get("integration-tests")
-                                    .elements()),
+                                    .elements(),
+                            "The integration-tests template should keep its argv"),
                     () -> assertEquals(Argv.of("gh", "auth", "status", "--hostname", "github.com"),
-                            enrolment.providers().get(Provider.GH).verifyArgv()),
+                            enrolment.providers().get(Provider.GH).verifyArgv(),
+                            "The provider verification argv should be read in order"),
                     () -> assertEquals(WorkerKind.LOG_PARSER,
-                            enrolment.projectScripts().get("lint-report").binding().workerKind()),
-                    () -> assertEquals(900L, enrolment.commandBudgets().get("maven:verify@pm-core")),
-                    () -> assertEquals("-Xmx2g", enrolment.buildEnvironment().get("MAVEN_OPTS")));
+                            enrolment.projectScripts().get("lint-report").binding().workerKind(),
+                            "The script binding should name its worker kind"),
+                    () -> assertEquals(900L, enrolment.commandBudgets().get("maven:verify@pm-core"),
+                            "The command budget should be read as its number"),
+                    () -> assertEquals("-Xmx2g", enrolment.buildEnvironment().get("MAVEN_OPTS"),
+                            "The build environment should keep its value"));
         }
 
         @Test
@@ -163,15 +176,21 @@ class EnrolmentCodecTest {
         void argumentSchema() {
             var schema = read(FULL).projectScripts().get("lint-report").argumentSchema();
 
-            assertAll(
-                    () -> assertEquals(SchemaType.OBJECT, schema.type()),
-                    () -> assertTrue(schema.closed()),
-                    () -> assertEquals(List.of("level"), schema.required()),
+            assertAll("the argument schema should keep its keywords",
+                    () -> assertEquals(SchemaType.OBJECT, schema.type(),
+                            "The schema type should be read as object"),
+                    () -> assertTrue(schema.closed(), "The schema should be read as closed"),
+                    () -> assertEquals(List.of("level"), schema.required(),
+                            "The required list should hold the one name"),
                     () -> assertEquals(List.of(new TextValue("fast"), new NumberValue(new BigDecimal("2.5")),
-                            new BooleanValue(true)), schema.properties().get("mode").enumValues()),
-                    () -> assertEquals(new BigDecimal("100"), schema.properties().get("limit").maximum()),
-                    () -> assertEquals(32L, schema.properties().get("name").maxLength()),
-                    () -> assertNull(schema.properties().get("mode").type()));
+                            new BooleanValue(true)), schema.properties().get("mode").enumValues(),
+                            "The enum should keep values of every scalar kind"),
+                    () -> assertEquals(new BigDecimal("100"), schema.properties().get("limit").maximum(),
+                            "The maximum should be read as its number"),
+                    () -> assertEquals(32L, schema.properties().get("name").maxLength(),
+                            "The maxLength should be read as its number"),
+                    () -> assertNull(schema.properties().get("mode").type(),
+                            "A schema without a type should read as null"));
         }
 
         @Test
@@ -179,12 +198,15 @@ class EnrolmentCodecTest {
         void minimal() {
             var enrolment = read(MINIMAL);
 
-            assertAll(
-                    () -> assertFalse(enrolment.pilot()),
-                    () -> assertNull(enrolment.containerEngine()),
-                    () -> assertNull(enrolment.releasedAt()),
-                    () -> assertEquals(MINIMAL_CANONICAL, text(EnrolmentCodec.write(enrolment))),
-                    () -> assertEquals(enrolment, read(MINIMAL_CANONICAL)));
+            assertAll("the minimal document should take its defaults",
+                    () -> assertFalse(enrolment.pilot(), "An absent pilot flag should default to false"),
+                    () -> assertNull(enrolment.containerEngine(),
+                            "An absent container engine should default to null"),
+                    () -> assertNull(enrolment.releasedAt(), "An absent release instant should default to null"),
+                    () -> assertEquals(MINIMAL_CANONICAL, text(EnrolmentCodec.write(enrolment)),
+                            "The defaults should be written into the document"),
+                    () -> assertEquals(enrolment, read(MINIMAL_CANONICAL),
+                            "The canonical document should read back as the same record"));
         }
 
         @Test
@@ -200,7 +222,8 @@ class EnrolmentCodecTest {
                     full.providers(), full.projectScripts(), full.languageServers(), budgets, full.writePaths(),
                     full.buildEnvironment());
 
-            assertEquals(FULL, text(EnrolmentCodec.write(rebuilt)));
+            assertEquals(FULL, text(EnrolmentCodec.write(rebuilt)),
+                    "The same enrolment should be written as the same bytes");
         }
 
         @Test
@@ -208,9 +231,11 @@ class EnrolmentCodecTest {
         void released() {
             var enrolment = read(mutate(FULL, "\"released_at\":null", "\"released_at\":\"2026-10-12T09:30:00Z\""));
 
-            assertAll(
-                    () -> assertTrue(enrolment.isReleased()),
-                    () -> assertEquals(Instant.parse("2026-10-12T09:30:00Z"), enrolment.releasedAt()));
+            assertAll("a released enrolment should carry its instant",
+                    () -> assertTrue(enrolment.isReleased(),
+                            "An enrolment with a release should be released"),
+                    () -> assertEquals(Instant.parse("2026-10-12T09:30:00Z"), enrolment.releasedAt(),
+                            "The release instant should be read as given"));
         }
     }
 
@@ -242,11 +267,13 @@ class EnrolmentCodecTest {
         void undeclaredField(String level, String from, String to) {
             var document = mutate(FULL, from, to);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document),
+                    "An undeclared field should be refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(FILE, refusal.file()),
+            assertAll("an undeclared field at " + level + " is refused",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "The refusal should report an unreadable document"),
+                    () -> assertEquals(FILE, refusal.file(), "The refusal should name the enrolment file"),
                     () -> assertTrue(refusal.getMessage().startsWith(FILE.toString()), refusal.getMessage()));
         }
 
@@ -319,11 +346,13 @@ class EnrolmentCodecTest {
         void invalidValue(String name, String from, String to) {
             var document = mutate(FULL, from, to);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document),
+                    "A value outside the schema should be refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(FILE, refusal.file()));
+            assertAll("an invalid value is refused as unreadable",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "The refusal should report an unreadable document"),
+                    () -> assertEquals(FILE, refusal.file(), "The refusal should name the enrolment file"));
         }
     }
 
@@ -343,12 +372,16 @@ class EnrolmentCodecTest {
         void otherVersion(int version, Outcome outcome) {
             var document = mutate(FULL, "{\"format_version\":1,", "{\"format_version\":" + version + ",");
 
-            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document),
+                    "Another format version should be refused");
 
-            assertAll(
-                    () -> assertEquals(outcome, refusal.outcome()),
-                    () -> assertEquals(OptionalInt.of(version), refusal.found()),
-                    () -> assertEquals(ProjectEnrolment.FORMAT_VERSION, refusal.current()),
+            assertAll("another format version is refused",
+                    () -> assertEquals(outcome, refusal.outcome(),
+                            "The outcome should name the version relation"),
+                    () -> assertEquals(OptionalInt.of(version), refusal.found(),
+                            "The refusal should carry the version it found"),
+                    () -> assertEquals(ProjectEnrolment.FORMAT_VERSION, refusal.current(),
+                            "The refusal should carry the current version"),
                     () -> assertTrue(refusal.getMessage().startsWith(FILE + ": " + outcome.code()),
                             refusal.getMessage()));
         }
@@ -358,7 +391,9 @@ class EnrolmentCodecTest {
         void missingVersion() {
             var document = mutate(FULL, "{\"format_version\":1,", "{");
 
-            assertEquals(Outcome.UNREADABLE, assertThrows(StoreRefusal.class, () -> read(document)).outcome());
+            assertEquals(Outcome.UNREADABLE, assertThrows(StoreRefusal.class, () -> read(document),
+                    "A document without a version should be refused").outcome(),
+                    "The refusal should report an unreadable document");
         }
     }
 
@@ -369,28 +404,41 @@ class EnrolmentCodecTest {
         @Test
         @DisplayName("the defaults and factories of the record hold what they name")
         void factories() {
-            assertAll(
-                    () -> assertEquals(Map.of(), Build.defaults().canonicalTemplates()),
-                    () -> assertNull(ArgumentSchema.any().type()),
-                    () -> assertFalse(ArgumentSchema.any().closed()),
-                    () -> assertInstanceOf(Argv.Literal.class, Argv.of("verify").elements().getFirst()));
+            assertAll("the defaults and factories hold what they name",
+                    () -> assertEquals(Map.of(), Build.defaults().canonicalTemplates(),
+                            "The build defaults should hold no templates"),
+                    () -> assertNull(ArgumentSchema.any().type(),
+                            "An any schema should have no type"),
+                    () -> assertFalse(ArgumentSchema.any().closed(), "An any schema should be open"),
+                    () -> assertInstanceOf(Argv.Literal.class, Argv.of("verify").elements().getFirst(),
+                            "The argv factory should make literal elements"));
         }
 
         @Test
         @DisplayName("every closed enum is found by its wire name and nothing else")
         void wireNames() {
-            assertAll(
-                    () -> assertEquals(ContainerEngine.DOCKER, ContainerEngine.fromWireName("docker").orElseThrow()),
-                    () -> assertEquals(WrapperName.GRADLEW, WrapperName.fromWireName("gradlew").orElseThrow()),
-                    () -> assertEquals(HostToolName.NPX, HostToolName.fromWireName("npx").orElseThrow()),
-                    () -> assertEquals(Interpreter.RUBY, Interpreter.fromWireName("ruby").orElseThrow()),
-                    () -> assertEquals(BuildSystem.PYPROJECT, BuildSystem.fromWireName("pyproject").orElseThrow()),
-                    () -> assertEquals(Provider.GLAB, Provider.fromWireName("gitlab").orElseThrow()),
-                    () -> assertEquals("github", Provider.GH.wireName()),
+            assertAll("every closed enum is found by its wire name",
+                    () -> assertEquals(ContainerEngine.DOCKER, ContainerEngine.fromWireName("docker").orElseThrow(),
+                            "The docker wire name should find its enum"),
+                    () -> assertEquals(WrapperName.GRADLEW, WrapperName.fromWireName("gradlew").orElseThrow(),
+                            "The gradlew wire name should find its enum"),
+                    () -> assertEquals(HostToolName.NPX, HostToolName.fromWireName("npx").orElseThrow(),
+                            "The npx wire name should find its enum"),
+                    () -> assertEquals(Interpreter.RUBY, Interpreter.fromWireName("ruby").orElseThrow(),
+                            "The ruby wire name should find its enum"),
+                    () -> assertEquals(BuildSystem.PYPROJECT, BuildSystem.fromWireName("pyproject").orElseThrow(),
+                            "The pyproject wire name should find its enum"),
+                    () -> assertEquals(Provider.GLAB, Provider.fromWireName("gitlab").orElseThrow(),
+                            "The gitlab wire name should find its enum"),
+                    () -> assertEquals("github", Provider.GH.wireName(),
+                            "The GitHub constant should write its wire name"),
                     () -> assertEquals(WorkerKind.EDGE_RESOLVER,
-                            WorkerKind.fromWireName("edge_resolver").orElseThrow()),
-                    () -> assertEquals(SchemaType.NULL, SchemaType.fromWireName("null").orElseThrow()),
-                    () -> assertTrue(SchemaType.fromWireName("OBJECT").isEmpty()));
+                            WorkerKind.fromWireName("edge_resolver").orElseThrow(),
+                            "The edge_resolver wire name should find its enum"),
+                    () -> assertEquals(SchemaType.NULL, SchemaType.fromWireName("null").orElseThrow(),
+                            "The null wire name should find its enum"),
+                    () -> assertTrue(SchemaType.fromWireName("OBJECT").isEmpty(),
+                            "A wire name in another case should not be found"));
         }
 
         @Test
@@ -399,10 +447,13 @@ class EnrolmentCodecTest {
             var longest = "m".repeat(32) + ":" + "v".repeat(64) + "@" + "M".repeat(57);
             var tooLong = "m".repeat(32) + ":" + "v".repeat(65) + "@" + "M".repeat(57);
 
-            assertAll(
-                    () -> assertEquals(155, longest.length()),
-                    () -> assertEquals(1L, budgets(longest).commandBudgets().get(longest)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> budgets(tooLong)));
+            assertAll("the longest budget key is admitted alone",
+                    () -> assertEquals(155, longest.length(),
+                            "The longest key should be 155 characters"),
+                    () -> assertEquals(1L, budgets(longest).commandBudgets().get(longest),
+                            "A key of that length should be admitted"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> budgets(tooLong),
+                            "One character more should be refused"));
         }
 
         private ProjectEnrolment budgets(String key) {
@@ -426,10 +477,12 @@ class EnrolmentCodecTest {
         void roundTrip() {
             var sidecar = EnrolmentSidecar.read(SIDECAR, utf8(DOCUMENT));
 
-            assertAll(
-                    () -> assertEquals(new StoreDigest(12, SHA_A), sidecar.digest()),
-                    () -> assertEquals(SHA_B, sidecar.hmac()),
-                    () -> assertEquals(DOCUMENT, text(sidecar.write())));
+            assertAll("the sidecar should round trip byte for byte",
+                    () -> assertEquals(new StoreDigest(12, SHA_A), sidecar.digest(),
+                            "The digest should carry the recorded size and hash"),
+                    () -> assertEquals(SHA_B, sidecar.hmac(), "The HMAC should be read as recorded"),
+                    () -> assertEquals(DOCUMENT, text(sidecar.write()),
+                            "The sidecar should be written back byte for byte"));
         }
 
         @Test
@@ -438,9 +491,11 @@ class EnrolmentCodecTest {
             var content = utf8(FULL);
             var sidecar = new EnrolmentSidecar(StoreDigest.of(content), SHA_B);
 
-            assertAll(
-                    () -> assertTrue(sidecar.matches(content)),
-                    () -> assertFalse(sidecar.matches(utf8(FULL.replace("\"pilot\":true", "\"pilot\":fals")))));
+            assertAll("the recorded digest should match its content alone",
+                    () -> assertTrue(sidecar.matches(content),
+                            "The digest should match the content it was taken of"),
+                    () -> assertFalse(sidecar.matches(utf8(FULL.replace("\"pilot\":true", "\"pilot\":fals"))),
+                            "Another content should not match the digest"));
         }
 
         static Stream<Arguments> invalidSidecars() {
@@ -459,11 +514,13 @@ class EnrolmentCodecTest {
         void invalid(String name, String from, String to) {
             var document = utf8(mutate(DOCUMENT, from, to));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, document));
+            var refusal = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, document),
+                    "A sidecar outside its shape should be refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(SIDECAR, refusal.file()));
+            assertAll("an invalid sidecar is refused as unreadable",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "The refusal should report an unreadable document"),
+                    () -> assertEquals(SIDECAR, refusal.file(), "The refusal should name the sidecar file"));
         }
 
         @Test
@@ -472,13 +529,17 @@ class EnrolmentCodecTest {
             var newerDocument = utf8(mutate(DOCUMENT, "\"format_version\":1", "\"format_version\":2"));
             var outdatedDocument = utf8(mutate(DOCUMENT, "\"format_version\":1", "\"format_version\":0"));
 
-            var newer = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, newerDocument));
-            var outdated = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, outdatedDocument));
+            var newer = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, newerDocument),
+                    "A newer sidecar version should be refused");
+            var outdated = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, outdatedDocument),
+                    "An outdated sidecar version should be refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),
-                    () -> assertEquals(Outcome.FORMAT_OUTDATED, outdated.outcome()),
-                    () -> assertEquals(SIDECAR, newer.file()));
+            assertAll("another sidecar format version is refused",
+                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome(),
+                            "The newer version should be reported as newer"),
+                    () -> assertEquals(Outcome.FORMAT_OUTDATED, outdated.outcome(),
+                            "The outdated version should be reported as outdated"),
+                    () -> assertEquals(SIDECAR, newer.file(), "The refusal should name the sidecar file"));
         }
     }
 }

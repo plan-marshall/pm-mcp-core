@@ -26,6 +26,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -51,12 +52,12 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
 @DisplayName("Lesson revision")
 class LessonRevisionTest {
 
-    private static final String PROJECT = "pm-mcp-core";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
 
     @TempDir
     Path base;
 
+    private String project;
     private JournalScope lessons;
     private LessonStore store;
     private RecordingLockManager locks;
@@ -64,7 +65,8 @@ class LessonRevisionTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        lessons = JournalScope.lessons(base, PROJECT);
+        project = Generators.letterStrings(4, 12).next().toLowerCase(Locale.ROOT);
+        lessons = JournalScope.lessons(base, project);
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
@@ -113,14 +115,16 @@ class LessonRevisionTest {
         void wholeBody() {
             var lesson = create();
             var lessonId = lesson.frontMatter().lessonId();
-            var sources = List.of(new Source(Source.Kind.FINDING, LessonFixtures.text(), null));
+            var sources = List.of(LessonFixtures.source());
             var body = LessonFixtures.body();
             var at = CLOCK.instant().plusSeconds(Generators.integers(1, 120).next());
 
             var outcome = inTransaction(write -> store.revise(write, lessonId, body, sources, false, at));
 
-            var revised = assertInstanceOf(LessonResolution.Revised.class, outcome);
+            var revised = assertInstanceOf(LessonResolution.Revised.class, outcome,
+                    "the revision returns the revised lesson");
             assertAll(
+                    "A revised body is the next revision alone",
                     () -> assertEquals(body, revised.lesson().body(), "the body is the new one alone"),
                     () -> assertEquals(2, revised.lesson().frontMatter().revision(), "the counter is incremented"),
                     () -> assertEquals(2, revised.lesson().frontMatter().revisions().size(), "one entry is appended"),
@@ -152,9 +156,10 @@ class LessonRevisionTest {
             run(write -> store.revise(write, lessonId, bodies.get(1), List.of(LessonFixtures.source()), false,
                     CLOCK.instant()));
 
-            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            var found = assertInstanceOf(Found.class, store.get(lessonId), "the revised lesson is still found");
             var revisions = found.lesson().frontMatter().revisions();
             assertAll(
+                    "Two revisions leave three history entries",
                     () -> assertEquals(3, revisions.size(), "the history holds three revisions"),
                     () -> assertEquals(3, found.lesson().frontMatter().revision(), "the current revision is 3"),
                     () -> assertEquals(sha256(lesson.body()), revisions.get(0).bodySha256(),
@@ -174,8 +179,10 @@ class LessonRevisionTest {
             var lessonId = lesson.frontMatter().lessonId();
 
             assertAll(
+                    "A revision without sources is refused",
                     () -> assertThrows(IllegalArgumentException.class, () -> run(write -> store.revise(write,
-                            lessonId, LessonFixtures.body(), List.of(), false, CLOCK.instant()))),
+                            lessonId, LessonFixtures.body(), List.of(), false, CLOCK.instant())),
+                            "a revision without sources is refused"),
                     () -> assertEquals(Optional.of(lesson), store.get(lessonId) instanceof Found found
                             ? Optional.of(found.lesson()) : Optional.empty(), "the lesson is untouched"));
         }
@@ -190,8 +197,10 @@ class LessonRevisionTest {
             var outcome = withoutCommit(write -> store.revise(write, lessonId, LessonFixtures.body(),
                     List.of(LessonFixtures.source()), false, CLOCK.instant()));
 
-            var unavailable = assertInstanceOf(Unavailable.class, outcome);
+            var unavailable = assertInstanceOf(Unavailable.class, outcome,
+                    "a retired lesson is unavailable");
             assertAll(
+                    "A revision of a retired lesson is refused",
                     () -> assertEquals(LessonResolution.Refusal.RETIRED, unavailable.refusal(),
                             "the refusal names the retirement"),
                     () -> assertEquals(Status.RETIRED,
@@ -215,7 +224,7 @@ class LessonRevisionTest {
             run(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(LessonFixtures.source()), false,
                     CLOCK.instant()));
 
-            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            var found = assertInstanceOf(Found.class, store.get(lessonId), "the revised lesson is still found");
             assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
                     "a marked lesson stays marked after a clean revision");
         }
@@ -232,7 +241,8 @@ class LessonRevisionTest {
 
             run(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(source), false, CLOCK.instant()));
 
-            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            var found = assertInstanceOf(Found.class, store.get(lessonId),
+                    "the cited revision leaves the lesson found");
             assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
                     "a revision that cites an untrusted lesson is marked");
         }
@@ -249,7 +259,8 @@ class LessonRevisionTest {
 
             run(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(source), false, CLOCK.instant()));
 
-            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            var found = assertInstanceOf(Found.class, store.get(lessonId),
+                    "the clean revision leaves the lesson found");
             assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),
                     "a revision that cites a trusted lesson stays unmarked");
         }

@@ -39,7 +39,7 @@ final class IntentFixtures {
     /** The plan id of the fixture: an identifier the record and its acceptance are addressed by. */
     static final String PLAN_ID = "106-plan-intent-and-outline-records";
 
-    static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    static final Instant AT = Instant.parse("2026-10-28T11:00:00Z");
 
     private IntentFixtures() {
     }

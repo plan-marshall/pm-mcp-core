@@ -162,7 +162,7 @@ class LessonCodecTest {
         var canonical = canonical();
         var bytes = CANONICAL.getBytes(UTF_8);
 
-        assertAll(
+        assertAll("the canonical file and its bytes round-trip",
                 () -> assertEquals(canonical, ((Readable) decode(CANONICAL)).lesson(),
                         "The canonical file reads into the lesson"),
                 () -> assertEquals(canonical, ((Readable) LessonCodec.decode(
@@ -200,7 +200,7 @@ class LessonCodecTest {
         var reading = decode(file);
 
         var lesson = ((Readable) reading).lesson();
-        assertAll(
+        assertAll("a CRLF file keeps its front matter and line endings",
                 () -> assertEquals(canonical().frontMatter(), lesson.frontMatter(),
                         "The CRLF front matter reads into the record"),
                 () -> assertEquals(BODY.replace("\n", "\r\n"), lesson.body(),
@@ -245,7 +245,7 @@ class LessonCodecTest {
         var anotherInstant = BLOCK_FRONT_MATTER.replace("created_at: " + INSTANT,
                 "created_at: 2026-10-31T10:00:00+00:00");
 
-        assertAll(
+        assertAll("a front matter the strict reader refuses is unreadable",
                 () -> unreadable("---\n" + unknownMember + "---\n" + BODY, UnreadableReason.STRICT_READER),
                 () -> unreadable("---\n" + duplicateMember + "---\n" + BODY, UnreadableReason.STRICT_READER),
                 () -> unreadable("---\n" + missingMember + "---\n" + BODY, UnreadableReason.STRICT_READER),
@@ -274,7 +274,7 @@ class LessonCodecTest {
                 .replace("component: pm-core", "component: *title");
         var tag = BLOCK_FRONT_MATTER.replace("title: A title", "title: !!str A title");
 
-        assertAll(
+        assertAll("an anchor, an alias and a tag are unreadable",
                 () -> assertTrue(unreadable("---\n" + anchor + "---\n" + BODY, UnreadableReason.STRICT_READER)
                         .detail().contains("anchor"), "The anchor is refused"),
                 () -> unreadable("---\n" + alias + "---\n" + BODY, UnreadableReason.STRICT_READER),
@@ -298,7 +298,7 @@ class LessonCodecTest {
         var invalidOctal = BLOCK_FRONT_MATTER.replace("revision: 1\n", "revision: 08\n");
         var yamlOctal = BLOCK_FRONT_MATTER.replace("revision: 1\n", "revision: 0o7\n");
 
-        assertAll(
+        assertAll("a leading-zero integer is not read as an octal number",
                 () -> unreadable("---\n" + octal + "---\n" + BODY, UnreadableReason.STRICT_READER),
                 () -> unreadable("---\n" + invalidOctal + "---\n" + BODY, UnreadableReason.STRICT_READER),
                 () -> unreadable("---\n" + yamlOctal + "---\n" + BODY, UnreadableReason.STRICT_READER));
@@ -363,7 +363,7 @@ class LessonCodecTest {
         var bytes = LessonCodec.encode(lesson);
         var reading = LessonCodec.decode(bytes);
 
-        assertAll(
+        assertAll("a full record with every optional member round-trips",
                 () -> assertEquals(lesson, ((Readable) reading).lesson(), "The full record round-trips"),
                 () -> assertArrayEquals(bytes,
                         LessonCodec.encode(((Readable) LessonCodec.decode(bytes)).lesson()),
@@ -423,7 +423,7 @@ class LessonCodecTest {
 
         var reading = LessonCodec.decode(file);
 
-        assertAll(
+        assertAll("a file that is not UTF-8 is unreadable",
                 () -> assertInstanceOf(Unreadable.class, reading, "The file is unreadable"),
                 () -> assertEquals(UnreadableReason.STRICT_READER, ((Unreadable) reading).reason(),
                         "The file is refused by the strict reader"));

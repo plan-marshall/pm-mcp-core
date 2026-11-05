@@ -35,7 +35,7 @@ class HarnessUsageEndpointTest {
         var completion = Generators.longs(1, 1_000).next();
         var usage = HarnessUsage.fromEndpoint(OptionalLong.of(prompt), OptionalLong.of(completion));
 
-        assertAll(
+        assertAll("The answer's usage is measured and summed",
                 () -> assertEquals(Measurement.measured(prompt), usage.inputTokens(),
                         "The answer keeps its prompt token count"),
                 () -> assertEquals(Measurement.measured(completion), usage.outputTokens(),
@@ -56,7 +56,7 @@ class HarnessUsageEndpointTest {
         var prompt = Generators.longs(1, 1_000).next();
         var usage = HarnessUsage.fromEndpoint(OptionalLong.of(prompt), OptionalLong.empty());
 
-        assertAll(
+        assertAll("A missing count is unmeasured, never zero",
                 () -> assertEquals(Measurement.measured(prompt), usage.inputTokens(),
                         "The measured prompt count is kept"),
                 () -> assertEquals(Measurement.unmeasured(), usage.outputTokens(),
@@ -72,7 +72,7 @@ class HarnessUsageEndpointTest {
     void noUsageObject() {
         var usage = HarnessUsage.fromEndpoint(OptionalLong.empty(), OptionalLong.empty());
 
-        assertAll(
+        assertAll("An answer without usage is unmeasured",
                 () -> assertEquals(Measurement.unmeasured(), usage.inputTokens(),
                         "Without a usage object no prompt count is known"),
                 () -> assertEquals(Measurement.unmeasured(), usage.outputTokens(),

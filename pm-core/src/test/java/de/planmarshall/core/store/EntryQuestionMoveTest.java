@@ -50,13 +50,13 @@ import de.planmarshall.core.service.LockTransaction;
 @DisplayName("Entry question move")
 class EntryQuestionMoveTest {
 
-    private static final String PROJECT = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-17T09:00:00Z"), ZoneOffset.UTC);
     private static final EntryId ENTRY = new EntryId("ent-0123456789abcdef");
 
     @TempDir
     Path base;
 
+    private String project;
     private JournalScope workspace;
     private JournalScope plan;
     private QuestionLog entryLog;
@@ -66,8 +66,9 @@ class EntryQuestionMoveTest {
 
     @BeforeEach
     void createScopes() throws IOException {
-        workspace = JournalScope.workspace(base, PROJECT);
-        plan = JournalScope.plan(base, PROJECT,
+        project = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        workspace = JournalScope.workspace(base, project);
+        plan = JournalScope.plan(base, project,
                 Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(workspace.journalFile().getParent());
         Files.createDirectories(plan.journalFile().getParent());
@@ -84,7 +85,7 @@ class EntryQuestionMoveTest {
             transaction.acquire(workspace.lockKey());
             var write = ScopeTransaction.open(transaction, workspace, audit, CLOCK);
             assertEquals(Optional.empty(), entryLog.append(write, List.of(asked("Q-001", "Q-001"),
-                    delivered("Q-001", 1))));
+                    delivered("Q-001", 1))), "the entry log accepts the asked question");
             write.commit();
         }
     }
@@ -117,16 +118,19 @@ class EntryQuestionMoveTest {
         var planLog = new QuestionLog(plan);
         try (var files = Files.list(entryDirectory)) {
             var left = files.toList();
-            assertAll(
-                    () -> assertEquals(2, moved),
-                    () -> assertArrayEquals(entryBytes, Files.readAllBytes(planLog.store())),
+            assertAll("the entry log is moved into the plan",
+                    () -> assertEquals(2, moved, "both complete lines are moved"),
+                    () -> assertArrayEquals(entryBytes, Files.readAllBytes(planLog.store()),
+                            "the moved log is the entry log byte for byte"),
                     () -> assertEquals(List.of(asked("Q-001", "Q-001"), delivered("Q-001", 1)),
-                            planLog.read().records()),
+                            planLog.read().records(), "the plan reads the moved questions in order"),
                     () -> assertEquals(List.of(), left, "no file stays below pending/<entry_id>/"),
                     () -> assertEquals(Optional.of(StoreDigest.of(entryBytes)),
-                            DigestSidecar.load(plan.sidecarFile()).digest(QuestionLog.FILE_NAME)),
+                            DigestSidecar.load(plan.sidecarFile()).digest(QuestionLog.FILE_NAME),
+                            "the plan sidecar records the digest of the moved log"),
                     () -> assertEquals(Optional.empty(),
-                            DigestSidecar.load(workspace.sidecarFile()).digest(entryLog.storePath())));
+                            DigestSidecar.load(workspace.sidecarFile()).digest(entryLog.storePath()),
+                            "the workspace sidecar drops the moved log's digest"));
         }
     }
 
@@ -145,13 +149,16 @@ class EntryQuestionMoveTest {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(plan.lockKey());
             var write = ScopeTransaction.open(transaction, plan, audit, CLOCK);
-            assertEquals(Optional.empty(), planLog.answer(write, List.of(answered("Q-001", 1))));
+            assertEquals(Optional.empty(), planLog.answer(write, List.of(answered("Q-001", 1))),
+                    "the plan answers the moved question");
             write.commit();
         }
 
-        assertAll(
-                () -> assertEquals(Optional.of(answered("Q-001", 1)), planLog.read().current("Q-001")),
-                () -> assertTrue(planLog.read().isClosed("Q-001")));
+        assertAll("the moved questions obey the plan's invariants",
+                () -> assertEquals(Optional.of(answered("Q-001", 1)), planLog.read().current("Q-001"),
+                        "the moved question carries the plan's answer"),
+                () -> assertTrue(planLog.read().isClosed("Q-001"),
+                        "the answered question is closed in the plan"));
     }
 
     @Test
@@ -177,10 +184,13 @@ class EntryQuestionMoveTest {
             creation.workspace().commit();
         }
 
-        assertAll(
-                () -> assertArrayEquals(planBytes, Files.readAllBytes(planLog.store())),
-                () -> assertEquals(2, planLog.read().records().size()),
-                () -> assertFalse(Files.exists(entryLog.store())));
+        assertAll("the repeated move writes the lines once",
+                () -> assertArrayEquals(planBytes, Files.readAllBytes(planLog.store()),
+                        "the refused second move leaves the plan log unchanged"),
+                () -> assertEquals(2, planLog.read().records().size(),
+                        "the plan log still holds exactly the two moved lines"),
+                () -> assertFalse(Files.exists(entryLog.store()),
+                        "the second commit removed the entry's log"));
     }
 
     @Test
@@ -198,10 +208,12 @@ class EntryQuestionMoveTest {
             creation.workspace().commit();
         }
 
-        assertAll(
-                () -> assertEquals(2, moved),
-                () -> assertArrayEquals(complete, Files.readAllBytes(new QuestionLog(plan).store())),
-                () -> assertFalse(Files.exists(entryLog.store())));
+        assertAll("the torn tail stays behind",
+                () -> assertEquals(2, moved, "only the two complete lines are moved"),
+                () -> assertArrayEquals(complete, Files.readAllBytes(new QuestionLog(plan).store()),
+                        "the moved log holds no torn tail byte"),
+                () -> assertFalse(Files.exists(entryLog.store()),
+                        "the entry's log is gone after the move"));
     }
 
     @Test
@@ -212,10 +224,12 @@ class EntryQuestionMoveTest {
 
             var moved = QuestionLog.moveEntryQuestions(creation.workspace(), ENTRY, creation.target());
 
-            assertAll(
-                    () -> assertEquals(0, moved),
-                    () -> assertFalse(creation.target().isTarget(new QuestionLog(plan).store())),
-                    () -> assertFalse(creation.workspace().isTarget(entryLog.store())));
+            assertAll("an entry without a log moves and creates nothing",
+                    () -> assertEquals(0, moved, "an entry without a log moves nothing"),
+                    () -> assertFalse(creation.target().isTarget(new QuestionLog(plan).store()),
+                            "no plan log is created for an absent entry log"),
+                    () -> assertFalse(creation.workspace().isTarget(entryLog.store()),
+                            "the workspace writes nothing for an absent log"));
         }
     }
 
@@ -229,17 +243,18 @@ class EntryQuestionMoveTest {
             var moved = QuestionLog.moveEntryQuestions(creation.workspace(), ENTRY, creation.target());
             creation.workspace().commit();
 
-            assertAll(
-                    () -> assertEquals(0, moved),
-                    () -> assertFalse(creation.target().isTarget(new QuestionLog(plan).store())));
+            assertAll("a lone torn tail moves and creates nothing",
+                    () -> assertEquals(0, moved, "a lone torn tail moves no complete line"),
+                    () -> assertFalse(creation.target().isTarget(new QuestionLog(plan).store()),
+                            "no plan log is created from a lone torn tail"));
         }
-        assertFalse(Files.exists(entryLog.store()));
+        assertFalse(Files.exists(entryLog.store()), "the torn-tail log is removed without a move");
     }
 
     @Test
     @DisplayName("moves into an epic as into a plan")
     void movedIntoEpic() throws Exception {
-        var epic = JournalScope.epic(base, PROJECT,
+        var epic = JournalScope.epic(base, project,
                 Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(epic.pathBase());
         askInEntry();
@@ -252,7 +267,8 @@ class EntryQuestionMoveTest {
             creation.workspace().commit();
         }
 
-        assertArrayEquals(entryBytes, Files.readAllBytes(new QuestionLog(epic).store()));
+        assertArrayEquals(entryBytes, Files.readAllBytes(new QuestionLog(epic).store()),
+                "an epic receives the entry log byte for byte");
     }
 
     @Test
@@ -264,12 +280,14 @@ class EntryQuestionMoveTest {
             var workspaceTransaction = creation.workspace();
             var planTransaction = creation.target();
 
-            assertAll(
+            assertAll("a transaction of the wrong scope is no move target",
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> QuestionLog.moveEntryQuestions(workspaceTransaction, ENTRY, workspaceTransaction)),
+                            () -> QuestionLog.moveEntryQuestions(workspaceTransaction, ENTRY, workspaceTransaction),
+                            "a workspace transaction is no move target"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> QuestionLog.moveEntryQuestions(planTransaction, ENTRY, planTransaction)));
+                            () -> QuestionLog.moveEntryQuestions(planTransaction, ENTRY, planTransaction),
+                            "a plan transaction is no move target"));
         }
-        assertTrue(Files.exists(entryLog.store()));
+        assertTrue(Files.exists(entryLog.store()), "a refused move leaves the entry's log in place");
     }
 }

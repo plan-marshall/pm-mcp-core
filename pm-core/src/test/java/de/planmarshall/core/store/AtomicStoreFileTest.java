@@ -108,10 +108,12 @@ class AtomicStoreFileTest {
                 storeFile.write(transaction, NEW);
             }
 
-            assertAll(
-                    () -> assertArrayEquals(NEW, Files.readAllBytes(store)),
-                    () -> assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(store))),
-                    () -> assertEquals(List.of("merge-queue.json"), filesBesideStore()));
+            assertAll("the write replaced the store under its lock",
+                    () -> assertArrayEquals(NEW, Files.readAllBytes(store), "the new content replaced the old one"),
+                    () -> assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(store)),
+                            "the store keeps the mode 0600"),
+                    () -> assertEquals(List.of("merge-queue.json"), filesBesideStore(),
+                            "no temporary file is left beside it"));
         }
 
         @Test
@@ -124,7 +126,7 @@ class AtomicStoreFileTest {
                 storeFile.write(transaction, NEW);
             }
 
-            assertArrayEquals(NEW, Files.readAllBytes(store));
+            assertArrayEquals(NEW, Files.readAllBytes(store), "the store that was missing is created");
         }
 
         @Test
@@ -137,9 +139,9 @@ class AtomicStoreFileTest {
                 Files.delete(store);
                 var absent = storeFile.read(transaction);
 
-                assertAll(
-                        () -> assertArrayEquals(OLD, present.orElseThrow()),
-                        () -> assertTrue(absent.isEmpty()));
+                assertAll("the read returns the store and its absence",
+                        () -> assertArrayEquals(OLD, present.orElseThrow(), "the present store keeps its content"),
+                        () -> assertTrue(absent.isEmpty(), "an absent store reads as empty"));
             }
         }
 
@@ -158,10 +160,11 @@ class AtomicStoreFileTest {
 
                 storeFile.write(transaction, NEW);
 
-                assertAll(
-                        () -> assertNotNull(lockOnStore),
-                        () -> assertTrue(lockOnStore.isValid()),
-                        () -> assertArrayEquals(NEW, Files.readAllBytes(store)));
+                assertAll("the store is never locked by the write",
+                        () -> assertNotNull(lockOnStore, "the test holds a lock on the store"),
+                        () -> assertTrue(lockOnStore.isValid(), "the lock of the test is still valid"),
+                        () -> assertArrayEquals(NEW, Files.readAllBytes(store),
+                                "the write ran under the sibling key only"));
             }
         }
 
@@ -179,17 +182,20 @@ class AtomicStoreFileTest {
                 transaction.acquire(siblingKey);
                 assumeFalse(Files.isReadable(directory), "this user reads a directory without the read permission");
 
-                var failure = assertThrows(UncheckedIOException.class, () -> storeFile.write(transaction, NEW));
+                var failure = assertThrows(UncheckedIOException.class, () -> storeFile.write(transaction, NEW),
+                        "the write reports the directory it cannot open");
 
-                assertAll(
+                assertAll("the store was replaced and the directory named",
                         () -> assertTrue(failure.getMessage().contains("directory cannot be forced to disk"),
-                                failure.getMessage()),
-                        () -> assertArrayEquals(NEW, Files.readAllBytes(store)));
+                                "the failure names the directory: " + failure.getMessage()),
+                        () -> assertArrayEquals(NEW, Files.readAllBytes(store),
+                                "the store was replaced despite the directory"));
             } finally {
                 Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
             }
 
-            assertEquals(List.of("merge-queue.json"), filesBesideStore());
+            assertEquals(List.of("merge-queue.json"), filesBesideStore(),
+                    "no temporary file survived the failed force");
         }
 
         @Test
@@ -201,12 +207,14 @@ class AtomicStoreFileTest {
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(LockKey.installRecords(base));
 
-                assertThrows(UncheckedIOException.class, () -> blocked.write(transaction, NEW));
+                assertThrows(UncheckedIOException.class, () -> blocked.write(transaction, NEW),
+                        "a directory in place of the store refuses the write");
             }
 
-            assertAll(
-                    () -> assertTrue(Files.isDirectory(directory)),
-                    () -> assertEquals(List.of("install-records.json", "merge-queue.json"), filesBesideStore()));
+            assertAll("the failed write left store and directory intact",
+                    () -> assertTrue(Files.isDirectory(directory), "the blocking directory is still there"),
+                    () -> assertEquals(List.of("install-records.json", "merge-queue.json"), filesBesideStore(),
+                            "no temporary file is left behind"));
         }
     }
 
@@ -220,14 +228,19 @@ class AtomicStoreFileTest {
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(LockKey.buildSlots(base));
 
-                var fault = assertThrows(InternalFaultException.class, () -> storeFile.write(transaction, NEW));
+                var fault = assertThrows(InternalFaultException.class, () -> storeFile.write(transaction, NEW),
+                        "the write without the sibling key is refused");
 
-                assertAll(
-                        () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason()),
+                assertAll("the write without the sibling key is refused",
+                        () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
+                                "the refusal names the missing store lock"),
                         () -> assertEquals(Map.of("store", store.toString(), "lock",
-                                siblingKey.lockFile().toString()), fault.details()),
-                        () -> assertArrayEquals(OLD, Files.readAllBytes(store)),
-                        () -> assertEquals(List.of("merge-queue.json"), filesBesideStore()));
+                                siblingKey.lockFile().toString()), fault.details(),
+                                "the details name the store and its lock"),
+                        () -> assertArrayEquals(OLD, Files.readAllBytes(store),
+                                "the store stays byte-identical"),
+                        () -> assertEquals(List.of("merge-queue.json"), filesBesideStore(),
+                                "no temporary file was written"));
             }
         }
 
@@ -235,9 +248,11 @@ class AtomicStoreFileTest {
         @DisplayName("a read is refused as an internal fault")
         void readRefused() {
             try (var transaction = new HeldKeys()) {
-                var fault = assertThrows(InternalFaultException.class, () -> storeFile.read(transaction));
+                var fault = assertThrows(InternalFaultException.class, () -> storeFile.read(transaction),
+                        "the read without the sibling key is refused");
 
-                assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason());
+                assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
+                        "the refusal names the missing store lock");
             }
         }
 
@@ -248,7 +263,8 @@ class AtomicStoreFileTest {
             transaction.acquire(siblingKey);
             transaction.close();
 
-            assertThrows(InternalFaultException.class, () -> storeFile.write(transaction, NEW));
+            assertThrows(InternalFaultException.class, () -> storeFile.write(transaction, NEW),
+                    "a released key no longer permits a write");
         }
     }
 
@@ -262,7 +278,8 @@ class AtomicStoreFileTest {
             var audit = LockKey.auditLog(base);
             var lockFile = audit.lockFile();
 
-            assertThrows(IllegalArgumentException.class, () -> new AtomicStoreFile(lockFile, audit));
+            assertThrows(IllegalArgumentException.class, () -> new AtomicStoreFile(lockFile, audit),
+                    "a key on the store file itself is refused");
         }
 
         @Test
@@ -271,11 +288,14 @@ class AtomicStoreFileTest {
             var audit = LockKey.auditLog(base);
             var detour = base.resolve("logs").resolve("..").resolve("logs").resolve("audit.jsonl");
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new AtomicStoreFile(detour, audit)),
-                    () -> assertEquals(store.toAbsolutePath().normalize(), storeFile.store()),
-                    () -> assertEquals(siblingKey, storeFile.lockKey()),
-                    () -> assertNotEquals(siblingKey.lockFile(), storeFile.store()));
+            assertAll("the store path is absolute and normalized",
+                    () -> assertThrows(IllegalArgumentException.class, () -> new AtomicStoreFile(detour, audit),
+                            "a detour path to the lock file is refused"),
+                    () -> assertEquals(store.toAbsolutePath().normalize(), storeFile.store(),
+                            "the store is absolute and normalized"),
+                    () -> assertEquals(siblingKey, storeFile.lockKey(), "the store keeps its sibling lock key"),
+                    () -> assertNotEquals(siblingKey.lockFile(), storeFile.store(),
+                            "the store is never its own lock file"));
         }
 
         @Test
@@ -284,11 +304,15 @@ class AtomicStoreFileTest {
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(siblingKey);
 
-                assertAll(
-                        () -> assertThrows(NullPointerException.class, () -> new AtomicStoreFile(null, siblingKey)),
-                        () -> assertThrows(NullPointerException.class, () -> new AtomicStoreFile(store, null)),
-                        () -> assertThrows(NullPointerException.class, () -> storeFile.write(null, NEW)),
-                        () -> assertThrows(NullPointerException.class, () -> storeFile.write(transaction, null)));
+                assertAll("a missing argument is refused",
+                        () -> assertThrows(NullPointerException.class, () -> new AtomicStoreFile(null, siblingKey),
+                                "a missing store path is refused"),
+                        () -> assertThrows(NullPointerException.class, () -> new AtomicStoreFile(store, null),
+                                "a missing lock key is refused"),
+                        () -> assertThrows(NullPointerException.class, () -> storeFile.write(null, NEW),
+                                "a missing transaction is refused"),
+                        () -> assertThrows(NullPointerException.class, () -> storeFile.write(transaction, null),
+                                "missing write content is refused"));
             }
         }
     }

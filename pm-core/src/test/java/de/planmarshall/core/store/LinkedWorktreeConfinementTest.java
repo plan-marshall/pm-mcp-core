@@ -152,7 +152,7 @@ class LinkedWorktreeConfinementTest {
         void leavesTheRootRuleAsItIs() throws Exception {
             var beside = directoryBesideRoot("beside");
 
-            assertAll(
+            assertAll("the root rule stays as it is",
                     () -> assertAccepted(root.resolve("README.md"), confine(root.resolve("README.md"), worktree)),
                     () -> assertRefused(confine(beside.resolve("file.txt"), worktree)),
                     () -> assertRefused(confine(other.resolve("README.md"), worktree)));
@@ -361,7 +361,7 @@ class LinkedWorktreeConfinementTest {
             var second = directoryBesideRoot("second");
             Files.writeString(second.resolve(".git"), "gitdir: " + gitDirectory + "\n");
 
-            assertAll(
+            assertAll("a directory sharing a git directory",
                     () -> assertRefused(confine(second.resolve("file.txt"), candidate, second)),
                     () -> assertAccepted(candidate.resolve("file.txt"),
                             confine(candidate.resolve("file.txt"), candidate, second)));
@@ -376,7 +376,7 @@ class LinkedWorktreeConfinementTest {
 
             var repaired = confine(moved.resolve("file.txt"), moved);
 
-            assertAll(
+            assertAll("a moved worktree",
                     () -> assertRefused(stale),
                     () -> assertAccepted(moved.resolve("file.txt"), repaired));
         }
@@ -431,7 +431,7 @@ class LinkedWorktreeConfinementTest {
             var foreign = directoryBesideRoot("foreign");
             link(foreign, other, "foreign");
 
-            assertAll(
+            assertAll("another repository's worktree",
                     () -> assertEquals(Optional.of(other), PathConfinement.linkedMainCheckout(foreign),
                             "The recognition should name the repository the worktree belongs to"),
                     () -> assertRefused(confine(foreign.resolve("file.txt"), foreign)));
@@ -442,7 +442,8 @@ class LinkedWorktreeConfinementTest {
         void namesMainCheckoutOfAbsoluteCommonDirectory() throws Exception {
             Files.writeString(root.resolve(".git/worktrees/linked/commondir"), root.resolve(".git") + "\n");
 
-            assertEquals(Optional.of(root), PathConfinement.linkedMainCheckout(worktree));
+            assertEquals(Optional.of(root), PathConfinement.linkedMainCheckout(worktree),
+                    "The absolute common directory should name the root");
         }
 
         @Test
@@ -465,7 +466,8 @@ class LinkedWorktreeConfinementTest {
             Files.writeString(pointerOnly.resolve(".git"), "gitdir: " + root.resolve(".git") + "\n");
             Files.writeString(root.resolve(".git/worktrees/forged/commondir"), pointerOnly.resolve(".git") + "\n");
 
-            assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(forged));
+            assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(forged),
+                    "A common directory that is a file should name none");
         }
 
         @Test
@@ -477,9 +479,11 @@ class LinkedWorktreeConfinementTest {
             link(notNamedBack, root, "not-named-back");
             Files.writeString(root.resolve(".git/worktrees/not-named-back/gitdir"), worktree.resolve(".git") + "\n");
 
-            assertAll(
-                    () -> assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(unregistered)),
-                    () -> assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(notNamedBack)));
+            assertAll("unregistered or not named back",
+                    () -> assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(unregistered),
+                            "An unregistered git directory should name no main checkout"),
+                    () -> assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(notNamedBack),
+                            "A git directory not named back should name none"));
         }
 
         @Test
@@ -496,7 +500,8 @@ class LinkedWorktreeConfinementTest {
         void failsWithoutPointerFile() throws Exception {
             var plain = directoryBesideRoot("plain");
 
-            assertThrows(IOException.class, () -> PathConfinement.linkedMainCheckout(plain));
+            assertThrows(IOException.class, () -> PathConfinement.linkedMainCheckout(plain),
+                    "A candidate without a pointer file should fail");
         }
     }
 

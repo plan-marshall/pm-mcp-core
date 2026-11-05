@@ -48,7 +48,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.service.InternalFaultException;
@@ -68,16 +67,16 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 @DisplayName("Job record store")
 class JobRecordStoreTest {
 
-    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String ENTRY = "ent-"
-            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next());
-    private static final String EPIC = "epic-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN = PLAN_SCOPE.id();
     private static final Scope MACHINE = new Scope(Scope.Type.MACHINE, null);
-    private static final Scope ENTRY_SCOPE = new Scope(Scope.Type.ENTRY, ENTRY);
 
     @TempDir
     Path base;
 
+    private String project;
+    private String entry;
+    private String epic;
+    private Scope entryScope;
     private JobRecordStore store;
     private RecordingLockManager locks;
 
@@ -98,7 +97,11 @@ class JobRecordStoreTest {
 
     @BeforeEach
     void createStore() {
-        store = JobRecordStore.ofProject(base, PROJECT);
+        project = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        entry = "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next());
+        epic = "epic-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        entryScope = new Scope(Scope.Type.ENTRY, entry);
+        store = JobRecordStore.ofProject(base, project);
         locks = new RecordingLockManager();
     }
 
@@ -109,13 +112,8 @@ class JobRecordStoreTest {
         }
     }
 
-    static Stream<Arguments> ownedScopes() {
-        var base = Path.of("/pm-base");
-        return Stream.of(
-                Arguments.of(PLAN_SCOPE, LockKey.plan(base, PROJECT, "plan-one")),
-                Arguments.of(new Scope(Scope.Type.EPIC, EPIC), LockKey.epic(base, PROJECT, EPIC)),
-                Arguments.of(new Scope(Scope.Type.WORKSPACE, null), LockKey.workspace(base, PROJECT)),
-                Arguments.of(new Scope(Scope.Type.PROJECT, null), LockKey.queue(base, PROJECT)));
+    static Stream<Scope.Type> ownedScopes() {
+        return Stream.of(Scope.Type.PLAN, Scope.Type.EPIC, Scope.Type.WORKSPACE, Scope.Type.PROJECT);
     }
 
     @Nested
@@ -126,52 +124,75 @@ class JobRecordStoreTest {
         @DisplayName("each store lies in the jobs/ of its home, the log beside the record")
         void storePaths() {
             var machine = JobRecordStore.ofMachine(base);
-            var entry = JobRecordStore.ofEntry(base, ENTRY);
+            var entryStore = JobRecordStore.ofEntry(base, entry);
 
-            assertAll(
-                    () -> assertEquals(base.resolve("projects/" + PROJECT + "/jobs"), store.directoryPath(),
+            assertAll("each store and record lies in its jobs directory",
+                    () -> assertEquals(base.resolve("projects/" + project + "/jobs"), store.directoryPath(),
                             "the project job directory"),
-                    () -> assertEquals(base.resolve("machine/jobs"), machine.directoryPath()),
-                    () -> assertEquals(base.resolve("onboardings/" + ENTRY + "/jobs"), entry.directoryPath(),
+                    () -> assertEquals(base.resolve("machine/jobs"), machine.directoryPath(),
+                            "the machine store lies in machine/jobs"),
+                    () -> assertEquals(base.resolve("onboardings/" + entry + "/jobs"), entryStore.directoryPath(),
                             "the entry job directory"),
-                    () -> assertEquals(base.resolve("projects/" + PROJECT + "/jobs/b-0123456789abcdef.json"),
+                    () -> assertEquals(base.resolve("projects/" + project + "/jobs/b-0123456789abcdef.json"),
                             store.recordPath(BUILD_ID), "the project record path"),
-                    () -> assertEquals(base.resolve("projects/" + PROJECT + "/jobs/b-0123456789abcdef.log"),
+                    () -> assertEquals(base.resolve("projects/" + project + "/jobs/b-0123456789abcdef.log"),
                             store.logPath(BUILD_ID), "the project log path"));
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.store.JobRecordStoreTest#ownedScopes")
         @DisplayName("a job of a project is written under the lock of its scope")
-        void projectLocks(Scope scope, LockKey expected) {
-            var projectStore = JobRecordStore.ofProject(Path.of("/pm-base"), PROJECT);
+        void projectLocks(Scope.Type type) {
+            var root = Path.of("/pm-base");
+            var projectStore = JobRecordStore.ofProject(root, project);
+            var scope = switch (type) {
+                case PLAN -> PLAN_SCOPE;
+                case EPIC -> new Scope(Scope.Type.EPIC, epic);
+                case WORKSPACE -> new Scope(Scope.Type.WORKSPACE, null);
+                case PROJECT -> new Scope(Scope.Type.PROJECT, null);
+                default -> throw new IllegalArgumentException("no owned scope of type " + type);
+            };
+            var expected = switch (type) {
+                case PLAN -> LockKey.plan(root, project, PLAN);
+                case EPIC -> LockKey.epic(root, project, epic);
+                case WORKSPACE -> LockKey.workspace(root, project);
+                case PROJECT -> LockKey.queue(root, project);
+                default -> throw new IllegalArgumentException("no owned lock of type " + type);
+            };
 
-            assertEquals(expected, projectStore.lockKey(scope));
+            assertEquals(expected, projectStore.lockKey(scope), "the project store locks the scope as expected");
         }
 
         @Test
         @DisplayName("a job of the machine is written under the machine queue lock, one of an entry under its lock")
         void machineAndEntryLocks() {
-            assertAll(
-                    () -> assertEquals(LockKey.machineQueue(base), JobRecordStore.ofMachine(base).lockKey(MACHINE)),
-                    () -> assertEquals(LockKey.onboardingEntry(base, ENTRY),
-                            JobRecordStore.ofEntry(base, ENTRY).lockKey(ENTRY_SCOPE)));
+            assertAll("the machine and entry jobs take their locks",
+                    () -> assertEquals(LockKey.machineQueue(base), JobRecordStore.ofMachine(base).lockKey(MACHINE),
+                            "a machine job takes the machine queue lock"),
+                    () -> assertEquals(LockKey.onboardingEntry(base, entry),
+                            JobRecordStore.ofEntry(base, entry).lockKey(entryScope),
+                            "an entry job takes its onboarding entry lock"));
         }
 
         @Test
         @DisplayName("a job of a scope of another store is refused")
         void foreignScopes() {
             var machine = JobRecordStore.ofMachine(base);
-            var entry = JobRecordStore.ofEntry(base, ENTRY);
+            var entryStore = JobRecordStore.ofEntry(base, entry);
             var otherEntry = new Scope(Scope.Type.ENTRY,
                     "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next()));
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(ENTRY_SCOPE)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> machine.lockKey(PLAN_SCOPE)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> entry.lockKey(otherEntry)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> JobRecordStore.ofEntry(base, "../x")));
+            assertAll("a scope of another store is refused",
+                    () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE),
+                            "a project store refuses the machine scope"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(entryScope),
+                            "a project store refuses an entry scope"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> machine.lockKey(PLAN_SCOPE),
+                            "the machine store refuses a plan scope"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> entryStore.lockKey(otherEntry),
+                            "an entry store refuses another entry"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> JobRecordStore.ofEntry(base, "../x"),
+                            "an entry path that is no id is refused"));
         }
     }
 
@@ -190,34 +211,40 @@ class JobRecordStoreTest {
             var settled = ended(BUILD_ID, PLAN_SCOPE, Fate.SUCCEEDED, 7);
             write(store::writeFate, settled);
 
-            var planLock = LockKey.plan(base, PROJECT, "plan-one");
-            assertAll(
+            var planLock = LockKey.plan(base, project, PLAN);
+            assertAll("the life moves through the write points in order",
                     () -> assertFalse(running.isSpawnRecorded(), "the write-ahead record does not count as running"),
                     () -> assertTrue(spawned.isSpawnRecorded(), "the post-spawn record counts as running"),
-                    () -> assertEquals(Optional.of(settled), store.read(BUILD_ID)),
-                    () -> assertEquals(4, locks.transactions()),
-                    () -> assertEquals(List.of(planLock, planLock, planLock, planLock), locks.acquisitions()),
-                    () -> assertEquals(List.of(), locks.held()));
+                    () -> assertEquals(Optional.of(settled), store.read(BUILD_ID),
+                            "the store reads back the settled record"),
+                    () -> assertEquals(4, locks.transactions(),
+                            "each of the four write points is a transaction"),
+                    () -> assertEquals(List.of(planLock, planLock, planLock, planLock), locks.acquisitions(),
+                            "every write point takes the plan lock"),
+                    () -> assertEquals(List.of(), locks.held(), "no lock stays held after the writes"));
         }
 
         @Test
         @DisplayName("each scope's job is written under the lock of that scope")
         void ownerLocks() {
             var machine = JobRecordStore.ofMachine(base);
-            var entry = JobRecordStore.ofEntry(base, ENTRY);
+            var entryStore = JobRecordStore.ofEntry(base, entry);
             var worker = workerAhead(new JobId("l-0000000000000001"), new Scope(Scope.Type.PROJECT, null), "{}");
             var probe = writeAhead(new JobId("v-0000000000000001"), MACHINE);
-            var entryProbe = writeAhead(new JobId("v-0000000000000002"), ENTRY_SCOPE);
+            var entryProbe = writeAhead(new JobId("v-0000000000000002"), entryScope);
 
             write(store::writeAhead, worker);
             write(machine::writeAhead, probe);
-            write(entry::writeAhead, entryProbe);
+            write(entryStore::writeAhead, entryProbe);
 
-            assertAll(
-                    () -> assertEquals(List.of(LockKey.queue(base, PROJECT), LockKey.machineQueue(base),
-                            LockKey.onboardingEntry(base, ENTRY)), locks.acquisitions()),
-                    () -> assertTrue(Files.isRegularFile(machine.recordPath(probe.jobId()))),
-                    () -> assertTrue(Files.isRegularFile(entry.recordPath(entryProbe.jobId()))));
+            assertAll("each scope's job is written under its lock",
+                    () -> assertEquals(List.of(LockKey.queue(base, project), LockKey.machineQueue(base),
+                            LockKey.onboardingEntry(base, entry)), locks.acquisitions(),
+                            "each job takes the lock of its own scope"),
+                    () -> assertTrue(Files.isRegularFile(machine.recordPath(probe.jobId())),
+                            "the machine job has its record file"),
+                    () -> assertTrue(Files.isRegularFile(entryStore.recordPath(entryProbe.jobId())),
+                            "the entry job has its record file"));
         }
 
         @Test
@@ -227,7 +254,7 @@ class JobRecordStoreTest {
 
             write(store::writeFate, job);
 
-            assertEquals(Optional.of(job), store.read(BUILD_ID));
+            assertEquals(Optional.of(job), store.read(BUILD_ID), "the refused job's fate record is stored");
         }
 
         @Test
@@ -235,22 +262,29 @@ class JobRecordStoreTest {
         void outOfOrder() {
             var postSpawn = postSpawn(BUILD_ID, PLAN_SCOPE);
 
-            assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, postSpawn));
+            assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, postSpawn),
+                    "a post-spawn record before a queued one is refused");
             var queuedRecord = queued(BUILD_ID, PLAN_SCOPE);
             write(store::writeQueued, queuedRecord);
             var before = store.read(BUILD_ID);
             var writeAheadRecord = writeAhead(BUILD_ID, PLAN_SCOPE);
-            var epicWriteAhead = writeAhead(BUILD_ID, new Scope(Scope.Type.EPIC, EPIC));
+            var epicWriteAhead = writeAhead(BUILD_ID, new Scope(Scope.Type.EPIC, epic));
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeQueued, queuedRecord)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, postSpawn)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeAhead, postSpawn)),
+            assertAll("every out-of-order write point is refused",
+                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeQueued, queuedRecord),
+                            "a queued record is never written twice"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, postSpawn),
+                            "a post-spawn after queued alone is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeAhead, postSpawn),
+                            "a post-spawn record is no write-ahead record"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> write(store::writeFate, writeAheadRecord)),
+                            () -> write(store::writeFate, writeAheadRecord),
+                            "a fate on a write-ahead record is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> write(store::writeAhead, epicWriteAhead)),
-                    () -> assertEquals(before, store.read(BUILD_ID)));
+                            () -> write(store::writeAhead, epicWriteAhead),
+                            "a write-ahead of another scope is refused"),
+                    () -> assertEquals(before, store.read(BUILD_ID),
+                            "no refused write changes the stored record"));
         }
 
         @Test
@@ -262,12 +296,15 @@ class JobRecordStoreTest {
             var secondPostSpawn = postSpawn(BUILD_ID, PLAN_SCOPE);
             var failed = ended(BUILD_ID, PLAN_SCOPE, Fate.FAILED, 8);
 
-            assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, secondPostSpawn));
+            assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, secondPostSpawn),
+                    "a post-spawn record is never written twice");
             write(store::writeFate, settled);
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeFate, failed)),
-                    () -> assertEquals(Optional.of(settled), store.read(BUILD_ID)));
+            assertAll("a settled record stays final",
+                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeFate, failed),
+                            "a settled record is never replaced"),
+                    () -> assertEquals(Optional.of(settled), store.read(BUILD_ID),
+                            "the first settlement stays the stored one"));
         }
 
         @Test
@@ -294,9 +331,11 @@ class JobRecordStoreTest {
 
             var job = writeAhead(BUILD_ID, PLAN_SCOPE);
 
-            assertAll(
-                    () -> assertThrows(InternalFaultException.class, () -> store.writeAhead(refusing, job)),
-                    () -> assertTrue(Files.notExists(store.recordPath(BUILD_ID))));
+            assertAll("a write without the lock is refused",
+                    () -> assertThrows(InternalFaultException.class, () -> store.writeAhead(refusing, job),
+                            "a transaction without the lock writes nothing"),
+                    () -> assertTrue(Files.notExists(store.recordPath(BUILD_ID)),
+                            "no record file is created without the lock"));
         }
     }
 
@@ -316,13 +355,15 @@ class JobRecordStoreTest {
             try (var transaction = locks.openTransaction()) {
                 allocated = store.allocate(transaction, JobId.Kind.BUILD, PLAN_SCOPE,
                         new ScriptedRandom(0x0123456789abcdefL, 0xfedcba9876543210L, 0x1111111111111111L));
-                assertTrue(transaction.holds(LockKey.plan(base, PROJECT, "plan-one")),
+                assertTrue(transaction.holds(LockKey.plan(base, project, PLAN)),
                         "the lock stays held for the first write");
             }
 
-            assertAll(
-                    () -> assertEquals(new JobId("b-1111111111111111"), allocated),
-                    () -> assertEquals(List.of(LockKey.plan(base, PROJECT, "plan-one")), locks.acquisitions()));
+            assertAll("a colliding draw is redrawn under the lock",
+                    () -> assertEquals(new JobId("b-1111111111111111"), allocated,
+                            "the third draw is the fresh id"),
+                    () -> assertEquals(List.of(LockKey.plan(base, project, PLAN)), locks.acquisitions(),
+                            "the drawn id is taken under the plan lock"));
         }
 
         @Test
@@ -331,7 +372,7 @@ class JobRecordStoreTest {
             try (var transaction = locks.openTransaction()) {
                 var allocated = store.allocate(transaction, JobId.Kind.CI, PLAN_SCOPE);
 
-                assertEquals(JobId.Kind.CI, allocated.kind());
+                assertEquals(JobId.Kind.CI, allocated.kind(), "the secure default draws a CI id");
             }
         }
     }
@@ -352,18 +393,20 @@ class JobRecordStoreTest {
             Files.writeString(store.directoryPath().resolve("notes.json"), "{}");
             Files.createDirectory(store.directoryPath().resolve("b-0000000000000004.json"));
 
-            assertAll(
-                    () -> assertEquals(List.of(first.jobId(), second.jobId()), List.copyOf(store.jobIds())),
-                    () -> assertEquals(List.of(first, second), store.records()));
+            assertAll("the listing holds exactly the job records",
+                    () -> assertEquals(List.of(first.jobId(), second.jobId()), List.copyOf(store.jobIds()),
+                            "only the job files are listed"),
+                    () -> assertEquals(List.of(first, second), store.records(),
+                            "the recovery reads both job records"));
         }
 
         @Test
         @DisplayName("a store without jobs/ lists nothing and reads nothing")
         void absent() {
-            assertAll(
-                    () -> assertTrue(store.jobIds().isEmpty()),
-                    () -> assertEquals(List.of(), store.records()),
-                    () -> assertEquals(Optional.empty(), store.read(BUILD_ID)));
+            assertAll("an absent store lists and reads nothing",
+                    () -> assertTrue(store.jobIds().isEmpty(), "an absent store lists no job id"),
+                    () -> assertEquals(List.of(), store.records(), "an absent store reads no record"),
+                    () -> assertEquals(Optional.empty(), store.read(BUILD_ID), "an absent store reads no job"));
         }
 
         @Test
@@ -373,11 +416,14 @@ class JobRecordStoreTest {
             var other = new JobId("b-00000000000000ff");
             Files.copy(store.recordPath(BUILD_ID), store.recordPath(other));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> store.read(other));
+            var refusal = assertThrows(StoreRefusal.class, () -> store.read(other),
+                    "a record of another job id is refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(store.recordPath(other), refusal.file()));
+            assertAll("a record of another id is refused",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "a foreign job id makes the record unreadable"),
+                    () -> assertEquals(store.recordPath(other), refusal.file(),
+                            "the refusal names the file of the foreign id"));
         }
     }
 
@@ -412,11 +458,13 @@ class JobRecordStoreTest {
             writeWorker(store, WORKER, state);
 
             var expected = worker.withWorker(WorkerStateCodec.write(state));
-            assertAll(
-                    () -> assertEquals(Optional.of(expected), store.read(WORKER)),
-                    () -> assertEquals(Status.RUNNING, store.read(WORKER).orElseThrow().status()),
-                    () -> assertEquals(List.of(LockKey.queue(base, PROJECT), LockKey.queue(base, PROJECT)),
-                            locks.acquisitions()));
+            assertAll("only the worker block of a running job changes",
+                    () -> assertEquals(Optional.of(expected), store.read(WORKER),
+                            "the worker block is replaced in place"),
+                    () -> assertEquals(Status.RUNNING, store.read(WORKER).orElseThrow().status(),
+                            "the worker record stays running"),
+                    () -> assertEquals(List.of(LockKey.queue(base, project), LockKey.queue(base, project)),
+                            locks.acquisitions(), "both writes take the queue lock"));
         }
 
         @Test
@@ -426,9 +474,11 @@ class JobRecordStoreTest {
             var state = waiting();
             write(store::writeFate, settled);
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, WORKER, state)),
-                    () -> assertEquals(Optional.of(settled), store.read(WORKER)));
+            assertAll("a settled worker refuses a new state",
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, WORKER, state),
+                            "a settled worker record takes no state"),
+                    () -> assertEquals(Optional.of(settled), store.read(WORKER),
+                            "the settled worker record stays as it was"));
         }
 
         @Test
@@ -438,7 +488,8 @@ class JobRecordStoreTest {
 
             var state = waiting();
 
-            assertThrows(IllegalArgumentException.class, () -> writeWorker(store, BUILD_ID, state));
+            assertThrows(IllegalArgumentException.class, () -> writeWorker(store, BUILD_ID, state),
+                    "a build record accepts no worker state");
         }
 
         @Test
@@ -450,10 +501,12 @@ class JobRecordStoreTest {
             var otherGeneration = state.withGenerationId(new JobId("l-00000000000000ee"));
             write(store::writeAhead, workerAhead(worker, PROJECT_SCOPE, "{}"));
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, unknown, state)),
+            assertAll("an unknown job and a stale generation are refused",
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeWorker(store, unknown, state),
+                            "a worker without a record is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> writeWorker(store, worker, otherGeneration)));
+                            () -> writeWorker(store, worker, otherGeneration),
+                            "a state of another generation is refused"));
         }
 
         @Test
@@ -468,10 +521,12 @@ class JobRecordStoreTest {
 
             writeWorker(machine, worker, state);
 
-            assertAll(
-                    () -> assertEquals(LockKey.machineQueue(base), locks.acquisitions().get(1)),
+            assertAll("a machine worker is written under the machine lock",
+                    () -> assertEquals(LockKey.machineQueue(base), locks.acquisitions().get(1),
+                            "the machine worker write takes the machine lock"),
                     () -> assertEquals(WorkerStateCodec.write(state),
-                            machine.read(worker).orElseThrow().worker()));
+                            machine.read(worker).orElseThrow().worker(),
+                            "the machine worker carries the new state"));
         }
     }
 }

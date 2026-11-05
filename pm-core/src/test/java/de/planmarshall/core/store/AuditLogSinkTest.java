@@ -58,27 +58,30 @@ import de.planmarshall.core.store.AuditRecord.Scope;
 @DisplayName("Audit log sink")
 class AuditLogSinkTest {
 
-    private static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L,
-            1_900_000_000L).next());
-    private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
-    private static final String PRINCIPAL = Generators.letterStrings(3, 20).next();
-    private static final String PROJECT = "project-"
-            + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
-    private static final String SCOPE_ID = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
     private static final String TRANSACTION_ID = "01890a5d-ac96-774b-bcce-b302099a8057";
 
     @TempDir
     Path base;
 
+    private Instant at;
+    private Clock clock;
+    private String principal;
+    private String project;
+    private String scopeId;
     private RecordingLockManager locks;
     private AuditLog log;
     private AuditLogSink sink;
 
     @BeforeEach
     void createSink() throws IOException {
+        at = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        clock = Clock.fixed(at, ZoneOffset.UTC);
+        principal = Generators.letterStrings(3, 20).next();
+        project = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        scopeId = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         Files.createDirectories(base.resolve("logs"));
         locks = new RecordingLockManager();
-        log = new AuditLog(base, AuditAnchor.NONE, CLOCK, PRINCIPAL);
+        log = new AuditLog(base, AuditAnchor.NONE, clock, principal);
         sink = new AuditLogSink(locks, log);
     }
 
@@ -129,8 +132,8 @@ class AuditLogSinkTest {
     @Test
     @DisplayName("an event becomes one chained record with actor, category, outcome, details and its scope")
     void scopedEvent() {
-        var first = AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID);
-        var second = AuditEvent.transactionRolledForward("plan", SCOPE_ID, TRANSACTION_ID,
+        var first = AuditEvent.enrolmentWritten(project, TRANSACTION_ID);
+        var second = AuditEvent.transactionRolledForward("plan", scopeId, TRANSACTION_ID,
                 List.of("status.json"));
 
         sink.append(first);
@@ -138,49 +141,54 @@ class AuditLogSinkTest {
 
         var records = records();
         var scoped = records.get(1);
-        assertAll(
-                () -> assertEquals(2, records.size()),
+        assertAll("event becomes one scoped chained record",
+                () -> assertEquals(2, records.size(), "the sink wrote one line per event"),
                 () -> assertEquals(AuditCodec.sha256Hex(lines().getFirst()), scoped.prevHash(),
                         "the record chains to the previous line"),
-                () -> assertEquals(AuditEvent.TRANSACTION_ROLLED_FORWARD, scoped.event()),
-                () -> assertEquals(Category.STORE, scoped.category()),
-                () -> assertEquals(Outcome.SUCCEEDED, scoped.outcome()),
-                () -> assertEquals(PRINCIPAL, scoped.actor()),
-                () -> assertEquals(AT, scoped.timestamp()),
-                () -> assertEquals(Scope.PLAN, scoped.scopeType()),
-                () -> assertEquals(SCOPE_ID, scoped.scopeId(), "the scope id of the event is kept"),
-                () -> assertEquals(second.details(), scoped.details()),
-                () -> assertTrue(AuditRecord.EVENT_ID.matcher(scoped.eventId()).matches()),
-                () -> assertEquals(List.of(log.lockKey(), log.lockKey()), locks.acquisitions()),
+                () -> assertEquals(AuditEvent.TRANSACTION_ROLLED_FORWARD, scoped.event(),
+                        "the event name is kept"),
+                () -> assertEquals(Category.STORE, scoped.category(), "the category is that of the event"),
+                () -> assertEquals(Outcome.SUCCEEDED, scoped.outcome(), "the outcome is that of the event"),
+                () -> assertEquals(principal, scoped.actor(), "the actor is the OS principal"),
+                () -> assertEquals(at, scoped.timestamp(), "the timestamp is the clock instant"),
+                () -> assertEquals(Scope.PLAN, scoped.scopeType(), "the scope type is that of the event"),
+                () -> assertEquals(scopeId, scoped.scopeId(), "the scope id of the event is kept"),
+                () -> assertEquals(second.details(), scoped.details(), "the details of the event are kept"),
+                () -> assertTrue(AuditRecord.EVENT_ID.matcher(scoped.eventId()).matches(),
+                        "the event id is a lower-case UUID of version 7"),
+                () -> assertEquals(List.of(log.lockKey(), log.lockKey()), locks.acquisitions(),
+                        "the audit lock was acquired once per append"),
                 () -> assertEquals(List.of(), locks.held(), "every transaction was closed"));
     }
 
     @Test
     @DisplayName("an event without a scope of the audit log is a machine-level record without a scope id")
     void machineEvent() {
-        sink.append(AuditEvent.enrolmentTampered(PROJECT, Generators.letterStrings(3, 20).next()));
+        sink.append(AuditEvent.enrolmentTampered(project, Generators.letterStrings(3, 20).next()));
         sink.append(AuditEvent.transactionRolledForward("lessons", null, TRANSACTION_ID, List.of()));
 
         var records = records();
-        assertAll(
-                () -> assertEquals(Scope.MACHINE, records.get(0).scopeType()),
-                () -> assertNull(records.get(0).scopeId()),
-                () -> assertEquals(Category.SECURITY, records.get(0).category()),
-                () -> assertEquals(Outcome.REFUSED, records.get(0).outcome()),
+        assertAll("machine events carry no scope id",
+                () -> assertEquals(Scope.MACHINE, records.get(0).scopeType(), "the event has no scope"),
+                () -> assertNull(records.get(0).scopeId(), "the record has no scope id"),
+                () -> assertEquals(Category.SECURITY, records.get(0).category(), "the category is security"),
+                () -> assertEquals(Outcome.REFUSED, records.get(0).outcome(), "the outcome is refused"),
                 () -> assertEquals(Scope.MACHINE, records.get(1).scopeType(), "lessons is no scope of the log"),
-                () -> assertEquals("lessons", records.get(1).details().get(AuditEvent.DETAIL_SCOPE_TYPE)));
+                () -> assertEquals("lessons", records.get(1).details().get(AuditEvent.DETAIL_SCOPE_TYPE),
+                        "the unknown scope type is kept as a detail"));
     }
 
     @Test
     @DisplayName("an append that fails surfaces as UncheckedIOException and releases the lock")
     void failingAppend() throws Exception {
         Files.delete(base.resolve("logs"));
-        var event = AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID);
+        var event = AuditEvent.enrolmentWritten(project, TRANSACTION_ID);
 
-        assertThrows(UncheckedIOException.class, () -> sink.append(event));
+        assertThrows(UncheckedIOException.class, () -> sink.append(event),
+                "a failed append surfaces as UncheckedIOException");
 
-        assertAll(
-                () -> assertFalse(Files.exists(log.logFile())),
+        assertAll("the failed append left nothing behind",
+                () -> assertFalse(Files.exists(log.logFile()), "the log file was not written"),
                 () -> assertEquals(List.of(), locks.held(), "the transaction was closed"));
     }
 
@@ -191,18 +199,20 @@ class AuditLogSinkTest {
         var category = new AuditEvent(event, "elsewhere", AuditEvent.OUTCOME_SUCCEEDED, Map.of());
         var outcome = new AuditEvent(event, AuditEvent.CATEGORY_STORE, "maybe", Map.of());
 
-        assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> sink.append(category)),
-                () -> assertThrows(IllegalArgumentException.class, () -> sink.append(outcome)),
-                () -> assertFalse(Files.exists(log.logFile())));
+        assertAll("refused events write nothing",
+                () -> assertThrows(IllegalArgumentException.class, () -> sink.append(category),
+                        "an undeclared category is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> sink.append(outcome),
+                        "an undeclared outcome is refused"),
+                () -> assertFalse(Files.exists(log.logFile()), "the log file was not written"));
     }
 
     @Test
     @DisplayName("two sinks of one runtime serialize on the in-process audit lock: the chain stays intact")
     void twoSinksSerialize() throws Exception {
         var lockManager = new InProcessLockManager();
-        var sinks = List.of(new AuditLogSink(lockManager, new AuditLog(base, AuditAnchor.NONE, CLOCK, PRINCIPAL)),
-                new AuditLogSink(lockManager, new AuditLog(base, AuditAnchor.NONE, CLOCK, PRINCIPAL)));
+        var sinks = List.of(new AuditLogSink(lockManager, new AuditLog(base, AuditAnchor.NONE, clock, principal)),
+                new AuditLogSink(lockManager, new AuditLog(base, AuditAnchor.NONE, clock, principal)));
         var perSink = 50;
         var start = new CountDownLatch(1);
         var futures = new ArrayList<Future<?>>();
@@ -212,7 +222,7 @@ class AuditLogSinkTest {
                 futures.add(executor.submit(() -> {
                     start.await();
                     for (var index = 0; index < perSink; index++) {
-                        each.append(AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID));
+                        each.append(AuditEvent.enrolmentWritten(project, TRANSACTION_ID));
                     }
                     return null;
                 }));
@@ -225,7 +235,7 @@ class AuditLogSinkTest {
 
         var lines = lines();
         var records = records();
-        assertEquals(sinks.size() * perSink, records.size());
+        assertEquals(sinks.size() * perSink, records.size(), "every append wrote one record");
         for (var index = 1; index < records.size(); index++) {
             assertEquals(AuditCodec.sha256Hex(lines.get(index - 1)), records.get(index).prevHash(),
                     "prev_hash of line " + (index + 1));
@@ -235,8 +245,10 @@ class AuditLogSinkTest {
     @Test
     @DisplayName("a sink is refused without its lock manager or log")
     void nullArguments() {
-        assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new AuditLogSink(null, log)),
-                () -> assertThrows(NullPointerException.class, () -> new AuditLogSink(locks, null)));
+        assertAll("a sink needs both its lock manager and log",
+                () -> assertThrows(NullPointerException.class, () -> new AuditLogSink(null, log),
+                        "a missing lock manager is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new AuditLogSink(locks, null),
+                        "a missing log is refused"));
     }
 }

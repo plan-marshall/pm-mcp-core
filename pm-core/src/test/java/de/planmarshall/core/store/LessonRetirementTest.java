@@ -26,6 +26,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,14 +54,14 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
 @DisplayName("Lesson retirement")
 class LessonRetirementTest {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "plan-" + Generators.integers(1000, 9999).next();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
     private static final LessonId LESSON_ID = new LessonId("2026-11-02-09-001");
 
     @TempDir
     Path base;
 
+    private String project;
+    private String plan;
     private JournalScope lessons;
     private LessonStore store;
     private RecordingLockManager locks;
@@ -68,7 +69,9 @@ class LessonRetirementTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        lessons = JournalScope.lessons(base, PROJECT);
+        project = Generators.letterStrings(4, 12).next().toLowerCase(Locale.ROOT);
+        plan = "plan-" + Generators.integers(1000, 9999).next();
+        lessons = JournalScope.lessons(base, project);
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
@@ -100,7 +103,7 @@ class LessonRetirementTest {
     }
 
     private Path expectedPath(LessonId lessonId) {
-        return LockKey.projectStore(base, PROJECT).resolve("lessons").resolve(lessonId.fileName());
+        return LockKey.projectStore(base, project).resolve("lessons").resolve(lessonId.fileName());
     }
 
     private Lesson create() {
@@ -132,9 +135,11 @@ class LessonRetirementTest {
 
             var outcome = inTransaction(write -> store.retire(write, LESSON_ID, retirement));
 
-            var retired = assertInstanceOf(LessonResolution.Retired.class, outcome);
+            var retired = assertInstanceOf(LessonResolution.Retired.class, outcome,
+                    "a found lesson is retired");
             var frontMatter = retired.lesson().frontMatter();
             assertAll(
+                    "Every verdict retires a found unclaimed lesson",
                     () -> assertEquals(Status.RETIRED, frontMatter.status(), "the status is retired"),
                     () -> assertEquals(retirement, frontMatter.retired(), "the record is the one given"),
                     () -> assertEquals(verdict, frontMatter.retired().verdict(), "the verdict is recorded"),
@@ -153,10 +158,15 @@ class LessonRetirementTest {
             var blankInput = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).coveringInput("\t").build();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutClause)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutInput)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankClause)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankInput)));
+                    "A completely_covered retirement needs clause and input",
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutClause),
+                            "a missing covering clause is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(withoutInput),
+                            "a missing covering input is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankClause),
+                            "a blank covering clause is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(blankInput),
+                            "a blank covering input is refused"));
         }
 
         @Test
@@ -169,9 +179,13 @@ class LessonRetirementTest {
                     .into(new LessonId(LessonFixtures.WATCH_ID_NO_HEADER)).build();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(mergedWithoutInto)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(supersededWithoutInto)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> retire(appliedWithInto)));
+                    "Into is set exactly for merged and superseded",
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(mergedWithoutInto),
+                            "a merged retirement without into is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(supersededWithoutInto),
+                            "a superseded retirement without into is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> retire(appliedWithInto),
+                            "an applied retirement with into is refused"));
         }
 
         @Test
@@ -181,7 +195,8 @@ class LessonRetirementTest {
             var operatorOnly = LessonFixtures.retirement(Verdict.OBSOLETE)
                     .lessonState(LessonState.PRESENT_UNREADABLE).build();
 
-            assertThrows(IllegalArgumentException.class, () -> retire(operatorOnly));
+            assertThrows(IllegalArgumentException.class, () -> retire(operatorOnly),
+                    "an unreadable lesson needs the operator act");
         }
 
         @Test
@@ -192,8 +207,10 @@ class LessonRetirementTest {
 
             var outcome = inTransaction(write -> store.retire(write, LESSON_ID, retirement));
 
-            var retired = assertInstanceOf(LessonResolution.Retired.class, outcome);
+            var retired = assertInstanceOf(LessonResolution.Retired.class, outcome,
+                    "the retire returns the retired lesson");
             assertAll(
+                    "The premise retire records verdict and author",
                     () -> assertEquals(Verdict.OBSOLETE, retired.lesson().frontMatter().retired().verdict(),
                             "the premise retires with the verdict obsolete"),
                     () -> assertEquals("ent-0123456789abcdef", retired.lesson().frontMatter().retired().by(),
@@ -214,6 +231,7 @@ class LessonRetirementTest {
                     LessonFixtures.retirement(Verdict.REDUNDANT).build()));
 
             assertAll(
+                    "A found lesson is retired in place",
                     () -> assertInstanceOf(LessonResolution.Retired.class, outcome, "a found lesson is retired"),
                     () -> assertTrue(Files.exists(expectedPath(LESSON_ID)), "the file stays in place"),
                     () -> assertEquals(Status.RETIRED, readFound().frontMatter().status(),
@@ -225,14 +243,15 @@ class LessonRetirementTest {
         @DisplayName("a claimed lesson is not retired and the claiming plan is named")
         void claimed() {
             create();
-            run(write -> store.claim(write, LESSON_ID, PLAN, CLOCK.instant()));
+            run(write -> store.claim(write, LESSON_ID, plan, CLOCK.instant()));
 
             var outcome = retire(LessonFixtures.retirement(Verdict.OBSOLETE).build());
 
-            var unavailable = assertInstanceOf(Unavailable.class, outcome);
+            var unavailable = assertInstanceOf(Unavailable.class, outcome, "a claimed lesson is unavailable");
             assertAll(
+                    "A claimed lesson is not retired",
                     () -> assertEquals(Refusal.CLAIMED, unavailable.refusal(), "the refusal names the claim"),
-                    () -> assertEquals(PLAN, unavailable.claimingPlan(), "the claiming plan is named"),
+                    () -> assertEquals(plan, unavailable.claimingPlan(), "the claiming plan is named"),
                     () -> assertEquals(Status.ACTIVE, readFound().frontMatter().status(), "the lesson stays active"));
         }
 
@@ -245,8 +264,9 @@ class LessonRetirementTest {
 
             var outcome = retire(LessonFixtures.retirement(Verdict.OBSOLETE).build());
 
-            var unavailable = assertInstanceOf(Unavailable.class, outcome);
+            var unavailable = assertInstanceOf(Unavailable.class, outcome, "a retired lesson is unavailable");
             assertAll(
+                    "A retired lesson is not retired again",
                     () -> assertEquals(Refusal.RETIRED, unavailable.refusal(), "the refusal names the retirement"),
                     () -> assertEquals(recorded, readFound().frontMatter().retired(), "the record is unchanged"));
         }
@@ -255,7 +275,7 @@ class LessonRetirementTest {
         @DisplayName("an absent lesson changes nothing and is reported absent")
         void absent() {
             var unavailable = assertInstanceOf(Unavailable.class,
-                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()), "an absent lesson is unavailable");
 
             assertEquals(Refusal.ABSENT, unavailable.refusal(), "an absent lesson is reported absent");
         }
@@ -267,7 +287,8 @@ class LessonRetirementTest {
             acceptEdit(LESSON_ID);
 
             var unavailable = assertInstanceOf(Unavailable.class,
-                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()),
+                    "an unreadable lesson is unavailable");
 
             assertEquals(Refusal.PRESENT_UNREADABLE, unavailable.refusal(),
                     "an unreadable lesson is reported present_unreadable");
@@ -281,7 +302,7 @@ class LessonRetirementTest {
             acceptEdit(LESSON_ID);
 
             var unavailable = assertInstanceOf(Unavailable.class,
-                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()), "an empty shell is unavailable");
 
             assertEquals(Refusal.EMPTY_SHELL, unavailable.refusal(), "an empty shell is reported empty_shell");
         }
@@ -295,10 +316,11 @@ class LessonRetirementTest {
             Files.write(expectedPath(LESSON_ID), bytes);
 
             var unavailable = assertInstanceOf(Unavailable.class,
-                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()), "a tampered lesson is unavailable");
 
             var after = Files.readAllBytes(expectedPath(LESSON_ID));
             assertAll(
+                    "A tampered lesson is not touched",
                     () -> assertEquals(Refusal.STORE_TAMPERED, unavailable.refusal(),
                             "a tampered lesson is reported store_tampered"),
                     () -> assertArrayEquals(bytes, after, "the tampered file is left as it was"));
@@ -311,7 +333,7 @@ class LessonRetirementTest {
             Files.delete(expectedPath(LESSON_ID));
 
             var unavailable = assertInstanceOf(Unavailable.class,
-                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()), "a deleted lesson is unavailable");
 
             assertEquals(Refusal.DELETED_OUT_OF_BAND, unavailable.refusal(),
                     "a vanished file with its entry is reported deleted_out_of_band");
@@ -325,7 +347,7 @@ class LessonRetirementTest {
             Files.write(expectedPath(LESSON_ID), LessonCodec.encode(lesson));
 
             var unavailable = assertInstanceOf(Unavailable.class,
-                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()));
+                    retire(LessonFixtures.retirement(Verdict.OBSOLETE).build()), "an untracked file is unavailable");
 
             assertEquals(Refusal.UNTRACKED, unavailable.refusal(), "a file without an entry is reported untracked");
         }
@@ -348,8 +370,9 @@ class LessonRetirementTest {
             var retirement = LessonFixtures.retirement(Verdict.COMPLETELY_COVERED).build();
             run(write -> store.retire(write, LESSON_ID, retirement));
 
-            var found = assertInstanceOf(Found.class, store.get(LESSON_ID));
+            var found = assertInstanceOf(Found.class, store.get(LESSON_ID), "the rewritten lesson is still found");
             assertAll(
+                    "The retirement and status share one transaction",
                     () -> assertFalse(Arrays.equals(before, Files.readAllBytes(expectedPath(LESSON_ID))),
                             "the file is rewritten in place"),
                     () -> assertEquals(retirement, found.lesson().frontMatter().retired(),

@@ -61,7 +61,7 @@ class DerivedFactsSchemaParityTest {
     @Test
     @DisplayName("the members of the document are those of the schema in schema order, every one required")
     void rootMembersEqualSchema() {
-        assertAll(
+        assertAll("The document members equal the schema's",
                 () -> assertEquals("DerivedFactsStore", schema.get("title"), "The schema titles the store"),
                 () -> assertFalse(properties.isEmpty(), "The schema declares members"),
                 () -> assertEquals(DerivedFactsCodec.MEMBERS, names(properties.keySet()),
@@ -76,7 +76,7 @@ class DerivedFactsSchemaParityTest {
         var source = SpecificationDocument.object(entryProperties.get("source"));
         var failure = SpecificationDocument.object(entryProperties.get("failure"));
 
-        assertAll(
+        assertAll("The entry, source and failure members equal the schema's",
                 () -> assertEquals(DerivedFactsCodec.ENTRY_MEMBERS, names(entryProperties.keySet()),
                         "The entry members are the schema's"),
                 () -> assertEquals(DerivedFactsCodec.ENTRY_REQUIRED, required(entry),
@@ -94,7 +94,7 @@ class DerivedFactsSchemaParityTest {
     @Test
     @DisplayName("the values of every enumeration are those of the schema in schema order")
     void enumerationsEqualSchema() {
-        assertAll(
+        assertAll("The enumerations equal the schema's",
                 () -> assertEquals(enumOf(entryProperties, "kind"),
                         wireNames(DerivedFactKind.values(), DerivedFactKind::wireName),
                         "The kind enumeration is the schema's"),
@@ -115,7 +115,7 @@ class DerivedFactsSchemaParityTest {
                 SpecificationDocument.object(entryProperties.get("failure")).get("properties")).get("reason");
         var formatVersion = SpecificationDocument.object(properties.get("format_version"));
 
-        assertAll(
+        assertAll("The patterns and bounds equal the schema's",
                 () -> assertEquals(DerivedFactKey.FORM_TEXT, propertyNames.get("pattern"),
                         "The key pattern is the schema's"),
                 () -> assertEquals(DerivedFact.INPUT_DIGEST_TEXT,
@@ -134,7 +134,7 @@ class DerivedFactsSchemaParityTest {
     @Test
     @DisplayName("the document, an entry, source and failure are closed at every level")
     void everyObjectIsClosed() {
-        assertAll(
+        assertAll("Every object of the schema is closed",
                 () -> assertEquals(Boolean.FALSE, schema.get("additionalProperties"),
                         "The document is closed"),
                 () -> assertEquals(Boolean.FALSE, entry.get("additionalProperties"),

@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -60,9 +61,6 @@ import de.planmarshall.core.store.LessonStore.Claims;
 @DisplayName("Lesson resolver")
 class LessonResolverTest {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "plan-" + Generators.integers(1000, 9999).next();
-    private static final String OTHER_PLAN = "plan-other-" + Generators.integers(1000, 9999).next();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
     private static final List<String> ALL_LISTED = Stream.concat(LessonFixtures.PORTED_YAML_IDS.stream(),
             LessonFixtures.PORTED_HEADERLESS_IDS.stream()).toList();
@@ -70,6 +68,9 @@ class LessonResolverTest {
     @TempDir
     Path base;
 
+    private String project;
+    private String plan;
+    private String otherPlan;
     private JournalScope lessons;
     private LessonStore store;
     private RecordingLockManager locks;
@@ -77,7 +78,10 @@ class LessonResolverTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        lessons = JournalScope.lessons(base, PROJECT);
+        project = Generators.letterStrings(4, 12).next().toLowerCase(Locale.ROOT);
+        plan = "plan-" + Generators.integers(1000, 9999).next();
+        otherPlan = "plan-other-" + Generators.integers(1000, 9999).next();
+        lessons = JournalScope.lessons(base, project);
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
@@ -113,7 +117,7 @@ class LessonResolverTest {
     }
 
     private Path expectedPath(LessonId lessonId) {
-        return LockKey.projectStore(base, PROJECT).resolve("lessons").resolve(lessonId.fileName());
+        return LockKey.projectStore(base, project).resolve("lessons").resolve(lessonId.fileName());
     }
 
     /** Copies a committed fixture of {@code src/test/resources/ported/lessons} into the store. */
@@ -151,6 +155,7 @@ class LessonResolverTest {
             var resolutions = store.list();
 
             assertAll(
+                    "Every fixture lists and resolves by its id",
                     () -> assertEquals(ALL_LISTED.size(), resolutions.size(), "every fixture is listed"),
                     () -> resolutions.forEach(resolution -> assertTrue(
                             ALL_LISTED.contains(resolution.lessonId().value()),
@@ -170,6 +175,7 @@ class LessonResolverTest {
             var resolutions = store.list();
 
             assertAll(
+                    "Every YAML fixture resolves found",
                     () -> assertEquals(LessonFixtures.PORTED_YAML_IDS.size(), resolutions.size(),
                             "every YAML fixture is listed"),
                     () -> resolutions.forEach(resolution -> assertInstanceOf(Found.class, resolution,
@@ -191,6 +197,7 @@ class LessonResolverTest {
             var resolutions = store.list();
 
             assertAll(
+                    "Every headerless fixture is present_unreadable",
                     () -> assertEquals(LessonFixtures.PORTED_HEADERLESS_IDS.size(), resolutions.size(),
                             "every headerless fixture is listed"),
                     () -> resolutions.forEach(resolution -> assertInstanceOf(PresentUnreadable.class, resolution,
@@ -233,8 +240,9 @@ class LessonResolverTest {
 
             var resolution = store.get(lessonId);
 
-            var found = assertInstanceOf(Found.class, resolution);
+            var found = assertInstanceOf(Found.class, resolution, "a stored lesson resolves found");
             assertAll(
+                    "A stored lesson resolves found",
                     () -> assertEquals(created, found.lesson(), "the lesson is the one written"),
                     () -> assertEquals(expectedPath(lessonId), found.path(), "the resolution carries the path"),
                     () -> assertEquals(StoreIntegrity.VERIFIED, found.integrity(), "the lesson matches its sidecar"));
@@ -246,6 +254,7 @@ class LessonResolverTest {
             var lessonId = new LessonId("2026-11-02-09-001");
 
             assertAll(
+                    "A lesson that never existed is absent",
                     () -> assertEquals(LessonResolution.State.ABSENT, store.get(lessonId).state(),
                             "no file and no entry is absent"),
                     () -> assertEquals(LessonResolution.State.ABSENT, lockedGet(lessonId).state(),
@@ -261,8 +270,9 @@ class LessonResolverTest {
 
             var resolution = store.get(lessonId);
 
-            var shell = assertInstanceOf(EmptyShell.class, resolution);
+            var shell = assertInstanceOf(EmptyShell.class, resolution, "a blank body resolves as an empty shell");
             assertAll(
+                    "A blank body is an empty shell",
                     () -> assertEquals(LessonResolution.State.EMPTY_SHELL, shell.state(), "the state is empty_shell"),
                     () -> assertEquals(lesson.frontMatter(), shell.lesson().frontMatter(),
                             "the front matter is readable"),
@@ -278,7 +288,8 @@ class LessonResolverTest {
             Files.write(expectedPath(lessonId), LessonCodec.encode(
                     new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), "   \n")));
 
-            var shell = assertInstanceOf(EmptyShell.class, store.get(lessonId));
+            var shell = assertInstanceOf(EmptyShell.class, store.get(lessonId),
+                    "a differing blank body is still an empty shell");
 
             assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, shell.integrity(),
                     "a blank body that differs from its entry is still unverified");
@@ -292,8 +303,10 @@ class LessonResolverTest {
 
             var resolution = store.get(lessonId);
 
-            var unreadable = assertInstanceOf(PresentUnreadable.class, resolution);
+            var unreadable = assertInstanceOf(PresentUnreadable.class, resolution,
+                    "a headerless file is present_unreadable");
             assertAll(
+                    "A headerless file is present_unreadable",
                     () -> assertEquals(UnreadableReason.NO_OPENING_FENCE, unreadable.reason(),
                             "the reason names the missing fence"),
                     () -> assertEquals(expectedPath(lessonId), unreadable.path(), "the resolution carries the path"),
@@ -316,9 +329,11 @@ class LessonResolverTest {
             var locked = lockedGet(lessonId);
             var lockFree = store.get(lessonId);
 
-            var tampered = assertInstanceOf(StoreTampered.class, locked);
-            var found = assertInstanceOf(Found.class, lockFree);
+            var tampered = assertInstanceOf(StoreTampered.class, locked,
+                    "a changed byte is store_tampered under the lock");
+            var found = assertInstanceOf(Found.class, lockFree, "a lock-free read is found, never a decision");
             assertAll(
+                    "A changed byte is store_tampered under the lock",
                     () -> assertEquals(expectedPath(lessonId), tampered.path(), "the refusal names the file"),
                     () -> assertEquals(StoreDigest.ofFile(expectedPath(lessonId)),
                             tampered.current(), "the refusal carries the current digest"),
@@ -336,6 +351,7 @@ class LessonResolverTest {
             Files.delete(expectedPath(lessonId));
 
             assertAll(
+                    "A deleted file is deleted_out_of_band",
                     () -> assertEquals(LessonResolution.State.DELETED_OUT_OF_BAND, store.get(lessonId).state(),
                             "the lock-free read names the entry without its file"),
                     () -> assertEquals(LessonResolution.State.DELETED_OUT_OF_BAND, lockedGet(lessonId).state(),
@@ -356,6 +372,7 @@ class LessonResolverTest {
             var lockFree = store.get(lessonId);
 
             assertAll(
+                    "A file without an entry is untracked",
                     () -> assertInstanceOf(Untracked.class, locked, "the locked read names the file without an entry"),
                     () -> assertEquals(StoreIntegrity.UNCHECKED, ((Found) lockFree).integrity(),
                             "the lock-free read compared nothing"),
@@ -415,7 +432,7 @@ class LessonResolverTest {
             inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
                     LessonFixtures.newLesson().derivedFromUntrusted(true).build(), CLOCK));
             var claimed = create(new LessonId("2026-11-02-09-003"));
-            run(write -> store.claim(write, claimed.frontMatter().lessonId(), PLAN, CLOCK.instant()));
+            run(write -> store.claim(write, claimed.frontMatter().lessonId(), plan, CLOCK.instant()));
             var retired = create(new LessonId("2026-11-02-09-004"));
             run(write -> store.retire(write, retired.frontMatter().lessonId(),
                     LessonFixtures.retirement(Verdict.OBSOLETE).build()));
@@ -423,6 +440,7 @@ class LessonResolverTest {
             var candidates = store.unclaimed();
 
             assertAll(
+                    "Unclaimed lists active unclaimed lessons newest first",
                     () -> assertEquals(List.of("2026-11-02-09-002", "2026-11-02-09-001"),
                             candidates.stream().map(found -> found.lessonId().value()).toList(),
                             "only active unclaimed lessons, newest first"),
@@ -453,6 +471,7 @@ class LessonResolverTest {
             replaceByte(expectedPath(lessonId), (byte) '!');
 
             assertAll(
+                    "A tampered lesson is no candidate",
                     () -> assertEquals(List.of(), store.unclaimed(),
                             "a lesson with an unverified digest is no candidate"),
                     () -> assertEquals(LessonResolution.State.FOUND, store.get(lessonId).state(),
@@ -463,21 +482,22 @@ class LessonResolverTest {
         @DisplayName("claims separates the claimed lessons from the unreadable ids")
         void claims() throws Exception {
             var claimed = create(new LessonId("2026-11-02-09-001"));
-            run(write -> store.claim(write, claimed.frontMatter().lessonId(), PLAN, CLOCK.instant()));
+            run(write -> store.claim(write, claimed.frontMatter().lessonId(), plan, CLOCK.instant()));
             create(new LessonId("2026-11-02-09-002"));
             Files.writeString(expectedPath(new LessonId("2026-11-02-09-003")), "# No front matter\n");
 
             Claims claims = store.claims();
 
             assertAll(
+                    "Claims separates claimed from unreadable",
                     () -> assertEquals(List.of(claimed.frontMatter().lessonId()), claims.claimed().stream()
                             .map(found -> found.lessonId()).toList(), "the claim is listed"),
                     () -> assertEquals(List.of(new LessonId("2026-11-02-09-003")),
                             List.copyOf(claims.unreadable()), "the unreadable lesson is listed by id"),
                     () -> assertEquals(List.of(claimed.frontMatter().lessonId()),
-                            store.claimedBy(PLAN).stream().map(found -> found.lessonId()).toList(),
+                            store.claimedBy(plan).stream().map(found -> found.lessonId()).toList(),
                             "claimedBy names the plan's claim"),
-                    () -> assertEquals(List.of(), store.claimedBy(OTHER_PLAN), "another plan has none"));
+                    () -> assertEquals(List.of(), store.claimedBy(otherPlan), "another plan has none"));
         }
     }
 
@@ -496,6 +516,7 @@ class LessonResolverTest {
                 var resolutions = store.list();
 
                 assertAll(
+                        "No listed state of a generated store is absent",
                         () -> assertFalse(resolutions.stream()
                                         .anyMatch(resolution -> resolution.state() == LessonResolution.State.ABSENT),
                                 "no listed state is absent for seed " + label),

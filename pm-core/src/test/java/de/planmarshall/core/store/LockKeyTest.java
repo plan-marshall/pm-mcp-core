@@ -24,7 +24,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -41,49 +43,67 @@ import org.junit.jupiter.params.provider.ValueSource;
 class LockKeyTest {
 
     private static final Path BASE = Path.of("/pm-base");
-    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String PLAN = "plan-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
-    private static final String EPIC = "epic-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
-    private static final String ENTRY = "ent-"
-            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next());
-    private static final Path PROJECT_STORE = BASE.resolve("projects").resolve(PROJECT);
-    private static final Path PROJECT_LOCKS = PROJECT_STORE.resolve("locks");
     private static final Path MACHINE_LOCKS = BASE.resolve("locks");
+
+    private String project;
+    private String plan;
+    private String epic;
+    private String entry;
+    private Path projectStore;
+    private Path projectLocks;
+
+    @BeforeEach
+    void createIdentifiers() {
+        project = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        plan = "plan-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+        epic = "epic-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+        entry = "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next());
+        projectStore = BASE.resolve("projects").resolve(project);
+        projectLocks = projectStore.resolve("locks");
+    }
 
     static Stream<Arguments> projectKeys() {
         return Stream.of(
-                Arguments.of(LockKey.workspace(BASE, PROJECT), LockLevel.WORKSPACE, "workspace.lock"),
-                Arguments.of(LockKey.plan(BASE, PROJECT, PLAN), LockLevel.PLAN, "plan-" + PLAN + ".lock"),
-                Arguments.of(LockKey.epic(BASE, PROJECT, EPIC), LockLevel.EPIC, "epic-" + EPIC + ".lock"),
-                Arguments.of(LockKey.epicsWorktree(BASE, PROJECT), LockLevel.EPICS_WORKTREE, "epics-worktree.lock"),
-                Arguments.of(LockKey.lessonStore(BASE, PROJECT), LockLevel.LESSON_STORE, "lessons.lock"),
-                Arguments.of(LockKey.localConfiguration(BASE, PROJECT), LockLevel.LOCAL_CONFIGURATION,
-                        "local-config.lock"),
-                Arguments.of(LockKey.derivedFacts(BASE, PROJECT), LockLevel.DERIVED_FACTS, "derived-facts.lock"),
-                Arguments.of(LockKey.buildTimings(BASE, PROJECT), LockLevel.BUILD_TIMINGS, "build-timings.lock"),
-                Arguments.of(LockKey.queue(BASE, PROJECT), LockLevel.QUEUE, "queue.lock"));
+                Arguments.of(LockLevel.WORKSPACE),
+                Arguments.of(LockLevel.PLAN),
+                Arguments.of(LockLevel.EPIC),
+                Arguments.of(LockLevel.EPICS_WORKTREE),
+                Arguments.of(LockLevel.LESSON_STORE),
+                Arguments.of(LockLevel.LOCAL_CONFIGURATION),
+                Arguments.of(LockLevel.DERIVED_FACTS),
+                Arguments.of(LockLevel.BUILD_TIMINGS),
+                Arguments.of(LockLevel.QUEUE));
     }
 
     /** Each machine store lock with the store it guards, relative to the base directory. */
     static Stream<Arguments> machineStoreKeys() {
         return Stream.of(
-                Arguments.of(LockKey.buildSlots(BASE), "locks/build-slots.lock", "state/build-slots.json"),
-                Arguments.of(LockKey.consents(BASE), "locks/consents.lock", "consents.json"),
-                Arguments.of(LockKey.credentials(BASE), "locks/credentials.lock", "credentials"),
-                Arguments.of(LockKey.enrolment(BASE, PROJECT), "locks/enrolments/" + PROJECT + ".lock",
-                        "enrolments/" + PROJECT + ".json"),
-                Arguments.of(LockKey.harnesses(BASE), "locks/harnesses.lock", "harnesses.json"),
-                Arguments.of(LockKey.installRecords(BASE), "locks/install-records.lock",
-                        "state/install-records.json"),
-                Arguments.of(LockKey.machineConfiguration(BASE), "locks/machine-config.lock", "machine-config.json"),
-                Arguments.of(LockKey.mergeQueue(BASE), "locks/merge.lock", "state/merge-queue.json"),
-                Arguments.of(LockKey.modelCatalogue(BASE), "locks/model-catalogue.lock", "model-catalogue.json"),
-                Arguments.of(LockKey.modelSlots(BASE), "locks/model-slots.lock", "state/model-slots.json"),
-                Arguments.of(LockKey.reviewBotWindows(BASE), "locks/review-bot.lock",
-                        "state/review-bot-windows.json"),
-                Arguments.of(LockKey.roleAssignments(BASE), "locks/role-assignments.lock",
-                        "role-assignments.json"),
-                Arguments.of(LockKey.webDevices(BASE), "locks/web-devices.lock", "state/web-devices.json"));
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.buildSlots(BASE),
+                        "locks/build-slots.lock", "state/build-slots.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.consents(BASE),
+                        "locks/consents.lock", "consents.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.credentials(BASE),
+                        "locks/credentials.lock", "credentials"),
+                Arguments.of((Function<String, LockKey>) enrolment -> LockKey.enrolment(BASE, enrolment),
+                        "locks/enrolments/%s.lock", "enrolments/%s.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.harnesses(BASE),
+                        "locks/harnesses.lock", "harnesses.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.installRecords(BASE),
+                        "locks/install-records.lock", "state/install-records.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.machineConfiguration(BASE),
+                        "locks/machine-config.lock", "machine-config.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.mergeQueue(BASE),
+                        "locks/merge.lock", "state/merge-queue.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.modelCatalogue(BASE),
+                        "locks/model-catalogue.lock", "model-catalogue.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.modelSlots(BASE),
+                        "locks/model-slots.lock", "state/model-slots.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.reviewBotWindows(BASE),
+                        "locks/review-bot.lock", "state/review-bot-windows.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.roleAssignments(BASE),
+                        "locks/role-assignments.lock", "role-assignments.json"),
+                Arguments.of((Function<String, LockKey>) ignored -> LockKey.webDevices(BASE),
+                        "locks/web-devices.lock", "state/web-devices.json"));
     }
 
     private static List<LockKey> sortedAfterShuffle(List<LockKey> keys) {
@@ -93,59 +113,98 @@ class LockKeyTest {
         return shuffled;
     }
 
+    private LockKey projectKey(LockLevel level) {
+        return switch (level) {
+            case WORKSPACE -> LockKey.workspace(BASE, project);
+            case PLAN -> LockKey.plan(BASE, project, plan);
+            case EPIC -> LockKey.epic(BASE, project, epic);
+            case EPICS_WORKTREE -> LockKey.epicsWorktree(BASE, project);
+            case LESSON_STORE -> LockKey.lessonStore(BASE, project);
+            case LOCAL_CONFIGURATION -> LockKey.localConfiguration(BASE, project);
+            case DERIVED_FACTS -> LockKey.derivedFacts(BASE, project);
+            case BUILD_TIMINGS -> LockKey.buildTimings(BASE, project);
+            case QUEUE -> LockKey.queue(BASE, project);
+            default -> throw new IllegalArgumentException("not a project lock level: " + level);
+        };
+    }
+
+    private String projectLockName(LockLevel level) {
+        return switch (level) {
+            case WORKSPACE -> "workspace.lock";
+            case PLAN -> "plan-" + plan + ".lock";
+            case EPIC -> "epic-" + epic + ".lock";
+            case EPICS_WORKTREE -> "epics-worktree.lock";
+            case LESSON_STORE -> "lessons.lock";
+            case LOCAL_CONFIGURATION -> "local-config.lock";
+            case DERIVED_FACTS -> "derived-facts.lock";
+            case BUILD_TIMINGS -> "build-timings.lock";
+            case QUEUE -> "queue.lock";
+            default -> throw new IllegalArgumentException("not a project lock level: " + level);
+        };
+    }
+
     @Nested
     @DisplayName("lock paths")
     class LockPaths {
 
-        @ParameterizedTest(name = "{2}")
+        @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.store.LockKeyTest#projectKeys")
         @DisplayName("a lock of a project lies in the project's lock directory, outside every directory it protects")
-        void projectLock(LockKey key, LockLevel level, String fileName) {
-            assertAll(
-                    () -> assertEquals(level, key.level()),
-                    () -> assertEquals(PROJECT_LOCKS.resolve(fileName), key.lockFile()),
-                    () -> assertFalse(key.lockFile().startsWith(PROJECT_STORE.resolve("plans")),
-                            "below the plan directories"),
-                    () -> assertFalse(key.lockFile().startsWith(PROJECT_STORE.resolve("epics")),
-                            "below the epic directories"));
+        void projectLock(LockLevel level) {
+            var key = projectKey(level);
+
+            assertAll("a project lock lies in the project's lock directory",
+                    () -> assertEquals(level, key.level(), "the key carries the lock's level"),
+                    () -> assertEquals(projectLocks.resolve(projectLockName(level)), key.lockFile(),
+                            "the lock file is the expected lock path"),
+                    () -> assertFalse(key.lockFile().startsWith(projectStore.resolve("plans")),
+                            "the lock lies outside the plan directories"),
+                    () -> assertFalse(key.lockFile().startsWith(projectStore.resolve("epics")),
+                            "the lock lies outside the epic directories"));
         }
 
         @ParameterizedTest(name = "{1}")
         @MethodSource("de.planmarshall.core.store.LockKeyTest#machineStoreKeys")
         @DisplayName("a machine store lock is a sibling lock file and never the store it guards")
-        void machineStoreLock(LockKey key, String lockPath, String guarded) {
-            var store = BASE.resolve(guarded);
+        void machineStoreLock(Function<String, LockKey> keyFactory, String lockPath, String guarded) {
+            var key = keyFactory.apply(project);
+            var store = BASE.resolve(guarded.formatted(project));
 
-            assertAll(
-                    () -> assertEquals(LockLevel.MACHINE_STORE, key.level()),
-                    () -> assertEquals(BASE.resolve(lockPath), key.lockFile()),
-                    () -> assertTrue(key.lockFile().startsWith(MACHINE_LOCKS), "below locks/"),
-                    () -> assertNotEquals(store, key.lockFile()),
-                    () -> assertFalse(key.lockFile().startsWith(store), "below the guarded store"));
+            assertAll("a machine store lock is a sibling lock file",
+                    () -> assertEquals(LockLevel.MACHINE_STORE, key.level(),
+                            "the key carries the machine store level"),
+                    () -> assertEquals(BASE.resolve(lockPath.formatted(project)), key.lockFile(),
+                            "the lock file is the expected machine path"),
+                    () -> assertTrue(key.lockFile().startsWith(MACHINE_LOCKS),
+                            "the lock lies below the locks directory"),
+                    () -> assertNotEquals(store, key.lockFile(), "the lock is never the store it guards"),
+                    () -> assertFalse(key.lockFile().startsWith(store),
+                            "the lock lies outside the guarded store"));
         }
 
         @Test
         @DisplayName("the leaf keys are taken on the append-only file itself")
         void leafKeys() {
             var audit = LockKey.auditLog(BASE);
-            var mailbox = LockKey.mailbox(BASE, PROJECT, PLAN);
+            var mailbox = LockKey.mailbox(BASE, project, plan);
 
-            assertAll(
-                    () -> assertEquals(LockLevel.LEAF, audit.level()),
-                    () -> assertEquals(BASE.resolve("logs/audit.jsonl"), audit.lockFile()),
-                    () -> assertEquals(LockLevel.LEAF, mailbox.level()),
-                    () -> assertEquals(PROJECT_STORE.resolve("plans/" + PLAN + "/mcp/mailbox.jsonl"),
-                            mailbox.lockFile()));
+            assertAll("the leaf keys name the append-only file itself",
+                    () -> assertEquals(LockLevel.LEAF, audit.level(), "the audit key carries the leaf level"),
+                    () -> assertEquals(BASE.resolve("logs/audit.jsonl"), audit.lockFile(),
+                            "the audit key names its log file"),
+                    () -> assertEquals(LockLevel.LEAF, mailbox.level(), "the mailbox key carries the leaf level"),
+                    () -> assertEquals(projectStore.resolve("plans/" + plan + "/mcp/mailbox.jsonl"),
+                            mailbox.lockFile(), "the mailbox key names the plan's file"));
         }
 
         @Test
         @DisplayName("a base directory is made absolute and normalized, so one lock has one key")
         void canonicalBase() {
-            var direct = LockKey.queue(BASE, PROJECT);
+            var direct = LockKey.queue(BASE, project);
 
-            var indirect = LockKey.queue(BASE.resolve("state").resolve(".."), PROJECT);
+            var indirect = LockKey.queue(BASE.resolve("state").resolve(".."), project);
 
-            assertEquals(direct, indirect);
+            assertEquals(direct, indirect, "a detour base resolves to the same key");
         }
     }
 
@@ -156,15 +215,17 @@ class LockKeyTest {
         @Test
         @DisplayName("the thirteen machine store locks sort alphabetically by lock path")
         void machineStoreLocks() {
-            var keys = machineStoreKeys().map(arguments -> (LockKey) arguments.get()[0]).toList();
+            var keys = machineStoreKeys()
+                    .map(arguments -> ((Function<String, LockKey>) arguments.get()[0]).apply(project)).toList();
             var alphabetical = keys.stream().map(key -> BASE.relativize(key.lockFile()).toString()).sorted().toList();
 
             var sorted = sortedAfterShuffle(keys);
 
-            assertAll(
-                    () -> assertEquals(13, sorted.size()),
+            assertAll("the thirteen machine store locks sort by path",
+                    () -> assertEquals(13, sorted.size(), "the fixture holds all thirteen locks"),
                     () -> assertEquals(alphabetical,
-                            sorted.stream().map(key -> BASE.relativize(key.lockFile()).toString()).toList()));
+                            sorted.stream().map(key -> BASE.relativize(key.lockFile()).toString()).toList(),
+                            "the keys sort alphabetically by lock path"));
         }
 
         @Test
@@ -176,39 +237,42 @@ class LockKeyTest {
 
             var sorted = sortedAfterShuffle(List.of(shorter, longer, last));
 
-            assertAll(
-                    () -> assertEquals(List.of(shorter, longer, last), sorted),
+            assertAll("enrolment locks sort by project id",
+                    () -> assertEquals(List.of(shorter, longer, last), sorted,
+                            "the enrolment keys sort by project id"),
                     () -> assertTrue(shorter.lockFile().toString().compareTo(longer.lockFile().toString()) > 0,
-                            "the fixture must be a pair whose paths sort against the ids"));
+                            "the fixture paths sort against the ids"));
         }
 
         @Test
         @DisplayName("plan locks sort lexicographically by plan id")
         void planLocks() {
-            var first = LockKey.plan(BASE, PROJECT, "alpha");
-            var second = LockKey.plan(BASE, PROJECT, "alpha-2");
-            var third = LockKey.plan(BASE, PROJECT, "beta");
+            var first = LockKey.plan(BASE, project, "alpha");
+            var second = LockKey.plan(BASE, project, "alpha-2");
+            var third = LockKey.plan(BASE, project, "beta");
 
-            assertEquals(List.of(first, second, third), sortedAfterShuffle(List.of(first, second, third)));
+            assertEquals(List.of(first, second, third), sortedAfterShuffle(List.of(first, second, third)),
+                    "plan keys sort lexicographically by id");
         }
 
         @Test
         @DisplayName("epic locks sort lexicographically by epic id")
         void epicLocks() {
-            var first = LockKey.epic(BASE, PROJECT, "alpha");
-            var second = LockKey.epic(BASE, PROJECT, "alpha-2");
-            var third = LockKey.epic(BASE, PROJECT, "beta");
+            var first = LockKey.epic(BASE, project, "alpha");
+            var second = LockKey.epic(BASE, project, "alpha-2");
+            var third = LockKey.epic(BASE, project, "beta");
 
-            assertEquals(List.of(first, second, third), sortedAfterShuffle(List.of(first, second, third)));
+            assertEquals(List.of(first, second, third), sortedAfterShuffle(List.of(first, second, third)),
+                    "epic keys sort lexicographically by id");
         }
 
         @Test
         @DisplayName("the level decides before the id")
         void levelFirst() {
-            var plan = LockKey.plan(BASE, PROJECT, "zzz");
-            var epic = LockKey.epic(BASE, PROJECT, "aaa");
+            var planKey = LockKey.plan(BASE, project, "zzz");
+            var epicKey = LockKey.epic(BASE, project, "aaa");
 
-            assertTrue(plan.compareTo(epic) < 0);
+            assertTrue(planKey.compareTo(epicKey) < 0, "the level decides before the id");
         }
 
         @Test
@@ -217,10 +281,11 @@ class LockKeyTest {
             var first = LockKey.plan(BASE, "project-a", "shared-id");
             var second = LockKey.plan(BASE, "project-b", "shared-id");
 
-            assertAll(
-                    () -> assertTrue(first.compareTo(second) < 0),
-                    () -> assertTrue(second.compareTo(first) > 0),
-                    () -> assertEquals(0, first.compareTo(LockKey.plan(BASE, "project-a", "shared-id"))));
+            assertAll("the same lock of two projects is ordered",
+                    () -> assertTrue(first.compareTo(second) < 0, "the first project sorts before the second"),
+                    () -> assertTrue(second.compareTo(first) > 0, "the second sorts after the first"),
+                    () -> assertEquals(0, first.compareTo(LockKey.plan(BASE, "project-a", "shared-id")),
+                            "only an equal key compares as equal"));
         }
     }
 
@@ -233,66 +298,73 @@ class LockKeyTest {
         void machineQueue() {
             var key = LockKey.machineQueue(BASE);
 
-            assertAll(
-                    () -> assertEquals(LockLevel.QUEUE, key.level()),
-                    () -> assertEquals(BASE.resolve("machine/locks/queue.lock"), key.lockFile()),
+            assertAll("the machine queue lock lies in machine/locks",
+                    () -> assertEquals(LockLevel.QUEUE, key.level(), "the machine queue carries the queue level"),
+                    () -> assertEquals(BASE.resolve("machine/locks/queue.lock"), key.lockFile(),
+                            "the lock lies in machine/locks/"),
                     () -> assertFalse(key.lockFile().startsWith(BASE.resolve("machine/jobs")),
-                            "below the job records it guards"));
+                            "the lock lies outside the jobs it guards"));
         }
 
         @Test
         @DisplayName("the lock of an entry lies in onboardings/locks/ at the level of the workspace scope")
         void onboardingEntry() {
-            var key = LockKey.onboardingEntry(BASE, ENTRY);
+            var key = LockKey.onboardingEntry(BASE, entry);
 
-            assertAll(
-                    () -> assertEquals(LockLevel.WORKSPACE, key.level()),
-                    () -> assertEquals(BASE.resolve("onboardings/locks/" + ENTRY + ".lock"), key.lockFile()),
-                    () -> assertEquals(ENTRY, key.id()),
-                    () -> assertFalse(key.lockFile().startsWith(BASE.resolve("onboardings/" + ENTRY)),
-                            "below the entry it guards"));
+            assertAll("the entry lock lies in onboardings/locks",
+                    () -> assertEquals(LockLevel.WORKSPACE, key.level(),
+                            "the entry lock carries the workspace level"),
+                    () -> assertEquals(BASE.resolve("onboardings/locks/" + entry + ".lock"), key.lockFile(),
+                            "the entry lock names its entry file"),
+                    () -> assertEquals(entry, key.id(), "the key's id is the entry id"),
+                    () -> assertFalse(key.lockFile().startsWith(BASE.resolve("onboardings/" + entry)),
+                            "the lock lies outside the entry it guards"));
         }
 
         @Test
         @DisplayName("an entry lock is taken before a plan lock, the machine queue lock after the build timings "
                 + "and before every machine store lock")
         void placeInTheOrder() {
-            var entry = LockKey.onboardingEntry(BASE, ENTRY);
-            var plan = LockKey.plan(BASE, PROJECT, PLAN);
-            var buildTimings = LockKey.buildTimings(BASE, PROJECT);
+            var entryKey = LockKey.onboardingEntry(BASE, entry);
+            var planKey = LockKey.plan(BASE, project, plan);
+            var buildTimings = LockKey.buildTimings(BASE, project);
             var machineQueue = LockKey.machineQueue(BASE);
             var buildSlots = LockKey.buildSlots(BASE);
 
-            var sorted = sortedAfterShuffle(List.of(buildSlots, machineQueue, plan, buildTimings, entry));
+            var sorted = sortedAfterShuffle(List.of(buildSlots, machineQueue, planKey, buildTimings, entryKey));
 
-            assertEquals(List.of(entry, plan, buildTimings, machineQueue, buildSlots), sorted);
+            assertEquals(List.of(entryKey, planKey, buildTimings, machineQueue, buildSlots), sorted,
+                    "the keys sort in the total lock order");
         }
 
         @Test
         @DisplayName("the machine queue lock and a project's queue lock are distinct keys of one level")
         void distinctFromProjectQueue() {
             var machine = LockKey.machineQueue(BASE);
-            var project = LockKey.queue(BASE, PROJECT);
+            var queue = LockKey.queue(BASE, project);
 
-            assertAll(
-                    () -> assertNotEquals(machine, project),
-                    () -> assertEquals(machine.level(), project.level()),
-                    () -> assertNotEquals(0, machine.compareTo(project)));
+            assertAll("the machine and project queue are distinct",
+                    () -> assertNotEquals(machine, queue, "the two queue locks are not equal"),
+                    () -> assertEquals(machine.level(), queue.level(), "both queue locks share one level"),
+                    () -> assertNotEquals(0, machine.compareTo(queue), "the two keys compare as unequal"));
         }
 
         @ParameterizedTest(name = "\"{0}\"")
         @ValueSource(strings = {"", "ab", "../other", "a/b", "Upper-case", "-leading", "trailing-"})
         @DisplayName("an entry id outside the grammar never reaches a lock path")
         void invalidEntryId(String entryId) {
-            assertThrows(IllegalArgumentException.class, () -> LockKey.onboardingEntry(BASE, entryId));
+            assertThrows(IllegalArgumentException.class, () -> LockKey.onboardingEntry(BASE, entryId),
+                    "an invalid entry id never reaches a path");
         }
 
         @Test
         @DisplayName("a missing base directory or entry id is refused")
         void missingArguments() {
-            assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> LockKey.machineQueue(null)),
-                    () -> assertThrows(NullPointerException.class, () -> LockKey.onboardingEntry(BASE, null)));
+            assertAll("a missing base or entry id is refused",
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.machineQueue(null),
+                            "a missing base directory is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.onboardingEntry(BASE, null),
+                            "a missing entry id is refused"));
         }
     }
 
@@ -304,22 +376,30 @@ class LockKeyTest {
         @ValueSource(strings = {"", "ab", "../other", "a/b", "Upper-case", "-leading", "trailing-", "with space"})
         @DisplayName("an identifier outside the grammar never reaches a lock path")
         void invalidIdentifier(String identifier) {
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.workspace(BASE, identifier)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.plan(BASE, PROJECT, identifier)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.epic(BASE, PROJECT, identifier)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.enrolment(BASE, identifier)),
+            assertAll("an identifier outside the grammar is refused",
+                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.workspace(BASE, identifier),
+                            "a workspace with an invalid id is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.plan(BASE, project, identifier),
+                            "a plan with an invalid id is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.epic(BASE, project, identifier),
+                            "an epic with an invalid id is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> LockKey.enrolment(BASE, identifier),
+                            "an enrolment with an invalid id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> LockKey.mailbox(BASE, PROJECT, identifier)));
+                            () -> LockKey.mailbox(BASE, project, identifier),
+                            "a mailbox with an invalid id is refused"));
         }
 
         @Test
         @DisplayName("a missing base directory or identifier is refused")
         void missingArguments() {
-            assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> LockKey.buildSlots(null)),
-                    () -> assertThrows(NullPointerException.class, () -> LockKey.workspace(BASE, null)),
-                    () -> assertThrows(NullPointerException.class, () -> LockKey.plan(BASE, PROJECT, null)));
+            assertAll("a missing base or identifier is refused",
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.buildSlots(null),
+                            "a missing base directory is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.workspace(BASE, null),
+                            "a missing project id is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.plan(BASE, project, null),
+                            "a missing plan id is refused"));
         }
 
         @Test
@@ -329,16 +409,21 @@ class LockKeyTest {
             var relative = Path.of("locks/merge.lock");
             var unnormalized = BASE.resolve("state/../locks/merge.lock");
 
-            assertAll(
+            assertAll("an invalid lock key component is refused",
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LockKey(LockLevel.MACHINE_STORE, relative, "merge")),
+                            () -> new LockKey(LockLevel.MACHINE_STORE, relative, "merge"),
+                            "a relative lock file is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LockKey(LockLevel.MACHINE_STORE, unnormalized, "merge")),
-                    () -> assertThrows(NullPointerException.class, () -> new LockKey(null, lockFile, "merge")),
+                            () -> new LockKey(LockLevel.MACHINE_STORE, unnormalized, "merge"),
+                            "an unnormalized lock file is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new LockKey(null, lockFile, "merge"),
+                            "a missing lock level is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LockKey(LockLevel.MACHINE_STORE, null, "merge")),
+                            () -> new LockKey(LockLevel.MACHINE_STORE, null, "merge"),
+                            "a missing lock file is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LockKey(LockLevel.MACHINE_STORE, lockFile, null)));
+                            () -> new LockKey(LockLevel.MACHINE_STORE, lockFile, null),
+                            "a missing key id is refused"));
         }
     }
 }

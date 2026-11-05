@@ -72,11 +72,11 @@ class IntentRecordTest {
     void roundTripsThroughEveryEntryPoint(IntentSubmission submission) {
         var accepted = accept(null, submission, revision(1, valid()), context(FILE));
 
-        var store = assertInstanceOf(Accepted.class, accepted).store();
+        var store = assertInstanceOf(Accepted.class, accepted, "the submission yields an accepted store").store();
         var reread = IntentCodec.read(FILE, IntentCodec.write(store));
-        assertEquals(store, reread);
-        assertEquals(1, reread.current().revision());
-        assertTrue(reread.history().isEmpty());
+        assertEquals(store, reread, "the written store is read back equal");
+        assertEquals(1, reread.current().revision(), "the current revision is the first one");
+        assertTrue(reread.history().isEmpty(), "the first revision has no history");
     }
 
     @DisplayName("A revision moves the current record to history[] and never changes it")
@@ -84,43 +84,49 @@ class IntentRecordTest {
     void revisionMovesCurrentToHistory() {
         var first = revision(1, valid());
         var store = assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, first, context(FILE))).store();
+                accept(null, IntentSubmission.REFINE, first, context(FILE)), "the first revision is accepted").store();
 
         var second = revision(2, withCriteria(List.of(criterion("AC-3", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST))));
         var after = assertInstanceOf(Accepted.class,
-                accept(store, IntentSubmission.REPLAN, second, context(FILE))).store();
+                accept(store, IntentSubmission.REPLAN, second, context(FILE)), "the re-plan is accepted").store();
 
-        assertEquals(second, after.current());
-        assertEquals(List.of(first), after.history());
-        assertEquals(first, after.history().getFirst());
-        assertEquals(after, IntentCodec.read(FILE, IntentCodec.write(after)));
+        assertEquals(second, after.current(), "the second revision is the current record");
+        assertEquals(List.of(first), after.history(), "the first revision moved to the history");
+        assertEquals(first, after.history().getFirst(), "the history keeps the first record unchanged");
+        assertEquals(after, IntentCodec.read(FILE, IntentCodec.write(after)),
+                "the revised store round-trips through the codec");
     }
 
     @DisplayName("A revision that does not follow the current one is refused")
     @Test
     void refusesRevisionOutOfSequence() {
         var store = assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, revision(1, valid()), context(FILE))).store();
+                accept(null, IntentSubmission.REFINE, revision(1, valid()), context(FILE)),
+                "the first revision is accepted").store();
         var outOfSequence = revision(3, valid());
-        assertThrows(IllegalArgumentException.class, () -> store.accept(outOfSequence));
+        assertThrows(IllegalArgumentException.class, () -> store.accept(outOfSequence),
+                "a revision beyond the next one is refused");
     }
 
     @DisplayName("An identifier an earlier revision removed is never reused")
     @Test
     void refusesReusedRemovedIdentifier() {
         var store = assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, revision(1, valid()), context(FILE))).store();
+                accept(null, IntentSubmission.REFINE, revision(1, valid()), context(FILE)),
+                "the first revision is accepted").store();
         var withoutFirst = withCriteria(List.of(criterion("AC-3", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
         var second = assertInstanceOf(Accepted.class,
-                accept(store, IntentSubmission.REPLAN, revision(2, withoutFirst), context(FILE))).store();
+                accept(store, IntentSubmission.REPLAN, revision(2, withoutFirst), context(FILE)),
+                "the second revision is accepted").store();
 
         var reusing = withCriteria(List.of(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
         var outcome = accept(second, IntentSubmission.REPLAN, revision(3, reusing), context(FILE));
 
-        assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("AC-1"));
+        var refusal = assertInstanceOf(Refused.class, outcome, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("AC-1"), "the refusal names the reused identifier AC-1");
     }
 
     @DisplayName("An operator decision without an answer is refused, naming the decision")
@@ -128,7 +134,8 @@ class IntentRecordTest {
     void refusesOperatorDecisionWithoutAnswer() {
         var intentRecord = withDecisions(List.of(operatorDecision("DC-1", "q-1")));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(FILE));
-        assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("DC-1"));
+        var refusal = assertInstanceOf(Refused.class, outcome, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("DC-1"), "the refusal names the unanswered decision DC-1");
     }
 
     @DisplayName("An operator decision of another plan is refused")
@@ -137,7 +144,8 @@ class IntentRecordTest {
         var intentRecord = withDecisions(List.of(operatorDecision("DC-1", "q-1")));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
                 answered(FILE, "q-1", "another-plan", AnswerChannel.WEB));
-        assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("another plan"));
+        var refusal = assertInstanceOf(Refused.class, outcome, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("another plan"), "the refusal names the other plan of the answer");
     }
 
     @DisplayName("A quorum decision answered by the operator is refused")
@@ -147,7 +155,8 @@ class IntentRecordTest {
                 options(), Decider.QUORUM, "q-1", null, null)));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
                 answered(FILE, "q-1", PLAN_ID, AnswerChannel.WEB));
-        assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("DC-1"));
+        var refusal = assertInstanceOf(Refused.class, outcome, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("DC-1"), "the refusal names the quorum decision DC-1");
     }
 
     @DisplayName("An operator decision answered through the web is accepted")
@@ -156,7 +165,7 @@ class IntentRecordTest {
         var intentRecord = withDecisions(List.of(operatorDecision("DC-1", "q-1")));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
                 answered(FILE, "q-1", PLAN_ID, AnswerChannel.WEB));
-        assertInstanceOf(Accepted.class, outcome);
+        assertInstanceOf(Accepted.class, outcome, "an operator answer through the web is accepted");
     }
 
     @DisplayName("A fact decision whose evidence path does not exist is refused")
@@ -165,7 +174,8 @@ class IntentRecordTest {
         var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
                 options(), Decider.FACT, null, "pm-core/missing.adoc", null)));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree));
-        assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("missing.adoc"));
+        var refusal = assertInstanceOf(Refused.class, outcome, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("missing.adoc"), "the refusal names the missing evidence path");
     }
 
     @DisplayName("A contradicting decision is refused unless the operator decided it")
@@ -174,7 +184,8 @@ class IntentRecordTest {
         var adr = new AdrRef("core-store-1", AdrRelation.CONTRADICTS);
         assertThrows(IllegalArgumentException.class,
                 () -> new Decision("DC-1", Generators.letterStrings(10, 60).next(),
-                        options(), Decider.MODEL, null, null, adr));
+                        options(), Decider.MODEL, null, null, adr),
+                "a model decision cannot contradict an ADR");
     }
 
     @DisplayName("A capability requirement's presence and base fingerprint are checked")
@@ -188,8 +199,9 @@ class IntentRecordTest {
         var facts = new IntentAcceptance.Context(PLAN_ID, question -> Optional.empty(),
                 (capability, requirement) -> Optional.of("a".repeat(64)), Optional.empty(), FILE);
 
-        assertTrue(assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, added), facts)).detail().contains("already exists"));
+        var refusal = assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, added), facts), "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("already exists"), "the refusal names the existing capability");
     }
 
     @DisplayName("The epic's required claims are seeded and must appear in the record")
@@ -204,7 +216,8 @@ class IntentRecordTest {
                 Optional.of(new IntentAcceptance.EpicSeed(epic, "The plan lands with its records")), FILE);
 
         var refused = accept(null, IntentSubmission.REFINE, revision(1, valid()), seeded);
-        assertTrue(assertInstanceOf(Refused.class, refused).detail().contains("required claim"));
+        var refusal = assertInstanceOf(Refused.class, refused, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("required claim"), "the refusal names the missing required claim");
 
         var intentRecord = withClaims(List.of(
                 new SourceClaim("The intent record round-trips", "goal", null),
@@ -213,7 +226,8 @@ class IntentRecordTest {
                 new SourceClaim("No chat integration", "NG-1", null),
                 new SourceClaim("The plan lands with its records", "goal", null)));
         assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), seeded));
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), seeded),
+                "the record with every claim is accepted");
     }
 
     @DisplayName("A fix criterion carries its current behaviour and an unchanged criterion")
@@ -223,7 +237,8 @@ class IntentRecordTest {
         var fix = criterion("AC-1", CriterionKind.FIX, VerifiedBy.TEST);
         var criteria = List.of(fix);
         var assumptions = base.assumptions();
-        assertThrows(IllegalArgumentException.class, () -> copy(base, criteria, null, assumptions));
+        assertThrows(IllegalArgumentException.class, () -> copy(base, criteria, null, assumptions),
+                "a fix criterion needs its triple");
     }
 
     @DisplayName("An unverified assumption marks exactly one riskiest assumption with its test")
@@ -234,11 +249,13 @@ class IntentRecordTest {
         var text = Generators.letterStrings(5, 40).next();
         var unverified = new Assumption("AN-1", text, AssumptionStatus.UNVERIFIED, false, null);
         var unverifiedAssumptions = List.of(unverified);
-        assertThrows(IllegalArgumentException.class, () -> copy(base, criteria, null, unverifiedAssumptions));
+        assertThrows(IllegalArgumentException.class, () -> copy(base, criteria, null, unverifiedAssumptions),
+                "an unverified assumption needs the riskiest mark");
         var riskiest = new Assumption("AN-1", text, AssumptionStatus.UNVERIFIED, true,
                 Generators.letterStrings(10, 40).next());
         assertInstanceOf(Accepted.class, accept(null, IntentSubmission.REFINE,
-                revision(1, copy(base, criteria, null, List.of(riskiest))), context(FILE)));
+                revision(1, copy(base, criteria, null, List.of(riskiest))), context(FILE)),
+                "the riskiest assumption with a test is accepted");
     }
 
     @DisplayName("Identifiers are unique and decimal")
@@ -246,14 +263,16 @@ class IntentRecordTest {
     void refusesDuplicateIdentifiers() {
         var duplicated = List.of(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-1", CriterionKind.UNCHANGED, VerifiedBy.TEST));
-        assertThrows(IllegalArgumentException.class, () -> withCriteria(duplicated));
+        assertThrows(IllegalArgumentException.class, () -> withCriteria(duplicated),
+                "duplicate identifiers are refused");
     }
 
     @DisplayName("A code constraint carries its evidence")
     @Test
     void refusesCodeConstraintWithoutEvidence() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.CODE, null));
+                () -> new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.CODE, null),
+                "a code constraint needs its evidence");
     }
 
     @DisplayName("A source claim lands in an item of the record or is dropped with a reason")
@@ -261,9 +280,11 @@ class IntentRecordTest {
     void refusesClaimLandingOutsideTheRecord() {
         var text = Generators.letterStrings(10, 60).next();
         var outside = List.of(new SourceClaim(text, "AC-9", null));
-        assertThrows(IllegalArgumentException.class, () -> withClaims(outside));
+        assertThrows(IllegalArgumentException.class, () -> withClaims(outside),
+                "a claim outside the record is refused");
         var dropped = List.of(new SourceClaim(text, "dropped", null));
-        assertThrows(IllegalArgumentException.class, () -> withClaims(dropped));
+        assertThrows(IllegalArgumentException.class, () -> withClaims(dropped),
+                "a dropped claim without a reason is refused");
     }
 
     @DisplayName("A deferred item names its reason")
@@ -271,8 +292,9 @@ class IntentRecordTest {
     void deferredItemNamesItsReason() {
         var text = Generators.letterStrings(5, 40).next();
         assertThrows(IllegalArgumentException.class,
-                () -> new Deferred("DF-1", text, "   "));
-        assertFalse(new Deferred("DF-1", text, Generators.letterStrings(5, 40).next()).reason().isBlank());
+                () -> new Deferred("DF-1", text, "   "), "a deferred item needs a non-blank reason");
+        assertFalse(new Deferred("DF-1", text, Generators.letterStrings(5, 40).next()).reason().isBlank(),
+                "the deferred reason is kept non-blank");
     }
 
     @DisplayName("The clarified request is rendered from the record")
@@ -283,18 +305,23 @@ class IntentRecordTest {
                         null, null)));
         var store = assertInstanceOf(Accepted.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
-                        answered(FILE, "q-1", PLAN_ID, AnswerChannel.WEB))).store();
+                        answered(FILE, "q-1", PLAN_ID, AnswerChannel.WEB)),
+                "the answered operator decision is accepted").store();
 
         var rendered = ClarifiedRequestRenderer.render(store);
 
-        assertTrue(rendered.startsWith(ClarifiedRequestRenderer.HEADING));
-        assertTrue(rendered.contains("`AC-1`"));
-        assertTrue(rendered.contains("`NG-1`"));
-        assertTrue(rendered.contains("`CN-1`"));
-        assertTrue(rendered.contains("### Operator Decisions"));
-        assertTrue(rendered.contains("### Model's Calls"));
-        assertTrue(rendered.indexOf("### Operator Decisions") < rendered.indexOf("### Model's Calls"));
-        assertTrue(rendered.contains("\"The operator wants the intent visible\" → goal"));
+        assertTrue(rendered.startsWith(ClarifiedRequestRenderer.HEADING),
+                "the render starts with its heading");
+        assertTrue(rendered.contains("`AC-1`"), "the render names the criterion AC-1");
+        assertTrue(rendered.contains("`NG-1`"), "the render names the non-goal NG-1");
+        assertTrue(rendered.contains("`CN-1`"), "the render names the constraint CN-1");
+        assertTrue(rendered.contains("### Operator Decisions"),
+                "the render has the operator decisions section");
+        assertTrue(rendered.contains("### Model's Calls"), "the render has the model's calls section");
+        assertTrue(rendered.indexOf("### Operator Decisions") < rendered.indexOf("### Model's Calls"),
+                "the operator decisions come before the model's calls");
+        assertTrue(rendered.contains("\"The operator wants the intent visible\" → goal"),
+                "the render states the claim's landing");
     }
 
     @DisplayName("An existing clarified request is replaced in place")
@@ -317,10 +344,10 @@ class IntentRecordTest {
                 Kept.
                 """;
         var updated = ClarifiedRequestRenderer.applyTo(request, store);
-        assertFalse(updated.contains("stale text"));
-        assertTrue(updated.contains("## Original Input"));
-        assertTrue(updated.contains("## Notes"));
-        assertTrue(updated.contains("`AC-1`"));
+        assertFalse(updated.contains("stale text"), "the stale clarified request is gone");
+        assertTrue(updated.contains("## Original Input"), "the original input section is kept");
+        assertTrue(updated.contains("## Notes"), "the notes section is kept");
+        assertTrue(updated.contains("`AC-1`"), "the new clarified request is rendered");
     }
 
     @DisplayName("A document without a clarified request gains one at its end")
@@ -328,15 +355,17 @@ class IntentRecordTest {
     void appendsClarifiedRequest() {
         var updated = ClarifiedRequestRenderer.applyTo("# Request\n\nInput.\n",
                 IntentStore.first(revision(1, valid())));
-        assertTrue(updated.startsWith("# Request"));
-        assertTrue(updated.contains(ClarifiedRequestRenderer.HEADING));
+        assertTrue(updated.startsWith("# Request"), "the appended document keeps its title");
+        assertTrue(updated.contains(ClarifiedRequestRenderer.HEADING),
+                "the appended document gains the heading");
     }
 
     @DisplayName("The reader refuses a document of another format version")
     @Test
     void refusesOtherFormatVersion() {
         var document = "{\"format_version\": 2, \"current\": {}, \"history\": []}".getBytes(StandardCharsets.UTF_8);
-        assertThrows(StoreRefusal.class, () -> IntentCodec.read(FILE, document));
+        assertThrows(StoreRefusal.class, () -> IntentCodec.read(FILE, document),
+                "another format version is refused by the reader");
     }
 
     @DisplayName("A decision with a question id but a model decider is refused")
@@ -344,16 +373,18 @@ class IntentRecordTest {
     void refusesModelDecisionWithQuestionId() {
         assertThrows(IllegalArgumentException.class,
                 () -> new Decision("DC-1", Generators.letterStrings(10, 60).next(),
-                        options(), Decider.MODEL, "q-1", null, null));
+                        options(), Decider.MODEL, "q-1", null, null),
+                "a model decision carries no question id");
     }
 
     @DisplayName("A non-goal names its text")
     @Test
     void nonGoalIsBounded() {
-        assertThrows(IllegalArgumentException.class, () -> new NonGoal("NG-1", "no"));
+        assertThrows(IllegalArgumentException.class, () -> new NonGoal("NG-1", "no"),
+                "a non-goal text below the minimum is refused");
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, withCriteria(List.of(
                 criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST)))), context(FILE));
-        assertInstanceOf(Accepted.class, outcome);
+        assertInstanceOf(Accepted.class, outcome, "the revision with one criterion is accepted");
     }
 
     @DisplayName("Two revisions whose identifiers differ resolve to the removed set")
@@ -363,7 +394,8 @@ class IntentRecordTest {
         var second = store.accept(revision(2, withCriteria(List.of(
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST),
                 criterion("AC-3", CriterionKind.NEW, VerifiedBy.TEST)))));
-        assertEquals(List.of("AC-1"), second.removedIdentifiers());
+        assertEquals(List.of("AC-1"), second.removedIdentifiers(),
+                "the removed identifier is reported alone");
     }
 
     @DisplayName("A capability link round-trips through the codec")
@@ -374,12 +406,13 @@ class IntentRecordTest {
                         VerifiedBy.TEST, new CapabilityLink("intent-record", "round-trip", CapabilityChange.ADDED, null)),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
         var store = assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(FILE))).store();
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(FILE)),
+                "the record with a capability link is accepted").store();
 
         var reread = IntentCodec.read(FILE, IntentCodec.write(store));
-        assertEquals(store, reread);
+        assertEquals(store, reread, "the capability link round-trips through the codec");
         assertEquals("intent-record", reread.current().intentRecord().criterion("AC-1").orElseThrow().capability()
-                .capability());
+                .capability(), "the capability link keeps its capability name");
     }
 
     @DisplayName("A current behaviour without a fix criterion, or outside its form, is refused")
@@ -389,28 +422,32 @@ class IntentRecordTest {
         var criteria = base.criteria();
         var assumptions = base.assumptions();
         assertThrows(IllegalArgumentException.class,
-                () -> copy(base, criteria, "WHEN a plan is refined THEN THE system writes the record", assumptions));
+                () -> copy(base, criteria, "WHEN a plan is refined THEN THE system writes the record", assumptions),
+                "a current behaviour without a fix criterion is refused");
 
         var fix = new Criterion("AC-1", "WHEN a plan is refined THE system SHALL write the record",
                 CriterionKind.FIX, VerifiedBy.TEST, null);
         var unchanged = criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST);
         var withFix = List.of(fix, unchanged);
         assertThrows(IllegalArgumentException.class,
-                () -> copy(base, withFix, "the record was prose before", assumptions));
+                () -> copy(base, withFix, "the record was prose before", assumptions),
+                "a current behaviour outside its form is refused");
 
         var conforming = new IntentRecord(valid().why(), valid().goal(), List.of(fix, unchanged),
                 "WHEN a plan is refined THEN THE system writes the record as prose", valid().nonGoals(),
                 valid().constraints(), valid().decisions(), valid().assumptions(), valid().openQuestions(),
                 valid().deferred(), valid().sourceClaims());
         assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, revision(1, conforming), context(FILE)));
+                accept(null, IntentSubmission.REFINE, revision(1, conforming), context(FILE)),
+                "the conforming fix and current behaviour is accepted");
     }
 
     @DisplayName("A first revision other than 1 is refused, not thrown")
     @Test
     void refusesFirstRevisionOtherThanOne() {
         var outcome = accept(null, IntentSubmission.REFINE, revision(2, valid()), context(FILE));
-        assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("revision 1"));
+        var refusal = assertInstanceOf(Refused.class, outcome, "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("revision 1"), "the refusal names the first revision");
     }
 
     @DisplayName("A fact decision whose evidence is no path is refused, not thrown")
@@ -418,9 +455,10 @@ class IntentRecordTest {
     void refusesEvidenceThatIsNoPath(@TempDir Path tree) {
         var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
                 options(), Decider.FACT, null, "bad\u0000path", null)));
-        assertTrue(assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
-                .contains("no path"));
+        var refusal = assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree)),
+                "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("no path"), "the refusal names the evidence that is no path");
     }
 
     @DisplayName("A fact decision whose evidence is a symlink outside the tree is refused")
@@ -434,9 +472,11 @@ class IntentRecordTest {
         var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
                 options(), Decider.FACT, null, "link.adoc", null)));
 
-        assertTrue(assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
-                .contains("outside the tree"));
+        var refusal = assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree)),
+                "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("outside the tree"),
+                "the symlinked evidence outside the tree is refused");
     }
 
     @DisplayName("A fact decision whose evidence lies outside the tree is refused")
@@ -444,15 +484,19 @@ class IntentRecordTest {
     void refusesEvidenceOutsideTheTree(@TempDir Path tree) {
         var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
                 options(), Decider.FACT, null, "../outside.adoc", null)));
-        assertTrue(assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
-                .contains("outside the tree"));
+        var refusal = assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree)),
+                "the outcome is a refusal");
+        assertTrue(refusal.detail().contains("outside the tree"),
+                "the relative evidence outside the tree is refused");
 
         var absolute = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
                 options(), Decider.FACT, null, "/etc/hosts", null)));
-        assertTrue(assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, absolute), context(tree))).detail()
-                .contains("outside the tree"));
+        var absoluteRefusal = assertInstanceOf(Refused.class,
+                accept(null, IntentSubmission.REFINE, revision(1, absolute), context(tree)),
+                "the outcome is a refusal");
+        assertTrue(absoluteRefusal.detail().contains("outside the tree"),
+                "the absolute evidence outside the tree is refused");
     }
 
     private static Outcome accept(IntentStore before, IntentSubmission submission, Revision revision,

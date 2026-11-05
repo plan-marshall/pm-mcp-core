@@ -51,11 +51,15 @@ class JobIdTest {
         void drawn(Kind kind) {
             var id = JobId.random(kind);
 
-            assertAll(
-                    () -> assertTrue(FORM.matcher(id.value()).matches(), id.value()),
-                    () -> assertEquals(kind.prefix(), id.value().charAt(0)),
-                    () -> assertEquals(kind, id.kind()),
-                    () -> assertEquals(Optional.of(id), JobId.parse(id.value())));
+            assertAll("A drawn id matches the grammar of its kind",
+                    () -> assertTrue(FORM.matcher(id.value()).matches(),
+                            "The drawn id matches the job-id grammar"),
+                    () -> assertEquals(kind.prefix(), id.value().charAt(0),
+                            "The first character is the prefix of the kind"),
+                    () -> assertEquals(kind, id.kind(),
+                            "The id reports the kind it was drawn for"),
+                    () -> assertEquals(Optional.of(id), JobId.parse(id.value()),
+                            "A drawn id parses back to itself"));
         }
 
         @ParameterizedTest(name = "{0} -> {1}{2}")
@@ -68,10 +72,13 @@ class JobIdTest {
                 "PROBE, v, probe"})
         @DisplayName("each kind has its prefix and its store wire name")
         void vocabulary(Kind kind, char prefix, String wireName) {
-            assertAll(
-                    () -> assertEquals(prefix, kind.prefix()),
-                    () -> assertEquals(wireName, kind.wireName()),
-                    () -> assertEquals(Optional.of(kind), Kind.fromWireName(wireName)));
+            assertAll("Each kind carries its prefix and wire name",
+                    () -> assertEquals(prefix, kind.prefix(),
+                            "The kind carries its prefix"),
+                    () -> assertEquals(wireName, kind.wireName(),
+                            "The wire name is the store name of the kind"),
+                    () -> assertEquals(Optional.of(kind), Kind.fromWireName(wireName),
+                            "The wire name parses back to its kind"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -80,7 +87,8 @@ class JobIdTest {
         void drawnFromSource(Kind kind) {
             var id = JobId.random(kind, FIXED);
 
-            assertEquals(kind.prefix() + "-efcdab8967452301", id.value());
+            assertEquals(kind.prefix() + "-efcdab8967452301", id.value(),
+                    "The digits are drawn from the given source");
         }
     }
 
@@ -93,22 +101,30 @@ class JobIdTest {
         void names() {
             var id = new JobId("b-0123456789abcdef");
 
-            assertAll(
-                    () -> assertEquals("b-0123456789abcdef.json", id.recordFileName()),
-                    () -> assertEquals("b-0123456789abcdef.log", id.logFileName()),
-                    () -> assertEquals("b-0123456789abcdef", id.toString()));
+            assertAll("The id names its record and its log file",
+                    () -> assertEquals("b-0123456789abcdef.json", id.recordFileName(),
+                            "The record file is the id with .json"),
+                    () -> assertEquals("b-0123456789abcdef.log", id.logFileName(),
+                            "The log file is the id with .log"),
+                    () -> assertEquals("b-0123456789abcdef", id.toString(),
+                            "The string form is the id value"));
         }
 
         @Test
         @DisplayName("only the name of a record parses back to its id")
         void ofRecordFileName() {
-            assertAll(
+            assertAll("Only a record file name parses to an id",
                     () -> assertEquals(Optional.of(new JobId("v-0123456789abcdef")),
-                            JobId.ofRecordFileName("v-0123456789abcdef.json")),
-                    () -> assertEquals(Optional.empty(), JobId.ofRecordFileName("v-0123456789abcdef.log")),
-                    () -> assertEquals(Optional.empty(), JobId.ofRecordFileName("v-0123456789abcdef.json.tmp.x")),
-                    () -> assertEquals(Optional.empty(), JobId.ofRecordFileName("notes.json")),
-                    () -> assertThrows(NullPointerException.class, () -> JobId.ofRecordFileName(null)));
+                            JobId.ofRecordFileName("v-0123456789abcdef.json"),
+                            "The record file name yields its id"),
+                    () -> assertEquals(Optional.empty(), JobId.ofRecordFileName("v-0123456789abcdef.log"),
+                            "A log file name yields no id"),
+                    () -> assertEquals(Optional.empty(), JobId.ofRecordFileName("v-0123456789abcdef.json.tmp.x"),
+                            "A temporary suffix yields no id"),
+                    () -> assertEquals(Optional.empty(), JobId.ofRecordFileName("notes.json"),
+                            "An unrelated file name yields no id"),
+                    () -> assertThrows(NullPointerException.class, () -> JobId.ofRecordFileName(null),
+                            "A null file name is refused"));
         }
     }
 
@@ -122,25 +138,32 @@ class JobIdTest {
                 "ent-0123456789abcdef", "", "b-0123456789abcdeg"})
         @DisplayName("a value outside the grammar is no job id")
         void foreign(String value) {
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new JobId(value)),
-                    () -> assertEquals(Optional.empty(), JobId.parse(value)));
+            assertAll("A foreign value is refused as a job id",
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobId(value),
+                            "The constructor refuses the foreign value"),
+                    () -> assertEquals(Optional.empty(), JobId.parse(value),
+                            "Parsing the foreign value yields empty"));
         }
 
         @Test
         @DisplayName("a missing value or kind is refused")
         void missing() {
-            assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new JobId(null)),
-                    () -> assertEquals(Optional.empty(), JobId.parse(null)),
-                    () -> assertThrows(NullPointerException.class, () -> JobId.random(null)),
-                    () -> assertEquals(Optional.empty(), Kind.fromWireName("worker")));
+            assertAll("A missing value or kind is refused",
+                    () -> assertThrows(NullPointerException.class, () -> new JobId(null),
+                            "A null value is refused by the constructor"),
+                    () -> assertEquals(Optional.empty(), JobId.parse(null),
+                            "Parsing a null value yields empty"),
+                    () -> assertThrows(NullPointerException.class, () -> JobId.random(null),
+                            "A null kind is refused by the draw"),
+                    () -> assertEquals(Optional.empty(), Kind.fromWireName("worker"),
+                            "An unknown wire name yields no kind"));
         }
 
         @Test
         @DisplayName("two draws of the secure source differ")
         void drawsDiffer() {
-            assertNotEquals(JobId.random(Kind.BUILD), JobId.random(Kind.BUILD));
+            assertNotEquals(JobId.random(Kind.BUILD), JobId.random(Kind.BUILD),
+                    "Two draws of the secure source differ");
         }
     }
 }

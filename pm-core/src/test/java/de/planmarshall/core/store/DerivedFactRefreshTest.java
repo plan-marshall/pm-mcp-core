@@ -56,20 +56,21 @@ class DerivedFactRefreshTest {
     private static final String ENUM_SCHEMA = "{\"type\":\"string\",\"enum\":[\"alpha\",\"beta\"]}";
     private static final DerivedFactKey LOCAL_KEY = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
     private static final DerivedFactKey NETWORK_KEY = new DerivedFactKey(DerivedFactKind.MERGE_METHODS_ALLOWED, null);
-    private static final JsonValue VALUE = JsonValue.parse(
-            ("{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}").getBytes(UTF_8));
-    /** A schema-valid payload of a stored entry; its member value is generated. */
-    private static final String OLD_PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
 
     @TempDir
     Path base;
 
     private Path file;
     private DerivedFactStore store;
+    private JsonValue value;
+    /** A schema-valid payload of a stored entry; its member value is generated. */
+    private String oldPayload;
     private final AtomicInteger calls = new AtomicInteger();
 
     @BeforeEach
     void createStore() {
+        value = JsonValue.parse(("{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}").getBytes(UTF_8));
+        oldPayload = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
         file = base.resolve("derived-facts.json");
         var kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec(DerivedFact.DerivationClass.LOCAL));
@@ -101,7 +102,7 @@ class DerivedFactRefreshTest {
     private Derivation succeeds(DerivedFact.DerivationClass derivationClass) {
         return () -> {
             calls.incrementAndGet();
-            return new Derived(VALUE, "fixture", derivationClass);
+            return new Derived(value, "fixture", derivationClass);
         };
     }
 
@@ -132,7 +133,7 @@ class DerivedFactRefreshTest {
         void absentIsDerived() {
             var reading = store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
-            assertAll(
+            assertAll("An absent entry is derived once",
                     () -> assertEquals(1, calls.get(), "The derivation is called once"),
                     () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "A current value is written"),
                     () -> assertEquals(DIGEST_A, store.fact(LOCAL_KEY).orElseThrow().inputDigest(),
@@ -143,11 +144,11 @@ class DerivedFactRefreshTest {
         @DisplayName("a local entry of another digest is derived")
         void localDigestMismatchIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
-                    DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
+                    DIGEST_A, NOW.minusSeconds(60), oldPayload);
 
             var reading = store.refresh(LOCAL_KEY, DIGEST_B, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
-            assertAll(
+            assertAll("A local digest mismatch is derived once",
                     () -> assertEquals(1, calls.get(), "The derivation is called once"),
                     () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "A current value is written"),
                     () -> assertEquals(DIGEST_B, store.fact(LOCAL_KEY).orElseThrow().inputDigest(),
@@ -158,7 +159,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry of another digest is derived")
         void networkDigestMismatchIsDerived() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), oldPayload);
 
             store.refresh(NETWORK_KEY, DIGEST_B, succeeds(DerivedFact.DerivationClass.NETWORK), NOW);
 
@@ -169,11 +170,11 @@ class DerivedFactRefreshTest {
         @DisplayName("a current entry of the same digest is returned without deriving")
         void cacheHitDoesNotDerive() throws Exception {
             var stored = seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW.minusSeconds(60), oldPayload);
 
             var reading = store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
-            assertAll(
+            assertAll("A cache hit returns the stored entry",
                     () -> assertEquals(0, calls.get(), "The derivation is not called"),
                     () -> assertEquals(new DerivedFactReading.Value(stored), reading, "The stored entry is returned"));
         }
@@ -182,7 +183,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a stale entry is derived even when its digest matches")
         void staleIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.STALE,
-                    DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
+                    DIGEST_A, NOW.minusSeconds(60), oldPayload);
 
             store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
@@ -193,7 +194,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a failed entry is derived even when its digest matches")
         void failedIsDerived() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.FAILED,
-                    DIGEST_A, NOW.minusSeconds(60), OLD_PAYLOAD);
+                    DIGEST_A, NOW.minusSeconds(60), oldPayload);
 
             store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
@@ -209,12 +210,12 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry one second before its period is returned")
         void beforeThePeriodDoesNotDerive() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW, OLD_PAYLOAD);
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW, oldPayload);
 
             var reading = store.refresh(NETWORK_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.NETWORK),
                     NOW.plusSeconds(86_399));
 
-            assertAll(
+            assertAll("A network entry inside its period is not derived",
                     () -> assertEquals(0, calls.get(), "The derivation is not called"),
                     () -> assertInstanceOf(DerivedFactReading.Value.class, reading, "The stored entry is current"));
         }
@@ -223,7 +224,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry at exactly its period is derived")
         void atThePeriodDerives() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW, OLD_PAYLOAD);
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW, oldPayload);
 
             store.refresh(NETWORK_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.NETWORK),
                     NOW.plusSeconds(86_400));
@@ -235,7 +236,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a network entry one second after its period is derived")
         void afterThePeriodDerives() throws Exception {
             seed(DerivedFactKind.MERGE_METHODS_ALLOWED, DerivedFact.DerivationClass.NETWORK,
-                    DerivedFact.State.CURRENT, DIGEST_A, NOW, OLD_PAYLOAD);
+                    DerivedFact.State.CURRENT, DIGEST_A, NOW, oldPayload);
 
             store.refresh(NETWORK_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.NETWORK),
                     NOW.plusSeconds(86_401));
@@ -247,7 +248,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a local entry never expires by time")
         void localNeverExpiresByTime() throws Exception {
             seed(DerivedFactKind.MODULE_DISCOVERY, DerivedFact.DerivationClass.LOCAL, DerivedFact.State.CURRENT,
-                    DIGEST_A, NOW.minusSeconds(10_000_000), OLD_PAYLOAD);
+                    DIGEST_A, NOW.minusSeconds(10_000_000), oldPayload);
 
             store.refresh(LOCAL_KEY, DIGEST_A, succeeds(DerivedFact.DerivationClass.LOCAL), NOW);
 
@@ -274,7 +275,7 @@ class DerivedFactRefreshTest {
             var reading = store.refresh(LOCAL_KEY, DIGEST_A,
                     () -> new Derived(invalid, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
 
-            assertAll(
+            assertAll("A schema violation fails the entry",
                     () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                             "An invalid value is indeterminate"),
                     () -> assertEquals(DerivedFact.State.FAILED, store.fact(LOCAL_KEY).orElseThrow().state(),
@@ -301,7 +302,7 @@ class DerivedFactRefreshTest {
             var key = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, "java");
 
             var reading = store.refresh(key, DIGEST_A,
-                    () -> new Derived(VALUE, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
+                    () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
 
             assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                     "A refused qualifier is indeterminate");
@@ -311,7 +312,7 @@ class DerivedFactRefreshTest {
         @DisplayName("a source class the kind does not admit is a failure")
         void refusedSourceClassIsAFailure() {
             var reading = store.refresh(LOCAL_KEY, DIGEST_A,
-                    () -> new Derived(VALUE, "fixture", DerivedFact.DerivationClass.NETWORK), NOW);
+                    () -> new Derived(value, "fixture", DerivedFact.DerivationClass.NETWORK), NOW);
 
             assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                     "A refused source class is indeterminate");
@@ -328,7 +329,7 @@ class DerivedFactRefreshTest {
                     () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
 
             var reason = reading.couldNotEvaluate().orElseThrow();
-            assertAll(
+            assertAll("An operator-only value stays out of the reason",
                     () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                             "The invalid value is indeterminate"),
                     () -> assertFalse(reason.contains(secret),
@@ -350,7 +351,7 @@ class DerivedFactRefreshTest {
             var reading = store.refresh(key, DIGEST_A,
                     () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
 
-            assertAll(
+            assertAll("A non-operator value stays in the reason",
                     () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                             "The invalid value is indeterminate"),
                     () -> assertTrue(reading.couldNotEvaluate().orElseThrow().contains(invalid),

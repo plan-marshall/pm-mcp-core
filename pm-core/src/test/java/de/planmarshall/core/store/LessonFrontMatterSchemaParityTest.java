@@ -67,6 +67,7 @@ class LessonFrontMatterSchemaParityTest {
     @DisplayName("the members of the record are the members of the schema in schema order")
     void membersEqualSchema() {
         assertAll(
+                "The record members equal the schema members",
                 () -> assertFalse(MEMBERS().isEmpty(), "The schema declares members at all"),
                 () -> assertEquals("LessonFrontMatter", schema.get("title"), "The schema title is the record's"),
                 () -> assertEquals(LessonCodec.MEMBERS, MEMBERS(), "The root members are the schema members"),
@@ -87,6 +88,7 @@ class LessonFrontMatterSchemaParityTest {
         var retired = member(properties, "retired");
 
         assertAll(
+                "The typed object members equal the schema",
                 () -> assertEquals(LessonCodec.SOURCE_MEMBERS, keys(source), "The source members are the schema's"),
                 () -> assertEquals(LessonCodec.SOURCE_REQUIRED_MEMBERS, required(source),
                         "The required source members are the schema's"),
@@ -123,6 +125,7 @@ class LessonFrontMatterSchemaParityTest {
         var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
 
         assertAll(
+                "Every enumeration equals the schema values",
                 () -> assertEquals(enumOf(properties, "category"),
                         wireNames(Category.values(), Category::wireName), "The category values are the schema's"),
                 () -> assertEquals(enumOf(properties, "status"), wireNames(Status.values(), Status::wireName),
@@ -157,6 +160,7 @@ class LessonFrontMatterSchemaParityTest {
         var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
 
         assertAll(
+                "The lesson id grammar equals the schema's",
                 () -> assertEquals(LessonId.PATTERN, member(properties, "lesson_id").get("pattern"),
                         "The root lesson id pattern is the schema's"),
                 () -> assertEquals(LessonId.MAX_LENGTH, number(member(properties, "lesson_id").get("maxLength")),
@@ -175,6 +179,7 @@ class LessonFrontMatterSchemaParityTest {
         var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
 
         assertAll(
+                "The format version and bounds equal the schema",
                 () -> assertEquals(LessonCodec.FORMAT_VERSION, number(member(properties, "format_version").get("const")),
                         "The format version is the codec constant"),
                 () -> assertEquals(LessonFrontMatter.MIN_REMEDY_STATEMENT,

@@ -35,7 +35,8 @@ class ContinuationMarkParityTest {
         assertEquals(
                 wireNames(QueueTaskRecord.ContinuationForm.values(),
                         QueueTaskRecord.ContinuationForm::wireName),
-                wireNames(MetricsRow.ContinuationMark.values(), MetricsRow.ContinuationMark::wireName));
+                wireNames(MetricsRow.ContinuationMark.values(), MetricsRow.ContinuationMark::wireName),
+                "Both vocabularies expose the same continuation forms");
     }
 
     private static <T extends Enum<T>> Set<String> wireNames(T[] values, Function<T, String> name) {

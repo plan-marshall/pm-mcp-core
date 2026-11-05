@@ -55,21 +55,23 @@ class DerivedFactFailureTest {
             + "\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"}}}";
     private static final DerivedFactKey KEY = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
     private static final DerivedFactKey OTHER = new DerivedFactKey(DerivedFactKind.PUSH_REMOTE, null);
-    private static final JsonValue VALUE = JsonValue.parse(
-            ("{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}").getBytes(UTF_8));
-    /** The schema-valid payload of the last good derivation; its member value is generated. */
-    private static final String OLD_PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
-    /** The schema-valid payload of an unrelated entry; its member value is generated. */
-    private static final String OTHER_PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
 
     @TempDir
     Path base;
 
     private Path file;
     private DerivedFactStore store;
+    private JsonValue value;
+    /** The schema-valid payload of the last good derivation; its member value is generated. */
+    private String oldPayload;
+    /** The schema-valid payload of an unrelated entry; its member value is generated. */
+    private String otherPayload;
 
     @BeforeEach
     void createStore() {
+        value = JsonValue.parse(("{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}").getBytes(UTF_8));
+        oldPayload = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
+        otherPayload = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
         file = base.resolve("derived-facts.json");
         var kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec());
@@ -87,8 +89,8 @@ class DerivedFactFailureTest {
                 .build();
     }
 
-    private static Derivation succeeds() {
-        return () -> new Derived(VALUE, "fixture", DerivedFact.DerivationClass.LOCAL);
+    private Derivation succeeds() {
+        return () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL);
     }
 
     private static Derivation fails(String reason) {
@@ -118,7 +120,7 @@ class DerivedFactFailureTest {
     private void seedTwo() throws IOException {
         var target = DerivedFact.builder()
                 .kind(DerivedFactKind.MODULE_DISCOVERY)
-                .value(JsonValue.parse(OLD_PAYLOAD.getBytes(UTF_8)))
+                .value(JsonValue.parse(oldPayload.getBytes(UTF_8)))
                 .source(new DerivedFact.Source("fixture", DerivedFact.DerivationClass.LOCAL))
                 .inputDigest(DIGEST_A)
                 .derivedAt(LAST_GOOD)
@@ -126,7 +128,7 @@ class DerivedFactFailureTest {
                 .build();
         var other = DerivedFact.builder()
                 .kind(DerivedFactKind.PUSH_REMOTE)
-                .value(JsonValue.parse(OTHER_PAYLOAD.getBytes(UTF_8)))
+                .value(JsonValue.parse(otherPayload.getBytes(UTF_8)))
                 .source(new DerivedFact.Source("fixture", DerivedFact.DerivationClass.LOCAL))
                 .inputDigest(DIGEST_A)
                 .derivedAt(LAST_GOOD)
@@ -145,16 +147,16 @@ class DerivedFactFailureTest {
         @Test
         @DisplayName("a current entry becomes stale and keeps its last good state")
         void currentToStale() throws Exception {
-            seed(KEY, DerivedFact.State.CURRENT, DIGEST_A, OLD_PAYLOAD, null);
+            seed(KEY, DerivedFact.State.CURRENT, DIGEST_A, oldPayload, null);
 
             var reading = store.refresh(KEY, DIGEST_B, fails("boom"), NOW);
 
             var entry = store.fact(KEY).orElseThrow();
-            assertAll(
+            assertAll("A current entry becomes stale",
                     () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,
                             "A stale entry is indeterminate"),
                     () -> assertEquals(DerivedFact.State.STALE, entry.state(), "The stored entry is now stale"),
-                    () -> assertEquals(JsonValue.parse(OLD_PAYLOAD.getBytes(UTF_8)), entry.value(),
+                    () -> assertEquals(JsonValue.parse(oldPayload.getBytes(UTF_8)), entry.value(),
                             "The last good value is kept"),
                     () -> assertEquals(DIGEST_A, entry.inputDigest(), "The last good digest is kept"),
                     () -> assertEquals(LAST_GOOD, entry.derivedAt(), "The last good instant is kept"),
@@ -165,12 +167,12 @@ class DerivedFactFailureTest {
         @Test
         @DisplayName("a stale entry stays stale with the new failure")
         void staleToStale() throws Exception {
-            seed(KEY, DerivedFact.State.STALE, DIGEST_A, OLD_PAYLOAD, "first");
+            seed(KEY, DerivedFact.State.STALE, DIGEST_A, oldPayload, "first");
 
             store.refresh(KEY, DIGEST_B, fails("second"), NOW);
 
             var entry = store.fact(KEY).orElseThrow();
-            assertAll(
+            assertAll("A stale entry stays stale",
                     () -> assertEquals(DerivedFact.State.STALE, entry.state(), "The entry stays stale"),
                     () -> assertEquals(DIGEST_A, entry.inputDigest(), "The last good digest is kept"),
                     () -> assertEquals("second", entry.failure().reason(), "The newest failure is recorded"));
@@ -184,7 +186,7 @@ class DerivedFactFailureTest {
             store.refresh(KEY, DIGEST_B, fails("again"), NOW);
 
             var entry = store.fact(KEY).orElseThrow();
-            assertAll(
+            assertAll("A failed entry stays failed",
                     () -> assertEquals(DerivedFact.State.FAILED, entry.state(), "The entry stays failed"),
                     () -> assertNull(entry.value(), "A failed entry carries no value"),
                     () -> assertEquals(DIGEST_B, entry.inputDigest(), "The attempted digest is stored"),
@@ -200,7 +202,7 @@ class DerivedFactFailureTest {
             store.refresh(KEY, DIGEST_B, succeeds(), NOW);
 
             var entry = store.fact(KEY).orElseThrow();
-            assertAll(
+            assertAll("A failed entry becomes current",
                     () -> assertEquals(DerivedFact.State.CURRENT, entry.state(), "The entry is current"),
                     () -> assertNull(entry.failure(), "A current entry carries no failure"),
                     () -> assertEquals(DIGEST_B, entry.inputDigest(), "The new digest is stored"));
@@ -209,15 +211,15 @@ class DerivedFactFailureTest {
         @Test
         @DisplayName("a stale entry becomes current and drops the failure")
         void staleToCurrent() throws Exception {
-            seed(KEY, DerivedFact.State.STALE, DIGEST_A, OLD_PAYLOAD, "first");
+            seed(KEY, DerivedFact.State.STALE, DIGEST_A, oldPayload, "first");
 
             store.refresh(KEY, DIGEST_B, succeeds(), NOW);
 
             var entry = store.fact(KEY).orElseThrow();
-            assertAll(
+            assertAll("A stale entry becomes current",
                     () -> assertEquals(DerivedFact.State.CURRENT, entry.state(), "The entry is current"),
                     () -> assertNull(entry.failure(), "A current entry carries no failure"),
-                    () -> assertEquals(VALUE, entry.value(), "The new value is stored"));
+                    () -> assertEquals(value, entry.value(), "The new value is stored"));
         }
 
         @Test
@@ -226,7 +228,7 @@ class DerivedFactFailureTest {
             store.refresh(KEY, DIGEST_B, fails("never derived"), NOW);
 
             var entry = store.fact(KEY).orElseThrow();
-            assertAll(
+            assertAll("An absent entry becomes failed",
                     () -> assertEquals(DerivedFact.State.FAILED, entry.state(), "The stored entry is failed"),
                     () -> assertNull(entry.value(), "No value was ever derived"),
                     () -> assertEquals(DIGEST_B, entry.inputDigest(), "The attempted digest is stored"),

@@ -67,13 +67,13 @@ class AuditLogTest {
 
     private static final Instant AT = Instant.parse("2026-10-14T09:30:15.250Z");
     private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
-    private static final String PRINCIPAL = Generators.letterStrings(3, 20).next();
     private static final String ANCHORED = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     private static final byte[] TORN = "{\"format_version\":1,\"event_id\":\"0189".getBytes(UTF_8);
 
     @TempDir
     Path base;
 
+    private String principal;
     private LockKey auditKey;
     private RecordingLockManager locks;
     private RecordingAnchor anchor;
@@ -81,11 +81,12 @@ class AuditLogTest {
 
     @BeforeEach
     void createLog() throws IOException {
+        principal = Generators.letterStrings(3, 20).next();
         Files.createDirectories(base.resolve("logs"));
         auditKey = LockKey.auditLog(base);
         locks = new RecordingLockManager();
         anchor = new RecordingAnchor(Optional.empty());
-        log = new AuditLog(base, anchor, CLOCK, PRINCIPAL);
+        log = new AuditLog(base, anchor, CLOCK, principal);
     }
 
     /**
@@ -149,7 +150,7 @@ class AuditLogTest {
         }
     }
 
-    private static AuditRecord template(String event) {
+    private AuditRecord template(String event) {
         return AuditRecord.builder()
                 .eventId(TransactionId.generate(CLOCK).value())
                 .prevHash(AuditCodec.GENESIS_HASH)
@@ -157,13 +158,13 @@ class AuditLogTest {
                 .category(Category.OPERATOR)
                 .event(event)
                 .scopeType(Scope.MACHINE)
-                .actor(PRINCIPAL)
+                .actor(principal)
                 .outcome(Outcome.SUCCEEDED)
-                .details(Map.of("os_principal", PRINCIPAL))
+                .details(Map.of("os_principal", principal))
                 .build();
     }
 
-    private static AuditRecord checkpoint() {
+    private AuditRecord checkpoint() {
         return template(AuditRecord.EVENT_CHECKPOINT).withCategory(Category.SECURITY);
     }
 
@@ -206,7 +207,8 @@ class AuditLogTest {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(auditKey);
             var stopping = FailingAuditSink.stopping(1);
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> store.repairTail(transaction, stopping));
+            assertThrows(FailingAuditSink.ProcessStopped.class, () -> store.repairTail(transaction, stopping),
+                    "the repair stops after cutting the tail");
         }
     }
 
@@ -227,9 +229,10 @@ class AuditLogTest {
         void genesis() {
             var appended = append(template("first"));
 
-            assertAll(
-                    () -> assertEquals(AuditCodec.GENESIS_HASH, appended.prevHash()),
-                    () -> assertEquals(List.of(appended), records()));
+            assertAll("the first record chains to genesis",
+                    () -> assertEquals(AuditCodec.GENESIS_HASH, appended.prevHash(),
+                            "the first record names the genesis hash"),
+                    () -> assertEquals(List.of(appended), records(), "the log holds exactly that record"));
         }
 
         @Test
@@ -239,10 +242,13 @@ class AuditLogTest {
             var second = append(template("second"));
             var third = append(template("third"));
 
-            assertAll(
-                    () -> assertEquals(List.of(first, second, third), records()),
-                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(0)), second.prevHash()),
-                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(1)), third.prevHash()),
+            assertAll("every record names the previous line's hash",
+                    () -> assertEquals(List.of(first, second, third), records(),
+                            "the records are in append order"),
+                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(0)), second.prevHash(),
+                            "the second record chains to the first line"),
+                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(1)), third.prevHash(),
+                            "the third record chains to the second line"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
         }
 
@@ -253,11 +259,13 @@ class AuditLogTest {
 
             InternalFaultException fault;
             try (var transaction = locks.openTransaction()) {
-                fault = assertThrows(InternalFaultException.class, () -> log.append(transaction, auditRecord));
+                fault = assertThrows(InternalFaultException.class, () -> log.append(transaction, auditRecord),
+                        "an append without the audit lock is refused");
             }
 
-            assertAll(
-                    () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason()),
+            assertAll("an append without the lock is refused",
+                    () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
+                            "the fault names the missing lock"),
                     () -> assertFalse(Files.exists(log.logFile()), "nothing was written"),
                     () -> assertEquals(List.of(), anchor.calls, "the anchor was not called"));
         }
@@ -265,18 +273,19 @@ class AuditLogTest {
         @Test
         @DisplayName("the log is the file below logs/ that the leaf key of the audit lock names")
         void logFile() {
-            assertAll(
+            assertAll("the log file is named by the audit lock key",
                     () -> assertEquals(base.toAbsolutePath().normalize().resolve("logs").resolve("audit.jsonl"),
-                            log.logFile()),
-                    () -> assertEquals(auditKey, log.lockKey()),
-                    () -> assertSame(CLOCK, log.clock()),
-                    () -> assertEquals(PRINCIPAL, log.osPrincipal()));
+                            log.logFile(), "the log file is logs/audit.jsonl below the base"),
+                    () -> assertEquals(auditKey, log.lockKey(), "the lock key is the audit lock key"),
+                    () -> assertSame(CLOCK, log.clock(), "the clock is the one given"),
+                    () -> assertEquals(principal, log.osPrincipal(), "the OS principal is kept"));
         }
 
         @Test
         @DisplayName("a blank OS principal is refused")
         void blankPrincipal() {
-            assertThrows(IllegalArgumentException.class, () -> new AuditLog(base, AuditAnchor.NONE, CLOCK, " "));
+            assertThrows(IllegalArgumentException.class, () -> new AuditLog(base, AuditAnchor.NONE, CLOCK, " "),
+                    "a blank OS principal is refused");
         }
     }
 
@@ -290,37 +299,43 @@ class AuditLogTest {
             append(template("first"));
             var second = append(template("second"));
 
-            assertAll(
+            assertAll("the anchor sees each append in order",
                     () -> assertEquals(List.of("beforeAppend", "emptyLogPredecessor", "afterAppend", "beforeAppend",
-                            "afterAppend"), anchor.calls),
-                    () -> assertEquals(second, anchor.appended),
-                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(1)), anchor.lineHash));
+                            "afterAppend"), anchor.calls, "the anchor is called around each append"),
+                    () -> assertEquals(second, anchor.appended, "the anchor sees the appended record"),
+                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(1)), anchor.lineHash,
+                            "the anchor sees the hash of the written line"));
         }
 
         @Test
         @DisplayName("an empty log chains its first record to the anchor's predecessor when it has one")
         void emptyLogPredecessor() {
-            var anchored = new AuditLog(base, new RecordingAnchor(Optional.of(ANCHORED)), CLOCK, PRINCIPAL);
+            var anchored = new AuditLog(base, new RecordingAnchor(Optional.of(ANCHORED)), CLOCK, principal);
 
             var first = append(anchored, template("first"));
             var second = append(anchored, template("second"));
 
-            assertAll(
-                    () -> assertEquals(ANCHORED, first.prevHash()),
-                    () -> assertEquals(AuditCodec.sha256Hex(lines().getFirst()), second.prevHash()));
+            assertAll("an empty log chains to the predecessor",
+                    () -> assertEquals(ANCHORED, first.prevHash(),
+                            "the first record chains to the predecessor"),
+                    () -> assertEquals(AuditCodec.sha256Hex(lines().getFirst()), second.prevHash(),
+                            "the second record chains to the first line"));
         }
 
         @Test
         @DisplayName("the anchor NONE writes nothing and names no predecessor, so the chain starts at genesis")
         void none() {
-            var plain = new AuditLog(base, AuditAnchor.NONE, CLOCK, PRINCIPAL);
+            var plain = new AuditLog(base, AuditAnchor.NONE, CLOCK, principal);
 
             var first = append(plain, template("first"));
 
-            assertAll(
-                    () -> assertEquals(AuditCodec.GENESIS_HASH, first.prevHash()),
-                    () -> assertEquals(Optional.empty(), AuditAnchor.NONE.emptyLogPredecessor()),
-                    () -> assertEquals(List.of("audit.jsonl"), fileNames()));
+            assertAll("anchored NONE starts the chain at genesis",
+                    () -> assertEquals(AuditCodec.GENESIS_HASH, first.prevHash(),
+                            "the first record chains to genesis"),
+                    () -> assertEquals(Optional.empty(), AuditAnchor.NONE.emptyLogPredecessor(),
+                            "the anchor names no predecessor"),
+                    () -> assertEquals(List.of("audit.jsonl"), fileNames(),
+                            "only the log file was written"));
         }
 
         private List<String> fileNames() throws IOException {
@@ -344,19 +359,23 @@ class AuditLogTest {
 
             var records = records();
             var repair = records.get(1);
-            assertAll(
-                    () -> assertEquals(3, records.size()),
-                    () -> assertEquals(first, records.get(0)),
-                    () -> assertEquals(second, records.get(2)),
-                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, repair.event()),
-                    () -> assertEquals(Category.STORE, repair.category()),
-                    () -> assertEquals(Outcome.SUCCEEDED, repair.outcome()),
-                    () -> assertEquals(Scope.MACHINE, repair.scopeType()),
-                    () -> assertEquals(PRINCIPAL, repair.actor()),
-                    () -> assertEquals((long) TORN.length, repair.details().get(AuditEvent.DETAIL_TRUNCATED_BYTES)),
+            assertAll("the repaired record is chained into the log",
+                    () -> assertEquals(3, records.size(), "the log holds the two records and the repair"),
+                    () -> assertEquals(first, records.get(0), "the first record is unchanged"),
+                    () -> assertEquals(second, records.get(2), "the new record follows the repair"),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, repair.event(),
+                            "the repair event is recorded"),
+                    () -> assertEquals(Category.STORE, repair.category(), "the repair category is store"),
+                    () -> assertEquals(Outcome.SUCCEEDED, repair.outcome(), "the repair succeeded"),
+                    () -> assertEquals(Scope.MACHINE, repair.scopeType(), "the repair is machine scoped"),
+                    () -> assertEquals(principal, repair.actor(), "the actor is the OS principal"),
+                    () -> assertEquals((long) TORN.length, repair.details().get(AuditEvent.DETAIL_TRUNCATED_BYTES),
+                            "the truncated byte count is kept"),
                     () -> assertEquals(StoreSnapshot.sha256(TORN),
-                            repair.details().get(AuditEvent.DETAIL_TRUNCATED_SHA256)),
-                    () -> assertInstanceOf(String.class, transactionId(repair)),
+                            repair.details().get(AuditEvent.DETAIL_TRUNCATED_SHA256),
+                            "the truncated hash is kept"),
+                    () -> assertInstanceOf(String.class, transactionId(repair),
+                            "the repair names its transaction id"),
                     () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
         }
@@ -372,11 +391,13 @@ class AuditLogTest {
             var second = append(template("second"));
 
             var records = records();
-            assertAll(
+            assertAll("the owed record is re-delivered with its id",
                     () -> assertEquals(1, owed.size(), "the stop left the record owed"),
                     () -> assertEquals(List.of(first.eventId(), records.get(1).eventId(), second.eventId()),
-                            records.stream().map(AuditRecord::eventId).toList()),
-                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(1).event()),
+                            records.stream().map(AuditRecord::eventId).toList(),
+                            "the records keep their order and ids"),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(1).event(),
+                            "the re-delivered record is the repair"),
                     () -> assertEquals(owed.getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID),
                             transactionId(records.get(1)), "the record keeps the id it was owed with"),
                     () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
@@ -392,9 +413,10 @@ class AuditLogTest {
             var intent = Files.readAllBytes(intentFile());
             var stopping = new RecordingAnchor(Optional.empty());
             stopping.failure = new FailingAuditSink.ProcessStopped();
-            var stopped = new AuditLog(base, stopping, CLOCK, PRINCIPAL);
+            var stopped = new AuditLog(base, stopping, CLOCK, principal);
             var stoppedRecord = template("stopped");
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> append(stopped, stoppedRecord));
+            assertThrows(FailingAuditSink.ProcessStopped.class, () -> append(stopped, stoppedRecord),
+                    "the append stops after the in-log write");
             Files.write(intentFile(), intent);
 
             var last = append(template("last"));
@@ -402,11 +424,11 @@ class AuditLogTest {
             var records = records();
             var repairs = records.stream().filter(entry -> AuditEvent.JSONL_TAIL_REPAIRED.equals(entry.event()))
                     .toList();
-            assertAll(
+            assertAll("a stop after the in-log write duplicates, never loses",
                     () -> assertEquals(2, repairs.size(), "the record is in the log twice"),
                     () -> assertEquals(transactionId(repairs.get(0)), transactionId(repairs.get(1)),
                             "the duplicate carries the same transaction id"),
-                    () -> assertEquals(last, records.getLast()),
+                    () -> assertEquals(last, records.getLast(), "the last record is the appended one"),
                     () -> assertTrue(records.stream().noneMatch(entry -> "stopped".equals(entry.event())),
                             "the stopped append wrote no record"),
                     () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
@@ -416,16 +438,18 @@ class AuditLogTest {
         @Test
         @DisplayName("a torn first line of an empty log chains its repair record to the anchor's predecessor")
         void tornFirstLineAfterRotation() throws Exception {
-            var anchored = new AuditLog(base, new RecordingAnchor(Optional.of(ANCHORED)), CLOCK, PRINCIPAL);
+            var anchored = new AuditLog(base, new RecordingAnchor(Optional.of(ANCHORED)), CLOCK, principal);
             tearTail();
 
             var first = append(anchored, template("first"));
 
             var records = records();
-            assertAll(
-                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(0).event()),
-                    () -> assertEquals(ANCHORED, records.get(0).prevHash()),
-                    () -> assertEquals(first, records.get(1)),
+            assertAll("a torn first line chains to the predecessor",
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(0).event(),
+                            "the first record is the repair"),
+                    () -> assertEquals(ANCHORED, records.get(0).prevHash(),
+                            "the repair chains to the predecessor"),
+                    () -> assertEquals(first, records.get(1), "the new record follows the repair"),
                     () -> assertChained(ANCHORED));
         }
 
@@ -442,12 +466,13 @@ class AuditLogTest {
             var second = append(template("second"));
 
             var records = records();
-            assertAll(
+            assertAll("the repair follows the checkpoint",
                     () -> assertEquals(List.of("first", AuditRecord.EVENT_CHECKPOINT, AuditEvent.JSONL_TAIL_REPAIRED,
-                            "second"), records.stream().map(AuditRecord::event).toList()),
+                            "second"), records.stream().map(AuditRecord::event).toList(),
+                            "the repair sits after the checkpoint"),
                     () -> assertEquals(records.get(2), anchor.lastBefore,
                             "the anchor saw the repair record, not the checkpoint, as the last line"),
-                    () -> assertEquals(second, records.getLast()),
+                    () -> assertEquals(second, records.getLast(), "the new record is last"),
                     () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
         }
@@ -455,13 +480,14 @@ class AuditLogTest {
         @Test
         @DisplayName("a repair record that cannot be written into the log stays owed and the append is not carried out")
         void inLogWriteFails() throws Exception {
-            var failing = new AuditLog(base, new FailingPredecessorAnchor(), CLOCK, PRINCIPAL);
+            var failing = new AuditLog(base, new FailingPredecessorAnchor(), CLOCK, principal);
             tearTail();
             var auditRecord = template("first");
 
-            var failure = assertThrows(UncheckedIOException.class, () -> append(failing, auditRecord));
+            var failure = assertThrows(UncheckedIOException.class, () -> append(failing, auditRecord),
+                    "an unreadable predecessor fails the append");
 
-            assertAll(
+            assertAll("a repair that fails stays owed",
                     () -> assertTrue(failure.getMessage().contains(intentFile().toString()), failure::getMessage),
                     () -> assertTrue(Files.exists(intentFile()), "the record stays owed"),
                     () -> assertEquals(0, Files.size(log.logFile()), "the torn tail was cut, nothing appended"),
@@ -487,9 +513,10 @@ class AuditLogTest {
             }
 
             var written = hash;
-            assertAll(
-                    () -> assertEquals(AuditCodec.sha256Hex(lines().getLast()), written),
-                    () -> assertTrue(records().getLast().isCheckpoint()),
+            assertAll("the checkpoint is chained, anchor not called",
+                    () -> assertEquals(AuditCodec.sha256Hex(lines().getLast()), written,
+                            "the returned hash is that of its line"),
+                    () -> assertTrue(records().getLast().isCheckpoint(), "the last record is the checkpoint"),
                     () -> assertEquals(List.of(), anchor.calls, "the anchor was not called"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
         }
@@ -500,7 +527,8 @@ class AuditLogTest {
             var checkpoint = checkpoint();
 
             try (var transaction = locks.openTransaction()) {
-                assertThrows(IllegalStateException.class, () -> log.appendCheckpoint(transaction, checkpoint));
+                assertThrows(IllegalStateException.class, () -> log.appendCheckpoint(transaction, checkpoint),
+                        "a checkpoint without the audit lock is refused");
             }
             assertFalse(Files.exists(log.logFile()), "nothing was written");
         }
@@ -512,7 +540,8 @@ class AuditLogTest {
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(auditKey);
-                assertThrows(IllegalArgumentException.class, () -> log.appendCheckpoint(transaction, auditRecord));
+                assertThrows(IllegalArgumentException.class, () -> log.appendCheckpoint(transaction, auditRecord),
+                        "a checkpoint of another event is refused");
             }
             assertFalse(Files.exists(log.logFile()), "nothing was written");
         }
@@ -538,21 +567,26 @@ class AuditLogTest {
         @DisplayName("is formed as the sink forms it, chained to the anchor's predecessor, and never calls the anchor")
         void appended() {
             var anchored = new RecordingAnchor(Optional.of(ANCHORED));
-            log = new AuditLog(base, anchored, CLOCK, PRINCIPAL);
+            log = new AuditLog(base, anchored, CLOCK, principal);
             var event = owed();
 
             var appended = appendOwed(event);
 
-            var expected = AuditLogSink.toRecord(event, CLOCK, PRINCIPAL);
-            assertAll(
-                    () -> assertEquals(List.of(appended), records()),
-                    () -> assertEquals(ANCHORED, appended.prevHash()),
-                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, appended.event()),
-                    () -> assertEquals(expected.category(), appended.category()),
-                    () -> assertEquals(expected.outcome(), appended.outcome()),
-                    () -> assertEquals(expected.scopeType(), appended.scopeType()),
-                    () -> assertEquals(PRINCIPAL, appended.actor()),
-                    () -> assertEquals(event.details(), appended.details()),
+            var expected = AuditLogSink.toRecord(event, CLOCK, principal);
+            assertAll("the owed repair is formed as the sink forms it",
+                    () -> assertEquals(List.of(appended), records(), "the log holds exactly that record"),
+                    () -> assertEquals(ANCHORED, appended.prevHash(),
+                            "the repair chains to the predecessor"),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, appended.event(),
+                            "the event is the repair event"),
+                    () -> assertEquals(expected.category(), appended.category(),
+                            "the category is that of the sink"),
+                    () -> assertEquals(expected.outcome(), appended.outcome(),
+                            "the outcome is that of the sink"),
+                    () -> assertEquals(expected.scopeType(), appended.scopeType(),
+                            "the scope type is that of the sink"),
+                    () -> assertEquals(principal, appended.actor(), "the actor is the OS principal"),
+                    () -> assertEquals(event.details(), appended.details(), "the details are those of the event"),
                     () -> assertEquals(List.of("emptyLogPredecessor"), anchored.calls,
                             "the anchor was asked for the predecessor only, never before or after an append"));
         }
@@ -566,10 +600,11 @@ class AuditLogTest {
             var appended = appendOwed(owed());
 
             var records = records();
-            assertAll(
-                    () -> assertEquals(3, records.size()),
-                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(1).event()),
-                    () -> assertEquals(appended, records.getLast()),
+            assertAll("the owed repair chains after cutting the tail",
+                    () -> assertEquals(3, records.size(), "the log holds the record, repair and new one"),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(1).event(),
+                            "the repair follows the first record"),
+                    () -> assertEquals(appended, records.getLast(), "the repair is the last record"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
         }
 
@@ -579,7 +614,8 @@ class AuditLogTest {
             var event = owed();
 
             try (var transaction = locks.openTransaction()) {
-                assertThrows(IllegalStateException.class, () -> log.appendOwedRepair(transaction, event));
+                assertThrows(IllegalStateException.class, () -> log.appendOwedRepair(transaction, event),
+                        "an owed repair without the audit lock is refused");
             }
             assertFalse(Files.exists(log.logFile()), "nothing was written");
         }
@@ -592,9 +628,11 @@ class AuditLogTest {
             var unknownCategory = new AuditEvent(AuditEvent.JSONL_TAIL_REPAIRED, "unknown",
                     AuditEvent.OUTCOME_SUCCEEDED, Map.of());
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(otherEvent)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(unknownCategory)),
+            assertAll("other events and categories are refused",
+                    () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(otherEvent),
+                            "a repair of another event is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(unknownCategory),
+                            "an unknown category is refused"),
                     () -> assertFalse(Files.exists(log.logFile()), "nothing was written"));
         }
     }
@@ -615,9 +653,11 @@ class AuditLogTest {
 
             var decoded = content.decode(AuditRecord.FORMAT_VERSION,
                     line -> AuditCodec.readRecord(log.logFile(), line));
-            assertAll(
-                    () -> assertEquals(OptionalLong.of(size), content.tornTailOffset()),
-                    () -> assertEquals(List.of(new Accepted<>(1, first), new Accepted<>(2, second)), decoded));
+            assertAll("a torn tail is reported and earlier records kept",
+                    () -> assertEquals(OptionalLong.of(size), content.tornTailOffset(),
+                            "the torn tail starts at the old size"),
+                    () -> assertEquals(List.of(new Accepted<>(1, first), new Accepted<>(2, second)), decoded,
+                            "the earlier records decode intact"));
         }
 
         @Test
@@ -629,9 +669,11 @@ class AuditLogTest {
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(auditKey);
-                assertAll(
-                        () -> assertEquals(2, log.read(transaction).lines().size()),
-                        () -> assertEquals(2, log.recordCount(transaction)));
+                assertAll("a locked read sees complete lines only",
+                        () -> assertEquals(2, log.read(transaction).lines().size(),
+                                "the torn tail is not a line"),
+                        () -> assertEquals(2, log.recordCount(transaction),
+                                "the torn tail is not counted"));
             }
         }
 
@@ -640,7 +682,7 @@ class AuditLogTest {
         void absent() {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(auditKey);
-                assertEquals(0, log.recordCount(transaction));
+                assertEquals(0, log.recordCount(transaction), "an absent log has no record");
             }
         }
 
@@ -648,7 +690,8 @@ class AuditLogTest {
         @DisplayName("the record count is refused without the audit lock")
         void countWithoutLock() {
             try (var transaction = locks.openTransaction()) {
-                assertThrows(InternalFaultException.class, () -> log.recordCount(transaction));
+                assertThrows(InternalFaultException.class, () -> log.recordCount(transaction),
+                        "a record count without the audit lock is refused");
             }
         }
     }
