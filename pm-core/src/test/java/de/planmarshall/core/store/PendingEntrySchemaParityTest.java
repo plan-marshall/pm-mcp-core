@@ -36,6 +36,7 @@ import de.planmarshall.core.store.PendingEntryRecord.Kind;
 @Disabled("the specification gives the entry the directory form; "
         + "re-enabled by the work package start-source-intake")
 @DisplayName("Pending entry record schema parity")
+// Every datum in this class is a contract: the schema document, its heading, its members and its entry-id pattern.
 class PendingEntrySchemaParityTest {
 
     private static final String DOCUMENT = "store-schemas/01-format-and-session-log.adoc";
@@ -59,10 +60,11 @@ class PendingEntrySchemaParityTest {
         var expected = names(properties.keySet());
 
         assertAll(
-                () -> assertFalse(expected.isEmpty(), "the schema declares members"),
-                () -> assertEquals(PendingEntryCodec.MEMBERS, expected),
+                () -> assertFalse(expected.isEmpty(), "the schema should declare its members"),
+                () -> assertEquals(PendingEntryCodec.MEMBERS, expected,
+                        "the codec members should be the schema members"),
                 () -> assertEquals(PendingEntryCodec.MEMBERS, names(SpecificationDocument.array(
-                        schema.get("required")))));
+                        schema.get("required"))), "every codec member should be required"));
     }
 
     @Test
@@ -71,9 +73,10 @@ class PendingEntrySchemaParityTest {
         var bootstrapProperties = SpecificationDocument.object(bootstrap.get("properties"));
 
         assertAll(
-                () -> assertEquals(PendingEntryCodec.BOOTSTRAP_MEMBERS, names(bootstrapProperties.keySet())),
+                () -> assertEquals(PendingEntryCodec.BOOTSTRAP_MEMBERS, names(bootstrapProperties.keySet()),
+                        "the bootstrap members should match the schema"),
                 () -> assertEquals(PendingEntryCodec.BOOTSTRAP_MEMBERS, names(SpecificationDocument.array(
-                        bootstrap.get("required")))));
+                        bootstrap.get("required"))), "every bootstrap member should be required"));
     }
 
     @Test
@@ -84,12 +87,15 @@ class PendingEntrySchemaParityTest {
 
         assertAll(
                 () -> assertEquals(kinds, Arrays.stream(Kind.values()).map(Kind::wireName)
-                        .collect(Collectors.toUnmodifiableSet())),
-                () -> assertEquals(PendingEntryRecord.FORMAT_VERSION, number("format_version", "const")),
-                () -> assertEquals(PendingEntryRecord.MAX_REQUESTED_ID, number("requested_id", "maxLength")),
-                () -> assertEquals(PendingEntryRecord.MAX_HINT, number("hint", "maxLength")),
+                        .collect(Collectors.toUnmodifiableSet()), "the kinds should be the schema enum"),
+                () -> assertEquals(PendingEntryRecord.FORMAT_VERSION, number("format_version", "const"),
+                        "the format version should be the schema const"),
+                () -> assertEquals(PendingEntryRecord.MAX_REQUESTED_ID, number("requested_id", "maxLength"),
+                        "the requested id limit should match the schema"),
+                () -> assertEquals(PendingEntryRecord.MAX_HINT, number("hint", "maxLength"),
+                        "the hint limit should match the schema"),
                 () -> assertEquals("^ent-[0-9a-f]{8,32}$", SpecificationDocument.object(properties.get("entry_id"))
-                        .get("pattern")));
+                        .get("pattern"), "the entry id pattern should match the schema"));
     }
 
     private static int number(String member, String keyword) {
