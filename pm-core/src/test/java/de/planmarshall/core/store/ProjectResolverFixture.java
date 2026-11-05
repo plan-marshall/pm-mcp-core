@@ -23,8 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.ProjectResolution.MainCheckout;
-import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.core.store.ProjectResolution.NotEnrolled;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * The fixtures of the Project Resolution tests (PM-SEC-2, PM-ARCH-1): the enrolment files of the runtime's base

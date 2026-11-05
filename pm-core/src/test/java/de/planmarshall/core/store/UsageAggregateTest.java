@@ -247,7 +247,7 @@ class UsageAggregateTest {
                 () -> assertEquals(OptionalLong.of(finalizeTotal), UsageAggregate.bySpendClass(rows)
                         .get(SpendClass.FINDINGS_ONLY).totalTokens(), "the findings spend should hold its row"),
                 () -> assertEquals(OptionalLong.of(executeTotal + finalizeTotal), UsageAggregate.byModelAndHarness(rows)
-                        .get(new ModelHarness(model, harness, harnessVersion)).totalTokens(),
+                                .get(new ModelHarness(model, harness, harnessVersion)).totalTokens(),
                         "the model and harness should hold both rows"));
     }
 

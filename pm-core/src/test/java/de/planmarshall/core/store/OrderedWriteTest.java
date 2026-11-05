@@ -275,14 +275,14 @@ class OrderedWriteTest {
                 () -> assertArrayEquals(derived(epicRule, authoritative),
                         Files.readAllBytes(epic.resolve(EPIC_PLANS)), "the epic entry should be derived"),
                 () -> assertTrue(Stream.of(plan, workspace, epic)
-                        .noneMatch(scope -> Files.exists(scope.journalFile())),
+                                .noneMatch(scope -> Files.exists(scope.journalFile())),
                         "no journal should remain in any scope"),
                 () -> {
                     for (var scope : List.of(plan, workspace, epic)) {
                         try (var transaction = locks.openTransaction()) {
                             transaction.acquire(scope.lockKey());
                             assertTrue(ScopeIntegrity.verifyAll(transaction, scope, audit).stream()
-                                    .allMatch(Verified.class::isInstance),
+                                            .allMatch(Verified.class::isInstance),
                                     "every digest of the scope should verify");
                         }
                     }

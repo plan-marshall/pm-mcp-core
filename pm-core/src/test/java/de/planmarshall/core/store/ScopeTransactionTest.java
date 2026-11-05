@@ -266,7 +266,7 @@ class ScopeTransactionTest {
                         () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome,
                                 "there should be nothing to recover"),
                         () -> assertEquals(List.of(), audit.events().stream().map(AuditEvent::event)
-                                .filter(AuditEvent.TRANSACTION_ROLLED_FORWARD::equals).toList(),
+                                        .filter(AuditEvent.TRANSACTION_ROLLED_FORWARD::equals).toList(),
                                 "no roll-forward should be recorded"),
                         () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
             }
@@ -515,8 +515,8 @@ class ScopeTransactionTest {
                     () -> assertArrayEquals(bytes(firstLine, secondLine), Files.readAllBytes(store(WORK_LOG)),
                             "the block should be appended to the work log"),
                     () -> assertEquals(DigestSidecar.of(Map.of(
-                            REFERENCES, StoreDigest.of(bytes(newReferences)),
-                            WORK_LOG, StoreDigest.of(bytes(firstLine, secondLine)))), sidecar(),
+                                    REFERENCES, StoreDigest.of(bytes(newReferences)),
+                                    WORK_LOG, StoreDigest.of(bytes(firstLine, secondLine)))), sidecar(),
                             "the sidecar should hold the two written stores"),
                     () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
@@ -624,7 +624,7 @@ class ScopeTransactionTest {
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
                     () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                            plan, journal.orElseThrow().transactionId().value(), List.of(STATUS))), audit.events(),
+                                    plan, journal.orElseThrow().transactionId().value(), List.of(STATUS))), audit.events(),
                             "the roll-forward should be audited"),
                     () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS),
                             "the store should be consistent, no Mismatch"));

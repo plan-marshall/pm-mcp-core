@@ -208,7 +208,7 @@ class ScopeIntegrityTest {
             var outcome = verify(STATUS);
 
             assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)),
-                    Optional.of(StoreDigest.of(edited))), outcome,
+                            Optional.of(StoreDigest.of(edited))), outcome,
                     "the edit should be a Mismatch of both digests");
         }
 
@@ -267,7 +267,7 @@ class ScopeIntegrityTest {
 
             assertAll(
                     () -> assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(first))),
-                            new Verified(STATUS, StoreDigest.of(edited))), answers,
+                                    new Verified(STATUS, StoreDigest.of(edited))), answers,
                             "the re-baseline should verify every store"),
                     () -> assertEquals(Optional.of(StoreDigest.of(edited)),
                             DigestSidecar.load(scope.sidecarFile()).digest(STATUS),
@@ -341,7 +341,7 @@ class ScopeIntegrityTest {
                             "the rolled-forward store should be Verified"),
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be removed"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                            plan, journal.transactionId().value(), List.of(STATUS))), audit.events(),
+                                    plan, journal.transactionId().value(), List.of(STATUS))), audit.events(),
                             "the roll-forward should be audited"));
         }
 
@@ -489,7 +489,7 @@ class ScopeIntegrityTest {
                     () -> assertEquals(new Verified(REFERENCES, StoreDigest.of(large())), verified,
                             "the large store should be Verified"),
                     () -> assertEquals(new Mismatch(REFERENCES, StoreDigest.of(large()),
-                            Optional.of(StoreDigest.of(content))), mismatch,
+                                    Optional.of(StoreDigest.of(content))), mismatch,
                             "a changed last byte should be a Mismatch"));
         }
 
@@ -635,7 +635,7 @@ class ScopeIntegrityTest {
 
             assertAll(
                     () -> assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)),
-                            Optional.of(StoreDigest.of(edited))), locked,
+                                    Optional.of(StoreDigest.of(edited))), locked,
                             "the spelling should be a Mismatch as the store"),
                     () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, lockFree.integrity(),
                             "the lock-free read should be DIGEST_UNVERIFIED"),

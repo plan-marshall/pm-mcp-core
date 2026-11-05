@@ -175,10 +175,10 @@ class WorkerBudgetTest {
                         new KeyTimings(Baseline.empty(), Baseline.empty(), Baseline.empty(), null, null).learned(),
                         "no baseline should give no learned value"),
                 () -> assertEquals(scaled(poisonedSeconds), WorkerBudget.allocate(floor, null, null,
-                        new KeyTimings(Baseline.empty(), poisoned, cold, null, null)).seconds(),
+                                new KeyTimings(Baseline.empty(), poisoned, cold, null, null)).seconds(),
                         "the poisoned baseline should be allocated"),
                 () -> assertEquals(scaled(coldSeconds), WorkerBudget.allocate(floor, null, null,
-                        new KeyTimings(Baseline.empty(), Baseline.empty(), cold, null, null)).seconds(),
+                                new KeyTimings(Baseline.empty(), Baseline.empty(), cold, null, null)).seconds(),
                         "the cold baseline should be allocated"));
     }
 }

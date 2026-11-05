@@ -186,14 +186,14 @@ class OutlineRecordTest {
         var module = text().toLowerCase(Locale.ROOT);
         var change = text(10, 60);
         assertThrows(IllegalArgumentException.class, () -> new Deliverable(1, title, goal,
-                ChangeType.FEATURE, ExecutionMode.AUTOMATED, domain, module, noDepends, null, noProfiles,
-                noFiles, change, verification, satisfies, noDependencies, noInterfaces, noLinks),
+                        ChangeType.FEATURE, ExecutionMode.AUTOMATED, domain, module, noDepends, null, noProfiles,
+                        noFiles, change, verification, satisfies, noDependencies, noInterfaces, noLinks),
                 "a deliverable without a profile should fail");
         var duplicatedProfiles = List.of(Profile.IMPLEMENTATION, Profile.IMPLEMENTATION);
         assertThrows(IllegalArgumentException.class, () -> new Deliverable(1, title, goal,
-                ChangeType.FEATURE, ExecutionMode.AUTOMATED, domain, module, noDepends, null,
-                duplicatedProfiles, noFiles, change,
-                verification, satisfies, noDependencies, noInterfaces, noLinks),
+                        ChangeType.FEATURE, ExecutionMode.AUTOMATED, domain, module, noDepends, null,
+                        duplicatedProfiles, noFiles, change,
+                        verification, satisfies, noDependencies, noInterfaces, noLinks),
                 "a duplicated profile should be refused");
     }
 

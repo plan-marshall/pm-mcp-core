@@ -287,7 +287,7 @@ class QuestionRecordCodecTest {
         assertAll(
                 () -> assertEquals(List.of(), timed, "no declared member should name a deadline"),
                 () -> assertTrue(QuestionRecordCodec.DECLARED_FIELDS.containsAll(QuestionRecordCodec.REQUIRED_BY_EVENT
-                        .values().stream().flatMap(List::stream).toList()),
+                                .values().stream().flatMap(List::stream).toList()),
                         "every required member should be declared"),
                 () -> assertEquals(EnumSet.of(QuestionEvent.ANSWERED, QuestionEvent.WITHDRAWN,
                         QuestionEvent.CANCELLED), EnumSet.copyOf(Stream.of(QuestionEvent.values())

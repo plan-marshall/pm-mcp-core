@@ -645,7 +645,7 @@ class TransactionJournalTest {
 
             assertAll(
                     () -> assertEquals(new StoreDigest(3,
-                            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), digest,
+                                    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), digest,
                             "the digest should be the SHA-256 golden value"),
                     () -> assertTrue(digest.matches(content), "the digest should match its content"),
                     () -> assertFalse(digest.matches("abd".getBytes(UTF_8)),

@@ -330,7 +330,7 @@ class MetricsStoreTest {
 
             commit(epic, transaction -> epicStore.append(transaction, withoutPhase));
             assertThrows(IllegalArgumentException.class, () -> commit(epic,
-                    transaction -> epicStore.append(transaction, row(otherTaskId, usage()))),
+                            transaction -> epicStore.append(transaction, row(otherTaskId, usage()))),
                     "a phased row in the epic store should fail");
 
             assertAll(

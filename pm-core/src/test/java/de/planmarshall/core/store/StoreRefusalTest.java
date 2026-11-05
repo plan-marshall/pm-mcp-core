@@ -111,7 +111,7 @@ class StoreRefusalTest {
         var codes = Stream.of(Outcome.values()).map(Outcome::code).toList();
 
         assertEquals(List.of("absent", "unreadable", "format_outdated", "format_newer", "enrolment_tampered",
-                "enrolment_insecure", "enrolment_invalid", "conflict"), codes,
+                        "enrolment_insecure", "enrolment_invalid", "conflict"), codes,
                 "the outcome codes should be the closed set");
     }
 

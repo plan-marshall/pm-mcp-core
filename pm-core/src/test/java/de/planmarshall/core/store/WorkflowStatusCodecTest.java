@@ -240,7 +240,7 @@ class WorkflowStatusCodecTest {
                     .attempt(RetryRule.PUSH_FAILED, state));
 
             assertTrue(written(status).contains(COUNTERS
-                    + ",\"retry_counters\":{\"push_failed\":{\"state_id\":" + json(state) + ",\"attempts\":1}},"),
+                            + ",\"retry_counters\":{\"push_failed\":{\"state_id\":" + json(state) + ",\"attempts\":1}},"),
                     "the retry counters should follow the counters");
         }
 
@@ -432,14 +432,14 @@ class WorkflowStatusCodecTest {
                 Arguments.of("the outcome expired, which no request has", request("\"expired\"", "null", "null"),
                         "'waiver_requests.outcome' has the undeclared value 'expired'"),
                 Arguments.of("a time limit member", PENDING.replace("\"pr_comment_ref\"",
-                        "\"expires_at\":" + json(instant().toString()) + ",\"pr_comment_ref\""),
+                                "\"expires_at\":" + json(instant().toString()) + ",\"pr_comment_ref\""),
                         "undeclared field 'expires_at'"),
                 Arguments.of("a missing rationale", PENDING.replace("\"rationale\":" + json(RATIONALE) + ",", ""),
                         "field 'rationale' of the waiver request 'waiver_requests[0]' is missing"),
                 Arguments.of("an empty rationale", PENDING.replace(json(RATIONALE), quoted("")),
                         "The rationale of a waiver request has 1 to 2000 characters, not 0"),
                 Arguments.of("a rationale over 2000 characters", PENDING.replace(json(RATIONALE),
-                        quoted("r".repeat(2001))),
+                                quoted("r".repeat(2001))),
                         "The rationale of a waiver request has 1 to 2000 characters, not 2001"),
                 Arguments.of("a request id of another form", PENDING.replace(json(REQUEST_ID), json(notARequestId)),
                         "Not a waiver request id (WR- and digits): " + notARequestId),
@@ -457,7 +457,7 @@ class WorkflowStatusCodecTest {
                         ANSWERED_CLI.replace(json(DECLINE_REASON), quoted("r".repeat(2001)))),
                         "The reason of an answer has at most 2000 characters, not 2001"),
                 Arguments.of("a rationale over 2000 supplementary characters", PENDING.replace(json(RATIONALE),
-                        quoted(WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001))),
+                                quoted(WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001))),
                         "The rationale of a waiver request has 1 to 2000 characters, not 2001"),
                 Arguments.of("a decline reason over 2000 supplementary characters", request("\"declined\"", "null",
                         ANSWERED_CLI.replace(json(DECLINE_REASON),

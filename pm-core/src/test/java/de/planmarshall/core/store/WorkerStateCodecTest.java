@@ -333,10 +333,10 @@ class WorkerStateCodecTest {
 
             assertAll(
                     () -> assertTrue(assertThrows(IllegalArgumentException.class, terminalWithoutReason::build,
-                            "a terminal state without reason is refused").getMessage().contains("end_reason"),
+                                    "a terminal state without reason is refused").getMessage().contains("end_reason"),
                             "a terminal state needs its end reason"),
                     () -> assertTrue(assertThrows(IllegalArgumentException.class, reasonBeforeEnd::build,
-                            "a waiting state with a reason is refused").getMessage().contains("end_reason"),
+                                    "a waiting state with a reason is refused").getMessage().contains("end_reason"),
                             "an end reason before the end is refused"));
         }
 
@@ -371,10 +371,10 @@ class WorkerStateCodecTest {
 
             assertAll(
                     () -> assertTrue(assertThrows(IllegalArgumentException.class, errorWithoutFailure::build,
-                            "an error text without failure is refused").getMessage().contains("harness_error"),
+                                    "an error text without failure is refused").getMessage().contains("harness_error"),
                             "an error without a failure is refused"),
                     () -> assertTrue(assertThrows(IllegalArgumentException.class, failureWithoutError::build,
-                            "a connected start failure is refused").getMessage().contains("first call"),
+                                    "a connected start failure is refused").getMessage().contains("first call"),
                             "the refusal should name the first call"));
         }
 

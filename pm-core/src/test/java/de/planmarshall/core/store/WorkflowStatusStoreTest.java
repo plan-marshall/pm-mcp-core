@@ -286,7 +286,7 @@ class WorkflowStatusStoreTest {
                     () -> assertEquals(2, read.retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC),
                             "the restarted store should read two"),
                     () -> assertEquals(3, new WorkflowStatusStore(JournalScope.plan(base, PROJECT, PLAN)).read()
-                            .orElseThrow().retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC),
+                                    .orElseThrow().retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC),
                             "a further attempt should continue at three"));
         }
 

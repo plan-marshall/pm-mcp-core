@@ -273,7 +273,7 @@ class UsagePointersTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new UsagePointers(input, output, null,
-                            null, null, null, UsagePointers.NOT_APPLICABLE),
+                                    null, null, null, UsagePointers.NOT_APPLICABLE),
                             "a not_applicable tool-use pointer should fail"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new HarnessUsage(unmeasured, unmeasured,
                             notApplicable, notApplicable, notApplicable, notApplicable, Optional.empty(),
