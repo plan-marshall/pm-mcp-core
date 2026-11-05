@@ -16,11 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,11 +36,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * The lock paths and the order of the lock keys (PM-IMPL-7).
  */
+@EnableGeneratorController
 @DisplayName("Lock key")
 class LockKeyTest {
 
     private static final Path BASE = Path.of("/pm-base");
-    private static final String PROJECT = "sample-project";
+    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN = "plan-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String EPIC = "epic-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String ENTRY = "ent-" + Generators.integers(1000, 9999).next();
     private static final Path PROJECT_STORE = BASE.resolve("projects").resolve(PROJECT);
     private static final Path PROJECT_LOCKS = PROJECT_STORE.resolve("locks");
     private static final Path MACHINE_LOCKS = BASE.resolve("locks");
@@ -45,8 +52,8 @@ class LockKeyTest {
     static Stream<Arguments> projectKeys() {
         return Stream.of(
                 Arguments.of(LockKey.workspace(BASE, PROJECT), LockLevel.WORKSPACE, "workspace.lock"),
-                Arguments.of(LockKey.plan(BASE, PROJECT, "plan-one"), LockLevel.PLAN, "plan-plan-one.lock"),
-                Arguments.of(LockKey.epic(BASE, PROJECT, "epic-one"), LockLevel.EPIC, "epic-epic-one.lock"),
+                Arguments.of(LockKey.plan(BASE, PROJECT, PLAN), LockLevel.PLAN, "plan-" + PLAN + ".lock"),
+                Arguments.of(LockKey.epic(BASE, PROJECT, EPIC), LockLevel.EPIC, "epic-" + EPIC + ".lock"),
                 Arguments.of(LockKey.epicsWorktree(BASE, PROJECT), LockLevel.EPICS_WORKTREE, "epics-worktree.lock"),
                 Arguments.of(LockKey.lessonStore(BASE, PROJECT), LockLevel.LESSON_STORE, "lessons.lock"),
                 Arguments.of(LockKey.localConfiguration(BASE, PROJECT), LockLevel.LOCAL_CONFIGURATION,
@@ -62,8 +69,8 @@ class LockKeyTest {
                 Arguments.of(LockKey.buildSlots(BASE), "locks/build-slots.lock", "state/build-slots.json"),
                 Arguments.of(LockKey.consents(BASE), "locks/consents.lock", "consents.json"),
                 Arguments.of(LockKey.credentials(BASE), "locks/credentials.lock", "credentials"),
-                Arguments.of(LockKey.enrolment(BASE, PROJECT), "locks/enrolments/sample-project.lock",
-                        "enrolments/sample-project.json"),
+                Arguments.of(LockKey.enrolment(BASE, PROJECT), "locks/enrolments/" + PROJECT + ".lock",
+                        "enrolments/" + PROJECT + ".json"),
                 Arguments.of(LockKey.harnesses(BASE), "locks/harnesses.lock", "harnesses.json"),
                 Arguments.of(LockKey.installRecords(BASE), "locks/install-records.lock",
                         "state/install-records.json"),
@@ -120,13 +127,13 @@ class LockKeyTest {
         @DisplayName("the leaf keys are taken on the append-only file itself")
         void leafKeys() {
             var audit = LockKey.auditLog(BASE);
-            var mailbox = LockKey.mailbox(BASE, PROJECT, "plan-one");
+            var mailbox = LockKey.mailbox(BASE, PROJECT, PLAN);
 
             assertAll(
                     () -> assertEquals(LockLevel.LEAF, audit.level()),
                     () -> assertEquals(BASE.resolve("logs/audit.jsonl"), audit.lockFile()),
                     () -> assertEquals(LockLevel.LEAF, mailbox.level()),
-                    () -> assertEquals(PROJECT_STORE.resolve("plans/plan-one/mcp/mailbox.jsonl"),
+                    () -> assertEquals(PROJECT_STORE.resolve("plans/" + PLAN + "/mcp/mailbox.jsonl"),
                             mailbox.lockFile()));
         }
 
@@ -235,13 +242,13 @@ class LockKeyTest {
         @Test
         @DisplayName("the lock of an entry lies in onboardings/locks/ at the level of the workspace scope")
         void onboardingEntry() {
-            var key = LockKey.onboardingEntry(BASE, "ent-0011");
+            var key = LockKey.onboardingEntry(BASE, ENTRY);
 
             assertAll(
                     () -> assertEquals(LockLevel.WORKSPACE, key.level()),
-                    () -> assertEquals(BASE.resolve("onboardings/locks/ent-0011.lock"), key.lockFile()),
-                    () -> assertEquals("ent-0011", key.id()),
-                    () -> assertFalse(key.lockFile().startsWith(BASE.resolve("onboardings/ent-0011")),
+                    () -> assertEquals(BASE.resolve("onboardings/locks/" + ENTRY + ".lock"), key.lockFile()),
+                    () -> assertEquals(ENTRY, key.id()),
+                    () -> assertFalse(key.lockFile().startsWith(BASE.resolve("onboardings/" + ENTRY)),
                             "below the entry it guards"));
         }
 
@@ -249,8 +256,8 @@ class LockKeyTest {
         @DisplayName("an entry lock is taken before a plan lock, the machine queue lock after the build timings "
                 + "and before every machine store lock")
         void placeInTheOrder() {
-            var entry = LockKey.onboardingEntry(BASE, "ent-0011");
-            var plan = LockKey.plan(BASE, PROJECT, "plan-one");
+            var entry = LockKey.onboardingEntry(BASE, ENTRY);
+            var plan = LockKey.plan(BASE, PROJECT, PLAN);
             var buildTimings = LockKey.buildTimings(BASE, PROJECT);
             var machineQueue = LockKey.machineQueue(BASE);
             var buildSlots = LockKey.buildSlots(BASE);

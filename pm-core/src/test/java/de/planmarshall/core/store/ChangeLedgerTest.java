@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -41,14 +43,17 @@ import de.planmarshall.core.store.ChangeLedgerRecord.WorktreeShaFailure;
  * the working-tree digest it was observed on, or the failure of the git invocation that could not measure one, written
  * through the scope's transaction and covered by its sidecar.
  */
+@EnableGeneratorController
 @DisplayName("Change ledger")
 class ChangeLedgerTest {
 
-    private static final Instant RECORDED_AT = Instant.parse("2026-10-22T10:00:00Z");
+    private static final Instant RECORDED_AT =
+            Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
     private static final String DIGEST = "a".repeat(64);
     private static final String COMMIT = "b".repeat(40);
     private static final String PROJECT = "pm-mcp-core";
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-22T12:00:00Z"), ZoneOffset.UTC);
+    private static final Clock CLOCK = Clock.fixed(
+            Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next()), ZoneOffset.UTC);
 
     @TempDir
     Path base;

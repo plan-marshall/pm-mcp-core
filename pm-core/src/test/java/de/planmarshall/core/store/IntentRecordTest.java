@@ -25,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,6 +60,7 @@ import de.planmarshall.core.store.IntentRecord.SourceClaim;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 import de.planmarshall.core.store.IntentStore.Revision;
 
+@EnableGeneratorController
 @DisplayName("The plan's intent record")
 class IntentRecordTest {
 
@@ -140,8 +143,8 @@ class IntentRecordTest {
     @DisplayName("A quorum decision answered by the operator is refused")
     @Test
     void refusesQuorumDecisionAnsweredByOperator() {
-        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The quorum chose the one-file record",
-                List.of("a store", "one file"), Decider.QUORUM, "q-1", null, null)));
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                options(), Decider.QUORUM, "q-1", null, null)));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
                 answered(FILE, "q-1", PLAN_ID, AnswerChannel.WEB));
         assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("DC-1"));
@@ -159,8 +162,8 @@ class IntentRecordTest {
     @DisplayName("A fact decision whose evidence path does not exist is refused")
     @Test
     void refusesFactDecisionWithoutEvidenceInTree(@TempDir Path tree) {
-        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
-                List.of("a store", "one file"), Decider.FACT, null, "pm-core/missing.adoc", null)));
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                options(), Decider.FACT, null, "pm-core/missing.adoc", null)));
         var outcome = accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree));
         assertTrue(assertInstanceOf(Refused.class, outcome).detail().contains("missing.adoc"));
     }
@@ -168,11 +171,10 @@ class IntentRecordTest {
     @DisplayName("A contradicting decision is refused unless the operator decided it")
     @Test
     void refusesContradictingModelDecision() {
-        var options = List.of("follow", "depart");
         var adr = new AdrRef("core-store-1", AdrRelation.CONTRADICTS);
         assertThrows(IllegalArgumentException.class,
-                () -> new Decision("DC-1", "The record departs from the store layout ADR",
-                        options, Decider.MODEL, null, null, adr));
+                () -> new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                        options(), Decider.MODEL, null, null, adr));
     }
 
     @DisplayName("A capability requirement's presence and base fingerprint are checked")
@@ -229,11 +231,12 @@ class IntentRecordTest {
     void refusesUnverifiedAssumptionWithoutRiskiest() {
         var base = valid();
         var criteria = base.criteria();
-        var unverified = new Assumption("AN-1", "The store is writable", AssumptionStatus.UNVERIFIED, false, null);
+        var text = Generators.letterStrings(5, 40).next();
+        var unverified = new Assumption("AN-1", text, AssumptionStatus.UNVERIFIED, false, null);
         var unverifiedAssumptions = List.of(unverified);
         assertThrows(IllegalArgumentException.class, () -> copy(base, criteria, null, unverifiedAssumptions));
-        var riskiest = new Assumption("AN-1", "The store is writable", AssumptionStatus.UNVERIFIED, true,
-                "a write to a scratch file");
+        var riskiest = new Assumption("AN-1", text, AssumptionStatus.UNVERIFIED, true,
+                Generators.letterStrings(10, 40).next());
         assertInstanceOf(Accepted.class, accept(null, IntentSubmission.REFINE,
                 revision(1, copy(base, criteria, null, List.of(riskiest))), context(FILE)));
     }
@@ -250,31 +253,33 @@ class IntentRecordTest {
     @Test
     void refusesCodeConstraintWithoutEvidence() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Constraint("CN-1", "No direct HTTP client", ConstraintSource.CODE, null));
+                () -> new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.CODE, null));
     }
 
     @DisplayName("A source claim lands in an item of the record or is dropped with a reason")
     @Test
     void refusesClaimLandingOutsideTheRecord() {
-        var outside = List.of(new SourceClaim("A claim of the source", "AC-9", null));
+        var text = Generators.letterStrings(10, 60).next();
+        var outside = List.of(new SourceClaim(text, "AC-9", null));
         assertThrows(IllegalArgumentException.class, () -> withClaims(outside));
-        var dropped = List.of(new SourceClaim("A claim of the source", "dropped", null));
+        var dropped = List.of(new SourceClaim(text, "dropped", null));
         assertThrows(IllegalArgumentException.class, () -> withClaims(dropped));
     }
 
     @DisplayName("A deferred item names its reason")
     @Test
     void deferredItemNamesItsReason() {
+        var text = Generators.letterStrings(5, 40).next();
         assertThrows(IllegalArgumentException.class,
-                () -> new Deferred("DF-1", "The chat", "   "));
-        assertFalse(new Deferred("DF-1", "The chat", "It is another plan").reason().isBlank());
+                () -> new Deferred("DF-1", text, "   "));
+        assertFalse(new Deferred("DF-1", text, Generators.letterStrings(5, 40).next()).reason().isBlank());
     }
 
     @DisplayName("The clarified request is rendered from the record")
     @Test
     void rendersClarifiedRequest() {
         var intentRecord = withDecisions(List.of(operatorDecision("DC-1", "q-1"),
-                new Decision("DC-2", "The record is one file", List.of("a store", "one file"), Decider.MODEL, null,
+                new Decision("DC-2", Generators.letterStrings(10, 60).next(), options(), Decider.MODEL, null,
                         null, null)));
         var store = assertInstanceOf(Accepted.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
@@ -337,9 +342,9 @@ class IntentRecordTest {
     @DisplayName("A decision with a question id but a model decider is refused")
     @Test
     void refusesModelDecisionWithQuestionId() {
-        var options = List.of("a store", "one file");
-        assertThrows(IllegalArgumentException.class, () -> new Decision("DC-1", "The model chose the record",
-                options, Decider.MODEL, "q-1", null, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                        options(), Decider.MODEL, "q-1", null, null));
     }
 
     @DisplayName("A non-goal names its text")
@@ -411,8 +416,8 @@ class IntentRecordTest {
     @DisplayName("A fact decision whose evidence is no path is refused, not thrown")
     @Test
     void refusesEvidenceThatIsNoPath(@TempDir Path tree) {
-        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
-                List.of("a store", "one file"), Decider.FACT, null, "bad\u0000path", null)));
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                options(), Decider.FACT, null, "bad\u0000path", null)));
         assertTrue(assertInstanceOf(Refused.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
                 .contains("no path"));
@@ -424,10 +429,10 @@ class IntentRecordTest {
         var tree = base.resolve("tree");
         Files.createDirectories(tree);
         var outside = base.resolve("outside.adoc");
-        Files.writeString(outside, "outside");
+        Files.writeString(outside, Generators.letterStrings(5, 20).next());
         Files.createSymbolicLink(tree.resolve("link.adoc"), outside);
-        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
-                List.of("a store", "one file"), Decider.FACT, null, "link.adoc", null)));
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                options(), Decider.FACT, null, "link.adoc", null)));
 
         assertTrue(assertInstanceOf(Refused.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
@@ -437,14 +442,14 @@ class IntentRecordTest {
     @DisplayName("A fact decision whose evidence lies outside the tree is refused")
     @Test
     void refusesEvidenceOutsideTheTree(@TempDir Path tree) {
-        var intentRecord = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
-                List.of("a store", "one file"), Decider.FACT, null, "../outside.adoc", null)));
+        var intentRecord = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                options(), Decider.FACT, null, "../outside.adoc", null)));
         assertTrue(assertInstanceOf(Refused.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(tree))).detail()
                 .contains("outside the tree"));
 
-        var absolute = withDecisions(List.of(new Decision("DC-1", "The tree shows the store layout",
-                List.of("a store", "one file"), Decider.FACT, null, "/etc/hosts", null)));
+        var absolute = withDecisions(List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(),
+                options(), Decider.FACT, null, "/etc/hosts", null)));
         assertTrue(assertInstanceOf(Refused.class,
                 accept(null, IntentSubmission.REFINE, revision(1, absolute), context(tree))).detail()
                 .contains("outside the tree"));
@@ -460,5 +465,9 @@ class IntentRecordTest {
         return new IntentRecord(base.why(), base.goal(), criteria, currentBehaviour, base.nonGoals(),
                 base.constraints(), base.decisions(), assumptions, base.openQuestions(), base.deferred(),
                 base.sourceClaims());
+    }
+
+    private static List<String> options() {
+        return List.of(Generators.letterStrings(2, 20).next(), Generators.letterStrings(2, 20).next());
     }
 }

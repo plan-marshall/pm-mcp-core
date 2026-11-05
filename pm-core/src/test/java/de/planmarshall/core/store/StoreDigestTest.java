@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * The incremental digest of a store (PM-IMPL-7): content added in chunks, from memory or streamed from a file through
  * a bounded buffer, has the digest of the whole content in memory.
  */
+// Every datum in this class is a contract: the boundary sizes and the deterministic content whose misalignment changes the digest.
 @DisplayName("Store digest")
 class StoreDigestTest {
 

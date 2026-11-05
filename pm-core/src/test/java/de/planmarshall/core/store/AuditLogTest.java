@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -58,13 +60,14 @@ import de.planmarshall.core.store.JsonlStoreFile.Accepted;
  * <p>
  * A torn tail is what an append stopped mid-write leaves: the file is written here as such a crash leaves it.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Audit log")
 class AuditLogTest {
 
     private static final Instant AT = Instant.parse("2026-10-14T09:30:15.250Z");
     private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
-    private static final String PRINCIPAL = "oliver";
+    private static final String PRINCIPAL = Generators.letterStrings(3, 20).next();
     private static final String ANCHORED = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     private static final byte[] TORN = "{\"format_version\":1,\"event_id\":\"0189".getBytes(UTF_8);
 

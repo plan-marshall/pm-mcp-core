@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -53,6 +54,7 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
 class LessonRetirementTest {
 
     private static final String PROJECT = "pm-mcp-core";
+    private static final String PLAN = "plan-" + Generators.integers(1000, 9999).next();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
     private static final LessonId LESSON_ID = new LessonId("2026-11-02-09-001");
 
@@ -223,14 +225,14 @@ class LessonRetirementTest {
         @DisplayName("a claimed lesson is not retired and the claiming plan is named")
         void claimed() {
             create();
-            run(write -> store.claim(write, LESSON_ID, "a-plan", CLOCK.instant()));
+            run(write -> store.claim(write, LESSON_ID, PLAN, CLOCK.instant()));
 
             var outcome = retire(LessonFixtures.retirement(Verdict.OBSOLETE).build());
 
             var unavailable = assertInstanceOf(Unavailable.class, outcome);
             assertAll(
                     () -> assertEquals(Refusal.CLAIMED, unavailable.refusal(), "the refusal names the claim"),
-                    () -> assertEquals("a-plan", unavailable.claimingPlan(), "the claiming plan is named"),
+                    () -> assertEquals(PLAN, unavailable.claimingPlan(), "the claiming plan is named"),
                     () -> assertEquals(Status.ACTIVE, readFound().frontMatter().status(), "the lesson stays active"));
         }
 
@@ -318,7 +320,8 @@ class LessonRetirementTest {
         @Test
         @DisplayName("a file without an entry is reported untracked")
         void untracked() throws Exception {
-            var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(LESSON_ID).build(), "# Body\n");
+            var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(LESSON_ID).build(),
+                    LessonFixtures.body());
             Files.write(expectedPath(LESSON_ID), LessonCodec.encode(lesson));
 
             var unavailable = assertInstanceOf(Unavailable.class,

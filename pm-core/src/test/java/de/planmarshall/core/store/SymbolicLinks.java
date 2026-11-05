@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Assumptions;
 
 /** Creates the symbolic links of the confinement tests, and skips a test on a platform that cannot create one. */
+// Every datum in this class is a contract: the class holds no test datum of its own, only the links a test hands it.
 final class SymbolicLinks {
 
     private SymbolicLinks() {

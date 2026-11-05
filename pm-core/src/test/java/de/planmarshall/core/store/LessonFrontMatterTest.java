@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,6 +43,9 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
 @DisplayName("Lesson front matter")
 class LessonFrontMatterTest {
 
+    private static final int RECURRENCE = Generators.integers(LessonFrontMatter.MIN_RECURRENCE_COUNT, 10).next();
+    private static final String PLAN_ID = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+
     private static Retired retired() {
         return Retired.builder()
                 .at(LessonFixtures.instant())
@@ -59,7 +63,7 @@ class LessonFrontMatterTest {
         return LessonFixtures.frontMatterBuilder()
                 .category(Category.ARCH_CONSTRAINT)
                 .rule(LessonFixtures.text())
-                .recurrenceCount(2)
+                .recurrenceCount(RECURRENCE)
                 .lastSeen(LessonFixtures.date());
     }
 
@@ -119,7 +123,7 @@ class LessonFrontMatterTest {
     @Test
     @DisplayName("the recurrence count and the last-seen date are set only for arch-constraint")
     void recurrenceIsSetOnlyForArchConstraint() {
-        var bugWithCount = LessonFixtures.frontMatterBuilder().category(Category.BUG).recurrenceCount(2);
+        var bugWithCount = LessonFixtures.frontMatterBuilder().category(Category.BUG).recurrenceCount(RECURRENCE);
         var bugWithLastSeen = LessonFixtures.frontMatterBuilder().category(Category.BUG)
                 .lastSeen(LessonFixtures.date());
 
@@ -128,7 +132,7 @@ class LessonFrontMatterTest {
                         "A recurrence count on a bug is refused"),
                 () -> assertThrows(IllegalArgumentException.class, bugWithLastSeen::build,
                         "A last-seen date on a bug is refused"),
-                () -> assertEquals(2, archConstraint().build().recurrenceCount(),
+                () -> assertEquals(RECURRENCE, archConstraint().build().recurrenceCount(),
                         "An arch-constraint carries its recurrence"));
     }
 
@@ -240,7 +244,7 @@ class LessonFrontMatterTest {
     @DisplayName("a claim and a merge origin are carried when the schema admits them")
     void optionalRecordsAreCarried() {
         var claimed = LessonFixtures.frontMatterBuilder()
-                .claim(new Claim("v2-11-lesson-record-and-codec", LessonFixtures.instant())).build();
+                .claim(new Claim(PLAN_ID, LessonFixtures.instant())).build();
         var merged = LessonFixtures.frontMatterBuilder()
                 .mergedFrom(List.of(new MergedFrom(LessonFixtures.lessonId(), LessonFixtures.instant(),
                         Generators.letterStrings(1, 20).next())))

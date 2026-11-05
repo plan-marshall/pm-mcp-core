@@ -92,7 +92,7 @@ class LessonIdTest {
     void fileNameOutsideTheGrammarIsNoLesson() {
         var otherSuffix = LessonFixtures.WATCH_ID_NO_HEADER + ".txt";
         var withoutSuffix = LessonFixtures.WATCH_ID_NO_HEADER;
-        var foreignName = "notes.md";
+        var foreignName = Generators.letterStrings(1, 10).next() + ".md";
 
         assertAll(
                 () -> assertTrue(LessonId.fromFileName(otherSuffix).isEmpty(), "Another suffix is no lesson"),

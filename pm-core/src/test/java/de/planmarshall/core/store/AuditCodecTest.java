@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -39,6 +41,7 @@ import de.planmarshall.core.store.AuditRecord.Scope;
  * canonical form whose SHA-256 is stable, and is refused for every field it does not declare, every field it misses,
  * another format version and an id or a hash out of its form.
  */
+@EnableGeneratorController
 @DisplayName("Audit codec")
 class AuditCodecTest {
 
@@ -268,7 +271,8 @@ class AuditCodecTest {
         @Test
         @DisplayName("a detail of another type is refused when the record is built")
         void unsupportedDetail() {
-            var builder = PLAN_RECORD.toBuilder().details(Map.of("x", 1.5));
+            var builder = PLAN_RECORD.toBuilder()
+                    .details(Map.of(Generators.letterStrings(1, 5).next(), 1.5));
 
             assertThrows(IllegalArgumentException.class, builder::build);
         }

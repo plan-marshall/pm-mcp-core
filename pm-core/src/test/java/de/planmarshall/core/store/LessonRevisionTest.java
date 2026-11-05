@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -113,22 +114,23 @@ class LessonRevisionTest {
             var lesson = create();
             var lessonId = lesson.frontMatter().lessonId();
             var sources = List.of(new Source(Source.Kind.FINDING, LessonFixtures.text(), null));
+            var body = LessonFixtures.body();
+            var at = CLOCK.instant().plusSeconds(Generators.integers(1, 120).next());
 
-            var outcome = inTransaction(write -> store.revise(write, lessonId, "# Regenerated\n", sources, false,
-                    CLOCK.instant().plusSeconds(60)));
+            var outcome = inTransaction(write -> store.revise(write, lessonId, body, sources, false, at));
 
             var revised = assertInstanceOf(LessonResolution.Revised.class, outcome);
             assertAll(
-                    () -> assertEquals("# Regenerated\n", revised.lesson().body(), "the body is the new one alone"),
+                    () -> assertEquals(body, revised.lesson().body(), "the body is the new one alone"),
                     () -> assertEquals(2, revised.lesson().frontMatter().revision(), "the counter is incremented"),
                     () -> assertEquals(2, revised.lesson().frontMatter().revisions().size(), "one entry is appended"),
                     () -> assertEquals(2, revised.lesson().frontMatter().revisions().getLast().n(),
                             "the entry names the new revision"),
-                    () -> assertEquals(CLOCK.instant().plusSeconds(60),
-                            revised.lesson().frontMatter().revisions().getLast().at(), "the entry carries its instant"),
+                    () -> assertEquals(at, revised.lesson().frontMatter().revisions().getLast().at(),
+                            "the entry carries its instant"),
                     () -> assertEquals(sources, revised.lesson().frontMatter().revisions().getLast().sources(),
                             "the entry carries the new sources"),
-                    () -> assertEquals(sha256("# Regenerated\n"),
+                    () -> assertEquals(sha256(body),
                             revised.lesson().frontMatter().revisions().getLast().bodySha256(),
                             "the entry carries the digest of the new body"),
                     () -> assertEquals(1, revised.lesson().frontMatter().revisions().getFirst().n(),
@@ -143,7 +145,7 @@ class LessonRevisionTest {
         void twoRevisions() {
             var lesson = create();
             var lessonId = lesson.frontMatter().lessonId();
-            var bodies = List.of("# One\n", "# Two\n");
+            var bodies = List.of(LessonFixtures.body(), LessonFixtures.body());
 
             run(write -> store.revise(write, lessonId, bodies.get(0), List.of(LessonFixtures.source()), false,
                     CLOCK.instant()));
@@ -173,7 +175,7 @@ class LessonRevisionTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> run(write -> store.revise(write,
-                            lessonId, "# Body\n", List.of(), false, CLOCK.instant()))),
+                            lessonId, LessonFixtures.body(), List.of(), false, CLOCK.instant()))),
                     () -> assertEquals(Optional.of(lesson), store.get(lessonId) instanceof Found found
                             ? Optional.of(found.lesson()) : Optional.empty(), "the lesson is untouched"));
         }
@@ -185,7 +187,7 @@ class LessonRevisionTest {
             var lessonId = lesson.frontMatter().lessonId();
             run(write -> store.retire(write, lessonId, LessonFixtures.retirement(Verdict.OBSOLETE).build()));
 
-            var outcome = withoutCommit(write -> store.revise(write, lessonId, "# Changed\n",
+            var outcome = withoutCommit(write -> store.revise(write, lessonId, LessonFixtures.body(),
                     List.of(LessonFixtures.source()), false, CLOCK.instant()));
 
             var unavailable = assertInstanceOf(Unavailable.class, outcome);
@@ -210,7 +212,7 @@ class LessonRevisionTest {
                     LessonFixtures.newLesson().derivedFromUntrusted(true).build(), CLOCK));
             var lessonId = lesson.frontMatter().lessonId();
 
-            run(write -> store.revise(write, lessonId, "# Clean\n", List.of(LessonFixtures.source()), false,
+            run(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(LessonFixtures.source()), false,
                     CLOCK.instant()));
 
             var found = assertInstanceOf(Found.class, store.get(lessonId));
@@ -228,7 +230,7 @@ class LessonRevisionTest {
             var lessonId = lesson.frontMatter().lessonId();
             var source = new Source(Source.Kind.LESSON, untrusted.frontMatter().lessonId().value(), null);
 
-            run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
+            run(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(source), false, CLOCK.instant()));
 
             var found = assertInstanceOf(Found.class, store.get(lessonId));
             assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
@@ -245,7 +247,7 @@ class LessonRevisionTest {
             var lessonId = lesson.frontMatter().lessonId();
             var source = new Source(Source.Kind.LESSON, trusted.frontMatter().lessonId().value(), null);
 
-            run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
+            run(write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(source), false, CLOCK.instant()));
 
             var found = assertInstanceOf(Found.class, store.get(lessonId));
             assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),

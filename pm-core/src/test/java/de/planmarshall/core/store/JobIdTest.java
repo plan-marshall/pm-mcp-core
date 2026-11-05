@@ -32,6 +32,7 @@ import de.planmarshall.core.store.JobId.Kind;
  * The {@code job_id} of a job record (PM-EXEC-4): the grammar {@code ^[bcglpv]-[0-9a-f]{16}$} per kind, the random
  * draw, and the names of the record and the log it gives.
  */
+// Every datum in this class is a contract: the grammar, the kind prefixes and wire names, the file names.
 @DisplayName("Job id")
 class JobIdTest {
 

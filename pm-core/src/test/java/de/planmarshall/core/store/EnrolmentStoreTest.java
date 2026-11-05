@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -34,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -67,6 +68,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * refused or stopped hand-over and is removed only after the sink accepted every record it owes.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("Enrolment store")
 class EnrolmentStoreTest {
 
@@ -243,7 +245,7 @@ class EnrolmentStoreTest {
         void projectIds() throws Exception {
             enrol(enrolment("zeta-project", false));
             enrol(enrolment(PROJECT, false));
-            Files.writeString(store.directory().resolve("notes.txt"), "x");
+            Files.writeString(store.directory().resolve("notes.txt"), Generators.letterStrings(1, 8).next());
             Files.writeString(store.directory().resolve("Upper.json"), "{}");
 
             assertEquals(Set.of(PROJECT, "zeta-project"), store.projectIds());
@@ -567,7 +569,7 @@ class EnrolmentStoreTest {
                 var accepted = new ArrayList<AuditEvent>();
                 AuditSink sink = event -> {
                     if (!accepted.isEmpty()) {
-                        throw new UncheckedIOException(new IOException("the audit log is full"));
+                        throw new UncheckedIOException(new IOException(Generators.letterStrings(10, 30).next()));
                     }
                     accepted.add(event);
                 };
@@ -981,9 +983,10 @@ class EnrolmentStoreTest {
             var siblingContent = EnrolmentCodec.write(sibling);
             stage(PROJECT, projectContent, sidecarOf(newer).write(), Instant.now());
             var siblingStaged = stage(SIBLING, siblingContent, sidecarOf(sibling).write(), Instant.now());
-            var leftover = Files.writeString(store.directory().resolve(PROJECT + ".json.tmp." + UUID.randomUUID()),
-                    "{}");
-            var unrelated = Files.writeString(store.directory().resolve("notes.txt"), "x");
+            var leftover = Files.writeString(store.directory()
+                    .resolve(PROJECT + ".json.tmp." + Generators.letterStrings(8, 12).next()), "{}");
+            var unrelated = Files.writeString(store.directory().resolve("notes.txt"),
+                    Generators.letterStrings(1, 8).next());
             var siblingNames = List.of(staged(store.file(SIBLING), siblingStaged).getFileName().toString(),
                     staged(store.sidecar(SIBLING), siblingStaged).getFileName().toString());
 
@@ -1128,7 +1131,8 @@ class EnrolmentStoreTest {
         void stagedWriteIsolation() throws Exception {
             var sibling = enrolment(SIBLING, true);
             stage(SIBLING, EnrolmentCodec.write(sibling), sidecarOf(sibling).write(), Instant.now());
-            Files.writeString(store.directory().resolve(PROJECT + ".json.tmp." + UUID.randomUUID()), "{}");
+            Files.writeString(store.directory()
+                    .resolve(PROJECT + ".json.tmp." + Generators.letterStrings(8, 12).next()), "{}");
             Files.writeString(store.directory().resolve("unrelated.txt"), PROJECT);
             var projectWithSiblingStaged = hasStagedWrite(store, PROJECT);
             var siblingWithSiblingStaged = hasStagedWrite(store, SIBLING);
@@ -1160,7 +1164,8 @@ class EnrolmentStoreTest {
         @DisplayName("a directory that cannot be listed fails the staged-write query naming the project")
         void stagedWriteUnlistable() throws Exception {
             var broken = Files.createDirectories(base.resolve(ELSEWHERE));
-            Files.writeString(broken.resolve(EnrolmentStore.DIRECTORY_NAME), "not a directory");
+            Files.writeString(broken.resolve(EnrolmentStore.DIRECTORY_NAME),
+                    Generators.letterStrings(5, 20).next());
             var unlistable = new EnrolmentStore(broken);
 
             try (var transaction = locks.openTransaction()) {

@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.Serial;
@@ -59,6 +60,8 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
 class LessonStoreCrashTest {
 
     private static final String PROJECT = "pm-mcp-core";
+    private static final String PLAN = "plan-" + Generators.integers(1000, 9999).next();
+    private static final String OTHER_PLAN = "plan-other-" + Generators.integers(1000, 9999).next();
     private static final Instant NOW = Instant.parse("2026-11-02T09:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
@@ -220,7 +223,7 @@ class LessonStoreCrashTest {
                 .claim(null)
                 .retired(LessonFrontMatter.Retired.builder()
                         .at(NOW)
-                        .by("a-plan")
+                        .by(PLAN)
                         .verdict(Verdict.APPLIED)
                         .reason(LessonStore.END_OF_CLAIM_REASON)
                         .lessonState(LessonFrontMatter.Retired.LessonState.FOUND)
@@ -257,7 +260,7 @@ class LessonStoreCrashTest {
         void createAtEveryStep() {
             for (var stop : Step.values()) {
                 var lessonId = new LessonId("2026-11-02-09-1%03d".formatted(stop.ordinal() + 1));
-                var newLesson = LessonFixtures.newLesson().body("# New\n").build();
+                var newLesson = LessonFixtures.newLesson().body(LessonFixtures.body()).build();
                 var newBytes = newLessonDocument(lessonId, newLesson);
 
                 stopAt(stop, write -> store.create(write, lessonId, newLesson, CLOCK));
@@ -277,7 +280,7 @@ class LessonStoreCrashTest {
                 var lessonId = new LessonId("2026-11-02-09-2%03d".formatted(stop.ordinal() + 1));
                 var before = inTransaction(write -> store.create(write, lessonId,
                         LessonFixtures.newLesson().build(), CLOCK));
-                var next = before.body() + "next\n";
+                var next = before.body() + Generators.letterStrings(1, 10).next() + "\n";
                 var sources = List.of(LessonFixtures.source());
                 var newBytes = encodeAfter(before.frontMatter().toBuilder()
                         .revision(2)
@@ -304,9 +307,9 @@ class LessonStoreCrashTest {
                 var before = inTransaction(write -> store.create(write, lessonId,
                         LessonFixtures.newLesson().build(), CLOCK));
                 var newBytes = encodeAfter(before, before.frontMatter().toBuilder()
-                        .claim(new LessonFrontMatter.Claim("a-plan", NOW)).build());
+                        .claim(new LessonFrontMatter.Claim(PLAN, NOW)).build());
 
-                stopAt(stop, write -> store.claim(write, lessonId, "a-plan", NOW));
+                stopAt(stop, write -> store.claim(write, lessonId, PLAN, NOW));
                 recover();
 
                 assertAll(
@@ -323,11 +326,11 @@ class LessonStoreCrashTest {
             for (var stop : Step.values()) {
                 var lessonId = new LessonId("2026-11-02-09-4%03d".formatted(stop.ordinal() + 1));
                 inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
-                run(write -> store.claim(write, lessonId, "a-plan", NOW));
+                run(write -> store.claim(write, lessonId, PLAN, NOW));
                 var before = read(lessonId).orElseThrow();
                 var newBytes = encodeAfterEnd(before);
 
-                stopAt(stop, write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
+                stopAt(stop, write -> store.endClaimApplied(write, lessonId, PLAN, NOW));
                 recover();
 
                 assertAll(
@@ -349,15 +352,15 @@ class LessonStoreCrashTest {
         void release() {
             var lessonId = new LessonId("2026-11-02-09-501");
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
-            run(write -> store.claim(write, lessonId, "a-plan", NOW));
-            run(write -> store.release(write, lessonId, "a-plan"));
+            run(write -> store.claim(write, lessonId, PLAN, NOW));
+            run(write -> store.release(write, lessonId, PLAN));
 
-            assertAddsNoTarget(write -> store.release(write, lessonId, "a-plan"));
+            assertAddsNoTarget(write -> store.release(write, lessonId, PLAN));
 
             assertAll(
                     () -> assertEquals(LessonResolution.Refusal.UNCLAIMED,
                             assertInstanceOf(LessonResolution.Unavailable.class,
-                                    withoutCommit(write -> store.release(write, lessonId, "a-plan"))).refusal(),
+                                    withoutCommit(write -> store.release(write, lessonId, PLAN))).refusal(),
                             "the second release reports that no claim is held"),
                     () -> assertTrue(Files.exists(expectedPath(lessonId)), "the lesson stays in place"));
         }
@@ -367,11 +370,11 @@ class LessonStoreCrashTest {
         void end() {
             var lessonId = new LessonId("2026-11-02-09-502");
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
-            run(write -> store.claim(write, lessonId, "a-plan", NOW));
-            run(write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
+            run(write -> store.claim(write, lessonId, PLAN, NOW));
+            run(write -> store.endClaimApplied(write, lessonId, PLAN, NOW));
 
-            var outcome = withoutCommit(write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
-            assertAddsNoTarget(write -> store.endClaimApplied(write, lessonId, "a-plan", NOW));
+            var outcome = withoutCommit(write -> store.endClaimApplied(write, lessonId, PLAN, NOW));
+            assertAddsNoTarget(write -> store.endClaimApplied(write, lessonId, PLAN, NOW));
 
             assertAll(
                     () -> assertInstanceOf(LessonResolution.Retired.class, outcome,
@@ -384,11 +387,11 @@ class LessonStoreCrashTest {
         void releaseByAnotherPlan() {
             var lessonId = new LessonId("2026-11-02-09-503");
             inTransaction(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
-            run(write -> store.claim(write, lessonId, "a-plan", NOW));
+            run(write -> store.claim(write, lessonId, PLAN, NOW));
 
-            var outcome = withoutCommit(write -> store.release(write, lessonId, "another-plan"));
+            var outcome = withoutCommit(write -> store.release(write, lessonId, OTHER_PLAN));
 
-            assertEquals("a-plan", assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
+            assertEquals(PLAN, assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
                     "the release is authorized by the durable claim alone");
         }
     }
@@ -397,8 +400,8 @@ class LessonStoreCrashTest {
     @DisplayName("two concurrent writers")
     class ConcurrentWriters {
 
-        private static final String PLAN_A = "plan-a";
-        private static final String PLAN_B = "plan-b";
+        private static final String PLAN_A = "plan-a-" + Generators.integers(1000, 9999).next();
+        private static final String PLAN_B = "plan-b-" + Generators.integers(1000, 9999).next();
 
         @Test
         @DisplayName("two claims of one lesson end with exactly one claimant")
@@ -517,17 +520,19 @@ class LessonStoreCrashTest {
         void twoRevisions() throws Exception {
             var lessonId = created("2026-11-02-09-706");
             var sources = List.of(LessonFixtures.source());
+            var first = LessonFixtures.body();
+            var second = LessonFixtures.body();
 
             var outcomes = concurrently(
-                    write -> store.revise(write, lessonId, "# One\n", sources, false, NOW),
-                    write -> store.revise(write, lessonId, "# Two\n", sources, false, NOW));
+                    write -> store.revise(write, lessonId, first, sources, false, NOW),
+                    write -> store.revise(write, lessonId, second, sources, false, NOW));
 
             var body = read(lessonId).orElseThrow().body();
             assertAll(
                     () -> assertEquals(2, outcomes.stream()
                                     .filter(outcome -> outcome instanceof LessonResolution.Revised).count(),
                             "both revisions were written, one after the other"),
-                    () -> assertTrue("# One\n".equals(body) || "# Two\n".equals(body),
+                    () -> assertTrue(first.equals(body) || second.equals(body),
                             "the lesson holds one of the two bodies, never a mixture"),
                     () -> assertEquals(3, read(lessonId).orElseThrow().frontMatter().revisions().size(),
                             "the history keeps every revision written"));

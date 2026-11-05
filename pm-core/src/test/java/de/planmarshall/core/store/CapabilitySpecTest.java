@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.store.CapabilitySpec.Requirement;
 import de.planmarshall.core.store.CapabilitySpec.Scenario;
 
+@EnableGeneratorController
 @DisplayName("The capability spec and its index")
 class CapabilitySpecTest {
 
@@ -45,7 +48,8 @@ class CapabilitySpecTest {
     @Test
     void fingerprintFollowsTheRequirement() {
         var base = requirement("round-trip", "plan-a", List.of());
-        var otherText = new Requirement(base.name(), base.text() + " and verify the rendering", base.scenarios(),
+        var otherText = new Requirement(base.name(),
+                base.text() + " and " + Generators.letterStrings(10, 20).next(), base.scenarios(),
                 base.planId(), base.verifiedBy());
         var otherName = new Requirement("other-name", base.text(), base.scenarios(), base.planId(),
                 base.verifiedBy());
@@ -57,7 +61,7 @@ class CapabilitySpecTest {
     @DisplayName("The index reads the capability specs of a tree and resolves their fingerprints")
     @Test
     void indexReadsTheCapabilities(@TempDir Path root) throws Exception {
-        write(root, "intent-record", "The plan's intent record");
+        write(root, "intent-record", Generators.letterStrings(20, 40).next());
         var index = CapabilityIndex.read(root);
 
         assertTrue(index.capability("intent-record").isPresent());
@@ -79,7 +83,7 @@ class CapabilitySpecTest {
     @DisplayName("A spec whose file name is not its capability is refused")
     @Test
     void refusesMismatchedFileName(@TempDir Path root) throws Exception {
-        write(root, "intent-record", "The plan's intent record");
+        write(root, "intent-record", Generators.letterStrings(20, 40).next());
         var file = root.resolve(".marshall/capabilities/intent-record.json");
         var other = file.resolveSibling("other.json");
         Files.move(file, other);
@@ -90,7 +94,7 @@ class CapabilitySpecTest {
     @DisplayName("The acceptance checks a capability change against the index")
     @Test
     void acceptanceChecksAgainstTheIndex(@TempDir Path root) throws Exception {
-        write(root, "intent-record", "The plan's intent record");
+        write(root, "intent-record", Generators.letterStrings(20, 40).next());
         var index = CapabilityIndex.read(root);
         var fingerprint = index.fingerprint("intent-record", "round-trip").orElseThrow();
 
@@ -113,7 +117,7 @@ class CapabilitySpecTest {
     @DisplayName("A spec round-trips through its codec")
     @Test
     void specRoundTrips() {
-        var spec = new CapabilitySpec("intent-record", "The plan's intent record and its revisions",
+        var spec = new CapabilitySpec("intent-record", Generators.letterStrings(20, 40).next(),
                 List.of(requirement("round-trip", "plan-a", List.of("TestA.java"))));
         var reread = CapabilitySpec.read(Path.of("intent-record.json"), CapabilitySpec.write(spec));
         assertEquals(spec, reread);
@@ -131,7 +135,7 @@ class CapabilitySpecTest {
     @DisplayName("A nested capability spec is read under its path name")
     @Test
     void indexReadsANestedCapability(@TempDir Path root) throws Exception {
-        var spec = new CapabilitySpec("http/headers", "The HTTP header parsing of the client",
+        var spec = new CapabilitySpec("http/headers", Generators.letterStrings(20, 40).next(),
                 List.of(requirement("round-trip", "plan-a", List.of())));
         var directory = root.resolve(".marshall/capabilities/http");
         Files.createDirectories(directory);

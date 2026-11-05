@@ -21,6 +21,7 @@ import de.planmarshall.core.service.AuditSink;
  * The audit sink of the tests of the stores: it keeps the records it is handed, in the order they arrive, and writes
  * nothing.
  */
+// Every datum in this class is a contract: the class holds no test datum of its own, only the events a test hands it.
 final class RecordingAuditSink implements AuditSink {
 
     private final List<AuditEvent> events = new CopyOnWriteArrayList<>();

@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -36,17 +39,20 @@ import de.planmarshall.core.store.LockOrder.Violation;
  * The rules of the total lock order (PM-IMPL-7): one case per rule and one per boundary between two adjacent
  * levels.
  */
+@EnableGeneratorController
 @DisplayName("Lock order")
 class LockOrderTest {
 
     private static final Path BASE = Path.of("/pm-base");
-    private static final String PROJECT = "sample-project";
+    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN = "plan-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String EPIC = "epic-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
 
     /** One key of every level, in the order of the levels. */
     private static final List<LockKey> ONE_PER_LEVEL = List.of(
             LockKey.workspace(BASE, PROJECT),
-            LockKey.plan(BASE, PROJECT, "plan-one"),
-            LockKey.epic(BASE, PROJECT, "epic-one"),
+            LockKey.plan(BASE, PROJECT, PLAN),
+            LockKey.epic(BASE, PROJECT, EPIC),
             LockKey.epicsWorktree(BASE, PROJECT),
             LockKey.lessonStore(BASE, PROJECT),
             LockKey.localConfiguration(BASE, PROJECT),
@@ -108,7 +114,7 @@ class LockOrderTest {
         void betweenHeldKeys() {
             var workspace = LockKey.workspace(BASE, PROJECT);
             var queue = LockKey.queue(BASE, PROJECT);
-            var plan = LockKey.plan(BASE, PROJECT, "plan-one");
+            var plan = LockKey.plan(BASE, PROJECT, PLAN);
 
             var decision = LockOrder.check(List.of(queue, workspace), plan);
 
@@ -124,8 +130,8 @@ class LockOrderTest {
         @DisplayName("the derived facts lock is taken after every scope lock and never before one")
         void derivedFactsAfterScopeLocks() {
             var derivedFacts = LockKey.derivedFacts(BASE, PROJECT);
-            var scopeLocks = List.of(LockKey.workspace(BASE, PROJECT), LockKey.plan(BASE, PROJECT, "plan-one"),
-                    LockKey.epic(BASE, PROJECT, "epic-one"));
+            var scopeLocks = List.of(LockKey.workspace(BASE, PROJECT), LockKey.plan(BASE, PROJECT, PLAN),
+                    LockKey.epic(BASE, PROJECT, EPIC));
 
             assertAll(
                     () -> assertInstanceOf(Permitted.class, LockOrder.check(scopeLocks, derivedFacts)),
@@ -191,9 +197,9 @@ class LockOrderTest {
         @Test
         @DisplayName("a held key may be requested again")
         void heldKey() {
-            var plan = LockKey.plan(BASE, PROJECT, "plan-one");
+            var plan = LockKey.plan(BASE, PROJECT, PLAN);
 
-            var decision = LockOrder.check(Set.of(plan), LockKey.plan(BASE, PROJECT, "plan-one"));
+            var decision = LockOrder.check(Set.of(plan), LockKey.plan(BASE, PROJECT, PLAN));
 
             assertInstanceOf(Reentry.class, decision);
         }
@@ -222,9 +228,9 @@ class LockOrderTest {
         @Test
         @DisplayName("an epic transaction takes the mailbox leaf lock of a plan under its epic lock")
         void mailboxUnderEpicLock() {
-            var epic = LockKey.epic(BASE, PROJECT, "epic-one");
+            var epic = LockKey.epic(BASE, PROJECT, EPIC);
 
-            var decision = LockOrder.check(Set.of(epic), LockKey.mailbox(BASE, PROJECT, "plan-one"));
+            var decision = LockOrder.check(Set.of(epic), LockKey.mailbox(BASE, PROJECT, PLAN));
 
             assertInstanceOf(Permitted.class, decision);
         }
@@ -233,7 +239,7 @@ class LockOrderTest {
         @DisplayName("nothing is acquired after a leaf lock, neither a key of an earlier level nor another leaf key")
         void nothingAfterLeaf() {
             var audit = LockKey.auditLog(BASE);
-            var mailbox = LockKey.mailbox(BASE, PROJECT, "plan-one");
+            var mailbox = LockKey.mailbox(BASE, PROJECT, PLAN);
             var others = Stream.concat(ONE_PER_LEVEL.stream().filter(key -> !key.equals(audit)), Stream.of(mailbox))
                     .toList();
 
@@ -252,7 +258,7 @@ class LockOrderTest {
         @Test
         @DisplayName("a missing argument is refused")
         void missingArguments() {
-            var plan = LockKey.plan(BASE, PROJECT, "plan-one");
+            var plan = LockKey.plan(BASE, PROJECT, PLAN);
             var heldKeys = Set.of(plan);
             var heldInOrder = List.of(plan);
 

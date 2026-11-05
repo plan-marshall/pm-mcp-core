@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -36,6 +38,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -70,12 +73,13 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
  * A stop is what a killed process leaves: the step hook of the commit throws at the boundary, and nothing the commit
  * wrote is removed. The recovery then runs in a new transaction of the lock manager, as after a restart.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Journal recovery")
 class JournalRecoveryTest {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "store-substrate";
+    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String STATUS = "status.json";
     private static final String REFERENCES = "references.json";
     private static final String WORK_LOG = "logs/work.jsonl";
@@ -767,7 +771,8 @@ class JournalRecoveryTest {
                 var write = ScopeTransaction.open(transaction, scope, refusing, CLOCK);
                 write.replace(STATUS, bytes(NEW_STATUS));
                 recordId = write.recordId().value();
-                write.owe(AuditEvent.crossScopeReconciled("rule", STATUS, recordId));
+                write.owe(AuditEvent.crossScopeReconciled(
+                        Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT), STATUS, recordId));
                 write.commit();
                 journal = TransactionJournal.read(scope.journalFile(), Files.readAllBytes(scope.journalFile()));
             }

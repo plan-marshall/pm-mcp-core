@@ -29,11 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -61,11 +64,13 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * an onboarding entry, the lock of the owning scope under which every write point runs, a fresh id drawn again on a
  * collision, the order of the write points, and the listing for the recovery.
  */
+@EnableGeneratorController
 @DisplayName("Job record store")
 class JobRecordStoreTest {
 
-    private static final String PROJECT = "sample-project";
-    private static final String ENTRY = "ent-0011";
+    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String ENTRY = "ent-" + Generators.integers(1000, 9999).next();
+    private static final String EPIC = "epic-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final Scope MACHINE = new Scope(Scope.Type.MACHINE, null);
     private static final Scope ENTRY_SCOPE = new Scope(Scope.Type.ENTRY, ENTRY);
 
@@ -107,7 +112,7 @@ class JobRecordStoreTest {
         var base = Path.of("/pm-base");
         return Stream.of(
                 Arguments.of(PLAN_SCOPE, LockKey.plan(base, PROJECT, "plan-one")),
-                Arguments.of(new Scope(Scope.Type.EPIC, "epic-one"), LockKey.epic(base, PROJECT, "epic-one")),
+                Arguments.of(new Scope(Scope.Type.EPIC, EPIC), LockKey.epic(base, PROJECT, EPIC)),
                 Arguments.of(new Scope(Scope.Type.WORKSPACE, null), LockKey.workspace(base, PROJECT)),
                 Arguments.of(new Scope(Scope.Type.PROJECT, null), LockKey.queue(base, PROJECT)));
     }
@@ -123,13 +128,15 @@ class JobRecordStoreTest {
             var entry = JobRecordStore.ofEntry(base, ENTRY);
 
             assertAll(
-                    () -> assertEquals(base.resolve("projects/sample-project/jobs"), store.directoryPath()),
+                    () -> assertEquals(base.resolve("projects/" + PROJECT + "/jobs"), store.directoryPath(),
+                            "the project job directory"),
                     () -> assertEquals(base.resolve("machine/jobs"), machine.directoryPath()),
-                    () -> assertEquals(base.resolve("onboardings/ent-0011/jobs"), entry.directoryPath()),
-                    () -> assertEquals(base.resolve("projects/sample-project/jobs/b-0123456789abcdef.json"),
-                            store.recordPath(BUILD_ID)),
-                    () -> assertEquals(base.resolve("projects/sample-project/jobs/b-0123456789abcdef.log"),
-                            store.logPath(BUILD_ID)));
+                    () -> assertEquals(base.resolve("onboardings/" + ENTRY + "/jobs"), entry.directoryPath(),
+                            "the entry job directory"),
+                    () -> assertEquals(base.resolve("projects/" + PROJECT + "/jobs/b-0123456789abcdef.json"),
+                            store.recordPath(BUILD_ID), "the project record path"),
+                    () -> assertEquals(base.resolve("projects/" + PROJECT + "/jobs/b-0123456789abcdef.log"),
+                            store.logPath(BUILD_ID), "the project log path"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -155,7 +162,8 @@ class JobRecordStoreTest {
         void foreignScopes() {
             var machine = JobRecordStore.ofMachine(base);
             var entry = JobRecordStore.ofEntry(base, ENTRY);
-            var otherEntry = new Scope(Scope.Type.ENTRY, "ent-0022");
+            var otherEntry = new Scope(Scope.Type.ENTRY,
+                    "ent-other-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT));
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE)),
@@ -231,7 +239,7 @@ class JobRecordStoreTest {
             write(store::writeQueued, queuedRecord);
             var before = store.read(BUILD_ID);
             var writeAheadRecord = writeAhead(BUILD_ID, PLAN_SCOPE);
-            var epicWriteAhead = writeAhead(BUILD_ID, new Scope(Scope.Type.EPIC, "e-1"));
+            var epicWriteAhead = writeAhead(BUILD_ID, new Scope(Scope.Type.EPIC, EPIC));
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeQueued, queuedRecord)),
@@ -268,8 +276,8 @@ class JobRecordStoreTest {
 
                 @Override
                 public void acquire(LockKey key) {
-                    throw new InternalFaultException(InternalFaultException.Reason.STORE_LOCK_NOT_HELD, "refused",
-                            Map.of());
+                    throw new InternalFaultException(InternalFaultException.Reason.STORE_LOCK_NOT_HELD,
+                            Generators.letterStrings(4, 12).next(), Map.of());
                 }
 
                 @Override
@@ -299,7 +307,8 @@ class JobRecordStoreTest {
         @DisplayName("a drawn id that names a record or a log present is drawn again, under the owning lock")
         void collisionRedraw() throws Exception {
             write(store::writeAhead, writeAhead(new JobId("b-efcdab8967452301"), PLAN_SCOPE));
-            Files.writeString(store.logPath(new JobId("b-1032547698badcfe")), "log");
+            Files.writeString(store.logPath(new JobId("b-1032547698badcfe")),
+                    Generators.letterStrings(1, 8).next());
             locks.reset();
 
             JobId allocated;
@@ -337,7 +346,7 @@ class JobRecordStoreTest {
             var second = queued(new JobId("c-0000000000000002"), new Scope(Scope.Type.WORKSPACE, null));
             write(store::writeAhead, first);
             write(store::writeQueued, second);
-            Files.writeString(store.logPath(first.jobId()), "output");
+            Files.writeString(store.logPath(first.jobId()), Generators.letterStrings(1, 8).next());
             Files.writeString(store.directoryPath().resolve("b-0000000000000003.json.tmp.x"), "{}");
             Files.writeString(store.directoryPath().resolve("notes.json"), "{}");
             Files.createDirectory(store.directoryPath().resolve("b-0000000000000004.json"));

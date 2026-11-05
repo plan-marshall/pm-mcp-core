@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +41,7 @@ import de.planmarshall.core.store.ConfinementOutcome.Rejected;
  * below {@code .git/worktrees} of the repository, the {@code commondir} file and the {@code gitdir} record that
  * names the worktree back. No git process runs.
  */
+@EnableGeneratorController
 @DisplayName("PathConfinement with linked worktrees")
 class LinkedWorktreeConfinementTest {
 
@@ -64,13 +67,13 @@ class LinkedWorktreeConfinementTest {
         root = repository("repo");
         other = repository("other");
         worktree = Files.createDirectories(base.resolve("linked/src")).getParent();
-        Files.writeString(worktree.resolve("src/Main.java"), "worktree");
+        Files.writeString(worktree.resolve("src/Main.java"), Generators.letterStrings(1, 20).next());
         link(worktree, root, "linked");
     }
 
     private Path repository(String name) throws IOException {
         var repository = Files.createDirectories(base.resolve(name).resolve(".git/worktrees")).getParent().getParent();
-        Files.writeString(repository.resolve("README.md"), name);
+        Files.writeString(repository.resolve("README.md"), Generators.letterStrings(1, 20).next());
         return repository;
     }
 
@@ -92,7 +95,7 @@ class LinkedWorktreeConfinementTest {
 
     private Path directoryBesideRoot(String name) throws IOException {
         var directory = Files.createDirectories(base.resolve(name));
-        Files.writeString(directory.resolve("file.txt"), name);
+        Files.writeString(directory.resolve("file.txt"), Generators.letterStrings(1, 20).next());
         return directory;
     }
 

@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -37,6 +39,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The digest sidecar of a scope (PM-IMPL-7, PM-IMPL-2): the size and SHA-256 of each store by its path relative to the
  * path base of the scope, written in a stable order and read in exactly one shape.
  */
+@EnableGeneratorController
 @DisplayName("Digest sidecar")
 class DigestSidecarTest {
 
@@ -111,7 +114,7 @@ class DigestSidecarTest {
         @DisplayName("a digest is found by its path, and a recorded one replaced without touching the others")
         void digestAndWith() {
             var sidecar = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS));
-            var changed = new StoreDigest(43, SHA_B);
+            var changed = new StoreDigest(Generators.integers(0, 1000).next(), SHA_B);
 
             var updated = sidecar.with("workspace/mcp/status.json", changed).with("pending/entry-1.json", PENDING);
 

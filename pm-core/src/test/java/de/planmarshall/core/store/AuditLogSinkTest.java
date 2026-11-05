@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -51,12 +53,16 @@ import de.planmarshall.core.store.AuditRecord.Scope;
  * with the actor, category, outcome, details and scope it carries; a record that cannot be appended fails as the sink
  * contract states; and the appends of two sinks of one runtime serialize on the in-process audit lock.
  */
+@EnableGeneratorController
 @DisplayName("Audit log sink")
 class AuditLogSinkTest {
 
-    private static final Instant AT = Instant.parse("2026-10-14T09:30:15.250Z");
+    private static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L,
+            1_900_000_000L).next());
     private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
-    private static final String PRINCIPAL = "oliver";
+    private static final String PRINCIPAL = Generators.letterStrings(3, 20).next();
+    private static final String PROJECT = Generators.letterStrings(3, 20).next();
+    private static final String SCOPE_ID = Generators.letterStrings(3, 20).next();
     private static final String TRANSACTION_ID = "01890a5d-ac96-774b-bcce-b302099a8057";
 
     @TempDir
@@ -121,8 +127,8 @@ class AuditLogSinkTest {
     @Test
     @DisplayName("an event becomes one chained record with actor, category, outcome, details and its scope")
     void scopedEvent() {
-        var first = AuditEvent.enrolmentWritten("pm-mcp-core", TRANSACTION_ID);
-        var second = AuditEvent.transactionRolledForward("plan", "audit-trail", TRANSACTION_ID,
+        var first = AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID);
+        var second = AuditEvent.transactionRolledForward("plan", SCOPE_ID, TRANSACTION_ID,
                 List.of("status.json"));
 
         sink.append(first);
@@ -140,7 +146,7 @@ class AuditLogSinkTest {
                 () -> assertEquals(PRINCIPAL, scoped.actor()),
                 () -> assertEquals(AT, scoped.timestamp()),
                 () -> assertEquals(Scope.PLAN, scoped.scopeType()),
-                () -> assertEquals("audit-trail", scoped.scopeId()),
+                () -> assertEquals(SCOPE_ID, scoped.scopeId(), "the scope id of the event is kept"),
                 () -> assertEquals(second.details(), scoped.details()),
                 () -> assertTrue(AuditRecord.EVENT_ID.matcher(scoped.eventId()).matches()),
                 () -> assertEquals(List.of(log.lockKey(), log.lockKey()), locks.acquisitions()),
@@ -150,7 +156,7 @@ class AuditLogSinkTest {
     @Test
     @DisplayName("an event without a scope of the audit log is a machine-level record without a scope id")
     void machineEvent() {
-        sink.append(AuditEvent.enrolmentTampered("pm-mcp-core", "hmac"));
+        sink.append(AuditEvent.enrolmentTampered(PROJECT, Generators.letterStrings(3, 20).next()));
         sink.append(AuditEvent.transactionRolledForward("lessons", null, TRANSACTION_ID, List.of()));
 
         var records = records();
@@ -167,7 +173,7 @@ class AuditLogSinkTest {
     @DisplayName("an append that fails surfaces as UncheckedIOException and releases the lock")
     void failingAppend() throws Exception {
         Files.delete(base.resolve("logs"));
-        var event = AuditEvent.enrolmentWritten("pm-mcp-core", TRANSACTION_ID);
+        var event = AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID);
 
         assertThrows(UncheckedIOException.class, () -> sink.append(event));
 
@@ -179,8 +185,9 @@ class AuditLogSinkTest {
     @Test
     @DisplayName("an event of a category or an outcome outside the audit log is refused")
     void undeclaredValues() {
-        var category = new AuditEvent("x", "elsewhere", AuditEvent.OUTCOME_SUCCEEDED, Map.of());
-        var outcome = new AuditEvent("x", AuditEvent.CATEGORY_STORE, "maybe", Map.of());
+        var event = Generators.letterStrings(3, 20).next();
+        var category = new AuditEvent(event, "elsewhere", AuditEvent.OUTCOME_SUCCEEDED, Map.of());
+        var outcome = new AuditEvent(event, AuditEvent.CATEGORY_STORE, "maybe", Map.of());
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> sink.append(category)),
@@ -203,7 +210,7 @@ class AuditLogSinkTest {
                 futures.add(executor.submit(() -> {
                     start.await();
                     for (var index = 0; index < perSink; index++) {
-                        each.append(AuditEvent.enrolmentWritten("pm-mcp-core", TRANSACTION_ID));
+                        each.append(AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID));
                     }
                     return null;
                 }));

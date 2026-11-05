@@ -23,6 +23,7 @@ import de.planmarshall.core.service.AuditSink;
  * store that cannot write does, or by stopping the caller as a killed process stops it, and records the appends after
  * them in their order.
  */
+// Every datum in this class is a contract: the diagnostic text and the failure stops a test asks for.
 final class FailingAuditSink implements AuditSink {
 
     /** What the sink throws to stop the caller at the append, as a killed process stops it. */

@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -65,6 +66,8 @@ class LessonStoreTest {
     private static final Instant NOW = Instant.parse("2026-10-13T09:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final String CREATED_ID = "2026-10-13-09-001";
+    private static final String PLAN_A = "plan-a-" + Generators.integers(1000, 9999).next();
+    private static final String PLAN_B = "plan-b-" + Generators.integers(1000, 9999).next();
 
     @TempDir
     Path base;
@@ -140,7 +143,7 @@ class LessonStoreTest {
             var lessonId = new LessonId(CREATED_ID);
 
             var created = inTransaction(write -> store.create(write, lessonId,
-                    LessonFixtures.newLesson().body("# Body\n").build(), CLOCK));
+                    LessonFixtures.newLesson().body(LessonFixtures.body()).build(), CLOCK));
 
             var document = LessonCodec.encode(created);
             assertAll(
@@ -232,7 +235,7 @@ class LessonStoreTest {
         @Test
         @DisplayName("of a transaction of another scope is refused")
         void otherScope() throws Exception {
-            var plan = JournalScope.plan(base, PROJECT, "a-plan");
+            var plan = JournalScope.plan(base, PROJECT, PLAN_A);
             Files.createDirectories(plan.journalFile().getParent());
             var lessonId = new LessonId(CREATED_ID);
             var newLesson = LessonFixtures.newLesson().build();
@@ -246,7 +249,7 @@ class LessonStoreTest {
                         () -> assertThrows(IllegalArgumentException.class, () -> store.allocate(write, CLOCK)),
                         () -> assertThrows(IllegalArgumentException.class, () -> store.get(write, lessonId)),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.claim(write, lessonId, "a-plan", NOW)));
+                                () -> store.claim(write, lessonId, PLAN_A, NOW)));
             }
         }
 
@@ -295,7 +298,7 @@ class LessonStoreTest {
         void growsPastThreeDigits() throws Exception {
             var highest = new LessonId("2026-10-13-09-999");
             Files.writeString(expectedPath(highest),
-                    new String(LessonCodec.encode(new Lesson(frontMatterWithId(highest), "body")),
+                    new String(LessonCodec.encode(new Lesson(frontMatterWithId(highest), LessonFixtures.body())),
                             StandardCharsets.UTF_8));
 
             try (var transaction = locks.openTransaction()) {
@@ -372,21 +375,22 @@ class LessonStoreTest {
             var lessonId = lesson.frontMatter().lessonId();
             var sources = List.of(new LessonFrontMatter.Source(LessonFrontMatter.Source.Kind.FINDING,
                     LessonFixtures.text(), null));
+            var body = LessonFixtures.body();
 
-            var outcome = inTransaction(write -> store.revise(write, lessonId, "# Second\n", sources, false,
+            var outcome = inTransaction(write -> store.revise(write, lessonId, body, sources, false,
                     NOW.plusSeconds(60)));
 
             var revised = assertInstanceOf(LessonResolution.Revised.class, outcome);
             var frontMatter = revised.lesson().frontMatter();
             assertAll(
-                    () -> assertEquals("# Second\n", revised.lesson().body(), "the body is replaced wholesale"),
+                    () -> assertEquals(body, revised.lesson().body(), "the body is replaced wholesale"),
                     () -> assertEquals(2, frontMatter.revision(), "the revision counter is incremented"),
                     () -> assertEquals(2, frontMatter.revisions().size(), "the history holds both revisions"),
                     () -> assertEquals(1, frontMatter.revisions().getFirst().n(), "the first entry stays"),
                     () -> assertEquals(2, frontMatter.revisions().getLast().n(), "the new entry is the last"),
                     () -> assertEquals(sources, frontMatter.revisions().getLast().sources(),
                             "the new entry carries the new sources"),
-                    () -> assertEquals(StoreDigest.of("# Second\n".getBytes(StandardCharsets.UTF_8)).sha256(),
+                    () -> assertEquals(StoreDigest.of(body.getBytes(StandardCharsets.UTF_8)).sha256(),
                             frontMatter.revisions().getLast().bodySha256(), "the new entry carries the body digest"),
                     () -> assertEquals(sources, frontMatter.sources(), "the current sources are the new ones"),
                     () -> assertEquals(Optional.of(revised.lesson()), read(lessonId), "the revision is recorded"));
@@ -398,8 +402,8 @@ class LessonStoreTest {
             var lessonId = new LessonId(CREATED_ID);
             run(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
 
-            assertThrows(IllegalArgumentException.class,
-                    () -> run(write -> store.revise(write, lessonId, "# Body\n", List.of(), false, NOW)));
+            assertThrows(IllegalArgumentException.class, () -> run(
+                    write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(), false, NOW)));
         }
 
         @Test
@@ -409,11 +413,12 @@ class LessonStoreTest {
             var lessonId = lesson.frontMatter().lessonId();
             var cited = enter(CLOCK);
             var citedId = cited.frontMatter().lessonId();
-            run(write -> store.revise(write, citedId, "# Cited\n", List.of(LessonFixtures.source()), true, NOW));
+            run(write -> store.revise(write, citedId, LessonFixtures.body(), List.of(LessonFixtures.source()), true,
+                    NOW));
             var source = new LessonFrontMatter.Source(LessonFrontMatter.Source.Kind.LESSON, citedId.value(), null);
 
             var outcome = inTransaction(
-                    write -> store.revise(write, lessonId, "# Body\n", List.of(source), false, NOW));
+                    write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(source), false, NOW));
 
             var revised = assertInstanceOf(LessonResolution.Revised.class, outcome);
             assertTrue(revised.lesson().frontMatter().derivedFromUntrusted(),
@@ -430,7 +435,7 @@ class LessonStoreTest {
             var recorded = read(lessonId);
 
             var outcome = withoutCommit(
-                    write -> store.revise(write, lessonId, "# Changed\n", List.of(LessonFixtures.source()), false,
+                    write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(LessonFixtures.source()), false,
                             NOW));
 
             var unavailable = assertInstanceOf(Unavailable.class, outcome);
@@ -502,11 +507,11 @@ class LessonStoreTest {
                         LessonFixtures.newLesson().build(), CLOCK));
                 case CLAIMED_BY_A -> {
                     inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
-                    run(write -> store.claim(write, TABLE_ID, "plan-a", NOW));
+                    run(write -> store.claim(write, TABLE_ID, PLAN_A, NOW));
                 }
                 case CLAIMED_BY_B -> {
                     inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
-                    run(write -> store.claim(write, TABLE_ID, "plan-b", NOW));
+                    run(write -> store.claim(write, TABLE_ID, PLAN_B, NOW));
                 }
                 case RETIRED -> {
                     inTransaction(write -> store.create(write, TABLE_ID, LessonFixtures.newLesson().build(), CLOCK));
@@ -533,7 +538,7 @@ class LessonStoreTest {
         }
 
         private LessonResolution.Outcome revise() {
-            return withoutCommit(write -> store.revise(write, TABLE_ID, "# Table\n",
+            return withoutCommit(write -> store.revise(write, TABLE_ID, LessonFixtures.body(),
                     List.of(LessonFixtures.source()), false, NOW));
         }
 
@@ -579,10 +584,10 @@ class LessonStoreTest {
             switch (cell) {
                 case UNCLAIMED -> assertInstanceOf(LessonResolution.Retired.class, outcome,
                         "an unclaimed found lesson is retired");
-                case CLAIMED_BY_A -> assertEquals("plan-a",
+                case CLAIMED_BY_A -> assertEquals(PLAN_A,
                         assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
                         "a lesson claimed by A is not retired");
-                case CLAIMED_BY_B -> assertEquals("plan-b",
+                case CLAIMED_BY_B -> assertEquals(PLAN_B,
                         assertInstanceOf(LessonResolution.Unavailable.class, outcome).claimingPlan(),
                         "a lesson claimed by B is not retired");
                 case RETIRED -> assertEquals(LessonResolution.Refusal.RETIRED,

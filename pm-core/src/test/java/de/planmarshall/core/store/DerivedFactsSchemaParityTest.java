@@ -34,6 +34,7 @@ import de.planmarshall.core.SpecificationDocument;
  * read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY} and is test input:
  * it stays byte-stable (R10).
  */
+// Every datum in this class is a contract: the specification document, its members and its bounds are the schema under test.
 @DisplayName("Derived facts schema parity")
 class DerivedFactsSchemaParityTest {
 

@@ -16,9 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,12 +35,13 @@ import org.junit.jupiter.params.provider.ValueSource;
  * The scopes that write through a transaction journal (PM-IMPL-7): the documented layout of each below the
  * per-project machine store, its scope id and its lock key.
  */
+@EnableGeneratorController
 @DisplayName("Journal scope")
 class JournalScopeTest {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "store-substrate";
-    private static final String EPIC = "store-epic";
+    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String EPIC = "epic-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     @TempDir
     Path base;

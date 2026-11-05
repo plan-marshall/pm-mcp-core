@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -31,32 +33,39 @@ import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 import de.planmarshall.core.store.IntentStore.Revision;
 
 /** Records and contexts the intent-store tests share. */
+@EnableGeneratorController
 final class IntentFixtures {
 
+    /** The plan id of the fixture: an identifier the record and its acceptance are addressed by. */
     static final String PLAN_ID = "106-plan-intent-and-outline-records";
 
-    static final Instant AT = Instant.parse("2026-10-27T10:00:00Z");
+    static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
 
     private IntentFixtures() {
     }
 
     static IntentRecord valid() {
         return new IntentRecord(
-                "The operator cannot see what a plan intends before it is built.",
-                "A plan states its intent in one record that every later phase reads.",
+                Generators.letterStrings(20, 60).next(),
+                Generators.letterStrings(10, 40).next(),
                 List.of(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                         criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)),
                 null,
-                List.of(new NonGoal("NG-1", "The record is not edited by a later phase.")),
-                List.of(new Constraint("CN-1", "A record is never accepted half-written.", ConstraintSource.OPERATOR,
+                List.of(new NonGoal("NG-1", Generators.letterStrings(5, 40).next())),
+                List.of(new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.OPERATOR,
                         null)),
-                List.of(new Decision("DC-1", "The record is one file beside request.md", List.of("a store", "one file"),
-                        Decider.MODEL, null, null, null)),
-                List.of(new Assumption("AN-1", "The plan store is writable", AssumptionStatus.VERIFIED, false, null)),
+                List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(), options(), Decider.MODEL, null,
+                        null, null)),
+                List.of(new Assumption("AN-1", Generators.letterStrings(5, 40).next(), AssumptionStatus.VERIFIED,
+                        false, null)),
                 List.of(),
                 List.of(),
                 List.of(new SourceClaim("The operator wants the intent visible", "goal", null),
-                        new SourceClaim("A half-written record would mislead the phases", "CN-1", null)));
+                        new SourceClaim(Generators.letterStrings(10, 60).next(), "CN-1", null)));
+    }
+
+    private static List<String> options() {
+        return List.of(Generators.letterStrings(2, 20).next(), Generators.letterStrings(2, 20).next());
     }
 
     static IntentRecord withCriteria(List<Criterion> criteria) {
@@ -88,8 +97,8 @@ final class IntentFixtures {
     }
 
     static Decision operatorDecision(String id, String questionId) {
-        return new Decision(id, "The operator chose the one-file record", List.of("a store", "one file"),
-                Decider.OPERATOR, questionId, null, null);
+        return new Decision(id, Generators.letterStrings(10, 60).next(), options(), Decider.OPERATOR, questionId,
+                null, null);
     }
 
     static Revision revision(int number, IntentRecord intentRecord) {

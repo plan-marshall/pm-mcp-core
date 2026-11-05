@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
@@ -35,21 +38,26 @@ import de.planmarshall.core.store.ProjectEnrolment.Build;
  * a key, an environment variable or an edited file could open: the release position is asserted as a constant, and
  * the only other position exists for this test.
  */
+@EnableGeneratorController
 @DisplayName("Lifecycle gate")
 class LifecycleGateTest {
 
-    private static final Instant RELEASED_AT = Instant.parse("2026-10-12T09:30:00Z");
+    private static final Instant RELEASED_AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L)
+            .next());
 
     private static ProjectEnrolment enrolment(boolean pilot, Instant releasedAt) {
-        return new ProjectEnrolment("pm-mcp-core", "/home/dev/git/pm-mcp-core", Instant.parse("2026-10-11T08:00:00Z"),
-                pilot, null, releasedAt, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(),
-                new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());
+        var projectId = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        var projectRoot = "/home/dev/git/" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        var enrolledAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        return new ProjectEnrolment(projectId, projectRoot, enrolledAt, pilot, null, releasedAt, List.of(), List.of(),
+                Build.defaults(), Map.of(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>(), List.of(),
+                new TreeMap<>());
     }
 
     @Test
     @DisplayName("the gate compiled into this release is closed")
     void releasePosition() {
-        assertFalse(LifecycleGate.RELEASE.isOpen());
+        assertFalse(LifecycleGate.RELEASE.isOpen(), "The released gate is closed");
     }
 
     static Stream<Arguments> decisions() {
@@ -68,17 +76,23 @@ class LifecycleGateTest {
     void decide(String name, boolean open, boolean pilot, Instant releasedAt, Decision expected) {
         var gate = new LifecycleGate(open);
 
-        assertEquals(expected, gate.decide(enrolment(pilot, releasedAt)));
+        assertEquals(expected, gate.decide(enrolment(pilot, releasedAt)),
+                "The gate decides the expected outcome");
     }
 
     @Test
     @DisplayName("the release gate refuses a non-pilot project and admits a pilot one")
     void releaseGate() {
         assertAll(
-                () -> assertEquals(Decision.LIFECYCLE_CLOSED, LifecycleGate.RELEASE.decide(enrolment(false, null))),
-                () -> assertEquals(Decision.ADMITTED, LifecycleGate.RELEASE.decide(enrolment(true, null))),
-                () -> assertEquals("lifecycle_closed", Decision.LIFECYCLE_CLOSED.code()),
-                () -> assertEquals("admitted", Decision.ADMITTED.code()),
-                () -> assertThrows(NullPointerException.class, () -> LifecycleGate.RELEASE.decide(null)));
+                () -> assertEquals(Decision.LIFECYCLE_CLOSED, LifecycleGate.RELEASE.decide(enrolment(false, null)),
+                        "A non-pilot project is refused while closed"),
+                () -> assertEquals(Decision.ADMITTED, LifecycleGate.RELEASE.decide(enrolment(true, null)),
+                        "A pilot project is admitted while closed"),
+                () -> assertEquals("lifecycle_closed", Decision.LIFECYCLE_CLOSED.code(),
+                        "The refusal carries its wire name"),
+                () -> assertEquals("admitted", Decision.ADMITTED.code(),
+                        "The admission carries its wire name"),
+                () -> assertThrows(NullPointerException.class, () -> LifecycleGate.RELEASE.decide(null),
+                        "A missing enrolment is refused"));
     }
 }

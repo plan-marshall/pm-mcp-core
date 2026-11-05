@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +30,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,10 +46,11 @@ import de.planmarshall.core.service.LockTransaction;
  * the new scope committed first, so that a stop between the commits leaves the entry's log in place and a repeated
  * move is refused instead of writing the lines twice.
  */
+@EnableGeneratorController
 @DisplayName("Entry question move")
 class EntryQuestionMoveTest {
 
-    private static final String PROJECT = "pm-mcp-core";
+    private static final String PROJECT = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-17T09:00:00Z"), ZoneOffset.UTC);
     private static final EntryId ENTRY = new EntryId("ent-0123456789abcdef");
 
@@ -63,7 +67,8 @@ class EntryQuestionMoveTest {
     @BeforeEach
     void createScopes() throws IOException {
         workspace = JournalScope.workspace(base, PROJECT);
-        plan = JournalScope.plan(base, PROJECT, "a-plan");
+        plan = JournalScope.plan(base, PROJECT,
+                Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(workspace.journalFile().getParent());
         Files.createDirectories(plan.journalFile().getParent());
         entryLog = QuestionLog.ofEntry(workspace, ENTRY);
@@ -234,7 +239,8 @@ class EntryQuestionMoveTest {
     @Test
     @DisplayName("moves into an epic as into a plan")
     void movedIntoEpic() throws Exception {
-        var epic = JournalScope.epic(base, PROJECT, "an-epic");
+        var epic = JournalScope.epic(base, PROJECT,
+                Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(epic.pathBase());
         askInEntry();
         var entryBytes = Files.readAllBytes(entryLog.store());

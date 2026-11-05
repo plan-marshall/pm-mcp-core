@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -63,9 +65,13 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * A torn tail is what an append stopped mid-write leaves: the file is written here as such a crash leaves it.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("JSONL store file")
 class JsonlStoreFileTest {
 
+    private static final String PROJECT = "project-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String PLAN = "plan-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String OTHER_PLAN = "other-" + Generators.longs(1, Long.MAX_VALUE).next();
     private static final int FORMAT_VERSION = 1;
     private static final String FIRST = "{\"format_version\":1,\"n\":1}\n";
     private static final String SECOND = "{\"format_version\":1,\"n\":2}\n";
@@ -86,7 +92,7 @@ class JsonlStoreFileTest {
     void createStore() throws IOException {
         store = Files.createDirectories(base.resolve("plans").resolve("store-substrate").resolve("mcp"))
                 .resolve("findings.jsonl");
-        scopeKey = LockKey.plan(base, "pm-mcp-core", "store-substrate");
+        scopeKey = LockKey.plan(base, PROJECT, PLAN);
         locks = new RecordingLockManager();
         audit = new RecordingAuditSink();
         storeFile = new JsonlStoreFile(store, scopeKey);
@@ -225,7 +231,7 @@ class JsonlStoreFileTest {
             Files.write(store, before);
 
             try (var transaction = locks.openTransaction()) {
-                transaction.acquire(LockKey.plan(base, "pm-mcp-core", "another-plan"));
+                transaction.acquire(LockKey.plan(base, PROJECT, OTHER_PLAN));
                 assertRefusedWithoutLock(before, () -> storeFile.append(transaction, bytes(SECOND), audit));
             }
         }

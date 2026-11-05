@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +23,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,12 +52,12 @@ import de.planmarshall.core.store.LessonResolution.Unavailable;
 @DisplayName("Lesson claim")
 class LessonClaimTest {
 
-    private static final String PROJECT = "pm-mcp-core";
+    private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
     private static final Instant NOW = CLOCK.instant();
     private static final LessonId LESSON_ID = new LessonId("2026-11-02-09-001");
-    private static final String PLAN_A = "plan-a";
-    private static final String PLAN_B = "plan-b";
+    private static final String PLAN_A = "plan-a-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String PLAN_B = "plan-b-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     @TempDir
     Path base;

@@ -55,6 +55,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * schema closed at every level of nesting, and one canonical byte sequence per enrolment, the bytes the integrity HMAC
  * is computed over.
  */
+// Every datum in this class is a contract: the wire documents, their values, fragments, wire names and the boundary key.
 @DisplayName("Enrolment codec")
 class EnrolmentCodecTest {
 

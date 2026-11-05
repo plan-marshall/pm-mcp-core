@@ -46,6 +46,7 @@ import de.planmarshall.core.store.WorkerState.Workdir;
  * added to or removed from the schema without the code fails here. The schema is read from the specification of this
  * repository below {@value SpecificationDocument#ROOT_PROPERTY}.
  */
+// Every datum in this class is a contract: the schema document path, its members and bounds are the specification.
 @DisplayName("Job record schema parity")
 class JobRecordSchemaParityTest {
 

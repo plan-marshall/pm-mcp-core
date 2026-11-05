@@ -17,11 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -316,18 +317,19 @@ class LessonCodecTest {
     @Test
     @DisplayName("a full record with every optional member set round-trips")
     void fullRecordRoundTrips() {
-        var source = new Source(Source.Kind.LESSON, "v2-10", DIGEST);
+        var planId = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var source = new Source(Source.Kind.LESSON, LessonFixtures.text(), DIGEST);
         var lesson = new Lesson(LessonFrontMatter.builder()
                 .formatVersion(LessonFrontMatter.FORMAT_VERSION)
-                .lessonId(new LessonId("2026-09-08-22-004"))
-                .title("A full title")
-                .component("pm-core")
+                .lessonId(LessonFixtures.lessonId())
+                .title(LessonFixtures.text())
+                .component(LessonFixtures.text())
                 .category(Category.ARCH_CONSTRAINT)
-                .bundle("pm-dev-java")
-                .rule("no-direct-http")
-                .remedy(new Remedy(Remedy.Kind.WIRE_CHECK, STATEMENT, "Gate pm-core:no-http"))
-                .recurrenceCount(3)
-                .lastSeen(LocalDate.of(2026, 10, 31))
+                .bundle(Generators.letterStrings(1, 20).next())
+                .rule(LessonFixtures.text())
+                .remedy(new Remedy(Remedy.Kind.WIRE_CHECK, LessonFixtures.statement(), LessonFixtures.text()))
+                .recurrenceCount(Generators.integers(LessonFrontMatter.MIN_RECURRENCE_COUNT, 10).next())
+                .lastSeen(LessonFixtures.date())
                 .status(Status.RETIRED)
                 .provenance(Provenance.OPERATOR_ACTION)
                 .derivedFromUntrusted(true)
@@ -336,20 +338,20 @@ class LessonCodecTest {
                 .createdAt(Instant.parse(INSTANT))
                 .toolVersion("0.1.0")
                 .promotions(List.of(new Promotion(Promotion.Kind.ISSUE,
-                        "plan-marshall/plan-marshall-documentation#1", Instant.parse(INSTANT))))
+                        LessonFixtures.text(), Instant.parse(INSTANT))))
                 .revision(2)
                 .sources(List.of(source))
                 .revisions(List.of(new Revision(1, Instant.parse(INSTANT), List.of(source), DIGEST),
                         new Revision(2, Instant.parse(INSTANT), List.of(source), DIGEST)))
-                .mergedFrom(List.of(new MergedFrom(new LessonId("2026-09-13-06-002"), Instant.parse(INSTANT),
-                        "operator")))
-                .claim(new Claim("v2-11-lesson-record-and-codec", Instant.parse(INSTANT)))
+                .mergedFrom(List.of(new MergedFrom(new LessonId(LessonFixtures.WATCH_ID_HEADERLESS_SECOND),
+                        Instant.parse(INSTANT), LessonFixtures.text())))
+                .claim(new Claim(planId, Instant.parse(INSTANT)))
                 .retired(Retired.builder()
                         .at(Instant.parse(INSTANT))
-                        .by("v2-11-lesson-record-and-codec")
+                        .by(planId)
                         .verdict(Retired.Verdict.APPLIED)
                         .into(null)
-                        .reason("the plan landed")
+                        .reason(LessonFixtures.text())
                         .coveringClause(null)
                         .coveringInput(null)
                         .lessonState(Retired.LessonState.FOUND)
@@ -371,12 +373,12 @@ class LessonCodecTest {
     void supersededRetirementRoundTrips() {
         var retired = Retired.builder()
                 .at(Instant.parse(INSTANT))
-                .by("v2-11-lesson-record-and-codec")
+                .by("plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT))
                 .verdict(Retired.Verdict.SUPERSEDED)
-                .into(new LessonId("2026-09-13-06-002"))
-                .reason("a later lesson supersedes it")
-                .coveringClause("the later lesson")
-                .coveringInput("the worked example")
+                .into(new LessonId(LessonFixtures.WATCH_ID_HEADERLESS))
+                .reason(LessonFixtures.text())
+                .coveringClause(LessonFixtures.text())
+                .coveringInput(LessonFixtures.text())
                 .lessonState(Retired.LessonState.PRESENT_UNREADABLE)
                 .build();
         var lesson = new Lesson(LessonFixtures.frontMatterBuilder()

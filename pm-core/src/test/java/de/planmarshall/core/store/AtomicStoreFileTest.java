@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
@@ -44,6 +46,7 @@ import de.planmarshall.core.service.LockTransaction;
  * The write path of a store replaced by atomic rename (PM-IMPL-7): written only under its sibling lock key, and the
  * store file itself never locked.
  */
+@EnableGeneratorController
 @DisplayName("Atomic store file")
 class AtomicStoreFileTest {
 
@@ -193,7 +196,7 @@ class AtomicStoreFileTest {
         @DisplayName("a write that fails leaves the store as it was and no temporary file")
         void failedWrite() throws Exception {
             var directory = Files.createDirectory(base.resolve("state").resolve("install-records.json"));
-            Files.writeString(directory.resolve("entry"), "keeps the directory non-empty");
+            Files.writeString(directory.resolve("entry"), Generators.letterStrings(10, 30).next());
             var blocked = new AtomicStoreFile(directory, LockKey.installRecords(base));
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(LockKey.installRecords(base));

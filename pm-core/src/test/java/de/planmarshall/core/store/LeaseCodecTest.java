@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -37,6 +39,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The document of a lease store (PM-IMPL-7, PM-IMPL-2): one format version, one closed shape, and one shape per
  * instant.
  */
+@EnableGeneratorController
 @DisplayName("Lease codec")
 class LeaseCodecTest {
 
@@ -396,7 +399,8 @@ class LeaseCodecTest {
     @DisplayName("records")
     class Records {
 
-        private final HolderInstance holder = new HolderInstance(1, Instant.parse("2026-10-09T08:15:30Z"));
+        private final HolderInstance holder = new HolderInstance(Generators.longs(1, Long.MAX_VALUE).next(),
+                Instant.ofEpochMilli(Generators.longs(0, 1_700_000_000_000L).next()));
 
         @Test
         @DisplayName("a holder needs a process id of at least 1 and a start instant")
@@ -411,6 +415,8 @@ class LeaseCodecTest {
         @Test
         @DisplayName("an owner needs a valid project id, and a scope id exactly for a plan and an epic")
         void owner() {
+            var epicId = "epic-" + Generators.longs(1, Long.MAX_VALUE).next();
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new LeaseOwner("PM", ScopeType.PROJECT, null, holder, null)),
@@ -426,8 +432,9 @@ class LeaseCodecTest {
                             () -> new LeaseOwner("pm-mcp-core", ScopeType.EPIC, "Epic", holder, null)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new LeaseOwner("pm-mcp-core", ScopeType.PROJECT, "a-plan", holder, null)),
-                    () -> assertEquals("an-epic",
-                            new LeaseOwner("pm-mcp-core", ScopeType.EPIC, "an-epic", holder, null).scopeId()));
+                    () -> assertEquals(epicId,
+                            new LeaseOwner("pm-mcp-core", ScopeType.EPIC, epicId, holder, null).scopeId(),
+                            "the scope id is read back"));
         }
 
         @Test
@@ -435,6 +442,7 @@ class LeaseCodecTest {
         void lease() {
             var owner = new LeaseOwner("pm-mcp-core", ScopeType.PROJECT, null, holder, null);
             var acquiredAt = Instant.parse("2026-10-09T08:16:00Z");
+            var key = "lease-" + Generators.longs(1, Long.MAX_VALUE).next();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
@@ -442,8 +450,9 @@ class LeaseCodecTest {
                     () -> assertThrows(NullPointerException.class,
                             () -> new LeaseRecord(null, owner, acquiredAt, null)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseRecord("k", null, acquiredAt, null)),
-                    () -> assertThrows(NullPointerException.class, () -> new LeaseRecord("k", owner, null, null)));
+                            () -> new LeaseRecord(key, null, acquiredAt, null), "a missing owner is refused"),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new LeaseRecord(key, owner, null, null), "a missing claim instant is refused"));
         }
 
         @ParameterizedTest(name = "{0}")

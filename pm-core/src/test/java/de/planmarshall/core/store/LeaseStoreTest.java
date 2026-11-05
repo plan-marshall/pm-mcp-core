@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -39,17 +41,27 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The leases of a machine lease store (PM-IMPL-7): records that are claimed and released in one short transaction
  * on the lock of the store, and that outlive the transaction and the store instance that wrote them.
  */
+@EnableGeneratorController
 @DisplayName("Lease store")
 class LeaseStoreTest {
 
-    private static final String KEY = "plan-marshall/pm-mcp-core";
-    private static final Instant ACQUIRED_AT = Instant.parse("2026-10-09T08:16:00Z");
-    private static final Instant EXPIRES_AT = Instant.parse("2026-10-09T09:16:00Z");
-    private static final HolderInstance FIRST_RUNTIME = new HolderInstance(4711,
-            Instant.parse("2026-10-09T08:15:30.123456Z"));
-    private static final HolderInstance SECOND_RUNTIME = new HolderInstance(4712,
-            Instant.parse("2026-10-09T10:00:00Z"));
-    private static final LeaseOwner FIRST_OWNER = new LeaseOwner("pm-mcp-core", ScopeType.PLAN, "lock-manager",
+    private static final String PROJECT = "project-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String PLAN_ID = "plan-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String OTHER_PLAN_ID = "other-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String KEY = "lease-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String OTHER_KEY = "other-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String REMOVED_KEY = "removed-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final String CHANGED_KEY = "changed-" + Generators.longs(1, Long.MAX_VALUE).next();
+    private static final Instant ACQUIRED_AT = Instant.ofEpochMilli(Generators.longs(0, 1_700_000_000_000L).next());
+    private static final Instant EXPIRES_AT = ACQUIRED_AT.plusSeconds(3_600);
+    private static final Instant ORPHANED_AT = ACQUIRED_AT.plusSeconds(7_200);
+    private static final HolderInstance FIRST_RUNTIME = new HolderInstance(
+            Generators.longs(1, Long.MAX_VALUE).next(),
+            Instant.ofEpochMilli(Generators.longs(0, 1_700_000_000_000L).next()));
+    private static final HolderInstance SECOND_RUNTIME = new HolderInstance(
+            Generators.longs(1, Long.MAX_VALUE).next(),
+            Instant.ofEpochMilli(Generators.longs(0, 1_700_000_000_000L).next()));
+    private static final LeaseOwner FIRST_OWNER = new LeaseOwner(PROJECT, ScopeType.PLAN, PLAN_ID,
             FIRST_RUNTIME, null);
 
     @TempDir
@@ -61,7 +73,7 @@ class LeaseStoreTest {
     private LeaseStore leaseStore;
 
     private static LeaseRecord planLease(String planId, HolderInstance holder) {
-        var owner = new LeaseOwner("pm-mcp-core", ScopeType.PLAN, planId, holder, null);
+        var owner = new LeaseOwner(PROJECT, ScopeType.PLAN, planId, holder, null);
         return new LeaseRecord(KEY, owner, ACQUIRED_AT, EXPIRES_AT);
     }
 
@@ -92,7 +104,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a claim writes the lease in one transaction on the machine store key and holds nothing after")
         void claim() {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
 
             var claim = leaseStore.claim(lease);
 
@@ -110,7 +122,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a claimed lease is read back by a second store instance over the same file")
         void survivesRestart() {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
 
             var restarted = new LeaseStore(new AtomicStoreFile(store, storeKey), new RecordingLockManager());
@@ -121,13 +133,13 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a second claim of a held key writes nothing and names the holder")
         void contended() throws Exception {
-            var held = planLease("lock-manager", FIRST_RUNTIME);
+            var held = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(held);
             var written = Files.readAllBytes(store);
             var fileBefore = fileIdentity();
             var restarted = new LeaseStore(new AtomicStoreFile(store, storeKey), new RecordingLockManager());
 
-            var claim = restarted.claim(planLease("another-plan", SECOND_RUNTIME));
+            var claim = restarted.claim(planLease(OTHER_PLAN_ID, SECOND_RUNTIME));
 
             assertAll(
                     () -> assertFalse(claim.granted()),
@@ -139,8 +151,8 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a second key is claimed beside the first, in the order of the claims")
         void secondKey() {
-            var first = planLease("lock-manager", FIRST_RUNTIME);
-            var second = new LeaseRecord("another/repository", first.owner(), ACQUIRED_AT, null);
+            var first = planLease(PLAN_ID, FIRST_RUNTIME);
+            var second = new LeaseRecord(OTHER_KEY, first.owner(), ACQUIRED_AT, null);
             leaseStore.claim(first);
 
             var claim = leaseStore.claim(second);
@@ -158,7 +170,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a release removes the lease in one transaction on the machine store key and holds nothing after")
         void release() {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
             locks.reset();
 
@@ -173,9 +185,9 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a released key is claimed again")
         void claimAfterRelease() {
-            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.claim(planLease(PLAN_ID, FIRST_RUNTIME));
             leaseStore.release(KEY);
-            var next = planLease("another-plan", SECOND_RUNTIME);
+            var next = planLease(OTHER_PLAN_ID, SECOND_RUNTIME);
 
             var claim = leaseStore.claim(next);
 
@@ -187,7 +199,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a release that names the owner of the lease removes it in one transaction on the store key")
         void releaseByOwner() {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
             locks.reset();
 
@@ -206,7 +218,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a release that names a stale owner leaves the lease of the newer holder and writes nothing")
         void staleOwner() throws Exception {
-            var claimed = planLease("lock-manager", FIRST_RUNTIME);
+            var claimed = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(claimed);
             var adopted = leaseStore.adopt(KEY, SECOND_RUNTIME).orElseThrow();
             var written = Files.readAllBytes(store);
@@ -224,7 +236,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a release that names an owner finds nothing under a key that is not held and writes nothing")
         void releaseByOwnerOfUnknownKey() {
-            var owner = planLease("lock-manager", FIRST_RUNTIME).owner();
+            var owner = planLease(PLAN_ID, FIRST_RUNTIME).owner();
 
             var release = leaseStore.release(KEY, owner);
 
@@ -254,12 +266,12 @@ class LeaseStoreTest {
     @DisplayName("orphan and adopt")
     class OrphanAndAdopt {
 
-        private final Instant orphanedAt = Instant.parse("2026-10-09T10:00:01Z");
+        private final Instant orphanedAt = ORPHANED_AT;
 
         @Test
         @DisplayName("orphaning marks the lease and keeps it, its owner and its holder")
         void orphan() {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
 
             var orphaned = leaseStore.orphan(KEY, orphanedAt).orElseThrow();
@@ -275,7 +287,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a lease that is orphaned already keeps the instant it was first found orphaned")
         void orphanTwice() throws Exception {
-            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.claim(planLease(PLAN_ID, FIRST_RUNTIME));
             leaseStore.orphan(KEY, orphanedAt);
             var fileBefore = fileIdentity();
 
@@ -290,7 +302,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("adopting names the new runtime as holder, clears orphaned_at and keeps the owning scope")
         void adopt() {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
             leaseStore.orphan(KEY, orphanedAt);
             locks.reset();
@@ -302,7 +314,7 @@ class LeaseStoreTest {
                     () -> assertFalse(adopted.owner().isOrphaned()),
                     () -> assertEquals(SECOND_RUNTIME, adopted.owner().holderInstance()),
                     () -> assertEquals(lease.withOwner(lease.owner().adoptedBy(SECOND_RUNTIME)), adopted),
-                    () -> assertEquals("lock-manager", adopted.owner().scopeId()),
+                    () -> assertEquals(PLAN_ID, adopted.owner().scopeId(), "the owning scope is kept"),
                     () -> assertEquals(List.of(adopted), leaseStore.snapshot()),
                     LeaseStoreTest.this::assertOneTransactionOnTheStoreKey);
         }
@@ -310,11 +322,11 @@ class LeaseStoreTest {
         @Test
         @DisplayName("an adopted lease is still held: a claim of its key names the adopting runtime")
         void adoptedLeaseIsHeld() {
-            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.claim(planLease(PLAN_ID, FIRST_RUNTIME));
             leaseStore.orphan(KEY, orphanedAt);
             leaseStore.adopt(KEY, SECOND_RUNTIME);
 
-            var claim = leaseStore.claim(planLease("another-plan", FIRST_RUNTIME));
+            var claim = leaseStore.claim(planLease(OTHER_PLAN_ID, FIRST_RUNTIME));
 
             assertAll(
                     () -> assertFalse(claim.granted()),
@@ -324,10 +336,10 @@ class LeaseStoreTest {
         @Test
         @DisplayName("an orphaned lease is still held: it is not released by being orphaned")
         void orphanedLeaseIsHeld() {
-            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.claim(planLease(PLAN_ID, FIRST_RUNTIME));
             leaseStore.orphan(KEY, orphanedAt);
 
-            var claim = leaseStore.claim(planLease("another-plan", SECOND_RUNTIME));
+            var claim = leaseStore.claim(planLease(OTHER_PLAN_ID, SECOND_RUNTIME));
 
             assertAll(
                     () -> assertFalse(claim.granted()),
@@ -339,24 +351,28 @@ class LeaseStoreTest {
     @DisplayName("revision of every lease")
     class ReviseAll {
 
-        private final Instant orphanedAt = Instant.parse("2026-10-09T10:00:01Z");
+        private final Instant orphanedAt = ORPHANED_AT;
 
         @Test
         @DisplayName("each lease is replaced or removed in one transaction on the machine store key")
         void revise() {
-            var kept = planLease("lock-manager", FIRST_RUNTIME);
-            var removed = new LeaseRecord("removed/repository", kept.owner(), ACQUIRED_AT, null);
-            var changed = new LeaseRecord("changed/repository", kept.owner(), ACQUIRED_AT, null);
+            var kept = planLease(PLAN_ID, FIRST_RUNTIME);
+            var removed = new LeaseRecord(REMOVED_KEY, kept.owner(), ACQUIRED_AT, null);
+            var changed = new LeaseRecord(CHANGED_KEY, kept.owner(), ACQUIRED_AT, null);
             leaseStore.claim(kept);
             leaseStore.claim(removed);
             leaseStore.claim(changed);
             locks.reset();
             var orphaned = changed.withOwner(changed.owner().orphaned(orphanedAt));
 
-            var before = leaseStore.reviseAll(lease -> switch (lease.key()) {
-                case "removed/repository" -> Optional.empty();
-                case "changed/repository" -> Optional.of(orphaned);
-                default -> Optional.of(lease);
+            var before = leaseStore.reviseAll(lease -> {
+                if (REMOVED_KEY.equals(lease.key())) {
+                    return Optional.empty();
+                }
+                if (CHANGED_KEY.equals(lease.key())) {
+                    return Optional.of(orphaned);
+                }
+                return Optional.of(lease);
             });
 
             assertAll(
@@ -368,7 +384,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a revision that changes nothing does not write the store")
         void unchanged() throws Exception {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
             var fileBefore = fileIdentity();
 
@@ -389,7 +405,7 @@ class LeaseStoreTest {
                 return Optional.of(lease);
             });
             var absentStoreExists = Files.exists(store);
-            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.claim(planLease(PLAN_ID, FIRST_RUNTIME));
             leaseStore.release(KEY);
 
             var empty = leaseStore.reviseAll(Optional::of);
@@ -404,9 +420,9 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a revision that gives two leases one key is refused, and the store stays as it was")
         void duplicateKey() throws Exception {
-            var first = planLease("lock-manager", FIRST_RUNTIME);
+            var first = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(first);
-            leaseStore.claim(new LeaseRecord("another/repository", first.owner(), ACQUIRED_AT, null));
+            leaseStore.claim(new LeaseRecord(OTHER_KEY, first.owner(), ACQUIRED_AT, null));
             var written = Files.readAllBytes(store);
 
             assertThrows(IllegalArgumentException.class, () -> leaseStore.reviseAll(lease -> Optional.of(first)));
@@ -423,18 +439,18 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a revision that returns a lease under another key is refused, and the store stays as it was")
         void otherKey() throws Exception {
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
             leaseStore.claim(lease);
             var written = Files.readAllBytes(store);
             var fileBefore = fileIdentity();
-            var underOtherKey = new LeaseRecord("another/repository", lease.owner(), ACQUIRED_AT, EXPIRES_AT);
+            var underOtherKey = new LeaseRecord(OTHER_KEY, lease.owner(), ACQUIRED_AT, EXPIRES_AT);
 
             var refusal = assertThrows(IllegalArgumentException.class,
                     () -> leaseStore.reviseAll(_ -> Optional.of(underOtherKey)));
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(KEY), refusal.getMessage()),
-                    () -> assertTrue(refusal.getMessage().contains("another/repository"), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains(OTHER_KEY), refusal.getMessage()),
                     () -> assertArrayEquals(written, Files.readAllBytes(store)),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
                     () -> assertEquals(List.of(), locks.held()));
@@ -454,7 +470,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a snapshot takes no lock and opens no transaction")
         void lockFree() {
-            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.claim(planLease(PLAN_ID, FIRST_RUNTIME));
             locks.reset();
 
             var leases = leaseStore.snapshot();
@@ -481,7 +497,7 @@ class LeaseStoreTest {
         void newerFormat() throws Exception {
             var newer = "{\"format_version\":2,\"leases\":[]}".getBytes(StandardCharsets.UTF_8);
             Files.write(store, newer);
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
 
             var refusal = assertThrows(StoreRefusal.class, () -> leaseStore.claim(lease));
 
@@ -501,7 +517,7 @@ class LeaseStoreTest {
         void unreadable() throws Exception {
             var torn = "{\"format_version\":1,\"leases\":[".getBytes(StandardCharsets.UTF_8);
             Files.write(store, torn);
-            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            var lease = planLease(PLAN_ID, FIRST_RUNTIME);
 
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE,
@@ -522,7 +538,7 @@ class LeaseStoreTest {
         @Test
         @DisplayName("a store file that is not guarded by a machine store lock is refused")
         void otherLockLevel() {
-            var queueFile = new AtomicStoreFile(store, LockKey.queue(base, "pm-mcp-core"));
+            var queueFile = new AtomicStoreFile(store, LockKey.queue(base, PROJECT));
 
             assertThrows(IllegalArgumentException.class, () -> new LeaseStore(queueFile, locks));
         }

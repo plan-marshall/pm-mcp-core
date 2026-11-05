@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -33,11 +35,13 @@ import de.planmarshall.core.store.BuildTimings.Residue;
  * The learned budgets of a project (Store Schemas § Build Timings Store): the max-biased blend of a finished run, the
  * one-shot escalation of a timed-out one, and the store that keeps them.
  */
+@EnableGeneratorController
 @DisplayName("Build timings")
 class BuildTimingsStoreTest {
 
     private static final String KEY = "llm:writer";
-    private static final Instant OBSERVED_AT = Instant.parse("2026-10-22T10:00:00Z");
+    private static final Instant OBSERVED_AT =
+            Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
 
     @TempDir
     Path base;

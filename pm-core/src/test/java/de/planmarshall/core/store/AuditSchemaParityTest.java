@@ -18,6 +18,8 @@ import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +44,7 @@ import de.planmarshall.core.store.AuditRecord.Scope;
  * every enum, the forms of ids and hashes, the format version 1 of each, and every document it writes is valid against
  * its schema. The schemas are read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY}.
  */
+@EnableGeneratorController
 @DisplayName("Audit schema parity")
 class AuditSchemaParityTest {
 
@@ -95,9 +98,14 @@ class AuditSchemaParityTest {
     }
 
     private static void assertValid(JsonSchema validator, byte[] document) {
+        assertValid(validator, document, "the written document is valid");
+    }
+
+    private static void assertValid(JsonSchema validator, byte[] document, String message) {
         var written = new String(document, UTF_8);
 
-        assertEquals(Set.of(), validator.validate(written, InputFormat.JSON), () -> "violations of " + written);
+        assertEquals(Set.of(), validator.validate(written, InputFormat.JSON),
+                () -> message + ": violations of " + written);
     }
 
     @Nested
@@ -143,12 +151,17 @@ class AuditSchemaParityTest {
         @DisplayName("a written record is valid against the schema, with and without a scope id")
         void valid() {
             var scoped = AuditRecord.builder().eventId(EVENT_ID).prevHash(AuditCodec.GENESIS_HASH)
-                    .timestamp(Instant.parse("2026-10-14T09:30:15.250Z")).category(Category.STORE)
-                    .event("transaction_rolled_forward").scopeType(Scope.PLAN).scopeId("audit-trail")
-                    .actor("oliver").outcome(Outcome.SUCCEEDED)
-                    .details(Map.of("targets", List.of("status.json"), "count", 1, "flag", true)).build();
+                    .timestamp(Instant.ofEpochSecond(
+                            Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                    .category(Category.STORE).event("transaction_rolled_forward").scopeType(Scope.PLAN)
+                    .scopeId(Generators.letterStrings(3, 20).next())
+                    .actor(Generators.letterStrings(3, 20).next()).outcome(Outcome.SUCCEEDED)
+                    .details(Map.of("targets", List.of("status.json"), "count",
+                            Generators.integers(0, 100).next(), "flag", true))
+                    .build();
             var machine = scoped.withScopeType(Scope.MACHINE).withScopeId(null);
-            var entry = scoped.withScopeType(Scope.ENTRY).withScopeId("ent-0123456789abcdef");
+            var entry = scoped.withScopeType(Scope.ENTRY)
+                    .withScopeId("ent-" + Generators.letterStrings(6, 16).next());
             var validator = validator(ANCHOR);
 
             assertAll(
@@ -193,8 +206,11 @@ class AuditSchemaParityTest {
             var validator = validator(ANCHOR);
 
             assertAll(
-                    () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 2,
-                            EVENT_ID, HASH, AuditCodec.GENESIS_HASH, HASH))),
+                    () -> assertValid(validator,
+                            AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE,
+                                    Generators.longs(1, 1_000).next(), EVENT_ID, HASH, AuditCodec.GENESIS_HASH,
+                                    HASH)),
+                            "the head of a log with records is valid"),
                     () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 0,
                             null, AuditCodec.GENESIS_HASH, HASH, HASH))));
         }
@@ -232,8 +248,11 @@ class AuditSchemaParityTest {
         @Test
         @DisplayName("a written entry is valid against the schema")
         void valid() {
-            assertValid(validator(ANCHOR), AuditCodec.writeIndexEntry(new AuditIndexEntry(AuditCodec.GENESIS_HASH,
-                    AuditIndexEntry.rotatedFileName(EVENT_ID), EVENT_ID, OTHER_EVENT_ID, 3, HASH)));
+            assertValid(validator(ANCHOR),
+                    AuditCodec.writeIndexEntry(new AuditIndexEntry(AuditCodec.GENESIS_HASH,
+                            AuditIndexEntry.rotatedFileName(EVENT_ID), EVENT_ID, OTHER_EVENT_ID,
+                            Generators.longs(1, 1_000).next(), HASH)),
+                    "the written entry is valid");
         }
     }
 }

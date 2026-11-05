@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -46,6 +48,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * record is refused. The child wall time is recorded only for an observed exit and never exceeds the job's wall time
  * (PM-EXEC-4, bullet 7, record side; the watch hazard of child wall times without an observed exit).
  */
+@EnableGeneratorController
 @DisplayName("Job record codec")
 class JobRecordCodecTest {
 
@@ -56,14 +59,15 @@ class JobRecordCodecTest {
     static final Instant PROCESS_STARTED_AT = SPAWNED_AT.plusMillis(20);
     static final Instant ENDED_AT = SPAWNED_AT.plusSeconds(60);
     static final long CHILD_WALL_MS = 59_000L;
-    static final String ARGV_DIGEST = "ab".repeat(32);
+    static final String ARGV_DIGEST = "%064x".formatted(Generators.longs().next());
 
     private static final Path FILE = Path.of("/pm-base/projects/sample/jobs/b-0123456789abcdef.json");
 
     /** The builder of the record of a process job that waits for a slot. */
     static JobRecord.JobRecordBuilder base(JobId jobId, Scope scope) {
         return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(scope).budgetKey("build:verify")
-                .budgetSeconds(600).budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.LEARNED, 3L))
+                .budgetSeconds(600)
+                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.LEARNED, Generators.longs(0, 20).next()))
                 .argvDigest(ARGV_DIGEST).status(Status.QUEUED).confinement(Confinement.UNAVAILABLE)
                 .createdAt(CREATED_AT).clampedValues(List.of());
     }
@@ -85,8 +89,9 @@ class JobRecordCodecTest {
 
     /** The post-spawn record of the job: PID, process start and spawn instant from the launch report. */
     static JobRecord postSpawn(JobId jobId, Scope scope) {
-        return writeAhead(jobId, scope).toBuilder().pid(4242L).processStartedAt(PROCESS_STARTED_AT)
-                .spawnedAt(SPAWNED_AT).confinement(Confinement.CONFINED).landlockAbi(5).build();
+        return writeAhead(jobId, scope).toBuilder().pid(Generators.longs(1, 1_000_000).next())
+                .processStartedAt(PROCESS_STARTED_AT).spawnedAt(SPAWNED_AT).confinement(Confinement.CONFINED)
+                .landlockAbi(Generators.integers(2, 10).next()).build();
     }
 
     /** The settled record of the job, with its observed exit. */
@@ -135,7 +140,8 @@ class JobRecordCodecTest {
                 Arguments.of("project script with contradiction and clamped values",
                         ended(script, new Scope(Scope.Type.EPIC, "epic-one"), Fate.FAILED, 6)
                                 .withBudgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.OPERATOR, null))
-                                .withSelfReportContradiction(new SelfReportContradiction("passed", 1L, "failed"))
+                                .withSelfReportContradiction(new SelfReportContradiction("passed",
+                                        Generators.longs(1, 10).next(), "failed"))
                                 .withClampedValues(List.of(
                                         new ClampedValue("build.timeout", "5", new BigDecimal("30"),
                                                 ClampedValue.Source.MACHINE_CONFIG),

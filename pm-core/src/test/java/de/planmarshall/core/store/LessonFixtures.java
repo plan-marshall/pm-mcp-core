@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,6 +35,7 @@ import de.planmarshall.core.store.LessonStore.NewLesson;
  * A literal stays only where it is the contract: the identifier and the digest are wire-format values, so
  * {@link #lessonId()} and the watch fixtures are spelled out; everything else is generated.
  */
+@EnableGeneratorController
 @UtilityClass
 public class LessonFixtures {
 
@@ -187,13 +189,13 @@ public class LessonFixtures {
                 .by("v2-16-lesson-store-operations")
                 .verdict(verdict)
                 .into(null)
-                .reason("the reason of the retirement")
+                .reason(text())
                 .coveringClause(null)
                 .coveringInput(null)
                 .lessonState(LessonState.FOUND);
         return switch (verdict) {
             case COMPLETELY_COVERED -> builder.coveringClause("ADR core-store/063")
-                    .coveringInput("a lesson whose file differs from its sidecar entry");
+                    .coveringInput(text());
             case MERGED, SUPERSEDED -> builder.into(new LessonId(WATCH_ID_NO_HEADER));
             case APPLIED, REDUNDANT, OBSOLETE -> builder;
         };

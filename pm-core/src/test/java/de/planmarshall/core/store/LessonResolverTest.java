@@ -61,6 +61,8 @@ import de.planmarshall.core.store.LessonStore.Claims;
 class LessonResolverTest {
 
     private static final String PROJECT = "pm-mcp-core";
+    private static final String PLAN = "plan-" + Generators.integers(1000, 9999).next();
+    private static final String OTHER_PLAN = "plan-other-" + Generators.integers(1000, 9999).next();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-02T09:00:00Z"), ZoneOffset.UTC);
     private static final List<String> ALL_LISTED = Stream.concat(LessonFixtures.PORTED_YAML_IDS.stream(),
             LessonFixtures.PORTED_HEADERLESS_IDS.stream()).toList();
@@ -346,7 +348,8 @@ class LessonResolverTest {
         @DisplayName("a file without an entry is untracked under the lock and unchecked without it")
         void untracked() throws Exception {
             var lessonId = new LessonId("2026-11-02-09-001");
-            var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), "# Body\n");
+            var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(),
+                    LessonFixtures.body());
             Files.write(expectedPath(lessonId), LessonCodec.encode(lesson));
 
             var locked = lockedGet(lessonId);
@@ -412,7 +415,7 @@ class LessonResolverTest {
             inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
                     LessonFixtures.newLesson().derivedFromUntrusted(true).build(), CLOCK));
             var claimed = create(new LessonId("2026-11-02-09-003"));
-            run(write -> store.claim(write, claimed.frontMatter().lessonId(), "a-plan", CLOCK.instant()));
+            run(write -> store.claim(write, claimed.frontMatter().lessonId(), PLAN, CLOCK.instant()));
             var retired = create(new LessonId("2026-11-02-09-004"));
             run(write -> store.retire(write, retired.frontMatter().lessonId(),
                     LessonFixtures.retirement(Verdict.OBSOLETE).build()));
@@ -460,7 +463,7 @@ class LessonResolverTest {
         @DisplayName("claims separates the claimed lessons from the unreadable ids")
         void claims() throws Exception {
             var claimed = create(new LessonId("2026-11-02-09-001"));
-            run(write -> store.claim(write, claimed.frontMatter().lessonId(), "a-plan", CLOCK.instant()));
+            run(write -> store.claim(write, claimed.frontMatter().lessonId(), PLAN, CLOCK.instant()));
             create(new LessonId("2026-11-02-09-002"));
             Files.writeString(expectedPath(new LessonId("2026-11-02-09-003")), "# No front matter\n");
 
@@ -472,9 +475,9 @@ class LessonResolverTest {
                     () -> assertEquals(List.of(new LessonId("2026-11-02-09-003")),
                             List.copyOf(claims.unreadable()), "the unreadable lesson is listed by id"),
                     () -> assertEquals(List.of(claimed.frontMatter().lessonId()),
-                            store.claimedBy("a-plan").stream().map(found -> found.lessonId()).toList(),
+                            store.claimedBy(PLAN).stream().map(found -> found.lessonId()).toList(),
                             "claimedBy names the plan's claim"),
-                    () -> assertEquals(List.of(), store.claimedBy("another-plan"), "another plan has none"));
+                    () -> assertEquals(List.of(), store.claimedBy(OTHER_PLAN), "another plan has none"));
         }
     }
 
@@ -519,20 +522,22 @@ class LessonResolverTest {
                 ids.add(lessonId);
                 switch ((shape + index) % 4) {
                     case 0 -> Files.write(expectedPath(lessonId), LessonCodec.encode(
-                            new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), "# Body\n")));
+                            new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(),
+                                    LessonFixtures.body())));
                     case 1 -> Files.writeString(expectedPath(lessonId), "# No front matter\n");
                     case 2 -> Files.write(expectedPath(lessonId), LessonCodec.encode(
                             new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), " \n")));
                     default -> {
                         Files.write(expectedPath(lessonId), LessonCodec.encode(
-                                new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(), "# Body\n")));
+                                new Lesson(LessonFixtures.frontMatterBuilder().lessonId(lessonId).build(),
+                                        LessonFixtures.body())));
                         replaceByte(expectedPath(lessonId), (byte) '?');
                     }
                 }
             }
             var ghost = new LessonId("2026-11-02-09-004");
             Files.write(expectedPath(ghost), LessonCodec.encode(
-                    new Lesson(LessonFixtures.frontMatterBuilder().lessonId(ghost).build(), "# Gone\n")));
+                    new Lesson(LessonFixtures.frontMatterBuilder().lessonId(ghost).build(), LessonFixtures.body())));
             var ghostBytes = Files.readAllBytes(expectedPath(ghost));
             Files.delete(expectedPath(ghost));
             Files.write(lessons.sidecarFile(),
