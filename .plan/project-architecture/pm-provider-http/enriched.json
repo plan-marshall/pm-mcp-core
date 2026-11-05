@@ -2,19 +2,61 @@
   "best_practices": [],
   "generation": {
     "by": "architecture",
-    "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+    "tree_sha": "cea0e67e021488a6516572c251c318257f5ad35fe22a4eae2965d20a8384a87d"
   },
   "insights": [],
-  "internal_dependencies": [],
-  "key_dependencies": [],
-  "key_dependencies_reasoning": "",
-  "key_packages": {},
-  "purpose": "",
-  "purpose_reasoning": "",
-  "responsibility": "",
-  "responsibility_reasoning": "",
-  "skills_by_profile": {},
-  "skills_by_profile_reasoning": "",
+  "internal_dependencies": [
+    "pm-core"
+  ],
+  "key_dependencies": [
+    "de.cuioss:cui-http"
+  ],
+  "key_dependencies_reasoning": "cui-http carries every HTTP call and the redirect policy; pm-core is the only product module it depends on (provider-contract rule)",
+  "key_packages": {
+    "pm-providers/pm-provider-http/src/main/java/de/planmarshall/provider/http": {
+      "description": "The transport: Endpoint (origin the token is pinned to), HttpClient (bearer token, pagination, conditional requests, rate limits), the closed Response and Result outcomes, PagedResult, TokenSource and the Json tree."
+    },
+    "pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/testing/generators": {
+      "description": "The typed generators (EndpointGenerator, ResponseGenerator, PagedResultGenerator, registered by HttpGenerators) published in the pm-provider-http:tests artifact for the github, gitlab and sonar provider modules."
+    }
+  },
+  "purpose": "library",
+  "purpose_reasoning": "packaging=jar, plain-Java transport library with no runtime entry point",
+  "responsibility": "The shared HTTP base of the provider modules over cui-http: one endpoint-pinned client with bearer-token handling, pagination, conditional requests and rate-limit outcomes, the closed Response and Result outcomes, and a minimal JSON tree. It names no forge and no analysis service; provider adapters build their contracts on it.",
+  "responsibility_reasoning": "pom.xml description, package-info and doc/developer/provider-http.adoc",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "pm-dev-java:java-core",
+        "plan-marshall:ref-code-quality",
+        "pm-dev-java:java-lombok",
+        "pm-dev-java-cui:cui-logging",
+        "pm-dev-java-cui:cui-http"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "pm-dev-java:java-core",
+        "pm-dev-java:junit-core",
+        "plan-marshall:persona-module-tester",
+        "pm-dev-java:java-lombok",
+        "pm-dev-java-cui:cui-testing",
+        "pm-dev-java-cui:cui-http-testing"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "pm-dev-java:java-core",
+        "plan-marshall:ref-code-quality",
+        "pm-dev-java:javadoc",
+        "pm-dev-java:java-lombok"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "java, java-cui and general-dev domains (build_systems=maven); lombok and cui-http are declared dependencies, the module tests run on cui-test-mockwebserver and cui-test-generator",
   "tips": [],
   "type": "module"
 }

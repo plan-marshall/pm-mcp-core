@@ -49,45 +49,45 @@
       }
     },
     "guard-control-provider-analysis-ci-module": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a code analysis adapter that depends on pm-provider-ci. The enforcer rule forbids this dependency (Sonar is no CI provider), so BuildGuardsIT of pm-core builds it and expects the build to fail.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "1164157dcc16555b081d76ca50b0ed9e34184074b933b87a99977117aaccb2cd"
       }
     },
     "guard-control-provider-ci-allowed": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a provider adapter that depends on pm-provider-ci. The provider enforcer rule admits this dependency, so BuildGuardsIT of pm-core builds it and expects success.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "b7d52d36cfd2aa5c2d4a4fc9a2c81dd5c73a1f216a0a86a52552c4538e04b8e9"
       }
     },
     "guard-control-provider-contract-ci-module": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a contract module (pm-provider-git or pm-provider-http) that depends on pm-provider-ci. The provider-contract rule forbids it, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "1237f88913a45e3ceb96ce1afabd573919cd2b1009a9af192abfc17d6ba7119d"
       }
     },
     "guard-control-provider-contract-module": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a contract module that depends on another provider module (pm-provider-github). The provider-contract rule forbids it, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "ffd8ac636e6608fc119f2e59c007296bb79d8b159b38e39a975b2ae85cfef27c"
       }
     },
     "guard-control-provider-core-tests": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a provider that consumes the typed generators of pm-core through a test-scope test-jar dependency. The rule admits it, so BuildGuardsIT of pm-core builds it and expects success.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "03245e40d0ca18f41fe035bec2063461f71b01261f700d93de012f0c9ed7f09b"
       }
     },
     "guard-control-provider-http-allowed": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a provider adapter that depends on the shared HTTP base pm-provider-http. The provider rule admits it, so BuildGuardsIT of pm-core builds it and expects success.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "40452c1c67740db42c21f6609c8e8b14e76805ca3c6bee70eec1af186d71d1a5"
       }
     },
     "guard-control-provider-product-module": {
@@ -98,17 +98,17 @@
       }
     },
     "guard-control-provider-sibling-module": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: a provider adapter that depends on another provider implementation (pm-provider-github). The provider rule forbids it, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "d32893fe92d7924b20b732ad14cb255aaabbe06cc0e4b14d1667c96d2fb14d62"
       }
     },
     "guard-control-runtime-core-tests": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: the runtime consuming the typed generators of pm-core through a test-scope test-jar dependency. The runtime rule admits it, so BuildGuardsIT of pm-core builds it and expects success.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "2b6fd72800d0e6f8b9933b78253451dd6cbc94683c79e6cfc933ce5cf580eef7"
       }
     },
     "guard-control-runtime-library": {
@@ -126,17 +126,17 @@
       }
     },
     "guard-control-runtime-workflow-tests": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: the runtime consuming the test-jar of pm-workflow. The runtime may not depend on the engine at all, test scope included, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "4446f2ec715d979f7228790b1ee83505c62979fb9bee95f1c49233fd5e650b50"
       }
     },
     "guard-control-workflow-core-tests": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: the workflow engine consuming the typed generators of pm-core through a test-scope test-jar dependency. The workflow rule admits it, so BuildGuardsIT of pm-core builds it and expects success.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "9cda470707d38358ffd6c64bc7f602995f33d020704734dc0c2fde2678182c6b"
       }
     },
     "guard-control-workflow-cui-http": {
@@ -154,10 +154,10 @@
       }
     },
     "guard-control-workflow-runtime-tests": {
-      "description": "",
+      "description": "Build-rule control, not a module of the build: the workflow engine consuming the test-jar of pm-runtime. The engine may not depend on the runtime at all, test scope included, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "e72ec96d7b7b3e2b7d12ff0d5f7cff5f9287ea85d152c6f91ad87be694ce8db8"
       }
     },
     "pm-core": {
@@ -203,10 +203,10 @@
       }
     },
     "pm-provider-http": {
-      "description": "",
+      "description": "The shared HTTP base of the provider modules over cui-http: one endpoint-pinned client with bearer-token handling, pagination, conditional requests and rate-limit outcomes, the closed Response and Result outcomes, and a minimal JSON tree. It names no forge and no analysis service; provider adapters build their contracts on it.",
       "generation": {
         "by": "architecture",
-        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+        "tree_sha": "cea0e67e021488a6516572c251c318257f5ad35fe22a4eae2965d20a8384a87d"
       }
     },
     "pm-provider-sonar": {

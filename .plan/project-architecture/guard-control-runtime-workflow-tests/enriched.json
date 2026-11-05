@@ -2,19 +2,46 @@
   "best_practices": [],
   "generation": {
     "by": "architecture",
-    "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+    "tree_sha": "4446f2ec715d979f7228790b1ee83505c62979fb9bee95f1c49233fd5e650b50"
   },
   "insights": [],
   "internal_dependencies": [],
   "key_dependencies": [],
   "key_dependencies_reasoning": "",
-  "key_packages": {},
-  "purpose": "",
-  "purpose_reasoning": "",
-  "responsibility": "",
-  "responsibility_reasoning": "",
-  "skills_by_profile": {},
-  "skills_by_profile_reasoning": "",
+  "key_packages": {
+    "src/guard-controls/runtime-workflow-tests": {
+      "description": "The fixture project whose build must fail: the runtime consuming the pm-workflow test-jar."
+    }
+  },
+  "purpose": "integration-tests",
+  "purpose_reasoning": "packaging=pom fixture with no sources, built only by BuildGuardsIT as a negative control",
+  "responsibility": "Build-rule control, not a module of the build: the runtime consuming the test-jar of pm-workflow. The runtime may not depend on the engine at all, test scope included, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
+  "responsibility_reasoning": "pom.xml comment and property pm.guard.runtime.skip=false",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality",
+        "plan-marshall:persona-module-tester"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "Fixture pom with no sources: only the cross-cutting general-dev skills apply",
   "tips": [],
   "type": "module"
 }

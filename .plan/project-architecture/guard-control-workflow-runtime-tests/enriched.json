@@ -2,19 +2,46 @@
   "best_practices": [],
   "generation": {
     "by": "architecture",
-    "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+    "tree_sha": "e72ec96d7b7b3e2b7d12ff0d5f7cff5f9287ea85d152c6f91ad87be694ce8db8"
   },
   "insights": [],
   "internal_dependencies": [],
   "key_dependencies": [],
   "key_dependencies_reasoning": "",
-  "key_packages": {},
-  "purpose": "",
-  "purpose_reasoning": "",
-  "responsibility": "",
-  "responsibility_reasoning": "",
-  "skills_by_profile": {},
-  "skills_by_profile_reasoning": "",
+  "key_packages": {
+    "src/guard-controls/workflow-runtime-tests": {
+      "description": "The fixture project whose build must fail: the workflow engine consuming the pm-runtime test-jar."
+    }
+  },
+  "purpose": "integration-tests",
+  "purpose_reasoning": "packaging=pom fixture with no sources, built only by BuildGuardsIT as a negative control",
+  "responsibility": "Build-rule control, not a module of the build: the workflow engine consuming the test-jar of pm-runtime. The engine may not depend on the runtime at all, test scope included, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
+  "responsibility_reasoning": "pom.xml comment and property pm.guard.workflow.skip=false",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality",
+        "plan-marshall:persona-module-tester"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "Fixture pom with no sources: only the cross-cutting general-dev skills apply",
   "tips": [],
   "type": "module"
 }

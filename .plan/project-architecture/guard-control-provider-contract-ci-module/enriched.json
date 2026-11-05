@@ -2,19 +2,46 @@
   "best_practices": [],
   "generation": {
     "by": "architecture",
-    "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+    "tree_sha": "1237f88913a45e3ceb96ce1afabd573919cd2b1009a9af192abfc17d6ba7119d"
   },
   "insights": [],
   "internal_dependencies": [],
   "key_dependencies": [],
   "key_dependencies_reasoning": "",
-  "key_packages": {},
-  "purpose": "",
-  "purpose_reasoning": "",
-  "responsibility": "",
-  "responsibility_reasoning": "",
-  "skills_by_profile": {},
-  "skills_by_profile_reasoning": "",
+  "key_packages": {
+    "src/guard-controls/provider-contract-ci-module": {
+      "description": "The fixture project whose build must fail: a contract module depending on pm-provider-ci."
+    }
+  },
+  "purpose": "integration-tests",
+  "purpose_reasoning": "packaging=pom fixture with no sources, built only by BuildGuardsIT as a negative control",
+  "responsibility": "Build-rule control, not a module of the build: a contract module (pm-provider-git or pm-provider-http) that depends on pm-provider-ci. The provider-contract rule forbids it, so BuildGuardsIT of pm-core builds it and expects the build to fail.",
+  "responsibility_reasoning": "pom.xml comment and property pm.guard.provider-contract.skip=false",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality",
+        "plan-marshall:persona-module-tester"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "Fixture pom with no sources: only the cross-cutting general-dev skills apply",
   "tips": [],
   "type": "module"
 }
