@@ -832,6 +832,59 @@ class GitLabCiProviderTest {
     }
 
     @Test
+    @DisplayName("prView answers a 404 of the diffs of an existing merge request with FAILED, not NOT_FOUND")
+    void notFoundDiffsAreFailed(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeSameProject(fixture, 30);
+        prime(DIFFS_PATH, json(404, Map.of("message", remote)));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the missing diffs endpoint",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
+                        "an existing merge request is never not found"),
+                () -> assertTrue(result.detail().contains("15.7"), "the reason names the GitLab version"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"),
+                () -> assertEquals(2, server.getRequestCount(), "no project read follows the failed diffs read"));
+    }
+
+    @Test
+    @DisplayName("prView answers a 404 of a project of an existing merge request with FAILED, not NOT_FOUND")
+    void notFoundProjectIsFailed(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
+        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(), json(404, Map.of("message", remote)));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the hidden target project",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
+                        "an existing merge request is never not found"),
+                () -> assertTrue(result.detail().contains("project"), "the reason names the project read"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"));
+    }
+
+    @ParameterizedTest(name = "source project path {0}")
+    @DisplayName("prView refuses a source project path with a segment that is no plain segment with FAILED")
+    @ValueSource(strings = {"group/..", "../pm", "group//pm", "group/pm name", "group/pm%2Fx"})
+    // path-traversal, empty-segment, blank and escape values are the adversarial contract of a project path segment
+    void refusesSourceProjectPathWithInvalidSegment(String path, MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
+        primeProject(forkId, projectBody(path, 40, null));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the refused source project path",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "an invalid segment is a failure"),
+                () -> assertTrue(result.detail().contains("source project"), "the reason names the source"),
+                () -> assertEquals(3, server.getRequestCount(), "no request is built from the remote path"));
+    }
+
+    @Test
     @DisplayName("prView maps a refused project read")
     void mapsRefusedProjectRead(MockWebServer server) {
         var fixture = fixture();

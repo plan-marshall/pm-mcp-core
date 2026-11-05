@@ -58,7 +58,10 @@ public record PullRequest(State state, String title, String body, String baseBra
     public enum PathCompleteness {
         /** The list holds every changed path. */
         COMPLETE,
-        /** The list was cut by the page cap of the read. */
+        /**
+         * The list was cut by the page cap of the read, or the {@code Link} {@code next} header of a page pointed
+         * outside the origin the provider is bound to, so the read stopped there.
+         */
         PAGE_CAP,
         /** Every page was read, but the forge returned fewer paths than the pull request changes. */
         PROVIDER_RESULT_CAP

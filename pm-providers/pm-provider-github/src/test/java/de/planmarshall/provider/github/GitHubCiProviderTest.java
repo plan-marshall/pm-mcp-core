@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.Builder;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
@@ -657,14 +658,15 @@ class GitHubCiProviderTest {
     }
 
     /** The generated fields of one pull request. */
+    @Builder
     private record Fixture(String title, String body, String baseBranch, String headBranch, String headSha,
     List<String> paths) {
     }
 
     private static Fixture fixture() {
-        var paths = List.of(path(), path(), path());
-        return new Fixture(Generators.nonBlankStrings().next(), Generators.nonBlankStrings().next(), branch(),
-                branch(), Generators.letterStrings(40, 40).next(), paths);
+        return Fixture.builder().title(Generators.nonBlankStrings().next()).body(Generators.nonBlankStrings().next())
+                .baseBranch(branch()).headBranch(branch()).headSha(Generators.letterStrings(40, 40).next())
+                .paths(List.of(path(), path(), path())).build();
     }
 
     private static String branch() {
@@ -686,10 +688,20 @@ class GitHubCiProviderTest {
      */
     private static Map<String, Object> pullBody(Fixture fixture, String state, boolean merged,
             @Nullable String headOwner, boolean maintainerCanModify, int changedFiles) {
+        return pullBody(fixture, state, merged, headOwner, "pm", maintainerCanModify, changedFiles);
+    }
+
+    /**
+     * The same body with the head repository named by owner and name, and the changed-file count as the JSON value a
+     * test puts on the wire, which is a number for GitHub and anything for a malformed response.
+     */
+    private static Map<String, Object> pullBody(Fixture fixture, String state, boolean merged,
+            @Nullable String headOwner, String headName, boolean maintainerCanModify, Object changedFiles) {
         var head = new LinkedHashMap<String, Object>();
         head.put("ref", fixture.headBranch());
         head.put("sha", fixture.headSha());
-        head.put("repo", headOwner == null ? null : Map.of("name", "pm", "owner", Map.of("login", headOwner)));
+        head.put("repo", headOwner == null ? null
+                : Map.of("name", headName, "owner", Map.of("login", headOwner)));
         var body = new LinkedHashMap<String, Object>();
         body.put("state", state);
         body.put("merged", merged);
@@ -955,6 +967,91 @@ class GitHubCiProviderTest {
         var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
 
         assertEquals(Result.Outcome.AUTH_FAILED, result.outcome(), "a refused permission read is mapped");
+    }
+
+    @Test
+    @DisplayName("prView reads a head as not writable when the App's user token gets 404 on the permission read")
+    @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"Not Found\"}")
+    void notFoundPermissionReadIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        primeOpen(fixture, "cuioss", false);
+
+        var result = appProvider(server).prView(PULL_REQUEST);
+
+        PullRequest read = result.value().orElseThrow();
+        assertAll("the pull request with a hidden repository",
+                () -> assertEquals(Result.Outcome.OK, result.outcome(), "a 404 permission read is no failure"),
+                () -> assertFalse(read.headWritable(), "a hidden repository is not writable"),
+                () -> assertEquals(PullRequest.State.OPEN, read.state(), "the state of the pull request is kept"),
+                () -> assertEquals(fixture.paths(), read.changedPaths(), "the changed paths are kept"),
+                () -> assertEquals(Optional.of(REPOSITORY), read.headRepository(), "the head repository is kept"));
+    }
+
+    @Test
+    @DisplayName("prView reads a fork head as not writable when the permission read of the base is 404")
+    @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 404,
+            stringContent = "{\"message\":\"Not Found\"}")
+    void notFoundBasePermissionReadIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        primeOpen(fixture, forkOwner(), true);
+
+        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+
+        assertAll("the fork with a hidden base",
+                () -> assertEquals(Result.Outcome.OK, result.outcome(), "a 404 permission read is no failure"),
+                () -> assertFalse(result.value().orElseThrow().headWritable(),
+                        "a hidden base repository is not writable"));
+    }
+
+    @Test
+    @DisplayName("prView answers a 404 of the changed files of a read pull request with FAILED, not NOT_FOUND")
+    void notFoundFilesAreFailed(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeOpen(fixture, "cuioss", false);
+        filesResponse.set(json(404, Map.of("message", remote)));
+
+        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+
+        assertAll("the missing files",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
+                        "an existing pull request is never not found"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"),
+                () -> assertTrue(result.detail().contains("changed-files"), "the reason names the files read"),
+                () -> assertEquals(2, server.getRequestCount(), "no permission read follows the failed files read"));
+    }
+
+    @ParameterizedTest(name = "head repository {0}/{1}")
+    @DisplayName("prView refuses a head repository that is no plain path segment with FAILED")
+    @CsvSource({"'..', pm", "'fork/evil', pm", "cuioss, '..'", "cuioss, 'pm/../x'", "'ow ner', pm"})
+    // path-traversal, separator and blank values are the adversarial contract of a plain path segment
+    void refusesHeadRepositoryThatIsNoSegment(String owner, String name, MockWebServer server) {
+        var fixture = fixture();
+        prime(fixture, pullBody(fixture, "open", false, owner, name, true, fixture.paths().size()));
+
+        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+
+        assertAll("the refused head repository",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "a non-segment head is a failure"),
+                () -> assertTrue(result.detail().contains("head repository"), "the reason names the head"),
+                () -> assertEquals(2, server.getRequestCount(),
+                        "no request is built from the remote head names"));
+    }
+
+    @ParameterizedTest(name = "changed_files {0}")
+    @DisplayName("prView answers a negative or non-numeric changed_files with FAILED")
+    @ValueSource(strings = {"-1", "many", "1.5", "99999999999"})
+    // values GitHub never sends: below zero, no number, a fraction and a count beyond the int range
+    void refusesUnusableChangedFileCount(String count, MockWebServer server) {
+        var fixture = fixture();
+        prime(fixture, pullBody(fixture, "open", false, "cuioss", "pm", false, count));
+
+        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+
+        assertAll("the unusable count",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "an unusable count is a failure"),
+                () -> assertEquals(1, server.getRequestCount(), "nothing is read after the failed pull request"));
     }
 
     @ParameterizedTest(name = "{0} on {1}")

@@ -45,7 +45,10 @@ import de.planmarshall.provider.http.Result;
  * and {@code locked} {@link PullRequest.State#CLOSED}. The head is writable for a same-project merge request when the
  * credential has Developer access or more on the project; for a fork when the author allows collaboration and the
  * credential has Developer access or more on the target project; never for a source project GitLab no longer knows.
- * The changed-path list is {@link PullRequest.PathCompleteness#PAGE_CAP} when the page cap cut it.
+ * The changed-path list is {@link PullRequest.PathCompleteness#PAGE_CAP} when the page cap cut it. Once the merge
+ * request has been read, a {@code 404} of a later read (the diffs endpoint of GitLab before 15.7, a project the
+ * credential cannot see) is {@link de.planmarshall.provider.http.Result.Outcome#FAILED} with a fixed reason, never
+ * {@code NOT_FOUND}, which says that the merge request does not exist.
  * <p>
  * A provider is bound to one web origin and one credential. The acting identity is the token identity the client
  * already reads ({@code personal_access_tokens/self}, with the {@code GET /user} fallback for a token that is no
@@ -59,6 +62,12 @@ public final class GitLabCiProvider implements CiProvider {
     public static final String PROVIDER_ID = "gitlab";
 
     private static final String PROJECT_PATH = "projects/";
+    /** The reason of a {@code 404} of the diffs read after the merge request was read: the endpoint is missing. */
+    private static final String DIFFS_UNAVAILABLE =
+            "the merge-request diffs endpoint is unavailable; GitLab 15.7 or later is required";
+    /** The reason of a {@code 404} of a project read after the merge request was read. */
+    private static final String PROJECT_UNAVAILABLE =
+            "a project of the merge request is not visible to the credential";
     /** The web path of the issue of a project, for the comment URL a consumer shows. */
     @SuppressWarnings("java:S1075") // the forge's fixed web grammar, not a configurable endpoint
     private static final String WEB_ISSUE_PATH = "/-/issues/";
@@ -162,11 +171,11 @@ public final class GitLabCiProvider implements CiProvider {
         GitLabClient.MergeRequestPayload payload = read.value().orElseThrow();
         Result<List<String>> diffs = client.mergeRequestDiffs(pullRequest.number());
         if (!diffs.isOk()) {
-            return diffs.asFailure();
+            return afterMergeRequestRead(diffs, DIFFS_UNAVAILABLE);
         }
         Result<Head> head = head(repository, client, payload);
         if (!head.isOk()) {
-            return head.asFailure();
+            return afterMergeRequestRead(head, PROJECT_UNAVAILABLE);
         }
         Head resolved = head.value().orElseThrow();
         return Result.ok(PullRequest.builder().state(payload.state()).title(payload.title()).body(payload.body())
@@ -176,6 +185,17 @@ public final class GitLabCiProvider implements CiProvider {
                 .pathCompleteness(diffs.complete() ? PullRequest.PathCompleteness.COMPLETE
                         : PullRequest.PathCompleteness.PAGE_CAP)
                 .build());
+    }
+
+    /**
+     * The failure of a read that follows the merge-request read. The merge request exists, so a {@code 404} of the
+     * secondary read (the diffs endpoint does not exist before GitLab 15.7, a project may be hidden from the
+     * credential) is no {@link Result.Outcome#NOT_FOUND}, which means that the merge request does not exist; it is
+     * {@link Result.Outcome#FAILED} with a fixed reason that carries no remote text. Every other outcome is kept.
+     */
+    private static <T, R> Result<R> afterMergeRequestRead(Result<T> secondary, String notFoundReason) {
+        return secondary.outcome() == Result.Outcome.NOT_FOUND ? Result.of(Result.Outcome.FAILED, notFoundReason)
+                : secondary.asFailure();
     }
 
     /**

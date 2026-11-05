@@ -117,7 +117,9 @@ count of the merge request, so it never answers `PROVIDER_RESULT_CAP`.
 The rule and its reason are recorded in
 link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[`provider.ci` ADR
 007]. A refused read of the merge request, its diffs or a project is mapped to its outcome by the shared base, and a
-rate limit is `RATE_LIMITED` with its reset instant.
+rate limit is `RATE_LIMITED` with its reset instant. `NOT_FOUND` says that the merge request does not exist, so a `404`
+of the diffs or of a target project read after the merge request was read is `FAILED` with a fixed reason; on GitLab
+older than 15.7 the diffs endpoint does not exist, and the reason names the minimum version.
 
 == The `glab` Variant
 

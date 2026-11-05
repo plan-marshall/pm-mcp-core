@@ -383,7 +383,9 @@ public final class GitHubClient {
      *
      * @param owner the repository owner
      * @param name  the repository name
-     * @return whether the credential can push; {@code false} when the response carries no such member
+     * @return whether the credential can push; {@code false} when the response carries no such member;
+     *         {@code NOT_FOUND} when the credential cannot see the repository, which the caller reads as not
+     *         writable
      */
     public Result<Boolean> canPush(String owner, String name) {
         Response response = http.get(REPOS + owner + "/" + name);

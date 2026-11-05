@@ -50,8 +50,11 @@ import de.planmarshall.provider.http.TokenSource;
  * fact of the repository, for every state: {@code closed} with {@code merged: true} is
  * {@link PullRequest.State#MERGED}. The head is writable for a head in the base repository when the credential can
  * push there; for a fork head when the author allows maintainer edits and the credential can push to the base; never
- * for a head repository GitHub no longer knows. An App provider reads the {@code push} fact with the user access
- * token, the credential that authors the writes; a token provider with its own token. The changed-path list is
+ * for a head repository GitHub no longer knows, nor for a repository whose {@code push} fact the credential cannot
+ * read ({@code 404}). An App provider reads the {@code push} fact with the user access token, the credential that
+ * authors the writes; a token provider with its own token. Once the pull request has been read, a {@code 404} of its
+ * changed files is {@link de.planmarshall.provider.http.Result.Outcome#FAILED}, never {@code NOT_FOUND}, which says
+ * that the pull request does not exist. The changed-path list is
  * {@link PullRequest.PathCompleteness#PAGE_CAP} when the page cap cut it, and
  * {@link PullRequest.PathCompleteness#PROVIDER_RESULT_CAP} when every page was read but GitHub listed fewer files
  * than the pull request changes.
@@ -69,6 +72,9 @@ public final class GitHubCiProvider implements CiProvider {
     /** The provider id, equal to the derived fact {@code ci_provider} and the credential key. */
     public static final String PROVIDER_ID = "github";
 
+    /** The reason of a {@code 404} of the files read after the pull request was read. */
+    private static final String FILES_UNAVAILABLE =
+            "the changed-files read of the pull request answered not found";
     private static final String TOKEN_HEADER_PREFIX_FINE_GRAINED = "github_pat_";
     private static final String TOKEN_HEADER_PREFIX_CLASSIC = "ghp_";
     private static final String SCOPES_HEADER = "x-oauth-scopes";
@@ -202,7 +208,10 @@ public final class GitHubCiProvider implements CiProvider {
         GitHubClient.PullRequestPayload payload = read.value().orElseThrow();
         Result<List<String>> files = client.pullRequestFiles(owner, name, pullRequest.number());
         if (!files.isOk()) {
-            return files.asFailure();
+            // the pull request exists, so a 404 of its files is no NOT_FOUND: it names a missing pull request
+            return files.outcome() == Result.Outcome.NOT_FOUND
+                    ? Result.of(Result.Outcome.FAILED, FILES_UNAVAILABLE)
+                    : files.asFailure();
         }
         // The head repository names come from the response; they are validated as plain path segments before they
         // address a request, and the refusal names no remote text.
@@ -236,8 +245,10 @@ public final class GitHubCiProvider implements CiProvider {
             return Result.ok(false);
         }
         GitHubClient reader = userClient();
-        return payload.fork() ? reader.canPush(base.ownerOrPath(), base.name())
+        Result<Boolean> push = payload.fork() ? reader.canPush(base.ownerOrPath(), base.name())
                 : reader.canPush(head.get().owner(), head.get().name());
+        // a repository the credential cannot see states no push fact for it: not writable, fail closed (ADR 007)
+        return push.outcome() == Result.Outcome.NOT_FOUND ? Result.ok(false) : push;
     }
 
     private static PullRequest.PathCompleteness completeness(boolean allPagesRead, int listed, int changedFiles) {

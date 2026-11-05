@@ -134,7 +134,8 @@ link:../../../pm-provider-gitlab/doc/developer/provider-gitlab.adoc#_the_merge_r
 A pull request that is not open is a value: a closed or merged pull request is `OK` with its `state`, and the consumer
 decides what the state means for it
 (link:../adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[module ADR 008]). A number that names no pull
-request, an issue number among them, is `NOT_FOUND`
+request, an issue number among them, is `NOT_FOUND` (on GitLab an issue iid that equals a merge-request iid reads that
+merge request); once the pull request has been read, a `404` of a read that follows it is `FAILED`, never `NOT_FOUND`
 (link:../adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[module ADR 009]).
 
 === Mapping a Pull-Request Result to the State Catalogue

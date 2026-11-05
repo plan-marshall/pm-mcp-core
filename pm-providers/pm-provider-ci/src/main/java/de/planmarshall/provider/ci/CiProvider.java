@@ -80,9 +80,12 @@ public interface CiProvider {
      * reported by the {@link PullRequest#pathCompleteness() completeness value}, never presented as the whole list.
      *
      * @param pullRequest the pull request
-     * @return the pull request; {@code NOT_FOUND} when no pull request has the number, including when the number
-     *         names an issue; {@code REJECTED} when the pull request is on another origin or of another forge, before
-     *         anything is sent
+     * @return the pull request; {@code NOT_FOUND} when no pull request has the number; on GitHub that includes a
+     *         number that names an issue, and on GitLab a number that names an issue and no merge request, because
+     *         GitLab numbers the two apart and an issue iid equal to a merge-request iid reads that merge request;
+     *         {@code FAILED} when a read that follows the pull-request read finds no resource, never
+     *         {@code NOT_FOUND}; {@code REJECTED} when the pull request is on another origin or of another forge,
+     *         before anything is sent
      */
     Result<PullRequest> prView(PullRequestRef pullRequest);
 }

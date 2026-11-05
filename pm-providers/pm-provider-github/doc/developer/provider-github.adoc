@@ -138,7 +138,8 @@ Every other list is `COMPLETE`.
   the base repository is `true`; without maintainer edits it is not writable, and no permission read is sent.
 * A head repository GitHub no longer knows (`head.repo` is `null`, a deleted fork) is not writable, the head repository is
   absent, and no permission read is sent.
-* An absent `permissions.push` member reads as not writable.
+* An absent `permissions.push` member reads as not writable, and so does a `404` of the permission read (a repository the
+  credential cannot see); the read continues with the head not writable.
 
 *`headWritable` per credential kind.* The `push` fact is read with the credential that authors the writes: a token
 provider (`forToken`) with its own token, a GitHub App provider (`forApp`) with the operator's user access token, not
@@ -151,8 +152,11 @@ member therefore never decides the answer
 `pull_requests: read`, `contents: read` and `metadata: read`, the pull request, its files and the repository the
 permission fact is read from.
 
-A refused read (a `404`, a `403`, a `401` or a `5xx`) on any of the three is mapped to its outcome by the shared base, and
-a rate limit is `RATE_LIMITED` with its reset instant; nothing is read after a refused read.
+A refused read (a `404`, a `403`, a `401` or a `5xx`) on the pull request or its files is mapped to its outcome by the
+shared base, and a rate limit is `RATE_LIMITED` with its reset instant; nothing is read after a refused read. Two cases
+are kept apart from `NOT_FOUND`, which says that the pull request does not exist: a `404` of the files read, after the
+pull request was read, is `FAILED` with a fixed reason, and a `404` of the permission read is not an error but the head
+being not writable. A refused permission read otherwise (a `403`, a `401` or a `5xx`) is mapped by the shared base.
 
 == Extending the Client
 
