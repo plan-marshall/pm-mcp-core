@@ -1,0 +1,31 @@
+= The schemas of the remaining store records as files
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `schema-files-remaining-records`
+
+[horizontal]
+Roadmap item:: none: the third move of schema blocks, the store-schema documents that no parity test reads yet
+Where:: the modules that own the codecs, found by the trace matrix (pm-core, pm-workflow, pm-runtime)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+A move, plus the check the other store records already have. 25 blocks in seven documents become files.
+
+. *Move the blocks* of `store-schemas/04-epic-and-change-ledger.adoc` (9), `05-metrics-and-quality-report.adoc` (2), `06-task-and-references.adoc` (6), `07-project-configuration.adoc` (2), `08-project-configuration-local.adoc` (3), `17-re-planning.adoc` (2) and `18-decision-records.adoc` (1).
+. *A parity test per schema whose codec exists*: members, required members, enumerations and limits of the record against the file, in the form of `FindingSchemaParityTest`. These records are the ones for which the specification and the code could drift without any test noticing; the test is new, not a replacement.
+. *A schema whose codec does not exist yet* (the trace matrix names them) is moved and named in the task of the package that builds the codec, which adds its test; the package index is not changed for it.
+. *Where a schema file of the same record already lies in a module*, the block is replaced by an include of that file after the two statements are compared; the deviating one is corrected with evidence (the correction rule of the project skill `traced-implementation`), never worked around.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Specification: link:../specification/store-schemas/04-epic-and-change-ledger.adoc[Store Schemas 04], link:../specification/store-schemas/05-metrics-and-quality-report.adoc[05], link:../specification/store-schemas/06-task-and-references.adoc[06], link:../specification/store-schemas/07-project-configuration.adoc[07], link:../specification/store-schemas/08-project-configuration-local.adoc[08], link:../specification/store-schemas/17-re-planning.adoc[17], link:../specification/store-schemas/18-decision-records.adoc[18]
+* Watch: none
+
+== Done When
+
+* Every `[source,json]` block of the seven documents is an include of a schema file.
+* Tests: a parity test exists for each schema whose codec exists, with a matched positive control (the unchanged file) and a negative control (a member present in the file and absent from the record, and the reverse); `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.

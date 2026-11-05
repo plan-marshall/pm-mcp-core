@@ -1,0 +1,32 @@
+= No test reads a specification any more
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `adoc-reading-retired`
+
+[horizontal]
+Roadmap item:: none: the closing package of the schema transition; it removes what the other packages made unused
+Where:: pm-core (`SpecificationDocument`, the POM property), pm-runtime and pm-workflow (the fallbacks to `..`), `.github/project.yml`, the ADRs
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+Start only when the change that turned the docs-only skip on with an include list (ADR 015, branch `ci/paths-code-extra-docs-gate` at the time of writing) is on `main`.
+
+. *Delete* `SpecificationDocument` and the property `pm.specification.root`: its declaration and its pass-through to the tests in `pm-core/pom.xml`, and the `..` fallback of every test that read the property.
+. *Shrink the include list* of `maven-build.paths-code-extra` in `.github/project.yml`: `doc/specification/**` goes. `doc/LogMessages.adoc` goes unless `generated-listings` keeps a check of a generated file there. `**/src/**` stays: a fixture below a source tree is build input.
+. *ADR*: the ADR of `schema-files-foundation` states that the premise of ADR 009 and the entries of ADR 015 no longer hold; the ADR index marks them superseded.
+. *Verify by search*: no test source of the repository opens a path below `doc/` (a search for `"doc/`, `Path.of("..`, `Path.of("doc` and `getProperty("pm.` in the test trees), apart from the generated-file check where the decision kept one.
+. *Documents here*: the two sentences of project setup about `skip-on-docs-only` and the docs-only pull request are checked; the pull request beside this one is only needed where one names them.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Specification: none
+* Watch: none
+
+== Done When
+
+* The search of the task finds no reader of a specification; `verify` green in every module.
+* A pull request that changes only a file below `doc/specification/` skips the build and is still reported correctly, because no test reads it. The first such pull request after this package is the observation, as ADR 015 notes for its own change.

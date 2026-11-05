@@ -386,6 +386,55 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`done`
 |
 |
+
+|link:schema-files-foundation.adoc[`schema-files-foundation`]
+|Schemas as files: the ADR, the layout beside the codec, the include convention, the test helper `SchemaResource`, the rule in project setup and the checks of `trace.py`
+|`open`
+|nothing
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:schema-files-tested-records.adoc[`schema-files-tested-records`]
+|The 27 schema blocks of `store-schemas` 01, 02, 03, 09, 10, 14 and 16 as files; eight parity tests read the files
+|`open`
+|`schema-files-foundation`
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:schema-files-machine-stores.adoc[`schema-files-machine-stores`]
+|The 22 schema blocks of `store-schemas` 11, 12, 13 and 15 as files; the audit and credential parity tests read the files, the credential test without regular expressions
+|`open`
+|`schema-files-foundation`
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:schema-files-remaining-records.adoc[`schema-files-remaining-records`]
+|The 25 schema blocks of `store-schemas` 04, 05, 06, 07, 08, 17 and 18 as files, with a parity test for each schema whose codec exists
+|`open`
+|`schema-files-foundation`
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:schema-files-other-specifications.adoc[`schema-files-other-specifications`]
+|The 14 schema blocks of the domain extensions, the harness profiles and the model work as files
+|`open`
+|`schema-files-foundation`
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:limits-in-data-files.adoc[`limits-in-data-files`]
+|The stalled threshold and the unit frontmatter limits as data files that the code reads and the specification includes; the two tests that match a number in prose removed
+|`open`
+|`schema-files-foundation`
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:generated-listings.adoc[`generated-listings`]
+|The log message table and the protocol lists taken from the code instead of compared with it by a test; the form waits for the decision `generated-listings`
+|`blocked`
+|`schema-files-foundation`; the open question `generated-listings` of the documentation
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
+|link:adoc-reading-retired.adoc[`adoc-reading-retired`]
+|`SpecificationDocument` and `pm.specification.root` deleted, the entries for the specification and `LogMessages.adoc` removed from the docs-only include list (once that list is on `main`), the ADRs of the docs-only skip marked superseded
+|`open`
+|`schema-files-tested-records`; `schema-files-machine-stores`; `schema-files-remaining-records`; `schema-files-other-specifications`; `limits-in-data-files`; `generated-listings`
+|none: the way a specification states a schema, a limit and a list (ADR 009)
+
 |===
 
 [#how]
