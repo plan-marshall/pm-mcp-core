@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,26 +46,36 @@ import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
  * The cross-scope reconciliation step of the per-project recovery with test reconcilers over plan scopes in a test
  * base, on the lock manager of the runtime.
  */
+@EnableGeneratorController
 @DisplayName("Cross-scope reconciliation step")
 class CrossScopeReconciliationStepTest {
 
-    private static final byte[] CONTENT = "{\"state\":\"merged\"}".getBytes(StandardCharsets.UTF_8);
+    /** Contract literal: the wire name of the audit record of an applied reconciliation. */
+    private static final String RECONCILED = "cross_scope_reconciled";
+
+    /** Contract literal: the outcome text of a run that applied nothing. */
+    private static final String NOTHING_APPLIED = "no reconciliation applied";
 
     @TempDir
     Path base;
 
     private final RecordingAuditSink auditSink = new RecordingAuditSink();
     private final List<String> calls = new CopyOnWriteArrayList<>();
+    private final byte[] content = ("{\"state\":\"" + name() + "\"}").getBytes(StandardCharsets.UTF_8);
 
     private FileLockManager lockManager;
     private JournalScope authoritative;
     private JournalScope derived;
 
+    private static String name() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
     @BeforeEach
     void createScopes() {
         lockManager = new FileLockManager(auditSink);
-        authoritative = JournalScope.plan(base, PROJECT_A, "plan-a");
-        derived = JournalScope.plan(base, PROJECT_A, "plan-b");
+        authoritative = JournalScope.plan(base, PROJECT_A, "plan-" + name());
+        derived = JournalScope.plan(base, PROJECT_A, "derived-" + name());
     }
 
     private CrossScopeReconciliationStep step(CrossScopeReconciler... reconcilers) {
@@ -74,44 +87,50 @@ class CrossScopeReconciliationStepTest {
     void shouldBeCrossScopeReconciliationStep() {
         assertEquals(RecoveryStep.Name.CROSS_SCOPE_RECONCILIATION,
                 new CrossScopeReconciliationStep(CrossScopeReconciliationStep.ProjectReconcilers.NONE, lockManager,
-                        auditSink).name());
+                        auditSink).name(), "the step must carry its specified name");
     }
 
     @Test
     @DisplayName("runs after the roll-forward and derives from the rolled-forward authoritative store")
     void shouldRunAfterRollForward() throws Exception {
-        RecoveryStepFixtures.interruptedReplace(authoritative, CONTENT);
+        RecoveryStepFixtures.interruptedReplace(authoritative, content);
+        var rolledForward = name();
         RecoveryStep rollForward = new JournalRollForwardStep(_ -> {
-            calls.add("roll-forward");
+            calls.add(rolledForward);
             return List.of(authoritative);
         }, lockManager, auditSink);
         RecoveryStep reconciliation = step(new CopyReconciler(authoritative, derived, calls));
         var recovery = new ProjectRecovery(() -> List.of(PROJECT_A),
                 RecoveryStepFixtures.completeSteps(reconciliation, rollForward), Runnable::run);
 
-        var outcome = assertInstanceOf(ProjectRecovery.Result.Recovered.class, recovery.awaitRecovered(PROJECT_A))
-                .outcome();
+        var outcome = assertInstanceOf(ProjectRecovery.Result.Recovered.class, recovery.awaitRecovered(PROJECT_A),
+                "the project must be recovered").outcome();
 
         assertAll(
-                () -> assertEquals(List.of("roll-forward", "reconcile"), calls),
-                () -> assertFalse(outcome.failed(), outcome::toString),
-                () -> assertArrayEquals(CONTENT, Files.readAllBytes(derived.resolve(STORE))));
+                // Contract literal: "reconcile" is the call the copy reconciler of the fixtures records
+                () -> assertEquals(List.of(rolledForward, "reconcile"), calls,
+                        "the roll-forward must run before the reconcile"),
+                () -> assertFalse(outcome.failed(), "the recovery must not fail"),
+                () -> assertArrayEquals(content, Files.readAllBytes(derived.resolve(STORE)),
+                        "the derived store must hold the rolled content"));
     }
 
     @Test
-    @DisplayName("reports the reconciliations applied and hands one cross_scope_reconciled record to the sink")
+    @DisplayName("reports the reconciliations applied and hands one cross_scope_reconciled record to the sink "
+            + "(the outcome text is the specified format)")
     void shouldReportReconciliationsApplied() {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(authoritative.lockKey());
-            RecoveryStepFixtures.replace(transaction, authoritative, CONTENT, auditSink, null);
+            RecoveryStepFixtures.replace(transaction, authoritative, content, auditSink, null);
         }
 
         var outcome = step(new CopyReconciler(authoritative, derived, calls)).run(PROJECT_A);
 
         assertAll(
                 () -> assertEquals(new Outcome.Done("1 reconciliations applied: " + COPY_RULE + " in "
-                        + derived.resolve(STORE)), outcome),
-                () -> assertEquals(List.of("cross_scope_reconciled"), auditSink.eventNames()));
+                        + derived.resolve(STORE)), outcome, "the outcome must name the reconciliation"),
+                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(),
+                        "one reconciled record must reach the sink"));
     }
 
     @Test
@@ -120,55 +139,63 @@ class CrossScopeReconciliationStepTest {
         var reconciler = new CopyReconciler(authoritative, derived, calls);
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(authoritative.lockKey());
-            RecoveryStepFixtures.replace(transaction, authoritative, CONTENT, auditSink, null);
+            RecoveryStepFixtures.replace(transaction, authoritative, content, auditSink, null);
         }
         step(reconciler).run(PROJECT_A);
 
         var again = step(reconciler).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(new Outcome.Done("no reconciliation applied"), again),
-                () -> assertEquals(List.of("cross_scope_reconciled"), auditSink.eventNames(), "no second record"),
-                () -> assertEquals(new Outcome.Done("no reconciliation applied"), step().run(PROJECT_A)));
+                () -> assertEquals(new Outcome.Done(NOTHING_APPLIED), again,
+                        "a second run must apply nothing"),
+                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(), "no second record"),
+                () -> assertEquals(new Outcome.Done(NOTHING_APPLIED), step().run(PROJECT_A),
+                        "a run without reconcilers applies nothing"));
     }
 
     @Test
-    @DisplayName("runs the reconcilers in their order and reports what each applied")
+    @DisplayName("runs the reconcilers in their order and reports what each applied (the outcome text is the format)")
     void shouldRunReconcilersInOrder() {
         var order = new ArrayList<String>();
+        var firstRule = new Reconciliation("rule-" + name(), "store-" + name());
+        var secondRule = new Reconciliation("rule-" + name(), "store-" + name());
         CrossScopeReconciler first = (_, _) -> {
-            order.add("first");
-            return List.of(new Reconciliation("rule-1", "store-1"));
+            order.add(firstRule.name());
+            return List.of(firstRule);
         };
         CrossScopeReconciler second = (_, _) -> {
-            order.add("second");
-            return List.of(new Reconciliation("rule-2", "store-2"));
+            order.add(secondRule.name());
+            return List.of(secondRule);
         };
 
         var outcome = step(first, second).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(List.of("first", "second"), order),
-                () -> assertEquals(new Outcome.Done("2 reconciliations applied: rule-1 in store-1, rule-2 in store-2"),
-                        outcome));
+                () -> assertEquals(List.of(firstRule.name(), secondRule.name()), order,
+                        "the reconcilers must run in their order"),
+                () -> assertEquals(new Outcome.Done("2 reconciliations applied: %s in %s, %s in %s".formatted(
+                        firstRule.name(), firstRule.store(), secondRule.name(), secondRule.store())), outcome,
+                        "the outcome must name what each applied"));
     }
 
     @Test
     @DisplayName("a store that cannot be read is a failure, and the remaining reconcilers do not run")
     void shouldFailOnUnreadableStore() {
         var order = new ArrayList<String>();
+        var reason = Generators.letterStrings(5, 30).next();
         CrossScopeReconciler failing = (_, _) -> {
-            throw new UncheckedIOException("disk gone", new IOException("disk gone"));
+            throw new UncheckedIOException(reason, new IOException(reason));
         };
         CrossScopeReconciler after = (_, _) -> {
-            order.add("after");
+            order.add(name());
             return List.of();
         };
 
         var outcome = step(failing, after).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(new Outcome.Failed("disk gone after no reconciliation applied"), outcome),
-                () -> assertEquals(List.of(), order));
+                () -> assertEquals(new Outcome.Failed(reason + " after " + NOTHING_APPLIED), outcome,
+                        "the failure must carry the reason of the store"),
+                () -> assertEquals(List.of(), order, "the remaining reconcilers must not run"));
     }
 }

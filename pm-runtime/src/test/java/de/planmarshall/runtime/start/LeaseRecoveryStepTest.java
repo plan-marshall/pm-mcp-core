@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,6 +28,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,16 +43,17 @@ import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
 
 /**
  * The lease step of the per-project recovery over a real build-slot lease store on the lock manager of the runtime.
+ * The counts and reason codes in the reports the tests read are the specified outcome format of the step.
  */
+@EnableGeneratorController
 @DisplayName("Lease recovery step")
 class LeaseRecoveryStepTest {
-
-    private static final Instant NOW = Instant.parse("2026-10-11T12:00:00Z");
-    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @TempDir
     Path base;
 
+    private final Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
+    private final Clock clock = Clock.fixed(now, ZoneOffset.UTC);
     private FileLockManager lockManager;
     private LeaseStore store;
 
@@ -60,51 +64,60 @@ class LeaseRecoveryStepTest {
     }
 
     private LeaseRecoveryStep step(LeaseRecoveryStep.AbandonmentEvidence evidence) {
-        return new LeaseRecoveryStep(List.of(store), evidence, CLOCK);
+        return new LeaseRecoveryStep(List.of(store), evidence, clock);
     }
 
     private static String report(Outcome outcome) {
-        return assertInstanceOf(Outcome.Done.class, outcome).report();
+        return assertInstanceOf(Outcome.Done.class, outcome, "the step must be done").report();
+    }
+
+    /** @return a generated slot key that sorts by its prefix */
+    private static String slot(String prefix) {
+        return "slot-" + prefix + "-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     @Test
     @DisplayName("is the leases step")
     void shouldBeLeasesStep() {
-        assertEquals(RecoveryStep.Name.LEASES, step(LeaseRecoveryStep.AbandonmentEvidence.NONE).name());
+        assertEquals(RecoveryStep.Name.LEASES, step(LeaseRecoveryStep.AbandonmentEvidence.NONE).name(),
+                "the step must carry its specified name");
     }
 
     @Test
     @DisplayName("orphans only the leases of the recovered project; those of another project stay as they were")
     void shouldOrphanOnlyLeasesOfProject() {
-        var own = claim(store, "slot-a", PROJECT_A, RecoveryStepFixtures.dead());
-        var foreign = claim(store, "slot-b", PROJECT_B, RecoveryStepFixtures.dead());
+        var own = claim(store, slot("a"), PROJECT_A, RecoveryStepFixtures.dead());
+        var foreign = claim(store, slot("b"), PROJECT_B, RecoveryStepFixtures.dead());
 
         var outcome = step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(List.of(own.withOwner(own.owner().orphaned(NOW)), foreign), store.snapshot()),
+                () -> assertEquals(List.of(own.withOwner(own.owner().orphaned(now)), foreign), store.snapshot(),
+                        "only the lease of the project must be orphaned"),
                 () -> assertTrue(report(outcome).contains("0 kept, 1 orphaned, 0 removed (all_kept)"),
-                        report(outcome)));
+                        "the report must count the orphaned lease"));
     }
 
     @Test
     @DisplayName("without evidence nothing is removed")
     void shouldRemoveNothingWithoutEvidence() {
-        claim(store, "slot-a1", PROJECT_A, RecoveryStepFixtures.dead());
-        claim(store, "slot-a2", PROJECT_A, RecoveryStepFixtures.dead());
+        claim(store, slot("a"), PROJECT_A, RecoveryStepFixtures.dead());
+        claim(store, slot("b"), PROJECT_A, RecoveryStepFixtures.dead());
 
         step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(2, store.snapshot().size()),
-                () -> assertTrue(store.snapshot().stream().allMatch(lease -> lease.owner().isOrphaned())));
+                () -> assertEquals(2, store.snapshot().size(), "without evidence no lease is removed"),
+                () -> assertTrue(store.snapshot().stream().allMatch(lease -> lease.owner().isOrphaned()),
+                        "every lease of the project must be orphaned"));
     }
 
     @Test
     @DisplayName("with evidence of abandonment the lease of the project is removed, that of another project not")
     void shouldRemoveAbandonedLeaseOfProject() {
-        claim(store, "slot-a", PROJECT_A, RecoveryStepFixtures.dead());
-        var foreign = claim(store, "slot-b", PROJECT_B, RecoveryStepFixtures.dead());
+        var ownKey = slot("a");
+        claim(store, ownKey, PROJECT_A, RecoveryStepFixtures.dead());
+        var foreign = claim(store, slot("b"), PROJECT_B, RecoveryStepFixtures.dead());
         var askedFor = new ArrayList<String>();
 
         var outcome = step((projectId, lease) -> {
@@ -113,22 +126,24 @@ class LeaseRecoveryStepTest {
         }).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(List.of(foreign), store.snapshot()),
-                () -> assertEquals(List.of(PROJECT_A + " slot-a"), askedFor),
-                () -> assertTrue(report(outcome).contains("0 kept, 0 orphaned, 1 removed"), report(outcome)));
+                () -> assertEquals(List.of(foreign), store.snapshot(), "only the lease of another project stays"),
+                () -> assertEquals(List.of(PROJECT_A + " " + ownKey), askedFor,
+                        "the evidence must be asked for the own lease"),
+                () -> assertTrue(report(outcome).contains("0 kept, 0 orphaned, 1 removed"),
+                        "the report must count the removed lease"));
     }
 
     @Test
     @DisplayName("a lease whose holder is alive is kept")
     void shouldKeepLiveHolder() {
-        var live = claim(store, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
+        var live = claim(store, slot("a"), PROJECT_A, RecoveryStepFixtures.self());
 
         var outcome = step((_, _) -> true).run(PROJECT_A);
 
         assertAll(
-                () -> assertEquals(List.of(live), store.snapshot()),
+                () -> assertEquals(List.of(live), store.snapshot(), "the lease of a live holder must stay"),
                 () -> assertTrue(report(outcome).contains("1 kept, 0 orphaned, 0 removed (all_kept)"),
-                        report(outcome)));
+                        "the report must count the kept lease"));
     }
 
     @Test
@@ -136,43 +151,48 @@ class LeaseRecoveryStepTest {
     void shouldReportAbsentStore() {
         var absent = report(step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A));
 
-        assertTrue(absent.endsWith("0 kept, 0 orphaned, 0 removed (root_absent)"), absent);
+        assertTrue(absent.endsWith("0 kept, 0 orphaned, 0 removed (root_absent)"),
+                "the report must name the absent store");
     }
 
     @Test
     @DisplayName("an empty store is reported with its counts and the step is done")
     void shouldReportEmptyStore() {
-        var own = claim(store, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
+        var own = claim(store, slot("a"), PROJECT_A, RecoveryStepFixtures.self());
         store.release(own.key(), own.owner());
 
         var empty = report(step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A));
 
-        assertTrue(empty.contains("0 kept, 0 orphaned, 0 removed"), empty);
+        assertTrue(empty.contains("0 kept, 0 orphaned, 0 removed"), "the report must count an empty store");
     }
 
     @Test
     @DisplayName("a refused store fails the step with its name and refusal, and the following stores are not swept")
     void shouldFailOnRefusedStore() throws Exception {
+        // Contract literals: the directory and the file name of the model-slot lease store the runtime prescribes
         var following = new LeaseStore(new AtomicStoreFile(base.resolve("state").resolve("model-slots.json"),
                 LockKey.modelSlots(base)), lockManager);
-        var untouched = claim(following, "model-a", PROJECT_A, RecoveryStepFixtures.dead());
+        var untouched = claim(following, "model-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT),
+                PROJECT_A, RecoveryStepFixtures.dead());
+        // Contract literal: a torn lease store, cut inside its lease array
         Files.writeString(store.store(), "{\"format_version\":1,\"leases\":[", StandardCharsets.UTF_8);
 
         var outcome = new LeaseRecoveryStep(List.of(store, following), LeaseRecoveryStep.AbandonmentEvidence.NONE,
-                CLOCK).run(PROJECT_A);
+                clock).run(PROJECT_A);
 
         assertAll(
                 () -> assertEquals(new Outcome.Failed("lease store " + store.store() + " refused: UNREADABLE"),
-                        outcome),
-                () -> assertEquals(List.of(untouched), following.snapshot()));
+                        outcome, "the failure must name the refused store"),
+                () -> assertEquals(List.of(untouched), following.snapshot(),
+                        "the following store must not be swept"));
     }
 
     @Test
     @DisplayName("without a lease store there is nothing to sweep")
     void shouldReportNoStore() {
-        var outcome = new LeaseRecoveryStep(List.of(), LeaseRecoveryStep.AbandonmentEvidence.NONE, CLOCK)
+        var outcome = new LeaseRecoveryStep(List.of(), LeaseRecoveryStep.AbandonmentEvidence.NONE, clock)
                 .run(PROJECT_A);
 
-        assertEquals(new Outcome.Done("no lease store"), outcome);
+        assertEquals(new Outcome.Done("no lease store"), outcome, "the step must report no lease store");
     }
 }

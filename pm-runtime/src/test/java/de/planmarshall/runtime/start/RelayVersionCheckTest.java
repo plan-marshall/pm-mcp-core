@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;
@@ -42,28 +44,47 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
+/**
+ * The relay version-mismatch detection. The header name, the recommended command and the log texts the tests read
+ * are the specified contract; the versions are generated, the runtime version with a major of two digits and every
+ * relay version with a major of one digit, so they never meet.
+ */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Relay version-mismatch detection")
 class RelayVersionCheckTest {
 
-    private static final String RUNTIME_VERSION = "0.4.0";
-    private static final String OLD_RELAY = "0.3.2";
-    private static final String OTHER_RELAY = "0.3.1";
+    /** Contract literal: the error text of the simulated refusal of the audit sink. */
+    private static final String NOT_WRITABLE = "audit log not writable";
 
+    private final String runtimeVersion = version(10, 99);
+    private final String oldRelay = version(0, 4);
+    private final String otherRelay = version(5, 9);
     private final List<AuditEvent> records = new CopyOnWriteArrayList<>();
-    private final RelayVersionCheck check = new RelayVersionCheck(RUNTIME_VERSION, records::add);
+    private final RelayVersionCheck check = new RelayVersionCheck(runtimeVersion, records::add);
 
-    private static AuditEvent expectedRecord(String relayVersion) {
+    /** @return a generated version {@code major.minor.patch} with a major in the given range */
+    private static String version(int lowestMajor, int highestMajor) {
+        return "%d.%d.%d".formatted(Generators.integers(lowestMajor, highestMajor).next(),
+                Generators.integers(0, 99).next(), Generators.integers(0, 99).next());
+    }
+
+    private AuditEvent expectedRecord(String relayVersion) {
         return new AuditEvent(RelayVersionCheck.RELAY_VERSION_MISMATCH, RelayVersionCheck.CATEGORY_OPERATOR,
                 RelayVersionCheck.OUTCOME_WARNING, Map.of(RelayVersionCheck.DETAIL_RELAY_VERSION, relayVersion,
-                        RelayVersionCheck.DETAIL_RUNTIME_VERSION, RUNTIME_VERSION));
+                        RelayVersionCheck.DETAIL_RUNTIME_VERSION, runtimeVersion));
+    }
+
+    private static int warnings(String text) {
+        return TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(TestLogLevel.WARN, text).size();
     }
 
     @Test
-    @DisplayName("the header is named PM-MCP-Relay-Version")
+    @DisplayName("the header is named PM-MCP-Relay-Version (the specified header name)")
     void shouldNameHeader() {
-        assertEquals("PM-MCP-Relay-Version", RelayVersionCheck.HEADER);
+        assertEquals("PM-MCP-Relay-Version", RelayVersionCheck.HEADER, "the header must carry its specified name");
     }
 
     @Nested
@@ -73,35 +94,36 @@ class RelayVersionCheckTest {
         @Test
         @DisplayName("an equal version records nothing and sets no status data")
         void shouldIgnoreEqualVersion() {
-            check.observe(RUNTIME_VERSION);
+            check.observe(runtimeVersion);
 
             assertAll(
                     () -> assertTrue(records.isEmpty(), "no audit record"),
-                    () -> assertEquals(Optional.empty(), check.mismatch()),
+                    () -> assertEquals(Optional.empty(), check.mismatch(), "an equal version sets no status data"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, RelayVersionCheck.class));
         }
 
         @ParameterizedTest(name = "header [{0}]")
         @NullSource
         @ValueSource(strings = {"", "   ", "\t"})
-        @DisplayName("a missing or blank header records nothing and sets no status data")
+        @DisplayName("a missing or blank header records nothing and sets no status data (the blank forms are the cases)")
         void shouldIgnoreMissingOrBlankHeader(String header) {
             check.observe(header);
 
             assertAll(
                     () -> assertTrue(records.isEmpty(), "no audit record"),
-                    () -> assertEquals(Optional.empty(), check.mismatch()),
+                    () -> assertEquals(Optional.empty(), check.mismatch(), "a blank header sets no status data"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, RelayVersionCheck.class));
         }
 
         @Test
         @DisplayName("an equal version surrounded by whitespace is equal")
         void shouldStripHeader() {
-            check.observe(" " + RUNTIME_VERSION + " ");
+            check.observe(" " + runtimeVersion + " ");
 
             assertAll(
                     () -> assertTrue(records.isEmpty(), "no audit record"),
-                    () -> assertEquals(Optional.empty(), check.mismatch()));
+                    () -> assertEquals(Optional.empty(), check.mismatch(),
+                            "a stripped equal version sets no status data"));
         }
     }
 
@@ -112,23 +134,28 @@ class RelayVersionCheckTest {
         @Test
         @DisplayName("a different version records one audit record with both versions and sets the status data")
         void shouldRecordMismatch() {
-            check.observe(OLD_RELAY);
+            check.observe(oldRelay);
 
             assertAll(
-                    () -> assertEquals(List.of(expectedRecord(OLD_RELAY)), records),
-                    () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(OLD_RELAY, RUNTIME_VERSION,
-                            "pm-operator drain")), check.mismatch()),
+                    () -> assertEquals(List.of(expectedRecord(oldRelay)), records,
+                            "one audit record must carry both versions"),
+                    // Contract literal: the recommended command of the specification
+                    () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(oldRelay, runtimeVersion,
+                            "pm-operator drain")), check.mismatch(), "the mismatch must be the status data"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                            "Relay version '" + OLD_RELAY + "' differs from runtime version '"
-                                    + RUNTIME_VERSION + "', recommended: pm-operator drain"));
+                            WARN.RELAY_VERSION_MISMATCH.resolveIdentifierString()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            "Relay version '" + oldRelay + "' differs from runtime version '"
+                                    + runtimeVersion + "', recommended: pm-operator drain"));
         }
 
         @Test
-        @DisplayName("the same mismatch observed 100 times from several threads records once")
+        @DisplayName("the same mismatch observed many times from several threads records once")
         void shouldRecordOncePerVersionUnderConcurrency() throws Exception {
             var start = new CountDownLatch(1);
+            var observations = Generators.integers(20, 200).next();
             try (var executor = Executors.newFixedThreadPool(8)) {
-                for (var i = 0; i < 100; i++) {
+                for (var i = 0; i < observations; i++) {
                     executor.execute(() -> {
                         try {
                             start.await();
@@ -136,7 +163,7 @@ class RelayVersionCheckTest {
                             Thread.currentThread().interrupt();
                             return;
                         }
-                        check.observe(OLD_RELAY);
+                        check.observe(oldRelay);
                     });
                 }
                 start.countDown();
@@ -145,21 +172,25 @@ class RelayVersionCheckTest {
             }
 
             assertAll(
-                    () -> assertEquals(List.of(expectedRecord(OLD_RELAY)), records),
+                    () -> assertEquals(List.of(expectedRecord(oldRelay)), records,
+                            "the mismatch must be recorded once"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                            "Relay version '" + OLD_RELAY + "'"));
+                            WARN.RELAY_VERSION_MISMATCH.resolveIdentifierString()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            "Relay version '" + oldRelay + "'"));
         }
 
         @Test
         @DisplayName("a second distinct relay version records again and becomes the latest mismatch")
         void shouldRecordEachDistinctVersion() {
-            check.observe(OLD_RELAY);
-            check.observe(OTHER_RELAY);
-            check.observe(OLD_RELAY);
+            check.observe(oldRelay);
+            check.observe(otherRelay);
+            check.observe(oldRelay);
 
             assertAll(
-                    () -> assertEquals(List.of(expectedRecord(OLD_RELAY), expectedRecord(OTHER_RELAY)), records),
-                    () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(OLD_RELAY, RUNTIME_VERSION,
+                    () -> assertEquals(List.of(expectedRecord(oldRelay), expectedRecord(otherRelay)), records,
+                            "each distinct version must be recorded once"),
+                    () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(oldRelay, runtimeVersion,
                             RelayVersionCheck.RECOMMENDED_COMMAND)), check.mismatch(), "the latest mismatch"));
         }
 
@@ -169,26 +200,27 @@ class RelayVersionCheckTest {
             var refuse = new AtomicBoolean(true);
             var accepted = new CopyOnWriteArrayList<AuditEvent>();
             var clock = new MutableClock();
-            var refusing = new RelayVersionCheck(RUNTIME_VERSION, event -> {
+            var refusing = new RelayVersionCheck(runtimeVersion, event -> {
                 if (refuse.getAndSet(false)) {
-                    throw new UncheckedIOException(new IOException("audit log not writable"));
+                    throw new UncheckedIOException(new IOException(NOT_WRITABLE));
                 }
                 accepted.add(event);
             }, clock);
 
-            refusing.observe(OLD_RELAY);
+            refusing.observe(oldRelay);
             var afterRefusal = List.copyOf(accepted);
-            refusing.observe(OLD_RELAY);
+            refusing.observe(oldRelay);
             var withinInterval = List.copyOf(accepted);
             clock.advance(RelayVersionCheck.RETRY_INTERVAL);
-            refusing.observe(OLD_RELAY);
-            refusing.observe(OLD_RELAY);
+            refusing.observe(oldRelay);
+            refusing.observe(oldRelay);
 
             assertAll(
                     () -> assertEquals(List.of(), afterRefusal, "nothing recorded while refused"),
                     () -> assertEquals(List.of(), withinInterval, "no retry within the interval"),
-                    () -> assertEquals(List.of(expectedRecord(OLD_RELAY)), accepted, "recorded once afterwards"),
-                    () -> assertEquals(OLD_RELAY, refusing.mismatch().orElseThrow().relayVersion()));
+                    () -> assertEquals(List.of(expectedRecord(oldRelay)), accepted, "recorded once afterwards"),
+                    () -> assertEquals(oldRelay, refusing.mismatch().orElseThrow().relayVersion(),
+                            "the mismatch must name the relay version"));
         }
 
         @Test
@@ -196,30 +228,31 @@ class RelayVersionCheckTest {
         void shouldLimitAttemptsOfRefusingSink() {
             var attempts = new AtomicInteger();
             var clock = new MutableClock();
-            var refusing = new RelayVersionCheck(RUNTIME_VERSION, _ -> {
+            var refusing = new RelayVersionCheck(runtimeVersion, _ -> {
                 attempts.incrementAndGet();
-                throw new UncheckedIOException(new IOException("audit log not writable"));
+                throw new UncheckedIOException(new IOException(NOT_WRITABLE));
             }, clock);
+            var requests = Generators.integers(2, 200).next();
 
-            for (var i = 0; i < 100; i++) {
-                refusing.observe(OLD_RELAY);
+            for (var i = 0; i < requests; i++) {
+                refusing.observe(oldRelay);
             }
             var inFirstInterval = attempts.get();
             clock.advance(RelayVersionCheck.RETRY_INTERVAL.minusSeconds(1));
-            refusing.observe(OLD_RELAY);
+            refusing.observe(oldRelay);
             var justBeforeInterval = attempts.get();
             clock.advance(Duration.ofSeconds(1));
-            for (var i = 0; i < 100; i++) {
-                refusing.observe(OLD_RELAY);
+            for (var i = 0; i < requests; i++) {
+                refusing.observe(oldRelay);
             }
 
             assertAll(
-                    () -> assertEquals(1, inFirstInterval),
-                    () -> assertEquals(1, justBeforeInterval),
-                    () -> assertEquals(2, attempts.get()),
-                    () -> assertEquals(2, TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(
-                            TestLogLevel.WARN,
-                            "Relay version '" + OLD_RELAY + "'").size(), "warned once per attempt"));
+                    () -> assertEquals(1, inFirstInterval, "one attempt in the first interval"),
+                    () -> assertEquals(1, justBeforeInterval, "no attempt just before the interval ends"),
+                    () -> assertEquals(2, attempts.get(), "a second attempt after the interval"),
+                    () -> assertEquals(2, warnings(WARN.RELAY_VERSION_MISMATCH.resolveIdentifierString()),
+                            "the record must be logged once per attempt"),
+                    () -> assertEquals(2, warnings("Relay version '" + oldRelay + "'"), "warned once per attempt"));
         }
 
         @Test
@@ -228,15 +261,16 @@ class RelayVersionCheckTest {
             var attempts = new AtomicInteger();
             var accepted = new CopyOnWriteArrayList<AuditEvent>();
             var clock = new MutableClock();
-            var refusing = new RelayVersionCheck(RUNTIME_VERSION, event -> {
+            var refusing = new RelayVersionCheck(runtimeVersion, event -> {
                 if (attempts.incrementAndGet() == 1) {
-                    throw new UncheckedIOException(new IOException("audit log not writable"));
+                    throw new UncheckedIOException(new IOException(NOT_WRITABLE));
                 }
                 accepted.add(event);
             }, clock);
             var start = new CountDownLatch(1);
+            var observations = Generators.integers(20, 200).next();
             try (var executor = Executors.newFixedThreadPool(8)) {
-                for (var i = 0; i < 100; i++) {
+                for (var i = 0; i < observations; i++) {
                     executor.execute(() -> {
                         try {
                             start.await();
@@ -244,7 +278,7 @@ class RelayVersionCheckTest {
                             Thread.currentThread().interrupt();
                             return;
                         }
-                        refusing.observe(OLD_RELAY);
+                        refusing.observe(oldRelay);
                     });
                 }
                 start.countDown();
@@ -254,51 +288,57 @@ class RelayVersionCheckTest {
             var attemptsOfBurst = attempts.get();
 
             clock.advance(RelayVersionCheck.RETRY_INTERVAL);
-            refusing.observe(OLD_RELAY);
+            refusing.observe(oldRelay);
 
             assertAll(
                     () -> assertEquals(1, attemptsOfBurst, "one attempt for the whole burst"),
-                    () -> assertEquals(List.of(expectedRecord(OLD_RELAY)), accepted, "the retry is not lost"));
+                    () -> assertEquals(List.of(expectedRecord(oldRelay)), accepted, "the retry is not lost"));
         }
 
         @Test
         @DisplayName("a flood of distinct versions records at most the bound, and the latest stays visible")
         void shouldBoundDistinctVersions() {
-            var flood = RelayVersionCheck.MAX_RECORDED_VERSIONS + 10;
+            var flood = RelayVersionCheck.MAX_RECORDED_VERSIONS + Generators.integers(1, 20).next();
+            var prefix = "%d.%d.".formatted(Generators.integers(0, 9).next(), Generators.integers(0, 99).next());
 
             for (var i = 0; i < flood; i++) {
-                check.observe("0.0." + i);
+                check.observe(prefix + i);
             }
 
             assertAll(
-                    () -> assertEquals(RelayVersionCheck.MAX_RECORDED_VERSIONS, records.size()),
-                    () -> assertEquals(expectedRecord("0.0." + (RelayVersionCheck.MAX_RECORDED_VERSIONS - 1)),
-                            records.getLast()),
-                    () -> assertEquals("0.0." + (flood - 1), check.mismatch().orElseThrow().relayVersion()),
+                    () -> assertEquals(RelayVersionCheck.MAX_RECORDED_VERSIONS, records.size(),
+                            "at most the bound of versions is recorded"),
+                    () -> assertEquals(expectedRecord(prefix + (RelayVersionCheck.MAX_RECORDED_VERSIONS - 1)),
+                            records.getLast(), "the last recorded version is the bound"),
+                    () -> assertEquals(prefix + (flood - 1), check.mismatch().orElseThrow().relayVersion(),
+                            "the latest version must stay visible"),
                     () -> assertEquals(RelayVersionCheck.MAX_RECORDED_VERSIONS,
-                            TestLoggerFactory.getTestHandler()
-                                    .resolveLogMessagesContaining(TestLogLevel.WARN, "Relay version '").size()));
+                            warnings(WARN.RELAY_VERSION_MISMATCH.resolveIdentifierString()),
+                            "each recorded version is logged once"));
         }
 
         @Test
         @DisplayName("a version longer than the bound is truncated to it")
         void shouldTruncateLongVersion() {
-            var longVersion = "9".repeat(RelayVersionCheck.MAX_VERSION_LENGTH * 3);
+            var length = RelayVersionCheck.MAX_VERSION_LENGTH * 3;
+            var longVersion = Generators.strings("0123456789", length, length).next();
             var truncated = longVersion.substring(0, RelayVersionCheck.MAX_VERSION_LENGTH);
 
             check.observe(longVersion);
-            check.observe(longVersion + "-other-suffix");
+            check.observe(longVersion + "-" + Generators.letterStrings(3, 12).next());
 
             assertAll(
-                    () -> assertEquals(List.of(expectedRecord(truncated)), records),
-                    () -> assertEquals(truncated, check.mismatch().orElseThrow().relayVersion()));
+                    () -> assertEquals(List.of(expectedRecord(truncated)), records,
+                            "the truncated version must be recorded once"),
+                    () -> assertEquals(truncated, check.mismatch().orElseThrow().relayVersion(),
+                            "the mismatch must carry the truncated version"));
         }
     }
 
-    /** A clock the test moves forward by hand. */
+    /** A clock the test moves forward by hand, from a generated instant. */
     private static final class MutableClock extends Clock {
 
-        private volatile Instant now = Instant.parse("2026-10-11T12:00:00Z");
+        private volatile Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
 
         void advance(Duration duration) {
             now = now.plus(duration);
@@ -326,20 +366,25 @@ class RelayVersionCheckTest {
 
         @ParameterizedTest(name = "runtime version [{0}]")
         @ValueSource(strings = {"", "  "})
-        @DisplayName("a blank runtime version is refused")
-        void shouldRefuseBlankRuntimeVersion(String runtimeVersion) {
-            assertThrows(IllegalArgumentException.class, () -> new RelayVersionCheck(runtimeVersion, records::add));
+        @DisplayName("a blank runtime version is refused (the blank forms are the cases)")
+        void shouldRefuseBlankRuntimeVersion(String blank) {
+            assertThrows(IllegalArgumentException.class, () -> new RelayVersionCheck(blank, records::add),
+                    "a blank runtime version must be refused");
         }
 
         @Test
         @DisplayName("a missing runtime version or audit sink is refused")
         void shouldRefuseNull() {
+            var command = Generators.letterStrings(3, 20).next();
+
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new RelayVersionCheck(null, records::add)),
+                    () -> assertThrows(NullPointerException.class, () -> new RelayVersionCheck(null, records::add),
+                            "a missing runtime version must be refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new RelayVersionCheck(RUNTIME_VERSION, null)),
+                            () -> new RelayVersionCheck(runtimeVersion, null), "a missing audit sink must be refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new RelayVersionCheck.Mismatch(null, RUNTIME_VERSION, "x")));
+                            () -> new RelayVersionCheck.Mismatch(null, runtimeVersion, command),
+                            "a mismatch without a relay version is refused"));
         }
     }
 }
