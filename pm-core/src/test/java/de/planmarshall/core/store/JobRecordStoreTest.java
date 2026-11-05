@@ -179,8 +179,11 @@ class JobRecordStoreTest {
         void foreignScopes() {
             var machine = JobRecordStore.ofMachine(base);
             var entryStore = JobRecordStore.ofEntry(base, entry);
-            var otherEntry = new Scope(Scope.Type.ENTRY,
-                    "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next()));
+            var otherId = entry;
+            while (otherId.equals(entry)) {
+                otherId = "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next());
+            }
+            var otherEntry = new Scope(Scope.Type.ENTRY, otherId);
 
             assertAll("a scope of another store is refused",
                     () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE),

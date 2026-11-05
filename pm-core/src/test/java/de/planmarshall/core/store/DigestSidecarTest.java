@@ -120,7 +120,7 @@ class DigestSidecarTest {
         @DisplayName("a digest is found by its path, and a recorded one replaced without touching the others")
         void digestAndWith() {
             var sidecar = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS));
-            var changed = new StoreDigest(Generators.integers(0, 1000).next(), SHA_B);
+            var changed = new StoreDigest(STATUS.size() + Generators.integers(1, 1000).next(), SHA_B);
 
             var updated = sidecar.with("workspace/mcp/status.json", changed).with("pending/entry-1.json", PENDING);
 

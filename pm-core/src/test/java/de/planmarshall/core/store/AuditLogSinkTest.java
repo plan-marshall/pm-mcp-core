@@ -74,7 +74,8 @@ class AuditLogSinkTest {
 
     @BeforeEach
     void createSink() throws IOException {
-        at = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        at = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next(),
+                Generators.longs(1L, 999_999_999L).next());
         clock = Clock.fixed(at, ZoneOffset.UTC);
         principal = Generators.letterStrings(3, 20).next();
         project = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);

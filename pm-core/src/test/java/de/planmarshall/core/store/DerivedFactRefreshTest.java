@@ -323,10 +323,10 @@ class DerivedFactRefreshTest {
         void operatorOnlyValueIsNotInTheReason() {
             var secret = "operator-secret-" + Generators.letterStrings(1, 20).next();
             var key = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY, null);
-            var value = JsonValue.parse(("\"" + secret + "\"").getBytes(UTF_8));
+            var parsed = JsonValue.parse(("\"" + secret + "\"").getBytes(UTF_8));
 
             var reading = store.refresh(key, DIGEST_A,
-                    () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
+                    () -> new Derived(parsed, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
 
             var reason = reading.couldNotEvaluate().orElseThrow();
             assertAll("An operator-only value stays out of the reason",
@@ -334,7 +334,7 @@ class DerivedFactRefreshTest {
                             "The invalid value is indeterminate"),
                     () -> assertFalse(reason.contains(secret),
                             "The operator-only value is not in the reason"),
-                    () -> assertFalse(reason.contains(value.toJson()),
+                    () -> assertFalse(reason.contains(parsed.toJson()),
                             "The value text is not in the reason"),
                     () -> assertTrue(reason.contains("The operator-only fact kind '" + key.kind().wireName()
                                     + "' has 1 schema violation(s)"),
@@ -346,10 +346,10 @@ class DerivedFactRefreshTest {
         void nonOperatorValueStaysInTheReason() {
             var invalid = "not-a-remote-" + Generators.letterStrings(1, 20).next();
             var key = new DerivedFactKey(DerivedFactKind.PUSH_REMOTE, null);
-            var value = JsonValue.parse(("\"" + invalid + "\"").getBytes(UTF_8));
+            var parsed = JsonValue.parse(("\"" + invalid + "\"").getBytes(UTF_8));
 
             var reading = store.refresh(key, DIGEST_A,
-                    () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
+                    () -> new Derived(parsed, "fixture", DerivedFact.DerivationClass.LOCAL), NOW);
 
             assertAll("A non-operator value stays in the reason",
                     () -> assertInstanceOf(DerivedFactReading.Indeterminate.class, reading,

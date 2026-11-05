@@ -116,7 +116,7 @@ class LessonRevisionTest {
             var lesson = create();
             var lessonId = lesson.frontMatter().lessonId();
             var sources = List.of(LessonFixtures.source());
-            var body = LessonFixtures.body();
+            var body = "# Revised\n\n" + LessonFixtures.text() + "\n";
             var at = CLOCK.instant().plusSeconds(Generators.integers(1, 120).next());
 
             var outcome = inTransaction(write -> store.revise(write, lessonId, body, sources, false, at));

@@ -182,9 +182,10 @@ class IntentRecordTest {
     @Test
     void refusesContradictingModelDecision() {
         var adr = new AdrRef("core-store-1", AdrRelation.CONTRADICTS);
+        var why = Generators.letterStrings(10, 60).next();
+        var choices = options();
         assertThrows(IllegalArgumentException.class,
-                () -> new Decision("DC-1", Generators.letterStrings(10, 60).next(),
-                        options(), Decider.MODEL, null, null, adr),
+                () -> new Decision("DC-1", why, choices, Decider.MODEL, null, null, adr),
                 "a model decision cannot contradict an ADR");
     }
 
@@ -270,8 +271,9 @@ class IntentRecordTest {
     @DisplayName("A code constraint carries its evidence")
     @Test
     void refusesCodeConstraintWithoutEvidence() {
+        var text = Generators.letterStrings(10, 60).next();
         assertThrows(IllegalArgumentException.class,
-                () -> new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.CODE, null),
+                () -> new Constraint("CN-1", text, ConstraintSource.CODE, null),
                 "a code constraint needs its evidence");
     }
 
@@ -371,9 +373,10 @@ class IntentRecordTest {
     @DisplayName("A decision with a question id but a model decider is refused")
     @Test
     void refusesModelDecisionWithQuestionId() {
+        var why = Generators.letterStrings(10, 60).next();
+        var choices = options();
         assertThrows(IllegalArgumentException.class,
-                () -> new Decision("DC-1", Generators.letterStrings(10, 60).next(),
-                        options(), Decider.MODEL, "q-1", null, null),
+                () -> new Decision("DC-1", why, choices, Decider.MODEL, "q-1", null, null),
                 "a model decision carries no question id");
     }
 
