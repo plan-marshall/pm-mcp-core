@@ -95,8 +95,6 @@ import de.planmarshall.runtime.job.JobEvidence.Signalled;
 import de.planmarshall.runtime.job.JobEvidence.Termination;
 import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
 import de.planmarshall.runtime.job.SettlementStep.Name;
-import de.planmarshall.runtime.job.SettlementStep.Outcome;
-import de.planmarshall.runtime.job.SettlementStep.Settled;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -1892,9 +1890,11 @@ class SubprocessJobRunnerTest {
                 }
             };
 
-            assertThrows(IllegalArgumentException.class, () -> runner(new TerminationProtocol(
-                            ProcessGroupSignals.system()), environment(), (job, output) -> SUCCESS,
-                    request -> Optional.empty(), null, Map.of(Name.METRICS_ROW, misnamed)));
+            var termination = new TerminationProtocol(ProcessGroupSignals.system());
+            Map<Name, SettlementStep> steps = Map.of(Name.METRICS_ROW, misnamed);
+
+            assertThrows(IllegalArgumentException.class, () -> runner(termination, environment(),
+                    (job, output) -> SUCCESS, request -> Optional.empty(), null, steps));
         }
 
         @Test
@@ -1912,13 +1912,13 @@ class SubprocessJobRunnerTest {
                     fixture.pipeline(verifyTemplate));
 
             var jobId = startedBuild("maven:verify", new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
-            var record = settled(jobId);
+            var settledJob = settled(jobId);
             var rawLog = Files.readString(jobs.logPath(jobId));
             var evidence = UnparsedEvidence.of("plan-one", jobId, rawLog);
 
             assertAll(
-                    () -> assertEquals(Fate.FAILED_UNPARSED, record.fate(), "the build ended failed_unparsed"),
-                    () -> assertEquals(10, record.outcomeRow(), "row 10 decided the fate"),
+                    () -> assertEquals(Fate.FAILED_UNPARSED, settledJob.fate(), "the build ended failed_unparsed"),
+                    () -> assertEquals(10, settledJob.outcomeRow(), "row 10 decided the fate"),
                     () -> assertTrue(rawLog.contains("opaque failure"), "the raw log is kept beside the record"),
                     () -> assertTrue(evidence.excerpt().contains("opaque failure"), "the excerpt carries the tail"),
                     () -> assertEquals("pm://plan/plan-one/builds/" + jobId.value() + "/log", evidence.excerptUri(),

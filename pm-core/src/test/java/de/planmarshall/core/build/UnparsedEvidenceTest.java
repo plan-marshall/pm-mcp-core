@@ -126,10 +126,11 @@ class UnparsedEvidenceTest {
     void refusesAnUnboundedExcerpt() {
         var uri = "pm://plan/plan-one/builds/b-0123456789abcdef/log";
 
+        var tooLong = "x".repeat(UnparsedEvidence.MAX_BYTES + 1);
+        var tooManyLines = "line\n".repeat(UnparsedEvidence.MAX_LINES + 1);
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new UnparsedEvidence("x".repeat(UnparsedEvidence.MAX_BYTES + 1), uri)),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new UnparsedEvidence("line\n".repeat(UnparsedEvidence.MAX_LINES + 1), uri)));
+                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooLong, uri)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooManyLines, uri)));
     }
 }
