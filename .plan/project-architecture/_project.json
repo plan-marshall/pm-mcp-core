@@ -48,11 +48,67 @@
         "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
       }
     },
+    "guard-control-provider-analysis-ci-module": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-provider-ci-allowed": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-provider-contract-ci-module": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-provider-contract-module": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-provider-core-tests": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-provider-http-allowed": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
     "guard-control-provider-product-module": {
       "description": "Fixture project below src/guard-controls/provider-product-module that BuildGuardsIT of pm-core builds to prove a build guard: a provider module may depend on pm-core and pm-provider-ci only. It is test data and never part of the reactor.",
       "generation": {
         "by": "architecture",
         "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-provider-sibling-module": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-runtime-core-tests": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
       }
     },
     "guard-control-runtime-library": {
@@ -69,6 +125,20 @@
         "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
       }
     },
+    "guard-control-runtime-workflow-tests": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
+    "guard-control-workflow-core-tests": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
+      }
+    },
     "guard-control-workflow-cui-http": {
       "description": "Fixture project below src/guard-controls/workflow-cui-http that BuildGuardsIT of pm-core builds to prove a build guard: pm-workflow must never depend on cui-http. It is test data and never part of the reactor.",
       "generation": {
@@ -81,6 +151,13 @@
       "generation": {
         "by": "architecture",
         "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-workflow-runtime-tests": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
       }
     },
     "pm-core": {
@@ -123,6 +200,13 @@
       "generation": {
         "by": "architecture",
         "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-provider-http": {
+      "description": "",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "3723a3cb3ee9e9d5d25df6668b9181b4435c2cd0cab5587d6e3f506fb2bf7c40"
       }
     },
     "pm-provider-sonar": {
