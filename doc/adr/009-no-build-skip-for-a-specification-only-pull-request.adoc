@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[ADR 015]
 
 == Date
 

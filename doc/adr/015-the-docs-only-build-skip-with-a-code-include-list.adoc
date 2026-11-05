@@ -1,0 +1,62 @@
+= ADR 015: The Docs-Only Build Skip with a Code Include List
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-05
+
+== Context
+
+ADR link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009] turned the docs-only skip of the reusable
+workflows off (`maven-build.skip-on-docs-only: false`), because the organisation's ignore list could only grow
+(`paths-ignore-extra`) and `**/*.adoc` and `doc/**` hid the specification the schema parity tests read. The price was a
+full build, about eight minutes, for every pull request, also for one that changes only `.plan/`, an ADR or developer
+documentation.
+
+`cuioss/cuioss-organization` v0.44.0
+(`5a641e5da90ae209472419a541b7566bf7f4172e`, the pin of `.github/workflows/maven.yml` and
+`.github/workflows/integration-tests.yml`) adds `maven-build.paths-code-extra`: globs that count as code even when the
+default ignore list or `paths-ignore-extra` matches them. Both the build and the integration-test workflow read it.
+
+The tests of this repository read these files the default ignore list matches:
+
+* `doc/specification/**`: the schema parity tests through `pm.specification.root` (ADR
+  link:007-specifications-of-the-engine-in-this-repository.adoc[007]), among them `FindingSchemaParityTest`,
+  `CredentialStoreMoveRecordParityTest`, `StalledScopeDetectorTest` and `UnitFrontmatterReaderTest`.
+* `doc/LogMessages.adoc`: `RuntimeLogMessagesTest` (`Path.of("..", "doc", "LogMessages.adoc")` from `pm-runtime`).
+* `.md` and `.adoc` fixtures below `src/test/resources` of `pm-core` and `pm-workflow`.
+
+== Decision
+
+The docs-only skip is on again: `skip-on-docs-only` is removed from `.github/project.yml`, so its default `true`
+applies. `maven-build.paths-code-extra` lists `doc/specification/**`, `doc/LogMessages.adoc` and `**/src/**`. A pull
+request that changes any file matching one of them builds; a pull request whose every file is matched by the ignore
+list and by none of them skips.
+
+`**/src/**` is wider than the fixtures it was found for: everything below a source tree is build input by definition,
+so a future `.md` resource is covered without a change of this list.
+
+== Alternatives Considered
+
+1. *Keep `skip-on-docs-only: false` (ADR 009).* Rejected: it builds every `.plan/` and ADR pull request, which no test
+   reads.
+2. *List each fixture directory instead of `**/src/**`.* Rejected: the list would have to follow every new resource
+   directory, and a forgotten one reopens the hole ADR 009 closed.
+
+== Consequences
+
+A pull request that changes only `.plan/`, ADRs, developer documentation, `README.md` or `.github/project.yml` skips
+the build again. A new test that reads a file outside `src/` that the ignore list matches must add its path to
+`paths-code-extra`; otherwise a change of only that file is reported green without the test having run.
+
+This pull request changes only `.github/project.yml` and ADRs, so its own build skips under the new setting. That a
+specification-only pull request builds can only be observed by the next such pull request.
+
+== Source
+
+The include list: `docs/Workflows.adoc` of `cuioss/cuioss-organization` at v0.44.0, section on
+`maven-build.paths-code-extra`. Supersedes ADR link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009].
