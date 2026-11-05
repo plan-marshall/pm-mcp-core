@@ -1,0 +1,53 @@
+= ADR 065: A Refused Lesson Transition Reports One Vocabulary of Unavailable States
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+Every transition of the lesson store acts only on a lesson that resolves `found` and is in the state the transition
+needs: `claim` refuses a lesson another plan holds and a retired one; `release` and the end of a claim are authorized by
+the durable `claim.plan_id`; `retire` refuses a claimed lesson; `revise` refuses a retired one. The specification reports
+such a refusal as `lesson_unavailable`, "naming the state and, for a claim, the claiming plan" (Store Schemas § Lesson
+Record, Claim), and the premise state of `source-lesson` acts on it.
+
+The resolver's states (`found`, `absent`, `present_unreadable`, `empty_shell`, `store_tampered`, `deleted_out_of_band`,
+`untracked`) are not enough: "claimed" and "retired" are states of a lesson resolved `found`, and a release of a lesson
+without a claim has no resolver state at all.
+
+== Decision
+
+`LessonResolution.Refusal` is the one vocabulary: the six non-found resolution states (the mapping is `Refusal.of`), plus
+`claimed` (carrying the claiming plan), `retired` and `unclaimed`. A transition that does not act returns
+`LessonResolution.Unavailable(lessonId, refusal, claimingPlan)`; a transition that acts returns its own outcome
+(`Claimed`, `Released`, `Retired`, `Revised`). A refusal is a value, never an exception.
+
+== Alternatives Considered
+
+* Throw a `StoreRefusal` for every refusal: `StoreRefusal` is the substrate's refusal of an unreadable or absent
+  document, and a refused transition is a state of a well-read lesson, not a defective store. Throwing would also make
+  the recovery of a plan's end handle exceptions where it needs to read a state.
+* Reuse `LessonResolution.State` alone: it has no word for "claimed", "retired" or "unclaimed" without overloading
+  `found`, and the caller could not tell "found and eligible" from "found and refused".
+* Return a boolean and a separate state: two values a caller can contradict.
+
+== Consequences
+
+* One switch over the vocabulary serves every caller; `source-lesson` maps `claimed` and `retired` to its
+  `lesson_unavailable` with the claiming plan beside it.
+* `Refusal.of` refuses `found`: a found lesson is never a refusal on its own, and a transition that refuses a found
+  lesson says which kind of unavailability it means.
+* The three integrity states travel as refusals too, so the caller of a transition never has to re-read the store to
+  learn why nothing happened.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record] (One Resolver, Four States; Claim; Retirement)
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
+* R14 (1): the decision is taken from the pair of the recorded front matter and the operation

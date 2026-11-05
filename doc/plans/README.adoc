@@ -114,13 +114,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:start-source-intake.adoc[`start-source-intake`]
 |The entry as a directory with its decision logs and transcript, the source directory and the move at creation, screened once stored and failing closed, rate limits, documents copied or moved, a claimed lesson ending with the landing
 |`open`
-|`machine-onboarding-unit`; `project-onboarding-unit`; `lesson-store`
+|`machine-onboarding-unit`; `project-onboarding-unit`
 |Milestones 3, 10, and 12; the client work of `pm-mcp-clients`
 
 |link:start-from-clients.adoc[`start-from-clients`]
 |Starting work from the clients: the bootstraps of a plan and an epic driven by the clients, the setup gate, sources as a list and the other sources, options asked when needed
 |`open`
-|`machine-onboarding-unit`; `project-onboarding-unit`; `start-source-intake` (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency); `lesson-store`
+|`machine-onboarding-unit`; `project-onboarding-unit`; `start-source-intake` (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency)
 |Milestones 7, 10, and 12; the client work of `pm-mcp-clients`
 
 |link:forgejo-provider.adoc[`forgejo-provider`]
@@ -150,7 +150,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`
-|`machine-onboarding-unit`; `project-onboarding-unit`; `lesson-store`
+|`machine-onboarding-unit`; `project-onboarding-unit`
 |Milestones 10 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]
@@ -309,11 +309,11 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |nothing
 |Milestone 14
 
-|link:lesson-store.adoc[`lesson-store`]
-|The project's lesson store around the lesson record: its id allocation, resolver, revision, retirement and claim under the lesson store lock
+|link:lesson-lifecycle.adoc[`lesson-lifecycle`]
+|The lesson store's remainder: the `submit:lesson` transition and its Q-Gate, the audience classification and the upstream release, the `arch-constraint` recurrence, the lesson maintenance submits, the retention sweeps, the operator acts on a lesson and the `stalled_lessons` population
 |`open`
 |nothing
-|Milestones 5 and 7
+|Milestones 5 and 10
 
 |`audit-trail`
 |Anchored audit trail
@@ -335,6 +335,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 
 |`enrolment-store`
 |Enrolment store, lifecycle gate and enrolment integrity
+|`done`
+|
+|
+
+|`lesson-store`
+|The project's lesson store around the lesson record: its id allocation, resolver, revision, retirement and claim under the lesson store lock
 |`done`
 |
 |

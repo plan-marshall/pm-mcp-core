@@ -2,10 +2,10 @@
   "id": "PLAN-V2-110",
   "slug": "null-contract-main-green",
   "workstream": "WS-11",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-110-null-contract-main-green",
+  "pr": "264,268,274,282",
+  "landing": "landings/PLAN-V2-110.md",
   "seq": 98
 }

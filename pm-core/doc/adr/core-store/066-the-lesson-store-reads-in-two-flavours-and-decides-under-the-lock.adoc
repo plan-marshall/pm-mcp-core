@@ -1,0 +1,57 @@
+= ADR 066: The Lesson Store Reads in Two Flavours and Decides Only Under the Lock
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+The lesson store is read by two kinds of caller. `source-lesson.choose` lists the candidates a model may pick, and the
+clients show a lesson beside its state: neither holds the lesson store lock, and neither must fail because a transaction
+of the store is in flight. `claim`, `release`, the end of a claim, `revise` and `retire` decide, and a decision taken on a
+view a writer is changing is a check-then-act across two locks (PM-IMPL-7).
+
+`ScopeIntegrity` already states the rule for the substrate: `verify` and `verifyAll` require the key of the scope and run
+the recovery first, and `snapshot` reports a difference from the digest sidecar as `DIGEST_UNVERIFIED` and decides
+nothing.
+
+== Decision
+
+`LessonStore` has two reads. `list()` and `get(LessonId)` take no lock and read through `ScopeIntegrity.snapshot`: a file
+that differs from its sidecar entry is `found` with `StoreIntegrity.DIGEST_UNVERIFIED`, and a journal of the scope in
+flight makes every read unverified. `get(transaction, LessonId)` requires the caller's transaction of the lesson scope,
+recovers the journal through `ScopeIntegrity.verify` and reports `store_tampered` or `deleted_out_of_band` where the
+snapshot reported a difference. Every transition uses the locked read.
+
+== Alternatives Considered
+
+* One read that decides: the lock-free caller would raise `store_tampered` for a store whose transaction is simply in
+  flight, and a candidate list could not be produced while a write is running.
+* A lock-free read only, with the transitions re-reading under the lock: the transitions would each duplicate the
+  recovery-and-compare sequence instead of calling the substrate's one implementation.
+* A cached resolution: the store is small and its writes are rare, but a cache would be a second state to invalidate
+  against the journal, which is exactly what the substrate forbids (R14 (4): decide from the record, never from a probe
+  that can flap).
+
+== Consequences
+
+* A caller that must not act on a lesson with an unverified digest reads `Found.integrity()`; the candidates of
+  `source-lesson.choose` are read lock-free, and `unclaimed()` lists only a lesson whose digest is `verified`, so a
+  tampered or untracked lesson never reaches a plan.
+* `store_tampered` and `untracked` are answers of the locked read alone: a lock-free reader never raises a digest verdict
+  on its own. The one integrity state it does decide is `deleted_out_of_band` — a sidecar entry whose file is gone is an
+  observed absence, never a digest verdict, and it must never be reported as `absent`.
+* The locked read hashes the bytes it decodes: a file replaced between the verification and the read is reported
+  `store_tampered`, so no transition decides on bytes that were never verified.
+* The transitions always pay the recovery check, which is a file-exists test when no journal is present.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Leases, Integrity & Testing § Lock-Free Snapshot Reads]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Leases, Integrity & Testing § Store Digest Verification]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]

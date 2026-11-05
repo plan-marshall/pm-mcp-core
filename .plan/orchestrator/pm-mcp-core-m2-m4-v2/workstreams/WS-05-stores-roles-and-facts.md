@@ -32,6 +32,7 @@ The durable stores and records of the core: the epic ledger records, the lesson 
 | PLAN-V2-65-corpus-schema-length-bounds | staged | Bound the strings the shipped corpus schemas match with a pattern |
 | PLAN-V2-95-lock-manager-channel-close | staged | Keep the lock manager OS lock across a JSONL append |
 | PLAN-V2-96-role-qualification-adapter | staged | The grading adapter of role qualification |
+| PLAN-V2-111-derived-facts-guard-coverage | staged | Guard coverage of the derived facts store: tests that can fail, no operator-only value in a reason, the lock-order watch item restored and the statements corrected (fix plan of the PLAN-V2-05 analysis) |
 
 ## Sequencing and Surface Notes
 

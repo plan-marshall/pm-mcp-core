@@ -1,0 +1,51 @@
+= ADR 063: The Lesson Id Is the UTC Hour and a Per-Hour Sequence, Drawn Under the Lesson Store Lock
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-02
+
+== Context
+
+A lesson is stored as `<lesson_id>.md`, and the schema fixes the identifier as the UTC date and hour of creation plus a
+per-hour sequence of at least three digits (Store Schemas § Lesson Record, Identifiers § `lesson_id`). The store must give
+two concurrent writers two ids, and a lesson file is never deleted, so an id that was handed out must never be handed out
+again. The other stores of `core.store` allocate differently: `PendingEntryStore` and `JobRecordStore` draw a random id and
+check it against the records present, because their ids carry no order.
+
+== Decision
+
+`LessonStore.allocate(transaction, clock)` formats the UTC hour of the clock and takes the sequence that follows every
+lesson file of that hour on disk, every sequence the sidecar records and every lesson the same transaction already holds
+as a target. The sequence has at least three digits and at most 50 (the identifier's 64-character bound less its
+14-character hour prefix and hyphen), so an hour holds a finite number of identifiers; allocation fails when the highest
+sequence of an hour is 50 nines. The draw and the create of the lesson happen in one transaction under the lesson store
+lock, so two writers never see the same set of files.
+
+== Alternatives Considered
+
+* A random id with a check-then-act draw, as the pending entry and job stores do: it abandons the ordered, clock-derived
+  identifier the schema states, and the ordering of the listing is what `unclaimed()` reads (newest first).
+* A counter file beside the store: a second document to keep consistent with the files, and a crash window between the
+  counter and the lesson the transaction writes.
+* Counting the files of the hour only, without the transaction's targets: two creates of one transaction would take the
+  same id, because the first target is not on disk yet.
+
+== Consequences
+
+* Two concurrent creates get two ids, and an id is never reused because a lesson file is never deleted.
+* The sequence of an hour is derived from the files present and from the sidecar entries, so an out-of-band delete does
+  not free an id: the deleted lesson's entry remains and the store reports it `deleted_out_of_band`, and `create` refuses
+  an id the sidecar records already as well as one a file names.
+* The allocation reads the directory and the sidecar once per create. Both are small reads under a lock the caller
+  already holds.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record]
+* link:../../../../doc/specification/identifiers/02-registry-stores-to-web.adoc#id-lesson-id[Identifiers § `lesson_id`]
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]

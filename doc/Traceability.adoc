@@ -1424,6 +1424,12 @@ link:../pm-core/src/test/resources/ported/build/PROVENANCE.adoc[Fixture provenan
 link:../pm-core/doc/developer/core-build.adoc#_ported_tests_and_fixture_provenance[Build Output Parsers Developer Guide § Ported Tests and Fixture Provenance],
 link:../pm-core/doc/adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR core-build/003]
 
+Implementation (the ported test data of the lesson store: the fifteen plain files of `pm-core/src/test/resources/ported/lessons/` — nine archived process lessons with a YAML front matter whose `lesson_id` is the legacy id the store could not address them by, and six headerless legacy lessons — committed once from the original's `manage-lessons` suite and from the cases of PM-WATCH-STORE-14 and -20, with the legacy mapping in test code only (`LessonFixtures`) and no Python and no `plan-marshall` checkout at test time; the removal buckets and the body-purging cases are not ported yet, because the verbs they exercise are not built): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java[LessonStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonResolution.java[LessonResolution]
+
+Verified by (the ported lesson fixtures): link:../pm-core/src/test/java/de/planmarshall/core/store/LessonResolverTest.java[LessonResolverTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRetirementTest.java[LessonRetirementTest]
+
 [#PM-TEST-3]
 === PM-TEST-3: State-Machine Invariant, Property & McpAssured Protocol Verification
 
@@ -1735,16 +1741,29 @@ link:../pm-core/doc/adr/core-store/059-an-unreadable-store-is-a-refusal.adoc[ADR
 Implementation (the lesson record and the file format of the project lesson store, `format_version` 1, read strictly with the front matter as YAML restricted to the JSON data model and written as one canonical JSON object; the lesson id grammar, the closed enumerations and the rules of the record; a file that does not decode as a value, never as an exception): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonId.java[LessonId],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LessonFrontMatter.java[LessonFrontMatter],
 link:../pm-core/src/main/java/de/planmarshall/core/store/Lesson.java[Lesson],
-link:../pm-core/src/main/java/de/planmarshall/core/store/LessonCodec.java[LessonCodec]
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonCodec.java[LessonCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java[LessonStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonResolution.java[LessonResolution]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/LessonIdTest.java[LessonIdTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterTest.java[LessonFrontMatterTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LessonCodecTest.java[LessonCodecTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterSchemaParityTest.java[LessonFrontMatterSchemaParityTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonFrontMatterSchemaParityTest.java[LessonFrontMatterSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreTest.java[LessonStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonResolverTest.java[LessonResolverTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRevisionTest.java[LessonRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRetirementTest.java[LessonRetirementTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonClaimTest.java[LessonClaimTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreCrashTest.java[LessonStoreCrashTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_lesson_record_and_file_format[Developer Guide § Lesson Record and File Format],
+link:../pm-core/doc/developer/core-store.adoc#_the_lesson_store[Developer Guide § The Lesson Store],
 link:../pm-core/doc/adr/core-store/061-the-lesson-front-matter-is-yaml-read-through-a-library.adoc[ADR core-store/061],
-link:../pm-core/doc/adr/core-store/062-the-lesson-classes-live-in-core-store.adoc[ADR core-store/062]
+link:../pm-core/doc/adr/core-store/062-the-lesson-classes-live-in-core-store.adoc[ADR core-store/062],
+link:../pm-core/doc/adr/core-store/063-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/063],
+link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.adoc[ADR core-store/065],
+link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066],
+link:../pm-core/doc/adr/core-store/067-the-lesson-store-builds-no-operator-act.adoc[ADR core-store/067]
 
 [#PM-IMPL-4]
 === PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives
@@ -2017,7 +2036,7 @@ link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-par
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]
 
-Implementation (the lock order with its assertion, the lock manager, the sibling lock files and the atomic write, the lock-free snapshot read that reports a digest mismatch as unverified, the common lease record with its store, the stale lease sweep, the shared format refusal, the JSONL append with its tail repair, the per-scope transaction journal with its replace, append and delete targets and its roll-forward recovery, the digest sidecar with its verification under the lock and its re-baseline, in which a store a transaction deleted is consistent, the ordered write across scopes with its reconciler seam, the enrolment store under the per-project enrolment lock of the machine store level, and the re-baseline of an enrolment that rewrites its sidecar record and reports the recorded against the current size and SHA-256; the `integrity_breach` condition, `accept-edit`, the concrete cross-scope flows, the footprint reconciliation, the lesson claims, the four lease stores with their own documents, the task leases, and the wiring of the lock manager, the recovery and the reconcilers into the daemon are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel],
+Implementation (the lock order with its assertion, the lock manager, the sibling lock files and the atomic write, the lock-free snapshot read that reports a digest mismatch as unverified, the common lease record with its store, the stale lease sweep, the shared format refusal, the JSONL append with its tail repair, the per-scope transaction journal with its replace, append and delete targets and its roll-forward recovery, the digest sidecar with its verification under the lock and its re-baseline, in which a store a transaction deleted is consistent, the ordered write across scopes with its reconciler seam, the enrolment store under the per-project enrolment lock of the machine store level, and the re-baseline of an enrolment that rewrites its sidecar record and reports the recorded against the current size and SHA-256; the `integrity_breach` condition, `accept-edit`, the concrete cross-scope flows, the footprint reconciliation, the four lease stores with their own documents, the task leases, and the wiring of the lock manager, the recovery and the reconcilers into the daemon are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LockOrder.java[LockOrder],
 link:../pm-core/src/main/java/de/planmarshall/core/service/LockManager.java[LockManager],
@@ -2037,6 +2056,8 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java[S
 link:../pm-core/src/main/java/de/planmarshall/core/store/JournalRecovery.java[JournalRecovery],
 link:../pm-core/src/main/java/de/planmarshall/core/store/DigestSidecar.java[DigestSidecar],
 link:../pm-core/src/main/java/de/planmarshall/core/store/ScopeIntegrity.java[ScopeIntegrity],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java[LessonStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LessonResolution.java[LessonResolution],
 link:../pm-core/src/main/java/de/planmarshall/core/store/OrderedWrite.java[OrderedWrite],
 link:../pm-core/src/main/java/de/planmarshall/core/store/CrossScopeReconciler.java[CrossScopeReconciler],
 link:../pm-core/src/main/java/de/planmarshall/core/store/EnrolmentStore.java[EnrolmentStore],
@@ -2062,6 +2083,12 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/JournalScopeTest.java[J
 link:../pm-core/src/test/java/de/planmarshall/core/store/ScopeTransactionTest.java[ScopeTransactionTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/JournalRecoveryTest.java[JournalRecoveryTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/ScopeIntegrityTest.java[ScopeIntegrityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreTest.java[LessonStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonResolverTest.java[LessonResolverTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRevisionTest.java[LessonRevisionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonRetirementTest.java[LessonRetirementTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonClaimTest.java[LessonClaimTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LessonStoreCrashTest.java[LessonStoreCrashTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/OrderedWriteTest.java[OrderedWriteTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/EnrolmentStoreTest.java[EnrolmentStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java[EnrolmentsTest]
@@ -2086,7 +2113,12 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusStoreTest
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
-link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store]
+link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../pm-runtime/doc/developer/runtime-lock.adoc[Developer Guide § The Lock Manager], link:../pm-core/doc/developer/core-store.adoc#_the_store_substrate[Developer Guide § Store Substrate], link:../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Developer Guide § Enrolment Store, The Store],
+link:../pm-core/doc/developer/core-store.adoc#_the_lesson_store[Developer Guide § The Lesson Store],
+link:../pm-core/doc/adr/core-store/063-the-lesson-id-is-the-utc-hour-and-a-per-hour-sequence.adoc[ADR core-store/063],
+link:../pm-core/doc/adr/core-store/064-the-end-of-a-claim-clears-the-claim-and-keeps-the-retirement.adoc[ADR core-store/064],
+link:../pm-core/doc/adr/core-store/065-the-vocabulary-of-the-unavailable-states.adoc[ADR core-store/065],
+link:../pm-core/doc/adr/core-store/066-the-lesson-store-reads-in-two-flavours-and-decides-under-the-lock.adoc[ADR core-store/066]
 
 Implementation (the derived-facts lock key and its level in the total order, after the local configuration lock and before the build-timings lock; the derived-facts store takes it for the re-read and the write of one entry, after every scope lock a caller may hold): link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LockLevel.java[LockLevel],
