@@ -70,6 +70,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import de.planmarshall.core.build.UnparsedEvidence;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.JobRunner.CancelCause;
@@ -84,11 +85,16 @@ import de.planmarshall.core.store.JobRecord.Scope;
 import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.ProjectEnrolment.Argv;
+import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
+import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
 import de.planmarshall.runtime.job.JobEvidence.Exited;
 import de.planmarshall.runtime.job.JobEvidence.ParseResult;
 import de.planmarshall.runtime.job.JobEvidence.Signalled;
 import de.planmarshall.runtime.job.JobEvidence.Termination;
+import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
+import de.planmarshall.runtime.job.SettlementStep.Name;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -172,7 +178,7 @@ class SubprocessJobRunnerTest {
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives,
             SubprocessJobRunner.Environment environment) {
         return runner(termination, environment,
-                (kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING, primitives);
+                (job, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING, primitives);
     }
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
@@ -183,13 +189,25 @@ class SubprocessJobRunnerTest {
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
             SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives,
             InstantSource clock) {
-        return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
+        return runner(termination, environment, parser, primitives, clock, Map.of());
+    }
+
+    private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
+            SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives,
+            InstantSource clock, Map<Name, SettlementStep> settlementSteps) {
+        return runner(termination, environment, parser, primitives, clock, settlementSteps, fixture.pipeline());
+    }
+
+    private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
+            SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives,
+            InstantSource clock, Map<Name, SettlementStep> settlementSteps, VerifyNotResolvePipeline pipeline) {
+        return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(pipeline)
                 .launcher(new PmExecLauncher(home)).termination(termination).environment((job, ignoredJobId) -> {
             observations.add(new Observation(jobs.records(),
                     locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
             return environment.of(job, ignoredJobId);
         }).probeEnvironment((candidate, jobId) -> ENVIRONMENT).parser(parser).primitives(primitives).clock(clock)
-                .build();
+                .settlementSteps(settlementSteps).build();
     }
 
     /**
@@ -398,7 +416,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .settledRecordsKept(1).build();
             var first = started(runner.start(git(30, "ok")));
             settled(first);
@@ -708,7 +726,7 @@ class SubprocessJobRunnerTest {
             // every reading of the clock is one second later, so the bound passes after a few polls, not after 10 s
             InstantSource clock = () -> origin.plusSeconds(ticks.getAndIncrement());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (kind, output) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
+                    (job, output) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
 
             var result = assertTimeoutPreemptively(Duration.ofSeconds(5),
                     () -> runner.start(git(3600, "sleep", "3600")));
@@ -1089,7 +1107,7 @@ class SubprocessJobRunnerTest {
         void parserThrows() throws Exception {
             var failure = new IllegalStateException("the parser failed");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (kind, output) -> {
+                    (job, output) -> {
                         throw failure;
                     }, request -> Optional.empty());
 
@@ -1103,7 +1121,7 @@ class SubprocessJobRunnerTest {
         void parserFailsWithError() throws Exception {
             var failure = new StackOverflowError("a regular expression recursed too deep");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (kind, output) -> {
+                    (job, output) -> {
                         throw failure;
                     }, request -> Optional.empty());
 
@@ -1174,7 +1192,7 @@ class SubprocessJobRunnerTest {
             var failure = new IllegalStateException("the parser failed");
             var lockFailure = new IllegalStateException("the lock manager failed inside the settlement");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (kind, output) -> {
+                    (job, output) -> {
                         locks.failNextTransaction(lockFailure);
                         throw failure;
                     }, request -> Optional.empty());
@@ -1201,7 +1219,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .supervision((name, onFailure, task) -> {
                         throw failure;
                     }).build();
@@ -1432,7 +1450,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
                     .audit(events::add).build();
             var jobId = JobId.random(JobId.Kind.PROBE);
             var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
@@ -1781,6 +1799,132 @@ class SubprocessJobRunnerTest {
                 assertEquals(kind == JobId.Kind.PROBE || kind == JobId.Kind.LLM,
                         SubprocessJobRunner.tracksDescendants(kind), kind::wireName);
             }
+        }
+    }
+
+    /**
+     * The seams of the runner that the parser and the settlement open: the parser receives the job record, the runner
+     * accepts replacement settlement steps, and a failed build keeps its raw log and yields the bounded evidence the
+     * later failure gathering wraps.
+     */
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("opens the parser and settlement seams")
+    class ParserAndSettlementSeams {
+
+        private SubprocessJobRunner.Environment environment() {
+            return (job, ignoredJobId) -> ENVIRONMENT;
+        }
+
+        private JobId startedBuild(String budgetKey, JobRequest.Target target) {
+            var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.BUILD,
+                    new Scope(Scope.Type.PLAN, "plan-one"), budgetKey, 30, FLOOR,
+                    fixture.request(fixture.root.toString(), target), Optional.empty()));
+            return assertInstanceOf(JobRunner.StartResult.Started.class, result,
+                    () -> "the build job of key %s should start: %s".formatted(budgetKey, result)).jobId();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(BuildSystem.class)
+        @DisplayName("the parser receives the job record of every build system")
+        void parserReceivesTheRecord(BuildSystem system) throws Exception {
+            var budgetKey = system.wireName() + ":verify";
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var seen = new AtomicReference<JobRecord>();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+                    (job, output) -> {
+                        seen.set(job);
+                        return SUCCESS;
+                    }, request -> Optional.empty(), null);
+
+            var jobId = startedBuild(budgetKey,
+                    new JobRequest.HostToolCall(HostToolName.GIT, List.of("ok")));
+            settled(jobId);
+
+            assertAll(
+                    () -> assertNotNull(seen.get(), "the parser ran for the ended job"),
+                    () -> assertEquals(budgetKey, seen.get().budgetKey(), "the parser received the job key"),
+                    () -> assertEquals(JobId.Kind.BUILD, seen.get().kind(), "the parser received the kind"));
+        }
+
+        @Test
+        @DisplayName("a replacement settlement step runs in the runner's settlement")
+        void settlementStepsReachTheRunner() throws Exception {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var ran = new AtomicBoolean();
+            var replacement = new SettlementStep() {
+
+                @Override
+                public Name name() {
+                    return Name.CHANGE_LEDGER_ROW;
+                }
+
+                @Override
+                public Outcome run(Settled settled) {
+                    ran.set(true);
+                    return new Outcome.Done("replacement ran");
+                }
+            };
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+                    (job, output) -> SUCCESS, request -> Optional.empty(), null,
+                    Map.of(Name.CHANGE_LEDGER_ROW, replacement));
+
+            var jobId = started(runner.start(git(30, "ok")));
+            settled(jobId);
+
+            assertTrue(ran.get(), "the replacement step ran in the settlement");
+        }
+
+        @Test
+        @DisplayName("refuses a misnamed settlement step at construction")
+        void refusesAMisnamedSettlementStep() {
+            var misnamed = new SettlementStep() {
+
+                @Override
+                public Name name() {
+                    return Name.TIMING_OBSERVATION;
+                }
+
+                @Override
+                public Outcome run(Settled settled) {
+                    return new Outcome.Done("ran");
+                }
+            };
+
+            var termination = new TerminationProtocol(ProcessGroupSignals.system());
+            var env = environment();
+            Map<Name, SettlementStep> steps = Map.of(Name.METRICS_ROW, misnamed);
+
+            assertThrows(IllegalArgumentException.class, () -> runner(termination, env,
+                    (job, output) -> SUCCESS, request -> Optional.empty(), null, steps));
+        }
+
+        @Test
+        @DisplayName("an unparsed build keeps its raw log and yields the bounded evidence")
+        void failedUnparsedKeepsTheRawLogAndYieldsTheEvidence() throws Exception {
+            var wrapper = fixture.root.resolve(JobEnrolmentFixture.MVNW);
+            Files.writeString(wrapper, "#!/bin/sh\necho 'opaque failure'\nexit 3\n");
+            Files.setPosixFilePermissions(wrapper, PosixFilePermissions.fromString("rwx------"));
+            fixture.enrol();
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            DefaultTemplates verifyTemplate = (buildSystem, verb) -> "verify".equals(verb)
+                    ? Optional.of(new Argv(List.of(new Argv.Literal("verify")))) : Optional.empty();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+                    new BuildOutputParser(), request -> Optional.empty(), null, Map.of(),
+                    fixture.pipeline(verifyTemplate));
+
+            var jobId = startedBuild("maven:verify", new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
+            var settledJob = settled(jobId);
+            var rawLog = Files.readString(jobs.logPath(jobId));
+            var evidence = UnparsedEvidence.of("plan-one", jobId, rawLog);
+
+            assertAll(
+                    () -> assertEquals(Fate.FAILED_UNPARSED, settledJob.fate(), "the build ended failed_unparsed"),
+                    () -> assertEquals(10, settledJob.outcomeRow(), "row 10 decided the fate"),
+                    () -> assertTrue(rawLog.contains("opaque failure"), "the raw log is kept beside the record"),
+                    () -> assertTrue(evidence.excerpt().contains("opaque failure"), "the excerpt carries the tail"),
+                    () -> assertEquals("pm://plan/plan-one/builds/" + jobId.value() + "/log", evidence.excerptUri(),
+                            "the evidence names the full log"));
         }
     }
 

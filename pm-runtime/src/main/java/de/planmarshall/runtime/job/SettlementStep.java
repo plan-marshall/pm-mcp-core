@@ -148,6 +148,12 @@ public interface SettlementStep {
 
     /**
      * Runs the step for one settled job.
+     * <p>
+     * A step after the fate never throws. A failure of its store that it can name is an {@link Outcome.Failed}; the
+     * settlement turns a runtime fault it could not report as a value into a {@code Failed} as well, so a later step
+     * never hides a durable end from the settlement wait. The fate step is the exception: a fault it does not report as
+     * a {@code Failed} propagates so the runner can retry the record write; a store fault it names is a {@code Failed}
+     * step and the record stays for the recovery.
      *
      * @param settled the job and its slot
      * @return what the step did

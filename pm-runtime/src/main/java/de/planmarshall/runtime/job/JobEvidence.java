@@ -152,7 +152,7 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
     }
 
     /**
-     * What the parser of the job's kind found in the job log.
+     * What the parser of the job's log found in the job log.
      *
      * @param successMarker           whether the positive success marker of the kind was found: the terminal success
      *                                marker of a build, the post-condition of a git job, a payload of the expected
