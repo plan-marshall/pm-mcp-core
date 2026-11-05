@@ -82,9 +82,9 @@ operations with different permission sets.
   head the caller did not review.
 * *Remote text is untrusted.* A comment body and an author login are data; a caller that emits or persists them passes a
   provider message through the runtime's redaction.
-* *A blank optional value is absent.* A user id or an issue's milestone title that GitHub returns blank is read as
-  absent, never handed to the value types as a blank; `Identity` and `Issue` keep refusing a blank, and the adapter
-  filters it where the JSON enters.
+* *A blank optional value is absent.* A blank user id is filtered out and the identity read is `FAILED`, never handed
+  to `Identity` as a blank; a blank milestone title is read as no milestone. `Identity` and `Issue` keep refusing a
+  blank, and the adapter filters it where the JSON enters.
 * *An expiry the parser cannot read is no expiry.* The token expiry header is read in the `yyyy-MM-dd HH:mm:ss z` form
   and in the ISO and offset forms (`+0000`, `+00:00`) of the same instant; a header in none of those forms is reported
   as no expiry, never as an error and never as a guessed instant.
@@ -95,9 +95,9 @@ operations with different permission sets.
 credential. `whoami` reads `GET /user` and, with a repository named, `GET /repos/{owner}/{repo}` for the permissions; the
 kind comes from the token prefix (`github_pat_` fine-grained, `ghp_` classic), the scopes from `x-oauth-scopes` and the
 expiry from `github-authentication-token-expiration`, both response headers the shared base keeps for
-`HttpClient.getWithHeaders`. The expiry is read in the `yyyy-MM-dd HH:mm:ss z` form and in the ISO and offset forms
-(`+0000`, `+00:00`) of the same instant; a header the parser cannot read is reported as no expiry, and the user id and
-an issue's milestone title are filtered as absent when GitHub returns them blank. For a GitHub App the adapter reads the App's slug from `GET /app` with the App JWT, the bot
+`HttpClient.getWithHeaders`. The expiry is read in the `yyyy-MM-dd HH:mm:ss z` form and in the ISO and offset forms of
+the same instant (`+0000`, `+00:00`); a header the parser cannot read is reported as no expiry, and a blank user id or
+milestone title is filtered as absent. For a GitHub App the adapter reads the App's slug from `GET /app` with the App JWT, the bot
 user id from `GET /users/{slug}[bot]` and the operator's login from `GET /user` with the user access token.
 `issueView` reads `GET /repos/{owner}/{repo}/issues/{n}` with the token the caller minted for
 `GitHubOperation.ISSUE_READ`, flags the `pull_request` member and refuses a pull request. `issueComment` posts through

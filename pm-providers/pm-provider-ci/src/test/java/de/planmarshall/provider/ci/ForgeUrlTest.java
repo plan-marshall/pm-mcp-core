@@ -208,17 +208,22 @@ class ForgeUrlTest {
     @DisplayName("covers the hostile path and host normalisation branches")
     void coversHostilePathAndHostBranches() {
         var encodedSlash = ForgeUrl.resolve("https://github.com/o%2Fr/issues/1").url().orElseThrow();
+        var overLongPath = ForgeUrl.resolve("https://gitlab.com/" + ("a".repeat(100) + "/").repeat(21)
+                + "-/issues/1");
+        var backslash = ForgeUrl.resolve("https://github.com/o/r%5Cissues/1");
+        var encodedParent = ForgeUrl.resolve("https://github.com/o/%2e%2e/r/issues/1");
+        var tooManySegments = ForgeUrl.resolve(
+                "https://github.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z");
 
         assertAll("the hostile path and host branches",
-                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                        ForgeUrl.resolve("https://github.com/o/r/issues/" + "1".repeat(2049)).outcome(),
-                        "a path over the length bound is refused"),
-                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                        ForgeUrl.resolve("https://github.com/o/r%5Cissues/1").outcome(),
-                        "a backslash in the path is refused"),
-                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                        ForgeUrl.resolve("https://github.com/o/%2e%2e/r/issues/1").outcome(),
-                        "an encoded parent segment is refused"),
+                () -> assertEquals("the path is not a plain URL path", overLongPath.detail(),
+                        "a path over the length bound is refused by the path rule"),
+                () -> assertEquals("the path is not a plain URL path", backslash.detail(),
+                        "a backslash in the path is refused by the path rule"),
+                () -> assertEquals("the path has an empty, dotted or over-long segment", encodedParent.detail(),
+                        "an encoded parent segment is refused by the segment rule"),
+                () -> assertEquals("the path has an empty, dotted or over-long segment", tooManySegments.detail(),
+                        "a GitHub path over 25 segments is refused by the segment-count rule"),
                 () -> assertEquals("o", encodedSlash.repository().ownerOrPath(),
                         "an encoded slash separates owner and name"),
                 () -> assertEquals("r", encodedSlash.repository().name(),
@@ -230,10 +235,6 @@ class ForgeUrlTest {
                 () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE,
                         ForgeUrl.resolve("https://github.com./o/r/issues/1").outcome(),
                         "a trailing-dot host is an unknown forge"),
-                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                        ForgeUrl.resolve("https://github.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z")
-                                .outcome(),
-                        "a GitHub path over 25 segments is refused"),
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
                         ForgeUrl.resolve("https://github.com/?note=1").outcome(),
                         "a query-only URL has no issue path"),

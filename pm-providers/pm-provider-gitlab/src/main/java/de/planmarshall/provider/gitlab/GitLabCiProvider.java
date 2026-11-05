@@ -159,14 +159,6 @@ public final class GitLabCiProvider implements CiProvider {
         return new GitLabClient(http, project);
     }
 
-    /** @return the answer of the merge-request read, so a failed lookup is not read as "no merge request" */
-    private Response mergeRequestProbe(RepositoryRef repository, int iid) {
-        String path = PROJECT_PATH
-                + URLEncoder.encode(repository.ownerOrPath() + "/" + repository.name(), StandardCharsets.UTF_8)
-                + "/merge_requests/" + iid;
-        return http.get(path);
-    }
-
     private Result<Map<String, String>> permissions(@Nullable RepositoryRef repository) {
         if (repository == null) {
             return Result.ok(Map.of());
