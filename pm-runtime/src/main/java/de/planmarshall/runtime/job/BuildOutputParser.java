@@ -20,6 +20,7 @@ import de.planmarshall.core.build.MavenOutputParser;
 import de.planmarshall.core.build.NpmErrorParser;
 import de.planmarshall.core.build.ParsedBuild;
 import de.planmarshall.core.build.PyprojectOutputParser;
+import de.planmarshall.core.build.Severity;
 import de.planmarshall.core.build.TapOutputParser;
 import de.planmarshall.core.build.TestCounts;
 import de.planmarshall.core.build.TypeScriptOutputParser;
@@ -28,20 +29,22 @@ import de.planmarshall.core.store.JobRecord;
 
 /**
  * The adapter from the native build log parsers of {@code core.build} to the runner's
- * {@link SubprocessJobRunner.OutputParser} (Job Runtime § Build Output Parsers and § Unparseable Output Fallback).
+ * {@link SubprocessJobRunner.OutputParser} (Job Runtime § Native Build Output Parsers and § Unparseable Output
+ * Fallback).
  * <p>
  * The build system of the job decides the parser. It is the first component of the job's budget key, which the
  * Timeouts &amp; Budgets specification fixes as {@code <build_system>:<verb>[@<module_id>]}: {@code maven},
  * {@code gradle}, {@code npm} and {@code pyproject}. An {@code npm} log can be written by several tools, so the log's
- * own markers select among the npm error parser and the TypeScript, ESLint, Jest and TAP scanners; a log that carries
- * none of their markers, a key of an unknown build system and a job of a kind other than {@code build} all yield
- * {@link JobEvidence.ParseResult#NOTHING}.
+ * own markers select among the npm error parser and the TypeScript, ESLint, Jest and TAP scanners, the first match
+ * winning; a log that carries none of their markers, a key of an unknown build system and a job of a kind other than
+ * {@code build} all yield {@link JobEvidence.ParseResult#NOTHING}.
  * <p>
  * The parsed build becomes the {@link JobEvidence.ParseResult}: the positive success marker the tool printed, the
- * number of diagnostics the parser located, and the contradicting evidence — a located diagnostic or a measured
- * failing test count. A green {@code status} alone is not a success marker: a tool that prints no positive marker (npm
- * errors, {@code tsc}, ESLint, Jest and TAP do not print a success banner) keeps a zero exit {@code indeterminate} by
- * row 8 of the outcome derivation rather than guessing a success from the absence of diagnostics.
+ * number of diagnostics the parser located, and the contradicting evidence — an error-severity diagnostic or a
+ * measured failing test count. A warning beside a green build contradicts nothing. A green {@code status} alone is not
+ * a success marker: a tool that prints no positive marker (npm errors, {@code tsc}, ESLint, Jest and TAP do not print a
+ * success banner) keeps a zero exit {@code indeterminate} by row 8 of the outcome derivation rather than guessing a
+ * success from the absence of diagnostics.
  *
  * @since 0.1
  */
@@ -53,7 +56,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
 
     private static final Pattern ESLINT_SUMMARY = Pattern.compile("[✖✗]\\s*\\d+\\s+problems?");
 
-    private static final Pattern JEST_MARKER = Pattern.compile("(?m)^\\s*(?:PASS|FAIL)\\s+\\S+|(?m)^\\s*Tests:\\s+");
+    private static final Pattern JEST_MARKER = Pattern.compile("(?m)^\\s*(?:PASS|FAIL)\\s+\\S+|^\\s*Tests:\\s+");
 
     private static final Pattern TAP_MARKER = Pattern.compile("(?m)^(?:TAP version \\d+|1\\.\\.\\d+|(?:not )?ok \\d+)");
 
@@ -116,7 +119,9 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     }
 
     private static JobEvidence.ParseResult result(ParsedBuild build, boolean unplacedErrors) {
-        var contradicting = !build.diagnostics().isEmpty() || unplacedErrors || failingTests(build.testCounts());
+        var contradicting = build.diagnostics().stream()
+                .anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR)
+                || unplacedErrors || failingTests(build.testCounts());
         return new JobEvidence.ParseResult(build.successMarker(), build.diagnostics().size(), contradicting,
                 Optional.empty());
     }

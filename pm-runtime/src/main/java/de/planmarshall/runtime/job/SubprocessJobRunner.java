@@ -373,7 +373,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.probeEnvironment = probeEnvironment != null ? probeEnvironment : defaultEnvironment;
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
-        this.settlementSteps = settlementSteps == null ? Map.of() : Map.copyOf(settlementSteps);
+        this.settlementSteps = settlementSteps == null ? Map.of() : JobSettlement.replacements(settlementSteps);
         this.clock = clock == null ? InstantSource.system() : clock;
         this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
         this.audit = audit == null ? NO_AUDIT : audit;

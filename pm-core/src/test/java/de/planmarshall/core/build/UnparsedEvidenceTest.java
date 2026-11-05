@@ -97,6 +97,20 @@ class UnparsedEvidenceTest {
     }
 
     @Test
+    @DisplayName("never splits a UTF-8 character at the byte bound")
+    void cutsAtACharacterBoundary() {
+        var log = "x".repeat(3001) + "é".repeat(3000);
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+
+        assertAll(
+                () -> assertTrue(evidence.excerpt().getBytes(StandardCharsets.UTF_8).length
+                        <= UnparsedEvidence.MAX_BYTES, "the byte bound holds"),
+                () -> assertFalse(evidence.excerpt().contains("\uFFFD"), "no character is cut in half"),
+                () -> assertTrue(evidence.excerpt().endsWith("é"), "the tail is kept"));
+    }
+
+    @Test
     @DisplayName("refuses an absent plan id, job id or log")
     void refusesAbsentInput() {
         assertAll(
@@ -105,5 +119,17 @@ class UnparsedEvidenceTest {
                 () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(PLAN, null, "log")),
                 () -> assertThrows(NullPointerException.class, () -> UnparsedEvidence.of(PLAN, JOB, null)),
                 () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence("", " ")));
+    }
+
+    @Test
+    @DisplayName("refuses a directly constructed excerpt beyond a bound")
+    void refusesAnUnboundedExcerpt() {
+        var uri = "pm://plan/plan-one/builds/b-0123456789abcdef/log";
+
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new UnparsedEvidence("x".repeat(UnparsedEvidence.MAX_BYTES + 1), uri)),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new UnparsedEvidence("line\n".repeat(UnparsedEvidence.MAX_LINES + 1), uri)));
     }
 }

@@ -20,9 +20,10 @@ cutting an unbounded log into the request or leaking a credential the log may ec
 
 * `UnparsedEvidence` (package `core.build`) carries exactly two components: the bounded, redacted excerpt and the resource
   URI of the full log. It has no diagnostic component, so the model cannot be handed one that was never parsed.
-* `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the last `MAX_LINES` (50) complete lines, redacts every
+* `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the tail of the last `MAX_LINES` (50) lines, redacts every
   secret-shaped value through the existing `SecretRedactor` of `core.queue`, and keeps at most `MAX_BYTES` (4096) bytes of
-  UTF-8 counted from the end of the redacted text. A cut never splits a UTF-8 character.
+  UTF-8 counted from the end of the redacted text; the byte bound can cut the earliest retained line. A cut never
+  splits a UTF-8 character. The canonical constructor refuses an excerpt beyond either bound.
 * The URI is `pm://plan/{plan_id}/builds/{job_id}/log`; the full log stays beside the job record and is read as `JobLog`
   reads it.
 

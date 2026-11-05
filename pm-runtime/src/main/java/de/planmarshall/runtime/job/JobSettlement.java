@@ -96,14 +96,7 @@ public final class JobSettlement {
             Map<Name, SettlementStep> replacements) {
         Objects.requireNonNull(store, "store");
         Objects.requireNonNull(lockManager, "lockManager");
-        var replacement = Objects.requireNonNull(replacements, "replacements");
-        for (var entry : replacement.entrySet()) {
-            if (Objects.requireNonNull(entry.getValue(), "step").name() != Objects.requireNonNull(entry.getKey(),
-                    "name")) {
-                throw new IllegalArgumentException("A replacement step is filed under another name than its own: "
-                        + entry.getKey());
-            }
-        }
+        var replacement = replacements(replacements);
         return new JobSettlement(Arrays.stream(Name.values()).<SettlementStep>map(name -> {
             var replaced = replacement.get(name);
             if (replaced != null) {
@@ -116,6 +109,27 @@ public final class JobSettlement {
                     SettlementStep.notImplemented(name);
             };
         }).toList());
+    }
+
+    /**
+     * Validates a map of replacement steps and freezes it, so a caller that carries one can fail at construction rather
+     * than at the first settlement.
+     *
+     * @param replacements the steps by the name they replace
+     * @return a frozen copy of the map
+     * @throws NullPointerException     if the map, a name or a step is {@code null}
+     * @throws IllegalArgumentException if a replacement names a step other than its key
+     */
+    static Map<Name, SettlementStep> replacements(Map<Name, SettlementStep> replacements) {
+        var checked = Objects.requireNonNull(replacements, "replacements");
+        for (var entry : checked.entrySet()) {
+            var name = Objects.requireNonNull(entry.getKey(), "name");
+            if (Objects.requireNonNull(entry.getValue(), "step").name() != name) {
+                throw new IllegalArgumentException("A replacement step is filed under another name than its own: "
+                        + name);
+            }
+        }
+        return Map.copyOf(checked);
     }
 
     /**

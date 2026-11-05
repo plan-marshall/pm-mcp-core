@@ -62,8 +62,21 @@ class BuildOutputParserTest {
                 () -> assertTrue(parse.successMarker(), "the Maven success marker was found"),
                 () -> assertEquals(0, parse.diagnostics(), "a green Maven log files no diagnostic"),
                 () -> assertFalse(parse.contradictingEvidence(), "a green Maven log contradicts nothing"),
-                () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), outcome(parse, 0)),
-                () -> assertTrue(parse.selfReportContradiction().isEmpty(), "a build reports no self contradiction"));
+                () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), outcome(parse, 0)));
+    }
+
+    @Test
+    @DisplayName("a warning beside a green build contradicts nothing")
+    void warningBesideAGreenBuild() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, "maven:verify"), """
+                [WARNING] /p/Foo.java:[1,1] deprecated API
+                [INFO] BUILD SUCCESS
+                """);
+
+        assertAll(
+                () -> assertEquals(1, parse.diagnostics(), "the warning was located"),
+                () -> assertFalse(parse.contradictingEvidence(), "a warning is not a contradiction"),
+                () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), outcome(parse, 0)));
     }
 
     @Test

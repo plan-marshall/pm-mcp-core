@@ -24,6 +24,10 @@
  * ported from the {@code plan-marshall} parser module of the same tool, and its tests are ported from that module's
  * pytest suite.
  * <p>
+ * The package also carries {@link de.planmarshall.core.build.UnparsedEvidence}, the bounded, redacted tail of a raw build
+ * log and the URI of the full log, which a build that ended {@code failed_unparsed} hands on without inventing a
+ * diagnostic.
+ * <p>
  * The category table of the JVM parsers is compiled once, in {@link de.planmarshall.core.build.JvmCategoryPatterns}, and
  * shared by Maven and Gradle. The port reproduces the originals' parsing, and every behaviour it changes on purpose — an
  * {@code [ERROR]} line no pattern recognises is {@link de.planmarshall.core.build.Category#UNRECOGNIZED}, an unmeasured

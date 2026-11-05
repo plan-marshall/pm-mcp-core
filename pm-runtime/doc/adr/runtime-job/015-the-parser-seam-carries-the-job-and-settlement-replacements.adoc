@@ -12,8 +12,8 @@ Accepted
 == Context
 
 The runner asked its `OutputParser` for the parse of a job log by the job's kind and the log text. A build job's log is
-written by one of four build systems, and the native parsers of `core.build` are one per build system (and, for npm, one
-per tool whose markers the log carries). The kind and the text cannot tell which build system ran: the build tool is
+written by one of four build systems, and `core.build` carries one parser per build system (plus the OpenRewrite finding
+log and the four npm tool scanners). The kind and the text cannot tell which build system ran: the build tool is
 named by the budget key, which the Timeouts & Budgets specification fixes as `<build_system>:<verb>[@<module_id>]` and
 which the job record carries. The seam therefore could not select a parser at all.
 

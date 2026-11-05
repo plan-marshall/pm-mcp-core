@@ -24,10 +24,11 @@ import de.planmarshall.core.store.JobId;
  * hand on, and handing the model a made-up one would let it act on a compiler error that never existed. The excerpt is
  * the only content, and it says what the tool actually printed.
  * <p>
- * The excerpt is the last {@value #MAX_LINES} complete lines of the raw log, bounded to at most {@value #MAX_BYTES}
- * bytes of UTF-8 from its end, with every secret-shaped value replaced by {@link SecretRedactor}. The bound is applied
- * after the redaction, because a replacement can lengthen a line. The full log itself stays beside the job record as
- * {@code <job_id>.log}, which is the resource the URI names.
+ * The excerpt is the tail of the raw log: at most the last {@value #MAX_LINES} lines, bounded to at most
+ * {@value #MAX_BYTES} bytes of UTF-8 counted from its end, so the byte bound can cut the earliest retained line. Every
+ * secret-shaped value is replaced by {@link SecretRedactor}; the bound is applied after the redaction, because a
+ * replacement can lengthen a line. The full log itself stays beside the job record as {@code <job_id>.log}, which is the
+ * resource the URI names.
  *
  * @param excerpt    the bounded, redacted tail of the raw log; empty for an empty log
  * @param excerptUri the resource URI of the full raw log
@@ -46,13 +47,19 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
 
     /**
      * @throws NullPointerException     if the excerpt or the URI is {@code null}
-     * @throws IllegalArgumentException if the URI is blank
+     * @throws IllegalArgumentException if the URI is blank, or the excerpt exceeds the line or byte bound
      */
     public UnparsedEvidence {
         Objects.requireNonNull(excerpt, "excerpt");
         Objects.requireNonNull(excerptUri, "excerptUri");
         if (excerptUri.isBlank()) {
             throw new IllegalArgumentException("The excerpt URI must not be blank");
+        }
+        if (excerpt.lines().count() > MAX_LINES) {
+            throw new IllegalArgumentException("The excerpt exceeds %d lines".formatted(MAX_LINES));
+        }
+        if (excerpt.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
+            throw new IllegalArgumentException("The excerpt exceeds %d bytes".formatted(MAX_BYTES));
         }
     }
 
