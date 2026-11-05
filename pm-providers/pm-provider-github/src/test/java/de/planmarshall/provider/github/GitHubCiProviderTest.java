@@ -239,6 +239,8 @@ class GitHubCiProviderTest {
 
     @Test
     @DisplayName("reads an expiry header with a numeric offset +0000")
+    @SuppressWarnings("java:S5976")
+    // three wire forms; a static @MockResponseConfig cannot vary a parameter
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +0000"})
