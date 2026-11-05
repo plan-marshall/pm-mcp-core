@@ -187,7 +187,7 @@ class AtomicStoreFileTest {
 
                 assertAll("the store was replaced and the directory named",
                         () -> assertTrue(failure.getMessage().contains("directory cannot be forced to disk"),
-                                "the failure names the directory: " + failure.getMessage()),
+                                "the failure names the directory"),
                         () -> assertArrayEquals(NEW, Files.readAllBytes(store),
                                 "the store was replaced despite the directory"));
             } finally {

@@ -708,7 +708,7 @@ class JournalRecoveryTest {
             var ownStaged = workspace.resolve("workspace/state.json.tmp." + id);
             var pendingStaged = workspace.resolve("pending/queue.jsonl.append." + id);
             var planStaged = store(STATUS + ".tmp." + id);
-            var anotherPlan = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+            var anotherPlan = "other-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
             var otherPlanStaged = JournalScope.plan(base, project, anotherPlan).resolve(STATUS + ".tmp." + id);
             for (var file : List.of(ownStaged, pendingStaged, planStaged, otherPlanStaged)) {
                 Files.createDirectories(file.getParent());

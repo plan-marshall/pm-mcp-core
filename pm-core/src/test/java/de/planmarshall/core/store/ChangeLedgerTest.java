@@ -73,7 +73,7 @@ class ChangeLedgerTest {
         clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next()),
                 ZoneOffset.UTC);
         plan = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-        otherPlan = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        otherPlan = "other-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         taskId = "TASK-" + Generators.integers(1, 999).next();
         deliverableId = "D" + Generators.integers(1, 99).next();
         scope = JournalScope.plan(base, PROJECT, plan);

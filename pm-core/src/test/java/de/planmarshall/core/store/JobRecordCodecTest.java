@@ -59,7 +59,7 @@ class JobRecordCodecTest {
     static final Instant PROCESS_STARTED_AT = SPAWNED_AT.plusMillis(20);
     static final Instant ENDED_AT = SPAWNED_AT.plusSeconds(60);
     static final long CHILD_WALL_MS = 59_000L;
-    static final String ARGV_DIGEST = "%064x".formatted(Generators.longs().next());
+    static final String ARGV_DIGEST = "0123456789abcdef".repeat(4);
 
     private static final Path FILE = Path.of("/pm-base/projects/sample/jobs/b-0123456789abcdef.json");
 

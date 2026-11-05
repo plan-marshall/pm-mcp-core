@@ -70,8 +70,8 @@ class DerivedFactStoreConcurrencyTest {
         project = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         plan = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         derivation = Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-        firstName = Generators.letterStrings(3, 10).next();
-        secondName = Generators.letterStrings(3, 10).next();
+        firstName = "first-" + Generators.letterStrings(3, 10).next();
+        secondName = "second-" + Generators.letterStrings(3, 10).next();
         var kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec());
         kinds.register(DerivedFactKind.PUSH_REMOTE, spec());

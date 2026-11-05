@@ -302,7 +302,7 @@ class LeaseStoreTest {
                     () -> assertEquals(orphanedAt, orphaned.owner().orphanedAt(),
                             "the orphaned instant is the one given"),
                     () -> assertEquals(firstRuntime, orphaned.owner().holderInstance(),
-                            "the holder is kept"),
+                            "the holder instance is kept"),
                     () -> assertEquals(List.of(orphaned), leaseStore.snapshot(),
                             "the store holds the orphaned lease"),
                     () -> assertEquals(List.of(), locks.held(), "the lock is released"));

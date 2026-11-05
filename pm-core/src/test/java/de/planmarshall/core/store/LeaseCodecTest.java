@@ -322,7 +322,7 @@ class LeaseCodecTest {
                     () -> assertEquals("unreadable", refusal.outcome().code(),
                             "the code names unreadable"),
                     () -> assertEquals(OptionalInt.empty(), refusal.found(),
-                            "no version is found"),
+                            "no version is reported"),
                     () -> assertEquals(STORE, refusal.file(), "the store file is named"));
         }
 
@@ -436,7 +436,7 @@ class LeaseCodecTest {
         void holderInstance() {
             var startedAt = holder.runtimeStartedAt();
 
-            assertAll("a holder needs a process id of at least 1 and a start instant",
+            assertAll("a holder needs a positive pid and a start instant",
                     () -> assertThrows(IllegalArgumentException.class, () -> new HolderInstance(0, startedAt),
                             "a process id of zero is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new HolderInstance(1, null),
@@ -448,7 +448,7 @@ class LeaseCodecTest {
         void owner() {
             var epicId = "epic-" + Generators.longs(1, Long.MAX_VALUE).next();
 
-            assertAll("an owner needs a valid project id and a scope id per scope type",
+            assertAll("an owner needs its project and scope ids",
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new LeaseOwner("PM", ScopeType.PROJECT, null, holder, null),
                             "an upper-case project id is refused"),
