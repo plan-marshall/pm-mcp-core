@@ -158,7 +158,7 @@ public class JestOutputParser {
         boolean found = false;
         boolean inconsistent = false;
         boolean unreadSummary = lines.stream()
-                .anyMatch(line -> line.strip().startsWith("Tests:") && !SUMMARY.matcher(line).find());
+                .anyMatch(line -> line.strip().startsWith(TESTS_PREFIX) && !SUMMARY.matcher(line).find());
         for (String line : lines) {
             Matcher matcher = SUMMARY.matcher(line);
             while (matcher.find()) {
