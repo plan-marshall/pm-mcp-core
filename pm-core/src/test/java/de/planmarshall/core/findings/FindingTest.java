@@ -16,9 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -39,22 +42,37 @@ import de.planmarshall.core.findings.Finding.Screen;
 /**
  * The findings ledger record and the rules of its schema (PM-IMPL-1, PM-IMPL-2).
  */
+@EnableGeneratorController
 @DisplayName("Finding")
 class FindingTest {
 
-    private static final String HEAD = "0123456789abcdef0123456789abcdef01234567";
-    private static final Instant CREATED = Instant.parse("2026-10-11T12:00:00Z");
+    private static final String HEAD = "%040x".formatted(Generators.longs().next());
+    private static final Instant CREATED = Instant.ofEpochSecond(
+            Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final String FINDING_ID = "F-" + Generators.integers(1, 99_999).next();
+    private static final String SUMMARY = Generators.letterStrings(5, 40).next();
+    private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String FILE_PATH = "src/" + Generators.letterStrings(3, 12).next() + ".java";
+    private static final int LINE = Generators.integers(1, 500).next();
+    private static final String ISSUE_KEY = Generators.letterStrings(3, 20).next();
+    private static final String CHECK_NAME = Generators.letterStrings(3, 20).next();
+    private static final String AUTHOR = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String BOT_KIND = "b" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String THREAD_ID = Generators.letterStrings(3, 20).next();
+    private static final String COMMENT_ID = Generators.letterStrings(3, 20).next();
+    private static final int PR_NUMBER = Generators.integers(1, 99_999).next();
+    private static final String SPAN_REASON = Generators.letterStrings(5, 20).next();
 
     private static Finding.FindingBuilder base(FindingSourceKind source) {
         return Finding.builder()
                 .formatVersion(Finding.FORMAT_VERSION)
-                .findingId("F-1")
+                .findingId(FINDING_ID)
                 .source(source)
                 .severity(Severity.MAJOR)
                 .blocking(true)
                 .status(FindingStatus.OPEN)
                 .resolution(Resolution.PENDING)
-                .summary("a finding")
+                .summary(SUMMARY)
                 .transmitOutcome(TransmitOutcome.PENDING)
                 .resolveState(ResolveState.NOT_APPLICABLE)
                 .createdAt(CREATED);
@@ -62,16 +80,17 @@ class FindingTest {
 
     private static Finding.FindingBuilder analysis() {
         return base(FindingSourceKind.ANALYSIS)
-                .provider("analysis-provider")
-                .filePath("src/Main.java")
-                .line(42)
-                .providerRef(new ProviderRef(null, null, null, null, "issue-key-1"));
+                .provider(PROVIDER)
+                .filePath(FILE_PATH)
+                .line(LINE)
+                .providerRef(new ProviderRef(null, null, null, null, ISSUE_KEY));
     }
 
     private static Finding.FindingBuilder ci() {
         return base(FindingSourceKind.CI)
                 .raisedAtHead(HEAD)
-                .ciFailure(new CiFailure("build", CiFailure.FailureClass.FAILURE, CiFailure.FailureKind.TEST, true));
+                .ciFailure(new CiFailure(CHECK_NAME, CiFailure.FailureClass.FAILURE, CiFailure.FailureKind.TEST,
+                        true));
     }
 
     private static Finding.FindingBuilder qgate() {
@@ -82,11 +101,12 @@ class FindingTest {
 
     private static Finding.FindingBuilder review() {
         return base(FindingSourceKind.GITHUB_PR)
-                .author("reviewer")
-                .botKind("review-bot")
+                .author(AUTHOR)
+                .botKind(BOT_KIND)
                 .reviewedCommitSha(HEAD)
                 .screen(new Screen(Screen.Verdict.CLEAN, false, null))
-                .providerRef(new ProviderRef(7, "thread-1", "comment-1", ProviderRef.CommentKind.REVIEW_THREAD, null));
+                .providerRef(new ProviderRef(PR_NUMBER, THREAD_ID, COMMENT_ID,
+                        ProviderRef.CommentKind.REVIEW_THREAD, null));
     }
 
     static Stream<Arguments> sourceFamilies() {
@@ -138,15 +158,18 @@ class FindingTest {
         @Test
         @DisplayName("the requirement references are copied and cannot be changed afterwards")
         void requirementRefsCopied() {
-            var refs = new ArrayList<>(List.of("PM-IMPL-1"));
+            var first = "PM-" + Generators.integers(1, 99).next();
+            var second = "PM-" + Generators.integers(100, 199).next();
+            var third = "PM-" + Generators.integers(200, 299).next();
+            var refs = new ArrayList<>(List.of(first));
 
             var finding = qgate().requirementRefs(refs).build();
-            refs.add("PM-IMPL-2");
+            refs.add(second);
             var held = finding.requirementRefs();
 
             assertAll(
-                    () -> assertEquals(List.of("PM-IMPL-1"), held),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> held.add("PM-IMPL-3")));
+                    () -> assertEquals(List.of(first), held),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> held.add(third)));
         }
 
         @Test
@@ -185,15 +208,19 @@ class FindingTest {
         @Test
         @DisplayName("the nested members of a carried and resolved finding are accepted")
         void carriedAndResolved() {
+            var lessonRef = Generators.letterStrings(3, 12).next();
+            var evidenceRef = FILE_PATH + ":" + LINE;
+            var spanStart = Generators.integers(0, 10).next();
+            var spanEnd = Generators.integers(0, 10).next();
             var builder = analysis()
                     .status(FindingStatus.CARRIED)
                     .disposition(Disposition.SUPPRESS)
                     .suppressReason(SuppressReason.DUPLICATE)
                     .scopeClass(ScopeClass.IN_FOOTPRINT)
-                    .carriedTo(new CarriedTo(CarriedTo.Target.LESSON, "lesson-1", CREATED))
-                    .evidence(new Evidence(Evidence.EvidenceClass.SUBSTITUTE, "src/Main.java:42", true))
+                    .carriedTo(new CarriedTo(CarriedTo.Target.LESSON, lessonRef, CREATED))
+                    .evidence(new Evidence(Evidence.EvidenceClass.SUBSTITUTE, evidenceRef, true))
                     .screen(new Screen(Screen.Verdict.SUSPICIOUS, true,
-                            List.of(new Screen.Span(0, 4, "instruction-like text"))));
+                            List.of(new Screen.Span(spanStart, spanEnd, SPAN_REASON))));
 
             assertDoesNotThrow(builder::build);
         }
@@ -239,7 +266,7 @@ class FindingTest {
         @Test
         @DisplayName("a provider on a finding of another source is refused")
         void providerOnOtherSource() {
-            assertRefused(qgate().provider("analysis-provider"), "provider is required iff source is analysis");
+            assertRefused(qgate().provider(PROVIDER), "provider is required iff source is analysis");
         }
 
         @ParameterizedTest(name = "\"{0}\"")
@@ -258,7 +285,7 @@ class FindingTest {
         @Test
         @DisplayName("a CI failure on a finding of another source is refused")
         void ciFailureOnOtherSource() {
-            var failure = new CiFailure("build", CiFailure.FailureClass.FAILURE, CiFailure.FailureKind.TEST, true);
+            var failure = new CiFailure(CHECK_NAME, CiFailure.FailureClass.FAILURE, CiFailure.FailureKind.TEST, true);
 
             assertRefused(qgate().ciFailure(failure), "ci_failure is required iff source is ci");
         }
@@ -305,7 +332,7 @@ class FindingTest {
         @Test
         @DisplayName("an issue key on a finding of another source than analysis is refused")
         void issueKeyOnOtherSource() {
-            var reference = new ProviderRef(7, null, null, null, "issue-key-1");
+            var reference = new ProviderRef(PR_NUMBER, null, null, null, ISSUE_KEY);
 
             assertRefused(review().providerRef(reference), "provider_ref.issue_key is set only for source analysis");
         }
@@ -347,9 +374,12 @@ class FindingTest {
             var overlong = "r".repeat(201);
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Screen.Span(-1, 4, "reason")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Screen.Span(0, -1, "reason")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Screen.Span(0, 4, overlong)));
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Screen.Span(-1, 4, SPAN_REASON)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Screen.Span(0, -1, SPAN_REASON)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Screen.Span(0, 4, overlong)));
         }
 
         @ParameterizedTest(name = "{0}")

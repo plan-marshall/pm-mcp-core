@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -34,8 +36,13 @@ import org.junit.jupiter.api.io.TempDir;
  * The build test of the shipped profile set (PM-CLIENT-5, Profile Sets): every profile the release ships loads and
  * validates, its {@code client_id} is the name of its resource, and the detection precedences are pairwise different.
  */
+@EnableGeneratorController
 @DisplayName("Shipped client profiles")
 class ShippedProfilesTest {
+
+    private static final String JAR = Generators.letterStrings(3, 10).next() + ".jar";
+    private static final String NESTED = "profiles/nested/" + Generators.letterStrings(3, 10).next() + ".json";
+    private static final String ELSEWHERE = "elsewhere/" + Generators.letterStrings(3, 10).next() + ".json";
 
     @Test
     @DisplayName("every shipped profile loads and validates")
@@ -77,12 +84,12 @@ class ShippedProfilesTest {
     @DisplayName("a shipped set is read from the JAR of the dependency")
     void readsAJar(@TempDir Path directory) throws Exception {
         var document = ProfileFixtures.validBytes();
-        var jarFile = directory.resolve("pm-api.jar");
+        var jarFile = directory.resolve(JAR);
         try (var jar = new JarOutputStream(Files.newOutputStream(jarFile))) {
             addEntry(jar, "profiles/", null);
             addEntry(jar, "profiles/acme-cli.json", document);
-            addEntry(jar, "profiles/nested/other.json", document);
-            addEntry(jar, "elsewhere/third.json", document);
+            addEntry(jar, NESTED, document);
+            addEntry(jar, ELSEWHERE, document);
         }
 
         try (var loader = new URLClassLoader(new URL[]{jarFile.toUri().toURL()}, null)) {

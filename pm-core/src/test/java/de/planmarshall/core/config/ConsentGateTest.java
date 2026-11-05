@@ -15,10 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,12 +31,24 @@ import org.junit.jupiter.api.Test;
  * consent state answered {@code yes} or {@code yes_remember}, or where its kind is remembered; a {@code no} records
  * nothing; an act of the operator's own needs no consent.
  */
+@EnableGeneratorController
 @DisplayName("Consent gate")
 class ConsentGateTest {
 
-    private static final Instant NOW = Instant.parse("2026-10-29T10:00:00Z");
+    private static final Instant NOW = Instant.ofEpochSecond(
+            Generators.longs(1_600_000_000L, 1_900_000_000L).next());
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
-    private static final String SHA = "a".repeat(64);
+    private static final String SHA = "%064x".formatted(Generators.longs().next());
+    private static final String OTHER_SHA = "%064x".formatted(Generators.longs().next());
+    private static final String PROJECT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_PROJECT = "q" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String SCRIPT = "bin/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT)
+            + ".sh";
+    private static final String OTHER_SCRIPT = "bin/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT)
+            + ".sh";
+    private static final String DEVICE = "dev-"
+            + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
+    private static final String NOT_A_DEVICE = Generators.letterStrings(4, 10).next().toLowerCase(Locale.ROOT);
 
     private static ConsentGate gate(Consent... consents) {
         return new ConsentGate(new ConsentStore.Snapshot(List.of(consents), 0L), CLOCK);
@@ -105,26 +120,26 @@ class ConsentGateTest {
     @Test
     @DisplayName("a remembered project kind passes for its project only")
     void rememberedProjectOnly() {
-        var gate = remembered(ConsentKind.INSPECT_CHECKOUT, "pm-mcp-core", List.of());
+        var gate = remembered(ConsentKind.INSPECT_CHECKOUT, PROJECT, List.of());
 
         assertAll(
-                () -> assertTrue(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, "pm-mcp-core"),
+                () -> assertTrue(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, PROJECT),
                         ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()),
-                () -> assertFalse(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, "other"),
+                () -> assertFalse(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT),
                         ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()));
     }
 
     @Test
     @DisplayName("run_checkout_scripts passes only for the scripts and digests it covers")
     void rememberedScripts() {
-        var granted = new ConsentScript("bin/build.sh", SHA);
-        var gate = remembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, "pm-mcp-core", List.of(granted));
+        var granted = new ConsentScript(SCRIPT, SHA);
+        var gate = remembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT, List.of(granted));
 
         assertAll(
-                () -> assertTrue(gate.answer(ConsentGate.Request.checkoutScripts("pm-mcp-core", List.of(granted)),
+                () -> assertTrue(gate.answer(ConsentGate.Request.checkoutScripts(PROJECT, List.of(granted)),
                         ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()),
-                () -> assertFalse(gate.answer(ConsentGate.Request.checkoutScripts("pm-mcp-core",
-                                List.of(new ConsentScript("bin/build.sh", "b".repeat(64)))),
+                () -> assertFalse(gate.answer(ConsentGate.Request.checkoutScripts(PROJECT,
+                                List.of(new ConsentScript(SCRIPT, OTHER_SHA))),
                         ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()));
     }
 
@@ -153,9 +168,9 @@ class ConsentGateTest {
     void scope() {
         var gate = empty();
         var inspect = ConsentGate.Request.machine(ConsentKind.INSPECT_CHECKOUT);
-        var withProject = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.of("pm-mcp-core"), List.of());
+        var withProject = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.of(PROJECT), List.of());
         var withScripts = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.empty(),
-                List.of(new ConsentScript("bin/a.sh", SHA)));
+                List.of(new ConsentScript(OTHER_SCRIPT, SHA)));
         var noProject = Optional.<String>empty();
         var machineKindWithProject = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
@@ -178,8 +193,8 @@ class ConsentGateTest {
     void device() {
         var gate = empty();
         var request = ConsentGate.Request.machine(ConsentKind.SCAN_PROVIDERS);
-        var paired = Optional.of("dev-0123456789ab");
-        var laptop = Optional.of("laptop");
+        var paired = Optional.of(DEVICE);
+        var laptop = Optional.of(NOT_A_DEVICE);
         var remembered = gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, paired);
         var device = remembered.toRecord().orElseThrow().deviceId();
         var deviceOnCli = assertThrows(IllegalArgumentException.class,
@@ -191,8 +206,8 @@ class ConsentGateTest {
 
         assertAll(
                 () -> assertEquals(paired, device),
-                () -> assertTrue(deviceOnCliMessage.contains("dev-0123456789ab")),
-                () -> assertTrue(notADeviceMessage.contains("laptop")));
+                () -> assertTrue(deviceOnCliMessage.contains(DEVICE)),
+                () -> assertTrue(notADeviceMessage.contains(NOT_A_DEVICE)));
     }
 
     @Test

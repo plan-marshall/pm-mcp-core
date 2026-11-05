@@ -39,6 +39,7 @@ import de.planmarshall.core.profile.fixtures.ClientNamedFixture;
  * <p>
  * The control fixture {@link ClientNamedFixture} proves that the scan finds a client named in a constant pool.
  */
+// Every datum in this class is a contract: the guarded harness names, the control fixture and the scanned package path.
 @DisplayName("Harness neutrality of the profile loader")
 class ProfileNeutralityArchTest {
 

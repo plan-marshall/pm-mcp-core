@@ -11,9 +11,11 @@ package de.planmarshall.core.profile;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import de.cuioss.test.generator.Generators;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -22,6 +24,10 @@ import java.util.Map;
  * only; no test fixture of production code names a client.
  */
 final class ProfileFixtures {
+
+    private static final String INSTALL_HINT =
+            "install." + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final int IDLE_TIMEOUT_SECONDS = Generators.integers(241, 7_200).next();
 
     private ProfileFixtures() {
     }
@@ -79,7 +85,7 @@ final class ProfileFixtures {
         var headless = new LinkedHashMap<String, Object>();
         headless.put("executable", "acme");
         headless.put("install_locations", new ArrayList<>(List.of("~/.acme/bin")));
-        headless.put("install_hint", "install.acme");
+        headless.put("install_hint", INSTALL_HINT);
         headless.put("auth_probe", authProbe());
         headless.put("models_probe", null);
         headless.put("weights_probe", null);
@@ -182,7 +188,7 @@ final class ProfileFixtures {
     private static Map<String, Object> connection() {
         var connection = new LinkedHashMap<String, Object>();
         connection.put("transport", "stdio");
-        connection.put("idle_timeout_seconds", 1800);
+        connection.put("idle_timeout_seconds", IDLE_TIMEOUT_SECONDS);
         connection.put("bounded_wait_seconds", 240);
         connection.put("progress_resets_timeout", true);
         return connection;

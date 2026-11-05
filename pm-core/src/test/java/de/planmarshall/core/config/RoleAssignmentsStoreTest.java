@@ -17,8 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,15 +38,24 @@ import de.planmarshall.core.store.StoreRefusal;
  * The role assignment store (Store Schemas § Role Assignments, PM-WORK-1): per role its harness, model, effort and optional
  * escalation, with the effort's three states, and the revision rule of every write.
  */
+@EnableGeneratorController
 @DisplayName("Role assignment store")
 class RoleAssignmentsStoreTest {
 
+    private static final String HARNESS = "p" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String STANDARD_MODEL = "m" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String FAST_MODEL = "f" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String FRONTIER_MODEL = "r" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String PROJECT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+
     private static final String DOCUMENT = """
             {"format_version":1,"revision":2,"roles":{
-              "implement":{"harness":"acme-cli","model":"acme-standard","effort":"high"},
-              "screener":{"harness":"acme-cli","model":"acme-fast","effort":null,
-                          "escalation":{"harness":"acme-cli","model":"acme-standard","effort":"medium"}},
-              "outline":{"harness":"acme-cli","model":"acme-frontier"}}}""";
+              "implement":{"harness":"%s","model":"%s","effort":"high"},
+              "screener":{"harness":"%s","model":"%s","effort":null,
+                          "escalation":{"harness":"%s","model":"%s","effort":"medium"}},
+              "outline":{"harness":"%s","model":"%s"}}}"""
+            .formatted(HARNESS, STANDARD_MODEL, HARNESS, FAST_MODEL, HARNESS, STANDARD_MODEL,
+                    HARNESS, FRONTIER_MODEL);
 
     @TempDir
     Path base;
@@ -69,7 +81,7 @@ class RoleAssignmentsStoreTest {
                 () -> assertEquals(Optional.of(new EffortValue("high")), roles.get("implement").effortValue()),
                 () -> assertEquals(EffortSetting.DEFAULT, roles.get("screener").effort()),
                 () -> assertEquals(EffortSetting.INHERIT, roles.get("outline").effort()),
-                () -> assertEquals("acme-standard",
+                () -> assertEquals(STANDARD_MODEL,
                         roles.get("screener").escalation().orElseThrow().model()),
                 () -> assertEquals(Optional.of(new EffortValue("medium")),
                         roles.get("screener").escalation().orElseThrow().effort()),
@@ -82,11 +94,11 @@ class RoleAssignmentsStoreTest {
     @DisplayName("writes every effort state, the escalation and the incremented revision")
     void write() {
         var roles = Map.of(
-                "implement", RoleAssignmentValue.of("acme-cli", "acme-standard", "high"),
-                "screener", new RoleAssignmentValue("acme-cli", "acme-fast", EffortSetting.DEFAULT, Optional.empty(),
-                        Optional.of(new Escalation("acme-cli", "acme-standard",
+                "implement", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, "high"),
+                "screener", new RoleAssignmentValue(HARNESS, FAST_MODEL, EffortSetting.DEFAULT, Optional.empty(),
+                        Optional.of(new Escalation(HARNESS, STANDARD_MODEL,
                                 Optional.of(new EffortValue("medium"))))),
-                "outline", RoleAssignmentValue.inheritEffort("acme-cli", "acme-frontier"));
+                "outline", RoleAssignmentValue.inheritEffort(HARNESS, FRONTIER_MODEL));
 
         store.write(roles, 0L);
 
@@ -102,7 +114,7 @@ class RoleAssignmentsStoreTest {
     @DisplayName("a change against an older revision is refused with the assignments the document holds")
     void conflict() throws Exception {
         Files.writeString(file, DOCUMENT, UTF_8);
-        var stale = Map.of("implement", RoleAssignmentValue.of("acme-cli", "acme-fast", "low"));
+        var stale = Map.of("implement", RoleAssignmentValue.of(HARNESS, FAST_MODEL, "low"));
 
         var conflict = assertThrows(SettingsConflict.class, () -> store.write(stale, 1L));
 
@@ -116,15 +128,15 @@ class RoleAssignmentsStoreTest {
     @Test
     @DisplayName("the project's store is guarded by the project's local-configuration lock")
     void projectStore() throws Exception {
-        Files.createDirectories(base.resolve("projects").resolve("pm-mcp-core"));
-        var project = new RoleAssignmentsStore(RoleAssignmentsStore.project(base, "pm-mcp-core"), new TestLocks());
+        Files.createDirectories(base.resolve("projects").resolve(PROJECT));
+        var project = new RoleAssignmentsStore(RoleAssignmentsStore.project(base, PROJECT), new TestLocks());
 
-        project.write(Map.of("implement", RoleAssignmentValue.of("acme-cli", "acme-standard", null)), 0L);
+        project.write(Map.of("implement", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, null)), 0L);
 
         assertAll(
                 () -> assertEquals(1, project.read().roles().size()),
                 () -> assertEquals(EffortSetting.DEFAULT, project.read().roles().get("implement").effort()),
-                () -> assertTrue(Files.exists(base.resolve("projects").resolve("pm-mcp-core")
+                () -> assertTrue(Files.exists(base.resolve("projects").resolve(PROJECT)
                         .resolve(RoleAssignmentsStore.FILE_NAME))));
     }
 
@@ -137,12 +149,12 @@ class RoleAssignmentsStoreTest {
         var noEffort = Optional.<EffortValue>empty();
         var noEscalation = Optional.<Escalation>empty();
         var missingEffort = assertThrows(IllegalArgumentException.class,
-                () -> new RoleAssignmentValue("acme-cli", "acme-standard", EffortSetting.VALUE, noEffort,
+                () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.VALUE, noEffort,
                         noEscalation));
         var effortWithoutSetting = assertThrows(IllegalArgumentException.class,
-                () -> new RoleAssignmentValue("acme-cli", "acme-standard", EffortSetting.INHERIT, highEffort,
+                () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.INHERIT, highEffort,
                         noEscalation));
-        var upper = Map.of("Upper", RoleAssignmentValue.of("acme-cli", "acme-standard", "high"));
+        var upper = Map.of("Upper", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, "high"));
         var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L));
         var roleBytes = Files.readAllBytes(fileWithBadRole);
         var readRefused = assertThrows(StoreRefusal.class,

@@ -42,6 +42,7 @@ import de.planmarshall.core.SpecificationDocument;
  * the record equals the schema's {@code enum} of its member. The schema is read from the specification of this repository
  * below {@value SpecificationDocument#ROOT_PROPERTY}.
  */
+// Every datum in this class is a contract: schema document paths, JSON member names and document anchors.
 @DisplayName("Finding schema parity")
 class FindingSchemaParityTest {
 

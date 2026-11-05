@@ -88,6 +88,7 @@ import de.planmarshall.core.guard.fixtures.StoreDependencyFixture;
  * Each control fixture of {@code de.planmarshall.core.guard.fixtures} that this rule is applied to proves that the
  * rule fails where it must.
  */
+// Every datum in this class is a contract: package names, method signatures, fixture names and violation targets.
 @DisplayName("Analysis and findings boundary of pm-core")
 class AnalysisBoundaryArchTest {
 

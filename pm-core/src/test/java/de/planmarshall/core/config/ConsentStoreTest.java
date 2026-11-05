@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -24,6 +26,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,12 +43,22 @@ import de.planmarshall.core.store.StoreRefusal;
  * their scope, the digests of {@code run_checkout_scripts}, the revision of the document, and the withdrawal that leaves
  * nothing recorded.
  */
+@EnableGeneratorController
 @DisplayName("Consent store")
 class ConsentStoreTest {
 
-    private static final Instant GRANTED = Instant.parse("2026-10-29T10:00:00Z");
-    private static final String SHA = "a".repeat(64);
-    private static final String OTHER_SHA = "b".repeat(64);
+    private static final Instant GRANTED = Instant.ofEpochSecond(
+            Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final String SHA = "%064x".formatted(Generators.longs().next());
+    private static final String OTHER_SHA = "%064x".formatted(Generators.longs().next());
+    private static final String PROJECT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_PROJECT = "o" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String ANY_PROJECT = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String SCRIPT_BASE = Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+    private static final String SCRIPT = "scripts/" + SCRIPT_BASE + ".sh";
+    private static final String OTHER_SCRIPT = "scripts/" + SCRIPT_BASE + "-other.sh";
+    private static final String DEVICE = "dev-"
+            + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
 
     @TempDir
     Path base;
@@ -87,7 +100,7 @@ class ConsentStoreTest {
                 () -> assertEquals(1, read.consents().size()),
                 () -> assertEquals(1L, read.revision()),
                 () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.empty())),
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.of("any-project"))),
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.of(ANY_PROJECT))),
                 () -> assertEquals(ConsentKind.SCAN_HARNESSES, read.consents().getFirst().kind()),
                 () -> assertEquals(Consent.Channel.CLI, read.consents().getFirst().channel()));
     }
@@ -107,43 +120,43 @@ class ConsentStoreTest {
     @Test
     @DisplayName("a project kind is remembered for its project only")
     void projectScope() {
-        store.grant(Consent.project(ConsentKind.INSPECT_CHECKOUT, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
+        store.grant(Consent.project(ConsentKind.INSPECT_CHECKOUT, PROJECT, GRANTED, Consent.Channel.CLI,
                 Optional.empty()), 0L);
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.of("pm-mcp-core"))),
-                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.of("other-project"))),
+                () -> assertTrue(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.of(PROJECT))),
+                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.of(OTHER_PROJECT))),
                 () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.empty())),
-                () -> assertEquals(1, read.ofProject("pm-mcp-core").size()),
-                () -> assertTrue(read.ofProject("other-project").isEmpty()));
+                () -> assertEquals(1, read.ofProject(PROJECT).size()),
+                () -> assertTrue(read.ofProject(OTHER_PROJECT).isEmpty()));
     }
 
     @Test
     @DisplayName("run_checkout_scripts is remembered per script digest, and asks again for a changed one")
     void checkoutScripts() {
-        var granted = new ConsentScript("scripts/build.sh", SHA);
-        store.grant(Consent.checkoutScripts("pm-mcp-core", List.of(granted), GRANTED, Consent.Channel.WEB,
-                Optional.of("dev-0123456789ab")), 0L);
+        var granted = new ConsentScript(SCRIPT, SHA);
+        store.grant(Consent.checkoutScripts(PROJECT, List.of(granted), GRANTED, Consent.Channel.WEB,
+                Optional.of(DEVICE)), 0L);
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of("pm-mcp-core"),
+                () -> assertTrue(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(PROJECT),
                         List.of(granted))),
-                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of("pm-mcp-core"),
-                        List.of(new ConsentScript("scripts/build.sh", OTHER_SHA)))),
-                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of("pm-mcp-core"),
-                        List.of(new ConsentScript("scripts/test.sh", SHA)))));
+                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(PROJECT),
+                        List.of(new ConsentScript(SCRIPT, OTHER_SHA)))),
+                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(PROJECT),
+                        List.of(new ConsentScript(OTHER_SCRIPT, SHA)))));
     }
 
     @Test
     @DisplayName("granting the same (kind, project) again replaces the entry instead of adding one")
     void replaceEntry() {
-        store.grant(Consent.project(ConsentKind.MODEL_COST, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
+        store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, GRANTED, Consent.Channel.CLI,
                 Optional.empty()), 0L);
         var replacedAt = GRANTED.plusSeconds(60);
 
-        store.grant(Consent.project(ConsentKind.MODEL_COST, "pm-mcp-core", replacedAt, Consent.Channel.WEB,
+        store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, replacedAt, Consent.Channel.WEB,
                 Optional.empty()), store.read().revision());
 
         var read = store.read();
@@ -208,12 +221,12 @@ class ConsentStoreTest {
     @DisplayName("drops every entry of a project and leaves the machine's")
     void removeProject() {
         store.grant(machine(ConsentKind.SCAN_HARNESSES), 0L);
-        store.grant(Consent.project(ConsentKind.INSPECT_CHECKOUT, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
+        store.grant(Consent.project(ConsentKind.INSPECT_CHECKOUT, PROJECT, GRANTED, Consent.Channel.CLI,
                 Optional.empty()), store.read().revision());
-        store.grant(Consent.project(ConsentKind.MODEL_COST, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
+        store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, GRANTED, Consent.Channel.CLI,
                 Optional.empty()), store.read().revision());
 
-        var removed = store.removeProject("pm-mcp-core", store.read().revision());
+        var removed = store.removeProject(PROJECT, store.read().revision());
 
         assertAll(
                 () -> assertEquals(2, removed),
@@ -257,14 +270,14 @@ class ConsentStoreTest {
     @Test
     @DisplayName("a remembered and a withdrawn consent append their operator records")
     void audit() {
-        store.grant(Consent.project(ConsentKind.MODEL_COST, "pm-mcp-core", GRANTED, Consent.Channel.CLI,
+        store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, GRANTED, Consent.Channel.CLI,
                 Optional.empty()), 0L);
-        store.withdraw(ConsentKind.MODEL_COST, Optional.of("pm-mcp-core"), store.read().revision());
+        store.withdraw(ConsentKind.MODEL_COST, Optional.of(PROJECT), store.read().revision());
 
         assertAll(
                 () -> assertEquals(List.of("consent_remembered", "consent_withdrawn"),
                         events.stream().map(AuditEvent::event).toList()),
-                () -> assertEquals("pm-mcp-core",
+                () -> assertEquals(PROJECT,
                         events.getFirst().details().get(AuditEvent.DETAIL_PROJECT_ID)),
                 () -> assertEquals("model_cost",
                         events.getFirst().details().get(AuditEvent.DETAIL_KIND)));
