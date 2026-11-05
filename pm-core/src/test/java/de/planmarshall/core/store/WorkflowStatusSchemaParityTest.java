@@ -9,11 +9,15 @@
  */
 package de.planmarshall.core.store;
 
+import static de.planmarshall.core.store.QuestionRecordCodecTest.text;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -43,7 +47,10 @@ import de.planmarshall.core.store.RetryCounters.RetryRule;
  * record (PM-SEC-3). A member, key or value
  * added to or removed from the schema without the code fails here instead of being refused or accepted unseen at run
  * time. The schema is read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY}.
+ * The specification documents, their headings, the member names and the closed values are contracts; the ids, the
+ * texts, the device, the evidence, the comment reference and the instants of the full request are generated.
  */
+@EnableGeneratorController
 @DisplayName("Workflow state store schema parity")
 class WorkflowStatusSchemaParityTest {
 
@@ -68,7 +75,7 @@ class WorkflowStatusSchemaParityTest {
         var expected = properties.keySet().stream().map(String::valueOf).toList();
 
         assertFalse(expected.isEmpty(), "the schema declares members");
-        assertEquals(WorkflowStatusCodec.MEMBERS, expected);
+        assertEquals(WorkflowStatusCodec.MEMBERS, expected, "the codec members should equal the schema");
     }
 
     @Test
@@ -80,7 +87,7 @@ class WorkflowStatusSchemaParityTest {
                 .collect(Collectors.toUnmodifiableSet());
 
         assertFalse(expected.isEmpty(), "the schema names the retry rules");
-        assertEquals(expected, wireNames());
+        assertEquals(expected, wireNames(), "the retry rules should equal the schema keys");
     }
 
     @Test
@@ -89,7 +96,7 @@ class WorkflowStatusSchemaParityTest {
         var expected = enumOf("phase");
 
         assertFalse(expected.isEmpty(), "the schema names the phases");
-        assertEquals(WorkflowStatus.PHASES, expected);
+        assertEquals(WorkflowStatus.PHASES, expected, "the phases should equal the schema enum");
     }
 
     @Test
@@ -100,7 +107,7 @@ class WorkflowStatusSchemaParityTest {
                 .map(JournalScopeType::wireName).collect(Collectors.toUnmodifiableSet());
 
         assertFalse(expected.isEmpty(), "the schema names the scope types");
-        assertEquals(expected, actual);
+        assertEquals(expected, actual, "the scope types should equal the schema enum");
     }
 
     @Nested
@@ -111,16 +118,23 @@ class WorkflowStatusSchemaParityTest {
         private static final String REQUEST_HEADING = "=== Waiver Request Record";
         private static final String ANSWERED = "answered";
 
+        private static final Instant REQUESTED_AT = Instant.ofEpochSecond(
+                Generators.longs(0, 4_000_000_000L).next());
+
         /** Every member of the answer, in the order the codec writes it, as JSON text. */
         private static final Map<String, String> FULL_ANSWER = ordered("channel", "\"web\"", "device_id",
-                "\"dev-0123456789ab\"", "reason", "\"accepted\"", "at", "\"2026-10-12T09:40:00Z\"");
+                quoted(WaiverRecordCodecTest.deviceId()), "reason", quoted(text(2)), "at",
+                quoted(REQUESTED_AT.plusSeconds(Generators.integers(1, 86_400).next()).toString()));
 
         /** Every member of the request, in the order the codec writes it, as JSON text. */
-        private static final Map<String, String> FULL_REQUEST = ordered("request_id", "\"WR-1\"", "gate",
-                "\"retry_budget:ci-failure\"", "policy", "\"remediation.ci-failure\"", "rationale", "\"flaky runner\"",
-                "evidence_uri", "\"pm://plan/workflow-engine/evidence/EV-3\"", "requested_at",
-                "\"2026-10-12T09:30:00Z\"", "outcome", "\"waived\"", "waiver_id", "\"W-2\"", ANSWERED,
-                json(FULL_ANSWER), "pr_comment_ref", "\"IC_kwDO12\"");
+        private static final Map<String, String> FULL_REQUEST = ordered("request_id",
+                quoted("WR-" + Generators.integers(1, 99_999).next()), "gate", "\"retry_budget:ci-failure\"",
+                "policy", "\"remediation.ci-failure\"", "rationale", quoted(text(3)), "evidence_uri",
+                quoted("pm://plan/" + WaiverRecordCodecTest.lower() + "/evidence/EV-"
+                        + Generators.integers(1, 999).next()),
+                "requested_at", quoted(REQUESTED_AT.toString()), "outcome", "\"waived\"", "waiver_id",
+                quoted("W-" + Generators.integers(1, 99_999).next()), ANSWERED, json(FULL_ANSWER), "pr_comment_ref",
+                quoted("IC_" + Generators.letterStrings(4, 12).next()));
 
         private static final Map<?, ?> REQUEST_SCHEMA = SpecificationDocument.object(SpecificationDocument.parse(
                 SpecificationDocument.jsonBlockAfter(REQUEST_DOCUMENT, REQUEST_HEADING)));
@@ -136,8 +150,8 @@ class WorkflowStatusSchemaParityTest {
 
             assertAll(
                     () -> assertEquals(names(propertiesOf(REQUEST_SCHEMA).keySet()),
-                            List.copyOf(FULL_REQUEST.keySet())),
-                    () -> assertEquals(document, written));
+                            List.copyOf(FULL_REQUEST.keySet()), "the request members should be in schema order"),
+                    () -> assertEquals(document, written, "the codec should write the request as read"));
         }
 
         @Test
@@ -149,13 +163,14 @@ class WorkflowStatusSchemaParityTest {
 
             assertAll(
                     () -> assertFalse(expected.isEmpty(), "the schema names the required members"),
-                    () -> assertEquals(expected, required));
+                    () -> assertEquals(expected, required, "the required request members should match"));
         }
 
         @Test
         @DisplayName("the codec writes the members of an answer in the order the schema declares them")
         void answerMembersInSchemaOrder() {
-            assertEquals(names(propertiesOf(ANSWER_SCHEMA).keySet()), List.copyOf(FULL_ANSWER.keySet()));
+            assertEquals(names(propertiesOf(ANSWER_SCHEMA).keySet()), List.copyOf(FULL_ANSWER.keySet()),
+                    "the answer members should be in schema order");
         }
 
         @Test
@@ -169,7 +184,7 @@ class WorkflowStatusSchemaParityTest {
                 return json(withAnswer);
             });
 
-            assertEquals(expected, required);
+            assertEquals(expected, required, "the required answer members should match");
         }
 
         @Test
@@ -180,7 +195,7 @@ class WorkflowStatusSchemaParityTest {
                     .collect(Collectors.toUnmodifiableSet());
 
             assertAll(
-                    () -> assertEquals(expected, actual),
+                    () -> assertEquals(expected, actual, "the outcomes should equal the schema enum"),
                     () -> assertFalse(actual.contains("expired"), "no request ends by time"));
         }
 
@@ -191,7 +206,12 @@ class WorkflowStatusSchemaParityTest {
             var actual = Arrays.stream(WaiverRecord.Channel.values()).map(WaiverRecord.Channel::wireName)
                     .collect(Collectors.toUnmodifiableSet());
 
-            assertEquals(expected, actual);
+            assertEquals(expected, actual, "the channels should equal the schema enum");
+        }
+
+        /** @return the text as a JSON string, its quotes and backslashes escaped */
+        private static String quoted(String text) {
+            return QuestionRecordCodecTest.json(text);
         }
 
         /**

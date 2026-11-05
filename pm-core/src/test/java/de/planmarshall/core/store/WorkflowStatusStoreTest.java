@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static de.planmarshall.core.store.QuestionRecordCodecTest.text;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.Serial;
 import java.nio.file.Files;
@@ -24,6 +27,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -44,16 +48,21 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
  * The workflow state store of a scope (PM-ARCH-6, PM-ARCH-4, PM-WF-7): it is written only through the transaction
  * journal of its scope, under the scope lock, so a write stopped at any step leaves the previous or the new document
  * after the recovery and never a mix; it is read without a lock and reports a missing store as absent; and the retry
- * counts it holds survive a restart of the runtime, because a new store instance reads them from the file.
+ * counts it holds survive a restart of the runtime, because a new store instance reads them from the file. The store
+ * file names and paths are the layout contract; the project, the plan, the epic, the states, the waiver requests and
+ * the instants are generated within their grammar.
  */
+@EnableGeneratorController
 @DisplayName("Workflow status store")
 class WorkflowStatusStoreTest {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "workflow-engine";
+    private static final String PROJECT = "project-" + lower();
+    private static final String PLAN = "plan-" + lower();
+    // Layout contract: the status file below the metadata directory of a plan.
     private static final String STATUS = "mcp/status.json";
-    private static final String MERGE_SYNC = "finalize.merge-sync";
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-12T12:00:00Z"), ZoneOffset.UTC);
+    private static final String MERGE_SYNC = stateId();
+    private static final String MERGE_GATE = MERGE_SYNC + "-gate";
+    private static final Clock CLOCK = Clock.fixed(instant(), ZoneOffset.UTC);
 
     @TempDir
     Path base;
@@ -83,8 +92,20 @@ class WorkflowStatusStoreTest {
         audit = new RecordingAuditSink();
     }
 
+    private static String lower() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String stateId() {
+        return lower() + "." + lower();
+    }
+
+    private static Instant instant() {
+        return Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
+    }
+
     private static WorkflowStatus planStatus(String state) {
-        return WorkflowStatusCodecTest.read(WorkflowStatusCodecTest.DOCUMENT).withActiveJob(null)
+        return WorkflowStatusCodecTest.read(WorkflowStatusCodecTest.DOCUMENT).withScopeId(PLAN).withActiveJob(null)
                 .withActiveJobs(Map.of()).withState(state);
     }
 
@@ -115,58 +136,68 @@ class WorkflowStatusStoreTest {
         @Test
         @DisplayName("a write goes through the journal: the document, its digest, no journal left")
         void writeThroughJournal() {
-            var status = planStatus("finalize.merge-gate");
+            var status = planStatus(MERGE_GATE);
 
             commit(status);
 
             var document = WorkflowStatusCodec.write(status);
             assertAll(
-                    () -> assertArrayEquals(document, Files.readAllBytes(scope.resolve(STATUS))),
+                    () -> assertArrayEquals(document, Files.readAllBytes(scope.resolve(STATUS)),
+                            "the store should hold the written document"),
                     () -> assertEquals(Optional.of(StoreDigest.of(document)),
-                            DigestSidecar.load(scope.sidecarFile()).digest(STATUS)),
+                            DigestSidecar.load(scope.sidecarFile()).digest(STATUS),
+                            "the sidecar should cover the document"),
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
-                    () -> assertEquals(Optional.of(status), store.read()));
+                    () -> assertEquals(Optional.of(status), store.read(), "the store should read the status"));
         }
 
         @Test
         @DisplayName("the waiver requests of a status are written through the transaction and read back typed")
         void waiverRequestsThroughTransaction() {
-            var pending = new WaiverRequest("WR-2", "retry_budget:ci-failure", null, "the runner is flaky", null,
-                    Instant.parse("2026-10-12T11:00:00Z"), null, null, null, null);
-            var declined = pending.toBuilder().requestId("WR-1").outcome(WaiverRequestOutcome.DECLINED)
-                    .answered(new WaiverRequest.Answered(WaiverRecord.Channel.CLI, null, "not now",
-                            Instant.parse("2026-10-12T11:30:00Z")))
+            var number = Generators.integers(1, 99_000).next();
+            var requestedAt = instant();
+            var pending = new WaiverRequest("WR-" + (number + 1), "retry_budget:ci-failure", null, text(3), null,
+                    requestedAt, null, null, null, null);
+            var declined = pending.toBuilder().requestId("WR-" + number).outcome(WaiverRequestOutcome.DECLINED)
+                    .answered(new WaiverRequest.Answered(WaiverRecord.Channel.CLI, null, text(2),
+                            requestedAt.plusSeconds(Generators.integers(1, 86_400).next())))
                     .build();
-            var status = planStatus("finalize.merge-gate").withWaiverRequests(List.of(declined, pending));
+            var status = planStatus(MERGE_GATE).withWaiverRequests(List.of(declined, pending));
 
             commit(status);
 
             var read = new WorkflowStatusStore(JournalScope.plan(base, PROJECT, PLAN)).read().orElseThrow();
             assertAll(
-                    () -> assertEquals(List.of(declined, pending), read.waiverRequests()),
-                    () -> assertEquals(status, read),
+                    () -> assertEquals(List.of(declined, pending), read.waiverRequests(),
+                            "the requests should be read back typed"),
+                    () -> assertEquals(status, read, "the status should be read back equal"),
                     () -> assertArrayEquals(WorkflowStatusCodec.write(status),
-                            Files.readAllBytes(scope.resolve(STATUS))));
+                            Files.readAllBytes(scope.resolve(STATUS)), "the store should hold the written bytes"));
         }
 
         @Test
         @DisplayName("an absent store is read as absent, never as an empty status")
         void absentStore() {
-            assertEquals(Optional.empty(), store.read());
+            assertEquals(Optional.empty(), store.read(), "an absent store should read as absent");
         }
 
         @Test
-        @DisplayName("each scope type keeps its status in its metadata directory")
+        @DisplayName("each scope type keeps its status in its metadata directory (the paths are the layout contract)")
         void storePaths() {
             var root = LockKey.projectStore(base, PROJECT);
             var lessons = JournalScope.lessons(base, PROJECT);
+            var epic = "epic-" + lower();
             assertAll(
-                    () -> assertEquals(root.resolve("plans/workflow-engine/mcp/status.json"), store.store()),
-                    () -> assertEquals(root.resolve("epics/an-epic/status.json"),
-                            new WorkflowStatusStore(JournalScope.epic(base, PROJECT, "an-epic")).store()),
+                    () -> assertEquals(root.resolve("plans/" + PLAN + "/mcp/status.json"), store.store(),
+                            "the plan status should lie below mcp"),
+                    () -> assertEquals(root.resolve("epics/" + epic + "/status.json"),
+                            new WorkflowStatusStore(JournalScope.epic(base, PROJECT, epic)).store(),
+                            "the epic status should lie in its directory"),
                     () -> assertEquals(root.resolve("workspace/mcp/status.json"),
-                            new WorkflowStatusStore(JournalScope.workspace(base, PROJECT)).store()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new WorkflowStatusStore(lessons)));
+                            new WorkflowStatusStore(JournalScope.workspace(base, PROJECT)).store(),
+                            "the workspace status should lie below mcp"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new WorkflowStatusStore(lessons),
+                            "the lesson store should have no status"));
         }
     }
 
@@ -179,21 +210,23 @@ class WorkflowStatusStoreTest {
         void refusedWithoutLock() {
             try (var transaction = locks.openTransaction()) {
                 assertThrows(InternalFaultException.class,
-                        () -> ScopeTransaction.open(transaction, scope, audit, CLOCK));
+                        () -> ScopeTransaction.open(transaction, scope, audit, CLOCK),
+                        "a transaction without the lock is refused");
             }
-            assertFalse(Files.exists(scope.resolve(STATUS)));
+            assertFalse(Files.exists(scope.resolve(STATUS)), "the refused write should leave no status");
         }
 
         @Test
         @DisplayName("the status of another scope is refused; the status of this scope is a control")
         void refusesStatusOfAnotherScope() {
-            var other = planStatus("finalize.merge-gate").withScopeId("another-plan");
-            var status = planStatus("finalize.merge-gate");
+            var other = planStatus(MERGE_GATE).withScopeId("other-" + lower());
+            var status = planStatus(MERGE_GATE);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
 
-                assertThrows(IllegalArgumentException.class, () -> store.write(write, other));
+                assertThrows(IllegalArgumentException.class, () -> store.write(write, other),
+                        "the status of another scope is refused");
                 store.write(write, status);
                 assertThrows(IllegalArgumentException.class, () -> store.write(write, status),
                         "the status is one target of a transaction");
@@ -213,22 +246,23 @@ class WorkflowStatusStoreTest {
     @MethodSource("boundaries")
     @DisplayName("a write stopped at a step boundary leaves the previous or the new document after recovery")
     void stoppedWrite(String name, Step stopStep, boolean rolledForward) {
-        var previous = planStatus("finalize.merge-gate");
+        var previous = planStatus(MERGE_GATE);
         commit(previous);
-        var next = planStatus("finalize.merge-sync").withRetryCounters(
+        var next = planStatus(MERGE_SYNC).withRetryCounters(
                 RetryCounters.empty().attempt(RetryRule.SYNC_FAILED, MERGE_SYNC));
 
         assertThrows(StopWrite.class, () -> commit(next, (step, target) -> {
             if (step == stopStep) {
                 throw new StopWrite(step);
             }
-        }));
+        }), "the hook should stop the write at its step");
         recover();
 
         var expected = rolledForward ? next : previous;
         assertAll(
-                () -> assertArrayEquals(WorkflowStatusCodec.write(expected), Files.readAllBytes(scope.resolve(STATUS))),
-                () -> assertEquals(Optional.of(expected), store.read()),
+                () -> assertArrayEquals(WorkflowStatusCodec.write(expected), Files.readAllBytes(scope.resolve(STATUS)),
+                        "the store should hold one whole document"),
+                () -> assertEquals(Optional.of(expected), store.read(), "the store should read that document"),
                 () -> assertFalse(Files.exists(scope.journalFile()), "nothing is left to recover"));
     }
 
@@ -249,9 +283,11 @@ class WorkflowStatusStoreTest {
             commit(continued);
 
             assertAll(
-                    () -> assertEquals(2, read.retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC)),
+                    () -> assertEquals(2, read.retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC),
+                            "the restarted store should read two"),
                     () -> assertEquals(3, new WorkflowStatusStore(JournalScope.plan(base, PROJECT, PLAN)).read()
-                            .orElseThrow().retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC)));
+                            .orElseThrow().retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC),
+                            "a further attempt should continue at three"));
         }
 
         @Test
@@ -262,8 +298,9 @@ class WorkflowStatusStoreTest {
             var read = new WorkflowStatusStore(JournalScope.plan(base, PROJECT, PLAN)).read().orElseThrow();
 
             assertAll(
-                    () -> assertEquals(0, read.retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC)),
-                    () -> assertTrue(read.retryCounters().isEmpty()));
+                    () -> assertEquals(0, read.retryCounters().attemptsOf(RetryRule.SYNC_FAILED, MERGE_SYNC),
+                            "a scope that never retried reads zero"),
+                    () -> assertTrue(read.retryCounters().isEmpty(), "the counters should be empty"));
         }
     }
 }
