@@ -107,8 +107,8 @@ public final class GitHubClient {
      */
     @Builder
     public record PullRequestPayload(PullRequest.State state, String title, String body, String baseBranch,
-                                     String headBranch, String headSha, @Nullable HeadRepository headRepositoryRef,
-                                     boolean fork, boolean maintainerCanModify, int changedFiles) {
+    String headBranch, String headSha, @Nullable HeadRepository headRepositoryRef,
+    boolean fork, boolean maintainerCanModify, int changedFiles) {
 
         /**
          * @return the head repository; empty when GitHub no longer knows it (a deleted fork)

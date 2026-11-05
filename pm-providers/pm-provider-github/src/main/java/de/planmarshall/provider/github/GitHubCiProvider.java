@@ -220,7 +220,7 @@ public final class GitHubCiProvider implements CiProvider {
                 .baseBranch(payload.baseBranch()).headBranch(payload.headBranch()).headSha(payload.headSha())
                 .headRepositoryRef(head.orElse(null)).headWritable(writable.value().orElseThrow())
                 .changedPaths(paths).pathCompleteness(completeness(files.complete(), paths.size(),
-                        payload.changedFiles()))
+                payload.changedFiles()))
                 .build());
     }
 

@@ -658,7 +658,7 @@ class GitHubCiProviderTest {
 
     /** The generated fields of one pull request. */
     private record Fixture(String title, String body, String baseBranch, String headBranch, String headSha,
-                           List<String> paths) {
+    List<String> paths) {
     }
 
     private static Fixture fixture() {
