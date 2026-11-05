@@ -2,10 +2,10 @@
   "id": "PLAN-V2-36",
   "slug": "failed-unparsed-and-parser-wiring",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#297",
+  "landing": "landings/PLAN-V2-36.md",
   "seq": 36
 }
