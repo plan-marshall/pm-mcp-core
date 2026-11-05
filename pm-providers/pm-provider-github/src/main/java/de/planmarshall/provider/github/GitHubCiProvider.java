@@ -125,18 +125,18 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public Result<Identity> whoami(@Nullable RepositoryRef repository) {
-        String refusal = refusalFor(repository);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(repository);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         return appClient == null ? tokenIdentity(repository) : appIdentity(repository);
     }
 
     @Override
     public Result<Issue> issueView(IssueRef issue) {
-        String refusal = refusalFor(issue);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(issue);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         Result<GitHubClient.IssuePayload> payload = client.issue(issue.repository().ownerOrPath(),
                 issue.repository().name(), issue.number());
@@ -150,9 +150,9 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public Result<IssueComment> issueComment(IssueRef issue, String body) {
-        String refusal = refusalFor(issue);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(issue);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         if (body.isBlank()) {
             return Result.of(Result.Outcome.REJECTED, "a comment body is never blank");
@@ -169,23 +169,21 @@ public final class GitHubCiProvider implements CiProvider {
                 + repository.name() + "/issues/" + issue.number() + "#issuecomment-" + commentId));
     }
 
-    @Nullable
-    private String refusalFor(IssueRef issue) {
+    private Optional<String> refusalFor(IssueRef issue) {
         return refusalFor(issue.repository());
     }
 
-    @Nullable
-    private String refusalFor(@Nullable RepositoryRef repository) {
+    private Optional<String> refusalFor(@Nullable RepositoryRef repository) {
         if (repository == null) {
-            return null;
+            return Optional.empty();
         }
         if (!PROVIDER_ID.equals(repository.forge())) {
-            return "the repository is on the forge " + repository.forge();
+            return Optional.of("the repository is on the forge " + repository.forge());
         }
         if (!origin.equals(repository.origin())) {
-            return "the repository is on another origin";
+            return Optional.of("the repository is on another origin");
         }
-        return null;
+        return Optional.empty();
     }
 
     private Result<Identity> tokenIdentity(@Nullable RepositoryRef repository) {
@@ -193,8 +191,8 @@ public final class GitHubCiProvider implements CiProvider {
         if (token.isEmpty()) {
             return Result.of(Result.Outcome.AUTH_FAILED, "no GitHub credential is available");
         }
-        TokenKind kind = kindOf(token.get());
-        if (kind == null) {
+        Optional<TokenKind> kind = kindOf(token.get());
+        if (kind.isEmpty()) {
             return Result.of(Result.Outcome.FAILED, "the token prefix names no GitHub token kind");
         }
         ResponseWithHeaders user = http.getWithHeaders("user");
@@ -211,7 +209,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (!permissions.isOk()) {
             return permissions.asFailure();
         }
-        return Result.ok(Identity.builder().login(login.get()).userId(userId.get()).tokenKind(kind)
+        return Result.ok(Identity.builder().login(login.get()).userId(userId.get()).tokenKind(kind.get())
                 .permissions(permissions.value().orElseThrow())
                 .scopes(user.header(SCOPES_HEADER).map(GitHubCiProvider::scopes).orElse(List.of()))
                 .expiresAt(user.header(EXPIRY_HEADER).flatMap(GitHubCiProvider::instantOf).orElse(null)).build());
@@ -268,15 +266,14 @@ public final class GitHubCiProvider implements CiProvider {
         return Result.ok(Map.copyOf(byName));
     }
 
-    @Nullable
-    private static TokenKind kindOf(String token) {
+    private static Optional<TokenKind> kindOf(String token) {
         if (token.startsWith(TOKEN_HEADER_PREFIX_FINE_GRAINED)) {
-            return TokenKind.GITHUB_FINE_GRAINED_PAT;
+            return Optional.of(TokenKind.GITHUB_FINE_GRAINED_PAT);
         }
         if (token.startsWith(TOKEN_HEADER_PREFIX_CLASSIC)) {
-            return TokenKind.GITHUB_CLASSIC_PAT;
+            return Optional.of(TokenKind.GITHUB_CLASSIC_PAT);
         }
-        return null;
+        return Optional.empty();
     }
 
     private static List<String> scopes(String header) {

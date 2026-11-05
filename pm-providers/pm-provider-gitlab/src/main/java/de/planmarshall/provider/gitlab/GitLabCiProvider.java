@@ -43,9 +43,6 @@ import de.planmarshall.provider.http.Result;
  *
  * @since 0.1
  */
-// The web URL of a GitLab comment is the forge's fixed grammar, not a configurable endpoint (the API origin belongs
-// to the HttpClient), so the rule that asks for a configurable URI is suppressed for this contract literal.
-@SuppressWarnings("java:S1075")
 public final class GitLabCiProvider implements CiProvider {
 
     /** The provider id, equal to the derived fact {@code ci_provider} and the credential key. */
@@ -53,6 +50,7 @@ public final class GitLabCiProvider implements CiProvider {
 
     private static final String PROJECT_PATH = "projects/";
     /** The web path of the issue of a project, for the comment URL a consumer shows. */
+    @SuppressWarnings("java:S1075") // the forge's fixed web grammar, not a configurable endpoint
     private static final String WEB_ISSUE_PATH = "/-/issues/";
 
     private final String origin;
@@ -75,9 +73,9 @@ public final class GitLabCiProvider implements CiProvider {
 
     @Override
     public Result<Identity> whoami(@Nullable RepositoryRef repository) {
-        String refusal = refusalFor(repository);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(repository);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         GitLabClient client = client(repository);
         Result<GitLabClient.TokenIdentity> token = client.tokenIdentity();
@@ -113,18 +111,18 @@ public final class GitLabCiProvider implements CiProvider {
 
     @Override
     public Result<Issue> issueView(IssueRef issue) {
-        String refusal = refusalFor(issue);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(issue);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         return client(issue.repository()).issue(issue.number());
     }
 
     @Override
     public Result<IssueComment> issueComment(IssueRef issue, String body) {
-        String refusal = refusalFor(issue);
-        if (refusal != null) {
-            return Result.of(Result.Outcome.REJECTED, refusal);
+        Optional<String> refusal = refusalFor(issue);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
         if (body.isBlank()) {
             return Result.of(Result.Outcome.REJECTED, "a comment body is never blank");
@@ -139,23 +137,21 @@ public final class GitLabCiProvider implements CiProvider {
                 + repository.name() + WEB_ISSUE_PATH + issue.number() + "#note_" + noteId));
     }
 
-    @Nullable
-    private String refusalFor(IssueRef issue) {
+    private Optional<String> refusalFor(IssueRef issue) {
         return refusalFor(issue.repository());
     }
 
-    @Nullable
-    private String refusalFor(@Nullable RepositoryRef repository) {
+    private Optional<String> refusalFor(@Nullable RepositoryRef repository) {
         if (repository == null) {
-            return null;
+            return Optional.empty();
         }
         if (!PROVIDER_ID.equals(repository.forge())) {
-            return "the repository is on the forge " + repository.forge();
+            return Optional.of("the repository is on the forge " + repository.forge());
         }
         if (!origin.equals(repository.origin())) {
-            return "the repository is on another origin";
+            return Optional.of("the repository is on another origin");
         }
-        return null;
+        return Optional.empty();
     }
 
     private GitLabClient client(@Nullable RepositoryRef repository) {
