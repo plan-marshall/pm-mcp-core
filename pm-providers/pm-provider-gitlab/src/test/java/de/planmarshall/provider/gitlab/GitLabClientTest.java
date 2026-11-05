@@ -256,7 +256,7 @@ class GitLabClientTest {
 
             var result = client.issueComment(12, "A comment");
 
-            assertEquals(Optional.of("9001"), result.value(), "the note id is read");
+            assertEquals(Optional.of("9001"), result.value(), "the posted note id is read");
             assertEquals(Optional.of("A comment"), Json.string(body(0), "body"),
                     "the comment body travels in memory");
         }

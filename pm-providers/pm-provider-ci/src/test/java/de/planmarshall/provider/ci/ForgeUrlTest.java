@@ -137,10 +137,15 @@ class ForgeUrlTest {
                         "GitLab needs a group and a project"),
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
                         ForgeUrl.resolve("https://github.com/" + "a".repeat(300) + "/r/issues/1").outcome(),
-                        "an over-long segment is refused"),
-                () -> assertEquals(ForgeUrl.Outcome.INVALID,
-                        ForgeUrl.resolve("https://github.com/o/r/issues/%EF%BC%91%EF%BC%92").outcome(),
-                        "non-ASCII digits in the number are refused"));
+                        "an over-long segment is refused"));
+    }
+
+    @Test
+    @DisplayName("refuses non-ASCII digits in the issue number")
+    void refusesNonAsciiDigits() {
+        assertEquals(ForgeUrl.Outcome.INVALID,
+                ForgeUrl.resolve("https://github.com/o/r/issues/%EF%BC%91%EF%BC%92").outcome(),
+                "fullwidth digits are not an issue number");
     }
 
     @Test
@@ -223,7 +228,7 @@ class ForgeUrlTest {
                 () -> assertEquals("the path has an empty, dotted or over-long segment", encodedParent.detail(),
                         "an encoded parent segment is refused by the segment rule"),
                 () -> assertEquals("the path has an empty, dotted or over-long segment", tooManySegments.detail(),
-                        "a GitHub path over 25 segments is refused by the segment-count rule"),
+                        "a path over 25 segments is refused"),
                 () -> assertEquals("o", encodedSlash.repository().ownerOrPath(),
                         "an encoded slash separates owner and name"),
                 () -> assertEquals("r", encodedSlash.repository().name(),
