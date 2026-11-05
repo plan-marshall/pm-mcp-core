@@ -31,6 +31,8 @@ import de.planmarshall.provider.ci.Identity;
 import de.planmarshall.provider.ci.Issue;
 import de.planmarshall.provider.ci.IssueComment;
 import de.planmarshall.provider.ci.IssueRef;
+import de.planmarshall.provider.ci.PullRequest;
+import de.planmarshall.provider.ci.PullRequestRef;
 import de.planmarshall.provider.ci.RepositoryRef;
 import de.planmarshall.provider.ci.TokenKind;
 import de.planmarshall.provider.http.HttpClient;
@@ -41,8 +43,18 @@ import de.planmarshall.provider.http.Result;
 import de.planmarshall.provider.http.TokenSource;
 
 /**
- * GitHub as a CI provider: {@code ci.whoami}, {@code ci.issue-view} and {@code ci.issue-comment} on the native
- * variant, over the shared HTTP base and {@link GitHubClient}.
+ * GitHub as a CI provider: {@code ci.whoami}, {@code ci.issue-view}, {@code ci.issue-comment} and
+ * {@code ci.pr-view} on the native variant, over the shared HTTP base and {@link GitHubClient}.
+ * <p>
+ * {@code ci.pr-view} reads the pull request, its changed files and, where it decides the answer, the {@code push}
+ * fact of the repository, for every state: {@code closed} with {@code merged: true} is
+ * {@link PullRequest.State#MERGED}. The head is writable for a head in the base repository when the credential can
+ * push there; for a fork head when the author allows maintainer edits and the credential can push to the base; never
+ * for a head repository GitHub no longer knows. An App provider reads the {@code push} fact with the user access
+ * token, the credential that authors the writes; a token provider with its own token. The changed-path list is
+ * {@link PullRequest.PathCompleteness#PAGE_CAP} when the page cap cut it, and
+ * {@link PullRequest.PathCompleteness#PROVIDER_RESULT_CAP} when every page was read but GitHub listed fewer files
+ * than the pull request changes.
  * <p>
  * A provider is bound to one web origin and one credential. A personal access token acts with its own user and
  * reports its kind from the token prefix and its expiry from the {@code github-authentication-token-expiration}
@@ -164,15 +176,83 @@ public final class GitHubCiProvider implements CiProvider {
             return Result.of(Result.Outcome.REJECTED, "a comment body is never blank");
         }
         RepositoryRef repository = issue.repository();
-        GitHubClient writer = userHttp == null ? client
-                : new GitHubClient(Objects.requireNonNull(userHttp, "userHttp"), GitHubClient.GRAPHQL_PATH);
-        Result<String> id = writer.postComment(repository.ownerOrPath(), repository.name(), issue.number(), body);
+        Result<String> id = userClient().postComment(repository.ownerOrPath(), repository.name(), issue.number(),
+                body);
         if (!id.isOk()) {
             return id.asFailure();
         }
         String commentId = id.value().orElseThrow();
         return Result.ok(new IssueComment(commentId, repository.origin() + "/" + repository.ownerOrPath() + "/"
                 + repository.name() + "/issues/" + issue.number() + "#issuecomment-" + commentId));
+    }
+
+    @Override
+    public Result<PullRequest> prView(PullRequestRef pullRequest) {
+        RepositoryRef repository = pullRequest.repository();
+        Optional<String> refusal = refusalFor(repository);
+        if (refusal.isPresent()) {
+            return Result.of(Result.Outcome.REJECTED, refusal.get());
+        }
+        String owner = repository.ownerOrPath();
+        String name = repository.name();
+        Result<GitHubClient.PullRequestPayload> read = client.pullRequest(owner, name, pullRequest.number());
+        if (!read.isOk()) {
+            return read.asFailure();
+        }
+        GitHubClient.PullRequestPayload payload = read.value().orElseThrow();
+        Result<List<String>> files = client.pullRequestFiles(owner, name, pullRequest.number());
+        if (!files.isOk()) {
+            return files.asFailure();
+        }
+        Result<Boolean> writable = headWritable(repository, payload);
+        if (!writable.isOk()) {
+            return writable.asFailure();
+        }
+        Optional<RepositoryRef> head;
+        try {
+            head = payload.headRepository().map(headRepository -> new RepositoryRef(PROVIDER_ID, origin,
+                    headRepository.owner(), headRepository.name()));
+        } catch (IllegalArgumentException e) {
+            return Result.of(Result.Outcome.FAILED, "the head repository is no repository name: " + e.getMessage());
+        }
+        List<String> paths = files.value().orElseThrow();
+        return Result.ok(PullRequest.builder().state(payload.state()).title(payload.title()).body(payload.body())
+                .baseBranch(payload.baseBranch()).headBranch(payload.headBranch()).headSha(payload.headSha())
+                .headRepositoryRef(head.orElse(null)).headWritable(writable.value().orElseThrow())
+                .changedPaths(paths).pathCompleteness(completeness(files.complete(), paths.size(),
+                        payload.changedFiles()))
+                .build());
+    }
+
+    /**
+     * The {@code push} fact the head is writable by: none for a head repository GitHub no longer knows or for a fork
+     * whose author allows no maintainer edits, the base repository's for a fork, the head repository's otherwise.
+     */
+    private Result<Boolean> headWritable(RepositoryRef base, GitHubClient.PullRequestPayload payload) {
+        Optional<GitHubClient.HeadRepository> head = payload.headRepository();
+        if (head.isEmpty() || payload.fork() && !payload.maintainerCanModify()) {
+            return Result.ok(false);
+        }
+        GitHubClient reader = userClient();
+        return payload.fork() ? reader.canPush(base.ownerOrPath(), base.name())
+                : reader.canPush(head.get().owner(), head.get().name());
+    }
+
+    private static PullRequest.PathCompleteness completeness(boolean allPagesRead, int listed, int changedFiles) {
+        if (!allPagesRead) {
+            return PullRequest.PathCompleteness.PAGE_CAP;
+        }
+        return listed < changedFiles ? PullRequest.PathCompleteness.PROVIDER_RESULT_CAP
+                : PullRequest.PathCompleteness.COMPLETE;
+    }
+
+    /**
+     * @return the client acting as the credential that authors the writes: the user access token of an App
+     *         provider, the provider's own token otherwise
+     */
+    private GitHubClient userClient() {
+        return userHttp == null ? client
+                : new GitHubClient(Objects.requireNonNull(userHttp, "userHttp"), GitHubClient.GRAPHQL_PATH);
     }
 
     private Optional<String> refusalFor(IssueRef issue) {

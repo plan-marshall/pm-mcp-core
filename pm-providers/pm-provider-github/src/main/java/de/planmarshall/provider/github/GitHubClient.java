@@ -19,18 +19,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.ci.Issue;
+import de.planmarshall.provider.ci.PullRequest;
 import de.planmarshall.provider.http.HttpClient;
 import de.planmarshall.provider.http.Json;
+import de.planmarshall.provider.http.PagedResult;
 import de.planmarshall.provider.http.Response;
 import de.planmarshall.provider.http.Result;
 
 /**
- * The native GitHub operations: the identity and issue reads of the CI contract, and the review and merge path
- * (review threads, resolve, merge-queue enqueue) through fixed GraphQL documents shipped as resources, and comment
- * posting through REST. Every body travels in memory as a request payload.
+ * The native GitHub operations: the identity, issue and pull-request reads of the CI contract, and the review and
+ * merge path (review threads, resolve, merge-queue enqueue) through fixed GraphQL documents shipped as resources, and
+ * comment posting through REST. Every body travels in memory as a request payload.
+ * <p>
+ * The pull-request read ({@link #pullRequest(String, String, int)}) is three REST reads: the pull request itself,
+ * its changed files through the {@code Link} pagination of the shared HTTP base ({@link #pullRequestFiles(String,
+ * String, int)}, at most {@value #MAX_FILE_PAGES} pages of 100 files), and the {@code push} fact of a repository
+ * ({@link #canPush(String, String)}).
  *
  * @since 0.1
  */
@@ -41,6 +49,13 @@ public final class GitHubClient {
     /** Page cap of the review-thread read (100 threads per page). */
     private static final String PAGE_INFO = "pageInfo";
     static final int MAX_THREAD_PAGES = 20;
+    /**
+     * Page cap of the changed-files read: 30 pages of 100 files reach the 3000 files GitHub lists for one pull
+     * request at most.
+     */
+    static final int MAX_FILE_PAGES = 30;
+    private static final String REPOS = "repos/";
+    private static final String PULLS = "/pulls/";
 
     static final String REVIEW_THREADS = document("review-threads");
     static final String RESOLVE_REVIEW_THREAD = document("resolve-review-thread");
@@ -65,6 +80,42 @@ public final class GitHubClient {
      * @param pullRequest whether the number names a pull request (GitHub answers one through the issue endpoint)
      */
     public record IssuePayload(Issue issue, boolean pullRequest) {
+    }
+
+    /**
+     * The repository the head branch of a pull request lives in.
+     *
+     * @param owner the owner login
+     * @param name  the repository name
+     */
+    public record HeadRepository(String owner, String name) {
+    }
+
+    /**
+     * One pull-request read: the fields of {@code GET repos/{owner}/{repo}/pulls/{n}}.
+     *
+     * @param state               the state; {@code closed} with {@code merged: true} is {@link PullRequest.State#MERGED}
+     * @param title               the title
+     * @param body                the body, empty when the pull request has none
+     * @param baseBranch          the base ref
+     * @param headBranch          the head ref
+     * @param headSha             the head commit
+     * @param headRepositoryRef   the head repository; {@code null} when GitHub no longer knows it (a deleted fork)
+     * @param fork                whether the head repository is another repository than the base
+     * @param maintainerCanModify whether the author allows the maintainers of the base to push to the head
+     * @param changedFiles        the number of files the pull request changes, as GitHub counts them
+     */
+    @Builder
+    public record PullRequestPayload(PullRequest.State state, String title, String body, String baseBranch,
+                                     String headBranch, String headSha, @Nullable HeadRepository headRepositoryRef,
+                                     boolean fork, boolean maintainerCanModify, int changedFiles) {
+
+        /**
+         * @return the head repository; empty when GitHub no longer knows it (a deleted fork)
+         */
+        public Optional<HeadRepository> headRepository() {
+            return Optional.ofNullable(headRepositoryRef);
+        }
     }
 
     /**
@@ -261,6 +312,113 @@ public final class GitHubClient {
                 .milestone(Json.string(json, "milestone", "title").filter(value -> !value.isBlank()).orElse(null))
                 .assignees(assignees).state(state.get()).url(url.get()).build();
         return Result.ok(new IssuePayload(issue, Json.at(json, "pull_request").isPresent()));
+    }
+
+    /**
+     * Reads one pull request by its number. The token needs the permission set of
+     * {@link GitHubOperation#PULL_REQUEST_READ}.
+     *
+     * @param owner  the repository owner
+     * @param name   the repository name
+     * @param number the pull-request number; an issue number is answered {@code NOT_FOUND} by GitHub
+     * @return the pull request's fields; {@code FAILED} when the body is not JSON or lacks a required member
+     */
+    public Result<PullRequestPayload> pullRequest(String owner, String name, int number) {
+        Response response = http.get(REPOS + owner + "/" + name + PULLS + number);
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        Object json = Json.parseOrNull(response.body()).orElse(null);
+        Optional<PullRequest.State> state = Json.string(json, "state")
+                .flatMap(value -> stateOf(value, Json.bool(json, "merged")));
+        Optional<String> title = text(json, "title");
+        Optional<String> baseBranch = text(json, "base", "ref");
+        Optional<String> headBranch = text(json, "head", "ref");
+        Optional<String> headSha = text(json, "head", "sha");
+        Optional<Integer> changedFiles = Json.string(json, "changed_files").flatMap(GitHubClient::count);
+        if (state.isEmpty() || title.isEmpty() || baseBranch.isEmpty() || headBranch.isEmpty() || headSha.isEmpty()
+                || changedFiles.isEmpty()) {
+            return Result.of(Result.Outcome.FAILED,
+                    "the pull request response carries no state, title, base, head or changed-file count");
+        }
+        @Nullable HeadRepository head = headRepositoryOf(json).orElse(null);
+        String baseFullName = text(json, "base", "repo", "full_name").orElse(owner + "/" + name);
+        boolean fork = head != null && !(head.owner() + "/" + head.name()).equalsIgnoreCase(baseFullName);
+        return Result.ok(PullRequestPayload.builder().state(state.get()).title(title.get())
+                .body(Json.string(json, "body").orElse("")).baseBranch(baseBranch.get())
+                .headBranch(headBranch.get()).headSha(headSha.get()).headRepositoryRef(head).fork(fork)
+                .maintainerCanModify(Json.bool(json, "maintainer_can_modify")).changedFiles(changedFiles.get())
+                .build());
+    }
+
+    /**
+     * Reads the changed paths of a pull request, 100 files per page, through the {@code Link} pagination. The token
+     * needs the permission set of {@link GitHubOperation#PULL_REQUEST_READ}.
+     *
+     * @param owner  the repository owner
+     * @param name   the repository name
+     * @param number the pull-request number
+     * @return the changed paths in GitHub's order; {@code complete} is {@code false} when the page cap (or a next
+     *         link outside the origin) cut the list; {@code FAILED} when a page is not a JSON array
+     */
+    public Result<List<String>> pullRequestFiles(String owner, String name, int number) {
+        PagedResult pages = http.getAll(REPOS + owner + "/" + name + PULLS + number + "/files?per_page=100",
+                MAX_FILE_PAGES);
+        if (!pages.last().isOk()) {
+            return Result.failed(pages.last());
+        }
+        var paths = new ArrayList<String>();
+        for (String page : pages.pages()) {
+            if (!(Json.parseOrNull(page).orElse(null) instanceof List<?> files)) {
+                return Result.of(Result.Outcome.FAILED, "a changed-files page is not a JSON array");
+            }
+            files.forEach(file -> text(file, "filename").ifPresent(paths::add));
+        }
+        return Result.ok(List.copyOf(paths), pages.complete());
+    }
+
+    /**
+     * Reads whether the credential can push to a repository: the {@code permissions.push} member of
+     * {@code GET repos/{owner}/{repo}}.
+     *
+     * @param owner the repository owner
+     * @param name  the repository name
+     * @return whether the credential can push; {@code false} when the response carries no such member
+     */
+    public Result<Boolean> canPush(String owner, String name) {
+        Response response = http.get(REPOS + owner + "/" + name);
+        if (!response.isOk()) {
+            return Result.failed(response);
+        }
+        return Result.ok(Json.bool(Json.parseOrNull(response.body()).orElse(null), "permissions", "push"));
+    }
+
+    private static Optional<HeadRepository> headRepositoryOf(@Nullable Object json) {
+        Optional<String> owner = text(json, "head", "repo", "owner", "login");
+        Optional<String> name = text(json, "head", "repo", "name");
+        return owner.isPresent() && name.isPresent() ? Optional.of(new HeadRepository(owner.get(), name.get()))
+                : Optional.empty();
+    }
+
+    private static Optional<PullRequest.State> stateOf(String state, boolean merged) {
+        return switch (state) {
+            case "open" -> Optional.of(PullRequest.State.OPEN);
+            case "closed" -> Optional.of(merged ? PullRequest.State.MERGED : PullRequest.State.CLOSED);
+            default -> Optional.empty();
+        };
+    }
+
+    private static Optional<Integer> count(String value) {
+        try {
+            int count = Integer.parseInt(value);
+            return count < 0 ? Optional.empty() : Optional.of(count);
+        } catch (NumberFormatException _) {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<String> text(@Nullable Object json, String... keys) {
+        return Json.string(json, keys).filter(value -> !value.isBlank());
     }
 
     private Result<Object> graphql(String query, Map<String, Object> variables) {
