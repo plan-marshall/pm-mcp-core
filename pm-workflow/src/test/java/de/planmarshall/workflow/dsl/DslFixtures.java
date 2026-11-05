@@ -23,6 +23,7 @@ import java.util.Objects;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
+// Every datum in this class is a contract: the fixture paths and the helper's diagnostic messages.
 /**
  * Reads the DSL fixtures of the tests from the test classpath: {@code dsl/valid/*.pmwf}, units that follow the grammar,
  * and {@code dsl/malformed/*.pmwf}, units the parser refuses. Every fixture is written for the tests, never copied

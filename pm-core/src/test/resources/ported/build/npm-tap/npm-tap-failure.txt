@@ -1,0 +1,16 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_tap_parse_log_failure test/plan-marshall/build-npm/test_npm_parsers.py::test_tap_extracts_test_summary_failure test/plan-marshall/build-npm/test_npm_parsers.py::test_tap_extracts_failures
+# The TAP failure log of the original suite. Four `not ok` lines are filed: two failing tests and the
+# two suites that contain them. A test block supplies its `error` message and `location`; a suite
+# block carries neither, so its own name is the message and it has no location. The original strips
+# every quote character from both ends of a YAML value, so an `error` that itself ends in a double
+# quote loses it; that behaviour is held as in the original.
+log-file npm-tap-test-failure-real.log
+status FAILURE
+success-marker false
+tests measured 1 2 0 3
+no-tests-ran false
+diagnostic-count 4
+diagnostic ERROR TEST_FAILURE /home/dev/sample-monorepo/packages/ui/dist/test/App.test.js 15 - Expected "Hello" but got "Goodbye
+diagnostic ERROR TEST_FAILURE - - - <App />
+diagnostic ERROR TEST_FAILURE /home/dev/sample-monorepo/packages/core/dist/test/validator.test.js 25 - AssertionError: expected true to be false
+diagnostic ERROR TEST_FAILURE - - - validator

@@ -507,13 +507,17 @@ class DeclarationBoundsTest {
     void bounds() {
         var range = new DeclarationBounds.IntRange(60, 1800);
         var kind = new DeclarationBounds.DecisionKind();
+        var foreignEnum = new CallValue.EnumValue(invalidValue());
+        var foreignList = new CallValue.EnumList(List.of(invalidValue()));
+        var admittedList = new CallValue.EnumList(List.of(DecisionDeclaration.DECISION_KINDS.getFirst()));
 
         assertAll(
                 () -> assertEquals("int[60..1800]", range.describe()),
-                () -> assertFalse(range.admits(new CallValue.EnumValue("approach"))),
+                () -> assertFalse(range.admits(foreignEnum)),
                 () -> assertTrue(kind.describe().startsWith("enum[interpretation|")),
                 () -> assertFalse(kind.admits(new CallValue.IntValue(1))),
-                () -> assertFalse(kind.admits(new CallValue.EnumList(List.of("approach")))));
+                () -> assertFalse(kind.admits(admittedList), "a list of decision kinds is not a decision kind"),
+                () -> assertFalse(kind.admits(foreignList)));
     }
 
     @Test
@@ -522,14 +526,16 @@ class DeclarationBoundsTest {
         var location = InvariantFixtures.parse(REPLAN_FILE, InvariantFixtures.read(REPLAN_FILE), UnitOrigin.DEFAULT)
                 .location();
         var kind = new DeclarationBounds.DecisionKind();
-        var scope = new CallValue.EnumValue("scope");
+        var scope = new CallValue.EnumValue(Generators.letterStrings(1, 8).next());
+        var findingName = Generators.letterStrings(1, 8).next();
+        var findingMessage = Generators.letterStrings(1, 8).next();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> DeclarationBounds.check(null)),
                 () -> assertThrows(NullPointerException.class,
                         () -> new DeclarationBounds.Declaration(null, kind, scope)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DeclarationBounds.Finding("name", location, null, "message")));
+                        () -> new DeclarationBounds.Finding(findingName, location, null, findingMessage)));
     }
 
     static List<BoundCase> refusingCases() {

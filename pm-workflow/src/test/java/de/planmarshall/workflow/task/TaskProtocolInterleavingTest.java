@@ -36,6 +36,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
  * the loop-back and the diagrams): whatever order the calls take, the task closes at most once with the outcome of its
  * own transition, and at least one run reaches the submission.
  */
+// Every datum in this class is a contract: the seeds, the turn bound and the re-offer budget define the interleavings.
 @SuppressWarnings("java:S5778")
 // the seeded runs are one scenario per case, by design
 @DisplayName("Task protocol interleavings")

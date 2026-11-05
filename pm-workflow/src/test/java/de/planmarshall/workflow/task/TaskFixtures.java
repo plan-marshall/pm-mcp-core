@@ -13,9 +13,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.Kind;
 import de.planmarshall.core.queue.QueueTaskRecord.Scope;
@@ -29,13 +31,18 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
  */
 final class TaskFixtures {
 
+    // The queue and generation ids are the wire format, the digests, plan and timestamps are the fixture's contract;
+    // the role names, the entity, the state and the session id are generated.
     static final String GENERATION = "l-0000000000000001";
     static final String SUCCESSOR = "l-0000000000000002";
     static final String THIRD = "l-0000000000000003";
     static final String DIGEST = "a".repeat(64);
     static final String OTHER_DIGEST = "b".repeat(64);
-    static final String ROLE = "writer";
-    static final String REVIEWER = "reviewer";
+    static final String ROLE = "writer-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    static final String REVIEWER = "reviewer-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    static final String SESSION = "session-" + Generators.letterStrings(3, 10).next();
+    static final String ENTITY = "envelope-" + Generators.integers(1, 999).next();
+    static final String STATE = "state." + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     static final String PLAN = "plan-a";
     static final Instant AT = Instant.parse("2026-10-23T10:00:00Z");
 
@@ -53,8 +60,8 @@ final class TaskFixtures {
                 .role(role)
                 .taskClass(TaskClass.WRITER)
                 .scope(planScope())
-                .entity("envelope-1")
-                .stateId("build.execute")
+                .entity(ENTITY)
+                .stateId(STATE)
                 .formDowngraded(false)
                 .status(Status.QUEUED)
                 .continuation(null)
@@ -93,7 +100,7 @@ final class TaskFixtures {
 
     static QueueTaskRecord.Continuation continuation() {
         return new QueueTaskRecord.Continuation("Q-001", QueueTaskRecord.ContinuationForm.RESUME, null,
-                "session-1", AT, AT.plusSeconds(3600), DIGEST, "c".repeat(40), null);
+                SESSION, AT, AT.plusSeconds(3600), DIGEST, "c".repeat(40), null);
     }
 
     static QueueTaskRecord.Continuation holdContinuation() {

@@ -41,6 +41,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
  * the test that is malformed, or holds a rule that adds an element, binds a budget or names a gate, is refused as a
  * value naming that refusal; a rule never extends the template, never lifts a budget and never touches a gate.
  */
+// Every datum in this class is a contract: the rule documents, rule ids, facts, enum names and refusal reasons are the subject.
 @DisplayName("CompositionRules")
 class CompositionRulesTest {
 

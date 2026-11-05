@@ -25,6 +25,10 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+
+@EnableGeneratorController
 @DisplayName("Registries and Records")
 class RegistriesAndRecordsTest {
 
@@ -46,10 +50,12 @@ class RegistriesAndRecordsTest {
         assertFalse(convWithoutUnit.hasEntityUnit());
         assertEquals(Optional.empty(), convWithoutUnit.entityUnit());
 
+        var name = Generators.letterStrings(1, 8).next();
+        var evaluation = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind(null, Optional.empty(), "eval")),
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind("k", (Optional<String>) null, "eval")),
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind("k", Optional.empty(), null))
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(null, Optional.empty(), evaluation)),
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, (Optional<String>) null, evaluation)),
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, Optional.empty(), null))
         );
     }
 
@@ -91,10 +97,12 @@ class RegistriesAndRecordsTest {
         assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
                 () -> "the defaults name a test identifier: " + defaultIdentifiers);
 
-        var custom = new EntityKind("custom", Optional.empty(), "custom.eval");
+        var customName = "custom-" + Generators.letterStrings(1, 8).next();
+        var customEvaluation = "eval-" + Generators.letterStrings(1, 8).next();
+        var custom = new EntityKind(customName, Optional.empty(), customEvaluation);
         var updated = defaults.with(custom);
-        assertTrue(updated.find("custom").isPresent());
-        assertFalse(defaults.find("custom").isPresent());
+        assertTrue(updated.find(customName).isPresent());
+        assertFalse(defaults.find(customName).isPresent());
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> defaults.with(null)),
@@ -106,12 +114,13 @@ class RegistriesAndRecordsTest {
     @DisplayName("QuestionClass should support record components and null validation")
     void questionClass() {
         var qc = new QuestionClass("init", Set.of("answered"));
-        var outcomes = Set.of("a");
+        var outcomes = Set.of(Generators.letterStrings(1, 8).next());
+        var name = Generators.letterStrings(1, 8).next();
         assertAll(
                 () -> assertEquals("init", qc.name()),
                 () -> assertEquals(Set.of("answered"), qc.outcomes()),
                 () -> assertThrows(NullPointerException.class, () -> new QuestionClass(null, outcomes)),
-                () -> assertThrows(NullPointerException.class, () -> new QuestionClass("q", null))
+                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(name, null))
         );
     }
 
@@ -138,10 +147,12 @@ class RegistriesAndRecordsTest {
                 () -> assertEquals(Set.of("answered"), defaults.find("ask").orElseThrow().outcomes())
         );
 
-        var custom = new QuestionClass("custom", Set.of("yes", "no"));
+        var customName = "custom-" + Generators.letterStrings(1, 8).next();
+        var custom = new QuestionClass(customName, Set.of("yes-" + Generators.letterStrings(1, 8).next(),
+                "no-" + Generators.letterStrings(1, 8).next()));
         var updated = defaults.with(custom);
-        assertTrue(updated.find("custom").isPresent());
-        assertFalse(defaults.find("custom").isPresent());
+        assertTrue(updated.find(customName).isPresent());
+        assertFalse(defaults.find(customName).isPresent());
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> defaults.with(null)),
@@ -162,12 +173,13 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.contains("intent-record")),
                 () -> assertTrue(defaults.contains("outline-record")),
                 () -> assertTrue(defaults.contains("commit-result")),
-                () -> assertFalse(defaults.contains("unknown-schema"))
+                () -> assertFalse(defaults.contains("unknown-" + Generators.letterStrings(1, 8).next()))
         );
 
-        var updated = defaults.with("new-schema");
-        assertTrue(updated.contains("new-schema"));
-        assertFalse(defaults.contains("new-schema"));
+        var schema = "new-" + Generators.letterStrings(1, 8).next();
+        var updated = defaults.with(schema);
+        assertTrue(updated.contains(schema));
+        assertFalse(defaults.contains(schema));
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> defaults.with(null)),
@@ -180,8 +192,8 @@ class RegistriesAndRecordsTest {
     void workflowCatalog() {
         var empty = WorkflowCatalog.empty();
         assertAll(
-                () -> assertFalse(empty.find("foo").isPresent()),
-                () -> assertFalse(empty.contains("foo")),
+                () -> assertFalse(empty.find("missing-" + Generators.letterStrings(1, 8).next()).isPresent()),
+                () -> assertFalse(empty.contains("missing-" + Generators.letterStrings(1, 8).next())),
                 () -> assertTrue(empty.definitions().isEmpty())
         );
 

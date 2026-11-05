@@ -23,6 +23,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleCatalog;
 import de.planmarshall.core.role.RoleClass;
@@ -37,9 +39,11 @@ import de.planmarshall.core.role.RoleValidationReason;
  * record; a task closed without an attempt carries {@code role_undefined}, {@code class_mismatch},
  * {@code role_unqualified} or {@code role_unavailable}.
  */
+@EnableGeneratorController
 @DisplayName("The model caller")
 class ModelCallerTest {
 
+    // The fixture state id and the fixture role name are the keys the caller is exercised with.
     private static final String STATE = "implement.envelope-3";
     private static final String IMPLEMENT = "implement";
     private static final String JUDGE = RoleCatalog.JUDGE;
@@ -115,8 +119,9 @@ class ModelCallerTest {
     @Test
     @DisplayName("an invalid role closes role_undefined naming the reason")
     void invalidRoleClosesWithReason() {
+        var detail = Generators.letterStrings(10, 40).next();
         RoleResolver refusing = name -> new RoleResolution.Undefined(name,
-                Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), "the catalogue does not allow the model");
+                Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), detail);
         var fixtures = new Fixtures(refusing, ModelFixtures.resolver(Map.of()));
 
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
@@ -199,8 +204,9 @@ class ModelCallerTest {
         @Test
         @DisplayName("a steward task is queued from its machine configuration, not from the role resolver")
         void stewardIsQueued() {
-            var steward = ModelFixtures.roleIn(STEWARD, RoleClass.READ_ONLY, RoleForm.FRESH, "machine-harness",
-                    "machine-standard");
+            var harness = Generators.letterStrings(5, 12).next();
+            var model = Generators.letterStrings(5, 12).next();
+            var steward = ModelFixtures.roleIn(STEWARD, RoleClass.READ_ONLY, RoleForm.FRESH, harness, model);
             var artifactSteward = ModelFixtures.role(STEWARD, RoleClass.READ_ONLY, RoleForm.FRESH);
             var fixtures = new Fixtures(ModelFixtures.resolver(Map.of(STEWARD, artifactSteward)),
                     ModelFixtures.resolver(Map.of(STEWARD, steward)));
@@ -210,15 +216,17 @@ class ModelCallerTest {
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result),
                     () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"),
-                    () -> assertEquals("machine-harness", fixtures.queue.enqueued().getFirst().harness()),
-                    () -> assertEquals("machine-standard", fixtures.queue.enqueued().getFirst().model()));
+                    () -> assertEquals(harness, fixtures.queue.enqueued().getFirst().harness()),
+                    () -> assertEquals(model, fixtures.queue.enqueued().getFirst().model()));
         }
     }
 
     private static ModelJob job(String entityKind, String role, boolean consultation) {
+        var planId = Optional.of("plan-" + Generators.letterStrings(3, 12).next());
+        var entity = "entity-" + Generators.letterStrings(3, 12).next();
         return consultation
-                ? ModelJob.consultation(Optional.of("plan-1"), STATE, "entity-1", role)
-                : ModelJob.forModelJob(Optional.of("plan-1"), STATE, "entity-1", entityKind, role);
+                ? ModelJob.consultation(planId, STATE, entity, role)
+                : ModelJob.forModelJob(planId, STATE, entity, entityKind, role);
     }
 
     /** One caller with its recorders. */

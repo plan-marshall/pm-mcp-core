@@ -42,6 +42,7 @@ Plan parameters (the values the rules ask for):
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
+- **Read the landing analysis of PLAN-V2-111 at the outline** (`landings/PLAN-V2-111.md` C1, owner-register Wa61; decide at refine, R07): the store redacts only the schema-violation reason of an operator-only kind (`DerivedFactStore.java:283-285`); a consumer `Failed` reason and the derivation identifier echoed at `:281` still reach a reason, and ADR `core-store/064` records the `SchemaSubset` general fix as this plan's. The expected surface is unchanged.
 - **A bound never rejects what the formats admit today without a decision.** A bound below what a shipped source or the product corpus holds is an operator question (inbox message), not a silent narrowing; the figures of Deliverable 1 are proposals until D1's check has run.
 - **Format versions stay 1 (R13):** `schema_version` of `imported-item.schema.json` is untouched.
 

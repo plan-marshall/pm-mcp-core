@@ -29,6 +29,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.GuardResult;
 import de.planmarshall.workflow.ast.LinkSpec;
@@ -43,6 +45,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
  * The guard is proven by making it fire: the undecided {@code in_worktree} raises the condition, and the matched
  * controls, the same link with a decided {@code in_worktree}, held or not held, raise nothing.
  */
+@EnableGeneratorController
 @DisplayName("GuardEvaluator")
 class GuardEvaluatorTest {
 
@@ -182,7 +185,7 @@ class GuardEvaluatorTest {
         @Test
         @DisplayName("Should raise guard_indeterminate naming the guard, the link and the reason")
         void shouldRaiseGuardIndeterminate() {
-            var raisedAt = fixtures.clock.tick(Duration.ofSeconds(3));
+            var raisedAt = fixtures.clock.tick(Duration.ofSeconds(Generators.integers(1, 60).next()));
             var status = planStatus(EngineFixtures.EXECUTE, "session.choose");
             var facts = new Facts(UNDECIDED, NOT_HELD, HELD, Map.of("test.ready", NOT_HELD));
 
@@ -225,7 +228,8 @@ class GuardEvaluatorTest {
             assertAll(
                     () -> assertTrue(GuardEvaluator.holds(pushed, Map.of("pushed", true))),
                     () -> assertFalse(GuardEvaluator.holds(pushed, Map.of("pushed", false))),
-                    () -> assertTrue(GuardEvaluator.holds(pushed, Map.of("pushed", "a1b2c3"))),
+                    () -> assertTrue(GuardEvaluator.holds(pushed,
+                            Map.of("pushed", Generators.letterStrings(1, 8).next()))),
                     () -> assertFalse(GuardEvaluator.holds(pushed, Map.of())),
                     () -> assertTrue(GuardEvaluator.holds(notPushed, Map.of())),
                     () -> assertFalse(GuardEvaluator.holds(notPushed, Map.of("pushed", true))));

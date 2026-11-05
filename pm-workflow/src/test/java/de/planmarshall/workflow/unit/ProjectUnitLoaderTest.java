@@ -177,7 +177,8 @@ class ProjectUnitLoaderTest {
 
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
-                    () -> assertEquals("Max Mustermann", result.units().get("replan").frontmatter().author()));
+                    () -> assertEquals(UnitFixtures.OTHER_PERSON_AUTHOR,
+                            result.units().get("replan").frontmatter().author()));
         }
 
         static Stream<Arguments> reservedForms() {

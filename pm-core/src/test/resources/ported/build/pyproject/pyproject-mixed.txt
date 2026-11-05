@@ -1,0 +1,15 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_mixed_output
+# One verify run carries mypy, ruff and pytest output; all three are detected and combined in tool
+# order, and the pytest summary supplies the counts.
+log src/main.py:10: error: Argument has incompatible type
+log src/main.py:15:1: E501 Line too long
+log FAILED test/test_main.py::test_foo - assert False
+log ================ 5 passed, 1 failed in 2.1s ================
+status FAILURE
+success-marker true
+tests measured 5 1 0 6
+no-tests-ran false
+diagnostic-count 3
+diagnostic ERROR TYPE_ERROR src/main.py 10 - Argument has incompatible type
+diagnostic ERROR LINT_ERROR src/main.py 15 1 E501 Line too long
+diagnostic ERROR TEST_FAILURE test/test_main.py - - assert False

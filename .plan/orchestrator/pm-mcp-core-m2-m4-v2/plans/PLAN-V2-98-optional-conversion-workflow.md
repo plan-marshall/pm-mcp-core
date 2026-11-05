@@ -46,6 +46,7 @@ The null-safety skill forbids `Optional` as a field, a parameter or a record com
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
+- **Read the landing analysis of PLAN-V2-110 at the outline** (`landings/PLAN-V2-110.md` S3, C2–C4, owner-register Wa60; decide at refine, R07): the null-contract plan left about 200 `nullableX(…).orElse(null)` round trips into `@Nullable` locals and builders, an `Optional` return fed through `.orElse(null)` into an unannotated component (`EffectiveRole.idleWakeups`), and `@Nullable` annotations that are not true (`SubprocessJobRunner.latest`, `HarnessProfile.askUserTool`); convert the sites of this plan's modules by making the absence a type, not by another annotation. The expected surface is unchanged.
 - **`Optional` stays as a return type** (absence); this plan converts fields, parameters and record components only.
 - **No format change** (R13): the codecs map `null` to the absent member exactly as `Optional.empty()` was mapped.
 - **R19 is replaced:** the Expected Surface names packages by directory; the plan runs in the conformance wave, after the test migration of its module.

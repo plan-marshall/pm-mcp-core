@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
  * their order, and the reasons of {@link WaitAnswer.WaitAgain} and {@link WaitAnswer.End}. The guide names a list that
  * a change to the protocol would otherwise leave stale.
  */
+// Every datum in this class is a contract: the guide and protocol paths, the regexes and the vocabulary markers.
 @DisplayName("Protocol vocabulary parity")
 class ProtocolVocabularyParityTest {
 

@@ -33,6 +33,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * names it with its location and a witnessing assignment, it reports nothing on the matched control
  * {@code control.pmwf} with the same seed, and the same configuration gives the same report.
  */
+// Every datum in this class is a contract: fixture paths, the planted state and guard, and the seed and bounds.
 @DisplayName("TransitionFuzzer")
 class TransitionFuzzerTest {
 

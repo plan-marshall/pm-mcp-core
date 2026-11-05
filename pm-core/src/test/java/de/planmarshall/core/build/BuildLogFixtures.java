@@ -550,6 +550,8 @@ final class BuildLogFixtures {
                 "verdict", "finding-count", "finding", "newly-detected", "pre-existing");
         restDirectives.forEach(keyword -> grammar.put(keyword, new Shape(1, true)));
         grammar.put("no-by-runner", new Shape(0, false));
+        grammar.put("problems", new Shape(1, true));
+        grammar.put("no-problems", new Shape(0, false));
         return Map.copyOf(grammar);
     }
 

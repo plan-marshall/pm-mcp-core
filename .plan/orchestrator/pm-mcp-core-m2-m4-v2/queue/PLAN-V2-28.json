@@ -2,7 +2,7 @@
   "id": "PLAN-V2-28",
   "slug": "native-build-parsers-npm-and-python",
   "workstream": "WS-07",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",

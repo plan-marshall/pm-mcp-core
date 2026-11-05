@@ -1,0 +1,12 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_mypy_errors test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_issues_are_issue_instances
+# mypy's `path:line: error: message` form. The totals line is not a diagnostic.
+log src/main.py:10: error: Incompatible types in assignment
+log src/utils.py:25: error: Missing return statement
+log Found 2 errors in 2 files
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR TYPE_ERROR src/main.py 10 - Incompatible types in assignment
+diagnostic ERROR TYPE_ERROR src/utils.py 25 - Missing return statement

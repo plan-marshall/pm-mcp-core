@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
@@ -39,6 +40,7 @@ import de.planmarshall.workflow.verify.SchemaRegistry;
  * A refusing project is the passing one with named {@link Mutation}s: a text that occurs exactly once in one file,
  * replaced by another. The named mutations of this class are the ones several tests share.
  */
+// Fixture helper, not a test class: the unit texts and ids are the fixture contract, the authors are generated.
 final class UnitFixtures {
 
     /** The project-ownable unit files of the tests: the phase files of the plan unit, then the sub-workflows. */
@@ -57,7 +59,10 @@ final class UnitFixtures {
     static final String DEFAULT_AUTHOR = "plan-marshall";
 
     /** The author of the fixture units written into a project, a person. */
-    static final String PROJECT_AUTHOR = "Erika Mustermann";
+    static final String PROJECT_AUTHOR = Generators.letterStrings(4, 12).next();
+
+    /** The author of the other person a fixture unit names; distinct from {@link #PROJECT_AUTHOR} by its suffix. */
+    static final String OTHER_PERSON_AUTHOR = Generators.letterStrings(4, 12).next() + "-other";
 
     /** The author line of a fixture unit written into a project. */
     static final String PROJECT_AUTHOR_LINE = "author: " + PROJECT_AUTHOR;
@@ -68,7 +73,7 @@ final class UnitFixtures {
 
     /** The re-planning unit placed in the project names another person as its author. */
     static final Mutation OTHER_PERSON = new Mutation("a project unit names another person",
-            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: Max Mustermann");
+            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: " + OTHER_PERSON_AUTHOR);
 
     /** The project step of the binding tests. */
     static final String PROJECT_STEP = "project:lint";
@@ -157,7 +162,7 @@ final class UnitFixtures {
 
     /**
      * Writes every fixture unit into a directory as a project unit, each mutation applied to its file. A project unit
-     * is made by a person, so the author {@value #DEFAULT_AUTHOR} of the default unit becomes {@value #PROJECT_AUTHOR};
+     * is made by a person, so the author {@value #DEFAULT_AUTHOR} of the default unit becomes {@link #PROJECT_AUTHOR};
      * the line count stays.
      *
      * @param directory the directory, created when missing

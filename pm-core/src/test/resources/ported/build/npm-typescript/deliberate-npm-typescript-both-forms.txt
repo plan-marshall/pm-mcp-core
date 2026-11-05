@@ -1,0 +1,13 @@
+deliberate: deliberate-npm-typescript-both-forms
+# The original scans the `path:line:col - error ...` form only when the parenthesized form yielded
+# nothing, so a log that mixes the two forms loses every colon-separated diagnostic. This port
+# scans both forms over every line.
+log src/a.ts(3,7): error TS2322: Type 'string' is not assignable to type 'number'.
+log src/b.ts:9:4 - error TS2339: Property 'x' does not exist on type 'Y'.
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR COMPILATION_ERROR src/a.ts 3 7 TS2322: Type 'string' is not assignable to type 'number'.
+diagnostic ERROR COMPILATION_ERROR src/b.ts 9 4 TS2339: Property 'x' does not exist on type 'Y'.

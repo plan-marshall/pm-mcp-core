@@ -1,0 +1,17 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_wide_padded_header_still_resolves_its_block test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_slice_named_test_matches_a_setup_error
+# A fixture that raised at setup: this spelling names a test and carries a summary message, so the
+# `ERROR at setup of <test>` header must resolve to the same key the summary line yields.
+log ==================================== ERRORS ====================================
+log ______________________ ERROR at setup of test_widget ______________________
+log test/test_widget.py:4: in a_fixture
+log     raise RuntimeError('fixture blew up')
+log E   RuntimeError: fixture blew up
+log =========================== short test summary info ============================
+log ERROR test/test_widget.py::test_widget - RuntimeError: fixture blew up
+log ======================== 10 passed, 1 error in 1.10s ========================
+status FAILURE
+success-marker true
+tests measured 10 0 0 10
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_COLLECTION_ERROR test/test_widget.py 4 - RuntimeError: fixture blew up

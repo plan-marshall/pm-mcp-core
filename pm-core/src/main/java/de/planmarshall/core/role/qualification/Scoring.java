@@ -77,7 +77,8 @@ public final class Scoring {
      * @return the share of the score that passes
      */
     public static BigDecimal threshold(ImportedItem item) {
-        return Objects.requireNonNullElse(item.grading().passThreshold(), DEFAULT_PASS_THRESHOLD);
+        var threshold = item.grading().passThreshold();
+        return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;
     }
 
     /**

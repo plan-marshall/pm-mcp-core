@@ -1,0 +1,10 @@
+deliberate: deliberate-jest-unmeasured-tests
+# A `Tests:` block whose total is not the sum of its parts is no measurement: the original publishes
+# the block's `total` beside zero parts, which reads as three separate facts and is none of them.
+log PASS src/a.test.ts
+log Tests:       7 total
+status SUCCESS
+success-marker false
+tests unmeasured
+no-tests-ran false
+diagnostic-count 0

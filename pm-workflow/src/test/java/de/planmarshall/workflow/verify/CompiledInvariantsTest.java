@@ -41,6 +41,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -61,6 +63,7 @@ import de.planmarshall.workflow.verify.InvariantFixtures.Mutation;
  * has one refusing case: the passing source with one named mutation, refused with the invariant at the file and line
  * of the offending node. For the invariants with a named hook the refusing case breaks the tree-checkable part.
  */
+@EnableGeneratorController
 @DisplayName("CompiledInvariants")
 class CompiledInvariantsTest {
 
@@ -185,8 +188,9 @@ class CompiledInvariantsTest {
         @DisplayName("cannot be changed by a caller")
         void unmodifiable() {
             var parameters = CompiledInvariants.remediationBudgetParameters();
+            var budget = Generators.letterStrings(1, 8).next();
 
-            assertThrows(UnsupportedOperationException.class, () -> parameters.add("other_budget"));
+            assertThrows(UnsupportedOperationException.class, () -> parameters.add(budget));
         }
     }
 

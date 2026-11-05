@@ -1,0 +1,38 @@
+# Roster of the pytest cases of test/plan-marshall/build-npm/test_npm_parsers.py, the shared suite of
+# the five npm parser modules. This directory covers build-npm/_npm_parse_typescript.py; a case of
+# another parser is excluded with the directory that derives its fixtures instead. The pin is the
+# commit the fixtures were derived from (see ../PROVENANCE.adoc).
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py
+
+case test_typescript_parse_log_returns_tuple -> npm-typescript-errors
+case test_typescript_parse_log_extracts_errors -> npm-typescript-errors
+case test_typescript_no_test_summary -> npm-typescript-errors
+case test_typescript_success_on_empty -> npm-typescript-success
+case test_npm_errors_eresolve excluded: parsed by NpmErrorParser; its fixtures are in ../npm-errors
+case test_npm_errors_e404 excluded: parsed by NpmErrorParser; its fixtures are in ../npm-errors
+case test_npm_errors_no_test_summary excluded: parsed by NpmErrorParser; its fixtures are in ../npm-errors
+case test_npm_errors_success_on_empty excluded: parsed by NpmErrorParser; its fixtures are in ../npm-errors
+case test_eslint_parse_log_returns_tuple excluded: parsed by EslintOutputParser; its fixtures are in ../npm-eslint
+case test_eslint_extracts_errors excluded: parsed by EslintOutputParser; its fixtures are in ../npm-eslint
+case test_eslint_extracts_warnings excluded: parsed by EslintOutputParser; its fixtures are in ../npm-eslint
+case test_eslint_issue_fields excluded: parsed by EslintOutputParser; its fixtures are in ../npm-eslint
+case test_eslint_no_test_summary excluded: parsed by EslintOutputParser; its fixtures are in ../npm-eslint
+case test_jest_parse_log_returns_tuple excluded: parsed by JestOutputParser; its fixtures are in ../npm-jest
+case test_jest_parse_log_failure_status excluded: parsed by JestOutputParser; its fixtures are in ../npm-jest
+case test_jest_extracts_test_summary excluded: parsed by JestOutputParser; its fixtures are in ../npm-jest
+case test_jest_extracts_failures excluded: parsed by JestOutputParser; its fixtures are in ../npm-jest
+case test_tap_parse_log_success excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
+case test_tap_parse_log_failure excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
+case test_tap_extracts_test_summary_success excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
+case test_tap_extracts_test_summary_failure excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
+case test_tap_extracts_failures excluded: parsed by TapOutputParser; its fixtures are in ../npm-tap
+case test_issue_to_dict excluded: the result model is a record set, so it has no dictionary projection
+case test_test_summary_to_dict excluded: the result model is a record set, so it has no dictionary projection
+case test_parse_log_file_not_found excluded: the Java parse takes the log text; the file read is BuildLogText, whose refusal has its own test
+case test_mixed_typescript_and_jest_output excluded: a multi-parser dispatch has no port surface; each parser is a pure function of one text
+case test_warning_baseline_satisfied_reports_pass_gate excluded: the caller-baselined warning gate has no port surface
+case test_warning_baseline_satisfied_all_acceptable_exits_zero excluded: the caller-baselined warning gate has no port surface
+case test_warning_baseline_exceeded_fails_gate_and_exits_1 excluded: the caller-baselined warning gate has no port surface
+case test_no_warning_baseline_leaves_output_and_exit_unchanged excluded: the caller-baselined warning gate has no port surface
+case test_npm_cli_warning_baseline_gates excluded: the npm CLI has no port surface

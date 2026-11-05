@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_error_without_a_block_falls_back_to_the_terse_message
+# A `--tb=no` run has no ERRORS section, so only the short-summary line exists. The record is still
+# emitted with the terse message, and its line is honestly absent rather than invented.
+log ERROR test/plan-marshall/build-pyproject/test_broken_import.py
+log ======================== 5 passed, 1 error in 2.00s ========================
+status FAILURE
+success-marker true
+tests measured 5 0 0 5
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_COLLECTION_ERROR test/plan-marshall/build-pyproject/test_broken_import.py - - Error collecting test/plan-marshall/build-pyproject/test_broken_import.py

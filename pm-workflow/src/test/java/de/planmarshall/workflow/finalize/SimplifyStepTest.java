@@ -22,9 +22,12 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.finalize.CloneDetector.SourceFile;
 import de.planmarshall.workflow.finalize.ProposalRecord.Disposition;
 
+@EnableGeneratorController
 @DisplayName("The review-simplify restraint ladder (finalize.simplify)")
 class SimplifyStepTest {
 
@@ -127,8 +130,8 @@ class SimplifyStepTest {
     @DisplayName("Proposals are recorded as SP-<n> records, open, and never reused")
     @Test
     void proposalsAreRecordedOpen() {
-        var first = SimplifyStep.recordProposals(List.of(proposal("one"), proposal("two")), 1);
-        var second = SimplifyStep.recordProposals(List.of(proposal("three")), 3);
+        var first = SimplifyStep.recordProposals(List.of(proposal(), proposal()), 1);
+        var second = SimplifyStep.recordProposals(List.of(proposal()), 3);
 
         assertEquals(List.of("SP-1", "SP-2"), first.stream().map(ProposalRecord::proposalId).toList());
         assertEquals("SP-3", second.getFirst().proposalId());
@@ -140,7 +143,7 @@ class SimplifyStepTest {
     @DisplayName("The apply task applies the accepted subset and declines every other proposal")
     @Test
     void applyAcceptsTheSubsetAndDeclinesTheRest() {
-        var records = SimplifyStep.recordProposals(List.of(proposal("one"), proposal("two"), proposal("three")), 1);
+        var records = SimplifyStep.recordProposals(List.of(proposal(), proposal(), proposal()), 1);
 
         var result = SimplifyStep.apply(records, List.of("SP-2"));
 
@@ -154,7 +157,7 @@ class SimplifyStepTest {
     @DisplayName("An empty accepted set declines every proposal and routes nowhere")
     @Test
     void emptyAcceptedSetDeclinesEverything() {
-        var records = SimplifyStep.recordProposals(List.of(proposal("one"), proposal("two")), 1);
+        var records = SimplifyStep.recordProposals(List.of(proposal(), proposal()), 1);
         var result = SimplifyStep.apply(records, List.of());
 
         assertFalse(result.applied());
@@ -164,7 +167,7 @@ class SimplifyStepTest {
     @DisplayName("An accepted id that is no open proposal of the firing is refused")
     @Test
     void unknownAcceptedIdIsRefused() {
-        var records = SimplifyStep.recordProposals(List.of(proposal("one")), 1);
+        var records = SimplifyStep.recordProposals(List.of(proposal()), 1);
         var unknownId = List.of("SP-9");
         assertThrows(IllegalArgumentException.class, () -> SimplifyStep.apply(records, unknownId));
         var applied = SimplifyStep.apply(records, List.of("SP-1"));
@@ -176,10 +179,14 @@ class SimplifyStepTest {
     @DisplayName("A proposal's file is repository-relative and its text is bounded")
     @Test
     void proposalIsBounded() {
-        assertThrows(IllegalArgumentException.class, () -> new SimplifyProposal("/absolute/Path.java", "x", "y"));
-        assertThrows(IllegalArgumentException.class, () -> new SimplifyProposal("../outside.java", "x", "y"));
-        assertThrows(IllegalArgumentException.class, () -> new SimplifyProposal("a.java", "", "y"));
-        assertEquals("pm-core/src/main/java/one.java", proposal("one").file());
+        var text = Generators.letterStrings(1, 20).next();
+        var rationale = Generators.letterStrings(1, 20).next();
+        assertThrows(IllegalArgumentException.class,
+                () -> new SimplifyProposal("/absolute/Path.java", text, rationale));
+        assertThrows(IllegalArgumentException.class, () -> new SimplifyProposal("../outside.java", text, rationale));
+        assertThrows(IllegalArgumentException.class, () -> new SimplifyProposal("a.java", "", rationale));
+        var name = Generators.letterStrings(1, 10).next();
+        assertEquals("pm-core/src/main/java/%s.java".formatted(name), proposal(name).file());
     }
 
     @DisplayName("A candidate shorter than 50 tokens is refused")
@@ -198,9 +205,13 @@ class SimplifyStepTest {
         assertEquals(3, new LineRange(1, 3).last());
     }
 
+    private static SimplifyProposal proposal() {
+        return proposal(Generators.letterStrings(1, 10).next());
+    }
+
     private static SimplifyProposal proposal(String name) {
         return new SimplifyProposal("pm-core/src/main/java/%s.java".formatted(name),
-                "Inline the pass-through method %s".formatted(name), "The method hides nothing");
+                Generators.letterStrings(10, 40).next(), Generators.letterStrings(5, 30).next());
     }
 
     /** A source text of exactly {@code tokens} normalized tokens. */

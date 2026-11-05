@@ -34,6 +34,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.DecisionDeclaration;
@@ -72,6 +74,7 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * with declared entries and a start line, or one binding an undeclared entry, parses: the verifier refuses it. Every
  * inline unit opens with its frontmatter of {@link #FRONTMATTER_LINES} lines.
  */
+@EnableGeneratorController
 @DisplayName("WorkflowParser")
 class WorkflowParserTest {
 
@@ -608,7 +611,8 @@ class WorkflowParserTest {
 
         /** The frontmatter of a sub-workflow that declares one entry and the exit {@code done}. */
         private static String frontmatterWithEntry(String entry) {
-            return lines("---", "name: Demo unit", "description: A unit written for the parser tests.",
+            return lines("---", "name: " + Generators.letterStrings(3, 20).next(),
+                    "description: " + Generators.letterStrings(1, 40).next(),
                     "type: subworkflow", "icon: workflow.default", "entry: " + entry, "exit: done",
                     "modification_date: 2026-01-15", "version: 0.1.0", "author: plan-marshall", "---");
         }

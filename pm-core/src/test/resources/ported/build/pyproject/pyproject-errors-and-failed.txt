@@ -1,0 +1,19 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_failed_and_error_lines_are_both_reported
+# The two report characters are additive: the failure population and the errored population are both
+# reported, the failures first, and the summary counts the one failed test.
+log ==================================== ERRORS ====================================
+log _ ERROR collecting test/plan-marshall/build-pyproject/test_broken_import.py _
+log test/plan-marshall/build-pyproject/test_broken_import.py:7: in <module>
+log     assert _SENTINEL == 1
+log E   AssertionError: import-time assert
+log =========================== short test summary info ============================
+log FAILED test/test_other.py::test_thing - AssertionError: assert 1 == 2
+log ERROR test/plan-marshall/build-pyproject/test_broken_import.py
+log ======================== 5 passed, 1 failed, 1 error in 2.00s ========================
+status FAILURE
+success-marker true
+tests measured 5 1 0 6
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR TEST_FAILURE test/test_other.py - - AssertionError: assert 1 == 2
+diagnostic ERROR TEST_COLLECTION_ERROR test/plan-marshall/build-pyproject/test_broken_import.py 7 - AssertionError: import-time assert
