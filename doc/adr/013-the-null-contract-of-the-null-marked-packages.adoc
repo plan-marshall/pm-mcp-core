@@ -37,6 +37,23 @@ Each site is decided from the code, not from the Sonar message, and belongs to e
   returns is `Optional<T>`: the return type, the `return null` and every caller change, and a `@Nullable` return is
   never written. A field flagged "not initialized in this constructor" is initialised, or is `@Nullable` where null
   is a real state of the object.
+** (a) A `@Nullable` record component defaulted in a `@NullMarked` method is read once into a local and the local is
+  tested: `var threshold = item.grading().passThreshold();` then
+  `return threshold == null ? DEFAULT_PASS_THRESHOLD : threshold;`. The local form is not flagged by the analysis of
+  `main` at `70bc999f`: `CallGraphExpansion.entered(...)` holds a `Map.get(...)` in a local and defaults it with the
+  same ternary, and it is not among the two open `java:S2637` issues. The double-call ternary
+  `item.grading().passThreshold() == null ? DEFAULT_PASS_THRESHOLD : item.grading().passThreshold()` was flagged
+  before #282 replaced it, and `Objects.requireNonNullElse(item.grading().passThreshold(), DEFAULT_PASS_THRESHOLD)`
+  was still flagged at `70bc999f`: neither form was accepted. No record accessor of this tree carries the exact
+  local form, so until the analysis of `main` after this plan's merge reports it accepted, that acceptance is a
+  prediction from the local-form site, not a measurement.
+** (b) A field that is non-null once a required key was read is `@Nullable` at its declaration, with
+  `Objects.requireNonNull(field, "field")` where it is handed on. `QualificationSettingsCodec` does this for
+  `rewritten` and `UnitFrontmatterReader` does it for `modificationDate`, whose `complete(...)` runs only after the
+  `REQUIRED_KEYS` check has proved that `modification_date` was read.
+** (c) The analysis of a pull request is scoped to its new code and does not prove `main`: #282 reported "0 open
+  issues" for a rewritten line that the analysis of `main` still flagged. The proof of a null-rule fix is therefore
+  the read of `branch=main` after the merge, never the pull request's own result alone.
 
 A method that must keep the flagged shape because an external type forces it (an override of a JDK or library
 method whose contract permits null, a `CompletableFuture<Void>` completion) carries an inline
@@ -76,6 +93,8 @@ as a `@Nullable` member.
 
 * Pull requests #264 (D1, `core.store` and `core.queue`), #268 (D2, the other `pm-core` packages) and #274 (D3,
   `pm-workflow`, `pm-runtime` and the providers) of PLAN-V2-110.
+* Class (c) statements (a) to (c): PLAN-V2-112, `main-green-reliability-bugs`, staged from the two open `java:S2637`
+  bugs of `main` at `70bc999f`.
 * Work package: link:../../doc/plans/README.adoc[`doc/plans/`] — PLAN-V2-110, `null-contract-main-green`.
 * Specification sections: `Client Profiles` § Endpoint Profile Schema and § Remote Form; `Store Schemas` § Queue
   Task Record, § Activity Journal and § Workflow State Store; `Job Runtime` § Pipeline and Subprocesses.

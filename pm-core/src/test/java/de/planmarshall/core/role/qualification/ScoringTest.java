@@ -10,9 +10,12 @@
 package de.planmarshall.core.role.qualification;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,9 +27,10 @@ import de.planmarshall.core.role.corpus.ImportedItem;
 /**
  * The deterministic scorer of a corpus item (Model Work § Grading): a closed answer is compared with the reference and
  * the accepted alternatives, a control is right when it reports nothing, and a rubric answer is right from the item's
- * pass threshold — a compiled {@code 0.5} where it declares none.
+ * pass threshold — a declared threshold where it declares one, the compiled {@code 0.5} where it declares none.
  */
 @DisplayName("Scoring")
+@EnableGeneratorController
 class ScoringTest {
 
     @Test
@@ -72,10 +76,56 @@ class ScoringTest {
     }
 
     @Test
+    @DisplayName("a declared pass threshold wins over the default")
+    void declaredThresholdWins() {
+        var above = BigDecimal.valueOf(Generators.integers(6, 10).next()).movePointLeft(1);
+        var below = BigDecimal.valueOf(Generators.integers(1, 4).next()).movePointLeft(1);
+        var itemAbove = rubricItemWith(above);
+        var itemBelow = rubricItemWith(below);
+
+        assertAll(
+                () -> assertEquals(above, Scoring.threshold(itemAbove),
+                        "a threshold above the default is kept"),
+                () -> assertEquals(below, Scoring.threshold(itemBelow),
+                        "a threshold below the default is kept"),
+                () -> assertTrue(Scoring.right(itemAbove, above), "a score at the declared threshold passes"),
+                () -> assertFalse(Scoring.right(itemAbove, Scoring.DEFAULT_PASS_THRESHOLD),
+                        "the compiled default does not pass above it"),
+                () -> assertTrue(Scoring.right(itemBelow, below), "a lower declared threshold passes"),
+                () -> assertFalse(Scoring.right(itemBelow, BigDecimal.ZERO),
+                        "a score below a lower declared threshold fails"));
+    }
+
+    @Test
+    @DisplayName("the default pass threshold is 0.5 when the grading declares none")
+    void defaultThresholdWhenNoneDeclared() {
+        var item = QualificationFixtures.item("review/rubric", QualificationFixtures.ROLE, null)
+                .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build();
+
+        assertAll(
+                () -> assertEquals(new BigDecimal("0.5"), Scoring.threshold(item),
+                        "the compiled default threshold is one half"),
+                () -> assertTrue(Scoring.right(item, Scoring.DEFAULT_PASS_THRESHOLD),
+                        "a score at the compiled default passes"));
+    }
+
+    @Test
     @DisplayName("a closed item is never sent to the judge")
     void closedIsNotJudged() {
         var item = QualificationFixtures.item("review/clean-plan", QualificationFixtures.ROLE, "clean").build();
 
         assertFalse(Scoring.judged(item));
+    }
+
+    private static ImportedItem rubricItemWith(BigDecimal passThreshold) {
+        return withPassThreshold(QualificationFixtures.item("review/rubric", QualificationFixtures.ROLE, null)
+                .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build(), passThreshold);
+    }
+
+    private static ImportedItem withPassThreshold(ImportedItem item, BigDecimal passThreshold) {
+        return new ImportedItem(item.id(), item.topic(), item.role(), item.title(), item.tags(), item.group(),
+                item.input(), item.target(),
+                new ImportedItem.Grading(item.grading().method(), item.grading().judge(), passThreshold),
+                item.provenance(), item.review(), item.contamination(), item.canary());
     }
 }

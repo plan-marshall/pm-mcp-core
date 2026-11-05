@@ -185,8 +185,8 @@ public final class UnitFrontmatterReader {
         private final Set<String> entryNames = new HashSet<>();
         private final Set<String> exitNames = new HashSet<>();
         private @Nullable UnitType type;
-        private LocalDate modificationDate;
-        private String previousKey;
+        private @Nullable LocalDate modificationDate;
+        private @Nullable String previousKey;
 
         private Fields(String resourceName) {
             this.resourceName = resourceName;
@@ -363,7 +363,8 @@ public final class UnitFrontmatterReader {
             }
             return new UnitFrontmatter(singles.get(KEY_NAME), singles.get(KEY_DESCRIPTION), type,
                     singles.get(KEY_ICON), entries.stream().map(Element::toInterfaceElement).toList(),
-                    exits.stream().map(Element::toInterfaceElement).toList(), modificationDate,
+                    exits.stream().map(Element::toInterfaceElement).toList(),
+                    Objects.requireNonNull(modificationDate, "modificationDate"),
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
                     Optional.ofNullable(singles.get(KEY_SIGNATURE)), new SourceLocation(resourceName, 1, 1));
         }
