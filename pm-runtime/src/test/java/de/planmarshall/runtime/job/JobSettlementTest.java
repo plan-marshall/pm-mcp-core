@@ -407,6 +407,32 @@ class JobSettlementTest {
         }
 
         @Test
+        @DisplayName("a replacement step that throws a runtime fault is a failed step")
+        void runtimeFaultReplacementStopsTheSettlement() {
+            var throwing = new SettlementStep() {
+
+                @Override
+                public Name name() {
+                    return Name.TIMING_OBSERVATION;
+                }
+
+                @Override
+                public Outcome run(Settled settled) {
+                    throw new IllegalStateException("the step faulted");
+                }
+            };
+
+            var report = JobSettlement.of(records, lockManager, Map.of(Name.TIMING_OBSERVATION, throwing))
+                    .settle(runningJobWithSlot());
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Name.TIMING_OBSERVATION), report.stoppedAt(),
+                            "the runtime fault stopped the settlement"),
+                    () -> assertInstanceOf(Outcome.Failed.class, report.steps().getLast().outcome(),
+                            "the runtime fault is a failed step"));
+        }
+
+        @Test
         @DisplayName("refuses a replacement filed under another name")
         void refusesAMisnamedReplacement() {
             var mismatched = Map.of(Name.METRICS_ROW, recording(Name.TIMING_OBSERVATION, new ArrayList<>()));

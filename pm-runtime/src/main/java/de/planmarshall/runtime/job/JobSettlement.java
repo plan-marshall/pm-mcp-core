@@ -9,7 +9,6 @@
  */
 package de.planmarshall.runtime.job;
 
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -23,7 +22,6 @@ import java.util.Set;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JobRecordStore;
-import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.job.SettlementStep.Name;
 import de.planmarshall.runtime.job.SettlementStep.Outcome;
 import de.planmarshall.runtime.job.SettlementStep.Settled;
@@ -208,14 +206,19 @@ public final class JobSettlement {
     }
 
     /**
-     * Runs one step, turning a failure of its store into a {@link Outcome.Failed} so a settlement of an already-ended
-     * job never escapes to the caller: the fate is durable, and a later store fault must not hide the record from the
-     * settlement wait.
+     * Runs one step. A step after the fate never throws: a fault it cannot report as a value is a programming fault,
+     * and the settlement turns any runtime fault into a {@link Outcome.Failed} so a settlement of an already-ended job
+     * never escapes to the caller. The fate step is the exception: its fault propagates so the runner's last-resort
+     * path can retry the record write.
      */
     private static Outcome run(SettlementStep step, Settled settled) {
         try {
             return Objects.requireNonNull(step.run(settled), "outcome");
-        } catch (UncheckedIOException | StoreRefusal e) {
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException e) {
+            if (step.name() == Name.FATE) {
+                throw e;
+            }
             return new Outcome.Failed("the step %s failed: %s".formatted(step.name(), e.getMessage()));
         }
     }

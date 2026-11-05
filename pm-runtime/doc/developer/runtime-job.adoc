@@ -307,6 +307,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/01
 |===
 
 A seam does nothing and reports `not implemented in this runtime`, like the seams of the per-project recovery.
+A step after the fate never throws: a runtime fault it cannot report as a value is a `Failed` step, so a durable end is never hidden from the settlement wait. The fate step's own fault propagates so the runner can retry the record write from what it observed.
 A package that brings one of the seam's stores passes its step in a `Map<Name, SettlementStep>` to `JobSettlement.of(store, lockManager, replacements)`; a name the map does not carry keeps the default step, and a replacement filed under another name than its own is refused. The runner passes the map its builder receives (`settlementSteps`) to every settlement of its own jobs, so a later package replaces a seam without changing the settlement or the runner.
 The first step that fails stops the settlement, and no later step runs, so a released slot never precedes the recorded fate.
 The runner settles its own jobs without a slot; the slot of a job is named by the caller of `JobSettlement`, such as the recovery of `runtime.start`.
