@@ -204,16 +204,18 @@ public final class GitHubCiProvider implements CiProvider {
         if (!files.isOk()) {
             return files.asFailure();
         }
-        Result<Boolean> writable = headWritable(repository, payload);
-        if (!writable.isOk()) {
-            return writable.asFailure();
-        }
+        // The head repository names come from the response; they are validated as plain path segments before they
+        // address a request, and the refusal names no remote text.
         Optional<RepositoryRef> head;
         try {
             head = payload.headRepository().map(headRepository -> new RepositoryRef(PROVIDER_ID, origin,
                     headRepository.owner(), headRepository.name()));
-        } catch (IllegalArgumentException e) {
-            return Result.of(Result.Outcome.FAILED, "the head repository is no repository name: " + e.getMessage());
+        } catch (IllegalArgumentException _) {
+            return Result.of(Result.Outcome.FAILED, "the head repository is no repository name");
+        }
+        Result<Boolean> writable = headWritable(repository, payload);
+        if (!writable.isOk()) {
+            return writable.asFailure();
         }
         List<String> paths = files.value().orElseThrow();
         return Result.ok(PullRequest.builder().state(payload.state()).title(payload.title()).body(payload.body())
