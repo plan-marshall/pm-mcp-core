@@ -1,0 +1,70 @@
+= ADR 015: The Parser Seam Carries the Job and the Settlement Accepts Replacement Steps
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-05
+
+== Context
+
+The runner asked its `OutputParser` for the parse of a job log by the job's kind and the log text. A build job's log is
+written by one of four build systems, and the native parsers of `core.build` are one per build system (and, for npm, one
+per tool whose markers the log carries). The kind and the text cannot tell which build system ran: the build tool is
+named by the budget key, which the Timeouts & Budgets specification fixes as `<build_system>:<verb>[@<module_id>]` and
+which the job record carries. The seam therefore could not select a parser at all.
+
+The settlement (`JobSettlement`) runs one `SettlementStep` per `SettlementStep.Name` in the fixed write order, and its
+factory `JobSettlement.of(store, lockManager)` builds every step itself. Several of those steps are named seams whose
+stores come with later packages. Without a way to replace a seam, a later package cannot bring its store without editing
+the settlement or the runner.
+
+The interface is a public seam of `pm-runtime` that the assembly `plan-marshall-mcp` constructs the runner with (R16(2)).
+
+== Decision
+
+* `SubprocessJobRunner.OutputParser.parse(JobRecord job, String output)` replaces `parse(JobId.Kind kind, String
+  output)`, and the runner calls it with the job record at the existing call site in `settle`.
+* `BuildOutputParser` (package `runtime.job`) implements the seam for build jobs. It takes the first component of the
+  budget key as the build system and selects `MavenOutputParser`, `GradleOutputParser`, `PyprojectOutputParser`, or, for
+  `npm`, the npm error parser or the TypeScript, ESLint, Jest and TAP scanner whose markers the log carries. It maps a
+  `ParsedBuild` to `JobEvidence.ParseResult`: the tool's positive success marker, the number of located diagnostics and
+  the contradicting evidence (a located diagnostic or a measured failing test count). A job of another kind, a key of an
+  unknown build system and a log no scanner recognises yield `ParseResult.NOTHING`.
+* `JobSettlement.of(store, lockManager, Map<Name, SettlementStep> replacements)` is added beside the existing factory.
+  A name the map does not carry keeps the default step; a replacement filed under another name than its own is refused.
+  `SubprocessJobRunner` takes the same map through its builder (`settlementSteps`) and passes it to every settlement of
+  its own jobs.
+
+== Alternatives Considered
+
+* *A parser registry keyed by the launched argument vector.* The argument vector is not part of the job record and is
+  re-derived per start; the budget key is the specification's own scope for a build, so it is the stable selector.
+* *A source-compatible overload of `OutputParser`.* The seam is a functional interface used as a lambda; a lambda binds
+  its single abstract method, so a second arity is a new interface, not an overload. The interface and its callers change,
+  and the assembly's construction is named as a follow-up.
+* *A subclass of `JobSettlement` per seam.* The class is final and the write order is the class contract; a replacement
+  map keeps one order and one class.
+
+== Consequences
+
+* Every caller that supplies an `OutputParser` (the assembly `plan-marshall-mcp`, the tests) must adapt to the new
+  parameter. The assembly's construction of the runner with `BuildOutputParser` and with the settlement steps is owed to
+  `plan-marshall-mcp` after the `SNAPSHOT` deploy (R16(2)); this repository names it and does not change the assembly.
+* A later package that brings one of the seam's stores passes its step to `JobSettlement.of` and to the runner's
+  builder; it adds a step class and touches neither the settlement nor the runner.
+* A replaced step runs in the order of `SettlementStep.Name` like every other step, and its `Failed` stops the settlement
+  at that place.
+* The mapping keeps a zero exit of a tool without a positive success marker `indeterminate` (row 8) rather than reading
+  the absence of diagnostics as a success.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-36-failed-unparsed-and-parser-wiring.md[PLAN-V2-36]
+* Work package link:../../../../doc/plans/build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback];
+  link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#job-budgets[Timeouts & Budgets § Job Budgets]
+* Decision of the settlement: link:006-settlement-as-ordered-steps-with-named-seams.adoc[ADR 006]

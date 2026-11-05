@@ -134,7 +134,8 @@ is specified for builds only.
 Guard:: A build exiting non-zero without a parsed diagnostic settles `failed_unparsed`, never `failed`; the full raw
 log is kept beside the job record, and its failure envelope (class `build`, kind `unparsed`) carries the bounded,
 redacted raw-log tail and the log URI and no invented diagnostic; matched control: a build with a parsed diagnostic
-settles `failed`.
+settles `failed`. The fate, the kept log and the `UnparsedEvidence` excerpt are carried; the envelope that wraps the
+excerpt stays owed to the package `remediation-units`, so the item is kept.
 Source:: plan-marshall lesson 2026-09-23-05-006.
 
 [#PM-WATCH-JOB-9]
@@ -481,7 +482,9 @@ link:../specification/hypermedia-format/01-representation-and-link-forms.adoc#fa
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-6[PM-IMPL-6]
 Hazard:: A payload was truncated in forwarding (2,475 bytes / 4 turns emitted, ~575 bytes / 2 turns forwarded) while
 its counts still described the original.
-Guard:: Any truncated payload, such as the `failed_unparsed` tail, reports forwarded and total sizes.
+Guard:: Any truncated payload, such as the `failed_unparsed` tail, reports forwarded and total sizes. Not covered yet:
+`UnparsedEvidence` carries no forwarded and total sizes; that report belongs to the failure envelope of
+`remediation-units`, so the item is kept with this reason.
 Source:: plan-marshall truthful-signals (quality-aspect) PLAN-217 D4.
 
 == Adaptive Build Timeouts, Coverage Parsers & Gate Honesty

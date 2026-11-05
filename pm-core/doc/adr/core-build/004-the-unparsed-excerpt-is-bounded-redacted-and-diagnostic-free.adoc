@@ -1,0 +1,53 @@
+= ADR 004: The Unparsed Excerpt Is Bounded, Redacted and Diagnostic-Free
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-05
+
+== Context
+
+A build that exits non-zero without a parsed diagnostic settles `failed_unparsed` (outcome row 10, Job Runtime §
+Unparseable Output Fallback). The raw log is preserved beside the job record as `<job_id>.log`. The failure gathering that
+follows must hand a model something to act on without handing it a compiler error that no parser located, and without
+cutting an unbounded log into the request or leaking a credential the log may echo.
+
+== Decision
+
+* `UnparsedEvidence` (package `core.build`) carries exactly two components: the bounded, redacted excerpt and the resource
+  URI of the full log. It has no diagnostic component, so the model cannot be handed one that was never parsed.
+* `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the last `MAX_LINES` (50) complete lines, redacts every
+  secret-shaped value through the existing `SecretRedactor` of `core.queue`, and keeps at most `MAX_BYTES` (4096) bytes of
+  UTF-8 counted from the end of the redacted text. A cut never splits a UTF-8 character.
+* The URI is `pm://plan/{plan_id}/builds/{job_id}/log`; the full log stays beside the job record and is read as `JobLog`
+  reads it.
+
+== Alternatives Considered
+
+* *Persist the excerpt in the job record.* The record is a versioned store schema with a fixed field set; a derived,
+  bounded excerpt is not a job fact and adding a field would be a schema change for a value that is recomputed from the
+  log.
+* *Include the parsed diagnostics.* There are none: `failed_unparsed` is exactly the case in which the parser located no
+  diagnostic.
+* *Cap the excerpt from its head.* The excerpt is the tail of a log, so its most recent part is the part that explains
+  the end; a head cut would show the start of a build and hide the failure.
+
+== Consequences
+
+* A failure envelope of class `build` and kind `unparsed` (package `remediation-units`) wraps this evidence; the excerpt
+  and URI this record produces are its content.
+* A truncated excerpt does not yet report forwarded and total sizes, so PM-WATCH-JOB-14 stays open with the envelope that
+  carries those sizes.
+* Redaction happens before the byte bound is applied, so a replacement that lengthens a line cannot make the excerpt
+  exceed the bound.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-36-failed-unparsed-and-parser-wiring.md[PLAN-V2-36]
+* Work package link:../../../../doc/plans/build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback]
+* Redaction: link:../core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR `core-queue/008`]
