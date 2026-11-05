@@ -91,7 +91,9 @@ class ScoringTest {
                 () -> assertTrue(Scoring.right(itemAbove, above), "a score at the declared threshold passes"),
                 () -> assertFalse(Scoring.right(itemAbove, Scoring.DEFAULT_PASS_THRESHOLD),
                         "the compiled default does not pass above it"),
-                () -> assertTrue(Scoring.right(itemBelow, below), "a lower declared threshold passes"));
+                () -> assertTrue(Scoring.right(itemBelow, below), "a lower declared threshold passes"),
+                () -> assertFalse(Scoring.right(itemBelow, BigDecimal.ZERO),
+                        "a score below a lower declared threshold fails"));
     }
 
     @Test
