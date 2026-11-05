@@ -163,7 +163,7 @@ class GitLabCiProviderTest {
         var identity = provider(server).whoami(null).value().orElseThrow();
 
         assertAll("the project token",
-                () -> assertEquals(TokenKind.GITLAB_PROJECT_TOKEN, identity.tokenKind(), "the kind is project"),
+                () -> assertEquals(TokenKind.GITLAB_PROJECT_TOKEN, identity.tokenKind(), "the token kind is project"),
                 () -> assertTrue(identity.permissions().isEmpty(), "no repository means no permissions"));
     }
 
@@ -249,7 +249,7 @@ class GitLabCiProviderTest {
                         "a 403 is a permission refusal"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
                         provider.issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 6)).outcome(),
-                        "a 404 is not found"));
+                        "a 404 reads as not found"));
     }
 
     @Test

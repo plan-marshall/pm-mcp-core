@@ -46,8 +46,8 @@ public final class GitHubClient {
 
     /** The GraphQL path relative to {@code https://api.github.com/}. */
     public static final String GRAPHQL_PATH = "graphql";
-    /** Page cap of the review-thread read (100 threads per page). */
     private static final String PAGE_INFO = "pageInfo";
+    /** Page cap of the review-thread read (100 threads per page). */
     static final int MAX_THREAD_PAGES = 20;
     /**
      * Page cap of the changed-files read: 30 pages of 100 files reach the 3000 files GitHub lists for one pull
@@ -56,6 +56,9 @@ public final class GitHubClient {
     static final int MAX_FILE_PAGES = 30;
     private static final String REPOS = "repos/";
     private static final String PULLS = "/pulls/";
+    private static final String STATE = "state";
+    private static final String TITLE = "title";
+    private static final String LOGIN = "login";
 
     static final String REVIEW_THREADS = document("review-threads");
     static final String RESOLVE_REVIEW_THREAD = document("resolve-review-thread");
@@ -236,7 +239,7 @@ public final class GitHubClient {
             return Result.of(Result.Outcome.FAILED, "enqueue returned no merge queue entry");
         }
         return Result.ok(new MergeQueueEntry(Json.string(entry, "id").orElse(""),
-                Json.string(entry, "position").orElse(""), Json.string(entry, "state").orElse("")));
+                Json.string(entry, "position").orElse(""), Json.string(entry, STATE).orElse("")));
     }
 
     /**
@@ -251,7 +254,7 @@ public final class GitHubClient {
      * @return the comment's REST id
      */
     public Result<String> postComment(String owner, String name, int number, String body) {
-        Response response = http.send("POST", "repos/" + owner + "/" + name + "/issues/" + number + "/comments",
+        Response response = http.send("POST", REPOS + owner + "/" + name + "/issues/" + number + "/comments",
                 Optional.of(Json.write(Map.of("body", body))), Optional.empty());
         if (!response.isOk()) {
             return Result.failed(response);
@@ -289,7 +292,7 @@ public final class GitHubClient {
      * @return the issue's fields and whether it is a pull request
      */
     public Result<IssuePayload> issue(String owner, String name, int number) {
-        Response response = http.get("repos/" + owner + "/" + name + "/issues/" + number);
+        Response response = http.get(REPOS + owner + "/" + name + "/issues/" + number);
         if (!response.isOk()) {
             return Result.failed(response);
         }
@@ -297,19 +300,19 @@ public final class GitHubClient {
         if (json == null) {
             return Result.of(Result.Outcome.FAILED, "the issue response is not JSON");
         }
-        Optional<String> title = Json.string(json, "title").filter(t -> !t.isBlank());
-        Optional<String> state = Json.string(json, "state").filter(s -> !s.isBlank());
+        Optional<String> title = Json.string(json, TITLE).filter(t -> !t.isBlank());
+        Optional<String> state = Json.string(json, STATE).filter(s -> !s.isBlank());
         Optional<String> url = Json.string(json, "html_url").filter(u -> !u.isBlank());
         if (title.isEmpty() || state.isEmpty() || url.isEmpty()) {
             return Result.of(Result.Outcome.FAILED, "the issue response carries no title, state or URL");
         }
         var labels = Json.list(json, "labels").stream().map(label -> Json.string(label, "name"))
                 .flatMap(Optional::stream).toList();
-        var assignees = Json.list(json, "assignees").stream().map(assignee -> Json.string(assignee, "login"))
+        var assignees = Json.list(json, "assignees").stream().map(assignee -> Json.string(assignee, LOGIN))
                 .flatMap(Optional::stream).toList();
         var issue = Issue.builder().title(title.get()).body(Json.string(json, "body").orElse(""))
                 .labels(labels)
-                .milestone(Json.string(json, "milestone", "title").filter(value -> !value.isBlank()).orElse(null))
+                .milestone(Json.string(json, "milestone", TITLE).filter(value -> !value.isBlank()).orElse(null))
                 .assignees(assignees).state(state.get()).url(url.get()).build();
         return Result.ok(new IssuePayload(issue, Json.at(json, "pull_request").isPresent()));
     }
@@ -329,9 +332,9 @@ public final class GitHubClient {
             return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body()).orElse(null);
-        Optional<PullRequest.State> state = Json.string(json, "state")
+        Optional<PullRequest.State> state = Json.string(json, STATE)
                 .flatMap(value -> stateOf(value, Json.bool(json, "merged")));
-        Optional<String> title = text(json, "title");
+        Optional<String> title = text(json, TITLE);
         Optional<String> baseBranch = text(json, "base", "ref");
         Optional<String> headBranch = text(json, "head", "ref");
         Optional<String> headSha = text(json, "head", "sha");
@@ -396,7 +399,7 @@ public final class GitHubClient {
     }
 
     private static Optional<HeadRepository> headRepositoryOf(@Nullable Object json) {
-        Optional<String> owner = text(json, "head", "repo", "owner", "login");
+        Optional<String> owner = text(json, "head", "repo", "owner", LOGIN);
         Optional<String> name = text(json, "head", "repo", "name");
         return owner.isPresent() && name.isPresent() ? Optional.of(new HeadRepository(owner.get(), name.get()))
                 : Optional.empty();
@@ -447,7 +450,7 @@ public final class GitHubClient {
     private static ReviewThread thread(Object node) {
         var comments = Json.list(node, "comments", "nodes").stream()
                 .map(comment -> new ReviewComment(Json.string(comment, "id").orElse(""),
-                        Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", "login"),
+                        Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", LOGIN),
                         Json.string(comment, "body").orElse(""), Json.string(comment, "createdAt").orElse("")))
                 .toList();
         return new ReviewThread(Json.string(node, "id").orElse(""), Json.bool(node, "isResolved"),

@@ -194,7 +194,8 @@ public final class GitHubCiProvider implements CiProvider {
 
     @Override
     public Result<PullRequest> prView(PullRequestRef pullRequest) {
-        RepositoryRef repository = pullRequest.repository();
+        // a pull-request reference always carries its repository; refusalFor also accepts the absent one of whoami
+        RepositoryRef repository = Objects.requireNonNull(pullRequest.repository(), "repository");
         Optional<String> refusal = refusalFor(repository);
         if (refusal.isPresent()) {
             return Result.of(Result.Outcome.REJECTED, refusal.get());

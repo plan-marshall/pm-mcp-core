@@ -34,7 +34,7 @@ class ForgeUrlTest {
     void resolvesGitHubIssue() {
         var resolution = ForgeUrl.resolve("https://github.com/cuioss/pm-mcp-core/issues/12");
 
-        assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the URL is resolved");
+        assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the pull request URL is resolved");
         var url = resolution.url().orElseThrow();
         assertAll("the resolved source",
                 () -> assertEquals("github", url.forge(), "the resolved forge is github"),

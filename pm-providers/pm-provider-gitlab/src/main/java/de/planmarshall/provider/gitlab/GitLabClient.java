@@ -50,6 +50,8 @@ public final class GitLabClient {
     private static final String PROJECTS = "projects/";
     private static final String MERGE_REQUESTS = "/merge_requests/";
     private static final String ACCESS_LEVEL = "access_level";
+    private static final String STATE = "state";
+    private static final String TITLE = "title";
     /** The status with which {@code personal_access_tokens/self} refuses a token of another type. */
     private static final int NOT_A_PERSONAL_ACCESS_TOKEN = 400;
 
@@ -278,7 +280,7 @@ public final class GitLabClient {
         Object json = Json.parseOrNull(response.body()).orElse(null);
         return Json.string(json, "id")
                 .map(userId -> Result.ok(new TokenIdentity("", "", userId, List.of(),
-                        "active".equals(Json.string(json, "state").orElse("")), Optional.empty())))
+                        "active".equals(Json.string(json, STATE).orElse("")), Optional.empty())))
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "user response without id"));
     }
 
@@ -297,8 +299,8 @@ public final class GitLabClient {
         if (json == null) {
             return Result.of(Result.Outcome.FAILED, "the issue response is not JSON");
         }
-        Optional<String> title = Json.string(json, "title").filter(value -> !value.isBlank());
-        Optional<String> state = Json.string(json, "state").filter(value -> !value.isBlank());
+        Optional<String> title = Json.string(json, TITLE).filter(value -> !value.isBlank());
+        Optional<String> state = Json.string(json, STATE).filter(value -> !value.isBlank());
         Optional<String> url = Json.string(json, "web_url").filter(value -> !value.isBlank());
         if (title.isEmpty() || state.isEmpty() || url.isEmpty()) {
             return Result.of(Result.Outcome.FAILED, "the issue response carries no title, state or URL");
@@ -308,7 +310,7 @@ public final class GitLabClient {
                 .flatMap(Optional::stream).toList();
         return Result.ok(Issue.builder().title(title.get()).body(Json.string(json, "description").orElse(""))
                 .labels(labels)
-                .milestone(Json.string(json, "milestone", "title").filter(value -> !value.isBlank()).orElse(null))
+                .milestone(Json.string(json, "milestone", TITLE).filter(value -> !value.isBlank()).orElse(null))
                 .assignees(assignees).state(state.get()).url(url.get()).build());
     }
 
@@ -343,8 +345,8 @@ public final class GitLabClient {
             return Result.failed(response);
         }
         Object json = Json.parseOrNull(response.body()).orElse(null);
-        Optional<PullRequest.State> state = Json.string(json, "state").flatMap(GitLabClient::stateOf);
-        Optional<String> title = text(json, "title");
+        Optional<PullRequest.State> state = Json.string(json, STATE).flatMap(GitLabClient::stateOf);
+        Optional<String> title = text(json, TITLE);
         Optional<String> baseBranch = text(json, "target_branch");
         Optional<String> headBranch = text(json, "source_branch");
         Optional<String> headSha = text(json, "sha");

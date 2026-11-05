@@ -411,7 +411,7 @@ class GitHubCiProviderTest {
                         "a 403 is a permission refusal"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
                         provider.issueView(issue(WEB_ORIGIN, "github", 6)).outcome(),
-                        "a 404 is not found"));
+                        "a 404 reads as not found"));
     }
 
     @Test
