@@ -4,7 +4,7 @@ epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
 > Lives at `plans/PLAN-V2-86-core-store-tests-b.md` and is queued as one row file, `queue/PLAN-V2-86.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -50,6 +50,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Generated data, with the exemption of the rule R20:** a literal stays where it is the contract (a wire format or JSON document under test, an error or reason code, a schema or specification string, a golden file, a path of a fixture). Every class of the plan ends with `@EnableGeneratorController` and at least one `Generators.*` call, or with a one-line comment above the class saying that every datum is a contract; the pull request body lists per class the number of generator calls, the number of literals kept and the category of each kept literal.
 - **Seeds:** a failing generated test must be reproducible: the lane uses the seed reporting of `cui-test-generator` (`@GeneratorSeed` only on a test that needs a fixed value), and never `Random` or `UUID.randomUUID()` for test data.
 - **Read the landing analysis of PLAN-V2-88 at the outline** (`landings/PLAN-V2-88.md`, owner-register Wa66): the same conversion shipped there with three weaknesses this plan must not repeat. (1) A test that pins an ORDER keeps its deliberately unsorted literals (or a generated list that is checked to be unsorted); `AstNodeModelTest.statesKeepOrder` went from `zeta, alpha, mu, beta` to four generated texts and no longer fails against a sorting implementation. (2) A round trip through a persisted or parsed form keeps its punctuation, spaces, quotes and escapes in the generated text (the lane's `letterStrings` carries none). (3) The "every datum in this class is a contract" statement is made per datum and is true: a name such as `project-a` is not a wire format. Count the literals before and after and report the numbers; use `@GeneratorsSource` for 3 or more variants and put a repeated generated expression into the module's generator artifact; give every assertion a message of 20 to 60 characters in the classes the plan touches.
+- **Read the landing analysis of PLAN-V2-85 at the outline** (`landings/PLAN-V2-85.md`, owner-register Wa68; decide each at refine, R07): the first half of this directory shipped with the form of the conversion and not its substance. Do not repeat: (1) an assertion message outside 20 to 60 characters or none at all, in a helper as well as in a test (`LockOrderTest.assertViolation` has none): check every assertion of every class this plan touches, with a command, and report the count; (2) an "every datum in this class is a contract" statement over a class that builds a record from literals when a generator for that record exists in `CoreGenerators`; (3) a literal count that rises: count `"[^"]*"` of 3 or more characters before and after for each class and report both numbers; (4) `@GeneratorsSource` for 3 or more valid variants, a generated value reported in the failure message when a loop draws one; (5) a fixture constant such as `IntentFixtures.AT` that changes value: say why or keep it. The order-pinning tests of the first half held their unsorted literals; keep that.
 
 ## Claim Labels
 
@@ -73,7 +74,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-86-core-store-tests-b.md
+/plan-marshall task="implement .plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-86-core-store-tests-b.md"
 ```
 
 ## Write-Boundary
