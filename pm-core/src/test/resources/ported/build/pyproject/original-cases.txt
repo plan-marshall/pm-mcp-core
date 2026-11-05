@@ -1,0 +1,67 @@
+# Roster of the pytest cases of the two suites of build-pyproject/_pyproject_cmd_parse.py. The pin is
+# the commit the fixtures were derived from (see ../PROVENANCE.adoc). A case with no fixture is
+# excluded with its reason: the slice verb, the dictionary projection, the failure-detail block and
+# the summary duration of the original have no component in this port's result model.
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py
+
+case test_parse_mypy_errors -> pyproject-mypy
+case test_parse_mypy_no_errors -> pyproject-mypy-clean
+case test_parse_ruff_errors -> pyproject-ruff
+case test_parse_pytest_failures -> pyproject-pytest-failures
+case test_parse_pytest_summary -> pyproject-pytest-summary
+case test_parse_pytest_summary_passed_only -> pyproject-pytest-summary-passed
+case test_parse_no_test_summary -> pyproject-no-summary
+case test_parse_missing_file excluded: the Java parse takes the log text; the file read is BuildLogText, whose refusal has its own test
+case test_parse_empty_file -> pyproject-empty
+case test_parse_mixed_output -> pyproject-mixed
+case test_parse_issues_are_issue_instances -> pyproject-mypy
+case test_colored_live_failure_end_to_end_via_registry excluded: colour stripping is BuildLogText's; the registry path has no port surface
+case test_registry_read_site_strips_colour_before_detection excluded: colour stripping is BuildLogText's; the registry path has no port surface
+case test_summary_extraction_is_order_independent -> pyproject-pytest-summary-order
+case test_failure_detail_attached_per_issue excluded: the result model has no detail component; the port reports the deepest frame and the summary message instead
+case test_failure_detail_dedups_shared_root_cause excluded: the result model has no detail component
+case test_failure_detail_captures_traceback_body excluded: the result model has no detail component
+case test_failure_detail_falls_back_to_message_without_failures_section excluded: the result model has no detail component
+case test_issue_to_dict_round_trips_detail excluded: the result model is a record set with no dictionary projection
+case test_slice_failures_detail_returns_deduped_set excluded: the `parse --failures-detail` slice verb has no port surface
+case test_slice_test_returns_named_slice excluded: the `parse --test` slice verb has no port surface
+case test_slice_test_no_match_returns_empty excluded: the `parse --test` slice verb has no port surface
+case test_slice_missing_log_returns_error excluded: the `parse --test` slice verb has no port surface
+case test_failing_frame_ignores_captured_output_section -> pyproject-captured-output
+case test_failing_frame_returns_deepest_traceback_frame -> pyproject-captured-output
+case test_failing_frame_none_without_frame excluded: a block without a frame is held by pyproject-syntax-error, whose block carries none
+case test_extract_summary_captures_duration_from_in_marker excluded: the result model has no duration component
+case test_extract_summary_captures_integer_duration excluded: the result model has no duration component
+case test_extract_summary_duration_none_when_marker_malformed excluded: the result model has no duration component
+case test_extract_summary_duration_none_when_marker_absent excluded: the result model has no duration component
+case test_parse_log_pytest_summary_carries_duration excluded: the result model has no duration component
+
+suite: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py
+
+case test_collection_error_is_reported_at_all -> pyproject-collection-error
+case test_collection_error_names_its_file_line_and_message -> pyproject-collection-error
+case test_collection_error_message_is_not_a_restatement_of_the_file_name -> pyproject-collection-error
+case test_collection_error_carries_its_traceback_detail excluded: the result model has no detail component
+case test_collection_error_category_routes_to_the_test_failure_store -> pyproject-collection-error
+case test_errored_run_is_reported_as_a_failure -> pyproject-collection-error
+case test_slice_failures_detail_counts_the_collection_error excluded: the `parse --failures-detail` slice verb has no port surface
+case test_slice_named_test_matches_a_setup_error -> pyproject-setup-error
+case test_error_only_log_is_detected_as_pytest_output excluded: detection is a private decision; every fixture asserts that its own tool was detected
+case test_a_log_with_neither_marker_is_still_not_pytest_output excluded: the matched control of a detection rule with no port surface
+case test_a_single_underscore_padded_header_still_resolves_its_block -> pyproject-collection-error
+case test_a_wide_padded_header_still_resolves_its_block -> pyproject-setup-error
+case test_failed_and_error_lines_are_both_reported -> pyproject-errors-and-failed
+case test_error_without_a_block_falls_back_to_the_terse_message -> pyproject-error-without-block
+case test_a_green_log_yields_no_error_records excluded: a green log yields no record; the green fixtures assert diagnostic-count 0
+case test_a_setup_error_whose_node_id_carries_a_space_yields_one_record -> pyproject-spaced-node-id
+case test_a_spaced_node_id_record_resolves_its_block_not_just_its_presence -> pyproject-spaced-node-id
+case test_a_collection_error_whose_path_carries_a_space_names_that_path excluded: the fixture grammar separates a diagnostic's six fields on spaces, so a spaced path is asserted by a plain unit test
+case test_a_message_containing_py_colons_still_splits_at_the_first_py excluded: asserted by a plain unit test of the error-line split
+case test_a_dash_inside_a_parametrized_node_id_does_not_truncate_the_record -> pyproject-param-dash
+case test_a_parametrized_node_id_containing_a_dash_stays_addressable_by_name excluded: the `parse --test` slice verb has no port surface
+case test_a_dash_after_the_closing_bracket_still_separates_the_message excluded: the depth-aware split is held by pyproject-param-dash (no split inside a bracket) and by PyprojectOutputParserTest.splitsAMessageNamingAPath (a split outside one)
+case test_a_syntax_error_collection_block_reports_the_exception_line -> pyproject-syntax-error
+case test_a_syntax_error_message_is_not_the_traceback_location_line -> pyproject-syntax-error
+case test_two_gutter_lines_at_one_indent_still_resolve_to_the_first -> pyproject-collection-error
+case test_the_unspaced_fixtures_parse_identically_after_the_widening -> pyproject-collection-error

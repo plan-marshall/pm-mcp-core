@@ -1,0 +1,19 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_collection_error_is_reported_at_all test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_collection_error_names_its_file_line_and_message test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_collection_error_message_is_not_a_restatement_of_the_file_name test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_collection_error_category_routes_to_the_test_failure_store test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_errored_run_is_reported_as_a_failure test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_single_underscore_padded_header_still_resolves_its_block test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_two_gutter_lines_at_one_indent_still_resolve_to_the_first test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_the_unspaced_fixtures_parse_identically_after_the_widening
+# The live module-import assertion failure: the header pads a path this long with a single underscore
+# per side, the short-summary line carries no message tail, and the message can only come from the
+# block's `E` gutter — of whose two same-indent lines the first is the exception's own opening line.
+log ==================================== ERRORS ====================================
+log _ ERROR collecting test/plan-marshall/build-pyproject/test_broken_import.py _
+log test/plan-marshall/build-pyproject/test_broken_import.py:7: in <module>
+log     assert _SENTINEL == 1, 'deliberate module-import assertion'
+log E   AssertionError: deliberate module-import assertion
+log E   assert 0 == 1
+log =========================== short test summary info ============================
+log ERROR test/plan-marshall/build-pyproject/test_broken_import.py
+log ======================== 398 passed, 1 error in 8.51s ========================
+status FAILURE
+success-marker true
+tests measured 398 0 0 398
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_COLLECTION_ERROR test/plan-marshall/build-pyproject/test_broken_import.py 7 - AssertionError: deliberate module-import assertion

@@ -1,0 +1,12 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_jest_parse_log_returns_tuple test/plan-marshall/build-npm/test_npm_parsers.py::test_jest_parse_log_failure_status test/plan-marshall/build-npm/test_npm_parsers.py::test_jest_extracts_test_summary test/plan-marshall/build-npm/test_npm_parsers.py::test_jest_extracts_failures
+# The Jest failure log of the original suite: two `FAIL` blocks, each with its `●` test marker and
+# the stack the line number comes from, plus the `Tests:` summary.
+log-file npm-jest-test-failure.log
+status FAILURE
+success-marker false
+tests measured 5 2 0 7
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR TEST_FAILURE src/components/__tests__/Button.test.tsx 17 - Button › should call onClick when clicked
+diagnostic ERROR TEST_FAILURE src/utils/__tests__/validator.test.ts 13 - validator › should validate email format
+stack-trace-contains src/utils/__tests__/validator.test.ts:13:43

@@ -1,0 +1,18 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_dash_inside_a_parametrized_node_id_does_not_truncate_the_record
+# The node id and the exception repr are separated by ` - `, but a parametrized id may contain that
+# sequence. The delimiter is looked for outside parameter brackets only, so the id keeps its bracket
+# and still resolves its ERRORS block.
+log ==================================== ERRORS ====================================
+log _______________________ ERROR at setup of test_case[a - b] _______________________
+log test/test_api.py:12: in a_fixture
+log     raise RuntimeError('fixture blew up')
+log E   RuntimeError: fixture blew up
+log =========================== short test summary info ============================
+log ERROR test/test_api.py::test_case[a - b]
+log ======================== 10 passed, 1 error in 1.10s ========================
+status FAILURE
+success-marker true
+tests measured 10 0 0 10
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_COLLECTION_ERROR test/test_api.py 12 - RuntimeError: fixture blew up

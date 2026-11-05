@@ -1,0 +1,19 @@
+deliberate: deliberate-eslint-summary-beside-rows
+# The original defines the problem-summary pattern and never reads it, so the counts it carries are
+# lost. This port reports them beside the rows, which is what keeps a problem the row scanner cannot
+# place visible at all: the first row separates its message from its rule with a single space and is
+# not filed, while the summary still counts it.
+log > eslint src/
+log
+log ./src/only.ts
+log   1:1  error  a message with only one space before its rule indent
+log   2:1  error  a placed message  rule-name
+log
+log ✖ 3 problems (2 errors, 1 warning)
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+problems 2 1
+diagnostic-count 1
+diagnostic ERROR LINT_ERROR ./src/only.ts 2 1 rule-name: a placed message

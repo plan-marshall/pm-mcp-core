@@ -1395,21 +1395,34 @@ Implementation (the ported tests of the primitive `git.worktree-sha`: the conven
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations],
 link:../pm-core/src/main/java/de/planmarshall/core/build/MavenOutputParser.java[MavenOutputParser],
 link:../pm-core/src/main/java/de/planmarshall/core/build/GradleOutputParser.java[GradleOutputParser],
-link:../pm-core/src/main/java/de/planmarshall/core/build/OpenRewriteLogParser.java[OpenRewriteLogParser]
+link:../pm-core/src/main/java/de/planmarshall/core/build/OpenRewriteLogParser.java[OpenRewriteLogParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/NpmErrorParser.java[NpmErrorParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/TypeScriptOutputParser.java[TypeScriptOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/EslintOutputParser.java[EslintOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/JestOutputParser.java[JestOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/TapOutputParser.java[TapOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/PyprojectOutputParser.java[PyprojectOutputParser]
 
 Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/ported/WorktreeShaPortedTest.java[WorktreeShaPortedTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/WorktreeShaDigestTest.java[WorktreeShaDigestTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/OpenRewriteLogParserTest.java[OpenRewriteLogParserTest],
-link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest]
+link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/NpmErrorParserTest.java[NpmErrorParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/TypeScriptOutputParserTest.java[TypeScriptOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/EslintOutputParserTest.java[EslintOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/JestOutputParserTest.java[JestOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/TapOutputParserTest.java[TapOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/PyprojectOutputParserTest.java[PyprojectOutputParserTest]
 
 Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git-ported.adoc[Ported-Primitive Tests Developer Guide],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/001-ported-tests-derived-from-the-original-one-script-at-a-time.adoc[ADR provider-git-ported/001],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR provider-git-ported/002],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR provider-git-ported/003],
 link:../pm-core/src/test/resources/ported/build/PROVENANCE.adoc[Fixture provenance of the build output parsers],
-link:../pm-core/doc/developer/core-build.adoc#_ported_tests_and_fixture_provenance[Build Output Parsers Developer Guide § Ported Tests and Fixture Provenance]
+link:../pm-core/doc/developer/core-build.adoc#_ported_tests_and_fixture_provenance[Build Output Parsers Developer Guide § Ported Tests and Fixture Provenance],
+link:../pm-core/doc/adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR core-build/003]
 
 Implementation (the ported test data of the lesson store: the fifteen plain files of `pm-core/src/test/resources/ported/lessons/` — nine archived process lessons with a YAML front matter whose `lesson_id` is the legacy id the store could not address them by, and six headerless legacy lessons — committed once from the original's `manage-lessons` suite and from the cases of PM-WATCH-STORE-14 and -20, with the legacy mapping in test code only (`LessonFixtures`) and no Python and no `plan-marshall` checkout at test time; the removal buckets and the body-purging cases are not ported yet, because the verbs they exercise are not built): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java[LessonStore],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LessonResolution.java[LessonResolution]
@@ -1983,15 +1996,21 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-6[PM-IMPL-6
 
 Implementation (in part: the result model of a parsed build — the located diagnostic, the measured or explicitly
 unmeasured test counts, the status with the positive success marker and the `no_tests_ran` verdict — the compiled category
-table of the JVM tools, and the parsers for Maven, Gradle and the OpenRewrite finding log, each a pure function of the
-log text with no Python and no external script; the npm errors, TypeScript, ESLint, Jest, TAP and pyproject parsers and
-the `failed_unparsed` fallback with its bounded redacted log tail are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
+table of the JVM tools, and the parsers for Maven, Gradle, the OpenRewrite finding log, npm errors, TypeScript, ESLint,
+Jest, TAP and the pyproject log of pytest, ruff and mypy, each a pure function of the log text with no Python and no
+external script; the `failed_unparsed` fallback with its bounded redacted log tail is not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
 link:../pm-core/src/main/java/de/planmarshall/core/build/Diagnostic.java[Diagnostic],
 link:../pm-core/src/main/java/de/planmarshall/core/build/TestCounts.java[TestCounts],
 link:../pm-core/src/main/java/de/planmarshall/core/build/JvmCategoryPatterns.java[JvmCategoryPatterns],
 link:../pm-core/src/main/java/de/planmarshall/core/build/MavenOutputParser.java[MavenOutputParser],
 link:../pm-core/src/main/java/de/planmarshall/core/build/GradleOutputParser.java[GradleOutputParser],
-link:../pm-core/src/main/java/de/planmarshall/core/build/OpenRewriteLogParser.java[OpenRewriteLogParser]
+link:../pm-core/src/main/java/de/planmarshall/core/build/OpenRewriteLogParser.java[OpenRewriteLogParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/NpmErrorParser.java[NpmErrorParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/TypeScriptOutputParser.java[TypeScriptOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/EslintOutputParser.java[EslintOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/JestOutputParser.java[JestOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/TapOutputParser.java[TapOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/PyprojectOutputParser.java[PyprojectOutputParser]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
@@ -1999,9 +2018,16 @@ link:../pm-core/src/test/java/de/planmarshall/core/build/OpenRewriteLogParserTes
 link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/ParsedBuildTest.java[ParsedBuildTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/TestCountsTest.java[TestCountsTest],
-link:../pm-core/src/test/java/de/planmarshall/core/build/DiagnosticTest.java[DiagnosticTest]
+link:../pm-core/src/test/java/de/planmarshall/core/build/DiagnosticTest.java[DiagnosticTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/NpmErrorParserTest.java[NpmErrorParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/TypeScriptOutputParserTest.java[TypeScriptOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/EslintOutputParserTest.java[EslintOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/JestOutputParserTest.java[JestOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/TapOutputParserTest.java[TapOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/PyprojectOutputParserTest.java[PyprojectOutputParserTest]
 
 Documentation: link:../pm-core/doc/developer/core-build.adoc[Build Output Parsers Developer Guide],
+link:../pm-core/doc/adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR core-build/003],
 link:../pm-core/doc/adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR core-build/001],
 link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR core-build/002]
 

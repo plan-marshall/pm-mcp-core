@@ -1,0 +1,15 @@
+deliberate: deliberate-npm-second-error-block
+# The original reads only the first `npm ERR! code` line and files at most one diagnostic, so the
+# second error block of a log is lost. This port files one diagnostic per block. The message of a
+# generic block is the block's own first line, as in the original, where that line is the code line.
+log npm ERR! code EJSONPARSE
+log npm ERR! Failed to parse package.json
+log npm ERR! code ENOENT
+log npm ERR! ENOENT: no such file or directory, open 'package.json'
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR NPM_ERROR - - - EJSONPARSE: code EJSONPARSE
+diagnostic ERROR NPM_ERROR - - - ENOENT: code ENOENT

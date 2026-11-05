@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_npm_errors_eresolve test/plan-marshall/build-npm/test_npm_parsers.py::test_npm_errors_no_test_summary
+# The dependency log the original suite reads. Its peer-conflict trailer renders the version range
+# with spaces, so the original's `peer (\S+) from (\S+)` capture cannot take it and the original's
+# own expected message is the tree-level fallback rather than a named conflict.
+log-file npm-dependency-error.log
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR NPM_DEPENDENCY package.json - - ERESOLVE: Unable to resolve dependency tree

@@ -1,0 +1,12 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_pytest_failures
+# A summary-only log: no FAILURES block, so the file comes from the short-summary line and no line is
+# invented. The second failure carries no message tail, so the terse fallback stands.
+log FAILED test/test_main.py::test_addition - AssertionError: assert 1 == 2
+log FAILED test/test_utils.py::test_helper
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR TEST_FAILURE test/test_main.py - - AssertionError: assert 1 == 2
+diagnostic ERROR TEST_FAILURE test/test_utils.py - - Test test_helper failed

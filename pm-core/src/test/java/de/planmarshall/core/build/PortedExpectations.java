@@ -22,7 +22,7 @@ import java.util.Set;
 import lombok.experimental.UtilityClass;
 
 /**
- * Evaluates the fixture directives of the two parsed-build parsers and of the OpenRewrite parser.
+ * Evaluates the fixture directives of the parsed-build parsers, the ESLint result and the OpenRewrite parser.
  * <p>
  * The directives are the fixture's expectations, never values produced by the implementation: a fixture is derived from
  * the original's log and its pytest case by hand. Every expectation that is evaluated is recorded in the caller's
@@ -133,6 +133,39 @@ final class PortedExpectations {
             }
         }
         assertFindings(fixture, result, consumed);
+    }
+
+    /**
+     * Evaluates the expectations of an ESLint result: the problem summary beside the directives of its parsed build.
+     *
+     * @param fixture  the fixture, for its name in a failure
+     * @param result   the parsed result
+     * @param consumed the indices of the evaluated expectations, amended in place
+     */
+    static void eslint(BuildLogFixtures.Case fixture, EslintResult result, Set<Integer> consumed) {
+        List<BuildLogFixtures.Expectation> expectations = fixture.expectations();
+        for (int index = 0; index < expectations.size(); index++) {
+            BuildLogFixtures.Expectation expectation = expectations.get(index);
+            switch (expectation.keyword()) {
+                case "problems" -> {
+                    List<String> parts = expectation.split(2);
+                    assertEquals(2, parts.size(), "the problems expectation names errors and warnings");
+                    var problems = assertInstanceOf(EslintResult.ProblemCounts.class, result.problems(),
+                            "the fixture's log carries a problem summary");
+                    assertEquals(Integer.parseInt(parts.getFirst()), problems.errors(), "the error count matches");
+                    assertEquals(Integer.parseInt(parts.get(1)), problems.warnings(), "the warning count matches");
+                    consumed.add(index);
+                }
+                case "no-problems" -> {
+                    assertNull(result.problems(), "the fixture's log carries no problem summary");
+                    consumed.add(index);
+                }
+                default -> {
+                    // a directive of the parsed build; evaluated by parsedBuild below
+                }
+            }
+        }
+        parsedBuild(fixture, result.build(), consumed);
     }
 
     /**

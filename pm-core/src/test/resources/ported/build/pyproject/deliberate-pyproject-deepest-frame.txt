@@ -1,0 +1,24 @@
+deliberate: deliberate-pyproject-deepest-frame
+# The original reports the test file's own frame as the line, which is where the assertion ran rather
+# than where it failed. This port reports the deepest traceback frame — the origin of the failure.
+log ============================= FAILURES =============================
+log _________________________ test_alpha _________________________
+log
+log     def test_alpha():
+log >       assert compute(3) == 0
+log test/test_a.py:10: in test_alpha
+log     assert compute(3) == 0
+log src/calc.py:42: in compute
+log     raise AssertionError("bad state")
+log E       AssertionError: bad state
+log
+log src/calc.py:42: AssertionError
+log ==================== short test summary info ====================
+log FAILED test/test_a.py::test_alpha - AssertionError: bad state
+log ==================== 1 failed, 3 passed in 1.20s ====================
+status FAILURE
+success-marker true
+tests measured 3 1 0 4
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_FAILURE src/calc.py 42 - AssertionError: bad state

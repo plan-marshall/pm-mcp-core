@@ -1,0 +1,9 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_npm_errors_e404
+# The registry-404 log of the original suite: the code block names the missing package.
+log-file npm-404-error.log
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR NPM_ERROR package.json - - E404: Package '@company/private-package@^1.0.0' not found in registry

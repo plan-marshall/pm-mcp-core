@@ -1,0 +1,12 @@
+deliberate: deliberate-pyproject-multi-summary
+# The original reads the last pytest summary line. A matrix run writes one summary per run, so this
+# port sums every summary block of the log.
+log FAILED test/test_a.py::test_a - AssertionError: boom
+log ================ 10 passed in 1.00s ================
+log ================ 5 passed, 1 failed in 2.00s ================
+status FAILURE
+success-marker true
+tests measured 15 1 0 16
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_FAILURE test/test_a.py - - AssertionError: boom

@@ -1,0 +1,17 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_eslint_parse_log_returns_tuple test/plan-marshall/build-npm/test_npm_parsers.py::test_eslint_extracts_errors test/plan-marshall/build-npm/test_npm_parsers.py::test_eslint_extracts_warnings test/plan-marshall/build-npm/test_npm_parsers.py::test_eslint_issue_fields test/plan-marshall/build-npm/test_npm_parsers.py::test_eslint_no_test_summary
+# The stylish formatter output of the original suite. Two of its eight rows (the warning about
+# `any` and the `indent` row) separate their message from the rule with a single space, so the row
+# pattern places six of them; the summary row still reports all eight.
+log-file npm-eslint-errors.log
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+problems 6 2
+diagnostic-count 6
+diagnostic ERROR LINT_ERROR /home/dev/sample-app/src/components/Button.tsx 5 10 no-unused-vars: 'useState' is defined but never used
+diagnostic ERROR LINT_ERROR /home/dev/sample-app/src/components/Button.tsx 12 5 @typescript-eslint/explicit-function-return-type: Missing return type on function
+diagnostic ERROR LINT_ERROR /home/dev/sample-app/src/utils/helpers.ts 3 7 no-unused-vars: 'config' is assigned a value but never used
+diagnostic WARNING LINT_ERROR /home/dev/sample-app/src/utils/helpers.ts 22 35 @typescript-eslint/prefer-nullish-coalescing: Prefer using nullish coalescing operator
+diagnostic ERROR LINT_ERROR /home/dev/sample-app/src/App.tsx 8 1 react/react-in-jsx-scope: 'React' must be in scope when using JSX
+diagnostic ERROR LINT_ERROR /home/dev/sample-app/src/App.tsx 45 10 jsx-a11y/alt-text: img elements must have an alt prop

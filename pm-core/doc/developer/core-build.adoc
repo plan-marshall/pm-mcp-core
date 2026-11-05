@@ -17,9 +17,9 @@ Package `de.planmarshall.core.build` of `pm-core` holds the native parsers of bu
 build tool wrote and returns the diagnostics the tool reported, the status it printed, the test counts it aggregated and
 the verdict on whether it ran a test at all. No external script is called and no Python runs (PM-IMPL-6).
 
-Three parsers are implemented: Maven, Gradle and the OpenRewrite finding log of a Maven build. Each is ported from the
-`plan-marshall` parser module of the same tool, and its tests are ported from that module's pytest suite. The npm,
-TypeScript, ESLint, Jest, TAP and Python (pyproject) parsers are not implemented yet.
+Nine parsers are implemented: Maven, Gradle and the OpenRewrite finding log of a Maven build, plus the six JavaScript
+and Python tools — npm errors, TypeScript, ESLint, Jest, TAP and the pyproject log of pytest, ruff and mypy. Each is
+ported from the `plan-marshall` parser module of the same tool, and its tests are ported from that module's pytest suite.
 
 A parser is a pure function of the log text. It reads no file except through `BuildLogText.read`, holds no state, opens no
 process and consults no configuration.
@@ -67,6 +67,30 @@ markers.
 |link:{src}/OpenRewriteLogParser.java[`OpenRewriteLogParser`]
 |The OpenRewrite finding lines of a Maven log, with the fail-closed verdicts `observed`, `not_observed`,
 `domain_inactive` and `parse_error`.
+
+|link:{src}/NpmErrorParser.java[`NpmErrorParser`]
+|The npm `npm ERR! code` blocks: `ERESOLVE` names its peer conflict, `E404` its missing package, and every other code
+files its block's first line. One diagnostic per block.
+
+|link:{src}/TypeScriptOutputParser.java[`TypeScriptOutputParser`]
+|Both `tsc` forms, `path(line,col): error TSnnnn: message` and `path:line:col - error TSnnnn: message`, with the file,
+line, column and the code prefixed to the message.
+
+|link:{src}/EslintOutputParser.java[`EslintOutputParser`]
+|The stylish formatter's file headers and `line:col severity message rule` rows, plus the problem summary.
+
+|link:{src}/EslintResult.java[`EslintResult`]
+|The ESLint result: the parsed build and the `ProblemCounts` the summary printed, `null` when the log carries none.
+
+|link:{src}/JestOutputParser.java[`JestOutputParser`]
+|Jest's `FAIL` blocks with their `●` tests and stacks, and the `Tests:` summary blocks.
+
+|link:{src}/TapOutputParser.java[`TapOutputParser`]
+|The `not ok` lines with their YAML `error`, `location` and `stack`, and the `# tests` summary block.
+
+|link:{src}/PyprojectOutputParser.java[`PyprojectOutputParser`]
+|The tool-detecting scanner for mypy, ruff and pytest, with the deepest traceback frame as a pytest diagnostic's
+location.
 |===
 
 `Severity`, `Category`, `BuildStatus`, `TestsPopulation`, `RewriteVerdict` and `RewriteClassification` are the closed
@@ -86,13 +110,13 @@ The model separates facts a consumer must not conflate (link:../adr/core-build/0
   could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (the aggregation defect the
   implementation watch recorded as PM-WATCH-JOB-10, closed by this package and deleted from the watch document).
 * `noTestsRan` holds only on a successful build with its success marker, its own positive "no tests" marker and no count
-  line (PM-WATCH-JOB-11). A measured count of zero never produces it.
+  line. A measured count of zero never produces it.
 
 `TestCounts.Measured` refuses a total that is not `passed + failed + skipped`, and `ParsedBuild` refuses a `noTestsRan`
 verdict its other facts do not support; both are enforced in the compact constructor, so a builder cannot produce an
 inconsistent result.
 
-== The Three Parsers
+== The Parsers
 
 === Maven
 
@@ -136,12 +160,53 @@ The verdicts are fail-closed and checked in this order: `not_observed` when the 
 execution; `domain_inactive` when the domain is not active; `parse_error` when a line carries a finding identifier but no
 longer matches the pinned template; `observed` otherwise, carrying the findings. Only `observed` carries findings.
 
+=== The Six JavaScript and Python Parsers
+
+The six tools share the result model and the counts rules of the JVM parsers, and each is a scanner over the lines the
+tool prints. None of them prints a positive success banner, so `successMarker` is `false` for the npm tools and for
+pyproject except where a pytest summary reports a passed count.
+
+* *npm errors* — every `npm ERR! code` line opens a block. `ERESOLVE` is `NPM_DEPENDENCY`, and its
+  `Could not resolve dependency:` trailer names the peer dependency and its origin when the trailer carries them; `E404`
+  is `NPM_ERROR` and names the quoted package specification it could not find; every other code is `NPM_ERROR` with the
+  block's first reportable line, which is the code line itself. Both named forms point into `package.json` without a line.
+* *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
+  `TSnnnn: message`. Both forms are scanned over every line, so a log that mixes them keeps all of its diagnostics.
+* *ESLint* — a file-header line sets the file and each `line:col severity message rule` row below it is a `LINT_ERROR`
+  whose message is the rule prefixed to the text. The problem summary is parsed beside the rows into
+  `EslintResult.problems()`: it counts every problem the formatter reported, including a row the scanner cannot place,
+  which is why the two counts legitimately disagree. The status is `FAILURE` only when a filed row has error severity.
+* *Jest* — a `FAIL` header names the file, a `●` marker opens a test block, and the block closes at the first blank line
+  after a stack frame. Each closed block is a `TEST_FAILURE` carrying the suite, the first stack frame's line and the
+  collected frames. The `Tests:` summary blocks supply the counts.
+* *TAP* — each `not ok N - <name>` line is a `TEST_FAILURE`; the YAML block that follows supplies `error`, `location` and
+  `stack`, and without a block the test's own name is the message. The `# tests` / `# pass` / `# fail` / `# skipped`
+  block supplies the counts.
+* *pyproject* — the log is scanned for mypy (`path:line: error: message`, including a `.pyi` stub path and a
+  `path:line:column:` run), ruff (`path:line:column: CODE message`) and pytest (`FAILED` and collection/setup `ERROR`
+  short-summary lines), each tool independently, and the diagnostics are combined in that order — a multi-tool log is
+  grouped by tool, not sorted by line. A pytest failure or error resolves its `FAILURES` or `ERRORS` block by the node id
+  the summary line names, takes the deepest `path.py:NN` frame of the block's traceback as its location (ignoring
+  captured-output sections), and — for a collection error whose summary line carries no message tail — the exception line
+  of the block's `E` gutter. A trailing `@<group>` of a pytest-xdist node id is stripped before the block is looked up, and
+  a node id that carries a space or the ` - ` delimiter is split outside its parameter brackets.
+
+=== Counts of the Six
+
+Every summary block contributes to the counts: Jest sums every `Tests:` block, TAP every `# tests` block and pytest
+every summary line, so a log that concatenates several runs (one per package, or one per matrix entry) reports the sum
+rather than the first or last block. A block whose total is not the sum of its parts — `Tests: 7 total` with no parts, a
+`# tests 5` with two passing tests — is `Unmeasured`, never a set of figures that disagree with itself. A measured zero
+stays a measured zero: no tool of the six prints a positive "no tests" marker, so `noTestsRan` is `false` throughout, and
+a filter that matched nothing reports either pytest's own `no tests ran` line (no count at all) or TAP's
+`# tests 0` (a measured zero).
+
 == Adding a Parser
 
-1. Add the parser class: a `@UtilityClass` with `parse(String)` and `parse(Path)`, returning `ParsedBuild` (or a typed
-   result for a parser whose verdict is not a build status). Read the log through `BuildLogText.read`, take the location
-   through `JvmFileLocation.parse` where the tool prints one, and put every category in a `JvmCategoryPatterns`
-   table rather than in the parser.
+1. Add the parser class: a static-only class (`@UtilityClass`) with `parse(String)` and `parse(Path)`, returning
+   `ParsedBuild` (or a typed result for a parser whose verdict is not a build status). Read the log through
+   `BuildLogText.read`, take the location through `JvmFileLocation.parse` where the tool prints a JVM location, and — where
+   the message text decides the category — put the patterns in a compiled table rather than in the parser.
 2. Write the pytest-case roster and the fixtures: `{data}/<tool>/original-cases.txt` lists every case of the original
    suite, mapped to the fixtures derived from it or excluded with a reason — several cases may map to one fixture, and one
    case may need several; one `*.txt` fixture per case group and one `deliberate:` fixture per deliberate change; the
@@ -154,12 +219,21 @@ longer matches the pinned template; `observed` otherwise, carrying the findings.
 
 == Deliberate Changes
 
-The port reproduces the originals' parsing and changes five behaviours on purpose; each has a `deliberate:` fixture that
+The port reproduces the originals' parsing and changes five JVM behaviours on purpose; each has a `deliberate:` fixture that
 asserts the corrected behaviour (link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002]).
 The one a reader meets first is that an `[ERROR]` line no pattern recognises is `unrecognized` rather than a real
 category; the others are that an unmeasured population carries no number, that `no_tests_ran` needs the tool's marker,
 that the Gradle counts sum every block, and that an OpenRewrite format drift is a `parse_error`. The Maven failure-trailer
 drop and the passing-count skip are *not* changes: the original does both.
+
+The six JavaScript and Python parsers add their own changes
+(link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003]), each with a
+`deliberate:` fixture or a named unit test: one npm diagnostic per error block rather than only the first, both `tsc`
+forms scanned, the ESLint problem summary reported, every summary block summed, a contradictory summary reported
+`unmeasured`, the pytest location taken from the deepest traceback frame, a pytest-xdist `@<group>` suffix stripped, the
+wider mypy forms (a `.pyi` path and a column-numbered line) read, a spaced pytest `FAILED` node id filed, an unread Jest
+`Tests:` summary reported `unmeasured`, and a printed failure marker (a TAP `not ok` without a description, a Jest `Tests:`
+failure count) turning the status red even when no diagnostic is filed.
 
 == Ported Tests and Fixture Provenance
 
@@ -201,6 +275,6 @@ The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the or
 
 * Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
-  PM-WATCH-JOB-10 and PM-WATCH-JOB-18 were deleted from the watch document and PM-WATCH-JOB-11 stays open for the npm and
-  pyproject parsers
-* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the deliberate changes]
+  PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
+  by every parser of the package
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes]
