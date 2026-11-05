@@ -28,6 +28,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,8 +62,9 @@ class AuditLogSinkTest {
             1_900_000_000L).next());
     private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
     private static final String PRINCIPAL = Generators.letterStrings(3, 20).next();
-    private static final String PROJECT = Generators.letterStrings(3, 20).next();
-    private static final String SCOPE_ID = Generators.letterStrings(3, 20).next();
+    private static final String PROJECT = "project-"
+            + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+    private static final String SCOPE_ID = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
     private static final String TRANSACTION_ID = "01890a5d-ac96-774b-bcce-b302099a8057";
 
     @TempDir

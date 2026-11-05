@@ -23,6 +23,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -154,14 +155,15 @@ class AuditSchemaParityTest {
                     .timestamp(Instant.ofEpochSecond(
                             Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
                     .category(Category.STORE).event("transaction_rolled_forward").scopeType(Scope.PLAN)
-                    .scopeId(Generators.letterStrings(3, 20).next())
+                    .scopeId("plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT))
                     .actor(Generators.letterStrings(3, 20).next()).outcome(Outcome.SUCCEEDED)
                     .details(Map.of("targets", List.of("status.json"), "count",
                             Generators.integers(0, 100).next(), "flag", true))
                     .build();
             var machine = scoped.withScopeType(Scope.MACHINE).withScopeId(null);
             var entry = scoped.withScopeType(Scope.ENTRY)
-                    .withScopeId("ent-" + Generators.letterStrings(6, 16).next());
+                    .withScopeId("ent-"
+                            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next()));
             var validator = validator(ANCHOR);
 
             assertAll(

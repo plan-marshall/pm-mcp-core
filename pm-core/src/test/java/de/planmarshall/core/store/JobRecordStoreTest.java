@@ -70,7 +70,7 @@ class JobRecordStoreTest {
 
     private static final String PROJECT = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String ENTRY = "ent-"
-            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next());
+            + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next());
     private static final String EPIC = "epic-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final Scope MACHINE = new Scope(Scope.Type.MACHINE, null);
     private static final Scope ENTRY_SCOPE = new Scope(Scope.Type.ENTRY, ENTRY);
@@ -164,7 +164,7 @@ class JobRecordStoreTest {
             var machine = JobRecordStore.ofMachine(base);
             var entry = JobRecordStore.ofEntry(base, ENTRY);
             var otherEntry = new Scope(Scope.Type.ENTRY,
-                    "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next()));
+                    "ent-" + "%08x".formatted(Generators.integers(0, Integer.MAX_VALUE - 1).next()));
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE)),
