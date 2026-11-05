@@ -137,7 +137,10 @@ class ForgeUrlTest {
                         "GitLab needs a group and a project"),
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
                         ForgeUrl.resolve("https://github.com/" + "a".repeat(300) + "/r/issues/1").outcome(),
-                        "an over-long segment is refused"));
+                        "an over-long segment is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/issues/%EF%BC%91%EF%BC%92").outcome(),
+                        "non-ASCII digits in the number are refused"));
     }
 
     @Test

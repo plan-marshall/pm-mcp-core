@@ -11,6 +11,7 @@ package de.planmarshall.provider.gitlab;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -303,30 +304,59 @@ class GitLabCiProviderTest {
     }
 
     @Test
-    @DisplayName("refuses a number that names a merge request")
+    @DisplayName("falls back to the token user id when the user body carries a blank id")
+    @MockResponseConfig(path = "/personal_access_tokens/self", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":11,\"name\":\"cli\",\"user_id\":7,\"scopes\":[\"api\"],\"active\":true}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":\"\",\"username\":\"alice\",\"state\":\"active\"}")
+    void blankUserIdFallsBackToTokenUserId(MockWebServer server) {
+        var identity = provider(server).whoami(null).value().orElseThrow();
+
+        assertAll("the blank user id",
+                () -> assertEquals("alice", identity.login(), "the login is read from the user"),
+                () -> assertEquals("7", identity.userId(), "a blank user id falls back to the token id"));
+    }
+
+    @Test
+    @DisplayName("answers a blank token user id with failed, never an exception")
+    @MockResponseConfig(path = "/personal_access_tokens/self", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":11,\"name\":\"cli\",\"user_id\":\"\",\"scopes\":[\"api\"],\"active\":true}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"username\":\"alice\",\"state\":\"active\"}")
+    void answersBlankTokenUserIdWithFailed(MockWebServer server) {
+        var result = provider(server).whoami(null);
+
+        assertEquals(Result.Outcome.FAILED, result.outcome(),
+                "a blank token user id is a returned failure");
+    }
+
+    @Test
+    @DisplayName("treats a blank milestone title of issue 11 as no milestone")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/11", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
+                    + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/11\",\"milestone\":{\"title\":\" \"}}")
+    void blankMilestoneIsNoMilestone(MockWebServer server) {
+        Issue read = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 11)).value().orElseThrow();
+
+        assertNull(read.milestone(), "a blank milestone title is no milestone");
+    }
+
+    @Test
+    @DisplayName("answers a missing issue 8 with not found although merge request 8 exists")
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/8", method = HttpMethodMapper.GET, status = 404,
             stringContent = "{\"message\":\"404 Not found\"}")
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/merge_requests/8", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"iid\":8}")
-    void refusesMergeRequest(MockWebServer server) {
+    void missingIssueIsNotFoundBesideMergeRequest(MockWebServer server) {
         var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 8));
 
-        assertAll("the merge-request refusal",
-                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a merge request is refused"),
-                () -> assertTrue(result.detail().contains("pull request"), "the detail names the pull request"));
-    }
-
-    @Test
-    @DisplayName("keeps a rate limit of the merge-request probe")
-    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/8", method = HttpMethodMapper.GET, status = 404,
-            stringContent = "{\"message\":\"404 Not found\"}")
-    @MockResponseConfig(path = "/projects/cuioss%2Fpm/merge_requests/8", method = HttpMethodMapper.GET, status = 429,
-            stringContent = "{\"message\":\"Too many requests\"}", headers = {"Retry-After=60"})
-    void keepsProbeRateLimit(MockWebServer server) {
-        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 8));
-
-        assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(),
-                "the probe's rate limit is not read as absent");
+        assertAll("the missing issue 8",
+                () -> assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
+                        "a missing issue 8 is not found"),
+                () -> assertEquals(1, server.getRequestCount(),
+                        "no merge-request path is requested for issue 8"),
+                () -> assertEquals("/projects/cuioss%2Fpm/issues/8", server.takeRequest().getTarget(),
+                        "the issue endpoint is the only request made"));
     }
 
     @Test

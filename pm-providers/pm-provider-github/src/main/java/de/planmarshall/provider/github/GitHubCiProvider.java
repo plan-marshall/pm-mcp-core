@@ -12,6 +12,7 @@ package de.planmarshall.provider.github;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -44,8 +45,9 @@ import de.planmarshall.provider.http.TokenSource;
  * <p>
  * A provider is bound to one web origin and one credential. A personal access token acts with its own user and
  * reports its kind from the token prefix and its expiry from the {@code github-authentication-token-expiration}
- * response header; a GitHub App acts with two identities, its bot identity and the operator whose user access token
- * authors the writes.
+ * response header, read in the {@code yyyy-MM-dd HH:mm:ss z} form and in the ISO and offset forms of the same
+ * instant; a header the adapter cannot read is reported as no expiry, never as an error. A GitHub App acts with two
+ * identities, its bot identity and the operator whose user access token authors the writes.
  *
  * @since 0.1
  */
@@ -60,6 +62,11 @@ public final class GitHubCiProvider implements CiProvider {
     private static final String EXPIRY_HEADER = "github-authentication-token-expiration";
     private static final DateTimeFormatter GITHUB_EXPIRY_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z", Locale.ROOT);
+    private static final List<DateTimeFormatter> GITHUB_OFFSET_FORMATS = List.of(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xx", Locale.ROOT),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xxx", Locale.ROOT),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxx", Locale.ROOT),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx", Locale.ROOT));
 
     private final String origin;
     private final HttpClient http;
@@ -280,8 +287,19 @@ public final class GitHubCiProvider implements CiProvider {
         try {
             return Optional.of(ZonedDateTime.parse(value, GITHUB_EXPIRY_FORMAT).toInstant());
         } catch (DateTimeParseException _) {
-            return instantOrEmpty(value);
+            return instantFromOffset(value);
         }
+    }
+
+    private static Optional<Instant> instantFromOffset(String value) {
+        for (DateTimeFormatter format : GITHUB_OFFSET_FORMATS) {
+            try {
+                return Optional.of(OffsetDateTime.parse(value, format).toInstant());
+            } catch (DateTimeParseException _) {
+                // the value is not in this offset form; try the next one
+            }
+        }
+        return instantOrEmpty(value);
     }
 
     private static Optional<Instant> instantOrEmpty(String value) {

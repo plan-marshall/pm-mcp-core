@@ -194,6 +194,54 @@ class GitHubCiProviderTest {
     }
 
     @Test
+    @DisplayName("treats a blank milestone title of issue 11 as no milestone")
+    @MockResponseConfig(path = "/repos/cuioss/pm/issues/11", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"title\":\"An issue\",\"body\":\"\",\"state\":\"open\","
+                    + "\"html_url\":\"https://github.com/cuioss/pm/issues/11\",\"milestone\":{\"title\":\" \"}}")
+    void blankMilestoneIsNoMilestone(MockWebServer server) {
+        Issue read = tokenProvider(server, "ghp_classic")
+                .issueView(issue(WEB_ORIGIN, "github", 11)).value().orElseThrow();
+
+        assertNull(read.milestone(), "a blank milestone title is no milestone");
+    }
+
+    @Test
+    @DisplayName("reads an expiry header with a numeric offset +0000")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +0000"})
+    void readsOffsetExpiryNumeric(MockWebServer server) {
+        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+
+        assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
+                "a numeric offset expiry is the same instant");
+    }
+
+    @Test
+    @DisplayName("reads an expiry header with a colon offset +00:00")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +00:00"})
+    void readsOffsetExpiryColon(MockWebServer server) {
+        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+
+        assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
+                "a colon offset expiry is the same instant");
+    }
+
+    @Test
+    @DisplayName("reads an ISO expiry header with an offset")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"github-authentication-token-expiration=2026-11-01T14:00:00+02:00"})
+    void readsIsoOffsetExpiry(MockWebServer server) {
+        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+
+        assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
+                "an ISO offset expiry is the same instant");
+    }
+
+    @Test
     @DisplayName("answers a pull request number with a refusal")
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/7", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"title\":\"A pull request\",\"state\":\"open\","

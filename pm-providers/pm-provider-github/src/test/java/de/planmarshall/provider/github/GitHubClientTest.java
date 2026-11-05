@@ -12,6 +12,7 @@ package de.planmarshall.provider.github;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -221,6 +222,17 @@ class GitHubClientTest {
             assertFalse(payload.pullRequest(), "an issue is no pull request");
             assertTrue(client.issue("cuioss", "pm", 6).value().orElseThrow().pullRequest(),
                     "a pull request is flagged");
+        }
+
+        @Test
+        @DisplayName("maps a blank milestone title of issue 9 as absent")
+        void blankMilestone() {
+            on("GET", "/repos/cuioss/pm/issues/9", json(200, "{\"title\":\"A title\",\"state\":\"open\","
+                    + "\"html_url\":\"https://github.com/cuioss/pm/issues/9\",\"milestone\":{\"title\":\" \"}}"));
+
+            var payload = client.issue("cuioss", "pm", 9).value().orElseThrow();
+
+            assertNull(payload.issue().milestone(), "a blank milestone title is no milestone");
         }
 
         @Test

@@ -98,8 +98,13 @@ public final class GitLabCiProvider implements CiProvider {
             return permissions.asFailure();
         }
         GitLabClient.TokenIdentity identity = token.value().orElseThrow();
+        Optional<String> userId = Json.string(json, "id").filter(value -> !value.isBlank())
+                .or(() -> Optional.of(identity.userId()).filter(value -> !value.isBlank()));
+        if (userId.isEmpty()) {
+            return Result.of(Result.Outcome.FAILED, "the user response carries no id");
+        }
         return Result.ok(Identity.builder().login(login.get())
-                .userId(Json.string(json, "id").orElse(identity.userId()))
+                .userId(userId.get())
                 .tokenKind(kindOf(identity, login.get(), Json.bool(json, "bot")))
                 .permissions(permissions.value().orElseThrow())
                 .scopes(identity.scopes())
@@ -112,28 +117,7 @@ public final class GitLabCiProvider implements CiProvider {
         if (refusal != null) {
             return Result.of(Result.Outcome.REJECTED, refusal);
         }
-        Result<Issue> read = client(issue.repository()).issue(issue.number());
-        if (read.outcome() == Result.Outcome.NOT_FOUND) {
-            return mergeRequestOutcome(issue, read);
-        }
-        return read;
-    }
-
-    /**
-     * A missing issue is the pull-request refusal when a merge request with that number is visible; a failed lookup keeps
-     * its own outcome, so the caller never reads a rate limit as "absent".
-     */
-    private Result<Issue> mergeRequestOutcome(IssueRef issue, Result<Issue> read) {
-        Response probe = mergeRequestProbe(issue.repository(), issue.number());
-        if (probe.isOk()) {
-            return Result.of(Result.Outcome.REJECTED,
-                    "is a pull request, or an issue the credential cannot see");
-        }
-        if (probe.outcome() == Response.Outcome.RATE_LIMITED || probe.outcome() == Response.Outcome.TRANSPORT_FAILED
-                || (probe.outcome() == Response.Outcome.HTTP_ERROR && probe.status() >= 500)) {
-            return Result.failed(probe);
-        }
-        return read;
+        return client(issue.repository()).issue(issue.number());
     }
 
     @Override

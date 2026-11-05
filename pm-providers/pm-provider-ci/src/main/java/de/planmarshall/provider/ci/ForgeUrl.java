@@ -290,7 +290,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
             return Optional.empty();
         }
         for (int i = 0; i < segment.length(); i++) {
-            if (!Character.isDigit(segment.charAt(i))) {
+            char digit = segment.charAt(i);
+            if (digit < '0' || digit > '9') {
                 return Optional.empty();
             }
         }
