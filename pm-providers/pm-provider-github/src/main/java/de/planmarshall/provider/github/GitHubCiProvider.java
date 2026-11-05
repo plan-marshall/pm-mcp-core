@@ -16,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,12 +62,17 @@ public final class GitHubCiProvider implements CiProvider {
     private static final String SCOPES_HEADER = "x-oauth-scopes";
     private static final String EXPIRY_HEADER = "github-authentication-token-expiration";
     private static final DateTimeFormatter GITHUB_EXPIRY_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z", Locale.ROOT);
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss z", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT);
     private static final List<DateTimeFormatter> GITHUB_OFFSET_FORMATS = List.of(
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xx", Locale.ROOT),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xxx", Locale.ROOT),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxx", Locale.ROOT),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx", Locale.ROOT));
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss xx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss xxx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssxxx", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT));
 
     private final String origin;
     private final HttpClient http;

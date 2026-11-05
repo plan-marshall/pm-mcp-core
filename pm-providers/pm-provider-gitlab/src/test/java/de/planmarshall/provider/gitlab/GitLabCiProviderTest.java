@@ -12,6 +12,7 @@ package de.planmarshall.provider.gitlab;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -316,6 +317,7 @@ class GitLabCiProviderTest {
         var request = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the anonymous issue 9 read",
+                () -> assertNotNull(request, "an anonymous read sends one request"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
                         "a private issue is not found without a credential"),
                 () -> assertNull(authorization(request),
@@ -389,6 +391,18 @@ class GitLabCiProviderTest {
 
         assertEquals(Result.Outcome.FAILED, result.outcome(),
                 "a blank token user id is a returned failure");
+    }
+
+    @Test
+    @DisplayName("prefers the user body id 8 over the token user id 7")
+    @MockResponseConfig(path = "/personal_access_tokens/self", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":11,\"name\":\"cli\",\"user_id\":7,\"scopes\":[\"api\"],\"active\":true}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":8,\"username\":\"alice\",\"state\":\"active\"}")
+    void userIdPrecedesTokenUserId(MockWebServer server) {
+        var identity = provider(server).whoami(null).value().orElseThrow();
+
+        assertEquals("8", identity.userId(), "the user body id wins over the token id");
     }
 
     @Test

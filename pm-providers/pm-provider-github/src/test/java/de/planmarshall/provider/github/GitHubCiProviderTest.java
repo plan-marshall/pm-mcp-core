@@ -276,6 +276,29 @@ class GitHubCiProviderTest {
     }
 
     @Test
+    @DisplayName("reads a T-separated expiry header with a numeric offset +0200")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"github-authentication-token-expiration=2026-11-01T14:00:00+0200"})
+    void readsIsoNumericOffsetExpiry(MockWebServer server) {
+        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+
+        assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
+                "a T-separated numeric offset expiry is the same instant");
+    }
+
+    @Test
+    @DisplayName("drops an offset expiry with an invalid day of month")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"login\":\"octocat\",\"id\":1}",
+            headers = {"github-authentication-token-expiration=2026-02-30 12:00:00 +0000"})
+    void dropsInvalidOffsetExpiry(MockWebServer server) {
+        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+
+        assertNull(identity.expiresAt(), "an invalid day of month is no expiry");
+    }
+
+    @Test
     @DisplayName("answers a pull request number with a refusal")
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/7", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"title\":\"A pull request\",\"state\":\"open\","
@@ -302,6 +325,7 @@ class GitHubCiProviderTest {
         var request = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the anonymous issue 9 read",
+                () -> assertNotNull(request, "an anonymous read sends one request"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
                         "a private issue is not found without a credential"),
                 () -> assertNull(authorization(request),
