@@ -111,7 +111,7 @@ public final class GitLabCiProvider implements CiProvider {
 
     @Override
     public Result<Issue> issueView(IssueRef issue) {
-        Optional<String> refusal = refusalFor(issue);
+        Optional<String> refusal = refusalFor(issue.repository());
         if (refusal.isPresent()) {
             return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
@@ -120,7 +120,7 @@ public final class GitLabCiProvider implements CiProvider {
 
     @Override
     public Result<IssueComment> issueComment(IssueRef issue, String body) {
-        Optional<String> refusal = refusalFor(issue);
+        Optional<String> refusal = refusalFor(issue.repository());
         if (refusal.isPresent()) {
             return Result.of(Result.Outcome.REJECTED, refusal.get());
         }
@@ -137,34 +137,33 @@ public final class GitLabCiProvider implements CiProvider {
                 + repository.name() + WEB_ISSUE_PATH + issue.number() + "#note_" + noteId));
     }
 
-    private Optional<String> refusalFor(IssueRef issue) {
-        return refusalFor(issue.repository());
-    }
-
     private Optional<String> refusalFor(@Nullable RepositoryRef repository) {
-        if (repository == null) {
+        if (repository == null
+                || (PROVIDER_ID.equals(repository.forge()) && origin.equals(repository.origin()))) {
             return Optional.empty();
         }
-        if (!PROVIDER_ID.equals(repository.forge())) {
-            return Optional.of("the repository is on the forge " + repository.forge());
-        }
-        if (!origin.equals(repository.origin())) {
-            return Optional.of("the repository is on another origin");
-        }
-        return Optional.empty();
+        String reason = PROVIDER_ID.equals(repository.forge())
+                ? "the repository is on another origin"
+                : "the repository is on the forge " + repository.forge();
+        return Optional.of(reason);
     }
 
     private GitLabClient client(@Nullable RepositoryRef repository) {
-        String project = repository == null ? "" : repository.ownerOrPath() + "/" + repository.name();
+        String project = repository == null ? "" : projectPath(repository);
         return new GitLabClient(http, project);
+    }
+
+    /** @return the GitLab project path {@code group/sub/project} the API addresses */
+    @SuppressWarnings("java:S1075") // the GitLab project-path grammar, not a configurable endpoint
+    private static String projectPath(RepositoryRef repository) {
+        return repository.ownerOrPath() + "/" + repository.name();
     }
 
     private Result<Map<String, String>> permissions(@Nullable RepositoryRef repository) {
         if (repository == null) {
             return Result.ok(Map.of());
         }
-        String path = PROJECT_PATH + URLEncoder.encode(repository.ownerOrPath() + "/" + repository.name(),
-                StandardCharsets.UTF_8);
+        String path = PROJECT_PATH + URLEncoder.encode(projectPath(repository), StandardCharsets.UTF_8);
         Response response = http.get(path);
         if (!response.isOk()) {
             return Result.failed(response);
