@@ -59,8 +59,9 @@ repository permissions, the scopes and the expiry.
 
 `RepositoryRef` and `ForgeUrl` are the origin-pinning seam: a provider is bound to one web origin, and an `IssueRef`
 on another origin is `REJECTED` before anything is sent. `whoami` takes a `@Nullable RepositoryRef` rather than an
-`Optional`: the standing rule for the repository's null contract (R20) forbids `Optional` in a parameter, so the spec's
-`Optional<RepositoryRef>` is realised as the nullable parameter.
+`Optional`: the repository's null contract
+(link:../../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013]) forbids `Optional`
+in a parameter, so the spec's `Optional<RepositoryRef>` is realised as the nullable parameter.
 
 == How the Adapters Implement the Contract
 
@@ -115,7 +116,9 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
 * *The registry is explicit and immutable.* A duplicate id, or an id outside the provider id pattern, is refused when the
   registry is constructed; an unknown id is empty, never a default provider.
 * *A pull request is no issue.* GitHub answers a pull request through the issue endpoint; the adapter flags it and the
-  operation answers `REJECTED` "is a pull request".
+  operation answers `REJECTED` "is a pull request". GitLab numbers issues and merge requests apart, so the GitLab adapter
+  answers `NOT_FOUND` for a missing issue and does not probe a merge request
+  (link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006]).
 * *Text is returned unvalidated.* Title, body and comment text are remote text; the level-1 validator cleans them before a
   model sees them (PM-SEC-1). The contract says so and does not validate.
 * *No credential in a detail.* The outcome's detail carries the provider's reason or the failing step, never a token.
@@ -134,8 +137,8 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
 
 [horizontal]
 link:{test}/ForgeUrlTest.java[`ForgeUrlTest`]:: the grammar of every forge, a trailing slash, a query and a fragment, an
-unknown host, a pull-request URL, a hostile URL (user information, a parent segment, an over-long path) and the value
-invariants.
+unknown host, a pull-request URL, a hostile URL (user information, a parent segment, an encoded parent segment, an
+over-long path, an over-long segment), an uppercase and a trailing-dot host, and the value invariants.
 link:{test}/CiProvidersTest.java[`CiProvidersTest`]:: the lookup by id, the registration order, the selection by a
 resolved URL, and the refusal of a duplicate or malformed id.
 link:{test}/ValueTypesTest.java[`ValueTypesTest`]:: the invariants and the defensive copies of the value types.
@@ -169,4 +172,7 @@ own mock web server.
 * The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
 * The adapters: link:../../../pm-provider-github/doc/developer/provider-github.adoc[`provider.github`],
   link:../../../pm-provider-gitlab/doc/developer/provider-gitlab.adoc[`provider.gitlab`]
-* Decisions: link:../adr/provider-ci/[the module's ADRs], link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]
+* Decisions: link:../adr/provider-ci/[the module's ADRs],
+  link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006],
+  link:../../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013],
+  link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]
