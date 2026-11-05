@@ -150,7 +150,12 @@ class AnswersTest {
     @Test
     @DisplayName("the selected keys of a several answer and the two reserved keys are branch keys")
     void branchKeys() {
-        var several = branchKey() + "+" + branchKey();
+        var firstKey = branchKey();
+        var secondKey = branchKey();
+        while (firstKey.equals(secondKey)) {
+            secondKey = branchKey();
+        }
+        var several = firstKey + "+" + secondKey;
         assertAll(
                 () -> assertEquals(several,
                         new AnswerFact(questionId(), null, Generators.letterStrings(1, 40).next(), several,
