@@ -2,7 +2,7 @@
   "id": "PLAN-V2-87",
   "slug": "core-tests-rest",
   "workstream": "WS-11",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",

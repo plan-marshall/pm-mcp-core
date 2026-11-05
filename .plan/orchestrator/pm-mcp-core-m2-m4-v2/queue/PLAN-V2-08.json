@@ -2,10 +2,10 @@
   "id": "PLAN-V2-08",
   "slug": "native-build-parsers-jvm",
   "workstream": "WS-07",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-08-native-build-parsers-jvm",
+  "pr": "277",
+  "landing": "landings/PLAN-V2-08.md",
   "seq": 8
 }
