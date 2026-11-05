@@ -64,6 +64,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * step, job ids and queue task ids come from a counter, and every primitive returns one fixed outcome. Two replays of
  * one script with fresh fixtures therefore write the same bytes. One instance serves one replay.
  */
+// Every datum in this class is a contract: the fixture DSL documents and the replay's fixed identity.
 final class ScenarioFixtures {
 
     /** The instant the manual clock starts at. */

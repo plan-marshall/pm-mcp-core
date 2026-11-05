@@ -63,6 +63,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * {@code done} of its call on the result. The kind {@code change} names no entity unit: no state of the fixture asks, and the verifier
  * refuses a named entity unit the catalog does not hold.
  */
+// Every datum in this class is a contract: fixture resources, golden files and the DSL sources they describe.
 final class DiagramFixtures {
 
     /** The classpath resource of the fixture unit. */

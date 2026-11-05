@@ -1,0 +1,11 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_ruff_errors
+# ruff's `path:line:column: CODE message` form; the column is carried and the code stays in the message.
+log src/main.py:15:1: E501 Line too long (120 > 88)
+log src/utils.py:30:5: F401 'os' imported but unused
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 2
+diagnostic ERROR LINT_ERROR src/main.py 15 1 E501 Line too long (120 > 88)
+diagnostic ERROR LINT_ERROR src/utils.py 30 5 F401 'os' imported but unused

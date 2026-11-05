@@ -33,6 +33,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
 
 /**
@@ -40,9 +42,11 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
  * checkable rule is refused by a roster that breaks it in one place, with the rule and the step named; every rule has
  * a refusing roster or a named hook, so a rule cannot be added unchecked.
  */
+@EnableGeneratorController
 @DisplayName("FinalizePipelineValidator")
 class FinalizePipelineValidatorTest {
 
+    // The step ids are the fixture roster's contract, shared with FinalizeFixtures.
     private static final String PRE_PUSH = "default:pre-push-quality-gate";
     private static final String PUSH = "default:push";
     private static final String RETROSPECTIVE = "default:plan-retrospective";
@@ -50,6 +54,10 @@ class FinalizePipelineValidatorTest {
     private static final String SONAR = "default:sonar-roundtrip";
 
     static Stream<Arguments> refusals() {
+        var extra = generatedStepName();
+        var late = generatedStepName();
+        var lateReview = generatedStepName();
+        var lateReader = generatedStepName();
         return Stream.of(
                 refusal("an order collision", PipelineRule.ORDER_UNIQUE, "default:create-pr",
                         withStep("default:create-pr", step -> step.order(30))),
@@ -57,21 +65,21 @@ class FinalizePipelineValidatorTest {
                         withStep(PUSH, step -> step.order(12))),
                 refusal("the pre-push quality gate not at 10", PipelineRule.PRE_PUSH_PLACEMENT, PRE_PUSH,
                         withStep(PRE_PUSH, step -> step.order(9))),
-                refusal("another step at the order of the push", PipelineRule.PRE_PUSH_PLACEMENT, "default:extra",
-                        withAdded(step("default:extra", 11).build())),
+                refusal("another step at the order of the push", PipelineRule.PRE_PUSH_PLACEMENT, extra,
+                        withAdded(step(extra, 11).build())),
                 refusal("a mutating step at the merge gate", PipelineRule.SOURCE_MUTATION_BEFORE_MERGE_GATE,
                         "default:branch-cleanup",
                         withStep("default:branch-cleanup", FinalizeFixtures.Step::mutatesSource)),
                 refusal("a mutating step after the merge gate", PipelineRule.SOURCE_MUTATION_BEFORE_MERGE_GATE,
-                        "default:late", withAdded(step("default:late", 80).mutatesSource().build())),
+                        late, withAdded(step(late, 80).mutatesSource().build())),
                 refusal("a post-run review step below 900", PipelineRule.POST_RUN_REVIEW_BAND, RETROSPECTIVE,
                         withStep(RETROSPECTIVE, step -> step.order(890))),
-                refusal("a post-run review step above 1000", PipelineRule.POST_RUN_REVIEW_BAND, "default:late-review",
-                        withAdded(step("default:late-review", 1001).postRunReview().build())),
+                refusal("a post-run review step above 1000", PipelineRule.POST_RUN_REVIEW_BAND, lateReview,
+                        withAdded(step(lateReview, 1001).postRunReview().build())),
                 refusal("a post-run review step that mutates source", PipelineRule.POST_RUN_REVIEW_BAND, BREAKDOWN,
                         withStep(BREAKDOWN, FinalizeFixtures.Step::mutatesSource)),
-                refusal("a read after the destroy", PipelineRule.READS_BEFORE_DESTROYS, "default:late-reader",
-                        withAdded(step("default:late-reader", 80).reads("worktree").build())),
+                refusal("a read after the destroy", PipelineRule.READS_BEFORE_DESTROYS, lateReader,
+                        withAdded(step(lateReader, 80).reads("worktree").build())),
                 refusal("a metrics consumer before 998 without the snapshot", PipelineRule.READS_BEFORE_DESTROYS,
                         RETROSPECTIVE, withStep(RETROSPECTIVE, FinalizeFixtures.Step::recordsFacts)),
                 refusal("a head-dependent step without an input scope", PipelineRule.ANCHOR_AND_FACT_CONTRACT,
@@ -79,9 +87,14 @@ class FinalizePipelineValidatorTest {
                 refusal("the scope declared with empty verdict inputs", PipelineRule.ANCHOR_AND_FACT_CONTRACT, SONAR,
                         withStep(SONAR, step -> step.scope(InputScope.DECLARED))),
                 refusal("another scope with verdict inputs", PipelineRule.ANCHOR_AND_FACT_CONTRACT, PRE_PUSH,
-                        withStep(PRE_PUSH, step -> step.scope(InputScope.PLAN_FOOTPRINT, "coverage_report"))),
+                        withStep(PRE_PUSH, step -> step.scope(InputScope.PLAN_FOOTPRINT,
+                                Generators.letterStrings(3, 15).next()))),
                 refusal("an input scope on a step that is not head-dependent", PipelineRule.ANCHOR_AND_FACT_CONTRACT,
                         PUSH, withStep(PUSH, step -> step.scope(InputScope.REMOTE_STATE))));
+    }
+
+    private static String generatedStepName() {
+        return "default:test-" + Generators.letterStrings(3, 12).next();
     }
 
     private static Arguments refusal(String name, PipelineRule rule, String stepName,
@@ -121,7 +134,8 @@ class FinalizePipelineValidatorTest {
         @Test
         @DisplayName("passes a step that reads and destroys the same artifact")
         void readsAndDestroysItself() {
-            var roster = withAdded(step("default:cleanup-scratch", 50).reads("scratch").destroys("scratch").build());
+            var artifact = "artifact-" + Generators.letterStrings(3, 12).next();
+            var roster = withAdded(step(generatedStepName(), 50).reads(artifact).destroys(artifact).build());
 
             assertEquals(List.of(), FinalizePipelineValidator.validate(roster));
         }

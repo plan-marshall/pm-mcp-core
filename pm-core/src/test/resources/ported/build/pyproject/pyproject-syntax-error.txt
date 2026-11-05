@@ -1,0 +1,19 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_syntax_error_collection_block_reports_the_exception_line test/plan-marshall/build-pyproject/test_pyproject_cmd_parse_collection_errors.py::test_a_syntax_error_message_is_not_the_traceback_location_line
+# A SyntaxError renders its location, source and caret through the `E` gutter ahead of the exception.
+# The exception line is the one at the block's minimal gutter indent; the location line is not it.
+# The block carries no `path.py:NN:` frame, so the file is the summary line's and the line is absent.
+log ==================================== ERRORS ====================================
+log _ ERROR collecting test/plan-marshall/build-pyproject/test_bad_syntax.py _
+log E     File "/repo/test/plan-marshall/build-pyproject/test_bad_syntax.py", line 3
+log E       def broken(:
+log E                  ^
+log E   SyntaxError: invalid syntax
+log =========================== short test summary info ============================
+log ERROR test/plan-marshall/build-pyproject/test_bad_syntax.py
+log ======================== 398 passed, 1 error in 8.51s ========================
+status FAILURE
+success-marker true
+tests measured 398 0 0 398
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_COLLECTION_ERROR test/plan-marshall/build-pyproject/test_bad_syntax.py - - SyntaxError: invalid syntax

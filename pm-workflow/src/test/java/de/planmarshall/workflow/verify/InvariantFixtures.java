@@ -54,6 +54,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
  * The tests of the unit loaders in {@code workflow.unit} read the same units and registries, so the members they use
  * are public.
  */
+// Every datum in this class is a contract: fixture file names, DSL sources, enum wire names and mutation anchors.
 public final class InvariantFixtures {
 
     /** The classpath directory of the passing units. */

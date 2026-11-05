@@ -23,9 +23,13 @@ import java.util.List;
 import java.util.Optional;
 
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 
 /**
  * The selection and the windows of the waits a model holds (PM-WF-8, PM-IMPL-4): a bounded wait answers at its
@@ -33,6 +37,8 @@ import org.junit.jupiter.params.provider.CsvSource;
  * {@code progress_resets_timeout} and the request's progress token in all four combinations. The clock is the
  * fixture's manual clock, so no test waits in wall-clock time.
  */
+@EnableGeneratorController
+@DisplayName("Model wait selection and windows")
 class ModelWaitTest {
 
     private static final Instant T0 = Instant.parse("2026-10-22T10:00:00Z");
@@ -40,6 +46,8 @@ class ModelWaitTest {
     private static final Duration BOUNDED = Duration.ofSeconds(240);
 
     private static final Duration IDLE = Duration.ofSeconds(1800);
+
+    private static final String TOKEN = Generators.letterStrings(1, 8).next();
 
     private final EngineFixtures.ManualClock clock = new EngineFixtures.ManualClock(T0);
 
@@ -60,7 +68,7 @@ class ModelWaitTest {
     @Test
     void shouldEmitProgressFramesWithoutAGapLongerThanTheInterval() {
         var settings = WaitSettings.defaults();
-        var wait = WaitSelection.select(connection(true), Optional.of("p-1"), ModelCall.PM_BUILD, settings, clock);
+        var wait = WaitSelection.select(connection(true), Optional.of(TOKEN), ModelCall.PM_BUILD, settings, clock);
 
         var progress = assertInstanceOf(ModelWait.Progress.class, wait);
         assertEquals(T0.plus(settings.progressWaitMax()), progress.answerAt());
@@ -92,7 +100,7 @@ class ModelWaitTest {
     @Test
     void shouldKeepTheBoundedWindowOfAPmWaitThatQualifiesForProgress() {
         var settings = WaitSettings.defaults();
-        var wait = WaitSelection.select(connection(true), Optional.of("p-1"), ModelCall.PM_WAIT, settings, clock);
+        var wait = WaitSelection.select(connection(true), Optional.of(TOKEN), ModelCall.PM_WAIT, settings, clock);
 
         var progress = assertInstanceOf(ModelWait.Progress.class, wait);
         assertEquals(BOUNDED, progress.window());
@@ -105,12 +113,12 @@ class ModelWaitTest {
     void shouldSelectTheSameWaitsForAPmWaitInAllFourCombinations() {
         var settings = WaitSettings.defaults();
         var progress = assertInstanceOf(ModelWait.Progress.class,
-                WaitSelection.select(connection(true), Optional.of("p-1"), ModelCall.PM_WAIT, settings, clock));
+                WaitSelection.select(connection(true), Optional.of(TOKEN), ModelCall.PM_WAIT, settings, clock));
         assertEquals(BOUNDED, progress.window());
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
                 WaitSelection.select(connection(true), Optional.empty(), ModelCall.PM_WAIT, settings, clock)).window());
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(false), Optional.of("p-1"), ModelCall.PM_WAIT, settings, clock)).window());
+                WaitSelection.select(connection(false), Optional.of(TOKEN), ModelCall.PM_WAIT, settings, clock)).window());
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
                 WaitSelection.select(connection(false), Optional.empty(), ModelCall.PM_WAIT, settings, clock)).window());
     }
@@ -121,14 +129,14 @@ class ModelWaitTest {
         var longInterval = new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(60));
 
         var pmWait = assertInstanceOf(ModelWait.Progress.class,
-                WaitSelection.select(shortConnection, Optional.of("p-1"), ModelCall.PM_WAIT, longInterval, clock));
+                WaitSelection.select(shortConnection, Optional.of(TOKEN), ModelCall.PM_WAIT, longInterval, clock));
         assertEquals(Duration.ofSeconds(15), pmWait.window());
         assertEquals(Duration.ofMillis(7_500), pmWait.interval());
         assertFalse(pmWait.progressFrames().isEmpty());
         assertGapsAtMost(pointsOf(pmWait), pmWait.interval());
 
         var pmBuild = assertInstanceOf(ModelWait.Progress.class, WaitSelection.select(connection(true),
-                Optional.of("p-1"), ModelCall.PM_BUILD,
+                Optional.of(TOKEN), ModelCall.PM_BUILD,
                 new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(60)), clock));
         assertEquals(Duration.ofSeconds(60), pmBuild.window());
         assertEquals(Duration.ofSeconds(30), pmBuild.interval());

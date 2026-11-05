@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
+// Every datum in this class is a contract: inline DSL sources, primitive ids, rule names and refusal messages.
 @DisplayName("Additional Rules Coverage")
 class AdditionalRulesTest {
 

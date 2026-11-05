@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 
@@ -23,6 +24,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
@@ -35,10 +38,16 @@ import de.planmarshall.core.role.RoleSkill;
  * The checks of a call the specification orders before the lease's own link: a job that ended, the skills a submit
  * requires, the ends that are no report, and the {@code infeasible} outcome.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol refusals")
 class TaskProtocolRefusalTest {
+
+    private static final String FIRST_SKILL = "skill://pm/documents/"
+            + Generators.letterStrings(4, 10).next().toLowerCase(Locale.ROOT) + "/first/SKILL.md";
+    private static final String SECOND_SKILL = "skill://pm/documents/"
+            + Generators.letterStrings(4, 10).next().toLowerCase(Locale.ROOT) + "/second/SKILL.md";
 
     private record Harness(QueueStore queue, TaskProtocol protocol) {
     }
@@ -93,12 +102,14 @@ class TaskProtocolRefusalTest {
     @Test
     @DisplayName("an off-track signal with a non-finite measurement is refused")
     void nonFiniteSignal() {
+        var measurement = Generators.integers(1, 10).next();
+        var threshold = Generators.integers(1, 10).next();
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW,
-                                Double.NaN, 1)),
+                                Double.NaN, threshold)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, 1,
+                        () -> new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, measurement,
                                 Double.POSITIVE_INFINITY)));
     }
 
@@ -107,11 +118,13 @@ class TaskProtocolRefusalTest {
     void negativeBudget(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
+        var measurement = Generators.integers(1, 10).next();
+        var threshold = Generators.integers(1, 10).next();
 
         assertThrows(IllegalArgumentException.class,
                 () -> harness.protocol().offTrack(call,
-                        new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, 1, 1), -1,
-                        TaskFixtures.AT.plusSeconds(2)));
+                        new OffTrackSignal(QueueTaskRecord.SignalName.REPEATING, SignalAction.SHOW, measurement,
+                                threshold), -1, TaskFixtures.AT.plusSeconds(2)));
     }
 
     @Test
@@ -133,8 +146,8 @@ class TaskProtocolRefusalTest {
     void skillsNotLoaded(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
-        var first = new RoleSkill("skill://pm/documents/doc-review/SKILL.md", "a".repeat(64));
-        var second = new RoleSkill("skill://pm/documents/ref-asciidoc/SKILL.md", "b".repeat(64));
+        var first = new RoleSkill(FIRST_SKILL, "a".repeat(64));
+        var second = new RoleSkill(SECOND_SKILL, "b".repeat(64));
         harness.protocol().deliverSkills(TaskFixtures.GENERATION, List.of(first));
 
         var refused = assertInstanceOf(CallResult.Refused.class,
@@ -151,7 +164,7 @@ class TaskProtocolRefusalTest {
     void submitAfterDelivery(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
-        var skill = new RoleSkill("skill://pm/documents/doc-review/SKILL.md", "a".repeat(64));
+        var skill = new RoleSkill(FIRST_SKILL, "a".repeat(64));
         harness.protocol().deliverSkills(TaskFixtures.GENERATION, List.of(skill));
 
         var accepted = assertInstanceOf(CallResult.Accepted.class,
@@ -180,11 +193,12 @@ class TaskProtocolRefusalTest {
     void reportRefusesEndsOfOtherTransitions(@TempDir Path base) {
         var harness = harness(base);
         var call = acknowledged(harness);
+        var budget = Generators.integers(1, 10).next();
 
         var paused = assertInstanceOf(CallResult.Refused.class,
-                harness.protocol().report(call, AttemptEnd.PAUSED, 3, TaskFixtures.AT.plusSeconds(2)));
+                harness.protocol().report(call, AttemptEnd.PAUSED, budget, TaskFixtures.AT.plusSeconds(2)));
         var offTrack = assertInstanceOf(CallResult.Refused.class,
-                harness.protocol().report(call, AttemptEnd.OFF_TRACK, 3, TaskFixtures.AT.plusSeconds(3)));
+                harness.protocol().report(call, AttemptEnd.OFF_TRACK, budget, TaskFixtures.AT.plusSeconds(3)));
 
         assertAll(
                 () -> assertEquals(TaskRefusal.LINK_NOT_AVAILABLE, paused.refusal()),

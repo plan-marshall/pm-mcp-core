@@ -43,6 +43,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -53,6 +55,7 @@ import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.WorkflowPrinter;
+import de.planmarshall.workflow.log.WorkflowLogMessages;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 
@@ -63,9 +66,11 @@ import de.planmarshall.workflow.verify.InvariantFixtures;
  * {@code mcp/units/<digest>.pmwf}, in the transaction of the first version naming it, covered by the digest sidecar.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("PlanInstanceStore")
 class PlanInstanceStoreTest {
 
+    /** The fixture project of the temporary store. */
     private static final String PROJECT = "pm-mcp-core";
 
     @TempDir
@@ -180,6 +185,8 @@ class PlanInstanceStoreTest {
                     () -> assertEquals(Optional.of(instance.text()), store.readVersion(1)),
                     () -> assertEquals(Optional.empty(), store.readVersion(2)),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            WorkflowLogMessages.INFO.PLAN_INSTANCE_VERSION_RECORDED.resolveIdentifierString()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             "Plan instance version 1 of plan 'plan-fixture' recorded for the event 'start'"));
         }
 
@@ -209,7 +216,8 @@ class PlanInstanceStoreTest {
         @DisplayName("two transactions of one lock that record the same version: the second commit is refused")
         void interleavedTransactions() {
             var first = version1();
-            var otherFacts = facts().configuration("derived.push_remote", "upstream").build();
+            var otherFacts = facts().configuration("derived.push_remote",
+                    "remote-" + Generators.letterStrings(1, 8).next()).build();
             var otherResult = composer().compose(PlanFixtures.start(otherFacts));
             var second = assertInstanceOf(CompositionResult.Composed.class, otherResult, otherResult::toString)
                     .instance();
@@ -348,6 +356,8 @@ class PlanInstanceStoreTest {
                     () -> assertEquals(1, logLines().size()),
                     () -> assertEquals(Optional.empty(), store.readVersion(1)),
                     () -> assertFalse(Files.exists(scope.resolve("mcp/units"))),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WorkflowLogMessages.WARN.PLAN_INSTANCE_COMPOSITION_REFUSED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             "Composition 'config_adopted' of plan 'plan-fixture' refused with 'invariant_failed'"));
         }
@@ -662,7 +672,8 @@ class PlanInstanceStoreTest {
         void newDigest() {
             var first = version1();
             recordComposed(first, texts());
-            var changedText = InvariantFixtures.read(InvariantFixtures.GIT_FILE) + "# changed for the test\n";
+            var changedText = InvariantFixtures.read(InvariantFixtures.GIT_FILE) + "# "
+                    + Generators.letterStrings(1, 12).next() + "\n";
             var git = PlanFixtures.subUnits().getFirst();
             var changedReference = new UnitReference(git.reference().unit(), git.reference().file(),
                     PlanFacts.sha256(changedText), UnitOrigin.DEFAULT);

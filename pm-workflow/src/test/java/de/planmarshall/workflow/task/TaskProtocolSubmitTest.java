@@ -25,6 +25,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
@@ -37,10 +39,13 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
  * of that generation is {@code stale_entity}, a late call of a replaced generation is {@code generation_fenced}, and a
  * lease survives a restart.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the refusal cases call one throwing method per case, by design
 @DisplayName("Task protocol submits")
 class TaskProtocolSubmitTest {
+
+    private static final int RE_OFFER_BUDGET = Generators.integers(1, 10).next();
 
     private static TaskProtocol protocol(QueueStore queue, TestLocks locks) {
         return TaskProtocol.builder(queue, locks).build();
@@ -164,7 +169,8 @@ class TaskProtocolSubmitTest {
             last = switch (step) {
                 case ACK -> protocol.acknowledge(call, TaskFixtures.AT.plusSeconds(time));
                 case SUBMIT -> protocol.submit(call, TaskFixtures.AT.plusSeconds(time));
-                case REPORT -> protocol.report(call, AttemptEnd.WORKER_LOST, 3, TaskFixtures.AT.plusSeconds(time));
+                case REPORT -> protocol.report(call, AttemptEnd.WORKER_LOST, RE_OFFER_BUDGET,
+                        TaskFixtures.AT.plusSeconds(time));
             };
         }
 

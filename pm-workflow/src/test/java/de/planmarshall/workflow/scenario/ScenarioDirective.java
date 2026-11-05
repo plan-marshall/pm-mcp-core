@@ -23,6 +23,7 @@ import de.planmarshall.workflow.engine.EngineEvent;
  * engine supports today; the values they carry are validated against the closed sets {@link EngineEvent} states, so a
  * script that names a fate or a task outcome the engine does not know is refused when it is read, not when it runs.
  */
+// Every datum in this class is a contract: the wire shapes, closed sets and tokens of the scenario script.
 sealed interface ScenarioDirective {
 
     /** @return the line of the script the directive was read from, counted from 1 */

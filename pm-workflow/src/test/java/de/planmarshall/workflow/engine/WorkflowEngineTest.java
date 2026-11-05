@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -41,6 +42,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -62,6 +65,7 @@ import de.planmarshall.workflow.verify.WorkflowCatalog;
  * entered and left and drops them when the frame is popped, and every outcome of a verified unit takes exactly the one
  * transition the unit declares for it.
  */
+@EnableGeneratorController
 @DisplayName("WorkflowEngine")
 class WorkflowEngineTest {
 
@@ -163,7 +167,9 @@ class WorkflowEngineTest {
                     state epic.aborted terminal aborted failure
                     """));
 
-            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.EPIC, "engine-epic"));
+            var ended = assertInstanceOf(EngineStep.Ended.class,
+                    engine.start(JournalScopeType.EPIC,
+                            "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT)));
 
             assertAll(
                     () -> assertEquals("aborted", ended.outcomeId()),
@@ -198,7 +204,8 @@ class WorkflowEngineTest {
         @Test
         @DisplayName("Should chain every auto state in one advance and rest at the first job state")
         void shouldChainToFirstRestingState() {
-            fixtures.clock.tick(Duration.ofSeconds(7));
+            var tick = Generators.integers(1, 120).next();
+            fixtures.clock.tick(Duration.ofSeconds(tick));
             var engine = fixtures.engine(plan("execute.first", CHAIN_TO_JOB));
 
             var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
@@ -207,7 +214,7 @@ class WorkflowEngineTest {
                     () -> assertEquals("execute.build", resting.stateId()),
                     () -> assertEquals(AwaitedEvent.JOB_SETTLED, resting.awaitedEvent()),
                     () -> assertEquals(EXECUTE, resting.status().phase()),
-                    () -> assertEquals(T0.plusSeconds(7), resting.status().updatedAt()),
+                    () -> assertEquals(T0.plusSeconds(tick), resting.status().updatedAt()),
                     () -> assertEquals(1, fixtures.step.calls()),
                     () -> assertEquals(1, fixtures.mark.calls()));
         }
@@ -586,7 +593,8 @@ class WorkflowEngineTest {
         @Test
         @DisplayName("Should raise a condition with its facts and leave state, phase and call stack as they are")
         void shouldRaiseCondition() {
-            fixtures.clock.tick(Duration.ofMinutes(1));
+            var tick = Generators.integers(1, 120).next();
+            fixtures.clock.tick(Duration.ofSeconds(tick));
             var engine = fixtures.engine(plan("execute.first", CHAIN_TO_JOB));
             var resting = planStatus(EXECUTE, "execute.build");
 
@@ -596,7 +604,7 @@ class WorkflowEngineTest {
             assertAll(
                     () -> assertEquals("precondition_unmet", raised.kind()),
                     () -> assertEquals("{\"fact\":\"push_remote\"}", raised.facts()),
-                    () -> assertEquals(T0.plusSeconds(60), condition.raisedAt()),
+                    () -> assertEquals(T0.plusSeconds(tick), condition.raisedAt()),
                     () -> assertEquals(0, condition.remedyAttempts()),
                     () -> assertEquals(resting.state(), raised.status().state()),
                     () -> assertEquals(resting.phase(), raised.status().phase()),

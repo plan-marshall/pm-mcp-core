@@ -11,7 +11,9 @@ package de.planmarshall.workflow.consult;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.Attempt;
 import de.planmarshall.core.queue.QueueTaskRecord.Kind;
@@ -28,17 +30,20 @@ import de.planmarshall.core.role.RoleClass;
  */
 final class ConsultationFixtures {
 
+    // The queue task and generation ids are the wire format; the role names, question and answer are generated.
     static final String ASKER = "qt-0000000000000001";
-    static final String ASKER_ROLE = "writer";
-    static final String REVIEWER = "reviewer";
-    static final String SECOND_REVIEWER = "second-reviewer";
-    static final String THIRD_REVIEWER = "third-reviewer";
+    static final String ASKER_ROLE = "asker-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    static final String REVIEWER = "reviewer-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    static final String SECOND_REVIEWER = "second-reviewer-"
+            + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    static final String THIRD_REVIEWER = "third-reviewer-"
+            + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     static final String ASKING_GENERATION = "l-0000000000000001";
     static final String CONSULTED_GENERATION = "l-0000000000000002";
     static final String SUCCESSOR_GENERATION = "l-0000000000000004";
     static final String DIGEST = "a".repeat(64);
-    static final String QUESTION = "Which of the two readings is the one the specification means?";
-    static final String ANSWER = "The second: the link is offered only while the task executes.";
+    static final String QUESTION = Generators.letterStrings(20, 80).next();
+    static final String ANSWER = Generators.letterStrings(20, 80).next();
     static final Instant AT = Instant.parse("2026-10-24T10:00:00Z");
 
     private ConsultationFixtures() {

@@ -26,6 +26,7 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * scope runs a unit with no terminal that rests in {@code onboard.completed}, and every state returns to that resting
  * state.
  */
+// Every datum in this class is a contract: the inline machine DSL sources, their state ids and the resting state.
 @DisplayName("Machine scope unit")
 class MachineResidentUnitTest {
 

@@ -36,6 +36,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
@@ -53,6 +55,7 @@ import de.planmarshall.core.store.WorkflowStatusStore;
  * stack, only waits on a bound job instead of starting it again, and takes the same next step as a run that was never
  * stopped.
  */
+@EnableGeneratorController
 @DisplayName("Engine resume")
 class EngineResumeTest {
 
@@ -111,7 +114,7 @@ class EngineResumeTest {
             new EngineEvent.JobSettled("b-0000000000000001", "succeeded"),
             new EngineEvent.TasksSettled(Map.of("change", "submitted"), "approved"),
             new EngineEvent.QuestionResolved("Q-001", "answered"),
-            new EngineEvent.TimeElapsed(T0.plusSeconds(30)));
+            new EngineEvent.TimeElapsed(T0.plusSeconds(Generators.integers(1, 120).next())));
 
     @TempDir
     Path base;

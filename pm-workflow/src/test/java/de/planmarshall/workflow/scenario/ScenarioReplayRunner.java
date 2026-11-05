@@ -54,6 +54,7 @@ import de.planmarshall.workflow.engine.WorkflowEngine;
  * actual value), an event the resting state does not wait for, a task without a declared worker outcome, and a declared
  * outcome no task took. Nothing is skipped silently. One runner replays one script once.
  */
+// Every datum in this class is a contract: the failure-message templates the tests assert exactly.
 final class ScenarioReplayRunner {
 
     private final ScenarioFixtures fixtures = new ScenarioFixtures();

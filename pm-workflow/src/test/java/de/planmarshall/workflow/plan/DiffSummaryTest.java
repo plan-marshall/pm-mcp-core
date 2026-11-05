@@ -29,6 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.DiffSummary.CeilingChange;
 import de.planmarshall.workflow.plan.PrunedElement.Kind;
@@ -38,6 +40,7 @@ import de.planmarshall.workflow.plan.PrunedElement.Kind;
  * against the version before it, computed from two headers the composer composed over the fixtures of
  * {@link PlanFixtures}, and their canonical JSON.
  */
+@EnableGeneratorController
 @DisplayName("DiffSummary")
 class DiffSummaryTest {
 
@@ -96,14 +99,16 @@ class DiffSummaryTest {
         @Test
         @DisplayName("a raise changes the ceiling of its policy call from the previous value to the raised one")
         void raise() {
+            var raised = Generators.integers(4, 5).next();
             var before = version1().header();
-            var after = waiverVersion(List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", 4))).header();
+            var after = waiverVersion(List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", raised))).header();
 
             var summary = DiffSummary.between(before, after);
 
             assertAll(
                     () -> assertEquals(List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget",
-                                    Optional.of(new CallValue.IntValue(3)), Optional.of(new CallValue.IntValue(4)))),
+                                    Optional.of(new CallValue.IntValue(3)),
+                                    Optional.of(new CallValue.IntValue(raised)))),
                             summary.ceilingsChanged()),
                     () -> assertEquals(List.of(), summary.prunedAdded()),
                     () -> assertEquals(List.of(), summary.gatesWaived()));

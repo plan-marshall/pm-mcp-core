@@ -29,6 +29,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.ConfigurableKey;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.Lane;
@@ -38,6 +40,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
  * The descriptor of a finalize step (PM-IMPL-5) is immutable: it copies its lists and sets, and it refuses a missing
  * value in itself and in its nested types.
  */
+@EnableGeneratorController
 @DisplayName("FinalizeStepDescriptor")
 class FinalizeStepDescriptorTest {
 
@@ -50,21 +53,27 @@ class FinalizeStepDescriptorTest {
         @Test
         @DisplayName("copies its lists and sets, so a later change of the source leaves it unchanged")
         void copies() {
-            var presets = new HashSet<>(Set.of("standard"));
-            var reads = new ArrayList<>(List.of("worktree"));
-            var findings = new ArrayList<>(List.of("sonar"));
-            var descriptor = new FinalizeStepDescriptor("default:sonar-roundtrip", 40, true, presets, "analysis",
-                    false, false, Optional.empty(), List.of(), false, false, reads, List.of(), List.of(),
-                    Optional.empty(), List.of(), List.of(), NONE, List.of(), NONE, findings);
+            var preset = Generators.letterStrings(3, 12).next();
+            var read = Generators.letterStrings(3, 12).next();
+            var finding = Generators.letterStrings(3, 12).next();
+            var otherPreset = Generators.letterStrings(3, 12).next() + "-p";
+            var otherRead = Generators.letterStrings(3, 12).next() + "-r";
+            var presets = new HashSet<>(Set.of(preset));
+            var reads = new ArrayList<>(List.of(read));
+            var findings = new ArrayList<>(List.of(finding));
+            var descriptor = new FinalizeStepDescriptor("default:sonar-roundtrip", 40, true, presets,
+                    Generators.letterStrings(1, 30).next(), false, false, Optional.empty(), List.of(), false, false,
+                    reads, List.of(), List.of(), Optional.empty(), List.of(), List.of(), NONE, List.of(), NONE,
+                    findings);
 
-            presets.add("deep");
-            reads.add("metrics");
+            presets.add(otherPreset);
+            reads.add(otherRead);
             findings.clear();
 
             assertAll(
-                    () -> assertEquals(Set.of("standard"), descriptor.presets()),
-                    () -> assertEquals(List.of("worktree"), descriptor.reads()),
-                    () -> assertEquals(List.of("sonar"), descriptor.filesFindings()));
+                    () -> assertEquals(Set.of(preset), descriptor.presets()),
+                    () -> assertEquals(List.of(read), descriptor.reads()),
+                    () -> assertEquals(List.of(finding), descriptor.filesFindings()));
         }
 
         @Test
@@ -80,17 +89,18 @@ class FinalizeStepDescriptorTest {
             var configurable = descriptor.configurable();
             var requiresPromptFields = descriptor.requiresPromptFields();
             var filesFindings = descriptor.filesFindings();
+            var item = Generators.letterStrings(1, 5).next();
 
             assertAll(
-                    () -> assertThrows(UnsupportedOperationException.class, () -> presets.add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> verdictInputs.add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> reads.add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> destroys.add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> recordsFacts.add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> requires.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> presets.add(item)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> verdictInputs.add(item)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> reads.add(item)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> destroys.add(item)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> recordsFacts.add(item)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> requires.add(item)),
                     () -> assertThrows(UnsupportedOperationException.class, configurable::clear),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> requiresPromptFields.add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> filesFindings.add("x")));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> requiresPromptFields.add(item)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> filesFindings.add(item)));
         }
 
         @Test
@@ -98,6 +108,7 @@ class FinalizeStepDescriptorTest {
         void keepsComponents() {
             var descriptor = FinalizeFixtures.full();
 
+            // The full fixture's step id, order, preset, lane and configurable key are the contract read here.
             assertAll(
                     () -> assertEquals("default:automatic-review", descriptor.name()),
                     () -> assertEquals(30, descriptor.order()),
@@ -131,61 +142,67 @@ class FinalizeStepDescriptorTest {
             List<String> empty = List.of();
             Set<String> noPresets = Set.of();
             List<ConfigurableKey> noKeys = List.of();
+            var name = Generators.letterStrings(1, 10).next();
+            var description = Generators.letterStrings(1, 20).next();
+            var key = Generators.letterStrings(1, 10).next();
+            var value = Generators.letterStrings(1, 10).next();
+            var costSize = Generators.letterStrings(1, 3).next();
             return Stream.of(
-                    missing("name", () -> new FinalizeStepDescriptor(null, 1, true, noPresets, "d", false, false,
+                    missing("name", () -> new FinalizeStepDescriptor(null, 1, true, noPresets, description, false,
+                            false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty,
+                            NONE, empty)),
+                    missing("presets", () -> new FinalizeStepDescriptor(name, 1, true, null, description, false, false,
                             scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty, NONE,
                             empty)),
-                    missing("presets", () -> new FinalizeStepDescriptor("s", 1, true, null, "d", false, false, scope,
-                            empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty, NONE, empty)),
-                    missing("description", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, null, false,
+                    missing("description", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, null, false,
                             false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty,
                             NONE, empty)),
-                    missing("inputScope", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false, false,
-                            null, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty, NONE,
-                            empty)),
-                    missing("verdictInputs", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false,
-                            false, scope, null, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty,
+                    missing("inputScope", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description, false,
+                            false, null, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty,
                             NONE, empty)),
-                    missing("reads", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false, false,
-                            scope, empty, false, false, null, empty, empty, lane, empty, noKeys, NONE, empty, NONE,
-                            empty)),
-                    missing("destroys", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false, false,
-                            scope, empty, false, false, empty, null, empty, lane, empty, noKeys, NONE, empty, NONE,
-                            empty)),
-                    missing("recordsFacts", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false,
-                            false, scope, empty, false, false, empty, empty, null, lane, empty, noKeys, NONE, empty,
+                    missing("verdictInputs", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description,
+                            false, false, scope, null, false, false, empty, empty, empty, lane, empty, noKeys, NONE,
+                            empty, NONE, empty)),
+                    missing("reads", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description, false,
+                            false, scope, empty, false, false, null, empty, empty, lane, empty, noKeys, NONE, empty,
                             NONE, empty)),
-                    missing("lane", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false, false,
-                            scope, empty, false, false, empty, empty, empty, null, empty, noKeys, NONE, empty, NONE,
-                            empty)),
-                    missing("requires", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false, false,
-                            scope, empty, false, false, empty, empty, empty, lane, null, noKeys, NONE, empty, NONE,
-                            empty)),
-                    missing("configurable", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false,
-                            false, scope, empty, false, false, empty, empty, empty, lane, empty, null, NONE, empty,
+                    missing("destroys", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description, false,
+                            false, scope, empty, false, false, empty, null, empty, lane, empty, noKeys, NONE, empty,
                             NONE, empty)),
-                    missing("persona", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false, false,
-                            scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, null, empty, NONE,
-                            empty)),
-                    missing("requiresPromptFields", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d",
+                    missing("recordsFacts", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description,
+                            false, false, scope, empty, false, false, empty, empty, null, lane, empty, noKeys, NONE,
+                            empty, NONE, empty)),
+                    missing("lane", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description, false,
+                            false, scope, empty, false, false, empty, empty, empty, null, empty, noKeys, NONE, empty,
+                            NONE, empty)),
+                    missing("requires", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description, false,
+                            false, scope, empty, false, false, empty, empty, empty, lane, null, noKeys, NONE, empty,
+                            NONE, empty)),
+                    missing("configurable", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description,
+                            false, false, scope, empty, false, false, empty, empty, empty, lane, empty, null, NONE,
+                            empty, NONE, empty)),
+                    missing("persona", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description, false,
+                            false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, null, empty,
+                            NONE, empty)),
+                    missing("requiresPromptFields", () -> new FinalizeStepDescriptor(name, 1, true, noPresets,
+                            description, false, false, scope, empty, false, false, empty, empty, empty, lane, empty,
+                            noKeys, NONE, null, NONE, empty)),
+                    missing("cannotReach", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description,
                             false, false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE,
-                            null, NONE, empty)),
-                    missing("cannotReach", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false,
-                            false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty,
-                            null, empty)),
-                    missing("filesFindings", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d", false,
-                            false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE, empty,
-                            NONE, null)),
-                    missing("an element of reads", () -> new FinalizeStepDescriptor("s", 1, true, noPresets, "d",
-                            false, false, scope, empty, false, false, nullElement(), empty, empty, lane, empty, noKeys,
-                            NONE, empty, NONE, empty)),
-                    missing("lane class", () -> new Lane(null, NONE, NONE, "S")),
-                    missing("lane tier", () -> new Lane(LaneClass.CORE, null, NONE, "S")),
-                    missing("lane prunableWhen", () -> new Lane(LaneClass.CORE, NONE, null, "S")),
+                            empty, null, empty)),
+                    missing("filesFindings", () -> new FinalizeStepDescriptor(name, 1, true, noPresets, description,
+                            false, false, scope, empty, false, false, empty, empty, empty, lane, empty, noKeys, NONE,
+                            empty, NONE, null)),
+                    missing("an element of reads", () -> new FinalizeStepDescriptor(name, 1, true, noPresets,
+                            description, false, false, scope, empty, false, false, nullElement(), empty, empty, lane,
+                            empty, noKeys, NONE, empty, NONE, empty)),
+                    missing("lane class", () -> new Lane(null, NONE, NONE, costSize)),
+                    missing("lane tier", () -> new Lane(LaneClass.CORE, null, NONE, costSize)),
+                    missing("lane prunableWhen", () -> new Lane(LaneClass.CORE, NONE, null, costSize)),
                     missing("lane costSize", () -> new Lane(LaneClass.CORE, NONE, NONE, null)),
-                    missing("configurable key", () -> new ConfigurableKey(null, "v", "d")),
-                    missing("configurable default value", () -> new ConfigurableKey("k", null, "d")),
-                    missing("configurable description", () -> new ConfigurableKey("k", "v", null)));
+                    missing("configurable key", () -> new ConfigurableKey(null, value, description)),
+                    missing("configurable default value", () -> new ConfigurableKey(key, null, description)),
+                    missing("configurable description", () -> new ConfigurableKey(key, value, null)));
         }
 
         private static Arguments missing(String what, Executable construction) {

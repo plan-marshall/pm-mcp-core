@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Locale;
 import java.util.Map;
 
 
@@ -27,6 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.workflow.engine.LoopBackBudget.Charge;
@@ -36,6 +39,7 @@ import de.planmarshall.workflow.engine.LoopBackBudget.Charge;
  * the outline loop-back budget {@code 1} is exhausted on the second loop-back, and the policy counters are kept per
  * class and survive the engine re-entering a unit.
  */
+@EnableGeneratorController
 @DisplayName("LoopBackBudget")
 class LoopBackBudgetTest {
 
@@ -156,7 +160,8 @@ class LoopBackBudgetTest {
         @Test
         @DisplayName("Should refuse another scope than a plan, an unknown class and a negative budget")
         void shouldRefuseInvalidCharges() {
-            var epic = plan.toBuilder().scopeType(JournalScopeType.EPIC).scopeId("engine-epic")
+            var epic = plan.toBuilder().scopeType(JournalScopeType.EPIC)
+                    .scopeId("scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT))
                     .phase("epic").build();
 
             assertAll(

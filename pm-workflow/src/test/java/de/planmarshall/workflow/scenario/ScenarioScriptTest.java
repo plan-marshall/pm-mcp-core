@@ -43,6 +43,7 @@ import de.planmarshall.workflow.scenario.ScenarioDirective.Worker;
  * lines, and every directive the harness specification names but the harness does not run is refused by name with its
  * line, never skipped, so a script cannot pass by leaving a step out.
  */
+// Every datum in this class is a contract: the script documents under test and their exact refusal messages.
 @DisplayName("Scenario script")
 class ScenarioScriptTest {
 

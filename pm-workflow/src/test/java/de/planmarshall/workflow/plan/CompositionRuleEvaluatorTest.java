@@ -31,6 +31,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Lane;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Posture;
@@ -45,6 +47,7 @@ import de.planmarshall.workflow.plan.PrunedElement.Kind;
  * The facts of most tests configure the analysis provider, so the rule that prunes the analysis step of a project
  * without one stays silent and each test sees only the rule it is about.
  */
+@EnableGeneratorController
 @DisplayName("CompositionRuleEvaluator")
 class CompositionRuleEvaluatorTest {
 
@@ -60,7 +63,7 @@ class CompositionRuleEvaluatorTest {
 
     /** Facts with the analysis provider configured and every other fact unknown. */
     private static PlanFacts.Builder facts() {
-        return PlanFacts.builder().configuration(SONAR, "sonarcloud");
+        return PlanFacts.builder().configuration(SONAR, Generators.letterStrings(1, 12).next());
     }
 
     private static PrunedElement step(String id, PruneReason reason, String fact) {
@@ -136,8 +139,8 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("a push remote, or one that could not be derived, prunes nothing")
         void localOnlyControl() {
             assertAll(
-                    () -> assertEquals(NOTHING, evaluate(facts().configuration("derived.push_remote", "origin")
-                            .build())),
+                    () -> assertEquals(NOTHING, evaluate(facts().configuration("derived.push_remote",
+                            Generators.letterStrings(1, 12).next()).build())),
                     () -> assertEquals(NOTHING, evaluate(facts().build())));
         }
     }
@@ -202,7 +205,8 @@ class CompositionRuleEvaluatorTest {
         @Test
         @DisplayName("a configured analysis provider keeps the analysis roundtrip")
         void providerConfiguredControl() {
-            assertEquals(NOTHING, evaluate(PlanFacts.builder().configuration(SONAR, "sonarcloud").build()));
+            assertEquals(NOTHING, evaluate(PlanFacts.builder().configuration(SONAR,
+                    Generators.letterStrings(1, 12).next()).build()));
         }
 
         @Test
@@ -322,7 +326,7 @@ class CompositionRuleEvaluatorTest {
                                     SONAR)),
                             CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder().build()).prunes()),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .configuration(SONAR, "sonarcloud").build())));
+                            .configuration(SONAR, Generators.letterStrings(1, 12).next()).build())));
         }
 
         @Test
@@ -515,8 +519,10 @@ class CompositionRuleEvaluatorTest {
         @Test
         @DisplayName("name every plan fact and every configuration key, and nothing else")
         void accessors() {
+            var path = Generators.letterStrings(1, 8).next();
+            var remote = Generators.letterStrings(1, 12).next();
             var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
-                    .postRun("returned").footprint(List.of("a")).configuration("derived.push_remote", "origin")
+                    .postRun("returned").footprint(List.of(path)).configuration("derived.push_remote", remote)
                     .build();
 
             assertAll(
@@ -526,29 +532,31 @@ class CompositionRuleEvaluatorTest {
                     () -> assertEquals(Optional.empty(), facts.text("recipe_id")),
                     () -> assertEquals(Optional.of("returned"), facts.text("post_run")),
                     () -> assertEquals(Optional.empty(), facts.text("footprint")),
-                    () -> assertEquals(Optional.of(List.of("a")), facts.list("footprint")),
+                    () -> assertEquals(Optional.of(List.of(path)), facts.list("footprint")),
                     () -> assertEquals(Optional.empty(), facts.list("lane")),
-                    () -> assertEquals(Optional.of("origin"), facts.text("derived.push_remote")),
+                    () -> assertEquals(Optional.of(remote), facts.text("derived.push_remote")),
                     () -> assertEquals(Optional.empty(), facts.text(SONAR)));
         }
 
         @Test
         @DisplayName("the digest is 64 lowercase hex characters, stable for equal facts and changed by any fact")
         void digest() {
-            var facts = PlanFacts.builder().lane(Lane.DEEP).steps(List.of("default:push")).tasks(List.of("TASK-1"))
+            var task = "TASK-" + Generators.integers(1, 5_000).next();
+            var otherTask = "TASK-" + Generators.integers(5_001, 10_000).next();
+            var facts = PlanFacts.builder().lane(Lane.DEEP).steps(List.of("default:push")).tasks(List.of(task))
                     .build();
-            var same = PlanFacts.builder().lane(Lane.DEEP).steps(List.of("default:push")).tasks(List.of("TASK-1"))
+            var same = PlanFacts.builder().lane(Lane.DEEP).steps(List.of("default:push")).tasks(List.of(task))
                     .build();
 
             assertAll(
                     () -> assertTrue(facts.digest().matches("[0-9a-f]{64}"), facts.digest()),
                     () -> assertEquals(facts.digest(), same.digest()),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.LIGHT)
-                            .steps(List.of("default:push")).tasks(List.of("TASK-1")).build().digest()),
+                            .steps(List.of("default:push")).tasks(List.of(task)).build().digest()),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.DEEP)
-                            .steps(List.of("default:push")).tasks(List.of("TASK-2")).build().digest()),
+                            .steps(List.of("default:push")).tasks(List.of(otherTask)).build().digest()),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.DEEP)
-                            .steps(List.of("default:push")).tasks(List.of("TASK-1"))
+                            .steps(List.of("default:push")).tasks(List.of(task))
                             .configuration("derived.push_remote", "").build().digest()));
         }
     }

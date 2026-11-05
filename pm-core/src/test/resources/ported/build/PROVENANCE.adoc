@@ -31,6 +31,12 @@ revision of the same sources). The paths, all below
 
 |`jvm-patterns/`
 |the shared table `plan-marshall/skills/script-shared/scripts/build/_build_jvm_patterns.py` and the category cases of the two parser suites
+
+|`npm-errors/`, `npm-typescript/`, `npm-eslint/`, `npm-jest/`, `npm-tap/`
+|the scanner modules of `plan-marshall/skills/build-npm/scripts/` (`_npm_parse_errors.py`, `_npm_parse_typescript.py`, `_npm_parse_eslint.py`, `_npm_parse_jest.py`, `_npm_parse_tap.py`), the shared `plan-marshall/skills/script-shared/scripts/build/_build_parse.py`, and the suite `test/plan-marshall/build-npm/test_npm_parsers.py` with its log fixtures `test/plan-marshall/build-npm/fixtures/log-test-data/`
+
+|`pyproject/`
+|`plan-marshall/skills/build-pyproject/scripts/_pyproject_cmd_parse.py`, the shared `plan-marshall/skills/script-shared/scripts/build/_build_parse.py` and `_build_parser_registry.py`, and the suites `test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py` and `test_pyproject_cmd_parse_collection_errors.py`
 |===
 
 == What a `*.log` file is

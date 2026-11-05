@@ -42,6 +42,7 @@ import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.UnitType;
 
+// Every datum in this class is a contract: inline DSL source, JSON wire format, refusal rules and messages.
 /**
  * The refusals of the parser (PM-IMPL-5): every malformed fixture states its expected rule key, line and, for the
  * refusals of the frontmatter and the entry bindings, column in a comment line {@code # expect: <RULE> line <n>

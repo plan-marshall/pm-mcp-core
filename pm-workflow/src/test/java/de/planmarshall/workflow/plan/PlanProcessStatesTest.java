@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -29,6 +30,8 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LockKey;
@@ -45,6 +48,7 @@ import de.planmarshall.workflow.plan.PlanProcessStates.State;
  * operator, failed with its outcome, planned, not taken, and not in this plan with the prune reason of a pruned phase
  * call; derived from the log alone, so a runtime that restarts derives the same states.
  */
+@EnableGeneratorController
 @DisplayName("PlanProcessStates")
 class PlanProcessStatesTest {
 
@@ -106,9 +110,11 @@ class PlanProcessStatesTest {
     void waitingForOperatorAtALinkState() {
         var text = PlanFixtures.read("dsl/valid/session-unit.pmwf");
         var unit = PlanFixtures.parse("session-unit.pmwf", text, UnitOrigin.DEFAULT);
-        var inputs = new CompositionInputs("configuration", List.of(), List.of(), "r1", "d1", "f1",
-                Optional.empty(), Optional.empty(), Optional.empty());
-        var header = new PlanInstanceHeader("plan-history-fixture", unit.version(), CompositionEvent.PLAN, T0, inputs,
+        var planId = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        var inputs = new CompositionInputs(Generators.letterStrings(1, 8).next(), List.of(), List.of(),
+                Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
+                Generators.letterStrings(1, 8).next(), Optional.empty(), Optional.empty(), Optional.empty());
+        var header = new PlanInstanceHeader(planId, unit.version(), CompositionEvent.PLAN, T0, inputs,
                 Optional.empty(), Optional.empty(), new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(),
                 List.of(), List.of());
         var instance = new PlanInstance(unit.version(), header, unit, text, List.of());

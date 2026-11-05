@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+// Every datum in this class is a contract: the wire names and priorities of the ChangeType specification enum.
 @DisplayName("ChangeType")
 class ChangeTypeTest {
 

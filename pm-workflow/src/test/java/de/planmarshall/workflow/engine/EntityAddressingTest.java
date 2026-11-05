@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -38,6 +39,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.PendingEntryReader.EntryRead;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScopeType;
@@ -54,6 +57,7 @@ import de.planmarshall.workflow.verify.EntityKindRegistry;
  * of another scope is refused {@code scope_not_found}, without a read of a pending entry record for a plan or epic
  * address.
  */
+@EnableGeneratorController
 @DisplayName("Entity addressing of the workspace scope")
 class EntityAddressingTest {
 
@@ -63,7 +67,7 @@ class EntityAddressingTest {
     private static final String WORKFLOW_ENRICHMENT = "enrich-pm-workflow";
     private static final String LESSON_TASK = "qt-00000000000000a1";
     private static final String PLAN_TASK = "qt-00000000000000b2";
-    private static final String EPIC_ID = "engine-epic";
+    private static final String EPIC_ID = "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     private static final String EPIC_UNIT = """
             ---
@@ -309,11 +313,12 @@ class EntityAddressingTest {
         @Test
         @DisplayName("An unreadable entry is refused entry_unreadable and never resolved")
         void unreadable() {
-            fixtures.entryReader.answer(PLAN_ENTRY, new EntryRead.Unreadable("truncated record"));
+            var reason = "reader-" + Generators.letterStrings(8, 20).next();
+            fixtures.entryReader.answer(PLAN_ENTRY, new EntryRead.Unreadable(reason));
 
             var resolution = inWorkspace(PLAN_ENTRY, reviewing());
 
-            assertTrue(refused(Reason.ENTRY_UNREADABLE, resolution).detail().contains("truncated record"));
+            assertTrue(refused(Reason.ENTRY_UNREADABLE, resolution).detail().contains(reason));
         }
 
         @Test
@@ -336,7 +341,8 @@ class EntityAddressingTest {
         void inconsistentArguments() {
             var unregistered = new EntityAddressResolver(fixtures.entryReader, EntityKindRegistry.defaults());
             var lessonAddress = EntityAddress.workspace(LESSON_TASK);
-            var otherPlanAddress = EntityAddress.plan("other-plan", PLAN_TASK);
+            var otherPlanAddress = EntityAddress.plan(
+                    "scope-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT), PLAN_TASK);
             var coreAddress = EntityAddress.workspace(CORE_ENRICHMENT);
             var planStatus = planReviewing();
             var planDefinition = planUnit();

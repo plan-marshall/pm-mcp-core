@@ -33,6 +33,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
@@ -46,6 +48,7 @@ import de.planmarshall.workflow.engine.EngineFixtures.JobOutcome;
  * that waits for time) parks in the status write that enters it, resumes only by its own event, and refuses every
  * other event without a change; a job recorded {@code killed} settles with {@code killed} and is never started again.
  */
+@EnableGeneratorController
 @DisplayName("Engine events")
 class EngineEventTest {
 
@@ -91,7 +94,8 @@ class EngineEventTest {
         @Test
         @DisplayName("Should bind the job a job-starting outcome reports, without starting another")
         void shouldBindSpawnedJob() {
-            fixtures.clock.tick(Duration.ofSeconds(2));
+            var tick = Generators.integers(1, 120).next();
+            fixtures.clock.tick(Duration.ofSeconds(tick));
 
             var status = atJob();
 
@@ -100,7 +104,7 @@ class EngineEventTest {
                     () -> assertEquals(new WorkflowStatus.ActiveJob("execute.run", SPAWNED),
                             status.activeJobBinding().orElseThrow()),
                     () -> assertEquals(Map.of("test.fate", new WorkflowStatus.JobEntry(SPAWNED, "git", "queued",
-                            T0.plusSeconds(2))), status.activeJobs()),
+                            T0.plusSeconds(tick))), status.activeJobs()),
                     () -> assertTrue(fixtures.jobStarter.requests.isEmpty()));
         }
 
@@ -237,26 +241,28 @@ class EngineEventTest {
 
             fixtures.questionReader.answer = new QuestionRead.Open();
             var open = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
-            fixtures.questionReader.answer = new QuestionRead.Resolved("declined");
+            var declined = "not-" + Generators.letterStrings(1, 8).next();
+            fixtures.questionReader.answer = new QuestionRead.Resolved(declined);
             var other = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
 
             assertAll(
                     () -> assertTrue(open.getMessage().contains("still open")),
-                    () -> assertTrue(other.getMessage().contains("declined")));
+                    () -> assertTrue(other.getMessage().contains(declined)));
         }
 
         @Test
         @DisplayName("Should raise precondition_unmet when the question record cannot be read, never take it for open")
         void shouldRaiseOnUnreadableRecord() {
             var atQuestion = atQuestion();
-            fixtures.questionReader.answer = new QuestionRead.Unreadable("record unparseable");
+            var reason = Generators.letterStrings(1, 20).next();
+            fixtures.questionReader.answer = new QuestionRead.Unreadable(reason);
 
             var raised = engine.advance(atQuestion, new EngineEvent.QuestionResolved("Q-001", "answered"));
 
             var condition = assertInstanceOf(EngineStep.ConditionRaised.class, raised);
             assertAll(
                     () -> assertEquals("precondition_unmet", condition.kind()),
-                    () -> assertEquals("{\"question_id\":\"Q-001\",\"reason\":\"record unparseable\"}",
+                    () -> assertEquals("{\"question_id\":\"Q-001\",\"reason\":\"" + reason + "\"}",
                             condition.facts()),
                     () -> assertEquals("execute.ask", condition.status().state()),
                     () -> assertSame(condition.status(), engine.advance(condition.status(),
@@ -274,7 +280,8 @@ class EngineEventTest {
             var atBackoff = atBackoff();
             fixtures.backoff.then(JobOutcome.SUCCEEDED);
 
-            var ended = engine.advance(atBackoff, new EngineEvent.TimeElapsed(T0.plusSeconds(30)));
+            var elapsed = Generators.integers(1, 120).next();
+            var ended = engine.advance(atBackoff, new EngineEvent.TimeElapsed(T0.plusSeconds(elapsed)));
             var resolved = new EngineEvent.QuestionResolved("Q-001", "answered");
 
             assertAll(

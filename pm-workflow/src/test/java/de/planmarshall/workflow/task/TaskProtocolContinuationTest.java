@@ -17,12 +17,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Locale;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
@@ -38,10 +41,19 @@ import de.planmarshall.workflow.hypermedia.Answers;
  * The continuation of a task after its question in the task protocol (Model Work § Continuing after a Question): the
  * hold, the answer and its acknowledgement, the offer of a resumed suspension, and the fallback.
  */
+@EnableGeneratorController
 @DisplayName("Task protocol continuation")
 class TaskProtocolContinuationTest {
 
+    // The task and question ids are the wire format; the answer facts and the session id are generated.
     private static final String TASK = "qt-0000000000000001";
+    private static final String ANSWER_TASK = "TASK-" + Generators.integers(100, 999).next();
+    private static final String QUESTION = Generators.letterStrings(8, 24).next();
+    private static final String OPTION_ID =
+            "option_" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OPTION_LABEL = Generators.letterStrings(3, 10).next();
+    private static final String NOTE = Generators.letterStrings(8, 24).next();
+    private static final String SESSION = "session-" + Generators.letterStrings(3, 10).next();
 
     private static TaskProtocol protocol(QueueStore queue, TestLocks locks) {
         return TaskProtocol.builder(queue, locks).build();
@@ -50,13 +62,13 @@ class TaskProtocolContinuationTest {
     private static Continuation continuation(ContinuationForm form, Instant at) {
         return form == ContinuationForm.HOLD
                 ? new Continuation("Q-001", form, at.plusSeconds(600), null, null, null, null, null, null)
-                : new Continuation("Q-001", form, null, "session-1", at, at.plusSeconds(3600), TaskFixtures.DIGEST,
+                : new Continuation("Q-001", form, null, SESSION, at, at.plusSeconds(3600), TaskFixtures.DIGEST,
                 "c".repeat(40), null);
     }
 
     private static Answers answer() {
-        return Answers.empty().plus(new AnswerFact("Q-001", "TASK-003", "Which contract?", "option_a", "Option A",
-                "the note", AnswerFact.Kind.CHOSEN));
+        return Answers.empty().plus(new AnswerFact("Q-001", ANSWER_TASK, QUESTION, OPTION_ID, OPTION_LABEL,
+                NOTE, AnswerFact.Kind.CHOSEN));
     }
 
     /** A task offered, then acknowledged, so the protocol lets it hold. */

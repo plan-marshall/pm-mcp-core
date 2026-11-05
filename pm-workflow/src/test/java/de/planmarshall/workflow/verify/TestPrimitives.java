@@ -29,6 +29,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * Primitives written for the verifier tests and the registry that holds them. The fixtures under {@code verify/} name
  * these primitives and no others; {@code test.missing} is the one id they name that is never registered.
  */
+// Every datum in this class is a contract: primitive and entity-kind ids, outcome wire names and DSL sources.
 final class TestPrimitives {
 
     /** An {@code auto} primitive without free parameters: {@code done}, {@code skipped}. */
