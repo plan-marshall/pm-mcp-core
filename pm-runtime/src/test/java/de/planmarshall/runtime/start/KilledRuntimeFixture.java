@@ -52,6 +52,7 @@ final class KilledRuntimeFixture implements AutoCloseable {
      * @throws IOException if the child cannot be started
      */
     void start(String mode, Path base) throws IOException {
+        // Contract literals: the system properties, the launcher path and the class path flag of the JVM
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         child = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
                 RuntimeChildProcess.class.getName(), mode, base.toString())
@@ -69,11 +70,11 @@ final class KilledRuntimeFixture implements AutoCloseable {
      * @throws TimeoutException     if the child did not write the marker in time
      */
     void awaitMarker(String marker) throws InterruptedException, ExecutionException, TimeoutException {
-        assertNotNull(child, "no child started");
+        assertNotNull(child, "a child must be started before the wait");
         // Reading a line cannot be interrupted, so it is waited for from outside; killing the child ends the read
         var seen = CompletableFuture.supplyAsync(() -> readUntil(marker))
                 .get(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS);
-        assertEquals(marker, seen.getLast(), () -> "the child ended before the marker, it wrote " + seen);
+        assertEquals(marker, seen.getLast(), "the child must write the marker before it ends");
     }
 
     private List<String> readUntil(String marker) {
@@ -85,6 +86,7 @@ final class KilledRuntimeFixture implements AutoCloseable {
                     return lines;
                 }
             }
+            // Contract literal: the sentinel that marks an output ended before the marker
             lines.add("<end of output>");
             return lines;
         } catch (IOException e) {
@@ -98,10 +100,10 @@ final class KilledRuntimeFixture implements AutoCloseable {
      * @throws InterruptedException if the wait is interrupted
      */
     void kill() throws InterruptedException {
-        assertNotNull(child, "no child started");
+        assertNotNull(child, "a child must be started before the kill");
         child.destroyForcibly();
         assertTrue(child.waitFor(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS),
-                "the child did not end after SIGKILL");
+                "the child must end after SIGKILL");
     }
 
     /**

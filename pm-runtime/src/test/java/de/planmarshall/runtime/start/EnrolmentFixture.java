@@ -17,7 +17,6 @@ import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +32,7 @@ import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.core.store.TransactionId;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.enrolment.EnrolmentCheck;
 import de.planmarshall.runtime.enrolment.EnrolmentFileCheck;
@@ -60,6 +60,7 @@ final class EnrolmentFixture {
         private static final long serialVersionUID = 1L;
 
         ProcessStopped() {
+            // Contract literal: the error text of the simulated stop
             super("process stopped at the audit append");
         }
     }
@@ -77,9 +78,11 @@ final class EnrolmentFixture {
     EnrolmentFixture(Path base) throws IOException {
         this.base = base;
         Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
+        // Contract literals: the directory names the runtime prescribes below the base
         var state = Files.createDirectories(base.resolve("state"));
         sink = this::append;
         store = new EnrolmentStore(base);
+        // The SecureRandom is the entropy source the key needs to create the integrity key, not test data
         key = new EnrolmentKey(new FileSecretStore(base.resolve("credentials")), state, USER, new SecureRandom());
         locks = new FileLockManager(sink);
         check = new EnrolmentCheck(store, key, new EnrolmentFileCheck(USER), sink);
@@ -87,6 +90,7 @@ final class EnrolmentFixture {
     }
 
     private void append(AuditEvent event) {
+        // Contract literal: the error text of the simulated refusal
         switch (mode) {
             case WORKING -> events.add(event);
             case REFUSING -> throw new UncheckedIOException(new IOException("the audit log cannot be written"));
@@ -94,10 +98,14 @@ final class EnrolmentFixture {
         }
     }
 
+    /**
+     * @return a minimal enrolment of the project with a generated project root and enrolment instant
+     */
     static ProjectEnrolment enrolment(String projectId, boolean pilot) {
-        return new ProjectEnrolment(projectId, "/home/dev/git/" + projectId, Instant.parse("2026-10-11T08:00:00Z"),
-                pilot, null, null, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(),
-                new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());
+        var generated = CoreGenerators.projectEnrolments().next();
+        return new ProjectEnrolment(projectId, generated.projectRoot(), generated.enrolledAt(), pilot, null, null,
+                List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>(),
+                List.of(), new TreeMap<>());
     }
 
     ProjectEnrolment enrol(String projectId, boolean pilot) {

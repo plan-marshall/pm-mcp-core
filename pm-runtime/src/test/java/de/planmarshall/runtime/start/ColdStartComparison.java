@@ -52,6 +52,7 @@ final class ColdStartComparison {
          * @return a description naming both statistics of both populations and the allowed difference
          */
         String describe(int emptyProjects, int seededProjects) {
+            // Contract literal: the diagnostic template of the PM-TECH-3 guard, not test data
             return ("lower quartiles %d ns (%d projects) and %d ns (%d projects), allowed difference %d ns;"
                     + " medians %d ns (%d projects) and %d ns (%d projects)").formatted(emptyQuartile, emptyProjects,
                     seededQuartile, seededProjects, allowed, emptyMedian, emptyProjects, seededMedian,
@@ -82,6 +83,7 @@ final class ColdStartComparison {
 
     private static long[] sorted(List<Long> samples) {
         if (samples.isEmpty()) {
+            // Contract literal: the error text of an empty population
             throw new IllegalArgumentException("a population needs at least one sample");
         }
         return samples.stream().mapToLong(Long::longValue).sorted().toArray();
