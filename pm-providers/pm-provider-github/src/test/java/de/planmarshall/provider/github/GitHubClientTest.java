@@ -225,6 +225,17 @@ class GitHubClientTest {
         }
 
         @Test
+        @DisplayName("maps a missing body of issue 7 as empty")
+        void missingBody() {
+            on("GET", "/repos/cuioss/pm/issues/7", json(200, "{\"title\":\"A title\",\"state\":\"open\","
+                    + "\"html_url\":\"https://github.com/cuioss/pm/issues/7\"}"));
+
+            var payload = client.issue("cuioss", "pm", 7).value().orElseThrow();
+
+            assertEquals("", payload.issue().body(), "a missing body is mapped as empty");
+        }
+
+        @Test
         @DisplayName("maps a blank milestone title of issue 9 as absent")
         void blankMilestone() {
             on("GET", "/repos/cuioss/pm/issues/9", json(200, "{\"title\":\"A title\",\"state\":\"open\","

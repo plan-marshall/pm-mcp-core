@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
 
 import de.planmarshall.provider.ci.Identity;
 import de.planmarshall.provider.ci.Issue;
@@ -80,6 +81,10 @@ class GitHubCiProviderTest {
         GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of("jwt")),
                 GitHubClient.GRAPHQL_PATH);
         return GitHubCiProvider.forApp(WEB_ORIGIN, readHttp, appClient, userHttp);
+    }
+
+    private static String authorization(RecordedRequest request) {
+        return request == null ? null : request.getHeaders().get("Authorization");
     }
 
     @Test
@@ -152,7 +157,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"operator\"}")
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"permissions\":{\"admin\":false,\"push\":true}}")
-    void readsAppIdentity(MockWebServer server) {
+    void readsAppIdentity(MockWebServer server) throws Exception {
         HttpClient readHttp = http(server, () -> Optional.of("ghs_installation"));
         HttpClient userHttp = http(server, () -> Optional.of("ghu_operator"));
         GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of("jwt")),
@@ -160,6 +165,10 @@ class GitHubCiProviderTest {
         var provider = GitHubCiProvider.forApp(WEB_ORIGIN, readHttp, appClient, userHttp);
 
         Identity identity = provider.whoami(REPOSITORY).value().orElseThrow();
+        var appRequest = server.takeRequest(5, TimeUnit.SECONDS);
+        var botRequest = server.takeRequest(5, TimeUnit.SECONDS);
+        var operatorRequest = server.takeRequest(5, TimeUnit.SECONDS);
+        var permissionsRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the App identity",
                 () -> assertEquals("plan-marshall[bot]", identity.login(), "the bot login is derived"),
@@ -167,7 +176,30 @@ class GitHubCiProviderTest {
                 () -> assertEquals(TokenKind.GITHUB_APP, identity.tokenKind(), "the token kind is the App"),
                 () -> assertEquals("operator", identity.operatorLogin(), "the operator login is read"),
                 () -> assertEquals(Map.of("admin", "false", "push", "true"), identity.permissions(),
-                        "the repository permissions are read"));
+                        "the repository permissions are read"),
+                () -> assertEquals("Bearer jwt", authorization(appRequest),
+                        "the installation lookup carries the JWT"),
+                () -> assertEquals("Bearer ghs_installation", authorization(botRequest),
+                        "the bot read carries the installation token"),
+                () -> assertEquals("Bearer ghu_operator", authorization(operatorRequest),
+                        "the operator read carries the user token"),
+                () -> assertEquals("Bearer ghs_installation", authorization(permissionsRequest),
+                        "the permission read carries the installation token"));
+    }
+
+    @Test
+    @DisplayName("sends the installation token to read issue 5")
+    @MockResponseConfig(path = "/repos/cuioss/pm/issues/5", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"title\":\"A title\",\"state\":\"open\","
+                    + "\"html_url\":\"https://github.com/cuioss/pm/issues/5\"}")
+    void readsIssueWithInstallationToken(MockWebServer server) throws Exception {
+        var provider = appProvider(server);
+
+        provider.issueView(issue(WEB_ORIGIN, "github", 5));
+        var request = server.takeRequest(5, TimeUnit.SECONDS);
+
+        assertEquals("Bearer ghs_installation", authorization(request),
+                "the issue read carries the installation token");
     }
 
     @Test
@@ -261,11 +293,17 @@ class GitHubCiProviderTest {
     @DisplayName("answers an anonymous read of a private issue with not found")
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/9", method = HttpMethodMapper.GET, status = 404,
             stringContent = "{\"message\":\"Not Found\"}")
-    void refusesAnonymousPrivateIssue(MockWebServer server) {
+    void refusesAnonymousPrivateIssue(MockWebServer server) throws Exception {
         var provider = GitHubCiProvider.forToken(WEB_ORIGIN, http(server, TokenSource.NONE), TokenSource.NONE);
 
-        assertEquals(Result.Outcome.NOT_FOUND, provider.issueView(issue(WEB_ORIGIN, "github", 9)).outcome(),
-                "a private issue is not found without a credential");
+        var result = provider.issueView(issue(WEB_ORIGIN, "github", 9));
+        var request = server.takeRequest(5, TimeUnit.SECONDS);
+
+        assertAll("the anonymous issue 9 read",
+                () -> assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
+                        "a private issue is not found without a credential"),
+                () -> assertNull(authorization(request),
+                        "an anonymous read sends no Authorization header"));
     }
 
     @Test
@@ -336,6 +374,19 @@ class GitHubCiProviderTest {
         assertAll("the forge refusal",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "another forge is refused"),
                 () -> assertTrue(result.detail().contains("forgejo"), "the detail names the forge"));
+    }
+
+    @Test
+    @DisplayName("refuses a comment on issue 5 of another origin before sending")
+    void refusesCommentOfAnotherOrigin(MockWebServer server) {
+        var result = tokenProvider(server, "ghp_classic")
+                .issueComment(issue("https://github.example.com", "github", 5), "A comment");
+
+        assertAll("the comment of another origin",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(),
+                        "a comment of another origin is refused"),
+                () -> assertEquals(0, server.getRequestCount(),
+                        "no request is sent for another origin"));
     }
 
     @Test

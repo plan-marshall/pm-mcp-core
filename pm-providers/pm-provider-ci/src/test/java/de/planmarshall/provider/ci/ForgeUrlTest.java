@@ -205,6 +205,43 @@ class ForgeUrlTest {
     }
 
     @Test
+    @DisplayName("covers the hostile path and host normalisation branches")
+    void coversHostilePathAndHostBranches() {
+        var encodedSlash = ForgeUrl.resolve("https://github.com/o%2Fr/issues/1").url().orElseThrow();
+
+        assertAll("the hostile path and host branches",
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r/issues/" + "1".repeat(2049)).outcome(),
+                        "a path over the length bound is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/r%5Cissues/1").outcome(),
+                        "a backslash in the path is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/o/%2e%2e/r/issues/1").outcome(),
+                        "an encoded parent segment is refused"),
+                () -> assertEquals("o", encodedSlash.repository().ownerOrPath(),
+                        "an encoded slash separates owner and name"),
+                () -> assertEquals("r", encodedSlash.repository().name(),
+                        "an encoded slash separates owner and name"),
+                () -> assertEquals("https://github.com",
+                        ForgeUrl.resolve("https://GitHub.COM/o/r/issues/5").url().orElseThrow()
+                                .repository().origin(),
+                        "an uppercase host is lowercased"),
+                () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE,
+                        ForgeUrl.resolve("https://github.com./o/r/issues/1").outcome(),
+                        "a trailing-dot host is an unknown forge"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z")
+                                .outcome(),
+                        "a GitHub path over 25 segments is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/?note=1").outcome(),
+                        "a query-only URL has no issue path"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID, ForgeUrl.resolve("").outcome(),
+                        "an empty URL is refused"));
+    }
+
+    @Test
     @DisplayName("refuses a null URL and a null host table")
     void refusesNullArguments() {
         assertAll("the null arguments",

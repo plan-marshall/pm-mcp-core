@@ -11,6 +11,7 @@ package de.planmarshall.provider.gitlab;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
 
 import de.planmarshall.provider.ci.Identity;
 import de.planmarshall.provider.ci.Issue;
@@ -69,6 +72,10 @@ class GitLabCiProviderTest {
 
     private IssueRef issue(String origin, String forge, String ownerOrPath, String name, int number) {
         return new IssueRef(new RepositoryRef(forge, origin, ownerOrPath, name), number);
+    }
+
+    private static String authorization(RecordedRequest request) {
+        return request == null ? null : request.getHeaders().get("Authorization");
     }
 
     @Test
@@ -164,11 +171,17 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/5", method = HttpMethodMapper.GET, status = 429,
             stringContent = "{\"message\":\"Too many requests\"}", headers = {"Retry-After=60"})
     void reportsRateLimit(MockWebServer server) {
+        Instant before = Instant.now();
         var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5));
+        Instant after = Instant.now();
+        Instant reset = result.resetAt().orElseThrow();
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
-                () -> assertTrue(result.resetAt().isPresent(), "the reset instant is read"));
+                () -> assertFalse(reset.isBefore(before.plusSeconds(60)),
+                        "the reset instant is at least 60 seconds away"),
+                () -> assertFalse(reset.isAfter(after.plusSeconds(60)),
+                        "the reset instant is at most 60 seconds away"));
     }
 
     @Test
@@ -215,6 +228,50 @@ class GitLabCiProviderTest {
     }
 
     @Test
+    @DisplayName("reads the identity of a subgroup project")
+    @MockResponseConfig(path = "/personal_access_tokens/self", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":11,\"name\":\"cli\",\"user_id\":7,\"scopes\":[\"api\"],\"active\":true}")
+    @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"id\":7,\"username\":\"alice\",\"state\":\"active\"}")
+    @MockResponseConfig(path = "/projects/group%2Fsub%2Fproject", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"permissions\":{\"project_access\":{\"access_level\":40}}}")
+    void readsSubgroupIdEntity(MockWebServer server) {
+        var identity = provider(server)
+                .whoami(new RepositoryRef("gitlab", WEB_ORIGIN, "group/sub", "project")).value().orElseThrow();
+
+        assertAll("the subgroup identity",
+                () -> assertEquals("alice", identity.login(), "the username is read"),
+                () -> assertEquals(Map.of("project_access", "40"), identity.permissions(),
+                        "the subgroup permissions are read"));
+    }
+
+    @Test
+    @DisplayName("posts a comment on issue 9 of a subgroup project")
+    @MockResponseConfig(path = "/projects/group%2Fsub%2Fproject/issues/9/notes", method = HttpMethodMapper.POST,
+            status = 201, stringContent = "{\"id\":9001}")
+    void postsSubgroupComment(MockWebServer server) {
+        var comment = provider(server)
+                .issueComment(issue(WEB_ORIGIN, "gitlab", "group/sub", "project", 9), "A comment")
+                .value().orElseThrow();
+
+        assertEquals("https://gitlab.com/group/sub/project/-/issues/9#note_9001", comment.url(),
+                "the subgroup comment URL is derived");
+    }
+
+    @Test
+    @DisplayName("refuses a comment on issue 5 of another forge before sending")
+    void refusesCommentOfAnotherForge(MockWebServer server) {
+        var result = provider(server)
+                .issueComment(issue(WEB_ORIGIN, "github", "cuioss", "pm", 5), "A comment");
+
+        assertAll("the comment of another forge",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(),
+                        "a comment of another forge is refused"),
+                () -> assertEquals(0, server.getRequestCount(),
+                        "no request is sent for another forge"));
+    }
+
+    @Test
     @DisplayName("posts a comment and derives its URL")
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/5/notes", method = HttpMethodMapper.POST, status = 201,
             stringContent = "{\"id\":9001}")
@@ -249,16 +306,20 @@ class GitLabCiProviderTest {
     @DisplayName("answers an anonymous read of a private issue with not found")
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/9", method = HttpMethodMapper.GET, status = 404,
             stringContent = "{\"message\":\"404 Not found\"}")
-    void refusesAnonymousPrivateIssue(MockWebServer server) {
+    void refusesAnonymousPrivateIssue(MockWebServer server) throws Exception {
         URI baseUri = URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/");
         HttpClient anonymous = new HttpClient(HttpGenerators.endpointAt(baseUri).next(), TokenSource.NONE, Map.of());
         clients.add(anonymous);
 
         var result = new GitLabCiProvider(WEB_ORIGIN, anonymous)
                 .issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 9));
+        var request = server.takeRequest(5, TimeUnit.SECONDS);
 
-        assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
-                "a private issue is not found without a credential");
+        assertAll("the anonymous issue 9 read",
+                () -> assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
+                        "a private issue is not found without a credential"),
+                () -> assertNull(authorization(request),
+                        "an anonymous read sends no Authorization header"));
     }
 
     @Test
