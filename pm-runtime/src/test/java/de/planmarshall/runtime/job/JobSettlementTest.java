@@ -391,8 +391,13 @@ class JobSettlementTest {
         @DisplayName("refuses to replace an implemented step")
         void refusesAnImplementedStep() {
             var fate = Map.of(Name.FATE, recording(Name.FATE, new ArrayList<>()));
+            var slotRelease = Map.of(Name.SLOT_RELEASE, recording(Name.SLOT_RELEASE, new ArrayList<>()));
 
-            assertThrows(IllegalArgumentException.class, () -> JobSettlement.of(records, lockManager, fate));
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> JobSettlement.of(records, lockManager, fate)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> JobSettlement.of(records, lockManager, slotRelease)));
         }
     }
 

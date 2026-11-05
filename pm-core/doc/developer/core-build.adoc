@@ -264,7 +264,7 @@ The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the or
 
 == The Unparsed Evidence
 
-_Requirement:_ link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
+_Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
 `UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the tail of the last `MAX_LINES` (50) lines, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
 

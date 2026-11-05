@@ -142,6 +142,20 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("an ESLint summary alone is contradicting evidence")
+    void eslintSummaryAlone() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:verify@web"), """
+                /web/src/a.js
+
+                ✖ 1 problem (1 error, 0 warnings)
+                """);
+
+        assertAll(
+                () -> assertEquals(0, parse.diagnostics(), "no row was placed"),
+                () -> assertTrue(parse.contradictingEvidence(), "the summary's error contradicts a success"));
+    }
+
+    @Test
     @DisplayName("a Jest log decides failed")
     void jest() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:verify@web"), """
