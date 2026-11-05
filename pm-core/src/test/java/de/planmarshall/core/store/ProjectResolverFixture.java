@@ -14,19 +14,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
-import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.ProjectResolution.MainCheckout;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.core.store.ProjectResolution.NotEnrolled;
 
 /**
@@ -37,10 +34,13 @@ import de.planmarshall.core.store.ProjectResolution.NotEnrolled;
  */
 abstract class ProjectResolverFixture {
 
-    static final String PROJECT = "pm-mcp-core";
+    /** The id of the enrolled project, generated within the project-id grammar of an enrolment. */
+    static final String PROJECT = CoreGenerators.projectEnrolments().next().projectId();
 
+    // Plan-id grammar: a compile-time constant, because the worktree tests name it in a @ValueSource table.
     static final String PLAN = "plan-14-stores";
 
+    // Baseline worktree grammar: baseline-<plan id>-<12 lowercase hex digits>.
     static final String BASELINE = "baseline-" + PLAN + "-0123456789ab";
 
     @TempDir
@@ -66,23 +66,27 @@ abstract class ProjectResolverFixture {
         base = Files.createDirectories(home.resolve("runtime/" + EnrolmentStore.DIRECTORY_NAME)).getParent();
         main = repository("git/" + PROJECT);
         Files.createDirectories(main.resolve("src"));
-        Files.writeString(main.resolve("src/Main.java"), "main");
+        Files.writeString(main.resolve("src/Main.java"), Generators.letterStrings(1, 40).next());
         worktrees = Files.createDirectories(main.resolve(".marshall/local/worktrees"));
         enrol(PROJECT, main);
         resolver = new ProjectResolver(base);
     }
 
     Path repository(String belowHome) throws IOException {
+        // Git layout: a repository is a directory with a .git directory that holds worktrees/.
         var repository = Files.createDirectories(home.resolve(belowHome).resolve(".git/worktrees")).getParent()
                 .getParent();
-        Files.writeString(repository.resolve("README.md"), belowHome);
+        Files.writeString(repository.resolve("README.md"), Generators.letterStrings(1, 40).next());
         return repository;
     }
 
+    /** Enrols the project of the id at the root: a generated enrolment that is no pilot, with that id and root. */
     void enrol(String projectId, Path projectRoot) throws IOException {
-        var enrolment = new ProjectEnrolment(projectId, projectRoot.toString(), Instant.parse("2026-10-11T08:00:00Z"),
-                false, null, null, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(), new TreeMap<>(),
-                new TreeMap<>(), List.of(), new TreeMap<>());
+        var generated = CoreGenerators.projectEnrolments().next();
+        var enrolment = new ProjectEnrolment(projectId, projectRoot.toString(), generated.enrolledAt(), false, null,
+                null, generated.wrappers(), generated.hostTools(), generated.build(), generated.providers(),
+                generated.projectScripts(), generated.languageServers(), generated.commandBudgets(),
+                generated.writePaths(), generated.buildEnvironment());
         Files.write(new EnrolmentStore(base).file(projectId), EnrolmentCodec.write(enrolment));
     }
 
@@ -93,7 +97,8 @@ abstract class ProjectResolverFixture {
      */
     static Path linkedWorktree(Path directory, Path repository, String name) throws IOException {
         Files.createDirectories(directory.resolve("src"));
-        Files.writeString(directory.resolve("src/Main.java"), name);
+        Files.writeString(directory.resolve("src/Main.java"), Generators.letterStrings(1, 40).next());
+        // Git wire tokens: the commondir, gitdir and .git pointer files git writes for a linked worktree.
         var gitDirectory = Files.createDirectories(repository.resolve(".git/worktrees").resolve(name));
         Files.writeString(gitDirectory.resolve("commondir"), "../..\n");
         Files.writeString(gitDirectory.resolve("gitdir"), directory.resolve(".git") + "\n");

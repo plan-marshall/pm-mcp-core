@@ -13,6 +13,7 @@ import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +21,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,8 +34,12 @@ import org.junit.jupiter.api.io.TempDir;
  */
 abstract class QuestionLogFixture {
 
-    static final String PROJECT = "pm-mcp-core";
-    static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-17T09:00:00Z"), ZoneOffset.UTC);
+    /** The id of the project, generated within the project-id grammar. */
+    static final String PROJECT = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+
+    /** The fixed clock of the transactions, at a generated instant. */
+    static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next()),
+            ZoneOffset.UTC);
 
     @TempDir
     Path base;
@@ -45,7 +51,8 @@ abstract class QuestionLogFixture {
 
     @BeforeEach
     void createScope() throws IOException {
-        scope = JournalScope.plan(base, PROJECT, "a-plan");
+        scope = JournalScope.plan(base, PROJECT,
+                "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(scope.journalFile().getParent());
         log = new QuestionLog(scope);
         locks = new RecordingLockManager();
@@ -70,10 +77,13 @@ abstract class QuestionLogFixture {
         }
     }
 
-    /** Asks the set Q-001 of three questions: the decision on Q-001, the parts Q-002 and Q-003. */
+    /**
+     * Asks the set Q-001 of three questions: the decision on Q-001, the parts Q-002 and Q-003. The question ids are
+     * the contract the log tests name the set by.
+     */
     void askSet() {
         assertEquals(Optional.empty(), write(t -> log.ask(t, List.of(asked("Q-001", "Q-001"),
-                asked("Q-002", "Q-001"), asked("Q-003", "Q-001")))));
+                asked("Q-002", "Q-001"), asked("Q-003", "Q-001")))), "the log should accept the set Q-001");
     }
 
     byte[] content() throws IOException {

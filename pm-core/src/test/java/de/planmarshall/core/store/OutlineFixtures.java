@@ -9,8 +9,10 @@
  */
 package de.planmarshall.core.store;
 
+import de.cuioss.test.generator.Generators;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
 import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
@@ -26,37 +28,54 @@ import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 import de.planmarshall.core.store.OutlineStore.Revision;
 
-/** Records and revisions the outline tests share. */
+/**
+ * Records and revisions the outline tests share. The texts of a record are generated; the deliverable titles, the
+ * satisfies identifiers and the affected-file path stay literal because the outline tests assert them in the rendered
+ * {@code outline.md}.
+ */
 final class OutlineFixtures {
 
+    // Fixture instant: the revisions count their submission seconds from it.
     static final Instant AT = Instant.parse("2026-10-27T11:00:00Z");
 
     private OutlineFixtures() {
     }
 
     static OutlineRecord valid() {
-        return new OutlineRecord("Two deliverables that write the record and render it",
-                "record -> renderer", ScopeEstimate.SINGLE_MODULE,
-                List.of(deliverable(1, "Write the intent record", List.of(), "AC-1", "the record"),
-                        deliverable(2, "Render the clarified request", List.of(1), "AC-2", "the renderer")));
+        // Titles and satisfies identifiers are asserted in the rendered outline by OutlineRecordTest.
+        return new OutlineRecord(text(20, 80), text(1, 40), ScopeEstimate.SINGLE_MODULE,
+                List.of(deliverable(1, "Write the intent record", List.of(), "AC-1", text(3, 20)),
+                        deliverable(2, "Render the clarified request", List.of(1), "AC-2", text(3, 20))));
     }
 
     static Deliverable deliverable(int number, String title, List<Integer> depends, String satisfies, String note) {
-        return new Deliverable(number, title, "The deliverable %s".formatted(note),
-                ChangeType.FEATURE, ExecutionMode.AUTOMATED, "core", "pm-core", depends, "The design of %s".formatted(note),
+        // Fixture path: the rendered outline names the affected file of the deliverable by this path.
+        var path = "pm-core/src/main/java/%s.java".formatted(number);
+        return new Deliverable(number, title, note + ' ' + text(2, 60),
+                ChangeType.FEATURE, ExecutionMode.AUTOMATED, identifier(), identifier(), depends,
+                note + ' ' + text(1, 60),
                 List.of(Profile.IMPLEMENTATION, Profile.MODULE_TESTING),
-                List.of(new AffectedFile("pm-core/src/main/java/%s.java".formatted(number), FileIntent.WRITE_NEW, null)),
-                "Create the class %s with its rules".formatted(number),
-                List.of(new Verification("mvn verify", "the build is green")),
+                List.of(new AffectedFile(path, FileIntent.WRITE_NEW, null)),
+                text(10, 80),
+                List.of(new Verification(text(1, 40), text(5, 60))),
                 List.of(satisfies),
-                List.of(new AddedDependency("maven:org.example:library", "It is needed for %s".formatted(note),
-                        "Writing it myself was rejected as slower")),
-                List.of(new Interface(Direction.PRODUCES, "de.planmarshall.core.Store", "Store open(String id)")),
-                List.of(new KeyLink("pm-core/src/main/java/%s.java".formatted(number), "Store",
-                        "new Store\\(\\)")));
+                // Coordinate grammar: the record admits only a maven:, npm: or pypi: prefixed coordinate.
+                List.of(new AddedDependency("maven:" + identifier(), note + ' ' + text(10, 60), text(10, 60))),
+                List.of(new Interface(Direction.PRODUCES, identifier(), text(1, 60))),
+                List.of(new KeyLink(path, identifier(), text(1, 30))));
     }
 
     static Revision revision(int number, OutlineRecord outlineRecord) {
-        return new Revision(number, AT.plusSeconds(number), "TASK-00" + number, outlineRecord);
+        // Task-id grammar: a task is named TASK- and its number.
+        return new Revision(number, AT.plusSeconds(number), "TASK-" + Generators.integers(1, 999).next(),
+                outlineRecord);
+    }
+
+    private static String text(int min, int max) {
+        return Generators.letterStrings(min, max).next();
+    }
+
+    private static String identifier() {
+        return Generators.letterStrings(1, 30).next().toLowerCase(Locale.ROOT);
     }
 }
