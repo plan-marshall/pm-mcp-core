@@ -78,12 +78,12 @@ class CodeAnalysisProviderRegistryTest {
     @DisplayName("ids lists the registered ids in the order the providers were passed, and cannot be changed")
     void ids() {
         var registry = new CodeAnalysisProviderRegistry(
-                List.of(new NamedProvider(PROVIDER), new NamedProvider(OTHER), new NamedProvider(THIRD)));
+                List.of(new NamedProvider(THIRD), new NamedProvider(PROVIDER), new NamedProvider(OTHER)));
         var ids = registry.ids();
         var added = Generators.letterStrings(3, 10).next();
 
         assertAll(
-                () -> assertEquals(List.of(PROVIDER, OTHER, THIRD), new ArrayList<>(ids)),
+                () -> assertEquals(List.of(THIRD, PROVIDER, OTHER), new ArrayList<>(ids)),
                 () -> assertThrows(UnsupportedOperationException.class, () -> ids.add(added)));
     }
 
