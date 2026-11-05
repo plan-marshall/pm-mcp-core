@@ -96,7 +96,7 @@ public final class GitLabClient {
      * @param expiresAt the expiry date, empty when none or unknown
      */
     public record TokenIdentity(String id, String name, String userId, List<String> scopes, boolean active,
-                                Optional<String> expiresAt) {
+    Optional<String> expiresAt) {
     }
 
     /**
@@ -115,8 +115,8 @@ public final class GitLabClient {
      */
     @Builder
     public record MergeRequestPayload(PullRequest.State state, String title, String body, String baseBranch,
-                                      String headBranch, String headSha, @Nullable String sourceProjectRef,
-                                      String targetProjectId, boolean allowCollaboration) {
+    String headBranch, String headSha, @Nullable String sourceProjectRef,
+    String targetProjectId, boolean allowCollaboration) {
 
         /**
          * @return the id of the source project; empty when GitLab no longer knows it (a deleted fork)

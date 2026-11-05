@@ -492,7 +492,7 @@ class GitLabCiProviderTest {
     /** The generated fields of one merge request. */
     @Builder
     private record Fixture(String title, String body, String baseBranch, String headBranch, String headSha,
-                           List<String> paths, int targetProjectId) {
+    List<String> paths, int targetProjectId) {
     }
 
     private static Fixture fixture() {
