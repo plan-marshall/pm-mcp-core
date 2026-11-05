@@ -3,7 +3,7 @@
   "slug": "ci-contract-pull-request-view",
   "workstream": "WS-09",
   "status": "staged",
-  "lane": "runbook",
+  "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
   "pr": "",
   "landing": "",

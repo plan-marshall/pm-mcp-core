@@ -4,7 +4,7 @@ epic: pm-mcp-core-m2-m4-v2
 workstream: WS-09
 origin: PLAN-147 of the epic pm-mcp-core-m2-m4
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
 > Lives at `plans/PLAN-V2-62-ci-contract-pull-request-view.md` and is queued as one row file, `queue/PLAN-V2-62.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -48,6 +48,7 @@ Add the operation `ci.pr-view` to the contract module `pm-provider-ci` that the 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
 - **Read the landing analysis of PLAN-V2-12 at the outline (`landings/PLAN-V2-12.md`, 2026-11-02; decide each at refine, R07).** (S4) PLAN-V2-12 built `ForgeUrl` as a record with a `Kind` over a `RepositoryRef` and no `PullRequestRef`; follow the merged names, and the "grammar tests stay unchanged" statement holds only if the pull-request kind is already parsed. (S2) `IssueRef` carries no kind and `issueComment` on a pull request number is not guarded (GitHub: `PERMISSION_DENIED` for an `issues: write`-only token; GitLab: a merge request iid comments on an unrelated issue): the pull-request view is where the issue/pull-request split is closed, so decide it here. (C1) is fixed by PLAN-V2-113 (`ci-contract-defects-and-hardening`, which this plan waits for): the merge-request probe is removed from `issueView`, so a missing issue is `NOT_FOUND`; the issue/pull-request split of S2 is still decided here. (S3) `Identity.permissions` has no portable vocabulary; `checks_visible` and `head_writable` need one. The `@Nullable` returns of `refusalFor` and `kindOf`, the blank-input holes, the expiry parse, the digit rule and the test gaps of the analysis are PLAN-V2-113's, not this plan's. Expected surface: unchanged by this fold (it adds no file).
+- **Read the landing analysis of PLAN-V2-113 at the outline** (`landings/PLAN-V2-113.md`, 2026-11-05, owner-register Wa67; decide each at refine, R07). PLAN-V2-113 shipped (#296, `7de14f2d`) and removed the GitLab merge-request probe, so `issueView` now answers `NOT_FOUND` for a missing issue on both forges. What it left that this plan's files meet: `GET /user` is still read twice on the GitLab fallback path (C2: `GitLabClient.userIdentity` does not filter a blank id, the provider re-filters), `RepositoryRef` still accepts Unicode letters and digits in owner and name segments (C1), the client tests keep a hand-written `Dispatcher` and hand-built URIs (I1), and ADR 006 names three of the outcomes `issueView` can answer. A new test in this plan uses `@EnableMockWebServer` with `@MockResponseConfig`/`@ModuleDispatcher`, generator data and `@ParameterizedTest` for 3 or more variants; it does not copy the hand-written style. The spec is read from the ledger worktree path of the hand-off command (the main checkout copy lags until the ledger is landed).
 - **Depends on the plan PLAN-V2-12 (`ci-contract-module`), which creates the module, `CiProvider`, `ForgeUrl`, `CiProviders`, `GitHubCiProvider`, `GitLabCiProvider`, their tests, the developer guide `provider-ci.adoc` and the ADR directory.** Every path of the Expected Surface that is labelled "after PLAN-V2-12 (`ci-contract-module`)" does not exist at the head of `main` today; the plan reads the merged first plan, and a first plan that changed one of the names (the class set is its HYPOTHESIS) is followed, not the names written here.
 - **No package file, no index row.** The plan works no package (as the first plan). It edits no specification part and not `doc/plans/README.adoc`.
 - **Remaining, not started here:** `ci.pr-find`, `ci.pr-create`, `ci.pr-observe` (the merge confirmation `merged` with the merge commit on the base branch, and the re-observation of `finalize.adopt-pr`, which the specification words as "re-observes" and which the outline of the owning plan assigns to `ci.pr-view` or `ci.pr-observe`), `ci.merge`, `ci.enqueue`, `ci.queue-membership`, `ci.checks` and the review threads (the finalize and review slice), the CLI variant, the Forgejo adapter, and the `Primitive` wrapper `ci.pr-view` with its outcomes in the assembly.
@@ -90,7 +91,7 @@ Not surface (R19, bookkeeping): `doc/Traceability.adoc`, the ADR directory `pm-p
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-62-ci-contract-pull-request-view.md
+/plan-marshall task="implement .plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-62-ci-contract-pull-request-view.md"
 ```
 
 ## Write-Boundary
