@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -46,6 +48,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * record is refused. The child wall time is recorded only for an observed exit and never exceeds the job's wall time
  * (PM-EXEC-4, bullet 7, record side; the watch hazard of child wall times without an observed exit).
  */
+@EnableGeneratorController
 @DisplayName("Job record codec")
 class JobRecordCodecTest {
 
@@ -56,14 +59,15 @@ class JobRecordCodecTest {
     static final Instant PROCESS_STARTED_AT = SPAWNED_AT.plusMillis(20);
     static final Instant ENDED_AT = SPAWNED_AT.plusSeconds(60);
     static final long CHILD_WALL_MS = 59_000L;
-    static final String ARGV_DIGEST = "ab".repeat(32);
+    static final String ARGV_DIGEST = "0123456789abcdef".repeat(4);
 
     private static final Path FILE = Path.of("/pm-base/projects/sample/jobs/b-0123456789abcdef.json");
 
     /** The builder of the record of a process job that waits for a slot. */
     static JobRecord.JobRecordBuilder base(JobId jobId, Scope scope) {
         return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(scope).budgetKey("build:verify")
-                .budgetSeconds(600).budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.LEARNED, 3L))
+                .budgetSeconds(600)
+                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.LEARNED, Generators.longs(0, 20).next()))
                 .argvDigest(ARGV_DIGEST).status(Status.QUEUED).confinement(Confinement.UNAVAILABLE)
                 .createdAt(CREATED_AT).clampedValues(List.of());
     }
@@ -85,8 +89,9 @@ class JobRecordCodecTest {
 
     /** The post-spawn record of the job: PID, process start and spawn instant from the launch report. */
     static JobRecord postSpawn(JobId jobId, Scope scope) {
-        return writeAhead(jobId, scope).toBuilder().pid(4242L).processStartedAt(PROCESS_STARTED_AT)
-                .spawnedAt(SPAWNED_AT).confinement(Confinement.CONFINED).landlockAbi(5).build();
+        return writeAhead(jobId, scope).toBuilder().pid(Generators.longs(1, 1_000_000).next())
+                .processStartedAt(PROCESS_STARTED_AT).spawnedAt(SPAWNED_AT).confinement(Confinement.CONFINED)
+                .landlockAbi(Generators.integers(2, 10).next()).build();
     }
 
     /** The settled record of the job, with its observed exit. */
@@ -128,14 +133,15 @@ class JobRecordCodecTest {
                         .clampedValues(List.of()).build()),
                 Arguments.of("worker", workerAhead(worker, new Scope(Scope.Type.PROJECT, null),
                         "{ \"role\" : \"implementer\",\"state\":\"waiting\" }")),
-                Arguments.of("probe of an entry", ended(probe, new Scope(Scope.Type.ENTRY, "ent-0011"),
+                Arguments.of("probe of an entry", ended(probe, new Scope(Scope.Type.ENTRY, "ent-00000011"),
                         Fate.SUCCEEDED, 7)),
                 Arguments.of("build with gate facts", ended(BUILD_ID, PLAN_SCOPE, Fate.SUCCEEDED, 7)
                         .withGateFacts("{\"gate_coverage\":  \"COMPLETE\", \"degraded\":[ ]}")),
                 Arguments.of("project script with contradiction and clamped values",
                         ended(script, new Scope(Scope.Type.EPIC, "epic-one"), Fate.FAILED, 6)
                                 .withBudgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.OPERATOR, null))
-                                .withSelfReportContradiction(new SelfReportContradiction("passed", 1L, "failed"))
+                                .withSelfReportContradiction(new SelfReportContradiction("passed",
+                                        Generators.longs(1, 10).next(), "failed"))
                                 .withClampedValues(List.of(
                                         new ClampedValue("build.timeout", "5", new BigDecimal("30"),
                                                 ClampedValue.Source.MACHINE_CONFIG),
@@ -155,7 +161,8 @@ class JobRecordCodecTest {
 
     private static StoreRefusal refusalOf(String document) {
         var content = bytes(document);
-        return assertThrows(StoreRefusal.class, () -> JobRecordCodec.read(FILE, content));
+        return assertThrows(StoreRefusal.class, () -> JobRecordCodec.read(FILE, content),
+                "the document is refused by the job record codec");
     }
 
     /** Replaces one fragment of a document, failing when the fragment is not there. */
@@ -176,9 +183,10 @@ class JobRecordCodecTest {
 
             var read = JobRecordCodec.read(FILE, document);
 
-            assertAll(
-                    () -> assertEquals(job, read),
-                    () -> assertArrayEquals(document, JobRecordCodec.write(read)));
+            assertAll("a record round-trips through the codec",
+                    () -> assertEquals(job, read, "the record is read back equal to the written one"),
+                    () -> assertArrayEquals(document, JobRecordCodec.write(read),
+                            "the rewritten record is the document byte for byte"));
         }
 
         @Test
@@ -189,9 +197,10 @@ class JobRecordCodecTest {
             var positions = JobRecordCodec.MEMBERS.stream().map(member -> document.indexOf("\"" + member + "\":"))
                     .toList();
 
-            assertAll(
+            assertAll("the member positions follow the schema order",
                     () -> assertTrue(positions.stream().allMatch(position -> position >= 0), positions.toString()),
-                    () -> assertEquals(positions.stream().sorted().toList(), positions));
+                    () -> assertEquals(positions.stream().sorted().toList(), positions,
+                            "the members appear in the schema's order"));
         }
 
         @Test
@@ -206,11 +215,15 @@ class JobRecordCodecTest {
             var readWorker = JobRecordCodec.read(FILE, JobRecordCodec.write(worker));
             var readBuild = JobRecordCodec.read(FILE, JobRecordCodec.write(build));
 
-            assertAll(
-                    () -> assertEquals(workerText, readWorker.worker()),
-                    () -> assertTrue(text(readWorker).contains("\"worker\":" + workerText)),
-                    () -> assertEquals(gateText, readBuild.gateFacts()),
-                    () -> assertTrue(text(readBuild).contains("\"gate_facts\":" + gateText)));
+            assertAll("worker and gate facts are copied verbatim",
+                    () -> assertEquals(workerText, readWorker.worker(),
+                            "the worker block is copied without any change"),
+                    () -> assertTrue(text(readWorker).contains("\"worker\":" + workerText),
+                            "the worker block is written as the original text"),
+                    () -> assertEquals(gateText, readBuild.gateFacts(),
+                            "the gate facts are copied without any change"),
+                    () -> assertTrue(text(readBuild).contains("\"gate_facts\":" + gateText),
+                            "the gate facts are written as the original text"));
         }
     }
 
@@ -268,9 +281,10 @@ class JobRecordCodecTest {
         void malformed(String name, String document) {
             var refusal = refusalOf(document);
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(FILE, refusal.file()));
+            assertAll("the refusal is unreadable for the file",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "a document outside the record shape is unreadable"),
+                    () -> assertEquals(FILE, refusal.file(), "the refusal names the file of the document"));
         }
 
         @Test
@@ -279,17 +293,21 @@ class JobRecordCodecTest {
             var newer = refusalOf(replace(running, "\"format_version\":1", "\"format_version\":2"));
             var outdated = refusalOf(replace(running, "\"format_version\":1", "\"format_version\":0"));
 
-            assertAll(
-                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),
-                    () -> assertEquals(Outcome.FORMAT_OUTDATED, outdated.outcome()));
+            assertAll("the format version decides the refusal",
+                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome(),
+                            "a newer format version is refused as newer"),
+                    () -> assertEquals(Outcome.FORMAT_OUTDATED, outdated.outcome(),
+                            "an older format version is refused as outdated"));
         }
 
         @Test
         @DisplayName("the unchanged documents of the fixtures are read, so each refusal is caused by its change")
         void controls() {
-            assertAll(
-                    () -> assertDoesNotThrow(() -> JobRecordCodec.read(FILE, bytes(running))),
-                    () -> assertDoesNotThrow(() -> JobRecordCodec.read(FILE, bytes(settled))));
+            assertAll("both unchanged control documents are read",
+                    () -> assertDoesNotThrow(() -> JobRecordCodec.read(FILE, bytes(running)),
+                            "the unchanged running document is read"),
+                    () -> assertDoesNotThrow(() -> JobRecordCodec.read(FILE, bytes(settled)),
+                            "the unchanged settled document is read"));
         }
     }
 
@@ -304,9 +322,11 @@ class JobRecordCodecTest {
         void childWallBound() {
             var wall = ENDED_AT.toEpochMilli() - SPAWNED_AT.toEpochMilli();
 
-            assertAll(
-                    () -> assertEquals(wall, settled.withChildWallMs(wall).childWallMs()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withChildWallMs(wall + 1)));
+            assertAll("the child wall time is bounded by the job's",
+                    () -> assertEquals(wall, settled.withChildWallMs(wall).childWallMs(),
+                            "the child wall time equal to the job's is admitted"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withChildWallMs(wall + 1),
+                            "one millisecond more than the job's is refused"));
         }
 
         @Test
@@ -322,11 +342,15 @@ class JobRecordCodecTest {
             var refusedJob = refused(BUILD_ID, PLAN_SCOPE);
             var runningJob = postSpawn(BUILD_ID, PLAN_SCOPE);
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, inProcessWithWall::build),
-                    () -> assertThrows(IllegalArgumentException.class, () -> refusedJob.withChildWallMs(0L)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> runningJob.withChildWallMs(0L)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withSpawnedAt(null)));
+            assertAll("the child wall time is null where it does not apply",
+                    () -> assertThrows(IllegalArgumentException.class, inProcessWithWall::build,
+                            "an in-process operation has no child wall time"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> refusedJob.withChildWallMs(0L),
+                            "a refused job has no child wall time"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> runningJob.withChildWallMs(0L),
+                            "an unsettled job has no child wall time"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withSpawnedAt(null),
+                            "a settled job keeps its spawn instant"));
         }
 
         @Test
@@ -338,14 +362,20 @@ class JobRecordCodecTest {
             var machineScope = new Scope(Scope.Type.MACHINE, null);
             var contradiction = new SelfReportContradiction("passed", null, "failed");
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(worker, projectScope)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> workerAhead(worker, PLAN_SCOPE, "{}")),
-                    () -> assertDoesNotThrow(() -> workerAhead(worker, projectScope, "{}")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(probe, PLAN_SCOPE)),
-                    () -> assertDoesNotThrow(() -> writeAhead(probe, machineScope)),
+            assertAll("the kind decides the worker block and the scope",
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(worker, projectScope),
+                            "a worker is no plain write-ahead job"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> workerAhead(worker, PLAN_SCOPE, "{}"),
+                            "a worker does not belong to a plan scope"),
+                    () -> assertDoesNotThrow(() -> workerAhead(worker, projectScope, "{}"),
+                            "a worker belongs to a project scope"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(probe, PLAN_SCOPE),
+                            "a probe is no plain write-ahead job"),
+                    () -> assertDoesNotThrow(() -> writeAhead(probe, machineScope),
+                            "a probe belongs to the machine scope"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> settled.withSelfReportContradiction(contradiction)));
+                            () -> settled.withSelfReportContradiction(contradiction),
+                            "a build job carries no self-report contradiction"));
         }
 
         @Test
@@ -354,10 +384,13 @@ class JobRecordCodecTest {
             var queuedJob = queued(BUILD_ID, PLAN_SCOPE);
             var refusedJob = refused(BUILD_ID, PLAN_SCOPE);
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> queuedJob.withSpawnedAt(SPAWNED_AT)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> refusedJob.withStatus(Status.ENDED)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withFate(Fate.REFUSED)));
+            assertAll("the settlement rules hold for a job",
+                    () -> assertThrows(IllegalArgumentException.class, () -> queuedJob.withSpawnedAt(SPAWNED_AT),
+                            "a queued job was never spawned"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> refusedJob.withStatus(Status.ENDED),
+                            "a refused job is never settled as ended"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withFate(Fate.REFUSED),
+                            "an ended job is never refused"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -377,10 +410,11 @@ class JobRecordCodecTest {
             var projectScope = new Scope(Scope.Type.PROJECT, null);
 
             var workerRefusal = assertThrows(IllegalArgumentException.class,
-                    () -> workerAhead(worker, projectScope, raw));
-            var gateFactsRefusal = assertThrows(IllegalArgumentException.class, () -> settled.withGateFacts(raw));
+                    () -> workerAhead(worker, projectScope, raw), "a worker block must be one JSON object");
+            var gateFactsRefusal = assertThrows(IllegalArgumentException.class, () -> settled.withGateFacts(raw),
+                    "the gate facts must be one JSON object");
 
-            assertAll(
+            assertAll("both raw members are refused with their name",
                     () -> assertTrue(workerRefusal.getMessage().contains("'worker'"), workerRefusal.getMessage()),
                     () -> assertTrue(gateFactsRefusal.getMessage().contains("'gate_facts'"),
                             gateFactsRefusal.getMessage()));
@@ -393,9 +427,11 @@ class JobRecordCodecTest {
             var worker = new JobId("l-0000000000000001");
             var projectScope = new Scope(Scope.Type.PROJECT, null);
 
-            assertAll(
-                    () -> assertEquals(raw, workerAhead(worker, projectScope, raw).worker()),
-                    () -> assertEquals(raw, settled.withGateFacts(raw).gateFacts()));
+            assertAll("each admitted raw member is stored unchanged",
+                    () -> assertEquals(raw, workerAhead(worker, projectScope, raw).worker(),
+                            "the admitted worker block keeps the raw text"),
+                    () -> assertEquals(raw, settled.withGateFacts(raw).gateFacts(),
+                            "the admitted gate facts keep the raw text"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -416,7 +452,8 @@ class JobRecordCodecTest {
         @DisplayName("a configured value that is not exactly one JSON number or string cannot be built")
         void configuredIsOneNumberOrString(String raw) {
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new ClampedValue("build.timeout", raw, BigDecimal.ONE, ClampedValue.Source.INVALID));
+                    () -> new ClampedValue("build.timeout", raw, BigDecimal.ONE, ClampedValue.Source.INVALID),
+                    "a configured value must be one JSON number or string");
 
             assertTrue(refusal.getMessage().contains("'clamped_values.configured'"), refusal.getMessage());
         }
@@ -427,17 +464,21 @@ class JobRecordCodecTest {
         void configuredAdmitsOneNumberOrString(String raw) {
             var value = new ClampedValue("build.timeout", raw, BigDecimal.ONE, ClampedValue.Source.MACHINE_CONFIG);
 
-            assertEquals(raw, value.configured());
+            assertEquals(raw, value.configured(), "the admitted configured value keeps the raw text");
         }
 
         @Test
         @DisplayName("a scope carries an id exactly for a plan, an epic and an entry")
         void scopeIds() {
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Scope(Scope.Type.PLAN, null)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Scope(Scope.Type.MACHINE, "m-1")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Scope(Scope.Type.EPIC, "../x")),
-                    () -> assertEquals("ent-0011", new Scope(Scope.Type.ENTRY, "ent-0011").id()));
+            assertAll("a scope carries its id exactly by kind",
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Scope(Scope.Type.PLAN, null),
+                            "a plan scope carries an id"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Scope(Scope.Type.MACHINE, "m-1"),
+                            "a machine scope carries no id"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Scope(Scope.Type.EPIC, "../x"),
+                            "an epic id must be no path"),
+                    () -> assertEquals("ent-00000011", new Scope(Scope.Type.ENTRY, "ent-00000011").id(),
+                            "an entry scope keeps its entry id"));
         }
     }
 }

@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+// Every datum in this class is a contract: the EARS sentences are the grammar under test.
 @DisplayName("The EARS check of a criterion")
 class EarsFormTest {
 

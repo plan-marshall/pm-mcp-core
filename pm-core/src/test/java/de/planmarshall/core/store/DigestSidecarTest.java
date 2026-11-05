@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -37,6 +39,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The digest sidecar of a scope (PM-IMPL-7, PM-IMPL-2): the size and SHA-256 of each store by its path relative to the
  * path base of the scope, written in a stable order and read in exactly one shape.
  */
+@EnableGeneratorController
 @DisplayName("Digest sidecar")
 class DigestSidecarTest {
 
@@ -79,7 +82,8 @@ class DigestSidecarTest {
 
             var written = DigestSidecar.of(given).write();
 
-            assertArrayEquals(DOCUMENT.getBytes(UTF_8), written);
+            assertArrayEquals(DOCUMENT.getBytes(UTF_8), written,
+                    "The digests are written sorted by path");
         }
 
         @Test
@@ -90,11 +94,14 @@ class DigestSidecarTest {
 
             var read = DigestSidecar.read(file(), sidecar.write());
 
-            assertAll(
-                    () -> assertEquals(sidecar, read),
+            assertAll("A written sidecar is read back equal",
+                    () -> assertEquals(sidecar, read,
+                            "The sidecar reads back equal"),
                     () -> assertEquals(List.of("pending/entry-1.json", "workspace/mcp/status.json"),
-                            List.copyOf(read.stores().keySet())),
-                    () -> assertArrayEquals(sidecar.write(), read.write()));
+                            List.copyOf(read.stores().keySet()),
+                            "The stores are kept in sorted path order"),
+                    () -> assertArrayEquals(sidecar.write(), read.write(),
+                            "The sidecar is written again byte for byte"));
         }
 
         @Test
@@ -102,24 +109,30 @@ class DigestSidecarTest {
         void empty() {
             var written = DigestSidecar.empty().write();
 
-            assertAll(
-                    () -> assertEquals("{\"format_version\":1,\"stores\":{}}", new String(written, UTF_8)),
-                    () -> assertEquals(DigestSidecar.empty(), DigestSidecar.read(file(), written)));
+            assertAll("An empty sidecar is written and read as an empty object",
+                    () -> assertEquals("{\"format_version\":1,\"stores\":{}}", new String(written, UTF_8),
+                            "The empty sidecar is written canonically"),
+                    () -> assertEquals(DigestSidecar.empty(), DigestSidecar.read(file(), written),
+                            "The empty sidecar reads back empty"));
         }
 
         @Test
         @DisplayName("a digest is found by its path, and a recorded one replaced without touching the others")
         void digestAndWith() {
             var sidecar = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS));
-            var changed = new StoreDigest(43, SHA_B);
+            var changed = new StoreDigest(STATUS.size() + Generators.integers(1, 1000).next(), SHA_B);
 
             var updated = sidecar.with("workspace/mcp/status.json", changed).with("pending/entry-1.json", PENDING);
 
-            assertAll(
-                    () -> assertEquals(Optional.of(STATUS), sidecar.digest("workspace/mcp/status.json")),
-                    () -> assertEquals(Optional.empty(), sidecar.digest("pending/entry-1.json")),
-                    () -> assertEquals(Optional.of(changed), updated.digest("workspace/mcp/status.json")),
-                    () -> assertEquals(Optional.of(PENDING), updated.digest("pending/entry-1.json")));
+            assertAll("A digest is found by its path and replaced in place",
+                    () -> assertEquals(Optional.of(STATUS), sidecar.digest("workspace/mcp/status.json"),
+                            "The recorded digest is found by its path"),
+                    () -> assertEquals(Optional.empty(), sidecar.digest("pending/entry-1.json"),
+                            "An unrecorded store has no digest"),
+                    () -> assertEquals(Optional.of(changed), updated.digest("workspace/mcp/status.json"),
+                            "The replaced digest is the new one"),
+                    () -> assertEquals(Optional.of(PENDING), updated.digest("pending/entry-1.json"),
+                            "The added digest is found by its path"));
         }
 
         @Test
@@ -130,9 +143,11 @@ class DigestSidecarTest {
 
             var dropped = sidecar.without("pending/entry-1.json");
 
-            assertAll(
-                    () -> assertEquals(DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS)), dropped),
-                    () -> assertEquals(Optional.empty(), dropped.digest("pending/entry-1.json")),
+            assertAll("The named store alone is dropped",
+                    () -> assertEquals(DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS)), dropped,
+                            "Only the named store is dropped"),
+                    () -> assertEquals(Optional.empty(), dropped.digest("pending/entry-1.json"),
+                            "The dropped store has no digest"),
                     () -> assertEquals(Optional.of(PENDING), sidecar.digest("pending/entry-1.json"),
                             "the sidecar it was made from is unchanged"));
         }
@@ -144,9 +159,11 @@ class DigestSidecarTest {
 
             var dropped = sidecar.without("pending/entry-1.json");
 
-            assertAll(
-                    () -> assertEquals(sidecar, dropped),
-                    () -> assertArrayEquals(sidecar.write(), dropped.write()));
+            assertAll("Dropping an unknown store keeps the sidecar equal",
+                    () -> assertEquals(sidecar, dropped,
+                            "The sidecar is unchanged by the miss"),
+                    () -> assertArrayEquals(sidecar.write(), dropped.write(),
+                            "The bytes are unchanged by the miss"));
         }
 
         @Test
@@ -154,7 +171,8 @@ class DigestSidecarTest {
         void unmodifiable() {
             var stores = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS)).stores();
 
-            assertThrows(UnsupportedOperationException.class, () -> stores.put("pending/entry-1.json", PENDING));
+            assertThrows(UnsupportedOperationException.class, () -> stores.put("pending/entry-1.json", PENDING),
+                    "The digest map cannot be changed in place");
         }
 
         @Test
@@ -162,7 +180,8 @@ class DigestSidecarTest {
         void emptyPath() {
             var stores = new TreeMap<String, StoreDigest>(Map.of("", STATUS));
 
-            assertThrows(IllegalArgumentException.class, () -> new DigestSidecar(stores));
+            assertThrows(IllegalArgumentException.class, () -> new DigestSidecar(stores),
+                    "A store without a path is rejected");
         }
     }
 
@@ -173,7 +192,8 @@ class DigestSidecarTest {
         @Test
         @DisplayName("a sidecar that does not exist reads empty")
         void absent() {
-            assertEquals(DigestSidecar.empty(), DigestSidecar.load(file()));
+            assertEquals(DigestSidecar.empty(), DigestSidecar.load(file()),
+                    "An absent sidecar reads empty");
         }
 
         @Test
@@ -182,7 +202,8 @@ class DigestSidecarTest {
             Files.writeString(file(), DOCUMENT);
 
             assertEquals(DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS, "pending/entry-1.json",
-                    PENDING)), DigestSidecar.load(file()));
+                            PENDING)), DigestSidecar.load(file()),
+                    "The sidecar file is read as its document");
         }
 
         @Test
@@ -190,11 +211,14 @@ class DigestSidecarTest {
         void emptyFile() throws Exception {
             var file = Files.write(file(), new byte[0]);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.load(file));
+            var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.load(file),
+                    "An empty sidecar file is refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(file, refusal.file()));
+            assertAll("An empty sidecar file is unreadable",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "The empty file is unreadable, never empty"),
+                    () -> assertEquals(file, refusal.file(),
+                            "The refusal names the sidecar file"));
         }
     }
 
@@ -209,7 +233,8 @@ class DigestSidecarTest {
             var refusal = assertRefused(outcome, DOCUMENT.replace("\"format_version\":1",
                     "\"format_version\":" + version));
 
-            assertEquals(OptionalInt.of(version), refusal.found());
+            assertEquals(OptionalInt.of(version), refusal.found(),
+                    "The refusal reports the version it found");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -245,11 +270,14 @@ class DigestSidecarTest {
         void invalidKey(String name, String key) throws Exception {
             var file = Files.writeString(file(), DOCUMENT.replace("pending/entry-1.json", key));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.load(file));
+            var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.load(file),
+                    "A store key outside the path grammar is refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(file, refusal.file()),
+            assertAll("A key outside the path grammar is refused",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "The invalid key makes the sidecar unreadable"),
+                    () -> assertEquals(file, refusal.file(),
+                            "The refusal names the sidecar file"),
                     () -> assertTrue(refusal.getMessage().contains(key), "the message names the key"));
         }
 
@@ -258,7 +286,8 @@ class DigestSidecarTest {
         void invalidKeyRecord() {
             var stores = Map.of("../escape.json", STATUS);
 
-            assertThrows(IllegalArgumentException.class, () -> DigestSidecar.of(stores));
+            assertThrows(IllegalArgumentException.class, () -> DigestSidecar.of(stores),
+                    "A store key outside the path grammar is rejected");
         }
     }
 }

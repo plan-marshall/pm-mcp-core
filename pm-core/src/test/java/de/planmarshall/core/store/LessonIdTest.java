@@ -38,6 +38,7 @@ class LessonIdTest {
                 LessonFixtures.WATCH_ID_HEADERLESS_SECOND};
 
         assertAll(
+                "The watch fixture lesson ids parse",
                 () -> assertTrue(LessonId.parse(fixtures[0]).isPresent(), "the headerless lesson id parses"),
                 () -> assertTrue(LessonId.parse(fixtures[1]).isPresent(), "the second fixture id parses"),
                 () -> assertTrue(LessonId.parse(fixtures[2]).isPresent(), "the third fixture id parses"));
@@ -52,6 +53,7 @@ class LessonIdTest {
         var notAnId = Generators.letterStrings(3, 20).next();
 
         assertAll(
+                "A value outside the lesson id grammar is refused",
                 () -> assertThrows(IllegalArgumentException.class, () -> new LessonId(monthWithoutLeadingZero),
                         "A month without its leading zero is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new LessonId(sequenceOfTwoDigits),
@@ -70,6 +72,7 @@ class LessonIdTest {
         var tooLong = prefix + "1".repeat(LessonId.MAX_LENGTH - prefix.length() + 1);
 
         assertAll(
+                "The lesson id length is bounded by the schema",
                 () -> assertEquals(LessonId.MAX_LENGTH, longest.length(), "The longest id has the schema length"),
                 () -> assertEquals(longest, new LessonId(longest).value(), "The longest id is taken"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new LessonId(tooLong),
@@ -82,6 +85,7 @@ class LessonIdTest {
         var id = LessonFixtures.lessonId();
 
         assertAll(
+                "The lesson id file name round-trips",
                 () -> assertEquals(id.value() + ".md", id.fileName(), "The file name appends the suffix"),
                 () -> assertEquals(Optional.of(id), LessonId.fromFileName(id.fileName()),
                         "The file name parses back to the id"));
@@ -92,9 +96,10 @@ class LessonIdTest {
     void fileNameOutsideTheGrammarIsNoLesson() {
         var otherSuffix = LessonFixtures.WATCH_ID_NO_HEADER + ".txt";
         var withoutSuffix = LessonFixtures.WATCH_ID_NO_HEADER;
-        var foreignName = "notes.md";
+        var foreignName = Generators.letterStrings(1, 10).next() + ".md";
 
         assertAll(
+                "A file name outside the grammar is no lesson",
                 () -> assertTrue(LessonId.fromFileName(otherSuffix).isEmpty(), "Another suffix is no lesson"),
                 () -> assertTrue(LessonId.fromFileName(withoutSuffix).isEmpty(), "A name without suffix is no lesson"),
                 () -> assertTrue(LessonId.fromFileName(foreignName).isEmpty(), "A foreign name is no lesson"));
@@ -106,6 +111,7 @@ class LessonIdTest {
         var outsideGrammar = "2026-09-22-12-01";
 
         assertAll(
+                "parse returns empty instead of throwing",
                 () -> assertEquals(Optional.of(LessonFixtures.lessonId()),
                         LessonId.parse(LessonFixtures.WATCH_ID_NO_HEADER), "A valid id is returned"),
                 () -> assertEquals(Optional.empty(), LessonId.parse(outsideGrammar), "An invalid id is empty"));

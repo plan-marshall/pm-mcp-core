@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
+import java.util.Locale;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,24 +44,24 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
 @DisplayName("Lesson front matter")
 class LessonFrontMatterTest {
 
-    private static Retired retired() {
-        return Retired.builder()
-                .at(LessonFixtures.instant())
-                .by(LessonFixtures.text())
-                .verdict(Retired.Verdict.APPLIED)
-                .into(null)
-                .reason(LessonFixtures.text())
-                .coveringClause(null)
-                .coveringInput(null)
-                .lessonState(Retired.LessonState.FOUND)
-                .build();
+    private int recurrence;
+    private String planId;
+
+    @BeforeEach
+    void generateValues() {
+        recurrence = Generators.integers(LessonFrontMatter.MIN_RECURRENCE_COUNT, 10).next();
+        planId = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     }
 
-    private static LessonFrontMatter.LessonFrontMatterBuilder archConstraint() {
+    private static Retired retired() {
+        return LessonFixtures.retirement(Retired.Verdict.APPLIED).build();
+    }
+
+    private LessonFrontMatter.LessonFrontMatterBuilder archConstraint() {
         return LessonFixtures.frontMatterBuilder()
                 .category(Category.ARCH_CONSTRAINT)
                 .rule(LessonFixtures.text())
-                .recurrenceCount(2)
+                .recurrenceCount(recurrence)
                 .lastSeen(LessonFixtures.date());
     }
 
@@ -75,6 +77,7 @@ class LessonFrontMatterTest {
         var withoutCheck = new Remedy(Remedy.Kind.CHECK, statement, null);
 
         assertAll(
+                "The remedy check is set exactly for a wire_check",
                 () -> assertTrue(refusal.getMessage().contains(LessonFrontMatter.REMEDY_CHECK_MISMATCH),
                         "The refusal names the detail remedy_check_mismatch"),
                 () -> assertThrows(IllegalArgumentException.class,
@@ -92,6 +95,7 @@ class LessonFrontMatterTest {
         var retiredWithRetirement = LessonFixtures.frontMatterBuilder().status(Status.RETIRED).retired(retired());
 
         assertAll(
+                "The retirement is set exactly for the retired status",
                 () -> assertThrows(IllegalArgumentException.class, retiredWithoutRetirement::build,
                         "A retired lesson without its retirement is refused"),
                 () -> assertThrows(IllegalArgumentException.class, retirementWithoutRetired::build,
@@ -109,6 +113,7 @@ class LessonFrontMatterTest {
         var archConstraint = archConstraint().build();
 
         assertAll(
+                "The rule is set exactly for the arch-constraint",
                 () -> assertThrows(IllegalArgumentException.class, archConstraintWithoutRule::build,
                         "An arch-constraint without a rule is refused"),
                 () -> assertThrows(IllegalArgumentException.class, bugWithRule::build,
@@ -119,16 +124,17 @@ class LessonFrontMatterTest {
     @Test
     @DisplayName("the recurrence count and the last-seen date are set only for arch-constraint")
     void recurrenceIsSetOnlyForArchConstraint() {
-        var bugWithCount = LessonFixtures.frontMatterBuilder().category(Category.BUG).recurrenceCount(2);
+        var bugWithCount = LessonFixtures.frontMatterBuilder().category(Category.BUG).recurrenceCount(recurrence);
         var bugWithLastSeen = LessonFixtures.frontMatterBuilder().category(Category.BUG)
                 .lastSeen(LessonFixtures.date());
 
         assertAll(
+                "The recurrence and last-seen are arch-constraint only",
                 () -> assertThrows(IllegalArgumentException.class, bugWithCount::build,
                         "A recurrence count on a bug is refused"),
                 () -> assertThrows(IllegalArgumentException.class, bugWithLastSeen::build,
                         "A last-seen date on a bug is refused"),
-                () -> assertEquals(2, archConstraint().build().recurrenceCount(),
+                () -> assertEquals(recurrence, archConstraint().build().recurrenceCount(),
                         "An arch-constraint carries its recurrence"));
     }
 
@@ -141,6 +147,7 @@ class LessonFrontMatterTest {
         var frontMatter = LessonFixtures.frontMatter();
 
         assertAll(
+                "A lesson and a revision carry at least one source",
                 () -> assertThrows(IllegalArgumentException.class, withoutSources::build,
                         "A lesson without sources is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
@@ -155,6 +162,7 @@ class LessonFrontMatterTest {
         var withoutRevisions = LessonFixtures.frontMatterBuilder().revisions(List.of());
 
         assertAll(
+                "A lesson carries at least one revision",
                 () -> assertThrows(IllegalArgumentException.class, withoutRevisions::build,
                         "A lesson without revisions is refused"),
                 () -> assertEquals(1, LessonFixtures.frontMatter().revisions().size(),
@@ -169,6 +177,7 @@ class LessonFrontMatterTest {
         var atTheHistory = LessonFixtures.frontMatterBuilder().revision(2).revisions(history);
 
         assertAll(
+                "The revision counter is the last history entry",
                 () -> assertThrows(IllegalArgumentException.class, behindTheHistory::build,
                         "A revision behind the last entry is refused"),
                 () -> assertEquals(2, atTheHistory.build().revision(), "A revision at the last entry is taken"));
@@ -181,6 +190,7 @@ class LessonFrontMatterTest {
         var trusted = LessonFixtures.frontMatterBuilder().derivedFromUntrusted(false).build();
 
         assertAll(
+                "The untrusted mark is carried and nothing more",
                 () -> assertTrue(untrusted.derivedFromUntrusted(), "The mark is carried as it was set"),
                 () -> assertFalse(trusted.derivedFromUntrusted(), "The absence of the mark is carried too"));
     }
@@ -205,6 +215,7 @@ class LessonFrontMatterTest {
         var sources = List.of(source);
 
         assertAll(
+                "The members outside the named rules are bounded",
                 () -> assertThrows(IllegalArgumentException.class, emptyTitle::build, "An empty title is refused"),
                 () -> assertThrows(IllegalArgumentException.class, emptyComponent::build,
                         "An empty component is refused"),
@@ -240,13 +251,14 @@ class LessonFrontMatterTest {
     @DisplayName("a claim and a merge origin are carried when the schema admits them")
     void optionalRecordsAreCarried() {
         var claimed = LessonFixtures.frontMatterBuilder()
-                .claim(new Claim("v2-11-lesson-record-and-codec", LessonFixtures.instant())).build();
+                .claim(new Claim(planId, LessonFixtures.instant())).build();
         var merged = LessonFixtures.frontMatterBuilder()
                 .mergedFrom(List.of(new MergedFrom(LessonFixtures.lessonId(), LessonFixtures.instant(),
-                        Generators.letterStrings(1, 20).next())))
+                        LessonFixtures.text())))
                 .build();
 
         assertAll(
+                "The optional records are carried when admitted",
                 () -> assertNotNull(claimed.claim(), "A claimed lesson carries its claim"),
                 () -> assertEquals(1, merged.mergedFrom().size(), "A merged lesson carries its origin"));
     }

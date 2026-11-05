@@ -25,6 +25,7 @@ import de.planmarshall.core.queue.QueueTaskRecord;
  * apart because {@code core.queue} depends on {@code core.store} and not the other way round. This test keeps them
  * equal: a form added to one without the other would make the mark at the write site fail or be dropped.
  */
+// Every datum in this class is a contract: the wire names of the two enums are the parity under test.
 @DisplayName("The continuation mark")
 class ContinuationMarkParityTest {
 
@@ -34,7 +35,8 @@ class ContinuationMarkParityTest {
         assertEquals(
                 wireNames(QueueTaskRecord.ContinuationForm.values(),
                         QueueTaskRecord.ContinuationForm::wireName),
-                wireNames(MetricsRow.ContinuationMark.values(), MetricsRow.ContinuationMark::wireName));
+                wireNames(MetricsRow.ContinuationMark.values(), MetricsRow.ContinuationMark::wireName),
+                "Both vocabularies expose the same continuation forms");
     }
 
     private static <T extends Enum<T>> Set<String> wireNames(T[] values, Function<T, String> name) {

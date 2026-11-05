@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -31,10 +33,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -57,8 +59,8 @@ import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.service.LockTransaction;
-import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * The project enrolment store (PM-EXEC-2, PM-IMPL-7): one file and one sidecar per project, read and written only
@@ -67,6 +69,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * refused or stopped hand-over and is removed only after the sink accepted every record it owes.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("Enrolment store")
 class EnrolmentStoreTest {
 
@@ -87,9 +90,11 @@ class EnrolmentStoreTest {
     }
 
     private static ProjectEnrolment enrolment(String projectId, boolean pilot) {
-        return new ProjectEnrolment(projectId, "/home/dev/git/" + projectId, Instant.parse("2026-10-11T08:00:00Z"),
-                pilot, null, null, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(),
-                new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());
+        var generated = CoreGenerators.projectEnrolments().next();
+        return new ProjectEnrolment(projectId, "/home/dev/git/" + projectId, generated.enrolledAt(), pilot,
+                generated.containerEngine(), generated.releasedAt(), generated.wrappers(), generated.hostTools(),
+                generated.build(), generated.providers(), generated.projectScripts(), generated.languageServers(),
+                generated.commandBudgets(), generated.writePaths(), generated.buildEnvironment());
     }
 
     private static EnrolmentSidecar sidecarOf(ProjectEnrolment enrolment) {
@@ -106,13 +111,15 @@ class EnrolmentStoreTest {
     @Test
     @DisplayName("the file, its sidecar and its lock have the paths of the enrolment store")
     void paths() {
-        assertAll(
+        assertAll("the store should place its three files",
                 () -> assertEquals(base.toAbsolutePath().normalize().resolve("enrolments/pm-mcp-core.json"),
-                        store.file(PROJECT)),
+                        store.file(PROJECT), "The enrolment file should be <id>.json in enrolments"),
                 () -> assertEquals(base.toAbsolutePath().normalize().resolve("enrolments/pm-mcp-core.json.hmac"),
-                        store.sidecar(PROJECT)),
-                () -> assertEquals(LockKey.enrolment(base, PROJECT), store.lockKey(PROJECT)),
-                () -> assertThrows(IllegalArgumentException.class, () -> store.file("../projects")));
+                        store.sidecar(PROJECT), "The sidecar should sit beside the enrolment file"),
+                () -> assertEquals(LockKey.enrolment(base, PROJECT), store.lockKey(PROJECT),
+                        "The lock key should be the enrolment lock of the project"),
+                () -> assertThrows(IllegalArgumentException.class, () -> store.file("../projects"),
+                        "A project id outside the grammar should be refused"));
     }
 
     @Nested
@@ -131,14 +138,18 @@ class EnrolmentStoreTest {
                 var content = store.readFile(transaction, PROJECT).orElseThrow();
                 var sidecar = store.decodeSidecar(PROJECT, store.readSidecar(transaction, PROJECT).orElseThrow());
 
-                assertAll(
-                        () -> assertArrayEquals(EnrolmentCodec.write(enrolment), content),
-                        () -> assertEquals(enrolment, store.decode(PROJECT, content)),
-                        () -> assertEquals(sidecarOf(enrolment), sidecar),
-                        () -> assertTrue(sidecar.matches(content)));
+                assertAll("the pair should be read back as written",
+                        () -> assertArrayEquals(EnrolmentCodec.write(enrolment), content,
+                                "The file should hold the canonical bytes"),
+                        () -> assertEquals(enrolment, store.decode(PROJECT, content),
+                                "The file should decode to the same record"),
+                        () -> assertEquals(sidecarOf(enrolment), sidecar,
+                                "The sidecar should record the same digest and HMAC"),
+                        () -> assertTrue(sidecar.matches(content),
+                                "The sidecar should match the bytes it was read with"));
             }
             assertEquals(List.of(LockKey.enrolment(base, PROJECT), LockKey.enrolment(base, PROJECT)),
-                    locks.acquisitions());
+                    locks.acquisitions(), "Both accesses should take the project's lock");
         }
 
         @Test
@@ -147,9 +158,11 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(store.lockKey(PROJECT));
 
-                assertAll(
-                        () -> assertTrue(store.readFile(transaction, PROJECT).isEmpty()),
-                        () -> assertTrue(store.readSidecar(transaction, PROJECT).isEmpty()));
+                assertAll("an absent project should read as nothing",
+                        () -> assertTrue(store.readFile(transaction, PROJECT).isEmpty(),
+                                "A project without a file should read no file"),
+                        () -> assertTrue(store.readSidecar(transaction, PROJECT).isEmpty(),
+                                "A project without a sidecar should read no sidecar"));
             }
         }
 
@@ -162,11 +175,14 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(store.lockKey(PROJECT));
 
-                assertThrows(IllegalArgumentException.class, () -> store.write(transaction, enrolment, other));
+                assertThrows(IllegalArgumentException.class, () -> store.write(transaction, enrolment, other),
+                        "A sidecar of other bytes should be refused");
             }
-            assertAll(
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))));
+            assertAll("a refused write should leave nothing behind",
+                    () -> assertFalse(Files.exists(store.file(PROJECT)),
+                            "No enrolment file should have been written"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)),
+                            "No sidecar should have been written"));
         }
 
         @Test
@@ -182,9 +198,11 @@ class EnrolmentStoreTest {
                 store.writeSidecar(transaction, PROJECT, rebaselined);
             }
 
-            assertAll(
-                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertArrayEquals(rebaselined.write(), Files.readAllBytes(store.sidecar(PROJECT))));
+            assertAll("a re-baseline should replace the sidecar only",
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT)),
+                            "The enrolment file should keep its bytes"),
+                    () -> assertArrayEquals(rebaselined.write(), Files.readAllBytes(store.sidecar(PROJECT)),
+                            "The sidecar should hold the new record"));
         }
 
         @Test
@@ -197,13 +215,16 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(store.lockKey(PROJECT));
 
-                assertTrue(store.remove(transaction, PROJECT));
-                assertFalse(store.remove(transaction, PROJECT));
+                assertTrue(store.remove(transaction, PROJECT), "The first removal should find the pair");
+                assertFalse(store.remove(transaction, PROJECT), "The second removal should find nothing");
             }
-            assertAll(
-                    () -> assertFalse(Files.exists(store.file(PROJECT))),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertEquals("{}", Files.readString(projectStore.resolve("store.json"))));
+            assertAll("a removal should delete the pair and nothing else",
+                    () -> assertFalse(Files.exists(store.file(PROJECT)),
+                            "The enrolment file should be gone"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)),
+                            "The sidecar should be gone"),
+                    () -> assertEquals("{}", Files.readString(projectStore.resolve("store.json")),
+                            "Another file of the project should be kept"));
         }
     }
 
@@ -216,21 +237,28 @@ class EnrolmentStoreTest {
         void refused() {
             var enrolment = enrolment(PROJECT, false);
             var sidecar = sidecarOf(enrolment);
+            var otherProject = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
             try (var transaction = locks.openTransaction()) {
-                transaction.acquire(store.lockKey("other-project"));
+                transaction.acquire(store.lockKey(otherProject));
 
-                assertAll(
+                assertAll("every access should be refused without the project's lock",
                         () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                () -> store.write(transaction, enrolment, sidecar)).reason()),
-                        () -> assertThrows(InternalFaultException.class, () -> store.readFile(transaction, PROJECT)),
+                                        () -> store.write(transaction, enrolment, sidecar),
+                                        "A write without the lock should fail").reason(),
+                                "A write should be refused as a lock fault"),
+                        () -> assertThrows(InternalFaultException.class, () -> store.readFile(transaction, PROJECT),
+                                "A file read should be refused as a lock fault"),
                         () -> assertThrows(InternalFaultException.class,
-                                () -> store.readSidecar(transaction, PROJECT)),
+                                () -> store.readSidecar(transaction, PROJECT),
+                                "A sidecar read should be refused as a lock fault"),
                         () -> assertThrows(InternalFaultException.class,
-                                () -> store.writeSidecar(transaction, PROJECT, sidecar)),
-                        () -> assertThrows(InternalFaultException.class, () -> store.remove(transaction, PROJECT)));
+                                () -> store.writeSidecar(transaction, PROJECT, sidecar),
+                                "A sidecar write should be refused as a lock fault"),
+                        () -> assertThrows(InternalFaultException.class, () -> store.remove(transaction, PROJECT),
+                                "A removal should be refused as a lock fault"));
             }
-            assertFalse(Files.exists(store.file(PROJECT)));
+            assertFalse(Files.exists(store.file(PROJECT)), "No refusal should write an enrolment file");
         }
     }
 
@@ -241,30 +269,38 @@ class EnrolmentStoreTest {
         @Test
         @DisplayName("the enrolled projects are the enrolment files of the directory, not sidecars or other entries")
         void projectIds() throws Exception {
-            enrol(enrolment("zeta-project", false));
+            var zeta = "zeta-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+            enrol(enrolment(zeta, false));
             enrol(enrolment(PROJECT, false));
-            Files.writeString(store.directory().resolve("notes.txt"), "x");
+            Files.writeString(store.directory().resolve(Generators.letterStrings(1, 8).next() + ".txt"),
+                    Generators.letterStrings(1, 8).next());
             Files.writeString(store.directory().resolve("Upper.json"), "{}");
 
-            assertEquals(Set.of(PROJECT, "zeta-project"), store.projectIds());
+            assertEquals(Set.of(PROJECT, zeta), store.projectIds(),
+                    "The listing should hold exactly the enrolment files");
         }
 
         @Test
         @DisplayName("a store without its directory lists no project")
         void noDirectory() {
-            assertTrue(new EnrolmentStore(base.resolve("elsewhere")).projectIds().isEmpty());
+            assertTrue(new EnrolmentStore(base.resolve("elsewhere")).projectIds().isEmpty(),
+                    "A store without its directory should list no project");
         }
 
         @Test
         @DisplayName("an enrolment whose project_id is not the name of its file is refused as unreadable")
         void foreignProjectId() {
-            var content = EnrolmentCodec.write(enrolment("other-project", false));
+            var otherProject = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+            var content = EnrolmentCodec.write(enrolment(otherProject, false));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> store.decode(PROJECT, content));
+            var refusal = assertThrows(StoreRefusal.class, () -> store.decode(PROJECT, content),
+                    "A foreign project id should be refused");
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(store.file(PROJECT), refusal.file()));
+            assertAll("a foreign project id is unreadable",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "The refusal should report an unreadable document"),
+                    () -> assertEquals(store.file(PROJECT), refusal.file(),
+                            "The refusal should name the enrolment file"));
         }
 
         @Test
@@ -272,17 +308,16 @@ class EnrolmentStoreTest {
         void unreadableSidecar() {
             var content = HMAC.getBytes(StandardCharsets.UTF_8);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
+            var refusal = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content),
+                    "An unreadable sidecar should be refused");
 
-            assertEquals(store.sidecar(PROJECT), refusal.file());
+            assertEquals(store.sidecar(PROJECT), refusal.file(), "The refusal should name the sidecar file");
         }
     }
 
     @Nested
     @DisplayName("the audit intent of the operator writes")
     class AuditIntent {
-
-        private static final String ZETA = "zeta-project";
 
         private void inLock(String projectId, Consumer<LockTransaction> action) {
             try (var transaction = locks.openTransaction()) {
@@ -315,7 +350,7 @@ class EnrolmentStoreTest {
         @DisplayName("the intent file is <project_id>.json.audit-intent beside the enrolment file")
         void intentPath() {
             assertEquals(base.toAbsolutePath().normalize().resolve("enrolments/pm-mcp-core.json.audit-intent"),
-                    store.auditIntent(PROJECT));
+                    store.auditIntent(PROJECT), "The intent path should sit beside the enrolment file");
         }
 
         @Nested
@@ -329,10 +364,13 @@ class EnrolmentStoreTest {
 
                 owe(PROJECT, written);
 
-                assertAll(
-                        () -> assertTrue(Files.exists(store.auditIntent(PROJECT))),
-                        () -> assertEquals(List.of(written), owed(store)),
-                        () -> assertEquals(List.of(written), owed(new EnrolmentStore(base))));
+                assertAll("the record should be owed durably",
+                        () -> assertTrue(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should have been written"),
+                        () -> assertEquals(List.of(written), owed(store),
+                                "The same store should read the owed record"),
+                        () -> assertEquals(List.of(written), owed(new EnrolmentStore(base)),
+                                "A new store should read the owed record"));
             }
 
             @Test
@@ -343,7 +381,8 @@ class EnrolmentStoreTest {
 
                 owe(PROJECT, first, second);
 
-                assertEquals(List.of(first, second), owed(store));
+                assertEquals(List.of(first, second), owed(store),
+                        "The owed records should keep their order");
             }
 
             @Test
@@ -355,7 +394,8 @@ class EnrolmentStoreTest {
 
                 owe(PROJECT, AuditEvent.enrolmentWritten(PROJECT, id), AuditEvent.enrolmentRemoved(PROJECT, id));
 
-                assertArrayEquals(before, Files.readAllBytes(store.auditIntent(PROJECT)));
+                assertArrayEquals(before, Files.readAllBytes(store.auditIntent(PROJECT)),
+                        "A record already owed should not be written twice");
             }
 
             @Test
@@ -367,9 +407,11 @@ class EnrolmentStoreTest {
                 try (var transaction = locks.openTransaction()) {
                     transaction.acquire(store.lockKey(PROJECT));
 
-                    assertThrows(IllegalArgumentException.class, () -> store.oweAudit(transaction, PROJECT, event));
+                    assertThrows(IllegalArgumentException.class, () -> store.oweAudit(transaction, PROJECT, event),
+                            "A detail an intent cannot hold should be refused");
                 }
-                assertFalse(Files.exists(store.auditIntent(PROJECT)));
+                assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                        "A refused record should write no intent file");
             }
         }
 
@@ -390,7 +432,8 @@ class EnrolmentStoreTest {
 
                 confirm(second);
 
-                assertEquals(List.of(first, second), owed(store));
+                assertEquals(List.of(first, second), owed(store),
+                        "A confirmation should replace the record in its place");
             }
 
             @Test
@@ -402,7 +445,8 @@ class EnrolmentStoreTest {
 
                 confirm(second);
 
-                assertEquals(List.of(first.notConfirmed(), second), owed(store));
+                assertEquals(List.of(first.notConfirmed(), second), owed(store),
+                        "The other unconfirmed record should stay unconfirmed");
             }
 
             @Test
@@ -414,7 +458,8 @@ class EnrolmentStoreTest {
 
                 confirm(confirmed);
 
-                assertEquals(List.of(other, confirmed), owed(store));
+                assertEquals(List.of(other, confirmed), owed(store),
+                        "A record without a transaction peer should be owed afresh");
             }
 
             @Test
@@ -427,10 +472,13 @@ class EnrolmentStoreTest {
 
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertEquals(List.of(confirmed), delivered),
-                        () -> assertEquals(List.of(confirmed), sink.events()),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("the confirmed record should be handed over once",
+                        () -> assertEquals(List.of(confirmed), delivered,
+                                "The delivered list should hold the record"),
+                        () -> assertEquals(List.of(confirmed), sink.events(),
+                                "The sink should have accepted the record"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should be removed"));
             }
 
             @Test
@@ -442,10 +490,13 @@ class EnrolmentStoreTest {
 
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertEquals(List.of(unconfirmed), delivered),
-                        () -> assertEquals("failed", unconfirmed.outcome()),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("an unconfirmed record should be handed over as it is",
+                        () -> assertEquals(List.of(unconfirmed), delivered,
+                                "The delivered list should hold the record"),
+                        () -> assertEquals("failed", unconfirmed.outcome(),
+                                "The record should keep its failed outcome"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should be removed"));
             }
 
             @Test
@@ -456,10 +507,13 @@ class EnrolmentStoreTest {
                 var notWritable = new AuditEvent(AuditEvent.ENROLMENT_WRITTEN, AuditEvent.CATEGORY_OPERATOR,
                         AuditEvent.OUTCOME_SUCCEEDED, Map.of(AuditEvent.DETAIL_PROJECT_ID, true));
 
-                assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> confirm(notWritable)),
-                        () -> assertThrows(NullPointerException.class, () -> confirm(withoutTransaction)),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("records an intent cannot hold should be refused",
+                        () -> assertThrows(IllegalArgumentException.class, () -> confirm(notWritable),
+                                "A detail an intent cannot hold should be refused"),
+                        () -> assertThrows(NullPointerException.class, () -> confirm(withoutTransaction),
+                                "A record without a transaction id should be refused"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "No refused record should write an intent file"));
             }
         }
 
@@ -470,21 +524,26 @@ class EnrolmentStoreTest {
             @Test
             @DisplayName("the intent file is not an enrolment, and the owing projects are exactly those with an intent")
             void intentIsNotAnEnrolment() throws Exception {
+                var alpha = "alpha-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
+                var zeta = "zeta-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT);
                 enrol(enrolment(PROJECT, false));
-                enrol(enrolment("alpha-project", false));
-                owe(ZETA, AuditEvent.enrolmentRemoved(ZETA, transactionId()));
+                enrol(enrolment(alpha, false));
+                owe(zeta, AuditEvent.enrolmentRemoved(zeta, transactionId()));
                 owe(PROJECT, written());
                 Files.writeString(store.directory().resolve("Upper.json.audit-intent"), "{}");
 
-                assertAll(
-                        () -> assertEquals(List.of("alpha-project", PROJECT), List.copyOf(store.projectIds())),
-                        () -> assertEquals(List.of(PROJECT, ZETA), List.copyOf(store.auditOwingProjectIds())));
+                assertAll("an intent file should not count as an enrolment",
+                        () -> assertEquals(List.of(alpha, PROJECT), List.copyOf(store.projectIds()),
+                                "The listing should hold the two enrolments in order"),
+                        () -> assertEquals(List.of(PROJECT, zeta), List.copyOf(store.auditOwingProjectIds()),
+                                "The owing listing should hold the two intents in order"));
             }
 
             @Test
             @DisplayName("a store without its directory lists no owing project")
             void noDirectory() {
-                assertTrue(new EnrolmentStore(base.resolve("elsewhere")).auditOwingProjectIds().isEmpty());
+                assertTrue(new EnrolmentStore(base.resolve("elsewhere")).auditOwingProjectIds().isEmpty(),
+                        "A store without its directory should list no owing project");
             }
 
             @Test
@@ -492,7 +551,8 @@ class EnrolmentStoreTest {
             void noIntent() {
                 enrol(enrolment(PROJECT, false));
 
-                assertTrue(store.auditOwingProjectIds().isEmpty());
+                assertTrue(store.auditOwingProjectIds().isEmpty(),
+                        "A store without an intent should list no owing project");
             }
         }
 
@@ -510,10 +570,13 @@ class EnrolmentStoreTest {
 
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertEquals(List.of(first, second), delivered),
-                        () -> assertEquals(List.of(first, second), sink.events()),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("an accepting sink should receive the records in order",
+                        () -> assertEquals(List.of(first, second), delivered,
+                                "The delivered list should hold both records in order"),
+                        () -> assertEquals(List.of(first, second), sink.events(),
+                                "The sink should have accepted both records in order"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should be removed"));
             }
 
             @Test
@@ -525,10 +588,10 @@ class EnrolmentStoreTest {
 
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertTrue(delivered.isEmpty()),
-                        () -> assertTrue(sink.events().isEmpty()),
-                        () -> assertEquals(before, listing()));
+                assertAll("nothing owed should hand over nothing",
+                        () -> assertTrue(delivered.isEmpty(), "Nothing should be delivered"),
+                        () -> assertTrue(sink.events().isEmpty(), "The sink should receive nothing"),
+                        () -> assertEquals(before, listing(), "The directory should be untouched"));
             }
 
             @Test
@@ -541,9 +604,10 @@ class EnrolmentStoreTest {
 
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertTrue(delivered.isEmpty()),
-                        () -> assertEquals(List.of(first, second), owed(store)),
+                assertAll("a refusing sink should keep every record owed",
+                        () -> assertTrue(delivered.isEmpty(), "Nothing should be delivered"),
+                        () -> assertEquals(List.of(first, second), owed(store),
+                                "Every record should still be owed in order"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -552,10 +616,13 @@ class EnrolmentStoreTest {
 
                 var again = deliver(sink);
 
-                assertAll(
-                        () -> assertEquals(List.of(first, second), again),
-                        () -> assertEquals(List.of(first, second), sink.events()),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("a second hand-over should deliver what was owed",
+                        () -> assertEquals(List.of(first, second), again,
+                                "The second hand-over should deliver both records"),
+                        () -> assertEquals(List.of(first, second), sink.events(),
+                                "The sink should accept both records on the second try"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should be removed after the hand-over"));
             }
 
             @Test
@@ -567,25 +634,31 @@ class EnrolmentStoreTest {
                 var accepted = new ArrayList<AuditEvent>();
                 AuditSink sink = event -> {
                     if (!accepted.isEmpty()) {
-                        throw new UncheckedIOException(new IOException("the audit log is full"));
+                        throw new UncheckedIOException(new IOException(Generators.letterStrings(10, 30).next()));
                     }
                     accepted.add(event);
                 };
 
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertEquals(List.of(first), delivered),
-                        () -> assertEquals(List.of(first), accepted),
-                        () -> assertEquals(List.of(second), owed(store)));
+                assertAll("a sink refusing the second record should keep it owed",
+                        () -> assertEquals(List.of(first), delivered,
+                                "Only the first record should be delivered"),
+                        () -> assertEquals(List.of(first), accepted,
+                                "The sink should have accepted only the first record"),
+                        () -> assertEquals(List.of(second), owed(store),
+                                "Only the second record should still be owed"));
 
                 var recording = new RecordingAuditSink();
                 var rest = deliver(recording);
 
-                assertAll(
-                        () -> assertEquals(List.of(second), rest),
-                        () -> assertEquals(List.of(second), recording.events()),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("the remaining record should be handed over once",
+                        () -> assertEquals(List.of(second), rest,
+                                "The second hand-over should deliver the second record"),
+                        () -> assertEquals(List.of(second), recording.events(),
+                                "The recording sink should accept the second record"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should be removed"));
             }
 
             @Test
@@ -599,18 +672,23 @@ class EnrolmentStoreTest {
                     transaction.acquire(store.lockKey(PROJECT));
 
                     assertThrows(FailingAuditSink.ProcessStopped.class,
-                            () -> store.deliverOwedAudit(transaction, PROJECT, stopping));
+                            () -> store.deliverOwedAudit(transaction, PROJECT, stopping),
+                            "A stopped hand-over should propagate the stop");
                 }
-                assertEquals(List.of(written), owed(store));
+                assertEquals(List.of(written), owed(store),
+                        "A stopped hand-over should keep the record owed");
 
                 store = new EnrolmentStore(base);
                 var sink = new RecordingAuditSink();
                 var delivered = deliver(sink);
 
-                assertAll(
-                        () -> assertEquals(List.of(written), delivered),
-                        () -> assertEquals(List.of(written), sink.events()),
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+                assertAll("a new transaction should hand the record over once",
+                        () -> assertEquals(List.of(written), delivered,
+                                "The new transaction should deliver the record"),
+                        () -> assertEquals(List.of(written), sink.events(),
+                                "The sink should accept the record"),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "The intent file should be removed"));
             }
         }
 
@@ -623,25 +701,34 @@ class EnrolmentStoreTest {
             void withoutLock() {
                 var written = written();
                 var sink = new RecordingAuditSink();
+                var otherProject = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
                 try (var transaction = locks.openTransaction()) {
-                    transaction.acquire(store.lockKey("other-project"));
+                    transaction.acquire(store.lockKey(otherProject));
 
-                    assertAll(
+                    assertAll("every audit access should need the project's lock",
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                    () -> store.oweAudit(transaction, PROJECT, written)).reason()),
+                                            () -> store.oweAudit(transaction, PROJECT, written),
+                                            "Owing without the lock should fail").reason(),
+                                    "Owing a record should be refused as a lock fault"),
                             () -> assertThrows(InternalFaultException.class,
-                                    () -> store.confirmAudit(transaction, PROJECT, written)),
+                                    () -> store.confirmAudit(transaction, PROJECT, written),
+                                    "Confirming a record should be refused as a lock fault"),
                             () -> assertThrows(InternalFaultException.class,
-                                    () -> store.owedAudit(transaction, PROJECT)),
+                                    () -> store.owedAudit(transaction, PROJECT),
+                                    "Reading the owed records should be refused as a lock fault"),
                             () -> assertThrows(InternalFaultException.class,
-                                    () -> store.deliverOwedAudit(transaction, PROJECT, sink)),
+                                    () -> store.deliverOwedAudit(transaction, PROJECT, sink),
+                                    "Handing over should be refused as a lock fault"),
                             () -> assertThrows(InternalFaultException.class,
-                                    () -> store.exists(transaction, PROJECT)));
+                                    () -> store.exists(transaction, PROJECT),
+                                    "The existence query should be refused as a lock fault"));
                 }
-                assertAll(
-                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))),
-                        () -> assertTrue(sink.events().isEmpty()));
+                assertAll("a lock refusal should write nothing",
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
+                                "No intent file should have been written"),
+                        () -> assertTrue(sink.events().isEmpty(),
+                                "The sink should have received nothing"));
             }
 
             @ParameterizedTest
@@ -656,19 +743,29 @@ class EnrolmentStoreTest {
                 try (var transaction = locks.openTransaction()) {
                     transaction.acquire(store.lockKey(PROJECT));
 
-                    assertAll(
+                    assertAll("an unreadable intent should refuse every access",
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.owedAudit(transaction, PROJECT)).file()),
+                                            () -> store.owedAudit(transaction, PROJECT),
+                                            "An unreadable intent should be refused").file(),
+                                    "Reading the owed records should name the intent file"),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.oweAudit(transaction, PROJECT, written)).file()),
+                                            () -> store.oweAudit(transaction, PROJECT, written),
+                                            "An unreadable intent should be refused").file(),
+                                    "Owing a record should name the intent file"),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.confirmAudit(transaction, PROJECT, written)).file()),
+                                            () -> store.confirmAudit(transaction, PROJECT, written),
+                                            "An unreadable intent should be refused").file(),
+                                    "Confirming a record should name the intent file"),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.deliverOwedAudit(transaction, PROJECT, sink)).file()));
+                                            () -> store.deliverOwedAudit(transaction, PROJECT, sink),
+                                            "An unreadable intent should be refused").file(),
+                                    "Handing over should name the intent file"));
                 }
-                assertAll(
-                        () -> assertEquals(content, Files.readString(intent)),
-                        () -> assertTrue(sink.events().isEmpty()));
+                assertAll("a refused intent should be kept",
+                        () -> assertEquals(content, Files.readString(intent),
+                                "The intent file should keep its content"),
+                        () -> assertTrue(sink.events().isEmpty(),
+                                "The sink should have received nothing"));
             }
         }
 
@@ -686,7 +783,7 @@ class EnrolmentStoreTest {
 
             inLock(PROJECT, transaction -> exists.set(store.exists(transaction, PROJECT)));
 
-            assertEquals(file || sidecar, exists.get());
+            assertEquals(file || sidecar, exists.get(), "The existence should follow the two files");
         }
 
         private AuditEvent written() {
@@ -725,8 +822,14 @@ class EnrolmentStoreTest {
             private static final long serialVersionUID = 1L;
         }
 
-        private final ProjectEnrolment old = enrolment(PROJECT, false);
-        private final ProjectEnrolment newer = enrolment(PROJECT, true);
+        private ProjectEnrolment old;
+        private ProjectEnrolment newer;
+
+        @BeforeEach
+        void createEnrolments() {
+            old = enrolment(PROJECT, false);
+            newer = enrolment(PROJECT, true);
+        }
 
         private void write(EnrolmentStore enrolmentStore, ProjectEnrolment enrolment) {
             try (var transaction = locks.openTransaction()) {
@@ -745,7 +848,8 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(stopping.lockKey(enrolment.projectId()));
 
-                assertThrows(Killed.class, () -> stopping.write(transaction, enrolment, sidecar));
+                assertThrows(Killed.class, () -> stopping.write(transaction, enrolment, sidecar),
+                        "A stopped write should throw the kill sentinel");
             }
         }
 
@@ -850,17 +954,23 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(store.lockKey(PROJECT));
 
-                assertThrows(IllegalArgumentException.class, () -> store.write(transaction, newer, other));
+                assertThrows(IllegalArgumentException.class, () -> store.write(transaction, newer, other),
+                        "A sidecar of other bytes should be refused");
             }
 
-            assertAll(
-                    () -> assertEquals(List.of(PROJECT + ".json", PROJECT + ".json.hmac"), namesAfterFirst),
-                    () -> assertTrue(firstConsistent),
-                    () -> assertEquals(namesAfterFirst, namesAfterSecond),
-                    () -> assertEquals(namesAfterFirst, names()),
-                    () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertArrayEquals(sidecarOf(newer).write(), Files.readAllBytes(store.sidecar(PROJECT))),
-                    () -> assertTrue(consistent(PROJECT)));
+            assertAll("a write should leave exactly the complete pair",
+                    () -> assertEquals(List.of(PROJECT + ".json", PROJECT + ".json.hmac"), namesAfterFirst,
+                            "The first write should leave the file and its sidecar"),
+                    () -> assertTrue(firstConsistent, "The first pair should be consistent"),
+                    () -> assertEquals(namesAfterFirst, namesAfterSecond,
+                            "The second write should leave the same names"),
+                    () -> assertEquals(namesAfterFirst, names(),
+                            "The refused write should leave the same names"),
+                    () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT)),
+                            "The file should hold the newer enrolment"),
+                    () -> assertArrayEquals(sidecarOf(newer).write(), Files.readAllBytes(store.sidecar(PROJECT)),
+                            "The sidecar should hold the newer record"),
+                    () -> assertTrue(consistent(PROJECT), "The pair should be consistent"));
         }
 
         @ParameterizedTest(name = "stopped after {0}")
@@ -875,12 +985,15 @@ class EnrolmentStoreTest {
             var recovered = recover(PROJECT);
 
             var expected = EnrolmentCodec.write(newPair ? newer : old);
-            assertAll(
-                    () -> assertEquals(NONE.equals(kind) ? List.of() : List.of(kind), kinds(recovered)),
-                    () -> assertEquals(stopped, recovered.stream().map(PairRecovery::transactionId).toList()),
-                    () -> assertArrayEquals(expected, Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertTrue(consistent(PROJECT)),
-                    () -> assertTrue(stagedNames().isEmpty()));
+            assertAll("a stopped write should settle to a whole pair",
+                    () -> assertEquals(NONE.equals(kind) ? List.of() : List.of(kind), kinds(recovered),
+                            "The recovery should report the expected outcome"),
+                    () -> assertEquals(stopped, recovered.stream().map(PairRecovery::transactionId).toList(),
+                            "The recovery should settle the staged transaction"),
+                    () -> assertArrayEquals(expected, Files.readAllBytes(store.file(PROJECT)),
+                            "The file should hold the expected enrolment"),
+                    () -> assertTrue(consistent(PROJECT), "The pair should be consistent"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
             assertPairLogs(kind);
         }
 
@@ -893,12 +1006,15 @@ class EnrolmentStoreTest {
 
             var recovered = recover(PROJECT);
 
-            assertAll(
-                    () -> assertTrue(before.isEmpty()),
-                    () -> assertEquals(List.of(kind), kinds(recovered)),
-                    () -> assertEquals(enrolled, store.projectIds().contains(PROJECT)),
-                    () -> assertEquals(enrolled, Files.exists(store.file(PROJECT))),
-                    () -> assertTrue(stagedNames().isEmpty()));
+            assertAll("a stopped first enrolment should settle to enrolled or not",
+                    () -> assertTrue(before.isEmpty(), "No project should be listed before recovery"),
+                    () -> assertEquals(List.of(kind), kinds(recovered),
+                            "The recovery should report the expected outcome"),
+                    () -> assertEquals(enrolled, store.projectIds().contains(PROJECT),
+                            "The listing should follow the recovery outcome"),
+                    () -> assertEquals(enrolled, Files.exists(store.file(PROJECT)),
+                            "The file should exist only for an enrolment"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
         }
 
         static Stream<Arguments> incompleteStagings() {
@@ -931,12 +1047,17 @@ class EnrolmentStoreTest {
             var recovered = recover(PROJECT);
 
             assertAll(description,
-                    () -> assertEquals(List.of(DISCARDED), kinds(recovered)),
-                    () -> assertEquals(transactionId, recovered.getFirst().transactionId()),
-                    () -> assertFalse(((PairRecovery.Discarded) recovered.getFirst()).reason().isBlank()),
-                    () -> assertArrayEquals(oldFile, Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT))),
-                    () -> assertTrue(stagedNames().isEmpty()));
+                    () -> assertEquals(List.of(DISCARDED), kinds(recovered),
+                            "The incomplete staging should be discarded"),
+                    () -> assertEquals(transactionId, recovered.getFirst().transactionId(),
+                            "The discard should name the staged transaction"),
+                    () -> assertFalse(((PairRecovery.Discarded) recovered.getFirst()).reason().isBlank(),
+                            "The discard should state a reason"),
+                    () -> assertArrayEquals(oldFile, Files.readAllBytes(store.file(PROJECT)),
+                            "The old enrolment file should be untouched"),
+                    () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "The old sidecar should be untouched"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
             assertPairLogs(DISCARDED);
         }
 
@@ -950,14 +1071,18 @@ class EnrolmentStoreTest {
 
             var recovered = recover(PROJECT);
 
-            assertAll(
+            assertAll("a foreign staged sidecar should be discarded alone",
                     () -> assertEquals(List.of(new PairRecovery.Discarded(transactionId,
-                            List.of(staged(store.sidecar(PROJECT), transactionId)),
-                            ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered),
-                    () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT))),
-                    () -> assertFalse(consistent(PROJECT)),
-                    () -> assertTrue(stagedNames().isEmpty()));
+                                    List.of(staged(store.sidecar(PROJECT), transactionId)),
+                                    ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered,
+                            "The sidecar should be discarded for its transaction"),
+                    () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT)),
+                            "The replaced enrolment file should be kept"),
+                    () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT)),
+                            "The old sidecar should be kept"),
+                    () -> assertFalse(consistent(PROJECT),
+                            "The kept file and sidecar should not match"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
         }
 
         @Test
@@ -967,10 +1092,12 @@ class EnrolmentStoreTest {
 
             var recovered = recover(PROJECT);
 
-            assertAll(
-                    () -> assertEquals(List.of(DISCARDED), kinds(recovered)),
-                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                    () -> assertTrue(stagedNames().isEmpty()));
+            assertAll("a staged sidecar without its file should be discarded",
+                    () -> assertEquals(List.of(DISCARDED), kinds(recovered),
+                            "The orphan staging should be discarded"),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT)),
+                            "No sidecar should have been kept"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
         }
 
         @Test
@@ -981,9 +1108,11 @@ class EnrolmentStoreTest {
             var siblingContent = EnrolmentCodec.write(sibling);
             stage(PROJECT, projectContent, sidecarOf(newer).write(), Instant.now());
             var siblingStaged = stage(SIBLING, siblingContent, sidecarOf(sibling).write(), Instant.now());
-            var leftover = Files.writeString(store.directory().resolve(PROJECT + ".json.tmp." + UUID.randomUUID()),
-                    "{}");
-            var unrelated = Files.writeString(store.directory().resolve("notes.txt"), "x");
+            var leftover = Files.writeString(store.directory()
+                    .resolve(PROJECT + ".json.tmp." + Generators.letterStrings(8, 12).next()), "{}");
+            var unrelated = Files.writeString(
+                    store.directory().resolve(Generators.letterStrings(1, 8).next() + ".txt"),
+                    Generators.letterStrings(1, 8).next());
             var siblingNames = List.of(staged(store.file(SIBLING), siblingStaged).getFileName().toString(),
                     staged(store.sidecar(SIBLING), siblingStaged).getFileName().toString());
 
@@ -993,16 +1122,20 @@ class EnrolmentStoreTest {
             var namesAfterRemove = names();
             var siblingRecovered = recover(SIBLING);
 
-            assertAll(
-                    () -> assertEquals(List.of(COMPLETED), kinds(recovered)),
+            assertAll("a project's staged names should never claim its sibling's",
+                    () -> assertEquals(List.of(COMPLETED), kinds(recovered),
+                            "The project's staged pair should be completed"),
                     () -> assertTrue(namesAfterRecovery.containsAll(siblingNames), namesAfterRecovery::toString),
-                    () -> assertTrue(removed),
+                    () -> assertTrue(removed, "The project should be removed"),
                     () -> assertTrue(namesAfterRemove.containsAll(siblingNames), namesAfterRemove::toString),
-                    () -> assertEquals(List.of(COMPLETED), kinds(siblingRecovered)),
-                    () -> assertArrayEquals(siblingContent, Files.readAllBytes(store.file(SIBLING))),
-                    () -> assertTrue(Files.exists(leftover)),
-                    () -> assertTrue(Files.exists(unrelated)),
-                    () -> assertEquals(Set.of(SIBLING), store.projectIds()));
+                    () -> assertEquals(List.of(COMPLETED), kinds(siblingRecovered),
+                            "The sibling's staged pair should be completed"),
+                    () -> assertArrayEquals(siblingContent, Files.readAllBytes(store.file(SIBLING)),
+                            "The sibling file should hold its own enrolment"),
+                    () -> assertTrue(Files.exists(leftover), "The leftover name should be kept"),
+                    () -> assertTrue(Files.exists(unrelated), "The unrelated file should be kept"),
+                    () -> assertEquals(Set.of(SIBLING), store.projectIds(),
+                            "Only the sibling should remain enrolled"));
         }
 
         @Test
@@ -1017,13 +1150,16 @@ class EnrolmentStoreTest {
 
             var recovered = recover(PROJECT);
 
-            assertAll(
+            assertAll("several stopped writes should settle in transaction order",
                     () -> assertEquals(List.of(firstId, secondId),
-                            recovered.stream().map(PairRecovery::transactionId).toList()),
-                    () -> assertEquals(List.of(COMPLETED, COMPLETED), kinds(recovered)),
-                    () -> assertArrayEquals(EnrolmentCodec.write(second), Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertTrue(consistent(PROJECT)),
-                    () -> assertTrue(stagedNames().isEmpty()));
+                            recovered.stream().map(PairRecovery::transactionId).toList(),
+                            "The recoveries should be in ascending transaction order"),
+                    () -> assertEquals(List.of(COMPLETED, COMPLETED), kinds(recovered),
+                            "Both stagings should be completed"),
+                    () -> assertArrayEquals(EnrolmentCodec.write(second), Files.readAllBytes(store.file(PROJECT)),
+                            "The later enrolment should be in place"),
+                    () -> assertTrue(consistent(PROJECT), "The pair should be consistent"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
         }
 
         @Test
@@ -1034,10 +1170,11 @@ class EnrolmentStoreTest {
 
             write(store, old);
 
-            assertAll(
-                    () -> assertArrayEquals(EnrolmentCodec.write(old), Files.readAllBytes(store.file(PROJECT))),
-                    () -> assertTrue(consistent(PROJECT)),
-                    () -> assertTrue(stagedNames().isEmpty()));
+            assertAll("a write should settle its earlier stopped write first",
+                    () -> assertArrayEquals(EnrolmentCodec.write(old), Files.readAllBytes(store.file(PROJECT)),
+                            "The own pair should be the one in place"),
+                    () -> assertTrue(consistent(PROJECT), "The pair should be consistent"),
+                    () -> assertTrue(stagedNames().isEmpty(), "No staged name should remain"));
             assertPairLogs(COMPLETED);
         }
 
@@ -1054,14 +1191,14 @@ class EnrolmentStoreTest {
             var stagedOnly = stagedNames();
             var removedStagedOnly = remove(PROJECT);
 
-            assertAll(
-                    () -> assertTrue(removed),
+            assertAll("a removal should drop the staged leftovers",
+                    () -> assertTrue(removed, "The pair should be removed"),
                     () -> assertTrue(namesAfterRemove.isEmpty(), namesAfterRemove::toString),
-                    () -> assertTrue(recovered.isEmpty()),
-                    () -> assertEquals(2, stagedOnly.size()),
-                    () -> assertFalse(removedStagedOnly),
-                    () -> assertTrue(names().isEmpty()),
-                    () -> assertTrue(store.projectIds().isEmpty()));
+                    () -> assertTrue(recovered.isEmpty(), "Nothing should be left to recover"),
+                    () -> assertEquals(2, stagedOnly.size(), "The stopped write should leave two names"),
+                    () -> assertFalse(removedStagedOnly, "A staged-only project should not be removed"),
+                    () -> assertTrue(names().isEmpty(), "The directory should be empty"),
+                    () -> assertTrue(store.projectIds().isEmpty(), "No project should remain enrolled"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -1077,7 +1214,8 @@ class EnrolmentStoreTest {
                 default -> store;
             };
 
-            assertFalse(hasStagedWrite(enrolmentStore, PROJECT));
+            assertFalse(hasStagedWrite(enrolmentStore, PROJECT),
+                    "A project without a staged name has none");
         }
 
         @ParameterizedTest(name = "stopped after {0}")
@@ -1087,7 +1225,8 @@ class EnrolmentStoreTest {
             write(store, old);
             writeStopped(step, newer);
 
-            assertEquals(staged, hasStagedWrite(store, PROJECT));
+            assertEquals(staged, hasStagedWrite(store, PROJECT),
+                    "The staged-write answer should follow the step");
         }
 
         @ParameterizedTest(name = "stopped after {0}")
@@ -1096,10 +1235,11 @@ class EnrolmentStoreTest {
         void stagedFirstEnrolment(EnrolmentStore.PairStep step) {
             writeStopped(step, newer);
 
-            assertAll(
-                    () -> assertTrue(hasStagedWrite(store, PROJECT)),
-                    () -> assertFalse(exists(PROJECT)),
-                    () -> assertTrue(store.projectIds().isEmpty()));
+            assertAll("a stopped first enrolment should still be a staged write",
+                    () -> assertTrue(hasStagedWrite(store, PROJECT),
+                            "The staging should count as a staged write"),
+                    () -> assertFalse(exists(PROJECT), "No enrolment should exist yet"),
+                    () -> assertTrue(store.projectIds().isEmpty(), "No project should be listed"));
         }
 
         @ParameterizedTest(name = "stopped after {0}")
@@ -1116,11 +1256,11 @@ class EnrolmentStoreTest {
             remove(PROJECT);
             var stagedAfterRemoval = hasStagedWrite(store, PROJECT);
 
-            assertAll(
-                    () -> assertTrue(stagedBeforeRecovery),
-                    () -> assertFalse(stagedAfterRecovery),
-                    () -> assertTrue(stagedBeforeRemoval),
-                    () -> assertFalse(stagedAfterRemoval));
+            assertAll("a settled or dropped staging should leave no staged write",
+                    () -> assertTrue(stagedBeforeRecovery, "The stopped write should be staged before recovery"),
+                    () -> assertFalse(stagedAfterRecovery, "The recovery should settle the staging"),
+                    () -> assertTrue(stagedBeforeRemoval, "The stopped write should be staged before removal"),
+                    () -> assertFalse(stagedAfterRemoval, "The removal should drop the staging"));
         }
 
         @Test
@@ -1128,18 +1268,24 @@ class EnrolmentStoreTest {
         void stagedWriteIsolation() throws Exception {
             var sibling = enrolment(SIBLING, true);
             stage(SIBLING, EnrolmentCodec.write(sibling), sidecarOf(sibling).write(), Instant.now());
-            Files.writeString(store.directory().resolve(PROJECT + ".json.tmp." + UUID.randomUUID()), "{}");
-            Files.writeString(store.directory().resolve("unrelated.txt"), PROJECT);
+            Files.writeString(store.directory()
+                    .resolve(PROJECT + ".json.tmp." + Generators.letterStrings(8, 12).next()), "{}");
+            Files.writeString(
+                    store.directory().resolve(Generators.letterStrings(1, 8).next() + ".txt"), PROJECT);
             var projectWithSiblingStaged = hasStagedWrite(store, PROJECT);
             var siblingWithSiblingStaged = hasStagedWrite(store, SIBLING);
             remove(SIBLING);
             stage(PROJECT, EnrolmentCodec.write(newer), sidecarOf(newer).write(), Instant.now());
 
-            assertAll(
-                    () -> assertFalse(projectWithSiblingStaged),
-                    () -> assertTrue(siblingWithSiblingStaged),
-                    () -> assertFalse(hasStagedWrite(store, SIBLING)),
-                    () -> assertTrue(hasStagedWrite(store, PROJECT)));
+            assertAll("a staged write should belong to one project alone",
+                    () -> assertFalse(projectWithSiblingStaged,
+                            "The sibling's staging should not count for the project"),
+                    () -> assertTrue(siblingWithSiblingStaged,
+                            "The sibling's staging should count for the sibling"),
+                    () -> assertFalse(hasStagedWrite(store, SIBLING),
+                            "The removed sibling should have no staged write"),
+                    () -> assertTrue(hasStagedWrite(store, PROJECT),
+                            "The project's own staging should count"));
         }
 
         @Test
@@ -1151,23 +1297,28 @@ class EnrolmentStoreTest {
                 transaction.acquire(store.lockKey(SIBLING));
 
                 assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                        () -> store.hasStagedWrite(transaction, PROJECT)).reason());
+                                () -> store.hasStagedWrite(transaction, PROJECT),
+                                "The query without the lock should fail").reason(),
+                        "The staged-write query should be refused as a lock fault");
             }
-            assertTrue(hasStagedWrite(store, PROJECT));
+            assertTrue(hasStagedWrite(store, PROJECT),
+                    "The staging should survive the refused query");
         }
 
         @Test
         @DisplayName("a directory that cannot be listed fails the staged-write query naming the project")
         void stagedWriteUnlistable() throws Exception {
             var broken = Files.createDirectories(base.resolve(ELSEWHERE));
-            Files.writeString(broken.resolve(EnrolmentStore.DIRECTORY_NAME), "not a directory");
+            Files.writeString(broken.resolve(EnrolmentStore.DIRECTORY_NAME),
+                    Generators.letterStrings(5, 20).next());
             var unlistable = new EnrolmentStore(broken);
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(unlistable.lockKey(PROJECT));
 
                 var failure = assertThrows(UncheckedIOException.class,
-                        () -> unlistable.hasStagedWrite(transaction, PROJECT));
+                        () -> unlistable.hasStagedWrite(transaction, PROJECT),
+                        "A directory that cannot be listed should fail");
                 assertTrue(failure.getMessage().contains("'" + PROJECT + "'"), failure::getMessage);
             }
         }
@@ -1182,14 +1333,18 @@ class EnrolmentStoreTest {
                 transaction.acquire(store.lockKey(SIBLING));
 
                 assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                        () -> store.recoverPair(transaction, PROJECT)).reason());
+                                () -> store.recoverPair(transaction, PROJECT),
+                                "The recovery without the lock should fail").reason(),
+                        "The recovery should be refused as a lock fault");
             }
             var namesAfterRefusal = names();
             var recovered = recover(PROJECT);
 
-            assertAll(
-                    () -> assertEquals(before, namesAfterRefusal),
-                    () -> assertEquals(List.of(COMPLETED), kinds(recovered)));
+            assertAll("a refused recovery should leave the staging for the real one",
+                    () -> assertEquals(before, namesAfterRefusal,
+                            "The refused recovery should change no name"),
+                    () -> assertEquals(List.of(COMPLETED), kinds(recovered),
+                            "The recovery should then complete the staging"));
         }
 
         @Test
@@ -1199,18 +1354,21 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(elsewhere.lockKey(PROJECT));
 
-                assertTrue(elsewhere.recoverPair(transaction, PROJECT).isEmpty());
+                assertTrue(elsewhere.recoverPair(transaction, PROJECT).isEmpty(),
+                        "A store without its directory should recover nothing");
             }
         }
 
         @Test
         @DisplayName("the base is absolute and normalized, for a relative and an unnormalized argument")
         void baseIsAbsoluteAndNormalized() {
-            assertAll(
+            assertAll("the base should be absolute and normalized",
                     () -> assertEquals(Path.of("x").toAbsolutePath().normalize(),
-                            new EnrolmentStore(Path.of("relative/../x")).base()),
+                            new EnrolmentStore(Path.of("relative/../x")).base(),
+                            "A relative base should resolve against the working directory"),
                     () -> assertEquals(base.toAbsolutePath().normalize().resolve("b"),
-                            new EnrolmentStore(base.resolve("a/../b")).base()));
+                            new EnrolmentStore(base.resolve("a/../b")).base(),
+                            "A parent segment in the base should be normalized"));
         }
 
         /**
@@ -1300,7 +1458,8 @@ class EnrolmentStoreTest {
             void enrolmentFileOnlyForAFile(Leftover leftover) throws Exception {
                 var enrolmentStore = arrange(leftover);
 
-                assertEquals(leftover.enrolmentFile, hasEnrolmentFile(enrolmentStore, PROJECT));
+                assertEquals(leftover.enrolmentFile, hasEnrolmentFile(enrolmentStore, PROJECT),
+                        "The enrolment-file answer should follow the leftover");
             }
 
             @Test
@@ -1308,11 +1467,15 @@ class EnrolmentStoreTest {
             void orphanIsNoEnrolment() throws Exception {
                 interruptRemoval(PROJECT);
 
-                assertAll(
-                        () -> assertTrue(exists(PROJECT)),
-                        () -> assertFalse(hasEnrolmentFile(store, PROJECT)),
-                        () -> assertTrue(store.projectIds().isEmpty()),
-                        () -> assertEquals(Set.of(PROJECT), store.auditOwingProjectIds()));
+                assertAll("an orphan sidecar should be no enrolment",
+                        () -> assertTrue(exists(PROJECT),
+                                "The sidecar alone should count as existing"),
+                        () -> assertFalse(hasEnrolmentFile(store, PROJECT),
+                                "The orphan should not count as an enrolment file"),
+                        () -> assertTrue(store.projectIds().isEmpty(),
+                                "The project should not be listed as enrolled"),
+                        () -> assertEquals(Set.of(PROJECT), store.auditOwingProjectIds(),
+                                "The project should still owe its removal record"));
             }
 
             @Test
@@ -1327,11 +1490,13 @@ class EnrolmentStoreTest {
                 var removed = removeOrphanSidecar(PROJECT);
                 var removedAgain = removeOrphanSidecar(PROJECT);
 
-                assertAll(
-                        () -> assertTrue(removed),
-                        () -> assertFalse(removedAgain),
-                        () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
-                        () -> assertEquals(before, contents()));
+                assertAll("the orphan sidecar should be removed once alone",
+                        () -> assertTrue(removed, "The first removal should find the orphan"),
+                        () -> assertFalse(removedAgain, "The second removal should find nothing"),
+                        () -> assertFalse(Files.exists(store.sidecar(PROJECT)),
+                                "The orphan sidecar should be gone"),
+                        () -> assertEquals(before, contents(),
+                                "Every other file should be kept byte for byte"));
             }
 
             @Test
@@ -1342,9 +1507,10 @@ class EnrolmentStoreTest {
 
                 var removed = removeOrphanSidecar(PROJECT);
 
-                assertAll(
-                        () -> assertFalse(removed),
-                        () -> assertEquals(before, contents()));
+                assertAll("a sidecar beside its file should not be removed",
+                        () -> assertFalse(removed, "A complete pair should not be touched"),
+                        () -> assertEquals(before, contents(),
+                                "The pair should be left byte for byte"));
             }
 
             @Test
@@ -1359,13 +1525,17 @@ class EnrolmentStoreTest {
                 var projectKept = Files.exists(store.sidecar(PROJECT));
                 var removedForItself = removeOrphanSidecar(PROJECT);
 
-                assertAll(
-                        () -> assertFalse(removedForProject),
-                        () -> assertTrue(siblingKept),
-                        () -> assertTrue(removedForSibling),
-                        () -> assertFalse(Files.exists(store.sidecar(SIBLING))),
-                        () -> assertTrue(projectKept),
-                        () -> assertTrue(removedForItself));
+                assertAll("an orphan should never be removed for another project",
+                        () -> assertFalse(removedForProject,
+                                "The sibling's orphan should not be removed for the project"),
+                        () -> assertTrue(siblingKept, "The sibling's orphan should be kept"),
+                        () -> assertTrue(removedForSibling,
+                                "The sibling's orphan should be removed for the sibling"),
+                        () -> assertFalse(Files.exists(store.sidecar(SIBLING)),
+                                "The sibling's orphan should be gone"),
+                        () -> assertTrue(projectKept, "The project's orphan should be kept"),
+                        () -> assertTrue(removedForItself,
+                                "The project's orphan should be removed for itself"));
             }
 
             @Test
@@ -1377,20 +1547,25 @@ class EnrolmentStoreTest {
                 try (var transaction = locks.openTransaction()) {
                     transaction.acquire(store.lockKey(SIBLING));
 
-                    assertAll(
+                    assertAll("both queries should need the project's lock",
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                    () -> store.hasEnrolmentFile(transaction, PROJECT)).reason()),
+                                            () -> store.hasEnrolmentFile(transaction, PROJECT),
+                                            "The file query without the lock should fail").reason(),
+                                    "The file query should be refused as a lock fault"),
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                    () -> store.removeOrphanSidecar(transaction, PROJECT)).reason()));
+                                            () -> store.removeOrphanSidecar(transaction, PROJECT),
+                                            "The removal without the lock should fail").reason(),
+                                    "The removal should be refused as a lock fault"));
                 }
                 var unchanged = contents();
                 var enrolmentFile = hasEnrolmentFile(store, PROJECT);
                 var removed = removeOrphanSidecar(PROJECT);
 
-                assertAll(
-                        () -> assertEquals(before, unchanged),
-                        () -> assertFalse(enrolmentFile),
-                        () -> assertTrue(removed));
+                assertAll("a lock refusal should change nothing",
+                        () -> assertEquals(before, unchanged,
+                                "The directory should be unchanged"),
+                        () -> assertFalse(enrolmentFile, "The orphan should be no enrolment file"),
+                        () -> assertTrue(removed, "The orphan should then be removed"));
             }
 
             @Test
@@ -1406,13 +1581,14 @@ class EnrolmentStoreTest {
                     transaction.acquire(store.lockKey(PROJECT));
 
                     var failure = assertThrows(UncheckedIOException.class,
-                            () -> store.removeOrphanSidecar(transaction, PROJECT));
+                            () -> store.removeOrphanSidecar(transaction, PROJECT),
+                            "An undeletable sidecar should fail the removal");
                     assertTrue(failure.getMessage().contains("'" + PROJECT + "'"), failure::getMessage);
                 }
-                assertAll(
-                        () -> assertEquals(before, contents()),
-                        () -> assertEquals(namesBefore, names()),
-                        () -> assertTrue(Files.exists(kept)));
+                assertAll("a failed removal should change nothing",
+                        () -> assertEquals(before, contents(), "The directory should keep its bytes"),
+                        () -> assertEquals(namesBefore, names(), "The directory should keep its names"),
+                        () -> assertTrue(Files.exists(kept), "The blocking entry should be kept"));
             }
         }
     }

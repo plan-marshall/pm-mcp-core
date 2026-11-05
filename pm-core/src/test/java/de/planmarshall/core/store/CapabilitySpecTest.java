@@ -15,10 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.store.CapabilitySpec.Requirement;
 import de.planmarshall.core.store.CapabilitySpec.Scenario;
 
+@EnableGeneratorController
 @DisplayName("The capability spec and its index")
 class CapabilitySpecTest {
 
@@ -37,86 +41,104 @@ class CapabilitySpecTest {
         var first = requirement("round-trip", "plan-a", List.of("TestA.java"));
         var second = requirement("round-trip", "plan-b", List.of("TestB.java"));
 
-        assertEquals(first.fingerprint(), second.fingerprint());
-        assertEquals(64, first.fingerprint().length());
+        assertEquals(first.fingerprint(), second.fingerprint(),
+                "The fingerprint ignores the plan and the tests");
+        assertEquals(64, first.fingerprint().length(),
+                "The fingerprint is a 64-character digest");
     }
 
     @DisplayName("A requirement's fingerprint changes with its text, scenarios and name")
     @Test
     void fingerprintFollowsTheRequirement() {
         var base = requirement("round-trip", "plan-a", List.of());
-        var otherText = new Requirement(base.name(), base.text() + " and verify the rendering", base.scenarios(),
+        var otherText = new Requirement(base.name(),
+                base.text() + " and " + Generators.letterStrings(10, 20).next(), base.scenarios(),
                 base.planId(), base.verifiedBy());
-        var otherName = new Requirement("other-name", base.text(), base.scenarios(), base.planId(),
-                base.verifiedBy());
+        var otherName = new Requirement(
+                "other-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), base.text(),
+                base.scenarios(), base.planId(), base.verifiedBy());
 
-        assertNotEquals(base.fingerprint(), otherText.fingerprint());
-        assertNotEquals(base.fingerprint(), otherName.fingerprint());
+        assertNotEquals(base.fingerprint(), otherText.fingerprint(),
+                "A different text changes the fingerprint");
+        assertNotEquals(base.fingerprint(), otherName.fingerprint(),
+                "A different name changes the fingerprint");
     }
 
     @DisplayName("The index reads the capability specs of a tree and resolves their fingerprints")
     @Test
     void indexReadsTheCapabilities(@TempDir Path root) throws Exception {
-        write(root, "intent-record", "The plan's intent record");
+        write(root, "intent-record", Generators.letterStrings(20, 40).next());
         var index = CapabilityIndex.read(root);
 
-        assertTrue(index.capability("intent-record").isPresent());
-        assertTrue(index.fingerprint("intent-record", "round-trip").isPresent());
-        assertEquals(Optional.empty(), index.fingerprint("intent-record", "missing"));
-        assertEquals(Optional.empty(), index.fingerprint("missing", "round-trip"));
-        assertEquals(1, index.facts().size());
-        assertEquals(List.of("round-trip"), index.facts().getFirst().get("requirements"));
+        assertTrue(index.capability("intent-record").isPresent(),
+                "The index holds the capability of the tree");
+        assertTrue(index.fingerprint("intent-record", "round-trip").isPresent(),
+                "The index resolves the requirement's fingerprint");
+        assertEquals(Optional.empty(), index.fingerprint("intent-record", "missing"),
+                "An unknown requirement has no fingerprint");
+        assertEquals(Optional.empty(), index.fingerprint("missing", "round-trip"),
+                "An unknown capability has no fingerprint");
+        assertEquals(1, index.facts().size(),
+                "The index reports one capability fact");
+        assertEquals(List.of("round-trip"), index.facts().getFirst().get("requirements"),
+                "The fact names the requirement of the spec");
     }
 
     @DisplayName("The index of a tree without capability specs is empty")
     @Test
     void indexOfATreeWithoutCapabilities(@TempDir Path root) {
         var index = CapabilityIndex.read(root);
-        assertTrue(index.capabilities().isEmpty());
-        assertEquals(List.of(), index.facts());
+        assertTrue(index.capabilities().isEmpty(),
+                "A tree without specs holds no capability");
+        assertEquals(List.of(), index.facts(),
+                "A tree without specs reports no fact");
     }
 
     @DisplayName("A spec whose file name is not its capability is refused")
     @Test
     void refusesMismatchedFileName(@TempDir Path root) throws Exception {
-        write(root, "intent-record", "The plan's intent record");
+        write(root, "intent-record", Generators.letterStrings(20, 40).next());
         var file = root.resolve(".marshall/capabilities/intent-record.json");
         var other = file.resolveSibling("other.json");
         Files.move(file, other);
 
-        assertThrows(StoreRefusal.class, () -> CapabilityIndex.read(root));
+        assertThrows(StoreRefusal.class, () -> CapabilityIndex.read(root),
+                "A spec named unlike its capability is refused");
     }
 
     @DisplayName("The acceptance checks a capability change against the index")
     @Test
     void acceptanceChecksAgainstTheIndex(@TempDir Path root) throws Exception {
-        write(root, "intent-record", "The plan's intent record");
+        write(root, "intent-record", Generators.letterStrings(20, 40).next());
         var index = CapabilityIndex.read(root);
         var fingerprint = index.fingerprint("intent-record", "round-trip").orElseThrow();
 
         var added = withCapability(new IntentRecord.CapabilityLink("intent-record", "round-trip",
                 IntentRecord.CapabilityChange.ADDED, null));
         var refused = IntentAcceptance.accept(null, IntentSubmission.REFINE, revision(added), context(root, index));
-        assertTrue(((IntentAcceptance.Refused) refused).detail().contains("already exists"));
+        assertTrue(((IntentAcceptance.Refused) refused).detail().contains("already exists"),
+                "An added capability that already exists is refused");
 
         var modified = withCapability(new IntentRecord.CapabilityLink("intent-record", "round-trip",
                 IntentRecord.CapabilityChange.MODIFIED, fingerprint));
         assertInstanceOf(IntentAcceptance.Accepted.class, IntentAcceptance.accept(null, IntentSubmission.REFINE, revision(modified),
-                context(root, index)));
+                context(root, index)), "A modification with the stored fingerprint is accepted");
 
         var stale = withCapability(new IntentRecord.CapabilityLink("intent-record", "round-trip",
                 IntentRecord.CapabilityChange.MODIFIED, "b".repeat(64)));
         assertTrue(((IntentAcceptance.Refused) IntentAcceptance.accept(null, IntentSubmission.REFINE,
-                revision(stale), context(root, index))).detail().contains("tree holds"));
+                        revision(stale), context(root, index))).detail().contains("tree holds"),
+                "A modification with a stale fingerprint is refused");
     }
 
     @DisplayName("A spec round-trips through its codec")
     @Test
     void specRoundTrips() {
-        var spec = new CapabilitySpec("intent-record", "The plan's intent record and its revisions",
+        var purpose = "The plan's intent, its \"quotes\" & revisions " + Generators.letterStrings(10, 20).next();
+        var spec = new CapabilitySpec("intent-record", purpose,
                 List.of(requirement("round-trip", "plan-a", List.of("TestA.java"))));
         var reread = CapabilitySpec.read(Path.of("intent-record.json"), CapabilitySpec.write(spec));
-        assertEquals(spec, reread);
+        assertEquals(spec, reread, "The spec round-trips through its codec");
     }
 
     @DisplayName("A requirement's text is in EARS form")
@@ -125,13 +147,15 @@ class CapabilitySpecTest {
         var scenarios = List.of(scenario());
         List<String> verifiedBy = List.of();
         assertThrows(IllegalArgumentException.class,
-                () -> new Requirement("round-trip", "the record round-trips", scenarios, "plan-a", verifiedBy));
+                () -> new Requirement("round-trip", "the record round-trips", scenarios, "plan-a", verifiedBy),
+                "A requirement whose text is not EARS form is refused");
     }
 
     @DisplayName("A nested capability spec is read under its path name")
     @Test
     void indexReadsANestedCapability(@TempDir Path root) throws Exception {
-        var spec = new CapabilitySpec("http/headers", "The HTTP header parsing of the client",
+        var purpose = "HTTP headers, with \"quotes\" & spaces " + Generators.letterStrings(10, 20).next();
+        var spec = new CapabilitySpec("http/headers", purpose,
                 List.of(requirement("round-trip", "plan-a", List.of())));
         var directory = root.resolve(".marshall/capabilities/http");
         Files.createDirectories(directory);
@@ -139,16 +163,20 @@ class CapabilitySpecTest {
 
         var index = CapabilityIndex.read(root);
 
-        assertTrue(index.capability("http/headers").isPresent());
-        assertTrue(index.fingerprint("http/headers", "round-trip").isPresent());
+        assertTrue(index.capability("http/headers").isPresent(),
+                "The nested capability is indexed under its path");
+        assertTrue(index.fingerprint("http/headers", "round-trip").isPresent(),
+                "The nested spec resolves its fingerprint");
     }
 
     @DisplayName("The canonical JSON of a requirement sorts its object keys")
     @Test
     void canonicalJsonSortsKeys() {
         var canonical = CapabilitySpec.canonical(Map.of("text", "a", "name", "b"));
-        assertEquals("{\"name\":\"b\",\"text\":\"a\"}", canonical);
-        assertEquals("{}", CapabilitySpec.canonical(Map.of()));
+        assertEquals("{\"name\":\"b\",\"text\":\"a\"}", canonical,
+                "The canonical JSON sorts its object keys");
+        assertEquals("{}", CapabilitySpec.canonical(Map.of()),
+                "The canonical JSON of an empty map is empty");
     }
 
     private static void write(Path root, String capability, String purpose) throws IOException {
