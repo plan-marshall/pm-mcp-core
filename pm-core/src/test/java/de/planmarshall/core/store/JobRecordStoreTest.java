@@ -239,7 +239,7 @@ class JobRecordStoreTest {
 
             assertAll("each scope's job is written under its lock",
                     () -> assertEquals(List.of(LockKey.queue(base, project), LockKey.machineQueue(base),
-                            LockKey.onboardingEntry(base, entry)), locks.acquisitions(),
+                                    LockKey.onboardingEntry(base, entry)), locks.acquisitions(),
                             "each job takes the lock of its own scope"),
                     () -> assertTrue(Files.isRegularFile(machine.recordPath(probe.jobId())),
                             "the machine job has its record file"),

@@ -181,7 +181,7 @@ class LessonRevisionTest {
             assertAll(
                     "A revision without sources is refused",
                     () -> assertThrows(IllegalArgumentException.class, () -> run(write -> store.revise(write,
-                            lessonId, LessonFixtures.body(), List.of(), false, CLOCK.instant())),
+                                    lessonId, LessonFixtures.body(), List.of(), false, CLOCK.instant())),
                             "a revision without sources is refused"),
                     () -> assertEquals(Optional.of(lesson), store.get(lessonId) instanceof Found found
                             ? Optional.of(found.lesson()) : Optional.empty(), "the lesson is untouched"));

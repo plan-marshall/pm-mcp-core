@@ -468,7 +468,7 @@ class AuditLogTest {
             var records = records();
             assertAll("the repair follows the checkpoint",
                     () -> assertEquals(List.of("first", AuditRecord.EVENT_CHECKPOINT, AuditEvent.JSONL_TAIL_REPAIRED,
-                            "second"), records.stream().map(AuditRecord::event).toList(),
+                                    "second"), records.stream().map(AuditRecord::event).toList(),
                             "the repair sits after the checkpoint"),
                     () -> assertEquals(records.get(2), anchor.lastBefore,
                             "the anchor saw the repair record, not the checkpoint, as the last line"),

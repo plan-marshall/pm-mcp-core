@@ -849,7 +849,7 @@ class JournalRecoveryTest {
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome,
                             "the recovery applies no target"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                            plan, journal.transactionId().value(), List.of(STATUS)), owed), audit.events(),
+                                    plan, journal.transactionId().value(), List.of(STATUS)), owed), audit.events(),
                             "the roll-forward record precedes the owed record"),
                     () -> assertEquals(recordId, owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID),
                             "the re-delivered record keeps the id it was owed with"),

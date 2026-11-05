@@ -127,7 +127,7 @@ class CapabilitySpecTest {
         var stale = withCapability(new IntentRecord.CapabilityLink("intent-record", "round-trip",
                 IntentRecord.CapabilityChange.MODIFIED, "b".repeat(64)));
         assertTrue(((IntentAcceptance.Refused) IntentAcceptance.accept(null, IntentSubmission.REFINE,
-                revision(stale), context(root, index))).detail().contains("tree holds"),
+                        revision(stale), context(root, index))).detail().contains("tree holds"),
                 "A modification with a stale fingerprint is refused");
     }
 

@@ -202,7 +202,7 @@ class DigestSidecarTest {
             Files.writeString(file(), DOCUMENT);
 
             assertEquals(DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS, "pending/entry-1.json",
-                    PENDING)), DigestSidecar.load(file()),
+                            PENDING)), DigestSidecar.load(file()),
                     "The sidecar file is read as its document");
         }
 

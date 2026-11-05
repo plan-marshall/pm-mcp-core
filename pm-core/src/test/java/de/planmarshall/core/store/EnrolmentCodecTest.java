@@ -183,7 +183,7 @@ class EnrolmentCodecTest {
                     () -> assertEquals(List.of("level"), schema.required(),
                             "The required list should hold the one name"),
                     () -> assertEquals(List.of(new TextValue("fast"), new NumberValue(new BigDecimal("2.5")),
-                            new BooleanValue(true)), schema.properties().get("mode").enumValues(),
+                                    new BooleanValue(true)), schema.properties().get("mode").enumValues(),
                             "The enum should keep values of every scalar kind"),
                     () -> assertEquals(new BigDecimal("100"), schema.properties().get("limit").maximum(),
                             "The maximum should be read as its number"),
@@ -392,7 +392,7 @@ class EnrolmentCodecTest {
             var document = mutate(FULL, "{\"format_version\":1,", "{");
 
             assertEquals(Outcome.UNREADABLE, assertThrows(StoreRefusal.class, () -> read(document),
-                    "A document without a version should be refused").outcome(),
+                            "A document without a version should be refused").outcome(),
                     "The refusal should report an unreadable document");
         }
     }

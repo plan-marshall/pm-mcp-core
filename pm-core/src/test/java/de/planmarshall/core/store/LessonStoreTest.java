@@ -414,7 +414,7 @@ class LessonStoreTest {
             run(write -> store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK));
 
             assertThrows(IllegalArgumentException.class, () -> run(
-                    write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(), false, NOW)),
+                            write -> store.revise(write, lessonId, LessonFixtures.body(), List.of(), false, NOW)),
                     "a revision without sources is refused");
         }
 

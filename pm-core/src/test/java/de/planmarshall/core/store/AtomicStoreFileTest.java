@@ -235,7 +235,7 @@ class AtomicStoreFileTest {
                         () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
                                 "the refusal names the missing store lock"),
                         () -> assertEquals(Map.of("store", store.toString(), "lock",
-                                siblingKey.lockFile().toString()), fault.details(),
+                                        siblingKey.lockFile().toString()), fault.details(),
                                 "the details name the store and its lock"),
                         () -> assertArrayEquals(OLD, Files.readAllBytes(store),
                                 "the store stays byte-identical"),

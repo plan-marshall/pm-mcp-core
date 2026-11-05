@@ -160,7 +160,7 @@ class LeaseCodecTest {
             var holder = new HolderInstance(4711, Instant.parse("2026-10-09T08:15:30.123456Z"));
             var owner = new LeaseOwner("pm-mcp-core", ScopeType.PLAN, "lock-manager", holder, null);
             assertEquals(List.of(new LeaseRecord("plan-marshall/pm-mcp-core", owner,
-                    Instant.parse("2026-10-09T08:16:00Z"), Instant.parse("2026-10-09T09:16:00.500Z"))), leases,
+                            Instant.parse("2026-10-09T08:16:00Z"), Instant.parse("2026-10-09T09:16:00.500Z"))), leases,
                     "every field of the lease is read");
         }
 

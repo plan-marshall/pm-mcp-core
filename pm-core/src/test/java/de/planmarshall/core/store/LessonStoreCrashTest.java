@@ -401,7 +401,7 @@ class LessonStoreCrashTest {
             var outcome = withoutCommit(write -> store.release(write, lessonId, otherPlan));
 
             assertEquals(plan, assertInstanceOf(LessonResolution.Unavailable.class, outcome,
-                    "the outcome reports an unavailable state").claimingPlan(),
+                            "the outcome reports an unavailable state").claimingPlan(),
                     "the release is authorized by the durable claim alone");
         }
     }

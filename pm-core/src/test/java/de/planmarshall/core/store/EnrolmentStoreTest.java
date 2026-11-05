@@ -244,8 +244,8 @@ class EnrolmentStoreTest {
 
                 assertAll("every access should be refused without the project's lock",
                         () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                () -> store.write(transaction, enrolment, sidecar),
-                                "A write without the lock should fail").reason(),
+                                        () -> store.write(transaction, enrolment, sidecar),
+                                        "A write without the lock should fail").reason(),
                                 "A write should be refused as a lock fault"),
                         () -> assertThrows(InternalFaultException.class, () -> store.readFile(transaction, PROJECT),
                                 "A file read should be refused as a lock fault"),
@@ -708,8 +708,8 @@ class EnrolmentStoreTest {
 
                     assertAll("every audit access should need the project's lock",
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                    () -> store.oweAudit(transaction, PROJECT, written),
-                                    "Owing without the lock should fail").reason(),
+                                            () -> store.oweAudit(transaction, PROJECT, written),
+                                            "Owing without the lock should fail").reason(),
                                     "Owing a record should be refused as a lock fault"),
                             () -> assertThrows(InternalFaultException.class,
                                     () -> store.confirmAudit(transaction, PROJECT, written),
@@ -745,20 +745,20 @@ class EnrolmentStoreTest {
 
                     assertAll("an unreadable intent should refuse every access",
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.owedAudit(transaction, PROJECT),
-                                    "An unreadable intent should be refused").file(),
+                                            () -> store.owedAudit(transaction, PROJECT),
+                                            "An unreadable intent should be refused").file(),
                                     "Reading the owed records should name the intent file"),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.oweAudit(transaction, PROJECT, written),
-                                    "An unreadable intent should be refused").file(),
+                                            () -> store.oweAudit(transaction, PROJECT, written),
+                                            "An unreadable intent should be refused").file(),
                                     "Owing a record should name the intent file"),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.confirmAudit(transaction, PROJECT, written),
-                                    "An unreadable intent should be refused").file(),
+                                            () -> store.confirmAudit(transaction, PROJECT, written),
+                                            "An unreadable intent should be refused").file(),
                                     "Confirming a record should name the intent file"),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
-                                    () -> store.deliverOwedAudit(transaction, PROJECT, sink),
-                                    "An unreadable intent should be refused").file(),
+                                            () -> store.deliverOwedAudit(transaction, PROJECT, sink),
+                                            "An unreadable intent should be refused").file(),
                                     "Handing over should name the intent file"));
                 }
                 assertAll("a refused intent should be kept",
@@ -1073,8 +1073,8 @@ class EnrolmentStoreTest {
 
             assertAll("a foreign staged sidecar should be discarded alone",
                     () -> assertEquals(List.of(new PairRecovery.Discarded(transactionId,
-                            List.of(staged(store.sidecar(PROJECT), transactionId)),
-                            ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered,
+                                    List.of(staged(store.sidecar(PROJECT), transactionId)),
+                                    ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered,
                             "The sidecar should be discarded for its transaction"),
                     () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT)),
                             "The replaced enrolment file should be kept"),
@@ -1297,8 +1297,8 @@ class EnrolmentStoreTest {
                 transaction.acquire(store.lockKey(SIBLING));
 
                 assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                        () -> store.hasStagedWrite(transaction, PROJECT),
-                        "The query without the lock should fail").reason(),
+                                () -> store.hasStagedWrite(transaction, PROJECT),
+                                "The query without the lock should fail").reason(),
                         "The staged-write query should be refused as a lock fault");
             }
             assertTrue(hasStagedWrite(store, PROJECT),
@@ -1333,8 +1333,8 @@ class EnrolmentStoreTest {
                 transaction.acquire(store.lockKey(SIBLING));
 
                 assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                        () -> store.recoverPair(transaction, PROJECT),
-                        "The recovery without the lock should fail").reason(),
+                                () -> store.recoverPair(transaction, PROJECT),
+                                "The recovery without the lock should fail").reason(),
                         "The recovery should be refused as a lock fault");
             }
             var namesAfterRefusal = names();
@@ -1549,12 +1549,12 @@ class EnrolmentStoreTest {
 
                     assertAll("both queries should need the project's lock",
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                    () -> store.hasEnrolmentFile(transaction, PROJECT),
-                                    "The file query without the lock should fail").reason(),
+                                            () -> store.hasEnrolmentFile(transaction, PROJECT),
+                                            "The file query without the lock should fail").reason(),
                                     "The file query should be refused as a lock fault"),
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                    () -> store.removeOrphanSidecar(transaction, PROJECT),
-                                    "The removal without the lock should fail").reason(),
+                                            () -> store.removeOrphanSidecar(transaction, PROJECT),
+                                            "The removal without the lock should fail").reason(),
                                     "The removal should be refused as a lock fault"));
                 }
                 var unchanged = contents();
