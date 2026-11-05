@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_pytest_summary
+# The passing-dominant summary ordering the original reads.
+log ================ 40 passed, 2 failed, 1 skipped in 5.23s ================
+status SUCCESS
+success-marker true
+tests measured 40 2 1 43
+no-tests-ran false
+diagnostic-count 0

@@ -1,0 +1,26 @@
+deliberate: deliberate-pyproject-xdist-group
+# pytest-xdist appends `@<group>` to the node ids of xdist_group tests. The original matches the raw
+# summary id against the block header, which does not carry the suffix, so the block is never found
+# and the record degrades to the terse message with no line. This port strips the suffix before the
+# identity match (PM-WATCH-JOB-12).
+log ============================= FAILURES =============================
+log _________________________ test_concurrent _________________________
+log
+log     def test_concurrent():
+log >       assert append() == 1
+log test/test_log.py:10: in test_concurrent
+log     assert append() == 1
+log src/store.py:42: in append
+log     raise AssertionError("contended")
+log E       AssertionError: contended
+log
+log src/store.py:42: AssertionError
+log ==================== short test summary info ====================
+log FAILED test/test_log.py::test_concurrent@orchestrator_add_row_contention - AssertionError: contended
+log ==================== 1 failed, 3 passed in 1.20s ====================
+status FAILURE
+success-marker true
+tests measured 3 1 0 4
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR TEST_FAILURE src/store.py 42 - AssertionError: contended

@@ -99,5 +99,6 @@ guide, so a sibling port (the npm and Python parsers) can adopt them rather than
 
 Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-08-native-build-parsers-jvm`; specification
 `doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Build Output Parsers; watch items PM-WATCH-JOB-10 and
-PM-WATCH-JOB-18 (closed here and deleted from the watch document) and PM-WATCH-JOB-11 (still open for the npm and
-pyproject parsers); requirement `PM-TEST-2`.
+PM-WATCH-JOB-18 (closed here and deleted from the watch document), and the test-filter and pytest-xdist defects
+PM-WATCH-JOB-11 and PM-WATCH-JOB-12, which the six remaining parsers close (ADR `core-build/003`); requirement
+`PM-TEST-2`.

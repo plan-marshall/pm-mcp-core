@@ -28,12 +28,13 @@ import lombok.Builder;
  * the watch document).</li>
  * <li>{@link #noTestsRan()} is a verdict, not the complement of a count: it holds only when the build reported success,
  * the tool printed its own positive "no tests" marker, and the log carried no count line. A measured count of zero never
- * produces it (PM-WATCH-JOB-11). {@link #noTestsRanFrom} states that rule once; the canonical constructor checks the part of
+ * produces it. {@link #noTestsRanFrom} states that rule once; the canonical constructor checks the part of
  * it the other components can express — a successful, marked build with no count — because the marker itself is an input
  * of the parse, not a component of the result.</li>
  * </ul>
  *
- * @param diagnostics   the diagnostics in log order, never null
+ * @param diagnostics   the diagnostics in log order — or, for a log that several tools wrote, grouped by tool in the
+ *                      order the parser handles them — never null
  * @param status        the status derived from the tool's markers, never null
  * @param successMarker whether the tool printed its positive success marker
  * @param testCounts    the test counts, or {@code null} when the log carried none

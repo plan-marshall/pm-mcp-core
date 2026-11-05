@@ -1,0 +1,12 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_typescript_parse_log_returns_tuple test/plan-marshall/build-npm/test_npm_parsers.py::test_typescript_parse_log_extracts_errors test/plan-marshall/build-npm/test_npm_parsers.py::test_typescript_no_test_summary
+# The parenthesized form of the original's log fixture: three `path(line,col): error TSnnnn` lines,
+# each a compilation diagnostic carrying file, line, column and the TS code in the message.
+log-file npm-typescript-error-real.log
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 3
+diagnostic ERROR COMPILATION_ERROR packages/ui/src/components/Button.tsx 15 3 TS2741: Property 'onClick' is missing in type '{ children: string; }' but required in type 'ButtonProps'.
+diagnostic ERROR COMPILATION_ERROR packages/core/src/utils/validator.ts 42 10 TS2322: Type 'string | null' is not assignable to type 'string'.
+diagnostic ERROR COMPILATION_ERROR packages/core/src/index.ts 5 1 TS2307: Cannot find module './missing' or its corresponding type declarations.

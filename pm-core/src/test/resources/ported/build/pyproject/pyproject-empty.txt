@@ -1,0 +1,8 @@
+original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-pyproject/test_pyproject_cmd_parse.py::test_parse_empty_file
+# An empty log is one empty line: no tool marker, no diagnostic, no count.
+log
+status SUCCESS
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 0

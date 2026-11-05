@@ -1,0 +1,15 @@
+deliberate: deliberate-tap-zero-tests
+# A filter that matches nothing leaves TAP at `# tests 0`. That is a measured zero, not a
+# `no_tests_ran` verdict: TAP prints no positive "no tests" marker, and a zero count never produces
+# the verdict (PM-WATCH-JOB-11).
+log TAP version 13
+log 1..0
+log # tests 0
+log # pass 0
+log # fail 0
+log # skipped 0
+status SUCCESS
+success-marker false
+tests measured 0 0 0 0
+no-tests-ran false
+diagnostic-count 0
