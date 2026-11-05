@@ -1893,7 +1893,7 @@ class SubprocessJobRunnerTest {
             };
 
             assertThrows(IllegalArgumentException.class, () -> runner(new TerminationProtocol(
-                    ProcessGroupSignals.system()), environment(), (job, output) -> SUCCESS,
+                            ProcessGroupSignals.system()), environment(), (job, output) -> SUCCESS,
                     request -> Optional.empty(), null, Map.of(Name.METRICS_ROW, misnamed)));
         }
 
