@@ -990,9 +990,45 @@ Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/
 link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest],
 link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest]
 
+Implementation (the pull-request read `ci.pr-view` of the CI contract on the native variant: the pull request, a merge
+request on GitLab, in every state as a value, with its title and body, branches, head commit, head repository, the
+credential's push fact `headWritable` and the changed paths with their closed completeness, and the installation-token
+permission set of the GitHub read; the `Primitive` wrapper with its outcomes belongs to the assembly and is not
+implemented here):
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequest.java[PullRequest],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequestRef.java[PullRequestRef],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/ForgeUrl.java[ForgeUrl],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java[GitHubCiProvider],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubClient.java[GitHubClient],
+link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubOperation.java[GitHubOperation],
+link:../pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java[GitLabCiProvider],
+link:../pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabClient.java[GitLabClient]
+
+Verified by (the pull-request read):
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest]
+(every state as a value, the head of the base repository and of a fork with and without maintainer edits and push, a
+deleted head repository, an absent `push` member, `PAGE_CAP` and `PROVIDER_RESULT_CAP`, the refused reads, a rate limit,
+a malformed body, another origin, and the App's push fact read with the user access token),
+link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest]
+(the four GitLab states with `locked` as `CLOSED`, a same-project and a fork merge request with and without
+collaboration and Developer access, a source project GitLab no longer knows, `PAGE_CAP`, the refused reads, a rate
+limit, a malformed body and another origin),
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubOperationTest.java[GitHubOperationTest]
+(the permission set of `PULL_REQUEST_READ`),
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/PullRequestTest.java[PullRequestTest],
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest] (the
+pull-request reference of every forge's pull-request URL)
+
 Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide],
 link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide],
-link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014]
+link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014],
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc#pull-request-view[CI Provider Contract Developer Guide § The Pull-Request View],
+link:../pm-providers/pm-provider-github/doc/developer/provider-github.adoc#_the_pull_request_read[GitHub Developer Guide § The Pull-Request Read],
+link:../pm-providers/pm-provider-gitlab/doc/developer/provider-gitlab.adoc#_the_merge_request_read[GitLab Developer Guide § The Merge-Request Read],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[ADR provider-ci/007],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[ADR provider-ci/008],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
 
 == link:../../plan-marshall-documentation/doc/requirements/07-credentials.adoc[Credentials]
 
@@ -1100,9 +1136,20 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretReda
 link:../pm-core/src/test/java/de/planmarshall/core/build/UnparsedEvidenceTest.java[UnparsedEvidenceTest] (the tail bound, the redaction of a secret in the excerpt, and the resource URI),
 link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and a non-empty body are carried unchanged)
 
+Implementation (the pull-request read's share: the title and body of a pull request travel unvalidated, and the consumer
+`source-pr.store` runs the level-1 validator and the credential-shaped-text check over them before a model sees them;
+the contract says so and validates nothing):
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequest.java[PullRequest]
+
+Verified by (the pull-request read's share):
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest]
+and link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest]
+(the generated title and body are read unchanged)
+
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide] (§ Invariants and failure modes),
 link:../pm-core/doc/adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR core-queue/008],
-link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide] (§ Invariants and Failure Modes)
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide] (§ Invariants and Failure Modes),
+link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc#pull-request-view[CI Provider Contract Developer Guide § The Pull-Request View] (§ Text, Comments and the Issue Read)
 
 [#PM-SEC-2]
 === PM-SEC-2: Workspace Confinement & Path Traversal Prevention
@@ -1312,6 +1359,12 @@ link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/htt
 link:../pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/JsonTest.java[JsonTest],
 link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest] (the scopes and expiry read from the response headers),
 link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
+
+Verified by (the `Link` pagination with its page cap and the rate-limit outcome, used by the pull-request read):
+link:../pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/GitHubCiProviderTest.java[GitHubCiProviderTest]
+(the changed files of a pull request cut by the page cap, and a rate limit with its reset instant),
+link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/GitLabCiProviderTest.java[GitLabCiProviderTest]
+(the diffs of a merge request cut by the page cap, and a rate limit with its reset instant)
 
 Documentation: link:../pm-providers/pm-provider-http/doc/developer/provider-http.adoc[Developer Guide § The Shared HTTP Base (`provider.http`)], link:../pm-providers/pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[ADR provider-http/001], link:../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-http[Module Structure § `pm-provider-http`]
 
@@ -1665,7 +1718,19 @@ link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/Ci
 link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest],
 link:../pm-core/src/test/java/de/planmarshall/core/BuildGuardsIT.java[BuildGuardsIT]
 
-Documentation (the CI contract): link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide], link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014]
+Implementation (the pull-request read of the CI contract: the operation `ci.pr-view` with its own reference type and
+value, reached from a pull-request URL through `ForgeUrl.pullRequest()`; the adapters are traced with PM-EXEC-5):
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequest.java[PullRequest],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequestRef.java[PullRequestRef],
+link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/ForgeUrl.java[ForgeUrl]
+
+Verified by (the pull-request read of the CI contract):
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/PullRequestTest.java[PullRequestTest],
+link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest]
+
+Documentation (the CI contract): link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide], link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
 
 Verified by (the findings and code-analysis contracts): link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingTest.java[FindingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingScopeTest.java[FindingScopeTest],

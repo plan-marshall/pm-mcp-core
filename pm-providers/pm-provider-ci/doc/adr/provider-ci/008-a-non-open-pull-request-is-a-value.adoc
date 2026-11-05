@@ -1,0 +1,69 @@
+= ADR 008: A Non-Open Pull Request Is a Value
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-05.
+
+== Context
+
+`source-pr.observe` requires an open pull request and answers `pr_not_open` otherwise; `finalize.adopt-pr` re-observes
+the adopted pull request and answers `pr_not_open` with `state: closed | merged | absent` (State Catalogue 09
+§ `source-pr.observe`; Phase Workflows 01 § Plan Source Contracts, `pr`). Both consumers need to know which state the
+pull request is in, not only that it is not open.
+
+GitHub reports `state` `open` or `closed`, with `merged: true` for a merged pull request. GitLab reports `opened`,
+`closed`, `merged` and `locked`; `locked` is the state GitLab gives a merge request while it is being merged.
+
+The changed paths are read page by page with a page cap, and GitHub lists at most 3000 files for one pull request. A
+read can therefore end with fewer paths than the pull request changes, while the consumer stores the paths as the plan's
+`declared_files`.
+
+== Decision
+
+`ci.pr-view` returns a pull request in every state as `Result.Outcome.OK` with `PullRequest.State` `OPEN`, `CLOSED` or
+`MERGED`, and reads the changed paths and the head for every state the same way. `CiProvider.prView` names no failure
+for a state; the consumer maps a non-open state to its own outcome.
+
+GitLab `locked` maps to `CLOSED`. A locked merge request is not open for repair, and it is not merged until GitLab
+finishes the merge: `MERGED` would state a merge that has not happened, and `OPEN` would let a plan adopt a head that is
+being merged. `CLOSED` is the not-open state that claims no merge, and the next read reports `MERGED` once the merge
+lands. A state outside the four is `FAILED`.
+
+The completeness of the changed paths is the closed value `PullRequest.PathCompleteness`: `COMPLETE`, `PAGE_CAP` (the
+read stopped at its page cap) or `PROVIDER_RESULT_CAP` (every page was read, and the forge still listed fewer files than
+the pull request changes). An incomplete list is `OK` with its completeness, not a failure.
+
+== Alternatives Considered
+
+* *Answer a non-open pull request as `REJECTED` or `NOT_FOUND`.* The consumer would lose the state it reports with
+  `pr_not_open`, and `NOT_FOUND` would send the operator to a wrong diagnosis for a pull request that exists.
+* *Add a fourth state `LOCKED`.* No consumer distinguishes it, and every consumer would have to map it to the not-open
+  branch anyway.
+* *Answer an incomplete path list as `FAILED`.* A pull request with more files than the cap could never be read, though
+  its state and head are known; the consumer decides whether an incomplete list is enough for it.
+* *Report the completeness as a boolean.* It would not tell the page cap of the read from the result cap of the forge,
+  which need different remedies.
+
+== Consequences
+
+* A consumer maps `OK` with `CLOSED` or `MERGED` to `pr_not_open` with the state; `absent` is the consumer's name for
+  `NOT_FOUND` at the re-observation.
+* A consumer reads `pathCompleteness` before it stores the changed paths as `declared_files`; the length of the list is
+  never evidence that it is complete.
+* A GitLab merge request observed while locked reads `CLOSED`; a later read of the same merge request may read
+  `MERGED`.
+* A forge added later maps its own states onto the three and its own caps onto the completeness value.
+
+== Source
+
+* Work package: PLAN-V2-62 `ci-contract-pull-request-view` of the epic `pm-mcp-core-m2-m4-v2`.
+* Specification: State Catalogue 09 § `source-pr.observe`; Phase Workflows 01 § Plan Source Contracts (`pr`).
+* `pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequest.java`,
+  `pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java`,
+  `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubClient.java`,
+  `pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabClient.java`.

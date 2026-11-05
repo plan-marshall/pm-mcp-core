@@ -31,7 +31,9 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 |The operations of the review and merge path: `reviewThreads(owner, name, number)` (with `ReviewComment`,
 `ReviewThread`), `resolveReviewThread(threadId)`, `enqueue(pullRequestId, expectedHeadOid)` (with `MergeQueueEntry`) and
 `postComment(owner, name, number, body)`. The first three use fixed GraphQL documents shipped as resources; the comment
-uses REST. Every body travels in memory.
+uses REST. Every body travels in memory. The reads of the CI contract are REST too: `issue(owner, name, number)`
+(`IssuePayload`), and for the pull-request read `pullRequest(owner, name, number)` (`PullRequestPayload`,
+`HeadRepository`), `pullRequestFiles(owner, name, number)` and `canPush(owner, name)`.
 
 |link:{src}/InstallationTokens.java[`InstallationTokens`]
 |Mints GitHub App installation tokens through `POST /app/installations/{id}/access_tokens`, narrowed to one repository and
@@ -43,12 +45,13 @@ keyed by installation, repository and permission set, until `REUSE_MARGIN_SECOND
 
 |link:{src}/GitHubOperation.java[`GitHubOperation`]
 |The operation classes, each with the narrowest repository permission set an installation token is minted with. The
-constants and their permission sets are `GitHubOperation`'s source; this guide does not repeat them.
+constants and their permission sets are `GitHubOperation`'s source; this guide names only the set of the pull-request
+read, `PULL_REQUEST_READ`, because the read's `headWritable` rule depends on it.
 
 |link:{src}/GitHubCiProvider.java[`GitHubCiProvider`]
 |The adapter of the CI contract: `ci.whoami` (a personal access token's kind from its prefix and its expiry and scopes
 from the response headers; a GitHub App's bot identity beside the operator login), `ci.issue-view` (a pull request is
-refused) and `ci.issue-comment`.
+refused), `ci.issue-comment` and `ci.pr-view` (<<_the_pull_request_read>>).
 |===
 
 == Authentication
@@ -77,7 +80,10 @@ operations with different permission sets.
 * *A rate limit is an outcome.* The base reports `RATE_LIMITED` with its reset instant; the client never waits inside a
   call.
 * *An incomplete read is not the full set.* The review-thread read follows the GraphQL page info with a page cap
-  (`MAX_THREAD_PAGES`, 20); an incomplete read is an outcome the caller can see, never a silently short list.
+  (`MAX_THREAD_PAGES`, 20), and the changed-files read the `Link` pagination with its cap (`MAX_FILE_PAGES`, 30); an
+  incomplete read is an outcome the caller can see, never a silently short list.
+* *A pull request in any state is read the same way.* A closed or merged pull request is `OK` with its state, and a
+  pull request on another origin or forge is refused before a request is sent.
 * *The merge queue is bound to the head.* `enqueue` sends the expected head oid, so a queue entry cannot be created for a
   head the caller did not review.
 * *Remote text is untrusted.* A comment body and an author login are data; a caller that emits or persists them passes a
@@ -104,6 +110,50 @@ JWT, the bot user id from `GET /users/{slug}[bot]` and the operator's login from
 `GitHubClient.postComment` and derives the comment URL. An issue on another origin or of another forge is refused before
 a request is sent.
 
+[#_the_pull_request_read]
+=== The Pull-Request Read
+
+`prView` refuses a pull request on another origin or of another forge with `REJECTED` before a request is sent. It then
+makes up to three REST reads, the same for every state of the pull request:
+
+. `GET /repos/{owner}/{repo}/pulls/{n}` (`GitHubClient.pullRequest`): the state, title, body, base ref, head ref, head
+  commit, head repository (`head.repo`, owner and name), `maintainer_can_modify` and `changed_files`. `closed` with
+  `merged: true` is `MERGED`, `closed` otherwise `CLOSED`, `open` `OPEN`; a state outside these, or a body without the
+  state, title, base ref, head ref, head commit or changed-file count, is `FAILED`. An issue number is answered `404` by
+  GitHub and is `NOT_FOUND`. The head is a fork when its repository is another than the base's (`base.repo.full_name`).
+. `GET /repos/{owner}/{repo}/pulls/{n}/files?per_page=100` (`GitHubClient.pullRequestFiles`): the `filename` of each
+  changed file, through the `Link` pagination of the shared base. A page that is not a JSON array is `FAILED`.
+. `GET /repos/{owner}/{repo}` (`GitHubClient.canPush`): the `permissions.push` member of the repository the head is
+  writable by, read only when it decides the answer.
+
+*The two caps of the changed paths.* The read stops after `MAX_FILE_PAGES` (30) pages of 100 files; a list the page cap
+(or a next link outside the origin) cut is `PAGE_CAP`. GitHub itself lists at most 3000 files for one pull request, which
+the 30 pages reach; a list read to its last page that is still shorter than `changed_files` is `PROVIDER_RESULT_CAP`.
+Every other list is `COMPLETE`.
+
+*`headWritable` per head kind.*
+
+* A head in the base repository is writable when `permissions.push` of that repository is `true`.
+* A fork head is writable when the author allows maintainer edits (`maintainer_can_modify`) and `permissions.push` of
+  the base repository is `true`; without maintainer edits it is not writable, and no permission read is sent.
+* A head repository GitHub no longer knows (`head.repo` is `null`, a deleted fork) is not writable, the head repository is
+  absent, and no permission read is sent.
+* An absent `permissions.push` member reads as not writable.
+
+*`headWritable` per credential kind.* The `push` fact is read with the credential that authors the writes: a token
+provider (`forToken`) with its own token, a GitHub App provider (`forApp`) with the operator's user access token, not
+with the installation token that reads the pull request and its files. The installation token's own `permissions`
+member therefore never decides the answer
+(link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[`provider.ci` ADR
+007]).
+
+*The permission set.* An installation token for the pull-request read is minted for `GitHubOperation.PULL_REQUEST_READ`:
+`pull_requests: read`, `contents: read` and `metadata: read`, the pull request, its files and the repository the
+permission fact is read from.
+
+A refused read (a `404`, a `403`, a `401` or a `5xx`) on any of the three is mapped to its outcome by the shared base, and
+a rate limit is `RATE_LIMITED` with its reset instant; nothing is read after a refused read.
+
 == Extending the Client
 
 . Add the operation to `GitHubOperation` with the narrowest permission set it needs.
@@ -121,7 +171,12 @@ link:{test}/GitHubClientTest.java[`GitHubClientTest`]:: each GraphQL operation w
 result, the REST comment, the App identity and the issue read, and an error status mapped to its outcome.
 link:{test}/GitHubCiProviderTest.java[`GitHubCiProviderTest`]:: the personal access token and the App identity, the issue
 read with its structured fields, a pull request number, an anonymous private issue, a rate limit with its reset instant, a
-`403`, a `404`, a malformed body and an issue on another origin.
+`403`, a `404`, a malformed body and an issue on another origin; and the pull-request read: an open pull request of the
+base repository, every state as a value, a fork head with and without maintainer edits and push, a deleted head
+repository, an absent `push` member, the page cap (`PAGE_CAP`) and a list shorter than `changed_files`
+(`PROVIDER_RESULT_CAP`), a refused read of the pull request, its files and the permission, a rate limit with its reset
+instant, a malformed pull-request body and files page, a pull request on another origin or forge, and the App
+provider's `push` read with the user access token.
 link:{test}/InstallationTokensTest.java[`InstallationTokensTest`]:: a mint with a fresh JWT, reuse until the margin, a
 fresh mint after it, the key read per mint, the redaction registration, and a failed mint.
 link:{test}/GitHubAppJwtTest.java[`GitHubAppJwtTest`]:: the JWT header and claims, the RS256 signature verified with the
@@ -151,5 +206,7 @@ comment-endpoint rule.
 * Decisions: link:../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[`provider.http` ADR 001],
   link:../../../pm-provider-ci/doc/adr/provider-ci/003-the-app-identity-carries-both-identities.adoc[`provider.ci` ADR 003],
   link:../../../pm-provider-ci/doc/adr/provider-ci/004-a-pull-request-is-no-issue.adoc[`provider.ci` ADR 004],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[`provider.ci` ADR 007],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[`provider.ci` ADR 008],
   link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002],
   link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]
