@@ -32,7 +32,6 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  */
 @EnableGeneratorController
 @DisplayName("Scoring")
-@EnableGeneratorController
 class ScoringTest {
 
     @Test
