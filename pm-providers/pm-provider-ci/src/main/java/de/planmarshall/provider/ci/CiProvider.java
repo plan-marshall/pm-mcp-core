@@ -20,8 +20,18 @@ import org.jspecify.annotations.Nullable;
  * {@link Result.Outcome#REJECTED} with the provider's reason, kept apart from {@link Result.Outcome#AUTH_FAILED} and
  * {@link Result.Outcome#PERMISSION_DENIED} (a credential refusal), {@link Result.Outcome#NOT_FOUND},
  * {@link Result.Outcome#RATE_LIMITED} with its reset instant, and {@link Result.Outcome#FAILED} (no usable answer).
- * A provider is bound to one origin and one credential; an issue, or a repository named to {@code whoami}, that is on
- * another origin (or of another forge) is refused as {@link Result.Outcome#REJECTED} before anything is sent.
+ * A provider is bound to one origin and one credential; an issue, a pull request, or a repository named to
+ * {@code whoami}, that is on another origin (or of another forge) is refused as {@link Result.Outcome#REJECTED} before
+ * anything is sent.
+ * <p>
+ * The operations are:
+ * <ul>
+ * <li>{@code ci.whoami} ({@link #whoami(RepositoryRef)}): the identity of the credential;</li>
+ * <li>{@code ci.issue-view} ({@link #issueView(IssueRef)}): one issue; it keeps its guard that a number naming a pull
+ * request is not read as an issue, and {@link #prView(PullRequestRef)} is the read for a pull request;</li>
+ * <li>{@code ci.issue-comment} ({@link #issueComment(IssueRef, String)}): one comment on an issue;</li>
+ * <li>{@code ci.pr-view} ({@link #prView(PullRequestRef)}): one pull request (a merge request on GitLab).</li>
+ * </ul>
  *
  * @since 0.1
  */
@@ -61,4 +71,18 @@ public interface CiProvider {
      * @return the posted comment; {@code REJECTED} when the issue is on another origin
      */
     Result<IssueComment> issueComment(IssueRef issue, String body);
+
+    /**
+     * The operation {@code ci.pr-view}: one pull request (a merge request on GitLab) by its reference.
+     * <p>
+     * A pull request that is not open is a value, not a refusal: a closed or merged pull request is
+     * {@link Result.Outcome#OK} with its {@link PullRequest#state() state}. A changed-path list the forge cut short is
+     * reported by the {@link PullRequest#pathCompleteness() completeness value}, never presented as the whole list.
+     *
+     * @param pullRequest the pull request
+     * @return the pull request; {@code NOT_FOUND} when no pull request has the number, including when the number
+     *         names an issue; {@code REJECTED} when the pull request is on another origin or of another forge, before
+     *         anything is sent
+     */
+    Result<PullRequest> prView(PullRequestRef pullRequest);
 }
