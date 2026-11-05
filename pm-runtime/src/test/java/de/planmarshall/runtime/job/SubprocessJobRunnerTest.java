@@ -1891,9 +1891,10 @@ class SubprocessJobRunnerTest {
             };
 
             var termination = new TerminationProtocol(ProcessGroupSignals.system());
+            var env = environment();
             Map<Name, SettlementStep> steps = Map.of(Name.METRICS_ROW, misnamed);
 
-            assertThrows(IllegalArgumentException.class, () -> runner(termination, environment(),
+            assertThrows(IllegalArgumentException.class, () -> runner(termination, env,
                     (job, output) -> SUCCESS, request -> Optional.empty(), null, steps));
         }
 
