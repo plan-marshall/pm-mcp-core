@@ -9,9 +9,11 @@
  */
 package de.planmarshall.provider.gitlab;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -219,6 +221,44 @@ class GitLabClientTest {
             assertEquals(Result.Outcome.FAILED, client.reply(12, "d9", "x").outcome());
             assertEquals(Result.Outcome.NOT_FOUND, client.reply(12, "zz", "x").outcome());
             assertEquals(Result.Outcome.NOT_FOUND, client.resolve(12, "zz").outcome());
+        }
+    }
+
+    @Nested
+    @DisplayName("issues")
+    class Issues {
+
+        @Test
+        @DisplayName("reads issue 12 and treats a blank milestone title as absent")
+        void readsIssue() {
+            on("GET", "/api/v4/projects/group%2Fproject/issues/12", json(200, "{\"title\":\"A title\","
+                    + "\"description\":\"A body\",\"state\":\"opened\","
+                    + "\"web_url\":\"https://gitlab.com/group/project/-/issues/12\",\"labels\":[\"bug\"],"
+                    + "\"milestone\":{\"title\":\" \"},\"assignees\":[{\"username\":\"alice\"}]}"));
+
+            var issue = client.issue(12).value().orElseThrow();
+
+            assertAll("the issue 12 fields",
+                    () -> assertEquals("A title", issue.title(), "the issue title is read"),
+                    () -> assertEquals("A body", issue.body(), "the issue body is read"),
+                    () -> assertEquals(List.of("bug"), issue.labels(), "the issue labels are read"),
+                    () -> assertNull(issue.milestone(), "a blank milestone title is no milestone"),
+                    () -> assertEquals(List.of("alice"), issue.assignees(), "the assignees are read"),
+                    () -> assertEquals("opened", issue.state(), "the issue state is read"),
+                    () -> assertEquals("https://gitlab.com/group/project/-/issues/12", issue.url(),
+                            "the issue web URL is read"));
+        }
+
+        @Test
+        @DisplayName("posts a comment on issue 12 through the notes endpoint")
+        void postsIssueComment() {
+            on("POST", "/api/v4/projects/group%2Fproject/issues/12/notes", json(201, "{\"id\":9001}"));
+
+            var result = client.issueComment(12, "A comment");
+
+            assertEquals(Optional.of("9001"), result.value(), "the posted note id is read");
+            assertEquals(Optional.of("A comment"), Json.string(body(0), "body"),
+                    "the comment body travels in memory");
         }
     }
 

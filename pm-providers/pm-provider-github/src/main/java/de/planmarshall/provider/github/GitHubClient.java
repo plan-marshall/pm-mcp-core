@@ -257,7 +257,8 @@ public final class GitHubClient {
         var assignees = Json.list(json, "assignees").stream().map(assignee -> Json.string(assignee, "login"))
                 .flatMap(Optional::stream).toList();
         var issue = Issue.builder().title(title.get()).body(Json.string(json, "body").orElse(""))
-                .labels(labels).milestone(Json.string(json, "milestone", "title").orElse(null))
+                .labels(labels)
+                .milestone(Json.string(json, "milestone", "title").filter(value -> !value.isBlank()).orElse(null))
                 .assignees(assignees).state(state.get()).url(url.get()).build();
         return Result.ok(new IssuePayload(issue, Json.at(json, "pull_request").isPresent()));
     }

@@ -47,8 +47,9 @@ public interface CiProvider {
      * The operation {@code ci.issue-view}: one issue by its reference.
      *
      * @param issue the issue
-     * @return the issue; {@code REJECTED} "is a pull request" when the number names a pull request, and
-     *         {@code REJECTED} when the issue is on another origin
+     * @return the issue; GitHub answers {@code REJECTED} "is a pull request" when the number names a pull request,
+     *         and GitLab answers {@code NOT_FOUND} when no issue exists, including when a merge request has that
+     *         number; {@code REJECTED} when the issue is on another origin
      */
     Result<Issue> issueView(IssueRef issue);
 

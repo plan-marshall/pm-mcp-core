@@ -250,7 +250,8 @@ public final class GitLabClient {
         var assignees = Json.list(json, "assignees").stream().map(assignee -> Json.string(assignee, "username"))
                 .flatMap(Optional::stream).toList();
         return Result.ok(Issue.builder().title(title.get()).body(Json.string(json, "description").orElse(""))
-                .labels(labels).milestone(Json.string(json, "milestone", "title").orElse(null))
+                .labels(labels)
+                .milestone(Json.string(json, "milestone", "title").filter(value -> !value.isBlank()).orElse(null))
                 .assignees(assignees).state(state.get()).url(url.get()).build());
     }
 
