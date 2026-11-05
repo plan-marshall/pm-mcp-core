@@ -2,10 +2,10 @@
   "id": "PLAN-V2-112",
   "slug": "main-green-reliability-bugs",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-112-main-green-reliability-bugs",
+  "pr": "#293",
+  "landing": "landings/PLAN-V2-112.md",
   "seq": 100
 }

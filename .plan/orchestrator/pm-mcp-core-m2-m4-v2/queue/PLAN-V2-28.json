@@ -2,10 +2,10 @@
   "id": "PLAN-V2-28",
   "slug": "native-build-parsers-npm-and-python",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-28-native-build-parsers-npm-and-python",
+  "pr": "#285",
+  "landing": "landings/PLAN-V2-28.md",
   "seq": 28
 }
