@@ -110,8 +110,9 @@ class AnswersTest {
         var answers = Answers.empty().plus(fact(askedQuestionId, askedTaskId)).plus(retried);
 
         assertAll(
-                () -> assertEquals(1, answers.rows().size()),
-                () -> assertEquals(retried.cells(), answers.rows().getFirst()));
+                () -> assertEquals(1, answers.rows().size(), "A retry keeps one answer row"),
+                () -> assertEquals(retried.cells(), answers.rows().getFirst(),
+                        "A retry keeps the retried answer cells"));
     }
 
     @Test

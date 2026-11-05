@@ -516,7 +516,7 @@ class DeclarationBoundsTest {
                 () -> assertFalse(range.admits(foreignEnum)),
                 () -> assertTrue(kind.describe().startsWith("enum[interpretation|")),
                 () -> assertFalse(kind.admits(new CallValue.IntValue(1))),
-                () -> assertFalse(kind.admits(admittedList)),
+                () -> assertFalse(kind.admits(admittedList), "a list of decision kinds is not a decision kind"),
                 () -> assertFalse(kind.admits(foreignList)));
     }
 
