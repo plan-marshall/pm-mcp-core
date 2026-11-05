@@ -111,7 +111,7 @@ class DerivedFactsCodecTest {
     void documentRoundTrips() {
         var document = GOLDEN.getBytes(UTF_8);
 
-        assertAll(
+        assertAll("The document round-trips",
                 () -> assertEquals(store(), read(GOLDEN), "The golden document reads into the store"),
                 () -> assertEquals(store(), DerivedFactsCodec.read(FILE, DerivedFactsCodec.write(store())),
                         "read(write(x)) is x"),
@@ -132,7 +132,7 @@ class DerivedFactsCodecTest {
 
         var written = new String(DerivedFactsCodec.write(read(exponentSpelled)), UTF_8);
 
-        assertAll(
+        assertAll("A number is written canonically once",
                 () -> assertEquals(canonical, written, "The writer states the canonical spelling"),
                 () -> assertEquals(canonical, new String(DerivedFactsCodec.write(read(canonical)), UTF_8),
                         "The canonical spelling is written again unchanged"));
@@ -143,7 +143,7 @@ class DerivedFactsCodecTest {
     void emptyStoreAndAbsentFailureRoundTrip() {
         var withoutFailure = MINIMAL.replace(",\"failure\":null", "");
 
-        assertAll(
+        assertAll("The empty store and an absent failure round-trip",
                 () -> assertEquals(DerivedFacts.empty(), read("{\"format_version\":1,\"facts\":{}}"),
                         "The empty store round-trips"),
                 () -> assertEquals(read(MINIMAL), read(withoutFailure),
@@ -162,7 +162,7 @@ class DerivedFactsCodecTest {
 
         var fact = read(document).fact(new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null)).orElseThrow();
 
-        assertAll(
+        assertAll("A failed entry with a generated reason round-trips",
                 () -> assertEquals(DerivedFact.State.FAILED, fact.state(), "The entry is failed"),
                 () -> assertEquals(reason, fact.failure().reason(), "The failure reason round-trips"),
                 () -> assertEquals(document, new String(DerivedFactsCodec.write(read(document)), UTF_8),
@@ -180,7 +180,7 @@ class DerivedFactsCodecTest {
     @Test
     @DisplayName("an unknown member of the document or of an entry is refused")
     void unknownMemberIsRefused() {
-        assertAll(
+        assertAll("An unknown member is refused",
                 () -> assertEquals(Outcome.UNREADABLE,
                         refused(MINIMAL.replace("\"facts\":{", "\"extra\":1,\"facts\":{")).outcome(),
                         "An unknown document member is refused"),
@@ -201,7 +201,7 @@ class DerivedFactsCodecTest {
     @Test
     @DisplayName("a missing required member is refused")
     void missingRequiredMemberIsRefused() {
-        assertAll(
+        assertAll("A missing required member is refused",
                 () -> assertEquals(Outcome.UNREADABLE,
                         refused(MINIMAL.replace(",\"state\":\"current\"", "")).outcome(),
                         "A missing entry member is refused"),
@@ -213,7 +213,7 @@ class DerivedFactsCodecTest {
     @Test
     @DisplayName("a key outside the grammar or with a kind unlike its entry is refused")
     void keyRefusals() {
-        assertAll(
+        assertAll("A key outside the grammar is refused",
                 () -> assertEquals(Outcome.UNREADABLE,
                         refused(MINIMAL.replace("\"module_discovery\":{", "\"Bad\":{")).outcome(),
                         "A key outside the grammar is refused"),
@@ -229,7 +229,7 @@ class DerivedFactsCodecTest {
     @Test
     @DisplayName("a bad digest, an offset instant and a reason of 501 code points are refused")
     void valueBoundsAreRefused() {
-        assertAll(
+        assertAll("A value outside its bound is refused",
                 () -> assertEquals(Outcome.UNREADABLE,
                         refused(MINIMAL.replace(DIGEST_A, DIGEST_A.substring(1))).outcome(),
                         "A digest of 63 digits is refused"),
@@ -244,7 +244,7 @@ class DerivedFactsCodecTest {
     @Test
     @DisplayName("a value or a failure outside the state's shape is refused")
     void stateShapesAreRefused() {
-        assertAll(
+        assertAll("A value outside the state's shape is refused",
                 () -> assertEquals(Outcome.UNREADABLE,
                         refused(MINIMAL.replace("\"value\":{}", "\"value\":null")).outcome(),
                         "A current entry without a value is refused"),
@@ -259,7 +259,7 @@ class DerivedFactsCodecTest {
     @Test
     @DisplayName("content after the document and an undeclared source class are refused")
     void trailingContentAndClosedValuesAreRefused() {
-        assertAll(
+        assertAll("Trailing content and closed values are refused",
                 () -> assertEquals(Outcome.UNREADABLE, refused(MINIMAL + "{}").outcome(),
                         "Content after the document is refused"),
                 () -> assertEquals(Outcome.UNREADABLE,

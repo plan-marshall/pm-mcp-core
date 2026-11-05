@@ -39,7 +39,7 @@ class DerivedFactKeyTest {
     void keyWithoutQualifierRoundTrips() {
         var key = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
 
-        assertAll(
+        assertAll("A key without a qualifier round-trips",
                 () -> assertEquals("module_discovery", key.wireName(), "The wire form is the kind alone"),
                 () -> assertEquals(Optional.of(key), DerivedFactKey.fromWireName(key.wireName()),
                         "The key reads back from its wire form"),
@@ -52,7 +52,7 @@ class DerivedFactKeyTest {
         var qualifier = qualifier();
         var key = new DerivedFactKey(DerivedFactKind.DOMAIN_ACTIVATION, qualifier);
 
-        assertAll(
+        assertAll("A qualified key round-trips",
                 () -> assertEquals("domain_activation:" + qualifier, key.wireName(),
                         "The wire form is kind:qualifier"),
                 () -> assertEquals(Optional.of(key), DerivedFactKey.fromWireName(key.wireName()),
@@ -64,7 +64,7 @@ class DerivedFactKeyTest {
     void unknownKindPartIsRefused() {
         var unknown = "not_a_kind_" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
-        assertAll(
+        assertAll("An unknown kind part is refused",
                 () -> assertEquals(Optional.empty(), DerivedFactKey.fromWireName(unknown),
                         "A bare unknown kind part is refused"),
                 () -> assertEquals(Optional.empty(), DerivedFactKey.fromWireName(unknown + ":" + qualifier()),
@@ -76,7 +76,7 @@ class DerivedFactKeyTest {
     void wireFormOutsideGrammarIsRefused() {
         var longQualifier = Generators.letterStrings(129, 140).next();
 
-        assertAll(
+        assertAll("A wire form outside the grammar is refused",
                 () -> assertEquals(Optional.empty(), DerivedFactKey.fromWireName(""),
                         "The empty wire form is refused"),
                 () -> assertEquals(Optional.empty(), DerivedFactKey.fromWireName("Module_discovery"),
@@ -95,7 +95,7 @@ class DerivedFactKeyTest {
         var kind = DerivedFactKind.ACTIVE_PROFILES;
         var longQualifier = Generators.letterStrings(129, 140).next();
 
-        assertAll(
+        assertAll("A qualifier outside the grammar is refused",
                 () -> assertThrows(IllegalArgumentException.class, () -> new DerivedFactKey(kind, ""),
                         "An empty qualifier is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new DerivedFactKey(kind, "a b"),

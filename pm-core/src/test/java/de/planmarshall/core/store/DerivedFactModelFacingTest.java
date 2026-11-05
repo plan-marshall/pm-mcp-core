@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,35 +45,37 @@ class DerivedFactModelFacingTest {
     private static final Instant NOW = Instant.parse("2026-10-29T12:00:00Z");
     private static final String PROJECT = "pm-mcp-core";
     private static final DerivedFactKey IDENTITY = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY, null);
-    private static final DerivedFactKey QUALIFIED_IDENTITY = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY, "app");
     private static final DerivedFactKey PUSH_REMOTE = new DerivedFactKey(DerivedFactKind.PUSH_REMOTE, null);
-
-    /** A schema-valid payload; the member value is generated, the member name is the fixture schema. */
-    private static final String PAYLOAD = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
 
     @TempDir
     Path base;
 
+    private DerivedFactKey qualifiedIdentity;
+    /** A schema-valid payload; the member value is generated, the member name is the fixture schema. */
+    private String payload;
     private DerivedFactKinds kinds;
     private DerivedFactStore store;
 
     @BeforeEach
     void createStore() throws IOException {
+        qualifiedIdentity = new DerivedFactKey(DerivedFactKind.AGENT_IDENTITY,
+                "app-" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT));
+        payload = "{\"name\":\"" + Generators.letterStrings(1, 20).next() + "\"}";
         var file = base.resolve("derived-facts.json");
         kinds = new DerivedFactKinds();
         store = new DerivedFactStore(new AtomicStoreFile(file, LockKey.derivedFacts(base, PROJECT)),
                 new RecordingLockManager(), kinds);
         var facts = new LinkedHashMap<DerivedFactKey, DerivedFact>();
         facts.put(IDENTITY, fact(DerivedFactKind.AGENT_IDENTITY, DerivedFact.DerivationClass.NETWORK));
-        facts.put(QUALIFIED_IDENTITY, fact(DerivedFactKind.AGENT_IDENTITY, DerivedFact.DerivationClass.NETWORK));
+        facts.put(qualifiedIdentity, fact(DerivedFactKind.AGENT_IDENTITY, DerivedFact.DerivationClass.NETWORK));
         facts.put(PUSH_REMOTE, fact(DerivedFactKind.PUSH_REMOTE, DerivedFact.DerivationClass.LOCAL));
         Files.write(file, DerivedFactsCodec.write(new DerivedFacts(facts)));
     }
 
-    private static DerivedFact fact(DerivedFactKind kind, DerivedFact.DerivationClass derivationClass) {
+    private DerivedFact fact(DerivedFactKind kind, DerivedFact.DerivationClass derivationClass) {
         return DerivedFact.builder()
                 .kind(kind)
-                .value(JsonValue.parse(PAYLOAD.getBytes(UTF_8)))
+                .value(JsonValue.parse(payload.getBytes(UTF_8)))
                 .source(new DerivedFact.Source("fixture", derivationClass))
                 .inputDigest("a".repeat(64))
                 .derivedAt(NOW)
@@ -85,18 +88,18 @@ class DerivedFactModelFacingTest {
     void modelFacingExcludesAgentIdentity() {
         var modelFacing = store.modelFacing();
 
-        assertAll(
+        assertAll("The model-facing projection excludes operator-only keys",
                 () -> assertEquals(Set.of(PUSH_REMOTE), modelFacing.facts().keySet(),
                         "Only push_remote is model-facing"),
                 () -> assertFalse(modelFacing.facts().containsKey(IDENTITY), "agent_identity is excluded"),
-                () -> assertFalse(modelFacing.facts().containsKey(QUALIFIED_IDENTITY),
+                () -> assertFalse(modelFacing.facts().containsKey(qualifiedIdentity),
                         "A qualified agent_identity is excluded"));
     }
 
     @Test
     @DisplayName("the operator view holds the whole set")
     void operatorFactsHoldEverything() {
-        assertEquals(Set.of(IDENTITY, QUALIFIED_IDENTITY, PUSH_REMOTE), store.operatorFacts().facts().keySet(),
+        assertEquals(Set.of(IDENTITY, qualifiedIdentity, PUSH_REMOTE), store.operatorFacts().facts().keySet(),
                 "The operator view holds all three entries");
     }
 
@@ -105,7 +108,7 @@ class DerivedFactModelFacingTest {
     void projectionsOfTheSnapshot() {
         var snapshot = store.snapshot();
 
-        assertAll(
+        assertAll("Both projections come from the snapshot",
                 () -> assertEquals(snapshot.facts().values().stream().collect(Collectors.toSet()),
                         store.operatorFacts().facts().values().stream().collect(Collectors.toSet()),
                         "The operator view is the snapshot"),
@@ -127,7 +130,7 @@ class DerivedFactModelFacingTest {
     @Test
     @DisplayName("a registry that never registered agent_identity still excludes it")
     void exclusionDoesNotDependOnRegistration() {
-        assertAll(
+        assertAll("Exclusion does not depend on registration",
                 () -> assertTrue(kinds.spec(DerivedFactKind.AGENT_IDENTITY).isEmpty(),
                         "No specification is registered for agent_identity"),
                 () -> assertTrue(store.modelFacing().fact(IDENTITY).isEmpty(),

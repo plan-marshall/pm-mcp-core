@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -33,27 +35,29 @@ import de.planmarshall.core.store.BuildTimings.Residue;
  * The learned budgets of a project (Store Schemas § Build Timings Store): the max-biased blend of a finished run, the
  * one-shot escalation of a timed-out one, and the store that keeps them.
  */
+@EnableGeneratorController
 @DisplayName("Build timings")
 class BuildTimingsStoreTest {
 
     private static final String KEY = "llm:writer";
-    private static final Instant OBSERVED_AT = Instant.parse("2026-10-22T10:00:00Z");
 
     @TempDir
     Path base;
 
     private Path file;
     private BuildTimingsStore store;
+    private Instant observedAt;
 
     @BeforeEach
     void createStore() {
+        observedAt = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
         file = base.resolve("build-timings.json");
         store = new BuildTimingsStore(
                 new AtomicStoreFile(file, LockKey.buildTimings(base, "pm-mcp-core")), new RecordingLockManager());
     }
 
     private KeyTimings observe(long seconds) {
-        return store.observe(KEY, Duration.ofSeconds(seconds), Residue.CLEAN, OBSERVED_AT);
+        return store.observe(KEY, Duration.ofSeconds(seconds), Residue.CLEAN, observedAt);
     }
 
     @Nested
@@ -65,12 +69,17 @@ class BuildTimingsStoreTest {
         void firstObservation() {
             var timings = observe(120);
 
-            assertAll(
-                    () -> assertEquals(new Baseline(120L, 1), timings.clean()),
-                    () -> assertEquals(Baseline.empty(), timings.poisoned()),
-                    () -> assertEquals(Baseline.empty(), timings.cold()),
-                    () -> assertEquals(OBSERVED_AT, timings.lastObservedAt()),
-                    () -> assertNull(timings.escalationSeconds()));
+            assertAll("The first observation seeds the clean baseline",
+                    () -> assertEquals(new Baseline(120L, 1), timings.clean(),
+                            "The clean baseline is the raw first run"),
+                    () -> assertEquals(Baseline.empty(), timings.poisoned(),
+                            "The poisoned baseline is still empty"),
+                    () -> assertEquals(Baseline.empty(), timings.cold(),
+                            "The cold baseline is still empty"),
+                    () -> assertEquals(observedAt, timings.lastObservedAt(),
+                            "The observation instant is recorded"),
+                    () -> assertNull(timings.escalationSeconds(),
+                            "No escalation is set by a finished run"));
         }
 
         @Test
@@ -79,30 +88,38 @@ class BuildTimingsStoreTest {
             observe(120);
             var timings = observe(200);
 
-            assertAll(
-                    () -> assertEquals(new Baseline(184L, 2), timings.clean()),
-                    () -> assertEquals(Baseline.empty(), timings.poisoned()));
+            assertAll("The blend feeds the clean baseline only",
+                    () -> assertEquals(new Baseline(184L, 2), timings.clean(),
+                            "The blend floors 0.8 times the maximum"),
+                    () -> assertEquals(Baseline.empty(), timings.poisoned(),
+                            "The poisoned baseline is untouched"));
 
-            var poisoned = store.observe(KEY, Duration.ofSeconds(900), Residue.POISONED, OBSERVED_AT);
+            var poisoned = store.observe(KEY, Duration.ofSeconds(900), Residue.POISONED, observedAt);
 
-            assertAll(
-                    () -> assertEquals(new Baseline(184L, 2), poisoned.clean()),
-                    () -> assertEquals(new Baseline(900L, 1), poisoned.poisoned()));
+            assertAll("A poisoned run feeds the poisoned baseline only",
+                    () -> assertEquals(new Baseline(184L, 2), poisoned.clean(),
+                            "The clean baseline is untouched"),
+                    () -> assertEquals(new Baseline(900L, 1), poisoned.poisoned(),
+                            "The poisoned baseline is the raw first run"));
         }
 
         @Test
         @DisplayName("clears the one-shot escalation")
         void clearsEscalation() {
             var escalated = store.escalate(KEY, 300, 1800);
-            assertAll(
-                    () -> assertEquals(600L, escalated.escalationSeconds()),
-                    () -> assertEquals(Baseline.empty(), escalated.clean()));
+            assertAll("An escalation sets the one-shot budget",
+                    () -> assertEquals(600L, escalated.escalationSeconds(),
+                            "The escalation is twice the timed-out budget"),
+                    () -> assertEquals(Baseline.empty(), escalated.clean(),
+                            "An escalation never feeds a baseline"));
 
             var timings = observe(120);
 
-            assertAll(
-                    () -> assertNull(timings.escalationSeconds()),
-                    () -> assertEquals(new Baseline(120L, 1), timings.clean()));
+            assertAll("A finished run clears the one-shot escalation",
+                    () -> assertNull(timings.escalationSeconds(),
+                            "The escalation is cleared"),
+                    () -> assertEquals(new Baseline(120L, 1), timings.clean(),
+                            "The clean baseline takes the finished run"));
         }
     }
 
@@ -117,12 +134,13 @@ class BuildTimingsStoreTest {
 
             var capped = store.escalate(KEY, 1200, 1800);
 
-            assertAll(
+            assertAll("The escalation doubles the budget up to the ceiling",
                     () -> assertEquals(1800L, capped.escalationSeconds(), "2t is capped at C"),
                     () -> assertEquals(new Baseline(100L, 1), capped.clean(), "a timeout never feeds L"));
 
             var belowTheCap = store.escalate(KEY, 300, 1800);
-            assertEquals(600L, belowTheCap.escalationSeconds());
+            assertEquals(600L, belowTheCap.escalationSeconds(),
+                    "Twice the timed-out budget stays below the cap");
         }
 
         @Test
@@ -132,10 +150,13 @@ class BuildTimingsStoreTest {
             var halfTheCap = store.escalate(KEY, 900, 1800);
             var justAboveHalf = store.escalate(KEY, 901, 1800);
 
-            assertAll(
-                    () -> assertEquals(2000L, aboveTheCap.escalationSeconds()),
-                    () -> assertEquals(1800L, halfTheCap.escalationSeconds()),
-                    () -> assertEquals(1800L, justAboveHalf.escalationSeconds()));
+            assertAll("The escalation is capped at the ceiling",
+                    () -> assertEquals(2000L, aboveTheCap.escalationSeconds(),
+                            "A budget above the cap is its own escalation"),
+                    () -> assertEquals(1800L, halfTheCap.escalationSeconds(),
+                            "Twice the budget is capped at the ceiling"),
+                    () -> assertEquals(1800L, justAboveHalf.escalationSeconds(),
+                            "A doubled budget above half is capped"));
         }
     }
 
@@ -152,10 +173,13 @@ class BuildTimingsStoreTest {
                     new AtomicStoreFile(file, LockKey.buildTimings(base, "pm-mcp-core")),
                     new RecordingLockManager());
 
-            assertAll(
-                    () -> assertEquals(store.snapshot(), restarted.snapshot()),
-                    () -> assertTrue(restarted.timings(KEY).isPresent()),
-                    () -> assertEquals(new Baseline(120L, 1), restarted.timings(KEY).orElseThrow().clean()));
+            assertAll("A restarted store reads what was written",
+                    () -> assertEquals(store.snapshot(), restarted.snapshot(),
+                            "The snapshot is read back from the file"),
+                    () -> assertTrue(restarted.timings(KEY).isPresent(),
+                            "The key is present after the restart"),
+                    () -> assertEquals(new Baseline(120L, 1), restarted.timings(KEY).orElseThrow().clean(),
+                            "The clean baseline is read back"));
         }
 
         @Test
@@ -163,8 +187,10 @@ class BuildTimingsStoreTest {
         void newerFormat() throws Exception {
             Files.writeString(file, "{\"format_version\":2,\"keys\":{}}");
 
-            assertThrows(StoreRefusal.class, () -> store.snapshot());
-            assertEquals("{\"format_version\":2,\"keys\":{}}", Files.readString(file));
+            assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                    "Another format version is refused");
+            assertEquals("{\"format_version\":2,\"keys\":{}}", Files.readString(file),
+                    "The refused document is left byte-identical");
         }
 
         @Test
@@ -176,7 +202,8 @@ class BuildTimingsStoreTest {
                      "cold":{"learned_seconds":null,"observations":0},"escalation_seconds":null,
                      "last_observed_at":null}}}""");
 
-            assertThrows(StoreRefusal.class, () -> store.snapshot());
+            assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                    "A baseline whose count and value disagree is refused");
         }
 
         @Test
@@ -188,7 +215,8 @@ class BuildTimingsStoreTest {
                      "cold":{"learned_seconds":null,"observations":0},"escalation_seconds":null,
                      "last_observed_at":null}}}""");
 
-            assertThrows(StoreRefusal.class, () -> store.snapshot());
+            assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                    "A baseline with a negative observation count is refused");
         }
     }
 }

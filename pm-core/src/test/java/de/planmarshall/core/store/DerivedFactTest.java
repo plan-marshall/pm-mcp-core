@@ -86,7 +86,7 @@ class DerivedFactTest {
 
         var fact = fact(DerivedFact.State.CURRENT, value, null);
 
-        assertAll(
+        assertAll("A current fact carries a value and no failure",
                 () -> assertEquals(Optional.of(value), Optional.ofNullable(fact.value()),
                         "The current fact carries its value"),
                 () -> assertEquals(Optional.empty(), Optional.ofNullable(fact.failure()),
@@ -99,7 +99,7 @@ class DerivedFactTest {
         var someValue = value();
         var someFailure = failure();
 
-        assertAll(
+        assertAll("A current fact outside its shape is refused",
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.CURRENT, null, null),
                         "A current fact without a value is refused"),
@@ -113,7 +113,7 @@ class DerivedFactTest {
     void staleFactCarriesValueAndFailure() {
         var fact = fact(DerivedFact.State.STALE, value(), failure());
 
-        assertAll(
+        assertAll("A stale fact carries its value and failure",
                 () -> assertNotNull(fact.value(), "The stale fact keeps its last value"),
                 () -> assertNotNull(fact.failure(), "The stale fact carries its failure"));
     }
@@ -124,7 +124,7 @@ class DerivedFactTest {
         var someValue = value();
         var someFailure = failure();
 
-        assertAll(
+        assertAll("A stale fact outside its shape is refused",
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.STALE, null, someFailure),
                         "A stale fact without a value is refused"),
@@ -138,7 +138,7 @@ class DerivedFactTest {
     void failedFactCarriesNoValueAndFailure() {
         var fact = fact(DerivedFact.State.FAILED, null, failure());
 
-        assertAll(
+        assertAll("A failed fact carries no value and a failure",
                 () -> assertEquals(Optional.empty(), Optional.ofNullable(fact.value()),
                         "The failed fact carries no value"),
                 () -> assertNotNull(fact.failure(), "The failed fact carries its failure"));
@@ -150,7 +150,7 @@ class DerivedFactTest {
         var someValue = value();
         var someFailure = failure();
 
-        assertAll(
+        assertAll("A failed fact outside its shape is refused",
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.FAILED, someValue, someFailure),
                         "A failed fact with a value is refused"),
@@ -165,7 +165,7 @@ class DerivedFactTest {
         var jsonNull = JsonValue.parse("null".getBytes(UTF_8));
         var someFailure = failure();
 
-        assertAll(
+        assertAll("A JSON null value is refused",
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> fact(DerivedFact.State.CURRENT, jsonNull, null),
                         "A current fact with a JSON null value is refused"),
@@ -181,7 +181,7 @@ class DerivedFactTest {
         var shortDigest = digest().substring(1);
         var upperCase = digest().toUpperCase(Locale.ROOT);
 
-        assertAll(
+        assertAll("A digest outside the grammar is refused",
                 () -> assertThrows(IllegalArgumentException.class, () -> factWithDigest(letters),
                         "A digest of letters is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> factWithDigest(shortDigest),
@@ -196,7 +196,7 @@ class DerivedFactTest {
         var at = instant();
         var accepted = "r".repeat(DerivedFact.Failure.MAX_REASON);
 
-        assertAll(
+        assertAll("The failure reason bound is enforced",
                 () -> assertDoesNotThrow(() -> new DerivedFact.Failure(accepted, at),
                         "A reason of 500 code points is accepted"),
                 () -> assertThrows(IllegalArgumentException.class,
@@ -209,7 +209,7 @@ class DerivedFactTest {
     @Test
     @DisplayName("a derivation identifier outside its grammar is refused")
     void derivationOutsideGrammarIsRefused() {
-        assertAll(
+        assertAll("A derivation outside the grammar is refused",
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new DerivedFact.Source("Derive", DerivedFact.DerivationClass.LOCAL),
                         "An upper-case derivation is refused"),
@@ -242,7 +242,7 @@ class DerivedFactTest {
 
         var document = new DerivedFacts(entries);
 
-        assertAll(
+        assertAll("The document keeps order and answers by key",
                 () -> assertEquals(List.of(first, second), List.copyOf(document.facts().keySet()),
                         "The document keeps the order of its entries"),
                 () -> assertTrue(document.fact(first).isPresent(), "The document answers a known key"),

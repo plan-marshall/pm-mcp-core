@@ -67,7 +67,11 @@ without a record an OAuth token, everything else a personal token), the scopes a
 permissions from the `permissions` object of `GET /projects/{path}`. `issueView` reads
 `GET /projects/{id}/issues/{iid}` and `issueComment` posts to `POST /projects/{id}/issues/{iid}/notes`, each with the
 project path URL-encoded as the client does. An issue on another origin or of another forge is refused before a request
-is sent.
+is sent. A missing issue is `NOT_FOUND`; the adapter does not probe a merge request, so the issue and merge-request
+number spaces stay apart (link:../../../pm-provider-ci/doc/adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[`provider.ci`
+ADR 006]). The login and the user id come from `GET /user`: a blank user id falls back to the token record's `user_id`,
+and an identity whose two ids are both blank is `FAILED`, never a thrown exception. A blank milestone title is no
+milestone.
 
 == The `glab` Variant
 
@@ -94,6 +98,11 @@ it:
   `FAILED`, and the caller reports the first two as a configuration problem.
 * *The token is not in a vector or a result.* The `glab` CLI resolves its own credential; the native client's token comes
   from the base and is never put into an argument or a detail.
+* *A blank optional value is absent.* A blank user id falls back to the token record, a blank milestone title is no
+  milestone, and an identity with no id at all is `FAILED`; `Identity` and `Issue` keep refusing a blank, and the adapter
+  filters it where the JSON enters.
+* *A missing issue is not found.* `issueView` answers `NOT_FOUND` for a missing issue and sends no merge-request probe;
+  GitLab numbers issues and merge requests apart, so only the pull-request view may read a merge-request number.
 
 == Extending the Package
 
@@ -110,10 +119,12 @@ Both tests run without a network.
 [horizontal]
 link:{test}/GitLabClientTest.java[`GitLabClientTest`]:: every operation against the mock web server, the head-bound
 merge and train add, the discussion and note reading with its resolved rule, the page cap, a reply and a resolve, the job
-trace, the token identity with its `400` case, and the outcome mapping of an error status and a transport failure.
+trace, the issue and issue-comment reads, the token identity with its `400` case, and the outcome mapping of an error
+status and a transport failure.
 link:{test}/GitLabCiProviderTest.java[`GitLabCiProviderTest`]:: a personal, project, group and OAuth token identity, an
-issue of a nested group project with its structured fields, a rate limit, a `403`, a `404`, a malformed body, an issue on
-another origin and a comment with its derived URL.
+issue of a nested group project with its structured fields, a missing issue beside an existing merge request, a blank
+user id and a blank milestone title, a rate limit, a `403`, a `404`, a malformed body, an issue on another origin and a
+comment with its derived URL.
 link:{test}/GlabCommandsTest.java[`GlabCommandsTest`]:: the vector of every operation, the body on standard input and
 never in the vector, the validated identifiers, the refusal of a value that would read as a flag, and the closed
 operation set.

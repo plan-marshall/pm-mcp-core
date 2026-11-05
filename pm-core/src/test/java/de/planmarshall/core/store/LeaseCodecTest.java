@@ -17,10 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.OptionalInt;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +40,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The document of a lease store (PM-IMPL-7, PM-IMPL-2): one format version, one closed shape, and one shape per
  * instant.
  */
+@EnableGeneratorController
 @DisplayName("Lease codec")
 class LeaseCodecTest {
 
@@ -156,7 +160,8 @@ class LeaseCodecTest {
             var holder = new HolderInstance(4711, Instant.parse("2026-10-09T08:15:30.123456Z"));
             var owner = new LeaseOwner("pm-mcp-core", ScopeType.PLAN, "lock-manager", holder, null);
             assertEquals(List.of(new LeaseRecord("plan-marshall/pm-mcp-core", owner,
-                    Instant.parse("2026-10-09T08:16:00Z"), Instant.parse("2026-10-09T09:16:00.500Z"))), leases);
+                            Instant.parse("2026-10-09T08:16:00Z"), Instant.parse("2026-10-09T09:16:00.500Z"))), leases,
+                    "every field of the lease is read");
         }
 
         @Test
@@ -164,12 +169,14 @@ class LeaseCodecTest {
         void nullScopeIdAndOrphanedAt() {
             var lease = read(document(ORPHANED_WORKSPACE_LEASE)).getFirst();
 
-            assertAll(
-                    () -> assertEquals(ScopeType.WORKSPACE, lease.owner().scopeType()),
-                    () -> assertNull(lease.owner().scopeId()),
-                    () -> assertTrue(lease.owner().isOrphaned()),
-                    () -> assertEquals(Instant.parse("2026-10-09T10:00:00.000001Z"), lease.owner().orphanedAt()),
-                    () -> assertNull(lease.leaseExpiresAt()));
+            assertAll("the orphaned workspace lease keeps its shape",
+                    () -> assertEquals(ScopeType.WORKSPACE, lease.owner().scopeType(),
+                            "the workspace scope type is kept"),
+                    () -> assertNull(lease.owner().scopeId(), "the workspace scope id stays null"),
+                    () -> assertTrue(lease.owner().isOrphaned(), "the set orphaned instant is kept"),
+                    () -> assertEquals(Instant.parse("2026-10-09T10:00:00.000001Z"), lease.owner().orphanedAt(),
+                            "the orphaned instant is read exactly"),
+                    () -> assertNull(lease.leaseExpiresAt(), "a lease without expiry stays unbounded"));
         }
 
         @Test
@@ -179,9 +186,10 @@ class LeaseCodecTest {
 
             var lease = read(document(withoutOrphanedAt)).getFirst();
 
-            assertAll(
-                    () -> assertFalse(withoutOrphanedAt.contains("orphaned_at")),
-                    () -> assertFalse(lease.owner().isOrphaned()));
+            assertAll("a lease without orphaned_at is not orphaned",
+                    () -> assertFalse(withoutOrphanedAt.contains("orphaned_at"),
+                            "the fixture carries no orphaned_at member"),
+                    () -> assertFalse(lease.owner().isOrphaned(), "the lease is read as not orphaned"));
         }
 
         @Test
@@ -189,11 +197,13 @@ class LeaseCodecTest {
         void emptyAndOrder() {
             var both = read(document(ORPHANED_WORKSPACE_LEASE, PLAN_LEASE));
 
-            assertAll(
-                    () -> assertEquals(List.of(), read(document())),
-                    () -> assertArrayEquals(document(), LeaseCodec.write(List.of())),
+            assertAll("an empty store and the order of the leases",
+                    () -> assertEquals(List.of(), read(document()),
+                            "a store without leases is an empty list"),
+                    () -> assertArrayEquals(document(), LeaseCodec.write(List.of()),
+                            "an empty store is written without leases"),
                     () -> assertEquals(List.of("slot-1", "plan-marshall/pm-mcp-core"),
-                            both.stream().map(LeaseRecord::key).toList()));
+                            both.stream().map(LeaseRecord::key).toList(), "the order of the leases is kept"));
         }
 
         @Test
@@ -202,7 +212,8 @@ class LeaseCodecTest {
             var lease = read(document(PLAN_LEASE)).getFirst();
             var twice = List.of(lease, lease);
 
-            assertThrows(IllegalArgumentException.class, () -> LeaseCodec.write(twice));
+            assertThrows(IllegalArgumentException.class, () -> LeaseCodec.write(twice),
+                    "two leases with one key are never written");
         }
     }
 
@@ -236,7 +247,8 @@ class LeaseCodecTest {
 
             var refusal = refusalOf(document(lease));
 
-            assertEquals(Outcome.UNREADABLE, refusal.outcome());
+            assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                    "another instant spelling is unreadable");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -247,8 +259,9 @@ class LeaseCodecTest {
 
             var refusal = refusalOf(document(lease));
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+            assertAll("every instant field refuses another spelling",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "the other spelling is unreadable"),
                     () -> assertTrue(refusal.getMessage().contains("'" + field + "'"), refusal.getMessage()));
         }
     }
@@ -262,12 +275,16 @@ class LeaseCodecTest {
         void newer() {
             var refusal = refusalOf(utf8("{\"slots\":{\"a\":[1,{\"b\":2}]},\"format_version\":2}"));
 
-            assertAll(
-                    () -> assertEquals(Outcome.FORMAT_NEWER, refusal.outcome()),
-                    () -> assertEquals("format_newer", refusal.outcome().code()),
-                    () -> assertEquals(OptionalInt.of(2), refusal.found()),
-                    () -> assertEquals(LeaseCodec.FORMAT_VERSION, refusal.current()),
-                    () -> assertEquals(STORE, refusal.file()));
+            assertAll("a newer format version is refused as newer",
+                    () -> assertEquals(Outcome.FORMAT_NEWER, refusal.outcome(),
+                            "the outcome is format newer"),
+                    () -> assertEquals("format_newer", refusal.outcome().code(),
+                            "the code names format newer"),
+                    () -> assertEquals(OptionalInt.of(2), refusal.found(),
+                            "the found version is reported"),
+                    () -> assertEquals(LeaseCodec.FORMAT_VERSION, refusal.current(),
+                            "the current version is reported"),
+                    () -> assertEquals(STORE, refusal.file(), "the store file is named"));
         }
 
         @Test
@@ -275,12 +292,16 @@ class LeaseCodecTest {
         void outdated() {
             var refusal = refusalOf(utf8("{\"format_version\":0,\"leases\":[]}"));
 
-            assertAll(
-                    () -> assertEquals(Outcome.FORMAT_OUTDATED, refusal.outcome()),
-                    () -> assertEquals("format_outdated", refusal.outcome().code()),
-                    () -> assertEquals(OptionalInt.of(0), refusal.found()),
-                    () -> assertEquals(LeaseCodec.FORMAT_VERSION, refusal.current()),
-                    () -> assertEquals(STORE, refusal.file()));
+            assertAll("an older format version is refused as outdated",
+                    () -> assertEquals(Outcome.FORMAT_OUTDATED, refusal.outcome(),
+                            "the outcome is format outdated"),
+                    () -> assertEquals("format_outdated", refusal.outcome().code(),
+                            "the code names format outdated"),
+                    () -> assertEquals(OptionalInt.of(0), refusal.found(),
+                            "the found version is reported"),
+                    () -> assertEquals(LeaseCodec.FORMAT_VERSION, refusal.current(),
+                            "the current version is reported"),
+                    () -> assertEquals(STORE, refusal.file(), "the store file is named"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -295,11 +316,14 @@ class LeaseCodecTest {
         void missingVersion(String document) {
             var refusal = refusalOf(utf8(document));
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals("unreadable", refusal.outcome().code()),
-                    () -> assertEquals(OptionalInt.empty(), refusal.found()),
-                    () -> assertEquals(STORE, refusal.file()));
+            assertAll("a document without one integer format version is unreadable",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "the outcome is unreadable"),
+                    () -> assertEquals("unreadable", refusal.outcome().code(),
+                            "the code names unreadable"),
+                    () -> assertEquals(OptionalInt.empty(), refusal.found(),
+                            "no version is reported"),
+                    () -> assertEquals(STORE, refusal.file(), "the store file is named"));
         }
 
         @Test
@@ -307,7 +331,7 @@ class LeaseCodecTest {
         void versionLast() {
             var leases = read(utf8("{\"leases\":[" + PLAN_LEASE + "],\"format_version\":1}"));
 
-            assertEquals(1, leases.size());
+            assertEquals(1, leases.size(), "the one lease is read");
         }
     }
 
@@ -346,7 +370,8 @@ class LeaseCodecTest {
         void invalidDocument(String document) {
             var refusal = refusalOf(utf8(document));
 
-            assertEquals(Outcome.UNREADABLE, refusal.outcome());
+            assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                    "a document outside the lease shape is unreadable");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -357,7 +382,8 @@ class LeaseCodecTest {
 
             var refusal = refusalOf(document(lease));
 
-            assertEquals(Outcome.UNREADABLE, refusal.outcome());
+            assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                    "a lease without one of its fields is unreadable");
         }
 
         @Test
@@ -367,10 +393,13 @@ class LeaseCodecTest {
             var numericKey = PLAN_LEASE.replace(KEY, "\"key\":7");
             var undeclared = PLAN_LEASE.replace(KEY, "\"job_id\":\"j\"," + KEY);
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusalOf(document(blankKey)).outcome()),
-                    () -> assertEquals(Outcome.UNREADABLE, refusalOf(document(numericKey)).outcome()),
-                    () -> assertEquals(Outcome.UNREADABLE, refusalOf(document(undeclared)).outcome()));
+            assertAll("a lease outside the schema is unreadable",
+                    () -> assertEquals(Outcome.UNREADABLE, refusalOf(document(blankKey)).outcome(),
+                            "a blank key is unreadable"),
+                    () -> assertEquals(Outcome.UNREADABLE, refusalOf(document(numericKey)).outcome(),
+                            "a key that is no string is unreadable"),
+                    () -> assertEquals(Outcome.UNREADABLE, refusalOf(document(undeclared)).outcome(),
+                            "an undeclared lease field is unreadable"));
         }
 
         @Test
@@ -378,7 +407,8 @@ class LeaseCodecTest {
         void duplicateKey() {
             var refusal = refusalOf(document(PLAN_LEASE, PLAN_LEASE));
 
-            assertEquals(Outcome.UNREADABLE, refusal.outcome());
+            assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                    "two leases with one key are unreadable");
         }
 
         @Test
@@ -386,8 +416,9 @@ class LeaseCodecTest {
         void malformedJson() {
             var refusal = refusalOf(utf8("{\"format_version\":1,\n\"leases\":[not-json]}"));
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+            assertAll("malformed JSON names the place it stops parsing",
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "the malformed document is unreadable"),
                     () -> assertTrue(refusal.getMessage().contains("line 2"), refusal.getMessage()));
         }
     }
@@ -396,72 +427,94 @@ class LeaseCodecTest {
     @DisplayName("records")
     class Records {
 
-        private final HolderInstance holder = new HolderInstance(1, Instant.parse("2026-10-09T08:15:30Z"));
+        private final HolderInstance holder = new HolderInstance(Generators.longs(1, Long.MAX_VALUE).next(),
+                Instant.ofEpochMilli(Generators.longs(0, 1_700_000_000_000L).next()));
+        private final String project = "pm-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
         @Test
         @DisplayName("a holder needs a process id of at least 1 and a start instant")
         void holderInstance() {
             var startedAt = holder.runtimeStartedAt();
 
-            assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new HolderInstance(0, startedAt)),
-                    () -> assertThrows(NullPointerException.class, () -> new HolderInstance(1, null)));
+            assertAll("a holder needs a positive pid and a start instant",
+                    () -> assertThrows(IllegalArgumentException.class, () -> new HolderInstance(0, startedAt),
+                            "a process id of zero is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new HolderInstance(1, null),
+                            "a missing start instant is refused"));
         }
 
         @Test
         @DisplayName("an owner needs a valid project id, and a scope id exactly for a plan and an epic")
         void owner() {
-            assertAll(
+            var epicId = "epic-" + Generators.longs(1, Long.MAX_VALUE).next();
+
+            assertAll("an owner needs its project and scope ids",
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LeaseOwner("PM", ScopeType.PROJECT, null, holder, null)),
+                            () -> new LeaseOwner("PM", ScopeType.PROJECT, null, holder, null),
+                            "an upper-case project id is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseOwner(null, ScopeType.PROJECT, null, holder, null)),
+                            () -> new LeaseOwner(null, ScopeType.PROJECT, null, holder, null),
+                            "a missing project id is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseOwner("pm-mcp-core", null, null, holder, null)),
+                            () -> new LeaseOwner(project, null, null, holder, null),
+                            "a missing scope type is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseOwner("pm-mcp-core", ScopeType.PROJECT, null, null, null)),
+                            () -> new LeaseOwner(project, ScopeType.PROJECT, null, null, null),
+                            "a missing holder is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseOwner("pm-mcp-core", ScopeType.EPIC, null, holder, null)),
+                            () -> new LeaseOwner(project, ScopeType.EPIC, null, holder, null),
+                            "a missing epic scope id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LeaseOwner("pm-mcp-core", ScopeType.EPIC, "Epic", holder, null)),
+                            () -> new LeaseOwner(project, ScopeType.EPIC, "Epic", holder, null),
+                            "an upper-case epic scope id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LeaseOwner("pm-mcp-core", ScopeType.PROJECT, "a-plan", holder, null)),
-                    () -> assertEquals("an-epic",
-                            new LeaseOwner("pm-mcp-core", ScopeType.EPIC, "an-epic", holder, null).scopeId()));
+                            () -> new LeaseOwner(project, ScopeType.PROJECT, "a-plan", holder, null),
+                            "a scope id for the project is refused"),
+                    () -> assertEquals(epicId,
+                            new LeaseOwner(project, ScopeType.EPIC, epicId, holder, null).scopeId(),
+                            "the scope id is read back"));
         }
 
         @Test
         @DisplayName("a lease needs a key that is not blank, an owner and the instant of its claim")
         void lease() {
-            var owner = new LeaseOwner("pm-mcp-core", ScopeType.PROJECT, null, holder, null);
-            var acquiredAt = Instant.parse("2026-10-09T08:16:00Z");
+            var owner = new LeaseOwner(project, ScopeType.PROJECT, null, holder, null);
+            var acquiredAt = Instant.ofEpochMilli(Generators.longs(0, 1_700_000_000_000L).next());
+            var key = "lease-" + Generators.longs(1, Long.MAX_VALUE).next();
 
-            assertAll(
+            assertAll("a lease needs a non-blank key, an owner and a claim instant",
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LeaseRecord("", owner, acquiredAt, null)),
+                            () -> new LeaseRecord("", owner, acquiredAt, null),
+                            "a blank key is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseRecord(null, owner, acquiredAt, null)),
+                            () -> new LeaseRecord(null, owner, acquiredAt, null),
+                            "a missing key is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new LeaseRecord("k", null, acquiredAt, null)),
-                    () -> assertThrows(NullPointerException.class, () -> new LeaseRecord("k", owner, null, null)));
+                            () -> new LeaseRecord(key, null, acquiredAt, null), "a missing owner is refused"),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new LeaseRecord(key, owner, null, null), "a missing claim instant is refused"));
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.store.LeaseCodecTest#scopeTypes")
         @DisplayName("a scope type has the wire name of the schema and is found by it")
         void scopeTypeWireName(ScopeType type, String wireName, boolean hasScopeId) {
-            assertAll(
-                    () -> assertEquals(wireName, type.wireName()),
-                    () -> assertEquals(type, ScopeType.fromWireName(wireName).orElseThrow()),
-                    () -> assertEquals(hasScopeId, type.hasScopeId()));
+            assertAll("a scope type has the wire name of the schema",
+                    () -> assertEquals(wireName, type.wireName(), "the wire name is the one of the schema"),
+                    () -> assertEquals(type, ScopeType.fromWireName(wireName).orElseThrow(),
+                            "the scope type is found by its wire name"),
+                    () -> assertEquals(hasScopeId, type.hasScopeId(),
+                            "only plan and epic carry a scope id"));
         }
 
         @Test
         @DisplayName("the scope types are exactly the four of the schema")
         void scopeTypesClosed() {
-            assertAll(
-                    () -> assertEquals(4, ScopeType.values().length),
-                    () -> assertTrue(ScopeType.fromWireName("lessons").isEmpty()));
+            assertAll("the scope types are exactly the four of the schema",
+                    () -> assertEquals(4, ScopeType.values().length,
+                            "the schema has exactly four scope types"),
+                    () -> assertTrue(ScopeType.fromWireName("lessons").isEmpty(),
+                            "an undeclared wire name has no scope type"));
         }
 
         @Test
@@ -470,12 +523,15 @@ class LeaseCodecTest {
             var newer = refusalOf(utf8("{\"format_version\":3}"));
             var unreadable = refusalOf(utf8("{\"format_version\":1,\"leases\":7}"));
 
-            assertAll(
-                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),
-                    () -> assertEquals(OptionalInt.of(3), newer.found()),
-                    () -> assertEquals(STORE, newer.file()),
+            assertAll("a refusal names its store file with its outcome and version",
+                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome(),
+                            "the newer store is refused as newer"),
+                    () -> assertEquals(OptionalInt.of(3), newer.found(),
+                            "the found version is reported"),
+                    () -> assertEquals(STORE, newer.file(), "the newer store file is named"),
                     () -> assertTrue(newer.getMessage().startsWith(STORE + ": format_newer"), newer.getMessage()),
-                    () -> assertEquals(Outcome.UNREADABLE, unreadable.outcome()),
+                    () -> assertEquals(Outcome.UNREADABLE, unreadable.outcome(),
+                            "the unreadable store is refused as unreadable"),
                     () -> assertTrue(unreadable.getMessage().startsWith(STORE + ": unreadable"),
                             unreadable.getMessage()),
                     () -> assertTrue(unreadable.getMessage().contains("'leases' must be an array"),
