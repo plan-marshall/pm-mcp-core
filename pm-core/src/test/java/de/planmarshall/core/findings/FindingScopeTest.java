@@ -67,6 +67,13 @@ class FindingScopeTest {
                     () -> assertEquals(prNumber, scope.prNumber()));
         }
 
+        @Test
+        @DisplayName("a pull-request scope accepts the documented minimum number 1")
+        void pullRequestMinimumNumber() {
+            assertEquals(1, FindingScope.pullRequest(SHA_1, 1).prNumber(),
+                    "The minimum pull-request number is 1");
+        }
+
         @ParameterizedTest(name = "{0} is {1} on the wire")
         @CsvSource({"COMMIT, commit", "PULL_REQUEST, pull_request"})
         @DisplayName("the kinds carry their wire names and are found by them")

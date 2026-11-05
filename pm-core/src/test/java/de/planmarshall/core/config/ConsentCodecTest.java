@@ -33,20 +33,17 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.planmarshall.core.store.StoreRefusal;
 
 /**
- * The shapes {@code consents.json} accepts and refuses (Store Schemas § Consent Before Acting).
+ * The shapes {@code consents.json} accepts and refuses (Store Schemas § Consent Before Acting). The refused documents are
+ * built from tokens at test time, so their generated data comes from the per-test seed; the tokens themselves are the
+ * contract of the shape a case breaks.
  */
 @EnableGeneratorController
 @DisplayName("Consent codec")
 class ConsentCodecTest {
 
-    private static final Instant GRANTED = Instant.ofEpochSecond(
-            Generators.longs(1_600_000_000L, 1_900_000_000L).next());
-    private static final String SHA = "%064x".formatted(Generators.longs().next());
-    private static final String PROJECT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-    private static final String SCRIPT = "bin/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT)
-            + ".sh";
-    private static final String DEVICE = "dev-"
-            + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
+    private static final String PROJECT_TOKEN = "<project>";
+    private static final String GRANTED_TOKEN = "<granted>";
+    private static final String SCRIPT_TOKEN = "<script>";
 
     @TempDir
     Path base;
@@ -69,37 +66,43 @@ class ConsentCodecTest {
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
                         + entry("scan_harnesses").replace("\"cli\"", "\"telepathy\"") + "]}", "channel"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("scan_harnesses").replace(", \"granted_at\":\"" + GRANTED + "\"", "") + "]}",
+                        + entry("scan_harnesses").replace(", \"granted_at\":\"" + GRANTED_TOKEN + "\"", "") + "]}",
                         "granted_at"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("scan_harnesses").replace("}", ", \"project_id\":\"" + PROJECT + "\"}") + "]}",
+                        + entry("scan_harnesses").replace("}", ", \"project_id\":\"" + PROJECT_TOKEN + "\"}") + "]}",
                         "project"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("inspect_checkout").replace("\"project_id\":\"" + PROJECT + "\", ", "") + "]}",
+                        + entry("inspect_checkout").replace("\"project_id\":\"" + PROJECT_TOKEN + "\", ", "") + "]}",
                         "project"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
                         + entry("run_checkout_scripts").replace("\"scripts\":[], ", "") + "]}", "scripts"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
                         + entry("scan_harnesses").replace("}", ", \"scripts\":[]}") + "]}", "scripts"),
                 Arguments.of("{\"format_version\":1,\"revision\":0,\"consents\":["
-                        + entry("run_checkout_scripts").replace("\"project_id\":\"" + PROJECT + "\", \"scripts\":[]",
-                        "\"project_id\":\"" + PROJECT + "\", \"scripts\":[{\"path\":\"" + SCRIPT
-                                + "\",\"sha256\":\"nope\"}]") + "]}",
+                        + entry("run_checkout_scripts").replace("\"project_id\":\"" + PROJECT_TOKEN
+                        + "\", \"scripts\":[]", "\"project_id\":\"" + PROJECT_TOKEN + "\", \"scripts\":[{\"path\":\""
+                        + SCRIPT_TOKEN + "\",\"sha256\":\"nope\"}]") + "]}",
                         "digest"));
     }
 
     private static String entry(String kind) {
         var parsed = ConsentKind.of(kind).orElseThrow();
-        var project = parsed.projectScoped() ? "\"project_id\":\"" + PROJECT + "\", " : "";
+        var project = parsed.projectScoped() ? "\"project_id\":\"" + PROJECT_TOKEN + "\", " : "";
         var scripts = parsed.scriptScoped() ? "\"scripts\":[], " : "";
         return "{\"kind\":\"" + kind + "\", " + project + scripts
-                + "\"granted_at\":\"" + GRANTED + "\", \"channel\":\"cli\"}";
+                + "\"granted_at\":\"" + GRANTED_TOKEN + "\", \"channel\":\"cli\"}";
     }
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("refusedDocuments")
     @DisplayName("a document outside the store's one shape is refused")
-    void refused(String document, String what) {
+    void refused(String template, String what) {
+        var project = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var script = "bin/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT) + ".sh";
+        var granted = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        var document = template.replace(PROJECT_TOKEN, project)
+                .replace(GRANTED_TOKEN, granted.toString())
+                .replace(SCRIPT_TOKEN, script);
         var path = file();
         var bytes = document.getBytes(UTF_8);
 
@@ -110,9 +113,14 @@ class ConsentCodecTest {
     @Test
     @DisplayName("writes and reads back every member of an entry, including the web device and the scripts")
     void roundTrip() {
+        var project = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var script = "bin/" + Generators.letterStrings(3, 8).next().toLowerCase(Locale.ROOT) + ".sh";
+        var digest = "%064x".formatted(Generators.longs().next());
+        var granted = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        var device = "dev-" + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
         var revision = Generators.longs(0L, 1_000L).next();
-        var consent = Consent.checkoutScripts(PROJECT, List.of(new ConsentScript(SCRIPT, SHA)),
-                GRANTED, Consent.Channel.WEB, Optional.of(DEVICE));
+        var consent = Consent.checkoutScripts(project, List.of(new ConsentScript(script, digest)),
+                granted, Consent.Channel.WEB, Optional.of(device));
 
         var document = ConsentCodec.write(List.of(consent), revision);
         var read = ConsentCodec.read(file(), document);
@@ -120,7 +128,7 @@ class ConsentCodecTest {
         assertAll(
                 () -> assertEquals(revision, read.revision()),
                 () -> assertEquals(List.of(consent), read.consents()),
-                () -> assertTrue(new String(document, UTF_8).contains("\"scripts\":[{\"path\":\"" + SCRIPT + "\"")));
+                () -> assertTrue(new String(document, UTF_8).contains("\"scripts\":[{\"path\":\"" + script + "\"")));
     }
 
     @Test
@@ -135,8 +143,9 @@ class ConsentCodecTest {
     @Test
     @DisplayName("a project id outside its grammar is refused by the entry")
     void invalidProjectId() {
+        var granted = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
         assertThrows(IllegalArgumentException.class,
-                () -> Consent.project(ConsentKind.INSPECT_CHECKOUT, "Upper", GRANTED, Consent.Channel.CLI,
+                () -> Consent.project(ConsentKind.INSPECT_CHECKOUT, "Upper", granted, Consent.Channel.CLI,
                         Optional.empty()));
     }
 }
