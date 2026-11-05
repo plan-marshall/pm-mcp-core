@@ -61,8 +61,9 @@ The interface is a public seam of `pm-runtime` that the assembly `plan-marshall-
   builder; it adds a step class and touches neither the settlement nor the runner.
 * A replaced step runs in the order of `SettlementStep.Name` like every other step, and its `Failed` stops the settlement
   at that place. A step after the fate never throws: the settlement turns a runtime fault it could not report as a value
-  into a `Failed` step, so a durable end is never hidden from the settlement wait; the fate step's own fault propagates
-  so the runner can retry the record write.
+  into a `Failed` step, so a durable end is never hidden from the settlement wait; the fate step is the exception: a fault
+  it does not report as a `Failed` propagates so the runner can retry the record write, while a store fault it names is a
+  `Failed` step and the record stays for the recovery.
 * The mapping keeps a zero exit of a tool without a positive success marker `indeterminate` (row 8) rather than reading
   the absence of diagnostics as a success.
 

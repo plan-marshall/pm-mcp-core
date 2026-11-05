@@ -208,8 +208,9 @@ public final class JobSettlement {
     /**
      * Runs one step. A step after the fate never throws: a fault it cannot report as a value is a programming fault,
      * and the settlement turns any runtime fault into a {@link Outcome.Failed} so a settlement of an already-ended job
-     * never escapes to the caller. The fate step is the exception: its fault propagates so the runner's last-resort
-     * path can retry the record write.
+     * never escapes to the caller. The fate step is the exception: a fault it does not report as a {@code Failed}
+     * propagates so the runner's last-resort path can retry the record write; a store fault the fate step names is a
+     * {@code Failed} step and the record stays for the recovery.
      * <p>
      * The catch is the last-resort handler the specification names (Job Runtime § Outcome Derivation, Write order at
      * job end): the fate may already be durable, and a later step's fault must not hide the record from the settlement

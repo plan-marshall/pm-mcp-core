@@ -134,8 +134,9 @@ is specified for builds only.
 Guard:: A build exiting non-zero without a parsed diagnostic settles `failed_unparsed`, never `failed`; the full raw
 log is kept beside the job record, and its failure envelope (class `build`, kind `unparsed`) carries the bounded,
 redacted raw-log tail and the log URI and no invented diagnostic; matched control: a build with a parsed diagnostic
-settles `failed`. The fate, the kept log and the excerpt (`UnparsedEvidence`) are produced; the envelope that wraps the
-excerpt stays owed to the package `remediation-units`, so the item is kept.
+settles `failed`. The fate and the kept log are produced, and the excerpt factory (`UnparsedEvidence`) exists; the runner
+does not yet hand the excerpt on. The envelope that wraps the excerpt stays owed to the package `remediation-units`, so
+the item is kept.
 Source:: plan-marshall lesson 2026-09-23-05-006.
 
 [#PM-WATCH-JOB-9]

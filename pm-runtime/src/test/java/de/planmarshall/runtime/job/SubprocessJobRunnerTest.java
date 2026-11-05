@@ -69,7 +69,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.build.UnparsedEvidence;
 import de.planmarshall.core.service.AuditEvent;
@@ -87,6 +86,7 @@ import de.planmarshall.core.store.JobRecord.Status;
 import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
+import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
 import de.planmarshall.runtime.job.JobEvidence.Exited;
@@ -1825,9 +1825,10 @@ class SubprocessJobRunnerTest {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"maven:verify", "gradle:module-tests@core", "npm:test@web", "pyproject:verify"})
+        @EnumSource(BuildSystem.class)
         @DisplayName("the parser receives the job record of every build system")
-        void parserReceivesTheRecord(String budgetKey) throws Exception {
+        void parserReceivesTheRecord(BuildSystem system) throws Exception {
+            var budgetKey = system.wireName() + ":verify";
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var seen = new AtomicReference<JobRecord>();
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
