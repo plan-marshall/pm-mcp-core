@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 
@@ -21,7 +22,8 @@ import de.planmarshall.core.service.AuditSink;
  * The audit sink of the tests of the stores: it keeps the records it is handed, in the order they arrive, and writes
  * nothing.
  */
-// Every datum in this class is a contract: it holds only the records it is handed and the wire value "unknown" of a tail repair.
+// The records this class holds are handed to it, so they are the callers' data; the only value it makes up is the
+// placeholder transaction id of a tail repair, which is generated because withoutTransactionId strips it before any comparison.
 final class RecordingAuditSink implements AuditSink {
 
     private final List<AuditEvent> events = new CopyOnWriteArrayList<>();
@@ -51,7 +53,7 @@ final class RecordingAuditSink implements AuditSink {
      */
     static AuditEvent tailRepairWithoutId(Path store, byte[] torn) {
         return withoutTransactionId(AuditEvent.jsonlTailRepaired(store, torn.length, StoreSnapshot.sha256(torn),
-                "unknown"));
+                Generators.letterStrings(3, 12).next()));
     }
 
     private static AuditEvent withoutTransactionId(AuditEvent event) {
