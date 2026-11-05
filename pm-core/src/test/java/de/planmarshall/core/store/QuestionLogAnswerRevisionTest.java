@@ -96,9 +96,13 @@ class QuestionLogAnswerRevisionTest extends QuestionLogFixture {
     @Test
     @DisplayName("a conflict names a revision from 1")
     void conflictRevision() {
-        var revision = Generators.integers(Integer.MIN_VALUE, 0).next();
+        // 0 is the highest refused revision, so it is the boundary of the contract and stays a literal
+        var revision = Generators.integers(Integer.MIN_VALUE, -1).next();
 
-        assertThrows(IllegalArgumentException.class, () -> new Conflict("Q-001", revision),
-                "a revision below 1 should be refused");
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> new Conflict("Q-001", 0),
+                        "the boundary revision 0 should be refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Conflict("Q-001", revision),
+                        "a revision below 0 should be refused"));
     }
 }

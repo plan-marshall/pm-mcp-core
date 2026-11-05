@@ -62,11 +62,12 @@ final class OutlineFixtures {
                 // Coordinate grammar: the record admits only a maven:, npm: or pypi: prefixed coordinate.
                 List.of(new AddedDependency("maven:" + identifier(), note + ' ' + text(10, 60), text(10, 60))),
                 List.of(new Interface(Direction.PRODUCES, identifier(), text(1, 60))),
-                List.of(new KeyLink(path, identifier(), text(1, 30))));
+                // The pattern is a regular expression, so it carries backslashes: the round trip must escape them.
+                List.of(new KeyLink(path, identifier(), "new " + identifier() + "\\(\\)")));
     }
 
     static Revision revision(int number, OutlineRecord outlineRecord) {
-        // Task-id grammar: a task is named TASK- and its number.
+        // The revision admits any task id of 1 to 128 characters; the fixture names it TASK- and a number.
         return new Revision(number, AT.plusSeconds(number), "TASK-" + Generators.integers(1, 999).next(),
                 outlineRecord);
     }

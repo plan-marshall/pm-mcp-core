@@ -550,8 +550,12 @@ class MetricsStoreTest {
                             "a refused row with a worker should fail"),
                     () -> assertThrows(IllegalArgumentException.class, badId::build,
                             "a broken queue task id should fail"),
+                    // -1 is the first refused cost, so it is the boundary of the contract and stays a literal
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new MetricsRow.PredictedCost(-Generators.longs(1, 1_000L).next(),
+                            () -> new MetricsRow.PredictedCost(-1, MetricsRow.PredictedCost.Basis.UNCALIBRATED),
+                            "the first negative predicted cost should fail"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new MetricsRow.PredictedCost(-Generators.longs(2, 1_000L).next(),
                                     MetricsRow.PredictedCost.Basis.UNCALIBRATED),
                             "a negative predicted cost should fail"));
         }
@@ -560,12 +564,16 @@ class MetricsStoreTest {
         @DisplayName("refuses an idle row with a broken job, role or count (grammar violations)")
         void idleRefusals() {
             var badJob = idleRow().jobId("not-a-job");
-            var badWakeups = idleRow().idleWakeups(-Generators.integers(1, 100).next());
+            // -1 is the first refused count, so it is the boundary of the contract and stays a literal
+            var firstBadWakeups = idleRow().idleWakeups(-1);
+            var badWakeups = idleRow().idleWakeups(-Generators.integers(2, 100).next());
             var emptyModel = idleRow().model("");
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, badJob::build,
                             "a broken job id should fail the idle row"),
+                    () -> assertThrows(IllegalArgumentException.class, firstBadWakeups::build,
+                            "the first negative wakeup count should fail"),
                     () -> assertThrows(IllegalArgumentException.class, badWakeups::build,
                             "a negative wakeup count should fail"),
                     () -> assertThrows(IllegalArgumentException.class, emptyModel::build,

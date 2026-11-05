@@ -172,16 +172,24 @@ class QualificationSettingsStoreTest {
         var badRole = List.of("Not A Role");
         var role = role();
         var skippedTwice = List.of(role, role);
-        var over = Generators.integers(101, 1_000).next();
+        // 101 is the first refused value, so it is the boundary of the contract and stays a literal
+        var firstOver = 101;
+        var over = Generators.integers(102, 1_000).next();
         var valid = Generators.integers(0, 100).next();
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
+                        () -> new QualificationSettings(firstOver, 0, noRoles, false),
+                        "the first level over 100 should be refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new QualificationSettings(0, firstOver, noRoles, false),
+                        "the first gap over 100 should be refused"),
+                () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationSettings(over, 0, noRoles, false),
-                        "a level over 100 should be refused"),
+                        "a level far over 100 should be refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationSettings(0, over, noRoles, false),
-                        "a gap over 100 should be refused"),
+                        "a gap far over 100 should be refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new QualificationSettings(valid, valid, badRole, false),
                         "a broken role should be refused"),

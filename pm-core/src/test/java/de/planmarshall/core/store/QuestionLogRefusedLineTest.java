@@ -127,9 +127,13 @@ class QuestionLogRefusedLineTest extends QuestionLogFixture {
     @Test
     @DisplayName("is named by its line number from 1")
     void refusedLineNumber() {
-        var line = Generators.longs(Long.MIN_VALUE, 0).next();
+        // 0 is the highest refused line number, so it is the boundary of the contract and stays a literal
+        var line = Generators.longs(Long.MIN_VALUE, -1).next();
 
-        assertThrows(IllegalArgumentException.class, () -> new Unreadable("Q-001", line),
-                "a line number below 1 should be refused");
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> new Unreadable("Q-001", 0),
+                        "the boundary line number 0 should be refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Unreadable("Q-001", line),
+                        "a line number below 0 should be refused"));
     }
 }
