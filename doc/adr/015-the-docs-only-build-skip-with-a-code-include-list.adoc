@@ -28,32 +28,38 @@ The tests of this repository read these files the default ignore list matches:
   link:007-specifications-of-the-engine-in-this-repository.adoc[007]), among them `FindingSchemaParityTest`,
   `CredentialStoreMoveRecordParityTest`, `StalledScopeDetectorTest` and `UnitFrontmatterReaderTest`.
 * `doc/LogMessages.adoc`: `RuntimeLogMessagesTest` (`Path.of("..", "doc", "LogMessages.adoc")` from `pm-runtime`).
+* `pm-workflow/doc/developer/workflow-task.adoc`: `ProtocolVocabularyParityTest`.
 * `.md` and `.adoc` fixtures below `src/test/resources` of `pm-core` and `pm-workflow`.
 
 == Decision
 
 The docs-only skip is on again: `skip-on-docs-only` is removed from `.github/project.yml`, so its default `true`
-applies. `maven-build.paths-code-extra` lists `doc/specification/**`, `doc/LogMessages.adoc` and `**/src/**`. A pull
-request that changes any file matching one of them builds; a pull request whose every file is matched by the ignore
-list and by none of them skips.
+applies. `maven-build.paths-code-extra` lists `**/doc/**` and `**/src/**`: every documentation tree (the root `doc/`
+and each `{module}/doc/`) and every source tree counts as code. A pull request that changes any file below one of them
+builds; a pull request whose every file is matched by the ignore list and lies outside both trees skips. That leaves
+`.plan/`, `.claude/`, the `README`/`CLAUDE.md` files and `.github/project.yml` as the changes that skip.
 
-`**/src/**` is wider than the fixtures it was found for: everything below a source tree is build input by definition,
-so a future `.md` resource is covered without a change of this list.
+The rule names trees, not the files the tests read, so it does not mirror the readers: a new test that reads another
+specification part, guide or fixture below `doc/` or `src/` is covered without a change of the list.
 
 == Alternatives Considered
 
-1. *Keep `skip-on-docs-only: false` (ADR 009).* Rejected: it builds every `.plan/` and ADR pull request, which no test
-   reads.
-2. *List each fixture directory instead of `**/src/**`.* Rejected: the list would have to follow every new resource
-   directory, and a forgotten one reopens the hole ADR 009 closed.
+1. *Keep `skip-on-docs-only: false` (ADR 009).* Rejected: it builds every `.plan/` pull request, which no test reads.
+2. *List exactly the files the tests read* (`doc/specification/**`, `doc/LogMessages.adoc`,
+   `pm-workflow/doc/developer/workflow-task.adoc`). Rejected: the list mirrors the readers by hand. Its first version
+   missed `ProtocolVocabularyParityTest`'s guide, and every missed path reopens the hole ADR 009 closed.
+3. *The exact list plus a test that scans the test sources for documentation paths and fails on an uncovered one.*
+   Rejected: the scan is a heuristic over string literals, and the ADR- and guide-only pull requests it would keep
+   skipping are few.
 
 == Consequences
 
-A pull request that changes only `.plan/`, ADRs, developer documentation, `README.md` or `.github/project.yml` skips
-the build again. A new test that reads a file outside `src/` that the ignore list matches must add its path to
-`paths-code-extra`; otherwise a change of only that file is reported green without the test having run.
+A pull request that changes only `.plan/`, `.claude/`, the `README`/`CLAUDE.md` files or `.github/project.yml` skips
+the build again; one that changes only an ADR or a developer guide builds, about eight minutes. A new test that reads a
+file the ignore list matches outside `doc/` and `src/` (a `README`, say) must add its path to `paths-code-extra`;
+otherwise a change of only that file is reported green without the test having run.
 
-This pull request changes only `.github/project.yml` and ADRs, so its own build skips under the new setting. That a
+This pull request changes `doc/adr/`, so its own build runs under the new setting. That a
 specification-only pull request builds can only be observed by the next such pull request.
 
 == Source
