@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * two eligible hosts, the derived silence limit, the values an eligible host must declare, and the absence an ineligible
  * host or an unmeasured deadline legitimately carries.
  */
+@EnableGeneratorController
 @DisplayName("Worker parameters of a client profile")
 class WorkerParametersTest {
 
@@ -98,12 +101,14 @@ class WorkerParametersTest {
         @Test
         @DisplayName("an operator override of the bounded wait moves the silence limit with it")
         void overrideMovesTheSilenceLimit() {
+            var boundedWait = Generators.integers(15, 3_600).next();
             var parameters = WorkerParameters.of(
-                    loaded(ProfileFixtures.valid().set("/connection/bounded_wait_seconds", 120)));
+                    loaded(ProfileFixtures.valid().set("/connection/bounded_wait_seconds", boundedWait)));
 
             assertAll("overridden worker parameters",
-                    () -> assertEquals(120, parameters.boundedWaitSeconds(), "the bounded wait is the overridden one"),
-                    () -> assertEquals(150, parameters.silenceLimitSeconds(),
+                    () -> assertEquals(boundedWait, parameters.boundedWaitSeconds(),
+                            "the bounded wait is the overridden one"),
+                    () -> assertEquals(boundedWait + 30, parameters.silenceLimitSeconds(),
                             "the silence limit follows the overridden bounded wait"));
         }
     }

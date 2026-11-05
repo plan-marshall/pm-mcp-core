@@ -16,9 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -41,24 +44,27 @@ import de.planmarshall.core.findings.TransmitOutcome;
 /**
  * The result of a call to a code analysis provider and its rules (PM-IMPL-1).
  */
+@EnableGeneratorController
 @DisplayName("Analysis call result")
 class AnalysisCallResultTest {
 
-    private static final String SHA = "0123456789abcdef0123456789abcdef01234567";
-    private static final Instant AT = Instant.parse("2026-10-11T12:00:00Z");
-    private static final AnalysisResult RESULT = new AnalysisResult(1, "sonar", FindingScope.commit(SHA),
+    private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String SHA = "%040x".formatted(Generators.longs().next());
+    private static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final AnalysisResult RESULT = new AnalysisResult(1, PROVIDER, FindingScope.commit(SHA),
             AnalysisStatus.PASSED, null, CountStatus.MEASURED, 0L, 0, false, null, AT);
     private static final Finding ISSUE = Finding.builder()
             .formatVersion(Finding.FORMAT_VERSION)
-            .findingId("F-1")
+            .findingId("F-" + Generators.integers(1, 999).next())
             .source(FindingSourceKind.ANALYSIS)
-            .provider("sonar")
-            .providerRef(new Finding.ProviderRef(null, null, null, null, "issue-key-1"))
+            .provider(PROVIDER)
+            .providerRef(new Finding.ProviderRef(null, null, null, null,
+                    Generators.letterStrings(3, 20).next()))
             .severity(Severity.MAJOR)
             .blocking(true)
             .status(FindingStatus.OPEN)
             .resolution(Resolution.PENDING)
-            .summary("an issue on new code")
+            .summary(Generators.letterStrings(10, 40).next())
             .transmitOutcome(TransmitOutcome.PENDING)
             .resolveState(ResolveState.NOT_APPLICABLE)
             .createdAt(AT)

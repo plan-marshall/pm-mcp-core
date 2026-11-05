@@ -16,7 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -30,18 +33,23 @@ import de.planmarshall.core.store.StoreRefusal;
  * The release's default assignment (Model Work § Default Role Assignment): the tier, the effort, the preferred harness
  * and the advisory per role, read from {@code classpath:/roles/default-assignment.json}.
  */
+@EnableGeneratorController
 @DisplayName("Default assignment")
 class DefaultAssignmentTest {
 
     @TempDir
     Path base;
 
+    private static final String HARNESS = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String ADVISORY = Generators.letterStrings(5, 30).next();
+
     private static final String DOCUMENT = """
             {"format_version":1,"roles":{
-              "implement":{"tier":"standard","effort":"high","preferred_harness":"acme-cli",
+              "implement":{"tier":"standard","effort":"high","preferred_harness":"%s",
                            "advisory":"Implements the tasks of a plan."},
-              "screener":{"tier":"fast","effort":null,"preferred_harness":"acme-cli",
-                          "advisory":"Screens untrusted text."}}}""";
+              "screener":{"tier":"fast","effort":null,"preferred_harness":"%s",
+                          "advisory":"Screens untrusted text."}}}"""
+            .formatted(HARNESS, HARNESS);
 
     @Test
     @DisplayName("reads every member of a role's default")
@@ -52,7 +60,7 @@ class DefaultAssignmentTest {
         assertAll(
                 () -> assertEquals("standard", implement.tier()),
                 () -> assertEquals(Optional.of(new EffortValue("high")), implement.effort()),
-                () -> assertEquals("acme-cli", implement.preferredHarness()),
+                () -> assertEquals(HARNESS, implement.preferredHarness()),
                 () -> assertEquals("Implements the tasks of a plan.", implement.advisory()),
                 () -> assertTrue(defaults.of("screener").orElseThrow().effort().isEmpty()),
                 () -> assertTrue(defaults.of("outline").isEmpty()));
@@ -83,7 +91,7 @@ class DefaultAssignmentTest {
         var missing = "{\"format_version\":1,\"roles\":{\"implement\":{\"tier\":\"standard\"}}}".getBytes(UTF_8);
         var withoutRoles = "{\"format_version\":1}".getBytes(UTF_8);
         var badTier = assertThrows(IllegalArgumentException.class,
-                () -> new DefaultAssignment.DefaultRole("enormous", Optional.empty(), "acme-cli", "advice"));
+                () -> new DefaultAssignment.DefaultRole("enormous", Optional.empty(), HARNESS, ADVISORY));
         var newerVersion = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, newer));
         var missingMember = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, missing));
         var noRoles = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, withoutRoles));

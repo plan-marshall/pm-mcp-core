@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,10 +39,11 @@ import de.planmarshall.core.store.UsagePointers;
  * changed pointer declaration fails the row; a changed output <em>format</em> of a real harness is only caught once the
  * recorded outputs of that harness and version replace these synthetic turns, which is still owed.
  */
+@EnableGeneratorController
 @DisplayName("Shipped harness usage fixtures")
 class ShippedUsageFixturesTest {
 
-    private static final int FIRST_FIGURE = 101;
+    private static final long FIRST_FIGURE = Generators.longs(1, 1_000).next();
 
     @Test
     @DisplayName("every shipped harness parses its declared usage pointers into its expected row")
@@ -176,8 +179,10 @@ class ShippedUsageFixturesTest {
                 LoadedProfile.State.VERIFIED, null);
         var usage = profile.headless("/usage").orElseThrow();
 
+        var inputTokens = Generators.integers(1, 1_000).next();
+        var outputTokens = Generators.integers(1, 1_000).next();
         var row = UsagePointers.of(usage).read(ProfileFixtures.node(Map.of("usage",
-                Map.of("input_tokens", 120, "output_tokens", 30))));
+                Map.of("input_tokens", inputTokens, "output_tokens", outputTokens))));
 
         assertAll(() -> assertTrue(row.cacheCreationInputTokens().isNotApplicable()),
                 () -> assertEquals(Measurement.State.UNMEASURED, row.cacheReadInputTokens().state()));

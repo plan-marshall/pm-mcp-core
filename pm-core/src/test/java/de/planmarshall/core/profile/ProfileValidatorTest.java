@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * The client profile validator refuses every value that breaks the schema or a hardening rule, as a whole, with the
  * document and the JSON Pointer of the failing value (PM-CLIENT-5).
  */
+// Every datum in this class is a contract: schema names, rule-triggering values, bounds and refusal pointers.
 @DisplayName("Client profile validation")
 class ProfileValidatorTest {
 

@@ -1,0 +1,63 @@
+= ADR 006: A Missing GitLab Issue Is `NOT_FOUND`, Not a Merge-Request Probe
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-05.
+
+== Context
+
+ADR 004 ("A Pull Request Is No Issue for `ci.issue-view`") names the GitHub `pull_request` member of the issue read and
+never mentions the GitLab merge-request probe. GitLab numbers issues and merge requests apart, as ADR 004 and the Javadoc
+of `GitLabClient.issue` record, so `GET /projects/{id}/issues/{iid}` answers an issue there and a merge-request iid is a
+different number space.
+
+The adapter as shipped by PLAN-V2-12 answered a `NOT_FOUND` of the issue read by probing
+`GET /projects/{id}/merge_requests/{iid}` and answering `REJECTED` ("is a pull request, or an issue the credential cannot
+see") when a merge request with that number was visible. A missing issue `N` beside an existing merge request `!N`
+therefore read `REJECTED` instead of `NOT_FOUND`, and every missing issue cost a second request. The issue source of a
+start (`source-issue`) reads an issue; the pull request source (`source-pr`) is built by the follow-up plan `ci.pr-view`
+(PLAN-V2-62), whose finding S2 carries the issue-number versus pull-request-number split.
+
+== Decision
+
+`GitLabCiProvider.issueView` answers `NOT_FOUND` when the issue read is `NOT_FOUND`; it sends no request to a
+`merge_requests` path. A rate limit is `RATE_LIMITED`, and a transport failure or a `5xx` is `FAILED`, exactly as for
+GitHub. The provider knows the kind of a source only from its `ForgeUrl`, so a number that names a merge request is the
+pull-request view's to recognise, not an issue read's to guess.
+
+This ADR supersedes the part of ADR 004 that the GitLab probe represented. It does not decide the split of an issue
+number from a pull-request number: `IssueRef` carries no kind, so `issueComment` on a pull-request number stays
+unguarded, and PLAN-V2-62 decides that split (finding S2).
+
+== Alternatives Considered
+
+* *Keep the probe and report it as a separate detail of `NOT_FOUND`.* The URL already says whether it is a merge
+  request, so the probe adds a request to every missing issue and can only answer what the caller already knows; the
+  default is to remove it. The alternative is recorded here and belongs to the pull-request view if it needs the
+  distinction.
+* *Answer a merge request through the issue read.* It would conflate two source contracts with different manifests and
+  stored files (ADR 004's rejected alternative).
+
+== Consequences
+
+* A missing issue is `NOT_FOUND` whether or not a merge request with that number exists, and `issueView` costs one
+  request on a `404`.
+* The pull-request view must split the number spaces by the `ForgeUrl.Kind` it already carries; a GitLab merge-request
+  number is never read through the issue endpoint.
+* The GitLab guide and `GitLabCiProviderTest` state the behaviour; the probe's cases (`refusesMergeRequest`,
+  `keepsProbeRateLimit`) are replaced by a case that a missing issue is `NOT_FOUND` beside an existing merge request and
+  that no merge-request path is requested.
+
+== Source
+
+* Work package: PLAN-V2-113 `ci-contract-defects-and-hardening` of the epic `pm-mcp-core-m2-m4-v2`.
+* Specification: State Catalogue 09 § Issues by Number or URL and § Pull Request Source; Phase Workflows 01 § Plan
+  Source Contracts.
+* `pm-providers/pm-provider-ci/doc/adr/provider-ci/004-a-pull-request-is-no-issue.adoc`.
+* `pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java`,
+  `GitLabClient.java`, and `GitLabCiProviderTest.java`.

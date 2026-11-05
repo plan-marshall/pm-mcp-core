@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -36,13 +39,18 @@ import de.planmarshall.core.findings.TransmitOutcome;
  * The code analysis provider contract (PM-IMPL-1): a fixture provider answers both operations with each of the five
  * outcomes, and every result it builds is accepted or refused by the rules of {@link AnalysisCallResult}.
  */
+@EnableGeneratorController
 @DisplayName("Code analysis provider")
 class CodeAnalysisProviderTest {
 
-    private static final String PROVIDER_ID = "fixture-analysis";
-    private static final String SHA = "0123456789abcdef0123456789abcdef01234567";
-    private static final Instant AT = Instant.parse("2026-10-11T12:00:00Z");
-    private static final FindingScope TARGET = FindingScope.pullRequest(SHA, 7);
+    private static final String PROVIDER_ID =
+            "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String SHA = "%040x".formatted(Generators.longs().next());
+    private static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final String ANALYSIS_REF = Generators.letterStrings(5, 20).next();
+    private static final String ISSUE_KEY = Generators.letterStrings(5, 20).next();
+    private static final FindingScope TARGET =
+            FindingScope.pullRequest(SHA, Generators.integers(1, 10_000).next());
 
     /**
      * A provider answering every call with one outcome. An {@code OK} answer carries the analysis result of the
@@ -61,7 +69,7 @@ class CodeAnalysisProviderTest {
                 return AnalysisCallResult.status(outcome, null);
             }
             return AnalysisCallResult.status(outcome, new AnalysisResult(1, PROVIDER_ID, target,
-                    AnalysisStatus.FINDINGS, null, CountStatus.MEASURED, 1L, 1, true, "analysis-1", AT));
+                    AnalysisStatus.FINDINGS, null, CountStatus.MEASURED, 1L, 1, true, ANALYSIS_REF, AT));
         }
 
         @Override
@@ -69,7 +77,7 @@ class CodeAnalysisProviderTest {
             if (outcome != AnalysisOutcome.OK) {
                 return AnalysisCallResult.issues(outcome, null, null);
             }
-            return AnalysisCallResult.issues(outcome, List.of(issue("issue-key-1")), completeness);
+            return AnalysisCallResult.issues(outcome, List.of(issue(ISSUE_KEY)), completeness);
         }
     }
 
@@ -96,7 +104,7 @@ class CodeAnalysisProviderTest {
     private static Finding issue(String issueKey) {
         return Finding.builder()
                 .formatVersion(Finding.FORMAT_VERSION)
-                .findingId("F-1")
+                .findingId("F-" + Generators.integers(1, 999).next())
                 .source(FindingSourceKind.ANALYSIS)
                 .provider(PROVIDER_ID)
                 .providerRef(new Finding.ProviderRef(null, null, null, null, issueKey))
@@ -104,7 +112,7 @@ class CodeAnalysisProviderTest {
                 .blocking(true)
                 .status(FindingStatus.OPEN)
                 .resolution(Resolution.PENDING)
-                .summary("an issue on new code")
+                .summary(Generators.letterStrings(10, 40).next())
                 .transmitOutcome(TransmitOutcome.PENDING)
                 .resolveState(ResolveState.NOT_APPLICABLE)
                 .createdAt(AT)
@@ -202,7 +210,7 @@ class CodeAnalysisProviderTest {
                     () -> assertEquals(1, issues.size()),
                     () -> assertEquals(FindingSourceKind.ANALYSIS, issues.getFirst().source()),
                     () -> assertEquals(PROVIDER_ID, issues.getFirst().provider()),
-                    () -> assertEquals("issue-key-1", issues.getFirst().providerRef().issueKey()));
+                    () -> assertEquals(ISSUE_KEY, issues.getFirst().providerRef().issueKey()));
         }
     }
 }

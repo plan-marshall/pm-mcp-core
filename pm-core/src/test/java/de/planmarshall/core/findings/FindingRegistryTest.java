@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -29,10 +32,13 @@ import de.planmarshall.core.findings.FindingsContractTest.FixtureSource;
 /**
  * The registry of finding sources and responders, keyed by the store's source vocabulary (PM-IMPL-1).
  */
+@EnableGeneratorController
 @DisplayName("Finding registry")
 class FindingRegistryTest {
 
-    private static final FindingSourceKey ANALYSIS = FindingSourceKey.analysis("provider-a");
+    private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_PROVIDER = "q" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final FindingSourceKey ANALYSIS = FindingSourceKey.analysis(PROVIDER);
     private static final FindingSourceKey REVIEW = FindingSourceKey.of(FindingSourceKind.GITLAB_MR);
 
     private static FixtureSource source(FindingSourceKey key) {
@@ -77,7 +83,7 @@ class FindingRegistryTest {
         @DisplayName("an analysis key of another provider id answers empty")
         void otherProviderEmpty() {
             var registry = new FindingRegistry(List.of(source(ANALYSIS)), List.of(responder(ANALYSIS)));
-            var other = FindingSourceKey.analysis("provider-b");
+            var other = FindingSourceKey.analysis(OTHER_PROVIDER);
 
             assertAll(
                     () -> assertTrue(registry.source(other).isEmpty()),

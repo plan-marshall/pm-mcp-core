@@ -141,6 +141,14 @@ class ForgeUrlTest {
     }
 
     @Test
+    @DisplayName("refuses non-ASCII digits in the issue number")
+    void refusesNonAsciiDigits() {
+        assertEquals(ForgeUrl.Outcome.INVALID,
+                ForgeUrl.resolve("https://github.com/o/r/issues/%EF%BC%91%EF%BC%92").outcome(),
+                "fullwidth digits are not an issue number");
+    }
+
+    @Test
     @DisplayName("refuses a value whose repository names another forge")
     void refusesForgeMismatch() {
         var repository = new RepositoryRef("github", "https://github.com", "cuioss", "pm-mcp-core");
@@ -199,6 +207,44 @@ class ForgeUrlTest {
                 () -> assertEquals(ForgeUrl.Outcome.INVALID,
                         ForgeUrl.resolve("https://github.com/o/r/pulls/7").outcome(),
                         "GitHub has no plural pulls path"));
+    }
+
+    @Test
+    @DisplayName("covers the hostile path and host normalisation branches")
+    void coversHostilePathAndHostBranches() {
+        var encodedSlash = ForgeUrl.resolve("https://github.com/o%2Fr/issues/1").url().orElseThrow();
+        var overLongPath = ForgeUrl.resolve("https://gitlab.com/" + ("a".repeat(100) + "/").repeat(21)
+                + "-/issues/1");
+        var backslash = ForgeUrl.resolve("https://github.com/o/r%5Cissues/1");
+        var encodedParent = ForgeUrl.resolve("https://github.com/o/%2e%2e/r/issues/1");
+        var tooManySegments = ForgeUrl.resolve(
+                "https://github.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z");
+
+        assertAll("the hostile path and host branches",
+                () -> assertEquals("the path is not a plain URL path", overLongPath.detail(),
+                        "a path over the length bound is refused by the path rule"),
+                () -> assertEquals("the path is not a plain URL path", backslash.detail(),
+                        "a backslash in the path is refused by the path rule"),
+                () -> assertEquals("the path has an empty, dotted or over-long segment", encodedParent.detail(),
+                        "an encoded parent segment is refused by the segment rule"),
+                () -> assertEquals("the path has an empty, dotted or over-long segment", tooManySegments.detail(),
+                        "a path over 25 segments is refused"),
+                () -> assertEquals("o", encodedSlash.repository().ownerOrPath(),
+                        "an encoded slash separates owner and name"),
+                () -> assertEquals("r", encodedSlash.repository().name(),
+                        "an encoded slash separates owner and name"),
+                () -> assertEquals("https://github.com",
+                        ForgeUrl.resolve("https://GitHub.COM/o/r/issues/5").url().orElseThrow()
+                                .repository().origin(),
+                        "an uppercase host is lowercased"),
+                () -> assertEquals(ForgeUrl.Outcome.UNKNOWN_FORGE,
+                        ForgeUrl.resolve("https://github.com./o/r/issues/1").outcome(),
+                        "a trailing-dot host is an unknown forge"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/?note=1").outcome(),
+                        "a query-only URL has no issue path"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID, ForgeUrl.resolve("").outcome(),
+                        "an empty URL is refused"));
     }
 
     @Test

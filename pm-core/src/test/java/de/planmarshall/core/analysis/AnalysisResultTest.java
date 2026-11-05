@@ -15,10 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,12 +43,18 @@ import de.planmarshall.core.findings.FindingScope;
  * The analysis result record with the consistency rules of the specification and the structural rules of its schema
  * (PM-IMPL-2).
  */
+@EnableGeneratorController
 @DisplayName("Analysis result")
 class AnalysisResultTest {
 
-    private static final String SHA = "0123456789abcdef0123456789abcdef01234567";
-    private static final Instant OBSERVED_AT = Instant.parse("2026-10-11T12:00:00Z");
-    private static final Condition PASSED_CONDITION = new Condition("new_coverage", Comparator.LT, "80", "91.5",
+    private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String SHA = "%040x".formatted(Generators.longs().next());
+    private static final Instant OBSERVED_AT =
+            Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final String ANALYSIS_REF = Generators.letterStrings(5, 20).next();
+    private static final String METRIC = Generators.letterStrings(3, 20).next();
+    private static final String THRESHOLD = Integer.toString(Generators.integers(92, 100).next());
+    private static final Condition PASSED_CONDITION = new Condition("new_coverage", Comparator.LT, THRESHOLD, "91.5",
             GateResult.PASSED);
     private static final Condition FAILED_CONDITION = new Condition("new_violations", Comparator.GT, "0", "3",
             GateResult.FAILED);
@@ -55,7 +64,7 @@ class AnalysisResultTest {
     private static AnalysisResult.AnalysisResultBuilder passed() {
         return AnalysisResult.builder()
                 .formatVersion(AnalysisResult.FORMAT_VERSION)
-                .provider("sonar")
+                .provider(PROVIDER)
                 .target(FindingScope.commit(SHA))
                 .status(AnalysisStatus.PASSED)
                 .gate(null)
@@ -63,7 +72,7 @@ class AnalysisResultTest {
                 .newCodeIssueCount(0L)
                 .issuesFetched(0)
                 .workPerformed(false)
-                .analysisRef("AY-analysis-1")
+                .analysisRef(ANALYSIS_REF)
                 .observedAt(OBSERVED_AT);
     }
 
@@ -84,14 +93,14 @@ class AnalysisResultTest {
 
             assertAll(
                     () -> assertEquals(AnalysisResult.FORMAT_VERSION, result.formatVersion()),
-                    () -> assertEquals("sonar", result.provider()),
+                    () -> assertEquals(PROVIDER, result.provider()),
                     () -> assertEquals(FindingScope.commit(SHA), result.target()),
                     () -> assertEquals(AnalysisStatus.PASSED, result.status()),
                     () -> assertNull(result.gate()),
                     () -> assertEquals(CountStatus.MEASURED, result.countStatus()),
                     () -> assertEquals(0L, result.newCodeIssueCount()),
                     () -> assertEquals(0L, result.issuesFetched()),
-                    () -> assertEquals("AY-analysis-1", result.analysisRef()),
+                    () -> assertEquals(ANALYSIS_REF, result.analysisRef()),
                     () -> assertEquals(OBSERVED_AT, result.observedAt()));
         }
 
@@ -322,7 +331,7 @@ class AnalysisResultTest {
             var metric = "m".repeat(length);
 
             assertRefused("metric",
-                    () -> new Condition(metric, Comparator.LT, "80", null, GateResult.PASSED));
+                    () -> new Condition(metric, Comparator.LT, THRESHOLD, null, GateResult.PASSED));
         }
 
         @ParameterizedTest(name = "threshold of {0} characters")
@@ -332,7 +341,7 @@ class AnalysisResultTest {
             var threshold = "t".repeat(length);
 
             assertRefused("threshold",
-                    () -> new Condition("coverage", Comparator.LT, threshold, null, GateResult.PASSED));
+                    () -> new Condition(METRIC, Comparator.LT, threshold, null, GateResult.PASSED));
         }
 
         @Test
@@ -340,7 +349,8 @@ class AnalysisResultTest {
         void actualTooLong() {
             var actual = "a".repeat(65);
 
-            assertRefused("actual", () -> new Condition("coverage", Comparator.LT, "80", actual, GateResult.PASSED));
+            assertRefused("actual",
+                    () -> new Condition(METRIC, Comparator.LT, THRESHOLD, actual, GateResult.PASSED));
         }
 
         @Test
@@ -361,13 +371,13 @@ class AnalysisResultTest {
                     () -> assertThrows(NullPointerException.class, () -> new Gate(null, List.of())),
                     () -> assertThrows(NullPointerException.class, () -> new Gate(GateResult.PASSED, null)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition(null, Comparator.LT, "80", null, GateResult.PASSED)),
+                            () -> new Condition(null, Comparator.LT, THRESHOLD, null, GateResult.PASSED)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition("coverage", null, "80", null, GateResult.PASSED)),
+                            () -> new Condition(METRIC, null, THRESHOLD, null, GateResult.PASSED)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition("coverage", Comparator.LT, null, null, GateResult.PASSED)),
+                            () -> new Condition(METRIC, Comparator.LT, null, null, GateResult.PASSED)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Condition("coverage", Comparator.LT, "80", null, null)));
+                            () -> new Condition(METRIC, Comparator.LT, THRESHOLD, null, null)));
         }
     }
 }

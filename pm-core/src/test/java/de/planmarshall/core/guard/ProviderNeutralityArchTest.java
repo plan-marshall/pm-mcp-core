@@ -52,6 +52,7 @@ import de.planmarshall.core.guard.fixtures.GitHubNamedFixture;
  * {@link #PROVIDER_NAMES}, ignoring case. The only exemption is {@link #EXEMPTION}. Each control fixture of
  * {@code de.planmarshall.core.guard.fixtures} that this rule is applied to proves that the rule fails where it must.
  */
+// Every datum in this class is a contract: provider names, package names, exemption constants and fixture names.
 @DisplayName("Provider neutrality of pm-core")
 class ProviderNeutralityArchTest {
 
