@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +24,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -35,29 +38,41 @@ import org.junit.jupiter.api.io.TempDir;
  * Nothing with state lies below the repository of a project (PM-ARCH-1, PM-IMPL-2): the stores of the operator's acts
  * and of the questions, and the per-project machine store with its identity, write below the base directory of the
  * runtime only. Driven against a fixture repository with its {@code .git} and its {@code .marshall/local/}, they leave
- * the repository's files as they were: no file is written below its root, {@code .marshall/local/} included.
+ * the repository's files as they were: no file is written below its root, {@code .marshall/local/} included. The
+ * repository layout ({@code .git/HEAD}, {@code .marshall/local/}) is the layout contract; plan, entry, question ids and
+ * directory names are generated.
  */
+@EnableGeneratorController
 @DisplayName("Project store: no state in the repository")
 class ProjectStoreNoStateInRepositoryTest {
 
     private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "a-plan";
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-17T09:00:00Z"), ZoneOffset.UTC);
-    private static final EntryId ENTRY = new EntryId("ent-0123456789abcdef");
 
     @TempDir
     Path temporary;
 
+    private String planId;
+    private Clock clock;
+    private EntryId entry;
     private Path base;
     private Path repository;
     private RecordingLockManager locks;
     private RecordingAuditSink audit;
 
+    private static String name(String prefix) {
+        return prefix + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
     @BeforeEach
     void createFixtures() throws IOException {
-        base = Files.createDirectories(temporary.resolve("base"));
-        repository = Files.createDirectories(temporary.resolve("repository"));
+        planId = name("plan-");
+        clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next()),
+                ZoneOffset.UTC);
+        entry = new EntryId("ent-%016x".formatted(Generators.longs(0, Long.MAX_VALUE).next()));
+        base = Files.createDirectories(temporary.resolve(name("base-")));
+        repository = Files.createDirectories(temporary.resolve(name("repository-")));
         Files.createDirectories(repository.resolve(".git"));
+        // Git wire token: the HEAD file of a repository on its main branch.
         Files.writeString(repository.resolve(".git/HEAD"), "ref: refs/heads/main\n");
         Files.createDirectories(repository.resolve(".marshall/local/worktrees"));
         locks = new RecordingLockManager();
@@ -74,7 +89,7 @@ class ProjectStoreNoStateInRepositoryTest {
     private void commit(JournalScope scope, Consumer<ScopeTransaction> write) {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var scopeTransaction = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            var scopeTransaction = ScopeTransaction.open(transaction, scope, audit, clock);
             write.accept(scopeTransaction);
             scopeTransaction.commit();
         }
@@ -85,24 +100,31 @@ class ProjectStoreNoStateInRepositoryTest {
     void noFileBelowTheRepository() throws Exception {
         var before = files(repository);
         var store = new ProjectStore(base, PROJECT);
-        var plan = JournalScope.plan(base, PROJECT, PLAN);
+        var plan = JournalScope.plan(base, PROJECT, planId);
         var workspace = JournalScope.workspace(base, PROJECT);
+        var first = Generators.integers(1, 997).next();
+        var q1 = "Q-%03d".formatted(first);
+        var q2 = "Q-%03d".formatted(first + 1);
+        var q3 = "Q-%03d".formatted(first + 2);
 
         try (var transaction = locks.openTransaction()) {
             store.create(transaction, ProjectStoreIdentityCodecTest.identity(PROJECT, repository.toString()));
         }
         Files.createDirectories(plan.journalFile().getParent());
         Files.createDirectories(workspace.journalFile().getParent());
-        Files.createDirectories(QuestionLog.ofEntry(workspace, ENTRY).store().getParent());
+        Files.createDirectories(QuestionLog.ofEntry(workspace, entry).store().getParent());
         commit(plan, write -> {
             new WaiverLog(plan).append(write, WaiverRecordCodecTest.met());
             new WaiverConsumptionLog(plan).append(write, WaiverConsumptionCodecTest.consumption());
-            assertEquals(Optional.empty(), new QuestionLog(plan).ask(write, List.of(asked("Q-001", "Q-001"))));
+            assertEquals(Optional.empty(), new QuestionLog(plan).ask(write, List.of(asked(q1, q1))),
+                    "the plan's question should be asked");
         });
         commit(workspace, write -> {
-            assertEquals(Optional.empty(), new QuestionLog(workspace).ask(write, List.of(asked("Q-002", "Q-002"))));
+            assertEquals(Optional.empty(), new QuestionLog(workspace).ask(write, List.of(asked(q2, q2))),
+                    "the workspace's question should be asked");
             assertEquals(Optional.empty(),
-                    QuestionLog.ofEntry(workspace, ENTRY).ask(write, List.of(asked("Q-003", "Q-003"))));
+                    QuestionLog.ofEntry(workspace, entry).ask(write, List.of(asked(q3, q3))),
+                    "the entry's question should be asked");
         });
 
         var written = files(base);
@@ -116,7 +138,7 @@ class ProjectStoreNoStateInRepositoryTest {
                 () -> assertTrue(written.contains(new QuestionLog(plan).store()), "the plan's questions.jsonl"),
                 () -> assertTrue(written.contains(new QuestionLog(workspace).store()),
                         "the workspace's questions.jsonl"),
-                () -> assertTrue(written.contains(QuestionLog.ofEntry(workspace, ENTRY).store()),
+                () -> assertTrue(written.contains(QuestionLog.ofEntry(workspace, entry).store()),
                         "the entry's questions.jsonl"),
                 () -> assertTrue(written.stream().allMatch(file -> file.startsWith(store.root())),
                         "every written file lies in the project's machine store"));
@@ -127,9 +149,11 @@ class ProjectStoreNoStateInRepositoryTest {
     void comparisonSeesRepositoryFiles() throws Exception {
         var before = files(repository);
 
-        Files.writeString(repository.resolve(".marshall/local/state.json"), "{}");
+        var state = repository.resolve(".marshall/local").resolve(name("state-") + ".json");
+        Files.writeString(state, "{}");
 
-        assertEquals(Set.of(repository.resolve(".marshall/local/state.json")),
-                files(repository).stream().filter(file -> !before.contains(file)).collect(Collectors.toSet()));
+        assertEquals(Set.of(state),
+                files(repository).stream().filter(file -> !before.contains(file)).collect(Collectors.toSet()),
+                "the comparison should see the new file");
     }
 }

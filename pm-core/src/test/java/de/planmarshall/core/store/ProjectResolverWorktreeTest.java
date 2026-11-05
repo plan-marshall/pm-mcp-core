@@ -14,7 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,20 +29,28 @@ import de.planmarshall.core.store.ProjectResolution.Worktree;
 /**
  * A path in a linked worktree of the project (PM-SEC-2, PM-ARCH-1): a plan worktree, the shared epic worktree, an
  * absolute common directory, and the worktree names that resolve to no project — a baseline scratch worktree, a name
- * outside the plan-id grammar, a worktree elsewhere, and the worktree of a repository that is not enrolled.
+ * outside the plan-id grammar, a worktree elsewhere, and the worktree of a repository that is not enrolled. The
+ * baseline and foreign name tables are grammar contracts and the git pointer layout is a git wire contract; plan
+ * names and directories are generated.
  */
+@EnableGeneratorController
 @DisplayName("ProjectResolver: a path in a linked worktree")
 class ProjectResolverWorktreeTest extends ProjectResolverFixture {
+
+    private static String name(String prefix) {
+        return prefix + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
 
     @Test
     @DisplayName("resolves a worktree of a plan to the project and the plan")
     void resolvesPlanWorktree() throws Exception {
-        var worktree = worktreeOfMain(PLAN);
+        var plan = name("plan-");
+        var worktree = worktreeOfMain(plan);
 
         assertAll(
-                () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(worktree.resolve("src/Main.java")),
+                () -> assertEquals(new Worktree(PROJECT, plan), resolver.resolve(worktree.resolve("src/Main.java")),
                         "A file of the worktree should resolve to it"),
-                () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(worktree),
+                () -> assertEquals(new Worktree(PROJECT, plan), resolver.resolve(worktree),
                         "The worktree root should resolve to it"));
     }
 
@@ -62,7 +73,8 @@ class ProjectResolverWorktreeTest extends ProjectResolverFixture {
         var worktree = worktreeOfMain(PLAN);
         Files.writeString(main.resolve(".git/worktrees/" + PLAN + "/commondir"), main.resolve(".git") + "\n");
 
-        assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(worktree.resolve("src/Main.java")));
+        assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(worktree.resolve("src/Main.java")),
+                "An absolute common directory should resolve");
     }
 
     @Test
@@ -74,7 +86,8 @@ class ProjectResolverWorktreeTest extends ProjectResolverFixture {
         assertAll(
                 () -> assertNotEnrolled(NotEnrolled.Reason.BASELINE_WORKTREE,
                         resolver.resolve(baseline.resolve("src/Main.java"))),
-                () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(plan.resolve("src/Main.java"))));
+                () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(plan.resolve("src/Main.java")),
+                        "The plan worktree beside it should resolve"));
     }
 
     @ParameterizedTest(name = "baseline directory {0}")
@@ -89,15 +102,19 @@ class ProjectResolverWorktreeTest extends ProjectResolverFixture {
         assertAll(
                 () -> assertNotEnrolled(NotEnrolled.Reason.BASELINE_WORKTREE,
                         resolver.resolve(baseline.resolve("src/Main.java"))),
-                () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(plan.resolve("src/Main.java"))));
+                () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(plan.resolve("src/Main.java")),
+                        "The plan worktree beside it should resolve"));
     }
 
     @Test
     @DisplayName("resolves a plan worktree whose name only begins like the baseline prefix to its plan")
     void nameWithoutBaselinePrefix() throws Exception {
-        var worktree = worktreeOfMain("baselines-plan");
+        // Grammar boundary: the prefix baselines- is no baseline- prefix.
+        var plan = name("baselines-");
+        var worktree = worktreeOfMain(plan);
 
-        assertEquals(new Worktree(PROJECT, "baselines-plan"), resolver.resolve(worktree.resolve("src/Main.java")));
+        assertEquals(new Worktree(PROJECT, plan), resolver.resolve(worktree.resolve("src/Main.java")),
+                "A baselines- name should resolve to its plan");
     }
 
     @ParameterizedTest(name = "worktree directory {0}")
@@ -112,8 +129,10 @@ class ProjectResolverWorktreeTest extends ProjectResolverFixture {
     @Test
     @DisplayName("resolves a worktree of the project that lies elsewhere to no project")
     void worktreeElsewhere() throws Exception {
-        var beside = linkedWorktree(home.resolve("git/beside"), main, "beside");
-        var below = linkedWorktree(main.resolve(".marshall/" + PLAN), main, "below");
+        var besideName = name("beside-");
+        var belowName = name("below-");
+        var beside = linkedWorktree(home.resolve("git").resolve(besideName), main, besideName);
+        var below = linkedWorktree(main.resolve(".marshall/" + PLAN), main, belowName);
 
         assertAll(
                 () -> assertNotEnrolled(NotEnrolled.Reason.FOREIGN_TOPLEVEL,
@@ -125,7 +144,7 @@ class ProjectResolverWorktreeTest extends ProjectResolverFixture {
     @Test
     @DisplayName("resolves a worktree of a repository that is not enrolled to no project")
     void worktreeOfUnenrolledRepository() throws Exception {
-        var other = repository("git/other");
+        var other = repository("git/" + name("other-"));
         var worktree = linkedWorktree(other.resolve(".marshall/local/worktrees/" + PLAN), other, PLAN);
 
         assertNotEnrolled(NotEnrolled.Reason.NO_ENROLMENT, resolver.resolve(worktree.resolve("src/Main.java")));

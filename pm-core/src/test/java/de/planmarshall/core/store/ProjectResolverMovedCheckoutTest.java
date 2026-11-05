@@ -13,7 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -22,16 +25,23 @@ import de.planmarshall.core.store.ProjectResolution.Worktree;
 
 /**
  * A checkout that was moved by hand (PM-SEC-2, PM-ARCH-1): the pointer files name the old place until the worktree is
- * repaired or the project is enrolled again, and no recorded path is followed to a checkout that is not there.
+ * repaired or the project is enrolled again, and no recorded path is followed to a checkout that is not there. The
+ * git pointer layout ({@code .git/worktrees/<name>/gitdir}) is a git wire contract; the new names are generated.
  */
+@EnableGeneratorController
 @DisplayName("ProjectResolver: a moved checkout")
 class ProjectResolverMovedCheckoutTest extends ProjectResolverFixture {
+
+    private static String name(String prefix) {
+        return prefix + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
 
     @Test
     @DisplayName("refuses a worktree moved by hand, whose gitdir record is stale, until it is repaired")
     void worktreeMovedByHand() throws Exception {
         var worktree = worktreeOfMain(PLAN);
-        var moved = Files.move(worktree, worktrees.resolve("plan-15-moved"));
+        var newName = name("plan-");
+        var moved = Files.move(worktree, worktrees.resolve(newName));
         var stale = resolver.resolve(moved.resolve("src/Main.java"));
         Files.writeString(main.resolve(".git/worktrees/" + PLAN + "/gitdir"), moved.resolve(".git") + "\n");
 
@@ -39,14 +49,14 @@ class ProjectResolverMovedCheckoutTest extends ProjectResolverFixture {
 
         assertAll(
                 () -> assertNotEnrolled(NotEnrolled.Reason.UNRECOGNISED_GIT, stale),
-                () -> assertEquals(new Worktree(PROJECT, "plan-15-moved"), repaired,
-                        "The repaired worktree should resolve under its new name"));
+                () -> assertEquals(new Worktree(PROJECT, newName), repaired,
+                        "The repaired worktree should resolve by its new name"));
     }
 
     @Test
     @DisplayName("refuses a main checkout whose path differs from the project root of its enrolment")
     void mainCheckoutMoved() throws Exception {
-        var moved = Files.move(main, home.resolve("git/moved"));
+        var moved = Files.move(main, home.resolve("git").resolve(name("moved-")));
 
         var resolution = resolver.resolve(moved.resolve("README.md"));
 
@@ -59,7 +69,7 @@ class ProjectResolverMovedCheckoutTest extends ProjectResolverFixture {
     @DisplayName("refuses a worktree of a main checkout that was moved, whose pointers name the old place")
     void worktreeOfMovedMainCheckout() throws Exception {
         worktreeOfMain(PLAN);
-        var moved = Files.move(main, home.resolve("git/moved"));
+        var moved = Files.move(main, home.resolve("git").resolve(name("moved-")));
 
         var resolution = resolver.resolve(moved.resolve(".marshall/local/worktrees/" + PLAN + "/src/Main.java"));
 

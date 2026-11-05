@@ -15,8 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.TreeSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,15 +34,21 @@ import de.planmarshall.core.store.ProjectResolution.Worktree;
 /**
  * The contract of the resolution values (PM-SEC-2, PM-ARCH-1): a relative path and a missing argument are programming
  * errors, every value validates its own members, a conflict holds its own sorted unmodifiable set, and the shared epic
- * worktree is told from a plan worktree.
+ * worktree is told from a plan worktree. The malformed ids are grammar violations and the conflict's projects are
+ * deliberately unsorted order-pinning data; added projects and relative paths are generated.
  */
+@EnableGeneratorController
 @DisplayName("ProjectResolver: as a contract")
 class ProjectResolverContractTest extends ProjectResolverFixture {
+
+    private static String projectId() {
+        return "project-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
 
     @Test
     @DisplayName("rejects a relative path and a missing argument as a programming error")
     void invalidArguments() {
-        var relative = Path.of("src/Main.java");
+        var relative = Path.of(Generators.letterStrings(1, 12).next(), Generators.letterStrings(1, 12).next());
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> resolver.resolve(relative),
@@ -58,7 +67,7 @@ class ProjectResolverContractTest extends ProjectResolverFixture {
                 () -> assertThrows(IllegalArgumentException.class, () -> new MainCheckout("Not An Id"),
                         "A project id outside the grammar should be refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new Worktree(PROJECT, "_other"),
-                        "A worktree that is neither a plan id nor _epics should be refused"),
+                        "A worktree neither plan id nor _epics should fail"),
                 () -> assertThrows(NullPointerException.class, () -> new Worktree(PROJECT, null),
                         "A missing worktree should be refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new RootConflict(oneProject),
@@ -77,14 +86,15 @@ class ProjectResolverContractTest extends ProjectResolverFixture {
         var projects = new TreeSet<>(List.of("zeta-project", "alpha-project"));
         var conflict = new RootConflict(projects);
 
-        projects.add("beta-project");
+        projects.add(projectId());
         var projectIds = conflict.projectIds();
+        var added = projectId();
 
         assertAll(
                 () -> assertEquals(List.of("alpha-project", "zeta-project"), List.copyOf(projectIds),
                         "The conflict should hold its own sorted copy"),
                 () -> assertThrows(UnsupportedOperationException.class,
-                        () -> projectIds.add("gamma-project"),
+                        () -> projectIds.add(added),
                         "The projects of a conflict should not be modifiable"));
     }
 
@@ -92,7 +102,9 @@ class ProjectResolverContractTest extends ProjectResolverFixture {
     @DisplayName("tells a plan worktree from the shared epic worktree")
     void epicsWorktree() {
         assertAll(
-                () -> assertTrue(new Worktree(PROJECT, ProjectResolution.EPICS_WORKTREE).isEpicsWorktree()),
-                () -> assertFalse(new Worktree(PROJECT, PLAN).isEpicsWorktree()));
+                () -> assertTrue(new Worktree(PROJECT, ProjectResolution.EPICS_WORKTREE).isEpicsWorktree(),
+                        "The _epics worktree should be the epic worktree"),
+                () -> assertFalse(new Worktree(PROJECT, PLAN).isEpicsWorktree(),
+                        "A plan worktree should not be the epic worktree"));
     }
 }

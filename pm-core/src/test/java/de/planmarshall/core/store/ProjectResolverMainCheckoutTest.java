@@ -13,6 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.nio.file.Files;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,8 +28,10 @@ import de.planmarshall.core.store.ProjectResolution.PathRefused;
 /**
  * A path in the main checkout of the enrolled project (PM-SEC-2, PM-ARCH-1): the checkout root, its files and
  * directories, its {@code .git} and its worktree directory, named through a symbolic link of the platform as well;
- * a path that cannot be canonicalised is the confinement's refusal.
+ * a path that cannot be canonicalised is the confinement's refusal. The paths below the checkout are the fixture
+ * layout and the git layout ({@code .git}, {@code .marshall/local/worktrees}); generated names are added inside it.
  */
+@EnableGeneratorController
 @DisplayName("ProjectResolver: a path in the main checkout")
 class ProjectResolverMainCheckoutTest extends ProjectResolverFixture {
 
@@ -37,6 +43,19 @@ class ProjectResolverMainCheckoutTest extends ProjectResolverFixture {
     }
 
     @Test
+    @DisplayName("resolves a generated directory and file of the checkout to the main checkout")
+    void resolvesGeneratedFile() throws Exception {
+        var directory = Files.createDirectories(main.resolve(name()));
+        var file = Files.writeString(directory.resolve(name() + ".txt"), Generators.letterStrings(1, 40).next());
+
+        assertMainCheckout(resolver.resolve(file));
+    }
+
+    private static String name() {
+        return "dir-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    @Test
     @DisplayName("resolves a path named through a symbolic link of the platform by its canonical form")
     void resolvesThroughPlatformLink() {
         assertMainCheckout(resolver.resolve(temp.resolve("git/" + PROJECT + "/src/Main.java")));
@@ -45,7 +64,7 @@ class ProjectResolverMainCheckoutTest extends ProjectResolverFixture {
     @Test
     @DisplayName("refuses a path that does not exist, which cannot be canonicalised")
     void refusesMissingPath() {
-        var resolution = resolver.resolve(main.resolve("src/Absent.java"));
+        var resolution = resolver.resolve(main.resolve("src").resolve(name() + ".java"));
 
         var refused = assertInstanceOf(PathRefused.class, resolution, "The path should be refused");
         assertAll(
