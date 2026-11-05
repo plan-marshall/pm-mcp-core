@@ -38,11 +38,12 @@ class AnswersTest {
     }
 
     private static String questionId(int min, int max) {
-        return "Q-%03d".formatted(Generators.integers(min, max).next());
+        // Locale.ROOT keeps the digits ASCII: AnswerFact's pattern matches [0-9] only
+        return String.format(Locale.ROOT, "Q-%03d", Generators.integers(min, max).next());
     }
 
     private static String taskId() {
-        return "TASK-%03d".formatted(Generators.integers(100, 999_999).next());
+        return String.format(Locale.ROOT, "TASK-%03d", Generators.integers(100, 999_999).next());
     }
 
     private static String branchKey() {
@@ -105,10 +106,12 @@ class AnswersTest {
     void idempotentDelivery() {
         var askedQuestionId = questionId();
         var askedTaskId = taskId();
-        var answers = Answers.empty().plus(fact(askedQuestionId, askedTaskId))
-                .plus(fact(askedQuestionId, askedTaskId));
+        var retried = fact(askedQuestionId, askedTaskId);
+        var answers = Answers.empty().plus(fact(askedQuestionId, askedTaskId)).plus(retried);
 
-        assertEquals(1, answers.rows().size());
+        assertAll(
+                () -> assertEquals(1, answers.rows().size()),
+                () -> assertEquals(retried.cells(), answers.rows().getFirst()));
     }
 
     @Test

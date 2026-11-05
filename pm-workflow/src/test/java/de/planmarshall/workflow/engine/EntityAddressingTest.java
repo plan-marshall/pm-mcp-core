@@ -313,7 +313,7 @@ class EntityAddressingTest {
         @Test
         @DisplayName("An unreadable entry is refused entry_unreadable and never resolved")
         void unreadable() {
-            var reason = Generators.letterStrings(1, 20).next();
+            var reason = "reader-" + Generators.letterStrings(8, 20).next();
             fixtures.entryReader.answer(PLAN_ENTRY, new EntryRead.Unreadable(reason));
 
             var resolution = inWorkspace(PLAN_ENTRY, reviewing());

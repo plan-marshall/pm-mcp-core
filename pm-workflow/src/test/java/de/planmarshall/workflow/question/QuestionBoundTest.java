@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
+import java.util.Locale;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +51,7 @@ class QuestionBoundTest {
     }
 
     private static String taskId(int min, int max) {
-        return "TASK-%03d".formatted(Generators.integers(min, max).next());
+        return String.format(Locale.ROOT, "TASK-%03d", Generators.integers(min, max).next());
     }
 
     @Test
@@ -87,12 +89,14 @@ class QuestionBoundTest {
     @DisplayName("a new entry of the same state has its own count")
     void newEntryNewCount() {
         var bound = new QuestionBound();
-        var first = entry(entryId(1));
+        // one prefix, so both entries belong to the same state and only the sequence differs
+        var prefix = Generators.letterStrings(1, 8).next() + "/" + Generators.letterStrings(1, 8).next();
+        var first = entry(prefix + "#1");
         bound.count(first);
         bound.count(first);
         bound.count(first);
 
-        assertTrue(bound.mayOffer(entry(entryId(2))));
+        assertTrue(bound.mayOffer(entry(prefix + "#2")));
     }
 
     @Test

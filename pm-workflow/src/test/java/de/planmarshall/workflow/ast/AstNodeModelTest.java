@@ -350,9 +350,10 @@ class AstNodeModelTest {
         @Test
         @DisplayName("the parameter bindings of a call and the bound arguments of a frame keep their order")
         void bindingsKeepOrder() {
-            var z = text();
-            var a = text();
-            var m = text();
+            // fixed and deliberately unsorted: a sorted copy must fail the order assertion
+            var z = "z";
+            var a = "a";
+            var m = "m";
             var entry = text();
             var bindings = new LinkedHashMap<String, CallValue>();
             bindings.put(z, new CallValue.IntValue(Generators.integers(0, 1_000).next()));

@@ -509,12 +509,14 @@ class DeclarationBoundsTest {
         var kind = new DeclarationBounds.DecisionKind();
         var foreignEnum = new CallValue.EnumValue(invalidValue());
         var foreignList = new CallValue.EnumList(List.of(invalidValue()));
+        var admittedList = new CallValue.EnumList(List.of(DecisionDeclaration.DECISION_KINDS.getFirst()));
 
         assertAll(
                 () -> assertEquals("int[60..1800]", range.describe()),
                 () -> assertFalse(range.admits(foreignEnum)),
                 () -> assertTrue(kind.describe().startsWith("enum[interpretation|")),
                 () -> assertFalse(kind.admits(new CallValue.IntValue(1))),
+                () -> assertFalse(kind.admits(admittedList)),
                 () -> assertFalse(kind.admits(foreignList)));
     }
 
