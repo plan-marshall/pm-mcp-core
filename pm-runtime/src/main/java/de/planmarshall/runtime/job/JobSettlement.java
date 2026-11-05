@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -18,9 +19,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.job.SettlementStep.Name;
 import de.planmarshall.runtime.job.SettlementStep.Outcome;
 import de.planmarshall.runtime.job.SettlementStep.Settled;
@@ -43,6 +46,12 @@ import de.planmarshall.runtime.job.SettlementStep.Settled;
  * @since 0.1
  */
 public final class JobSettlement {
+
+    /**
+     * The steps this runtime implements. A new implementation in the factory switch below is added here in the same
+     * change, so {@link #replacements(Map)} refuses to replace it.
+     */
+    private static final Set<Name> IMPLEMENTED = EnumSet.of(Name.FATE, Name.SLOT_RELEASE);
 
     private final List<SettlementStep> steps;
 
@@ -130,16 +139,12 @@ public final class JobSettlement {
                 throw new IllegalArgumentException("A replacement step is filed under another name than its own: "
                         + name);
             }
-            if (!isSeam(name)) {
+            if (IMPLEMENTED.contains(name)) {
                 throw new IllegalArgumentException("The implemented settlement step %s cannot be replaced"
                         .formatted(name));
             }
         }
         return Map.copyOf(checked);
-    }
-
-    private static boolean isSeam(Name name) {
-        return name != Name.FATE && name != Name.SLOT_RELEASE;
     }
 
     /**
@@ -193,13 +198,26 @@ public final class JobSettlement {
         Objects.requireNonNull(settled, "settled");
         var reports = new ArrayList<StepReport>();
         for (var step : steps) {
-            var outcome = Objects.requireNonNull(step.run(settled), "outcome");
+            var outcome = run(step, settled);
             reports.add(new StepReport(step.name(), outcome));
             if (outcome instanceof Outcome.Failed) {
                 break;
             }
         }
         return new Report(reports);
+    }
+
+    /**
+     * Runs one step, turning a failure of its store into a {@link Outcome.Failed} so a settlement of an already-ended
+     * job never escapes to the caller: the fate is durable, and a later store fault must not hide the record from the
+     * settlement wait.
+     */
+    private static Outcome run(SettlementStep step, Settled settled) {
+        try {
+            return Objects.requireNonNull(step.run(settled), "outcome");
+        } catch (UncheckedIOException | StoreRefusal e) {
+            return new Outcome.Failed("the step %s failed: %s".formatted(step.name(), e.getMessage()));
+        }
     }
 
     /** @return the names of the steps in the order they run */

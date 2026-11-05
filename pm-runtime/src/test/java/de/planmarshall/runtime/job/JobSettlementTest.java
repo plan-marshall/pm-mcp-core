@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -352,6 +353,7 @@ class JobSettlementTest {
                     () -> assertEquals(List.of(Name.values()), report.steps().stream()
                             .map(JobSettlement.StepReport::name).toList(), "the fixed order is unchanged"),
                     () -> assertEquals(List.of(Name.CHANGE_LEDGER_ROW), ran, "the replacement ran once"),
+                    () -> assertFalse(slotHeld(), "the slot was released after the settlement"),
                     () -> assertEquals(new Outcome.Done("ran"), report.steps().stream()
                             .filter(step -> step.name() == Name.CHANGE_LEDGER_ROW).findFirst().orElseThrow()
                             .outcome(), "the replacement reports what it did"),
@@ -376,6 +378,32 @@ class JobSettlementTest {
                             "no step after the failure ran"),
                     () -> assertTrue(fateRecorded, "the fate was recorded before the failure"),
                     () -> assertTrue(slotHeld, "the slot was not released after the failure"));
+        }
+
+        @Test
+        @DisplayName("a replacement step that throws a store exception stops the settlement")
+        void throwingReplacementStopsTheSettlement() {
+            var throwing = new SettlementStep() {
+
+                @Override
+                public Name name() {
+                    return Name.TIMING_OBSERVATION;
+                }
+
+                @Override
+                public Outcome run(Settled settled) {
+                    throw new UncheckedIOException(new IOException("the store failed"));
+                }
+            };
+
+            var report = JobSettlement.of(records, lockManager, Map.of(Name.TIMING_OBSERVATION, throwing))
+                    .settle(runningJobWithSlot());
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Name.TIMING_OBSERVATION), report.stoppedAt(),
+                            "the store failure stopped the settlement"),
+                    () -> assertInstanceOf(Outcome.Failed.class, report.steps().getLast().outcome(),
+                            "the store failure is a failed step"));
         }
 
         @Test

@@ -53,14 +53,14 @@ class UnparsedEvidenceTest {
     @Test
     @DisplayName("cuts a single line longer than four kilobytes at its end")
     void cutsALongLine() {
-        var log = "x".repeat(10_000);
+        var log = "head" + "x".repeat(10_000) + "tail";
 
         var evidence = UnparsedEvidence.of(PLAN, JOB, log);
 
         assertAll(
-                () -> assertEquals(UnparsedEvidence.MAX_BYTES, evidence.excerpt().getBytes(StandardCharsets.UTF_8).length,
+                () -> assertEquals(4096, evidence.excerpt().getBytes(StandardCharsets.UTF_8).length,
                         "the excerpt carries at most four kilobytes"),
-                () -> assertEquals(log.substring(10_000 - UnparsedEvidence.MAX_BYTES), evidence.excerpt(),
+                () -> assertEquals(log.substring(log.length() - 4096), evidence.excerpt(),
                         "the excerpt keeps the end of the line"));
     }
 

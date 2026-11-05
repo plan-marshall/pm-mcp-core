@@ -28,6 +28,7 @@ import de.planmarshall.core.build.TestCounts;
 import de.planmarshall.core.build.TypeScriptOutputParser;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
+import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
 
 /**
  * The adapter from the native build log parsers of {@code core.build} to the runner's
@@ -81,19 +82,18 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
                 .orElse(JobEvidence.ParseResult.NOTHING);
     }
 
-    private static Optional<String> system(JobRecord job) {
+    private static Optional<BuildSystem> system(JobRecord job) {
         var key = job.budgetKey();
         var separator = key.indexOf(':');
-        return separator > 0 ? Optional.of(key.substring(0, separator)) : Optional.empty();
+        return separator > 0 ? BuildSystem.fromWireName(key.substring(0, separator)) : Optional.empty();
     }
 
-    private static Optional<JobEvidence.ParseResult> parse(String buildSystem, String output) {
+    private static Optional<JobEvidence.ParseResult> parse(BuildSystem buildSystem, String output) {
         return switch (buildSystem) {
-            case "maven" -> Optional.of(result(MavenOutputParser.parse(output)));
-            case "gradle" -> Optional.of(result(GradleOutputParser.parse(output)));
-            case "npm" -> npm(output);
-            case "pyproject" -> Optional.of(result(PyprojectOutputParser.parse(output)));
-            default -> Optional.empty();
+            case MAVEN -> Optional.of(result(MavenOutputParser.parse(output)));
+            case GRADLE -> Optional.of(result(GradleOutputParser.parse(output)));
+            case NPM -> npm(output);
+            case PYPROJECT -> Optional.of(result(PyprojectOutputParser.parse(output)));
         };
     }
 
