@@ -293,6 +293,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final ProbeEnvironment probeEnvironment;
     private final OutputParser parser;
     private final PrimitiveJobs primitives;
+    private final Map<SettlementStep.Name, SettlementStep> settlementSteps;
     private final InstantSource clock;
     private final Supervision supervision;
     private final AuditSink audit;
@@ -344,8 +345,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param audit            where a surviving descendant of a probe is written; {@code null} for no audit record
      * @param settledRecordsKept how many settled records the runner keeps after it pruned their store; {@code null} for
      *                         {@value #SETTLED_RECORD_CACHE}
+     * @param settlementSteps  the steps that replace the named seams of {@link JobSettlement}; empty or {@code null}
+     *                         for the settlement of this runtime as it is
      * @throws NullPointerException if an argument other than the clock, the supervision, the audit sink, the job-token
-     *                              store and the settled-record window is {@code null}
+     *                              store, the settled-record window and the settlement steps is {@code null}
      */
     @Builder
     // java:S5443 does not apply: /tmp is the system temporary directory the specification puts in every job's write
@@ -355,7 +358,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             PmExecLauncher launcher, TerminationProtocol termination, @Nullable JobConfinementComposer confinementComposer,
             @Nullable Environment environment, @Nullable ProbeEnvironment probeEnvironment, OutputParser parser,
             PrimitiveJobs primitives, @Nullable InstantSource clock, @Nullable Supervision supervision,
-            @Nullable AuditSink audit, @Nullable JobTokenStore jobTokens, @Nullable Integer settledRecordsKept) {
+            @Nullable AuditSink audit, @Nullable JobTokenStore jobTokens, @Nullable Integer settledRecordsKept,
+            @Nullable Map<SettlementStep.Name, SettlementStep> settlementSteps) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -369,6 +373,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.probeEnvironment = probeEnvironment != null ? probeEnvironment : defaultEnvironment;
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
+        this.settlementSteps = settlementSteps == null ? Map.of() : Map.copyOf(settlementSteps);
         this.clock = clock == null ? InstantSource.system() : clock;
         this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
         this.audit = audit == null ? NO_AUDIT : audit;
@@ -432,7 +437,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * The parser of a job's kind: what it finds in the output of an ended job, the launch report stripped.
+     * The parser of a job's log: what it finds in the output of an ended job, the launch report stripped. It receives
+     * the job record, because the build tool that wrote a log is known from its budget key, not from the log alone.
      *
      * @since 0.1
      */
@@ -440,11 +446,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     public interface OutputParser {
 
         /**
-         * @param kind   the kind of the job
+         * @param job    the record of the ended job, whose kind and budget key select the parser
          * @param output the job's output, the job log after its launch report
          * @return what the parser found
          */
-        ParseResult parse(JobId.Kind kind, String output);
+        ParseResult parse(JobRecord job, String output);
     }
 
     /**
@@ -1463,7 +1469,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 logState = LogState.READABLE;
                 launcherFailure = LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue());
                 parse = !withParser || current.kind() == JobId.Kind.PROBE || launcherFailure ? ParseResult.NOTHING
-                        : parser.parse(current.kind(), complete.reading().jobOutput());
+                        : parser.parse(current, complete.reading().jobOutput());
             }
             case JobLog.Unavailable unavailable -> {
                 logState = unavailable.state();
@@ -1531,7 +1537,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @return whether the fate was recorded
      */
     private boolean settleRecord(JobRecordStore store, JobRecord settled) {
-        var report = JobSettlement.of(store, lockManager).settle(new Settled(settled, Optional.empty()));
+        var report = JobSettlement.of(store, lockManager, settlementSteps).settle(new Settled(settled,
+                Optional.empty()));
         var steps = report.steps();
         var recorded = !steps.isEmpty() && steps.getFirst().outcome() instanceof Outcome.Done;
         if (recorded) {

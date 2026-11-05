@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -75,11 +76,45 @@ public final class JobSettlement {
      * @return the settlement
      */
     public static JobSettlement of(JobRecordStore store, LockManager lockManager) {
-        return new JobSettlement(Arrays.stream(Name.values()).<SettlementStep>map(name -> switch (name) {
-            case FATE -> SettlementStep.fate(store, lockManager);
-            case SLOT_RELEASE -> SettlementStep.slotRelease();
-            case WORKER_QUEUE_TASK, METRICS_ROW, CHANGE_LEDGER_ROW, TIMING_OBSERVATION, JOB_PRIVATE_DIRECTORY ->
-                SettlementStep.notImplemented(name);
+        return of(store, lockManager, Map.of());
+    }
+
+    /**
+     * The settlement of this runtime with the caller's steps in place of the named seams.
+     * <p>
+     * A package that brings one of the stores replaces only its step and leaves the fixed write order as it is. Every
+     * name the map does not carry keeps the default step of {@link #of(JobRecordStore, LockManager)}.
+     *
+     * @param store       the job records of the job's store
+     * @param lockManager the lock manager of the runtime
+     * @param replacements the steps by the name they replace
+     * @return the settlement
+     * @throws NullPointerException     if a component or a replacement is {@code null}
+     * @throws IllegalArgumentException if a replacement names a step other than its key
+     */
+    public static JobSettlement of(JobRecordStore store, LockManager lockManager,
+            Map<Name, SettlementStep> replacements) {
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(lockManager, "lockManager");
+        var replacement = Objects.requireNonNull(replacements, "replacements");
+        for (var entry : replacement.entrySet()) {
+            if (Objects.requireNonNull(entry.getValue(), "step").name() != Objects.requireNonNull(entry.getKey(),
+                    "name")) {
+                throw new IllegalArgumentException("A replacement step is filed under another name than its own: "
+                        + entry.getKey());
+            }
+        }
+        return new JobSettlement(Arrays.stream(Name.values()).<SettlementStep>map(name -> {
+            var replaced = replacement.get(name);
+            if (replaced != null) {
+                return replaced;
+            }
+            return switch (name) {
+                case FATE -> SettlementStep.fate(store, lockManager);
+                case SLOT_RELEASE -> SettlementStep.slotRelease();
+                case WORKER_QUEUE_TASK, METRICS_ROW, CHANGE_LEDGER_ROW, TIMING_OBSERVATION, JOB_PRIVATE_DIRECTORY ->
+                    SettlementStep.notImplemented(name);
+            };
         }).toList());
     }
 

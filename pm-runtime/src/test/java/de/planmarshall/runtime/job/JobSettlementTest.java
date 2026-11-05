@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -332,6 +333,58 @@ class JobSettlementTest {
             assertAll(
                     () -> assertEquals(new Outcome.Done("slot build-slot-1 not held by the job"), outcome),
                     () -> assertTrue(slotHeld()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the replacement steps")
+    class ReplacementSteps {
+
+        @Test
+        @DisplayName("a replaced step runs in the order of its name")
+        void replacedStepRunsInItsPlace() {
+            var ran = new ArrayList<Name>();
+
+            var report = JobSettlement.of(records, lockManager, Map.of(Name.CHANGE_LEDGER_ROW,
+                    recording(Name.CHANGE_LEDGER_ROW, ran))).settle(runningJobWithSlot());
+
+            assertAll(
+                    () -> assertEquals(List.of(Name.values()), report.steps().stream()
+                            .map(JobSettlement.StepReport::name).toList(), "the fixed order is unchanged"),
+                    () -> assertEquals(List.of(Name.CHANGE_LEDGER_ROW), ran, "the replacement ran once"),
+                    () -> assertEquals(new Outcome.Done("ran"), report.steps().stream()
+                            .filter(step -> step.name() == Name.CHANGE_LEDGER_ROW).findFirst().orElseThrow()
+                            .outcome(), "the replacement reports what it did"),
+                    () -> assertEquals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED), report.steps().stream()
+                            .filter(step -> step.name() == Name.TIMING_OBSERVATION).findFirst().orElseThrow()
+                            .outcome(), "a name without a replacement stays a seam"));
+        }
+
+        @Test
+        @DisplayName("a failed replacement stops the settlement at its place")
+        void failedReplacementStopsTheSettlement() {
+            var report = JobSettlement.of(records, lockManager, Map.of(Name.TIMING_OBSERVATION,
+                    failing(Name.TIMING_OBSERVATION))).settle(runningJobWithSlot());
+
+            var fateRecorded = fateRecorded();
+            var slotHeld = slotHeld();
+            assertAll(
+                    () -> assertEquals(Optional.of(Name.TIMING_OBSERVATION), report.stoppedAt(),
+                            "the settlement stopped at the replaced step"),
+                    () -> assertFalse(report.complete(), "the settlement did not complete"),
+                    () -> assertFalse(report.steps().stream().anyMatch(step -> step.name() == Name.SLOT_RELEASE),
+                            "no step after the failure ran"),
+                    () -> assertTrue(fateRecorded, "the fate was recorded before the failure"),
+                    () -> assertTrue(slotHeld, "the slot was not released after the failure"));
+        }
+
+        @Test
+        @DisplayName("refuses a replacement filed under another name")
+        void refusesAMisnamedReplacement() {
+            var mismatched = Map.of(Name.METRICS_ROW, recording(Name.TIMING_OBSERVATION, new ArrayList<>()));
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> JobSettlement.of(records, lockManager, mismatched));
         }
     }
 
