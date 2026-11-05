@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -24,12 +26,18 @@ import org.junit.jupiter.api.Test;
  * The records of the four endpoint stages (PM-CLIENT-5, Client Profiles § Verification of an Endpoint): what each stage
  * observed, the values it settles and the status a record keeps, and the combinations a record refuses.
  */
+@EnableGeneratorController
 @DisplayName("Endpoint verification stages")
 class ProfileStagesEndpointTest {
 
+    private static final String EXECUTABLE = "/usr/local/bin/" + Generators.letterStrings(3, 10).next();
+    private static final String VERSION = Generators.integers(1, 9).next() + ".0.0";
+    private static final String MODEL = Generators.letterStrings(3, 10).next();
+    private static final String WEIGHTS = "%040x".formatted(Generators.longs().next());
+
     private static ProfileStages.EndpointIdentity identity(boolean passed) {
-        return new ProfileStages.EndpointIdentity(passed, passed ? "/usr/local/bin/runner" : null, "1.0.0",
-                List.of("mid"), Map.of("mid", "abc"));
+        return new ProfileStages.EndpointIdentity(passed, passed ? EXECUTABLE : null, VERSION,
+                List.of(MODEL), Map.of(MODEL, WEIGHTS));
     }
 
     @Test

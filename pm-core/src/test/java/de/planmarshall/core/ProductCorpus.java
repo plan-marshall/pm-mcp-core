@@ -22,6 +22,7 @@ import java.nio.file.Path;
  * {@code -Dpm.product.root=<path>}). When the checkout or its corpus is absent, the calling test is aborted through a
  * JUnit assumption whose message names the missing path, so it is reported as skipped and never passes unseen.
  */
+// Every datum of this class is a contract: the property name, the corpus path and the assumption messages.
 public final class ProductCorpus {
 
     /** The system property naming the root of the plan-marshall-mcp checkout. */

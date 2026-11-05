@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,8 +46,12 @@ import org.junit.jupiter.params.provider.CsvSource;
  * coordinate and could answer (the fixture {@code central-before-registry} has its own {@code .mvn} with Maven
  * Central listed first). A guard that never fails proves nothing, hence these controls.
  */
+@EnableGeneratorController
 @DisplayName("Build guards of the repository")
 class BuildGuardsIT {
+
+    /** The name of the log file of a fixture build, arbitrary and generated per run. */
+    private static final String FIXTURE_LOG = Generators.letterStrings(6, 12).next() + ".log";
 
     @ParameterizedTest(name = "{0} fails in {2}")
     @CsvSource({
@@ -78,7 +84,7 @@ class BuildGuardsIT {
         // line wins over maven.config.
         // The output goes to a file: reading the pipe to its end would wait for a build that hangs, and the
         // time limit below would never apply.
-        var log = temp.resolve("fixture.log");
+        var log = temp.resolve(FIXTURE_LOG);
         var command = new ArrayList<>(
                 List.of(root.resolve("mvnw").toString(), "-B", "--no-transfer-progress"));
         if (!Files.exists(fixtureDir.resolve(".mvn/maven.config"))) {
@@ -118,7 +124,7 @@ class BuildGuardsIT {
         var fixtureDir = pom.getParent();
         // Same invocation as the failing controls: started in the fixture's directory, with the repository's global
         // settings when the fixture carries no .mvn of its own, and the output in a file the time limit can outlive.
-        var log = temp.resolve("fixture.log");
+        var log = temp.resolve(FIXTURE_LOG);
         var command = new ArrayList<>(
                 List.of(root.resolve("mvnw").toString(), "-B", "--no-transfer-progress"));
         if (!Files.exists(fixtureDir.resolve(".mvn/maven.config"))) {

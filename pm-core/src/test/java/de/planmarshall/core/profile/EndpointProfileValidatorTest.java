@@ -30,6 +30,7 @@ import org.junit.jupiter.params.provider.CsvSource;
  * profile's blocks, and every combination of {@code locality} the schema cannot express is refused with the member
  * named.
  */
+// Every datum in this class is a contract: the endpoint wire names, the schema member names and the refusal pointers.
 @DisplayName("Endpoint profile validation")
 class EndpointProfileValidatorTest {
 

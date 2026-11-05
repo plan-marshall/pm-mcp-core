@@ -16,13 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -40,12 +44,29 @@ import de.planmarshall.core.store.StoreDigest;
  * record and its HMAC sidecar, and falls back to the next set when the nearest one does not count (PM-CLIENT-5,
  * Profile Sets).
  */
+@EnableGeneratorController
 @DisplayName("Client profile sets")
 class ProfileLoaderTest {
 
     private static final String CLIENT = "acme-cli";
-    private static final String SHA = "sha256:" + "a".repeat(64);
-    private static final String OTHER_SHA = "sha256:" + "b".repeat(64);
+    private static final String EXECUTABLE = Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_CLIENT = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_EXECUTABLE = EXECUTABLE + "-other";
+    private static final String PROJECT_ID = "proj" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final long DIGEST_SEED = Generators.longs().next();
+    private static final long KEY_SEED = Generators.longs().next();
+    private static final String SHA = "sha256:" + "%064x".formatted(DIGEST_SEED);
+    private static final String OTHER_SHA = "sha256:" + "%064x".formatted(~DIGEST_SEED);
+    private static final String KEY = "%032x".formatted(KEY_SEED);
+    private static final String OTHER_KEY = "%032x".formatted(~KEY_SEED);
+    private static final String PRO_NAME = "Acme CLI " + Generators.letterStrings(3, 8).next();
+    private static final String EDITED_NAME = PRO_NAME + " edited";
+    private static final String PROJECT_NAME = PRO_NAME + " project";
+    private static final String MODEL = Generators.letterStrings(3, 10).next();
+    private static final String TOOL_VERSION = Generators.integers(1, 9).next() + ".0.0";
+    private static final String TOOL_COMMIT = "%07x".formatted(Generators.integers(0, 0x0FFFFFF).next());
+    private static final String VERIFIED_AT = Instant.ofEpochSecond(
+            Generators.longs(1_600_000_000L, 1_900_000_000L).next()).toString();
 
     private SecretKey key;
     private EnrolledHarness enrolled;
@@ -53,8 +74,8 @@ class ProfileLoaderTest {
 
     @BeforeEach
     void setUp() {
-        key = new SecretKeySpec("0123456789abcdef0123456789abcdef".getBytes(UTF_8), "HmacSHA256");
-        enrolled = new EnrolledHarness("acme", "1.5.0", OTHER_SHA);
+        key = new SecretKeySpec(KEY.getBytes(UTF_8), "HmacSHA256");
+        enrolled = new EnrolledHarness(EXECUTABLE, "1.5.0", OTHER_SHA);
         loader = new ProfileLoader(key, Map.of(CLIENT, enrolled), ProfileRules.none());
     }
 
@@ -92,7 +113,7 @@ class ProfileLoaderTest {
     @Test
     @DisplayName("a verified machine profile replaces the shipped document as a whole")
     void machineProfileReplacesShipped(@TempDir Path machine) throws Exception {
-        var document = ProfileFixtures.valid().set("/display_name", "Acme CLI Pro").bytes();
+        var document = ProfileFixtures.valid().set("/display_name", PRO_NAME).bytes();
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
         var shipped = shipped(ProfileFixtures.validBytes());
 
@@ -101,7 +122,7 @@ class ProfileLoaderTest {
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
                 () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals("Acme CLI Pro", loaded.effective(CLIENT).orElseThrow().document()
+                () -> assertEquals(PRO_NAME, loaded.effective(CLIENT).orElseThrow().document()
                         .member("display_name").flatMap(JsonNode::text).orElseThrow()));
     }
 
@@ -124,7 +145,7 @@ class ProfileLoaderTest {
     @DisplayName("a machine profile edited after its record is refused and the shipped profile stays in force")
     void editedAfterRecordFallsBack(@TempDir Path machine) throws Exception {
         var verified = ProfileFixtures.validBytes();
-        var edited = ProfileFixtures.valid().set("/display_name", "Acme CLI Edited").bytes();
+        var edited = ProfileFixtures.valid().set("/display_name", EDITED_NAME).bytes();
         write(machine, CLIENT, edited, verificationRecord(verified, "1.5.0", OTHER_SHA), sidecar(key, verified));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
@@ -139,7 +160,7 @@ class ProfileLoaderTest {
     @DisplayName("a machine profile whose HMAC sidecar fails is refused and the shipped profile stays in force")
     void failingHmacFallsBack(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        var otherKey = new SecretKeySpec("fedcba9876543210fedcba9876543210".getBytes(UTF_8), "HmacSHA256");
+        var otherKey = new SecretKeySpec(OTHER_KEY.getBytes(UTF_8), "HmacSHA256");
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(otherKey, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
@@ -171,7 +192,7 @@ class ProfileLoaderTest {
         var document = ProfileFixtures.validBytes();
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
         var shipped = shipped(ProfileFixtures.validBytes());
-        var newer = new ProfileLoader(key, Map.of(CLIENT, new EnrolledHarness("acme", "2.5.0", OTHER_SHA)),
+        var newer = new ProfileLoader(key, Map.of(CLIENT, new EnrolledHarness(EXECUTABLE, "2.5.0", OTHER_SHA)),
                 ProfileRules.none());
 
         var loaded = newer.load(ProfileSets.withMachine(Map.of(CLIENT, shipped), machine));
@@ -191,7 +212,7 @@ class ProfileLoaderTest {
                 sidecar(key, projectDocument));
 
         var loaded = loader.load(ProfileSets.withProject(
-                Map.of(CLIENT, shipped(base)), null, project), "plan-marshall");
+                Map.of(CLIENT, shipped(base)), null, project), PROJECT_ID);
 
         assertAll(
                 () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind()),
@@ -202,16 +223,16 @@ class ProfileLoaderTest {
     @DisplayName("a project profile changes how a harness works, not which harness it is")
     void projectProfileReplacesWholeDocument(@TempDir Path project) throws Exception {
         var base = ProfileFixtures.validBytes();
-        var projectDocument = ProfileFixtures.valid().set("/display_name", "Acme CLI Project").bytes();
+        var projectDocument = ProfileFixtures.valid().set("/display_name", PROJECT_NAME).bytes();
         write(project, CLIENT, projectDocument, verificationRecord(projectDocument, "1.5.0", OTHER_SHA),
                 sidecar(key, projectDocument));
 
         var loaded = loader.load(ProfileSets.withProject(Map.of(CLIENT, shipped(base)), null, project),
-                "plan-marshall");
+                PROJECT_ID);
 
         assertAll(
                 () -> assertEquals(ProfileSetKind.PROJECT, loaded.effective(CLIENT).orElseThrow().kind()),
-                () -> assertEquals("Acme CLI Project", loaded.effective(CLIENT).orElseThrow().document()
+                () -> assertEquals(PROJECT_NAME, loaded.effective(CLIENT).orElseThrow().document()
                         .member("display_name").flatMap(JsonNode::text).orElseThrow()));
     }
 
@@ -219,7 +240,7 @@ class ProfileLoaderTest {
     @DisplayName("a record that names another client is refused")
     void recordClientIdMismatchFallsBack(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
-        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA, "other-cli", "acme"),
+        write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA, OTHER_CLIENT, EXECUTABLE),
                 sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
@@ -239,7 +260,7 @@ class ProfileLoaderTest {
         write(project, CLIENT, base, verificationRecord(base, "1.5.0", OTHER_SHA), sidecar(key, base));
 
         var loaded = loader.load(ProfileSets.withProject(Map.of(CLIENT, shipped(base)), null, project),
-                "plan-marshall");
+                PROJECT_ID);
 
         assertAll(
                 () -> assertTrue(loaded.refused().isEmpty(), loaded.refused()::toString),
@@ -249,7 +270,7 @@ class ProfileLoaderTest {
     @Test
     @DisplayName("a profile whose client id is not its file name is refused")
     void clientIdMustEqualFileName(@TempDir Path machine) throws Exception {
-        var document = ProfileFixtures.valid().set("/client_id", "other-cli").bytes();
+        var document = ProfileFixtures.valid().set("/client_id", OTHER_CLIENT).bytes();
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
@@ -265,17 +286,18 @@ class ProfileLoaderTest {
     void precedenceIsUnique(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
-        var other = ProfileFixtures.valid().set("/client_id", "other-cli").set("/headless/executable", "other")
-                .bytes();
-        write(machine, "other-cli", other, verificationRecord(other, "1.5.0", OTHER_SHA, "other-cli", "other"), sidecar(key, other));
-        var otherLoader = new ProfileLoader(key, Map.of(CLIENT, enrolled, "other-cli",
-                new EnrolledHarness("other", "1.5.0", OTHER_SHA)), ProfileRules.none());
+        var other = ProfileFixtures.valid().set("/client_id", OTHER_CLIENT)
+                .set("/headless/executable", OTHER_EXECUTABLE).bytes();
+        write(machine, OTHER_CLIENT, other,
+                verificationRecord(other, "1.5.0", OTHER_SHA, OTHER_CLIENT, OTHER_EXECUTABLE), sidecar(key, other));
+        var otherLoader = new ProfileLoader(key, Map.of(CLIENT, enrolled, OTHER_CLIENT,
+                new EnrolledHarness(OTHER_EXECUTABLE, "1.5.0", OTHER_SHA)), ProfileRules.none());
 
         var loaded = otherLoader.load(ProfileSets.withMachine(Map.of(), machine));
 
         assertAll(
                 () -> assertTrue(loaded.effective(CLIENT).isPresent()),
-                () -> assertFalse(loaded.effective("other-cli").isPresent(),
+                () -> assertFalse(loaded.effective(OTHER_CLIENT).isPresent(),
                         "The second profile of the same precedence must not take effect"),
                 () -> assertTrue(loaded.refused().stream()
                         .anyMatch(refused -> "/detection/precedence".equals(refused.refusal().pointer()))));
@@ -291,7 +313,7 @@ class ProfileLoaderTest {
     }
 
     private byte[] verificationRecord(byte[] document, String version, String sha) {
-        return verificationRecord(document, version, sha, CLIENT, "acme");
+        return verificationRecord(document, version, sha, CLIENT, EXECUTABLE);
     }
 
     private byte[] verificationRecord(byte[] document, String version, String sha, String clientId, String executable) {
@@ -301,10 +323,10 @@ class ProfileLoaderTest {
         recordBytes.put("client_id", clientId);
         recordBytes.put("profile_schema_version", 1);
         recordBytes.put("profile_digest", CanonicalJson.digest(profile));
-        recordBytes.put("verified_at", "2026-10-21T08:00:00Z");
-        recordBytes.put("tool", Map.of("version", "0.4.0", "commit", "02ffcbd"));
+        recordBytes.put("verified_at", VERIFIED_AT);
+        recordBytes.put("tool", Map.of("version", TOOL_VERSION, "commit", TOOL_COMMIT));
         recordBytes.put("harness", Map.of("executable", executable,
-                "version", version, "executable_sha256", sha, "models", List.of("acme-standard")));
+                "version", version, "executable_sha256", sha, "models", List.of(MODEL)));
         recordBytes.put("platform", Map.of("os", "linux", "arch", "x86_64", "confinement", "landlock"));
         recordBytes.put("stages", Map.of("identity", Map.of("status", "passed"),
                 "launch", Map.of("status", "passed")));

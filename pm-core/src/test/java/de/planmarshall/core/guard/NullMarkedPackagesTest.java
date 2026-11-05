@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
@@ -23,6 +25,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +39,9 @@ import org.junit.jupiter.api.io.TempDir;
  * walking up from the module's working directory to the repository root, so a later plan that adds a package or a
  * module without the annotation fails this build instead of leaving the contract incomplete.
  */
+@EnableGeneratorController
 @DisplayName("Production packages are @NullMarked")
+@SuppressWarnings("java:S5976") // the three source shapes fail for different reasons; merging them would hide which one fired
 class NullMarkedPackagesTest {
 
     private static final String PRODUCTION_SOURCE = "src/main/java";
@@ -61,8 +66,10 @@ class NullMarkedPackagesTest {
     @Test
     @DisplayName("a package without package-info.java is reported")
     void packageWithoutPackageInfoIsReported(@TempDir Path temp) throws Exception {
-        var packageDir = packageDirectory(temp, "unmarked/without/info");
-        writeSource(packageDir, "Marker.java", "final class Marker {}");
+        var packagePath = generatedPackagePath();
+        var packageDir = packageDirectory(temp, packagePath);
+        var className = "C" + Generators.letterStrings(3, 10).next();
+        writeSource(packageDir, className + ".java", "final class " + className + " {}");
 
         assertTrue(unmarkedPackages(temp).contains(packageDir), "A package without package-info must be reported");
     }
@@ -70,8 +77,9 @@ class NullMarkedPackagesTest {
     @Test
     @DisplayName("a package-info.java without @NullMarked is reported")
     void packageInfoWithoutNullMarkedIsReported(@TempDir Path temp) throws Exception {
-        var packageDir = packageDirectory(temp, "unmarked/without/annotation");
-        writeSource(packageDir, PACKAGE_INFO, "package unmarked.without.annotation;");
+        var packagePath = generatedPackagePath();
+        var packageDir = packageDirectory(temp, packagePath);
+        writeSource(packageDir, PACKAGE_INFO, "package " + dotted(packagePath) + ";");
 
         assertTrue(unmarkedPackages(temp).contains(packageDir), "An unannotated package must be reported");
     }
@@ -79,9 +87,11 @@ class NullMarkedPackagesTest {
     @Test
     @DisplayName("an annotated package is not reported")
     void annotatedPackageIsNotReported(@TempDir Path temp) throws Exception {
-        var packageDir = packageDirectory(temp, "marked/package");
+        var packagePath = generatedPackagePath();
+        var packageDir = packageDirectory(temp, packagePath);
         writeSource(packageDir, PACKAGE_INFO,
-                "@NullMarked\npackage marked.package;\n\nimport org.jspecify.annotations.NullMarked;");
+                "@NullMarked\npackage " + dotted(packagePath)
+                        + ";\n\nimport org.jspecify.annotations.NullMarked;");
 
         assertFalse(unmarkedPackages(temp).contains(packageDir), "An annotated package must not be reported");
     }
@@ -89,9 +99,10 @@ class NullMarkedPackagesTest {
     @Test
     @DisplayName("a package-info.java with only the import is reported")
     void packageInfoWithOnlyTheImportIsReported(@TempDir Path temp) throws Exception {
-        var packageDir = packageDirectory(temp, "unmarked/with/import");
+        var packagePath = generatedPackagePath();
+        var packageDir = packageDirectory(temp, packagePath);
         writeSource(packageDir, PACKAGE_INFO,
-                "package unmarked.with.import;\n\nimport org.jspecify.annotations.NullMarked;");
+                "package " + dotted(packagePath) + ";\n\nimport org.jspecify.annotations.NullMarked;");
 
         assertTrue(unmarkedPackages(temp).contains(packageDir), "An import alone must not mark the package");
     }
@@ -99,11 +110,24 @@ class NullMarkedPackagesTest {
     @Test
     @DisplayName("a commented-out @NullMarked is reported")
     void commentedNullMarkedIsReported(@TempDir Path temp) throws Exception {
-        var packageDir = packageDirectory(temp, "unmarked/commented");
+        var packagePath = generatedPackagePath();
+        var packageDir = packageDirectory(temp, packagePath);
         writeSource(packageDir, PACKAGE_INFO,
-                "/*\n@NullMarked\n*/\npackage unmarked.commented;");
+                "/*\n@NullMarked\n*/\npackage " + dotted(packagePath) + ";");
 
         assertTrue(unmarkedPackages(temp).contains(packageDir), "A commented annotation must not mark the package");
+    }
+
+    private static String generatedPackagePath() {
+        return String.join("/", packageSegment(), packageSegment(), packageSegment());
+    }
+
+    private static String dotted(String packagePath) {
+        return packagePath.replace('/', '.');
+    }
+
+    private static String packageSegment() {
+        return "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     }
 
     private static Path repositoryRoot() {

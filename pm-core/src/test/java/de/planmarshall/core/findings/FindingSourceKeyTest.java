@@ -16,7 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,8 +31,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * The key of the findings registry over the store's source vocabulary (PM-IMPL-1).
  */
+@EnableGeneratorController
 @DisplayName("Finding source key")
 class FindingSourceKeyTest {
+
+    private static final String PROVIDER = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_PROVIDER = "q" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     @Nested
     @DisplayName("accepted")
@@ -58,12 +65,12 @@ class FindingSourceKeyTest {
         @DisplayName("valid keys are equal by value")
         void equalByValue() {
             assertAll(
-                    () -> assertEquals(FindingSourceKey.analysis("provider-a"),
-                            new FindingSourceKey(FindingSourceKind.ANALYSIS, "provider-a")),
-                    () -> assertEquals(FindingSourceKey.analysis("provider-a").hashCode(),
-                            FindingSourceKey.analysis("provider-a").hashCode()),
-                    () -> assertNotEquals(FindingSourceKey.analysis("provider-a"),
-                            FindingSourceKey.analysis("provider-b")),
+                    () -> assertEquals(FindingSourceKey.analysis(PROVIDER),
+                            new FindingSourceKey(FindingSourceKind.ANALYSIS, PROVIDER)),
+                    () -> assertEquals(FindingSourceKey.analysis(PROVIDER).hashCode(),
+                            FindingSourceKey.analysis(PROVIDER).hashCode()),
+                    () -> assertNotEquals(FindingSourceKey.analysis(PROVIDER),
+                            FindingSourceKey.analysis(OTHER_PROVIDER)),
                     () -> assertEquals(FindingSourceKey.of(FindingSourceKind.QGATE),
                             FindingSourceKey.of(FindingSourceKind.QGATE)),
                     () -> assertNotEquals(FindingSourceKey.of(FindingSourceKind.QGATE),
@@ -88,7 +95,7 @@ class FindingSourceKeyTest {
         @EnumSource(value = FindingSourceKind.class, mode = EnumSource.Mode.EXCLUDE, names = "ANALYSIS")
         @DisplayName("a key of another kind with a provider is refused")
         void otherKindWithProvider(FindingSourceKind kind) {
-            assertThrows(IllegalArgumentException.class, () -> new FindingSourceKey(kind, "provider-a"));
+            assertThrows(IllegalArgumentException.class, () -> new FindingSourceKey(kind, PROVIDER));
         }
 
         @ParameterizedTest(name = "\"{0}\"")

@@ -36,6 +36,7 @@ import de.planmarshall.core.findings.FindingScope;
 /**
  * The canonical JSON line of an analysis result (PM-IMPL-2): one shape written, exactly that shape read.
  */
+// Every datum in this class is a contract: the canonical JSON lines and the refusals that name them.
 @DisplayName("Analysis result codec")
 class AnalysisResultCodecTest {
 
