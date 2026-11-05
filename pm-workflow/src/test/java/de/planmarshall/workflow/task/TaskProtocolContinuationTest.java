@@ -49,7 +49,8 @@ class TaskProtocolContinuationTest {
     private static final String TASK = "qt-0000000000000001";
     private static final String ANSWER_TASK = "TASK-" + Generators.integers(100, 999).next();
     private static final String QUESTION = Generators.letterStrings(8, 24).next();
-    private static final String OPTION_ID = Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OPTION_ID =
+            "option_" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String OPTION_LABEL = Generators.letterStrings(3, 10).next();
     private static final String NOTE = Generators.letterStrings(8, 24).next();
     private static final String SESSION = "session-" + Generators.letterStrings(3, 10).next();

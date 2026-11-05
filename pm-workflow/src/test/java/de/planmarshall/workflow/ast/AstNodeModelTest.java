@@ -165,8 +165,8 @@ class AstNodeModelTest {
             params.add(new ParamDecl(Generators.letterStrings(1, 8).next(),
                     new ParamType.EnumOf(List.of(Generators.letterStrings(1, 8).next())), LOCATION));
             migrations.add(new StateMigration(Generators.letterStrings(1, 8).next(), stateId, LOCATION));
-            states.put(Generators.letterStrings(1, 8).next(),
-                    terminalState(Generators.letterStrings(1, 8).next()));
+            var addedStateId = text();
+            states.put(addedStateId, terminalState(addedStateId));
             var copiedStates = definition.states();
             var copiedMigrations = definition.migrations();
 
