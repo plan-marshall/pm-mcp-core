@@ -20,17 +20,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,7 +50,14 @@ import de.planmarshall.runtime.start.AuditChainVerification;
 
 /**
  * The head of the audit log: written after every append under the enrolment integrity key, which it only reads.
+ *
+ * <p>
+ * The foreign key, the damaged head and blocker texts, the keyring's failure message and a record count beyond the log
+ * are generated. The literals that stay are the contract: the rotation limits at their boundary (one byte, thirty
+ * days), the record counts the appends produce, the file mode {@code rw-------}, the record line's count member
+ * {@code "n"} the edit replaces, the head and rotation reason codes and the break reasons of the verification.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("The audit head")
 class AuditHeadTest {
@@ -56,6 +67,15 @@ class AuditHeadTest {
 
     @TempDir
     Path base;
+
+    private static SecretKey foreignKey() {
+        return new SecretKeySpec(Generators.letterStrings(32, 32).next().getBytes(StandardCharsets.UTF_8),
+                EnrolmentKey.ALGORITHM);
+    }
+
+    private static String text() {
+        return Generators.letterStrings(3, 12).next() + " " + Generators.letterStrings(3, 12).next();
+    }
 
     @Nested
     @DisplayName("with the integrity key")
@@ -73,13 +93,17 @@ class AuditHeadTest {
                 var head = trail.readHead().orElseThrow();
                 var expectedCount = count;
                 assertAll(
-                        () -> assertEquals(expectedCount, head.recordCount()),
-                        () -> assertEquals(recordAt(trail.logFile(), expectedCount).eventId(), head.lastEventId()),
-                        () -> assertEquals(hashOf(trail.logFile(), expectedCount), head.headHash()),
-                        () -> assertEquals(AuditCodec.GENESIS_HASH, head.indexHeadHash()),
-                        () -> assertTrue(AuditHead.verifies(key, head)));
+                        () -> assertEquals(expectedCount, head.recordCount(), "the head counts every record"),
+                        () -> assertEquals(recordAt(trail.logFile(), expectedCount).eventId(), head.lastEventId(),
+                                "the head names the last event"),
+                        () -> assertEquals(hashOf(trail.logFile(), expectedCount), head.headHash(),
+                                "the head anchors the last record's hash"),
+                        () -> assertEquals(AuditCodec.GENESIS_HASH, head.indexHeadHash(),
+                                "without rotation the index head is genesis"),
+                        () -> assertTrue(AuditHead.verifies(key, head), "the head's HMAC verifies under the key"));
             }
-            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(trail.headFile())));
+            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(trail.headFile())),
+                    "the head file has mode 0600");
         }
 
         @Test
@@ -89,13 +113,16 @@ class AuditHeadTest {
             var key = trail.createKey();
             trail.append(2);
             var head = trail.readHead().orElseThrow();
-            var otherKey = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
+            var otherKey = foreignKey();
 
             assertAll(
-                    () -> assertTrue(AuditHead.verifies(key, head)),
-                    () -> assertFalse(AuditHead.verifies(key, AuditHead.sign(otherKey, head))),
-                    () -> assertFalse(AuditHead.verifies(key, head.withRecordCount(head.recordCount() + 1))),
-                    () -> assertFalse(AuditHead.verifies(key, head.withHeadHash(AuditCodec.GENESIS_HASH))));
+                    () -> assertTrue(AuditHead.verifies(key, head), "the written head verifies"),
+                    () -> assertFalse(AuditHead.verifies(key, AuditHead.sign(otherKey, head)),
+                            "a head under another key fails"),
+                    () -> assertFalse(AuditHead.verifies(key, head.withRecordCount(head.recordCount() + 1)),
+                            "a head with an edited count fails"),
+                    () -> assertFalse(AuditHead.verifies(key, head.withHeadHash(AuditCodec.GENESIS_HASH)),
+                            "a head with an edited hash fails"));
         }
 
         @Test
@@ -111,13 +138,14 @@ class AuditHeadTest {
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals(anchored, trail.readHead().orElseThrow()),
-                    () -> assertEquals(3, lines(trail.logFile()).size()),
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow(), "the anchored head is kept"),
+                    () -> assertEquals(3, lines(trail.logFile()).size(), "the append stands on the cut log"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_HEAD_NOT_WRITTEN.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             AuditHead.ANCHORED_LINE_MISSING),
-                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED, breakReason(trail)));
+                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED, breakReason(trail),
+                            "the cut log verifies as truncated"));
         }
 
         @Test
@@ -132,8 +160,9 @@ class AuditHeadTest {
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals(anchored, trail.readHead().orElseThrow()),
-                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail)));
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow(), "the anchored head is kept"),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail),
+                            "the replaced line is a head mismatch"));
         }
 
         @Test
@@ -142,15 +171,18 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             var key = trail.createKey();
             trail.append(2);
+            int beyond = Generators.integers(4, 1_000).next();
             var claimed = AuditHead.sign(key,
-                    trail.readHead().orElseThrow().withRecordCount(9).withHeadHash(AuditCodec.GENESIS_HASH));
+                    trail.readHead().orElseThrow().withRecordCount(beyond).withHeadHash(AuditCodec.GENESIS_HASH));
             Files.write(trail.headFile(), AuditCodec.writeHead(claimed));
 
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals(9, trail.readHead().orElseThrow().recordCount()),
-                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED, breakReason(trail)));
+                    () -> assertEquals(beyond, trail.readHead().orElseThrow().recordCount(),
+                            "the head beyond the log is kept"),
+                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED, breakReason(trail),
+                            "the log verifies as truncated"));
         }
 
         @Test
@@ -167,10 +199,12 @@ class AuditHeadTest {
 
             var head = trail.readHead().orElseThrow();
             assertAll(
-                    () -> assertEquals(5, head.recordCount()),
-                    () -> assertEquals(hashOf(trail.logFile(), 5), head.headHash()),
-                    () -> assertTrue(AuditHead.verifies(key, head)),
-                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()));
+                    () -> assertEquals(5, head.recordCount(), "the recount covers the whole log"),
+                    () -> assertEquals(hashOf(trail.logFile(), 5), head.headHash(),
+                            "the recount anchors the last record"),
+                    () -> assertTrue(AuditHead.verifies(key, head), "the recounted head verifies"),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify(),
+                            "the recounted log verifies intact"));
         }
 
         @Test
@@ -181,18 +215,22 @@ class AuditHeadTest {
             trail.append(4);
             AuditTrailFixture.removeLine(trail.logFile(), 4);
             AuditTrailFixture.removeLine(trail.logFile(), 3);
-            Files.writeString(trail.headFile(), "not a head");
+            var damaged = text();
+            Files.writeString(trail.headFile(), damaged);
 
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals("not a head", Files.readString(trail.headFile())),
-                    () -> assertEquals(3, lines(trail.logFile()).size()),
+                    () -> assertEquals(damaged, Files.readString(trail.headFile()), "the damaged head is kept"),
+                    () -> assertEquals(3, lines(trail.logFile()).size(), "the append stands on the cut log"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNVERIFIABLE)),
-                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail),
+                            "the damaged head is a head mismatch"),
                     () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, assertInstanceOf(
-                            AuditChainVerification.Outcome.Broken.class, trail.verification().full()).reason()));
+                            AuditChainVerification.Outcome.Broken.class, trail.verification().full(),
+                            "the full verification is broken").reason(),
+                            "the full verification names the mismatch"));
         }
 
         @Test
@@ -201,17 +239,17 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
             trail.append(2);
-            var foreign = AuditHead.sign(new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM),
-                    trail.readHead().orElseThrow());
+            var foreign = AuditHead.sign(foreignKey(), trail.readHead().orElseThrow());
             Files.write(trail.headFile(), AuditCodec.writeHead(foreign));
 
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals(foreign, trail.readHead().orElseThrow()),
+                    () -> assertEquals(foreign, trail.readHead().orElseThrow(), "the foreign head is kept"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNVERIFIABLE)),
-                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail)));
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail),
+                            "the foreign head is a head mismatch"));
         }
 
         @Test
@@ -226,9 +264,10 @@ class AuditHeadTest {
 
             var head = trail.readHead().orElseThrow();
             assertAll(
-                    () -> assertEquals(3, head.recordCount()),
-                    () -> assertTrue(AuditHead.verifies(key, head)),
-                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()));
+                    () -> assertEquals(3, head.recordCount(), "the first head counts every line"),
+                    () -> assertTrue(AuditHead.verifies(key, head), "the first head verifies"),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify(),
+                            "the counted log verifies intact"));
         }
 
         @Test
@@ -237,13 +276,13 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
             Files.createDirectories(trail.headFile());
-            Files.writeString(trail.headFile().resolve("blocker"), "blocks the head");
+            Files.writeString(trail.headFile().resolve("blocker"), text());
 
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals(1, lines(trail.logFile()).size()),
-                    () -> assertTrue(Files.isDirectory(trail.headFile())),
+                    () -> assertEquals(1, lines(trail.logFile()).size(), "the append stands without a head"),
+                    () -> assertTrue(Files.isDirectory(trail.headFile()), "the blocking directory is kept"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNWRITABLE)));
         }
@@ -256,15 +295,16 @@ class AuditHeadTest {
             trail.append(1);
             Files.delete(trail.headFile());
             Files.createDirectories(trail.headFile());
-            Files.writeString(trail.headFile().resolve("blocker"), "blocks the head");
+            Files.writeString(trail.headFile().resolve("blocker"), text());
 
             trail.append(1);
 
             assertAll(
                     () -> assertFalse(Files.exists(trail.indexFile()), "no checkpoint was signed"),
-                    () -> assertEquals(2, lines(trail.logFile()).size()),
-                    () -> assertFalse(recordAt(trail.logFile(), 2).isCheckpoint()),
-                    () -> assertTrue(Files.isDirectory(trail.headFile())),
+                    () -> assertEquals(2, lines(trail.logFile()).size(), "the record goes to the current log"),
+                    () -> assertFalse(recordAt(trail.logFile(), 2).isCheckpoint(),
+                            "the appended record is no checkpoint"),
+                    () -> assertTrue(Files.isDirectory(trail.headFile()), "the blocking directory is kept"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_ROTATION_FAILED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
@@ -284,15 +324,18 @@ class AuditHeadTest {
                 try {
                     assumeFalse(Files.isReadable(trail.logFile()), "the log stays readable, as for a superuser");
                     thrown.set(assertThrows(UncheckedIOException.class,
-                            () -> trail.head.beforeAppend(transaction, trail.log)));
+                            () -> trail.head.beforeAppend(transaction, trail.log),
+                            "an unreadable log after a failed rotation"));
                 } finally {
                     permissions(trail.logFile(), "rw-------");
                 }
             });
 
             assertAll(
-                    () -> assertEquals(1, thrown.get().getSuppressed().length),
-                    () -> assertInstanceOf(UncheckedIOException.class, thrown.get().getSuppressed()[0]),
+                    () -> assertEquals(1, thrown.get().getSuppressed().length,
+                            "the rotation failure is suppressed once"),
+                    () -> assertInstanceOf(UncheckedIOException.class, thrown.get().getSuppressed()[0],
+                            "the suppressed failure is an I/O failure"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_ROTATION_PENDING.resolveIdentifierString()));
         }
@@ -318,11 +361,12 @@ class AuditHeadTest {
             trail.append(3);
 
             assertAll(
-                    () -> assertEquals(3, lines(trail.logFile()).size()),
-                    () -> assertFalse(Files.exists(trail.headFile())),
-                    () -> assertFalse(Files.exists(trail.indexFile())),
-                    () -> assertTrue(trail.keyring.entries.isEmpty()),
-                    () -> assertEquals(Optional.empty(), trail.integrityKey.read()),
+                    () -> assertEquals(3, lines(trail.logFile()).size(), "every append stands without a key"),
+                    () -> assertFalse(Files.exists(trail.headFile()), "no head is written without a key"),
+                    () -> assertFalse(Files.exists(trail.indexFile()), "no rotation happens without a key"),
+                    () -> assertTrue(trail.keyring.entries.isEmpty(), "no key is created by the append"),
+                    () -> assertEquals(Optional.empty(), trail.integrityKey.read(),
+                            "the integrity key is still absent"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, AuditHead.class));
         }
 
@@ -337,9 +381,10 @@ class AuditHeadTest {
 
             var head = trail.readHead().orElseThrow();
             assertAll(
-                    () -> assertEquals(3, head.recordCount()),
-                    () -> assertEquals(hashOf(trail.logFile(), 3), head.headHash()),
-                    () -> assertTrue(AuditHead.verifies(key, head)));
+                    () -> assertEquals(3, head.recordCount(), "the first head counts the whole log"),
+                    () -> assertEquals(hashOf(trail.logFile(), 3), head.headHash(),
+                            "the first head anchors the last record"),
+                    () -> assertTrue(AuditHead.verifies(key, head), "the first head verifies under the key"));
         }
 
         @Test
@@ -348,13 +393,13 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
             var secret = trail.keyring.entries.values().iterator().next();
-            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, "keyring locked");
+            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, text());
 
             trail.append(1);
 
             assertAll(
-                    () -> assertEquals(1, lines(trail.logFile()).size()),
-                    () -> assertFalse(Files.exists(trail.headFile())),
+                    () -> assertEquals(1, lines(trail.logFile()).size(), "the append stands without the key"),
+                    () -> assertFalse(Files.exists(trail.headFile()), "no head is written without the key"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_HEAD_NOT_WRITTEN.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
@@ -364,7 +409,8 @@ class AuditHeadTest {
     }
 
     private static AuditChainVerification.BreakReason breakReason(AuditTrailFixture trail) {
-        return assertInstanceOf(AuditChainVerification.Outcome.Broken.class, trail.verification().verify()).reason();
+        return assertInstanceOf(AuditChainVerification.Outcome.Broken.class, trail.verification().verify(),
+                "the verification is broken").reason();
     }
 
     @Nested
@@ -374,7 +420,7 @@ class AuditHeadTest {
         @Test
         @DisplayName("a missing head reads as empty")
         void missing() {
-            assertEquals(Optional.empty(), AuditHead.read(AuditHead.headFile(base)));
+            assertEquals(Optional.empty(), AuditHead.read(AuditHead.headFile(base)), "a missing head reads as empty");
         }
 
         @Test
@@ -382,9 +428,10 @@ class AuditHeadTest {
         void unparsable() throws Exception {
             var headFile = AuditHead.headFile(base);
             Files.createDirectories(headFile.getParent());
+            // an empty JSON object is a head document without its members
             Files.writeString(headFile, "{}");
 
-            assertThrows(StoreRefusal.class, () -> AuditHead.read(headFile));
+            assertThrows(StoreRefusal.class, () -> AuditHead.read(headFile), "an unparsable head is refused");
         }
 
         @Test
@@ -393,9 +440,11 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
 
             assertAll(
-                    () -> assertEquals(trail.headFile(), trail.head.file()),
-                    () -> assertEquals(trail.indexFile(), trail.head.index().file()),
-                    () -> assertEquals(Optional.empty(), trail.head.emptyLogPredecessor()));
+                    () -> assertEquals(trail.headFile(), trail.head.file(), "the head file lies beside the log"),
+                    () -> assertEquals(trail.indexFile(), trail.head.index().file(),
+                            "the head offers the rotation's index"),
+                    () -> assertEquals(Optional.empty(), trail.head.emptyLogPredecessor(),
+                            "a new log has no empty predecessor"));
         }
     }
 }
