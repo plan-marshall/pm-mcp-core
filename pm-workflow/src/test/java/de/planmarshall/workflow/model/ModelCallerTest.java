@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.Optional;
 
-import org.jspecify.annotations.Nullable;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,6 +33,7 @@ import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleResolution;
 import de.planmarshall.core.role.RoleResolver;
 import de.planmarshall.core.role.RoleValidationReason;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one model caller of {@code model-work/01-roles-and-configuration.adoc#model-caller}: Resolve, Qualify, Available,

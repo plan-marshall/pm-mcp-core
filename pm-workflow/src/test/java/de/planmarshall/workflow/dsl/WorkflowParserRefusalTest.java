@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -281,8 +282,8 @@ class WorkflowParserRefusalTest {
                     refusal("instance config hash not a string", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs("\"config_hash\": \"c\"", "\"config_hash\": 1")),
                     refusal("instance optional input neither string nor null", RefusalRule.INSTANCE_HEADER, 2,
-                            withInputs(TEMPLATES, TEMPLATES + ", \"change_type\": 1")),                    refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
-                            withInputs(TEMPLATES, "\"templates\": {}")),
+                            withInputs(TEMPLATES, TEMPLATES + ", \"change_type\": 1")), refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
+                    withInputs(TEMPLATES, "\"templates\": {}")),
                     refusal("instance unit reference not an object", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs(TEMPLATES, "\"templates\": [\"plan\"]")),
                     refusal("instance unit reference without origin", RefusalRule.INSTANCE_HEADER, 2,

@@ -28,7 +28,6 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import org.jspecify.annotations.Nullable;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -71,6 +70,7 @@ import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The parser of the workflow language (PM-IMPL-5, PM-WF-16): every valid fixture parses to the tree built here, its

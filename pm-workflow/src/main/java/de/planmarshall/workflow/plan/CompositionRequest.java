@@ -48,10 +48,10 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record CompositionRequest(String planId, CompositionEvent event, WorkflowDefinition template,
-        List<UnitReference> templates, List<SubUnit> subUnits, PlanFacts facts, String configHash,
-        @Nullable String realizedFootprintDigest, @Nullable String providersDigest, List<Waiver> waivers,
-        InstancePosition position, @Nullable PlanInstance previous, List<String> verificationSteps,
-        List<Step> finalizeSteps) {
+List<UnitReference> templates, List<SubUnit> subUnits, PlanFacts facts, String configHash,
+@Nullable String realizedFootprintDigest, @Nullable String providersDigest, List<Waiver> waivers,
+InstancePosition position, @Nullable PlanInstance previous, List<String> verificationSteps,
+List<Step> finalizeSteps) {
 
     /** The post-run-only form of a fallback that returns the plan. */
     static final String POST_RUN_RETURNED = "returned";

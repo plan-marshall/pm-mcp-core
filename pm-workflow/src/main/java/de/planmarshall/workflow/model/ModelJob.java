@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record ModelJob(@Nullable String scopeId, String stateId, String entityKey, String role, boolean consultation,
-        Set<RoleClass> acceptedClasses) {
+Set<RoleClass> acceptedClasses) {
 
     /**
      * @throws NullPointerException     if a component other than {@code scopeId} is {@code null}

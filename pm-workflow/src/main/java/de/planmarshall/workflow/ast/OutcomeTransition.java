@@ -9,9 +9,9 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code <outcome> -> <target>}: the transition taken on an outcome, with its optional result guard and the steps it

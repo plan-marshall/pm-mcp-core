@@ -51,7 +51,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.CallValue;
-import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;

@@ -9,9 +9,9 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * A declared {@code link} clause of a state (PM-IMPL-5). The lists are copied into immutable lists.

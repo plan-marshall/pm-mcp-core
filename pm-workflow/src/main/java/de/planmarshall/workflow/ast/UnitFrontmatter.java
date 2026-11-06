@@ -9,10 +9,10 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.LocalDate;
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The frontmatter a unit opens with (PM-IMPL-5): what the unit is for a person (its display name and description),

@@ -43,8 +43,8 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record PlanInstanceHeader(String planId, int version, CompositionEvent event, Instant composedAt,
-        CompositionInputs inputs, @Nullable Lane lane, @Nullable Posture posture, Steps steps,
-        List<PrunedElement> pruned, List<PolicyCall> policyCalls, List<WaivedGate> waivedGates) {
+CompositionInputs inputs, @Nullable Lane lane, @Nullable Posture posture, Steps steps,
+List<PrunedElement> pruned, List<PolicyCall> policyCalls, List<WaivedGate> waivedGates) {
 
     /** The only format version of the header, the value of {@code format_version}. */
     public static final int FORMAT_VERSION = 1;

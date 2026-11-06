@@ -13,16 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import org.jspecify.annotations.Nullable;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +38,7 @@ import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.PruneReason;
 import de.planmarshall.workflow.plan.PrunedElement;
 import de.planmarshall.workflow.plan.WaivedGate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The generator of the documentation of a unit (PM-IMPL-5): each of the three forms of the dedicated fixture unit
@@ -557,8 +557,7 @@ class WorkflowDiagramGeneratorTest {
 
             assertAll(form,
                     () -> assertEquals(first, second, "the present state renders stable bytes"),
-                    () -> assertFalse(first.equals(render.apply(instance, null)),
-                            "the present state differs from the absent one"));
+                    () -> assertNotEquals(first, render.apply(instance, null), "the present state differs from the absent one"));
         }
 
         @Test

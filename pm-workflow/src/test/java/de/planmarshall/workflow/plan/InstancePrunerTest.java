@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.jspecify.annotations.Nullable;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +29,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.verify.InvariantFixtures;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The pruner arms the composer tests leave open (PM-IMPL-5): it calls {@link InstancePruner#prune} directly with the

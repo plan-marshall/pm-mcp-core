@@ -33,8 +33,8 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record CompositionInputs(String configHash, List<UnitReference> templates, List<UnitReference> subUnits,
-        String compositionRulesRevision, String compositionRulesDigest, String planFactsDigest,
-        @Nullable String realizedFootprintDigest, @Nullable String changeType, @Nullable String providersDigest) {
+String compositionRulesRevision, String compositionRulesDigest, String planFactsDigest,
+@Nullable String realizedFootprintDigest, @Nullable String changeType, @Nullable String providersDigest) {
 
     /**
      * Refuses a missing required component and copies the unit lists into unmodifiable lists that keep their order.

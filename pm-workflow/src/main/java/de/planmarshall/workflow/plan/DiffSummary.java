@@ -136,7 +136,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
      * @since 0.1
      */
     public record CeilingChange(String callSite, String argument, @Nullable CallValue previous,
-            @Nullable CallValue value) {
+    @Nullable CallValue value) {
 
         /**
          * Refuses a missing call site or argument and a change that changes nothing.

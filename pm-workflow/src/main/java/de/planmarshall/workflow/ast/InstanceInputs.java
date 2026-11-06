@@ -9,9 +9,9 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code inputs} object of a plan instance header (PM-IMPL-5, PM-EXT-7): every input the version was composed

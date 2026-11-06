@@ -43,8 +43,8 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record CompositionRecord(CompositionEvent event, Result result, @Nullable Integer version,
-        CompositionEvent.Trigger trigger, @Nullable CompositionCause cause, SortedMap<String, String> inputDigests,
-        @Nullable DiffSummary diffSummary, Instant recordedAt) {
+CompositionEvent.Trigger trigger, @Nullable CompositionCause cause, SortedMap<String, String> inputDigests,
+@Nullable DiffSummary diffSummary, Instant recordedAt) {
 
     /** The only format version of a line of the composition log. */
     public static final int FORMAT_VERSION = 1;

@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -185,7 +184,7 @@ class UnitFrontmatterReaderTest {
                     () -> assertEquals(List.of(new InterfaceElement("commit", null)), described.entries(),
                             "an entry without description reads null"),
                     () -> assertEquals(List.of(new InterfaceElement("done", null),
-                            new InterfaceElement("failed", null)), described.exits(),
+                                    new InterfaceElement("failed", null)), described.exits(),
                             "an exit without description reads null"),
                     () -> assertEquals(UnitType.WORKFLOW, bare.type()),
                     () -> assertTrue(bare.entries().isEmpty()),

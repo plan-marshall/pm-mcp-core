@@ -42,7 +42,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 record InstanceAnnotations(String planId, int version, String event, String lane, String posture,
-        @Nullable String activeState, List<Pruned> pruned, List<Waived> waivedGates, List<Composed> composed) {
+@Nullable String activeState, List<Pruned> pruned, List<Waived> waivedGates, List<Composed> composed) {
 
     /** The value shown for a header value that is not set. */
     static final String NONE = "-";

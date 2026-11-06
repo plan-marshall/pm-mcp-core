@@ -9,8 +9,6 @@
  */
 package de.planmarshall.workflow.diagram;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -25,6 +23,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renders a unit as AsciiDoc tables (PM-IMPL-5): for the phase the unit carries, if it is a phase sub-workflow, a

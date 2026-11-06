@@ -9,8 +9,6 @@
  */
 package de.planmarshall.workflow.dsl;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,6 +48,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The recursive-descent parser of the workflow language (PM-IMPL-5, PM-WF-16): it reads one unit into the immutable

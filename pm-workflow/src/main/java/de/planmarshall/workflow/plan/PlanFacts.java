@@ -77,10 +77,10 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record PlanFacts(PlanInstanceHeader.@Nullable Lane lane, PlanInstanceHeader.@Nullable Posture posture,
-        @Nullable String changeType, @Nullable String postRun, @Nullable List<String> footprint,
-        SortedMap<String, String> configuration, List<String> steps, List<String> tasks,
-        Map<Axis, Map<Level, String>> axes, @Nullable String overrides,
-        Map<String, Map<String, CallValue>> declarations) {
+@Nullable String changeType, @Nullable String postRun, @Nullable List<String> footprint,
+SortedMap<String, String> configuration, List<String> steps, List<String> tasks,
+Map<Axis, Map<Level, String>> axes, @Nullable String overrides,
+Map<String, Map<String, CallValue>> declarations) {
 
     /** The fact name of the lane. */
     public static final String LANE_FACT = "lane";

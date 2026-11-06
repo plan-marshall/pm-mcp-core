@@ -9,8 +9,6 @@
  */
 package de.planmarshall.workflow.dsl;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +30,7 @@ import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Prints the tree of a unit back to the source of the workflow language (PM-IMPL-5), so that the parser reads the

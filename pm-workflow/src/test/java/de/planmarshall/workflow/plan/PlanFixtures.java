@@ -333,7 +333,7 @@ final class PlanFixtures {
             @Nullable PlanInstance previous, List<Waiver> waivers, InstancePosition position) {
         var text = read(TEMPLATE_FILE);
         return new CompositionRequest(planId, event, template(), List.of(new UnitReference("plan", TEMPLATE_FILE,
-                PlanFacts.sha256(text), UnitOrigin.PROJECT)), subUnits(), facts,
+                        PlanFacts.sha256(text), UnitOrigin.PROJECT)), subUnits(), facts,
                 PlanFacts.sha256("effective configuration"), null, null, waivers, position, previous,
                 VERIFICATION_STEPS, FINALIZE_STEPS);
     }

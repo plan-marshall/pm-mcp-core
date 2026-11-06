@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import org.jspecify.annotations.Nullable;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +38,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.workflow.testing.generators.WorkflowGenerators;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The node model of the immutable tree (PM-IMPL-5, PM-WF-16): records copy the collections they are given, maps keep

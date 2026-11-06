@@ -9,13 +9,13 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a state does: rest on links, run a primitive, run a job, run model tasks, call a sub-workflow, wait for a

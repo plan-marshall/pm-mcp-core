@@ -19,7 +19,6 @@ import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
-import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import org.jspecify.annotations.Nullable;
 

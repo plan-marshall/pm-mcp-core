@@ -23,7 +23,6 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamType;
-import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;

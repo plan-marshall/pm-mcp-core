@@ -34,9 +34,9 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public record CompositionCause(@Nullable String gate, @Nullable FallbackCause fallbackCause,
-        @Nullable String waiverId, @Nullable String deliverableId, @Nullable String replanId,
-        @Nullable String fromConfigHash, @Nullable String toConfigHash,
-        CompositionResult.@Nullable Refusal refusal) {
+@Nullable String waiverId, @Nullable String deliverableId, @Nullable String replanId,
+@Nullable String fromConfigHash, @Nullable String toConfigHash,
+CompositionResult.@Nullable Refusal refusal) {
 
     /** A cause without any member. */
     public static final CompositionCause NONE = new CompositionCause(null, null, null, null, null, null, null, null);

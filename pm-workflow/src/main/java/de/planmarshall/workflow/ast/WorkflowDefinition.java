@@ -9,13 +9,13 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The root of the tree: one complete definition unit, that is the plan unit that calls the phases, a plan instance, a

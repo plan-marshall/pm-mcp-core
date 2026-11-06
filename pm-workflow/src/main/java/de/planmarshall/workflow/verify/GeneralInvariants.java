@@ -9,13 +9,10 @@
  */
 package de.planmarshall.workflow.verify;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.OutcomeClass;
@@ -27,6 +24,7 @@ import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The general invariants every project unit satisfies, {@code INV-GEN-1} to {@code INV-GEN-5} (PM-IMPL-5).

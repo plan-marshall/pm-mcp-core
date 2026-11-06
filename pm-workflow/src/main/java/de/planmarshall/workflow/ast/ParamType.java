@@ -9,10 +9,10 @@
  */
 package de.planmarshall.workflow.ast;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.HashSet;
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The type of a parameter: of a free parameter of a link, of a sub-workflow parameter, or of the result of a
