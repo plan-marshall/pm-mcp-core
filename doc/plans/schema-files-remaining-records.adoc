@@ -21,7 +21,7 @@ A move, plus the check the other store records already have. 25 blocks in seven 
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Requirements: none; see `schema-files-foundation`
 * Specification: link:../specification/store-schemas/04-epic-and-change-ledger.adoc[Store Schemas 04], link:../specification/store-schemas/05-metrics-and-quality-report.adoc[05], link:../specification/store-schemas/06-task-and-references.adoc[06], link:../specification/store-schemas/07-project-configuration.adoc[07], link:../specification/store-schemas/08-project-configuration-local.adoc[08], link:../specification/store-schemas/17-re-planning.adoc[17], link:../specification/store-schemas/18-decision-records.adoc[18]
 * Watch: none
 

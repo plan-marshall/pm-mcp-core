@@ -22,7 +22,7 @@ The value of each limit lies in one file of the module; the code reads it from t
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Requirements: none; see `schema-files-foundation`
 * Specification: link:../specification/timeouts/02-runtime-leases-operator-web.adoc[Timeouts 02], link:../specification/workflow-dsl/01-grammar.adoc[Workflow DSL 01]
 * Watch: none
 
