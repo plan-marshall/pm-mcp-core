@@ -96,7 +96,7 @@ class EffectiveRoleFactsTest {
                         .set("/context_budget_tokens", artifactBudget).artifact(), profile(
                         new HarnessProfile.Resumability(false, null, false, null), harnessBudget,
                         Generators.integers(1, 10).next()))
-                        .contextBudgetTokens(), "the artifact wins"),
+                        .contextBudgetTokens(), "the artifact context budget takes precedence"),
                 () -> assertEquals(harnessBudget, role(artifact, profile(
                         new HarnessProfile.Resumability(false, null, false, null), harnessBudget,
                         Generators.integers(1, 10).next()))
@@ -164,7 +164,7 @@ class EffectiveRoleFactsTest {
                 new EffortValue(null), List.of(new RoleSkill("skill://pm/role/implement/SKILL.md",
                         RoleFixtures.SKILL_DIGEST)), "1.4", Optional.of(identity), RoleFixtures.harness());
 
-        assertEquals(Optional.of(identity), role.weightsIdentity());
+        assertEquals(Optional.of(identity), role.weightsIdentity(), "weights identity is preserved");
     }
 
     private static EffectiveRole role(RoleArtifact artifact, HarnessProfile profile) {

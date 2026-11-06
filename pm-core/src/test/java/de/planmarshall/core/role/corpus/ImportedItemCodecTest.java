@@ -60,7 +60,7 @@ class ImportedItemCodecTest {
     private static final Path FILE = Path.of("/cache/items/screening/sample-set/q-1.json");
     private static final URI REPOSITORY = URI.create("https://github.com/example/sample-set");
     private static final String COMMIT = "%040x".formatted(Generators.longs().next());
-    private static final String CANARY = Generators.letterStrings(10, 30).next();
+    private static final String CANARY = "canary-" + "%016x".formatted(Generators.longs().next());
     private static final JsonValue ANSWER_SCHEMA =
             JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
     private static final String GROUP = Generators.letterStrings(5, 20).next();
