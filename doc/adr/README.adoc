@@ -32,6 +32,7 @@ The repository:
 ** link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]: the three classes a null-contract site belongs to, the evidence each needs, the rule that absence a method returns is `Optional`, and the rejection of the ignore and of waiting for the conformance family.
 ** link:014-the-ci-contract-is-the-module-pm-provider-ci.adoc[014 The CI Contract Is the Module `pm-provider-ci`]: the operator's choice of the module over a `pm-core` port, the three dependency rules (the `provider` include, `provider-contract`, and the new `provider-analysis` for Sonar), and what they mean for a consumer in `pm-runtime` or `pm-workflow`.
 ** link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015 The Docs-Only Build Skip with a Code Include List]: the docs-only skip is on again, and `maven-build.paths-code-extra` keeps every `doc/` and `src/` tree building, so only `.plan/`, `.claude/`, README and configuration changes skip.
+** link:016-schemas-are-files-of-the-implementing-module.adoc[016 Schemas Are Files of the Implementing Module]: a JSON schema of the specification is a file `<record>.schema.json` in the resources of the module that owns its codec, the specification includes it, and a test reads it from the class path through `SchemaResource` of `pm-core:tests`.
 
 `pm-core`:
 

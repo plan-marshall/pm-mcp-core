@@ -1,0 +1,72 @@
+= ADR 016: Schemas Are Files of the Implementing Module
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-06
+
+== Context
+
+The specifications of this repository state the JSON schemas of the stored records as `[source,json]` blocks inside
+their `.adoc` documents (ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007]). The parity tests read
+these blocks at run time out of the `.adoc` files, through `pm.specification.root`. A pull request that changes only a
+specification part can therefore break `main`: it changes the input of a test without changing code, and twice in four
+days it did (ADR link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009]). ADR
+link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] keeps such a pull request building by counting
+`**/doc/**` as code, which is a consequence of the tests reading documentation, not a cure.
+
+Twelve test classes read the specification: the nine test classes of `pm-core` that use the test helper
+`SpecificationDocument` (the schema parity tests of the findings, the task queue, the audit trail, the derived facts,
+the job record, the lesson front matter, the pending entry and the workflow status, and `AnalysisResultSchemaTest`),
+`CredentialStoreMoveRecordParityTest` and `StalledScopeDetectorTest` of `pm-runtime`, and
+`UnitFrontmatterReaderTest` of `pm-workflow`.
+
+== Decision
+
+* *Layout.* A JSON schema of the specification is a file of the module that owns its codec, in
+  `src/main/resources/<resource package of the codec>/<record>.schema.json`. There is one file per block, and its text
+  is the text of the block byte for byte: its `$id`, its `$defs` and its member order are unchanged. The precedent is
+  the corpus schemas of `pm-core` in `pm-core/src/main/resources/de/planmarshall/core/role/corpus/`.
+* *Include convention.* The block in the specification becomes `[source,json]` over `----` holding one line
+  `include::<relative path to the file>[]`. The heading and the anchor of the section stay, so every link into the
+  section still resolves. A block that is an example, not a schema, stays inline. GitHub does not expand an
+  `include::` and shows a link to the file instead, so the paragraph above the include names the file and its path.
+* *Own inputs only.* A test reads inputs of its own repository only, and it reads a schema file from the class path
+  through the test helper `SchemaResource` of `pm-core`. An absent resource or a file that is not a JSON object fails
+  the test; it is never skipped.
+* *Artifact.* `pm-core:tests` carries `SchemaResource` beside the generator package, so the other modules load their
+  schema files through the same helper (ADR link:012-generator-artifacts.adoc[012]).
+
+== Alternatives Considered
+
+1. *Keep reading the `.adoc`.* Rejected: it is the break ADR 009 records; a specification-only change stays able to
+   turn `main` red.
+2. *Generate the specification block from the file.* Rejected: it adds a generator step and a check that the generated
+   block is current (open question `generated-listings`), where an include shows the file itself.
+3. *Keep the schema files in a separate module.* Rejected: the schema belongs to the codec that writes the record, and
+   a separate module would separate the two.
+
+== Consequences
+
+* This ADR supersedes the sentence of ADR 007 "The schema parity tests read the specification of this repository
+  (`pm.specification.root`)." ADR 007 stays accepted otherwise; its status names this amendment.
+* The premise of ADR 009 and the `**/doc/**` entry of the include list of ADR 015 stay until the work package
+  `adoc-reading-retired` has moved the last reader off the `.adoc` files; `SpecificationDocument` stays until then too.
+* The work packages that move the schema blocks follow the layout and the include convention above; `trace.py` checks
+  that every `include::` target exists and reports a schema block that is still inline.
+* A stored record is not validated against its schema file at run time. `networknt` stays a test-scope dependency of
+  `pm-core`; a compile-scope validator is a new dependency and waits for the operator (open question
+  `runtime-schema-validation`).
+
+== Source
+
+* The work package `schema-files-foundation` (`doc/plans/schema-files-foundation.adoc`) as it stood on `origin/main`
+  at `60c45a87`
+* ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007],
+  link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009],
+  link:012-generator-artifacts.adoc[012] and link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015]
+* The pull request of PLAN-V2-115 that carries this ADR

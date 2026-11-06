@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (the schema parity tests read the schema files of the module, not the specification)
 
 == Date
 
