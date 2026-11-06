@@ -421,7 +421,7 @@ Fixture:: under `--deny-read $PM_MCP_BASE`, `cat $PM_MCP_BASE/run/runtime.token`
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 3 (container socket).
 
 [#PM-WATCH-JOB-36]
-=== PM-WATCH-JOB-36: A socket outside the read set is refused only from Landlock ABI 9
+=== PM-WATCH-JOB-36: A socket outside the job's socket list is refused only from Landlock ABI 9
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#pathname-sockets[Job Runtime § Linux Filesystem Confinement] (Unix sockets),
 link:../specification/job-runtime/02-confinement-and-environment.adoc#session-bus[Job Runtime § Session Bus],
@@ -431,18 +431,26 @@ Hazard:: Up to Landlock ABI 8 the filesystem rules do not govern `connect(2)` on
 the session bus socket or the container engine's socket by its path reaches the Secret Service or the container
 daemon although its read set omits the path, and only the withheld environment variables stand in its way. ABI 9
 adds `LANDLOCK_ACCESS_FS_RESOLVE_UNIX`. A launcher that does not handle the right leaves the sockets reachable on a
-kernel that could refuse them; one that handles it without a rule for the runtime socket cuts every confined worker
-off from the runtime; and a job record that says `confined` without its ABI claims a socket guard that may not exist.
+kernel that could refuse them; one that grants it with the read and write sets leaves every socket in them reachable on
+every ABI, tmux's `/tmp/tmux-<uid>/default` among them, because `/tmp` is in every write set, and a job that sends
+the operator's tmux server a command runs it outside its confinement and its egress proxy; one that handles it
+without a rule for the runtime socket cuts every confined worker off from the runtime; and a job record that says
+`confined` without its ABI claims a socket guard that may not exist.
 Guard:: Linux test of `pm-exec` per applied ABI: a confined job connects by path, without any variable naming it, to
-a socket outside its read set (the session bus socket, the container engine's socket for a project without the
-opt-in); from ABI 9 the connect is refused, below it the connect succeeds and the test asserts exactly that, so a
-kernel upgrade turns the assertion over by itself; a worker's job relay reaches the runtime socket on every ABI
-through its own read rule, and a job that is no worker does not; the launch report and the job record carry the
+a socket outside its socket list (the session bus socket, the container engine's socket for a project without the
+opt-in, and a fixture server's socket in `/tmp` that another domain created, for a worker and for a `build` job);
+from ABI 9 the connect is refused, below it the connect succeeds and the test asserts exactly that, so a
+kernel upgrade turns the assertion over by itself; a socket the job binds itself in `/tmp` stays connectable on
+every ABI (positive control); on macOS the sandbox profile refuses the fixture server's socket to a `build` job and
+admits one of its socket list; a worker's job relay reaches the runtime socket on every ABI
+through its socket list, and a job that is no worker does not; the launch report and the job record carry the
 applied `landlock_abi`; the job environment holds neither `DBUS_SESSION_BUS_ADDRESS` nor `XDG_RUNTIME_DIR` on any ABI.
 Fixture:: Landlock ABI 8 (kernel 7.0): the container socket was reachable under confinement, and a confined worker's
 relay connected to the runtime socket inside `<PM_MCP_BASE>`, which its read set omits; no ABI up to 8 restricts the
 connect.
-Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 3.
+Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gate 3;
+link:../../../plan-marshall-documentation/doc/articles/ghostty-creator-rex.adoc[Ghostty's Creator Returns with Rex]
+(the multiplexer's socket in `/tmp`).
 
 == Native Build Output Parsers
 
