@@ -10,11 +10,11 @@
 package de.planmarshall.workflow.model;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleForm;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The task queue the model caller queues into and closes through (PM-WORK-1 Queue and the closed outcomes of
@@ -39,7 +39,7 @@ public interface ModelQueue {
     /**
      * The task to queue, with the effective configuration the worker generation must have.
      *
-     * @param scopeId             the plan or epic; {@code null} for the workspace scope
+     * @param scopeId             the plan or epic; empty for the workspace scope
      * @param stateId             the creating state
      * @param entityKey           the entity the task works on
      * @param role                the role
@@ -51,11 +51,12 @@ public interface ModelQueue {
      * @param consultation        whether the task serves a {@code consult role} clause
      * @since 0.1
      */
-    record Enqueue(@Nullable String scopeId, String stateId, String entityKey, String role, RoleForm form,
+    record Enqueue(Optional<String> scopeId, String stateId, String entityKey, String role, RoleForm form,
     String configurationDigest, String harness, String model, EffortValue effort, boolean consultation) {
 
-        /** Rejects {@code null} components other than {@code scopeId}. */
+        /** Rejects {@code null} components. */
         public Enqueue {
+            Objects.requireNonNull(scopeId, "scopeId");
             Objects.requireNonNull(stateId, "stateId");
             Objects.requireNonNull(entityKey, "entityKey");
             Objects.requireNonNull(role, "role");
@@ -90,7 +91,7 @@ public interface ModelQueue {
     /**
      * The task to close without an attempt.
      *
-     * @param scopeId   the plan or epic; {@code null} for the workspace scope
+     * @param scopeId   the plan or epic; empty for the workspace scope
      * @param stateId   the creating state
      * @param entityKey the entity the task works on
      * @param role      the role
@@ -98,10 +99,11 @@ public interface ModelQueue {
      *                  {@link ModelCallResult#ROLE_UNQUALIFIED} or {@link ModelCallResult#ROLE_UNAVAILABLE}
      * @since 0.1
      */
-    record Close(@Nullable String scopeId, String stateId, String entityKey, String role, String reason) {
+    record Close(Optional<String> scopeId, String stateId, String entityKey, String role, String reason) {
 
-        /** Rejects {@code null} components other than {@code scopeId}. */
+        /** Rejects {@code null} components. */
         public Close {
+            Objects.requireNonNull(scopeId, "scopeId");
             Objects.requireNonNull(stateId, "stateId");
             Objects.requireNonNull(entityKey, "entityKey");
             Objects.requireNonNull(role, "role");

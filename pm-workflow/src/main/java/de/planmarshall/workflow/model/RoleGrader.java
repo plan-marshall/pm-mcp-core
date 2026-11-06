@@ -128,9 +128,8 @@ public final class RoleGrader {
             return judgeRefusal.get();
         }
         var runs = GradingOffer.runs(plan);
-        // pm-core boundary: GradingPlan.previous() returns Optional; it is filtered and unwrapped here, once
         var previous = plan.previous().filter(entry -> entry.qualificationDigest().equals(role.qualificationDigest())
-                && entry.corpusRevision().equals(plan.corpusRevision())).orElse(null);
+                && entry.corpusRevision().equals(plan.corpusRevision()));
         var results = new ArrayList<QualificationRecord.ItemResult>();
         var forms = new EnumMap<RoleForm, QualificationRecord.FormResult>(RoleForm.class);
         for (var form : forms(plan)) {
@@ -177,14 +176,12 @@ public final class RoleGrader {
     }
 
     private List<QualificationRecord.ItemResult> gradeForm(GradingPlan plan, RoleTopics topics, RoleForm form,
-            @Nullable QualificationRecord previous, int runs) {
+            Optional<QualificationRecord> previous, int runs) {
         var results = new ArrayList<QualificationRecord.ItemResult>();
         for (var topic : topics.topics()) {
             for (var item : RoleTopics.items(plan.items(), topic, plan.role().artifact().name())) {
                 var checkout = checkout(plan, item);
-                var reused = previous != null
-                        ? reuse(previous, item, form, checkout)
-                        : List.<QualificationRecord.ItemResult>of();
+                var reused = previous.map(entry -> reuse(entry, item, form, checkout)).orElse(List.of());
                 if (!reused.isEmpty()) {
                     results.addAll(reused);
                     for (var run = reused.size() + 1; run <= runs; run++) {

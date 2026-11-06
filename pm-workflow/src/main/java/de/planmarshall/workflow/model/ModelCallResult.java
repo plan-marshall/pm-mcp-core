@@ -9,9 +9,10 @@
  */
 package de.planmarshall.workflow.model;
 
+import java.util.Optional;
+
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleValidationReason;
-import org.jspecify.annotations.Nullable;
 
 /**
  * What the one model caller did with a {@code job llm} state (PM-WORK-1, The Model Caller): it queued the task for the
@@ -50,11 +51,11 @@ public sealed interface ModelCallResult {
      * @param role             the role the state names
      * @param reason           one of {@link #ROLE_UNDEFINED}, {@link #CLASS_MISMATCH}, {@link #ROLE_UNQUALIFIED} or
      *                         {@link #ROLE_UNAVAILABLE}
-     * @param validationReason the validation reason of an undefined role, {@code null} otherwise
+     * @param validationReason the validation reason of an undefined role, empty otherwise
      * @param detail           what is wrong, naming the value where one exists
      * @since 0.1
      */
-    record Closed(String role, String reason, @Nullable RoleValidationReason validationReason, String detail)
+    record Closed(String role, String reason, Optional<RoleValidationReason> validationReason, String detail)
             implements ModelCallResult {
     }
 }

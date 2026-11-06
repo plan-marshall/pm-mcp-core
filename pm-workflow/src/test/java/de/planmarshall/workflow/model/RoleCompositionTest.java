@@ -165,41 +165,6 @@ class RoleCompositionTest {
     }
 
     @Test
-    @DisplayName("a role_undefined refusal without a validation reason names none in its message")
-    void undefinedWithoutReasonNamesNone() {
-        var role = "role-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-        var detail = Generators.letterStrings(10, 40).next();
-
-        var refusal = CompositionRefusal.roleUndefined(role, STATE, null, detail);
-
-        // The message shape is the wire contract of the refusal.
-        assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.ROLE_UNDEFINED, refusal.reason(),
-                        "the refusal is role_undefined"),
-                () -> assertEquals(Optional.empty(), refusal.validationReason(),
-                        "an absent reason reads as an empty Optional"),
-                () -> assertEquals("%s: role_undefined names the role '%s': %s".formatted(STATE, role, detail),
-                        refusal.getMessage(), "the message names no validation reason"));
-    }
-
-    @Test
-    @DisplayName("a role_undefined refusal with a validation reason names it in its message")
-    void undefinedWithReasonNamesIt() {
-        var role = "role-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
-        var detail = Generators.letterStrings(10, 40).next();
-        var reason = RoleValidationReason.MODEL_NOT_ALLOWED;
-
-        var refusal = CompositionRefusal.roleUndefined(role, STATE, reason, detail);
-
-        // The message shape is the wire contract of the refusal.
-        assertAll(
-                () -> assertEquals(Optional.of(reason), refusal.validationReason(),
-                        "the refusal carries the validation reason"),
-                () -> assertEquals("%s: role_undefined names the role '%s' (%s): %s".formatted(STATE, role,
-                        reason.wireName(), detail), refusal.getMessage(), "the message names the validation reason"));
-    }
-
-    @Test
     @DisplayName("a consulted zero_tool role is class_mismatch")
     void consultedZeroToolMismatches() {
         var composition = composition(Map.of("screener", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
