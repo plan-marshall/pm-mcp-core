@@ -113,8 +113,12 @@ class AuditChainVerificationTest {
             var line = Generators.integers(-100_000, 0).next();
             var diagnostic = diagnostic();
 
-            assertThrows(IllegalArgumentException.class, () -> Broken.linkBroken(line, diagnostic),
-                    "a first broken line below 1 must be refused");
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> Broken.linkBroken(line, diagnostic),
+                            "a first broken line below 1 must be refused"),
+                    // Contract literal: zero is the invalid boundary of the one-based line contract
+                    () -> assertThrows(IllegalArgumentException.class, () -> Broken.linkBroken(0, diagnostic),
+                            "a first broken line of zero must be refused"));
         }
 
         @Test

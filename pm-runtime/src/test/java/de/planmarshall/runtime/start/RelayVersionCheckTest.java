@@ -150,6 +150,23 @@ class RelayVersionCheckTest {
         }
 
         @Test
+        @DisplayName("a version that differs from the runtime version in the patch only is a mismatch")
+        void shouldRecordPatchOnlyMismatch() {
+            var parts = runtimeVersion.split("\\.");
+            var patch = (Integer.parseInt(parts[2]) + Generators.integers(1, 99).next()) % 100;
+            var patchRelay = "%s.%s.%d".formatted(parts[0], parts[1], patch);
+
+            check.observe(patchRelay);
+
+            assertAll(
+                    () -> assertEquals(List.of(expectedRecord(patchRelay)), records,
+                            "a patch-only difference must be recorded"),
+                    () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(patchRelay, runtimeVersion,
+                                    RelayVersionCheck.RECOMMENDED_COMMAND)), check.mismatch(),
+                            "a patch-only mismatch must be the status data"));
+        }
+
+        @Test
         @DisplayName("the same mismatch observed many times from several threads records once")
         void shouldRecordOncePerVersionUnderConcurrency() throws Exception {
             var start = new CountDownLatch(1);

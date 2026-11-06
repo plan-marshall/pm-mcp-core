@@ -147,7 +147,10 @@ class ColdStartComparisonTest {
 
         var verdict = ColdStartComparison.compare(empty, seeded, RELATIVE, ABSOLUTE);
 
-        assertEquals(expected, verdict.agrees(), "the tolerance edge must decide the agreement");
+        assertAll(
+                () -> assertEquals(expected, verdict.agrees(), "the tolerance edge must decide the agreement"),
+                () -> assertEquals(10_000_000L, verdict.emptyMedian(), "the empty median is the empty population"),
+                () -> assertEquals(seededNanos, verdict.seededMedian(), "the seeded median is the seeded population"));
     }
 
     @Test
