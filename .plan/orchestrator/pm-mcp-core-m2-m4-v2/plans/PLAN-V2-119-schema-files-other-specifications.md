@@ -85,7 +85,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-119-schema-files-other-specifications.md"
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-119-schema-files-other-specifications.md"
 ```
 
 ## Write-Boundary
