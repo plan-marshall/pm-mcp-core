@@ -19,6 +19,7 @@ import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.PrunedElement;
 import de.planmarshall.workflow.plan.WaivedGate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What the three instance forms show beside the composed unit (PM-IMPL-5, Workflow DSL Specification, Plan Instance,
@@ -35,14 +36,14 @@ import de.planmarshall.workflow.plan.WaivedGate;
  * @param event       the wire name of the composition event of the version
  * @param lane        the wire name of the lane, or {@value #NONE}
  * @param posture     the wire name of the posture, or {@value #NONE}
- * @param activeState the state to highlight or mark; empty for none
+ * @param activeState the state to highlight or mark; {@code null} for none
  * @param pruned      every pruned element in header order
  * @param waivedGates every waived gate in header order
  * @param composed    every composed file of the version, the plan unit's included, in header order
  * @since 0.1
  */
 record InstanceAnnotations(String planId, int version, String event, String lane, String posture,
-Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates, List<Composed> composed) {
+        @Nullable String activeState, List<Pruned> pruned, List<Waived> waivedGates, List<Composed> composed) {
 
     /** The value shown for a header value that is not set. */
     static final String NONE = "-";
@@ -59,7 +60,7 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates, Lis
      * @param event       the wire name of the composition event
      * @param lane        the wire name of the lane, or {@value #NONE}
      * @param posture     the wire name of the posture, or {@value #NONE}
-     * @param activeState the state to highlight or mark
+     * @param activeState the state to highlight or mark; {@code null} for none
      * @param pruned      every pruned element
      * @param waivedGates every waived gate
      * @param composed    every composed file of the version
@@ -69,7 +70,6 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates, Lis
         Objects.requireNonNull(event, "event");
         Objects.requireNonNull(lane, "lane");
         Objects.requireNonNull(posture, "posture");
-        Objects.requireNonNull(activeState, "activeState");
         pruned = List.copyOf(pruned);
         waivedGates = List.copyOf(waivedGates);
         composed = List.copyOf(composed);
@@ -79,10 +79,10 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates, Lis
      * Derives the annotations of an instance version.
      *
      * @param instance    the instance version
-     * @param activeState the state to highlight or mark; empty for none
+     * @param activeState the state to highlight or mark; {@code null} for none
      * @return its annotations
      */
-    static InstanceAnnotations of(PlanInstance instance, Optional<String> activeState) {
+    static InstanceAnnotations of(PlanInstance instance, @Nullable String activeState) {
         var header = instance.header();
         var composed = new ArrayList<Composed>();
         header.inputs().templates().stream()

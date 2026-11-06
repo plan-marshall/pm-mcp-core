@@ -27,6 +27,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The edges of a unit and their label parts, shared by the three renderers so that the order of the edges and the
@@ -81,9 +82,9 @@ final class StateTransitions {
         for (var state : definition.states().values()) {
             var edges = new ArrayList<Edge>();
             engineTransitions(state.behavior())
-                    .forEach(transition -> edges.add(new Edge(state, Optional.empty(), transition)));
+                    .forEach(transition -> edges.add(new Edge(state, null, transition)));
             for (var link : links(state.behavior())) {
-                link.transitions().forEach(transition -> edges.add(new Edge(state, Optional.of(link), transition)));
+                link.transitions().forEach(transition -> edges.add(new Edge(state, link, transition)));
             }
             outgoing.put(state.id(), List.copyOf(edges));
             edges.forEach(edge -> incoming.computeIfAbsent(edge.target(), id -> new ArrayList<>()).add(edge));
@@ -275,10 +276,10 @@ final class StateTransitions {
      * One transition of a state: an engine transition, or a transition of one of its declared links.
      *
      * @param source     the state the transition leaves
-     * @param link       the declared link whose action the transition routes; empty for an engine transition
+     * @param link       the declared link whose action the transition routes; {@code null} for an engine transition
      * @param transition the transition
      */
-    record Edge(StateNode source, Optional<LinkSpec> link, OutcomeTransition transition) {
+    record Edge(StateNode source, @Nullable LinkSpec link, OutcomeTransition transition) {
 
         /**
          * @return the outcome the transition is taken on
@@ -299,8 +300,8 @@ final class StateTransitions {
          *         transition; empty when there is none
          */
         Optional<String> guard() {
-            if (link.isPresent()) {
-                return Optional.ofNullable(link.orElseThrow().guard()).map(spec -> StateTransitions.guard(spec.expr()));
+            if (link != null) {
+                return Optional.ofNullable(link.guard()).map(spec -> StateTransitions.guard(spec.expr()));
             }
             return Optional.ofNullable(transition.resultGuard()).map(StateTransitions::resultGuard);
         }

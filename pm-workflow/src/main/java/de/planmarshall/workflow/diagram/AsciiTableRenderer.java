@@ -11,11 +11,11 @@ package de.planmarshall.workflow.diagram;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renders a unit as a table for terminal output, drawn with Unicode box-drawing characters and aligned on its right
@@ -47,13 +47,13 @@ final class AsciiTableRenderer {
      * Renders a unit.
      *
      * @param definition  the unit
-     * @param activeState the state to mark; empty for none
+     * @param activeState the state to mark; {@code null} for none
      * @return the table, every line ended by a line feed
      */
-    static String render(WorkflowDefinition definition, Optional<String> activeState) {
+    static String render(WorkflowDefinition definition, @Nullable String activeState) {
         var transitions = StateTransitions.of(definition);
         var blocks = definition.states().values().stream()
-                .map(state -> block(state, transitions, activeState.filter(state.id()::equals).isPresent()))
+                .map(state -> block(state, transitions, state.id().equals(activeState)))
                 .toList();
         var widths = widths(blocks);
         var out = new StringBuilder();
@@ -78,20 +78,20 @@ final class AsciiTableRenderer {
         }
         stateCell.add(CONTINUATION + StateTransitions.description(state));
         var rows = new ArrayList<List<String>>();
-        Optional<LinkSpec> previousLink = Optional.empty();
+        @Nullable LinkSpec previousLink = null;
         for (var edge : transitions.outgoing(state.id())) {
             var outcome = edge.outcome() + " -> " + edge.target();
             var guard = edge.guard().orElse(NONE);
-            if (edge.link().isEmpty()) {
+            var link = edge.link();
+            if (link == null) {
                 rows.add(List.of(NONE, guard, outcome));
-            } else if (edge.link().equals(previousLink)) {
+            } else if (link.equals(previousLink)) {
                 rows.add(List.of("", "", outcome));
             } else {
-                var link = edge.link().orElseThrow();
                 rows.add(List.of("%s (%s)".formatted(link.idPattern(), StateTransitions.lower(link.rel())), guard,
                         outcome));
             }
-            previousLink = edge.link();
+            previousLink = link;
         }
         if (rows.isEmpty()) {
             rows.add(List.of(NONE, NONE, NONE));

@@ -61,8 +61,8 @@ final class InstanceAsciiDocTableRenderer {
         row("Composition event", code(annotations.event()));
         row("Lane", codeOrNone(annotations.lane()));
         row("Posture", codeOrNone(annotations.posture()));
-        row("Active state", annotations.activeState().map(InstanceAsciiDocTableRenderer::code)
-                .orElse(InstanceAnnotations.NONE));
+        var activeState = annotations.activeState();
+        row("Active state", activeState != null ? code(activeState) : InstanceAnnotations.NONE);
         out.append(TABLE_DELIMITER).append('\n');
         out.append('\n').append(AsciiDocTableRenderer.render(unit));
         if (!annotations.composed().isEmpty()) {
