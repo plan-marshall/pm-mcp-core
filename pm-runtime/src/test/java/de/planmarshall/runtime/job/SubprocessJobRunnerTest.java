@@ -662,9 +662,9 @@ class SubprocessJobRunnerTest {
             var settled = settled(started(runner.start(git(30, "ok"))));
 
             assertAll(
-                    () -> assertEquals(Fate.FAILED, settled.fate()),
-                    () -> assertEquals(10, settled.outcomeRow()),
-                    () -> assertEquals(127L, settled.exitCode()),
+                    () -> assertEquals(Fate.FAILED, settled.fate(), "the job of a failed launcher failed"),
+                    () -> assertEquals(10, settled.outcomeRow(), "row 10 decided the launcher failure"),
+                    () -> assertEquals(127L, settled.exitCode(), "the record carries the launcher exit 127"),
                     () -> assertNull(settled.pid(), "no post-spawn record without a launch report"),
                     () -> assertNull(settled.childWallMs(), "no reported process start"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
@@ -679,13 +679,13 @@ class SubprocessJobRunnerTest {
             var settled = runner.recordOf(jobId).orElseThrow();
 
             assertAll(
-                    () -> assertEquals(Status.ENDED, settled.status()),
-                    () -> assertEquals(Fate.FAILED, settled.fate()),
-                    () -> assertEquals(10, settled.outcomeRow()),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the unlaunched job has ended"),
+                    () -> assertEquals(Fate.FAILED, settled.fate(), "the unlaunched job has failed"),
+                    () -> assertEquals(10, settled.outcomeRow(), "row 10 decided the missing launcher"),
                     () -> assertNull(settled.exitCode(), "no exit was observed"),
-                    () -> assertNull(settled.pid()),
-                    () -> assertNull(settled.spawnedAt()),
-                    () -> assertFalse(runner.runningJobs().contains(jobId)),
+                    () -> assertNull(settled.pid(), "an unlaunched job carries no PID"),
+                    () -> assertNull(settled.spawnedAt(), "an unlaunched job has no spawn time"),
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "the unlaunched job is not running"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.JOB_LAUNCHER_NOT_STARTED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
@@ -706,7 +706,7 @@ class SubprocessJobRunnerTest {
 
                 assertAll(
                         () -> assertEquals(Optional.empty(), settled, "the fate was not recorded"),
-                        () -> assertFalse(runner.runningJobs().contains(jobId)),
+                        () -> assertFalse(runner.runningJobs().contains(jobId), "the stopped job is no longer running"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                                 ERROR.JOB_SETTLEMENT_STEP_FAILED.resolveIdentifierString()),
                         () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.ERROR,
@@ -733,7 +733,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a launcher that never writes its report does not hold the start for the budget")
         void silentLauncherDoesNotHoldTheStart() {
             var ticks = new AtomicLong();
-            var origin = Instant.parse("2026-10-18T10:00:00Z");
+            var origin = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
             // every reading of the clock is one second later, so the bound passes after a few polls, not after 10 s
             InstantSource clock = () -> origin.plusSeconds(ticks.getAndIncrement());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
@@ -751,7 +751,7 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals(Status.RUNNING, waiting.status(), "the job was handed to its waiting thread"),
                     () -> assertNull(waiting.pid(), "no post-spawn record without a launch report"),
                     () -> assertTrue(runningAfterStart, "the job runs on after the wait"),
-                    () -> assertEquals(Fate.CANCELLED, settled.fate()));
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the silent job ends by the cancel"));
         }
 
         @Test
@@ -773,9 +773,9 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertTrue(cancelled, "the cancel decided the end of the job"),
-                    () -> assertEquals(launched.get(), jobId),
-                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
-                    () -> assertEquals(2, settled.outcomeRow()));
+                    () -> assertEquals(launched.get(), jobId, "the start answers the launched job"),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the job cancelled in its wait"),
+                    () -> assertEquals(2, settled.outcomeRow(), "row 2 decided the engine cancel"));
         }
     }
 
@@ -786,7 +786,7 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("an environment that throws settles the job failed by row 10 and leaves no running job")
         void environmentThrows() {
-            var failure = new IllegalArgumentException("environment refused");
+            var failure = new IllegalArgumentException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
                     (job, ignoredJobId) -> {
                         throw failure;
@@ -829,7 +829,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a cancel answered before the launch cannot be composed decides the fate by its cause")
         void cancelBeforeLaunchNotComposed() {
             var cancelled = new AtomicBoolean();
-            var failure = new IllegalArgumentException("environment refused");
+            var failure = new IllegalArgumentException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
                     (job, ignoredJobId) -> {
                         cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
@@ -862,41 +862,44 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(Boolean.FALSE, late.get(),
                             "the cancel did not run, or was answered true although it cannot decide the fate"),
-                    () -> assertEquals(jobId, settled.jobId()),
-                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(jobId, settled.jobId(), "the record belongs to the started job"),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the unlaunched job has ended"),
                     () -> assertEquals(Fate.FAILED, settled.fate(), "the late cancel did not decide the fate"),
-                    () -> assertEquals(10, settled.outcomeRow()),
+                    () -> assertEquals(10, settled.outcomeRow(), "row 10 decided the unlaunched job"),
                     () -> assertNull(settled.exitCode(), "no exit was observed"),
                     () -> assertNull(settled.pid(), "no process was started"),
                     () -> assertFalse(runner.runningJobs().contains(jobId), "no job is left running"),
-                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL), "a settled job is not"));
+                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL),
+                            "a settled job is not cancelled again"));
         }
 
         private void assertCancelledWithoutProcess(JobId jobId, AtomicBoolean cancelled) {
             var settled = jobs.records().getFirst();
             assertAll(
                     () -> assertTrue(cancelled.get(), "the cancel decided the end of the job"),
-                    () -> assertEquals(jobId, settled.jobId()),
-                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(jobId, settled.jobId(), "the record belongs to the started job"),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the cancelled job has ended"),
                     () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides, not row 10"),
-                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertEquals(2, settled.outcomeRow(), "row 2 decided the engine cancel"),
                     () -> assertNull(settled.pid(), "no process was started"),
                     () -> assertFalse(runner.runningJobs().contains(jobId), "no job is left running"),
-                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO)));
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO),
+                            "the settled record is answered at once"));
         }
 
         private void assertComposedFailureSettled(IllegalArgumentException thrown, IllegalArgumentException expected) {
             var records = jobs.records();
             assertAll(
                     () -> assertEquals(expected, thrown, "the failure is passed on to the caller"),
-                    () -> assertEquals(1, records.size()),
-                    () -> assertEquals(Status.ENDED, records.getFirst().status()),
-                    () -> assertEquals(Fate.FAILED, records.getFirst().fate()),
-                    () -> assertEquals(10, records.getFirst().outcomeRow()),
-                    () -> assertNull(records.getFirst().pid()),
+                    () -> assertEquals(1, records.size(), "one job record is written"),
+                    () -> assertEquals(Status.ENDED, records.getFirst().status(), "the uncomposed job has ended"),
+                    () -> assertEquals(Fate.FAILED, records.getFirst().fate(), "the uncomposed job has failed"),
+                    () -> assertEquals(10, records.getFirst().outcomeRow(), "row 10 decided the uncomposed job"),
+                    () -> assertNull(records.getFirst().pid(), "an uncomposed job carries no PID"),
                     () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
                     () -> assertEquals(Optional.of(records.getFirst()),
-                            runner.awaitSettled(records.getFirst().jobId(), Duration.ZERO)),
+                            runner.awaitSettled(records.getFirst().jobId(), Duration.ZERO),
+                            "the settled record is answered at once"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.JOB_LAUNCHER_NOT_STARTED.resolveIdentifierString()));
         }
@@ -985,15 +988,17 @@ class SubprocessJobRunnerTest {
             var settled = records.getFirst();
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
-                    () -> assertEquals(Fate.KILLED, settled.fate()),
-                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals(Fate.KILLED, settled.fate(), "the terminated job was killed"),
+                    () -> assertEquals(4, settled.outcomeRow(), "row 4 decided the killed job"),
                     () -> assertEquals("SIGTERM", settled.signal(), "the runner's signal ended the process"),
                     () -> assertNotNull(settled.pid(), "the process ran, its PID is recorded"),
                     () -> assertEquals(List.of(settled.pid()), signalledGroups.stream().distinct().toList(),
                             "the job's process group was terminated"),
                     () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
-                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO)),
-                    () -> assertEquals(Optional.of(settled), runner.recordOf(settled.jobId())),
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO),
+                            "the settled record is answered at once"),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(settled.jobId()),
+                            "the record of the job is the settled one"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' settled with fate 'killed' (outcome row 4)".formatted(settled.jobId())),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
@@ -1015,12 +1020,13 @@ class SubprocessJobRunnerTest {
             var settled = jobs.records().getFirst();
             assertAll(
                     () -> assertTrue(cancelled.get(), "the cancel decided the end of the job"),
-                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the cancelled job has ended"),
                     () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides, not row 4"),
-                    () -> assertEquals(2, settled.outcomeRow()),
-                    () -> assertEquals("SIGTERM", settled.signal()),
+                    () -> assertEquals(2, settled.outcomeRow(), "row 2 decided the engine cancel"),
+                    () -> assertEquals("SIGTERM", settled.signal(), "the cancelled job ended by SIGTERM"),
                     () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
-                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO)));
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO),
+                            "the settled record is answered at once"));
         }
 
         @Test
