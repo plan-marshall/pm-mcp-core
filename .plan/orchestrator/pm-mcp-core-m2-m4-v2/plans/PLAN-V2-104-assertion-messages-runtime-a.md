@@ -48,6 +48,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Test code only;** no assertion is changed except by adding the message argument (and reordering arguments where JUnit needs it).
 - **Messages say what is checked, not that it failed:** 'the refusal names the store file', not 'assertion failed'.
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
+- **Read the landing analysis of PLAN-V2-89 at the outline** (`landings/PLAN-V2-89.md`, owner-register Wa73): PLAN-V2-89 gave every assertion of the changed `start`, `config`, `web`, `workspace`, `test`, `log` and `ingest` classes a message of 20 to 60 characters (a parser found 1080 assertion calls, none missing or outside the range; 8 messages with a generated part were not measured) and asserted all 19 previously unasserted log records by constant. Count again at the head of `main` before editing and drop what is already met; keep `corpus`, the classes PLAN-V2-89 did not change, and any class added since.
 
 ## Claim Labels
 
