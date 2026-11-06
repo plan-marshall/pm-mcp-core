@@ -11,17 +11,17 @@ package de.planmarshall.workflow.plan;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.workflow.plan.HeaderJson.Node;
 import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Why a composition was attempted, or why it was refused (PM-IMPL-5): the {@code cause} object of a line of the
- * composition log. Every member is optional; a composition names the members its event has.
+ * composition log. Every member may be absent ({@code null}); a composition names the members its event has.
  *
  * @param gate           for {@code fallback}: the gate or condition whose exhaustion took the fallback
  * @param fallbackCause  for {@code fallback}: the gap cause of the fallback
@@ -33,45 +33,20 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  * @param refusal        for a refused composition: why it was refused
  * @since 0.1
  */
-public record CompositionCause(Optional<String> gate, Optional<FallbackCause> fallbackCause, Optional<String> waiverId,
-Optional<String> deliverableId, Optional<String> replanId, Optional<String> fromConfigHash,
-Optional<String> toConfigHash, Optional<CompositionResult.Refusal> refusal) {
+public record CompositionCause(@Nullable String gate, @Nullable FallbackCause fallbackCause,
+        @Nullable String waiverId, @Nullable String deliverableId, @Nullable String replanId,
+        @Nullable String fromConfigHash, @Nullable String toConfigHash,
+        CompositionResult.@Nullable Refusal refusal) {
 
     /** A cause without any member. */
-    public static final CompositionCause NONE = new CompositionCause(Optional.empty(), Optional.empty(),
-            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-            Optional.empty());
-
-    /**
-     * Refuses a missing component; an absent member is an empty {@link Optional}.
-     *
-     * @param gate           the gate of a fallback
-     * @param fallbackCause  the gap cause of a fallback
-     * @param waiverId       the waiver of a waiver event
-     * @param deliverableId  the deliverable
-     * @param replanId       the re-planning of a replan event
-     * @param fromConfigHash the configuration hash in force
-     * @param toConfigHash   the configuration hash of the candidate
-     * @param refusal        the refusal of a refused composition
-     */
-    public CompositionCause {
-        Objects.requireNonNull(gate, "gate");
-        Objects.requireNonNull(fallbackCause, "fallbackCause");
-        Objects.requireNonNull(waiverId, "waiverId");
-        Objects.requireNonNull(deliverableId, "deliverableId");
-        Objects.requireNonNull(replanId, "replanId");
-        Objects.requireNonNull(fromConfigHash, "fromConfigHash");
-        Objects.requireNonNull(toConfigHash, "toConfigHash");
-        Objects.requireNonNull(refusal, "refusal");
-    }
+    public static final CompositionCause NONE = new CompositionCause(null, null, null, null, null, null, null, null);
 
     /**
      * @param refusal why a composition was refused
      * @return a cause naming only the refusal
      */
     public static CompositionCause refused(CompositionResult.Refusal refusal) {
-        return new CompositionCause(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(refusal));
+        return new CompositionCause(null, null, null, null, null, null, null, refusal);
     }
 
     /**
@@ -80,18 +55,18 @@ Optional<String> toConfigHash, Optional<CompositionResult.Refusal> refusal) {
     Node toNode() {
         var members = new LinkedHashMap<String, Node>();
         members.put("gate", text(gate));
-        members.put("fallback_cause", text(fallbackCause.map(FallbackCause::wireName)));
+        members.put("fallback_cause", text(fallbackCause == null ? null : fallbackCause.wireName()));
         members.put("waiver_id", text(waiverId));
         members.put("deliverable_id", text(deliverableId));
         members.put("replan_id", text(replanId));
         members.put("from_config_hash", text(fromConfigHash));
         members.put("to_config_hash", text(toConfigHash));
-        members.put("refusal", text(refusal.map(CompositionResult.Refusal::wireName)));
+        members.put("refusal", text(refusal == null ? null : refusal.wireName()));
         return new ObjectNode(members);
     }
 
-    private static Node text(Optional<String> value) {
-        return value.<Node>map(StringNode::new).orElse(NullNode.INSTANCE);
+    private static Node text(@Nullable String value) {
+        return value == null ? NullNode.INSTANCE : new StringNode(value);
     }
 
     /**

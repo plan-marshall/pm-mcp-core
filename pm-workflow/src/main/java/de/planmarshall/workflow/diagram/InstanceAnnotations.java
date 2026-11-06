@@ -16,7 +16,6 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import de.planmarshall.workflow.plan.PlanInstance;
-import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.PrunedElement;
 import de.planmarshall.workflow.plan.WaivedGate;
 import org.jspecify.annotations.Nullable;
@@ -85,15 +84,18 @@ record InstanceAnnotations(String planId, int version, String event, String lane
     static InstanceAnnotations of(PlanInstance instance, @Nullable String activeState) {
         var header = instance.header();
         var composed = new ArrayList<Composed>();
-        header.inputs().templates().stream()
-                .filter(reference -> reference.file().filter(file -> file.startsWith("instance/")).isPresent())
-                .forEach(reference -> composed.add(new Composed(reference.unit(), reference.file().orElseThrow(),
-                        reference.digest())));
+        for (var reference : header.inputs().templates()) {
+            var file = reference.file();
+            if (file != null && file.startsWith("instance/")) {
+                composed.add(new Composed(reference.unit(), file, reference.digest()));
+            }
+        }
         instance.units().forEach(unit -> composed.removeIf(existing -> existing.unit().equals(unit.unit())));
         instance.units().forEach(unit -> composed.add(new Composed(unit.unit(), unit.file(), unit.digest())));
+        var lane = header.lane();
+        var posture = header.posture();
         return new InstanceAnnotations(header.planId(), header.version(), header.event().wireName(),
-                header.lane().map(PlanInstanceHeader.Lane::wireName).orElse(NONE),
-                header.posture().map(PlanInstanceHeader.Posture::wireName).orElse(NONE), activeState,
+                lane == null ? NONE : lane.wireName(), posture == null ? NONE : posture.wireName(), activeState,
                 header.pruned().stream().map(Pruned::of).toList(),
                 header.waivedGates().stream().map(Waived::of).toList(), composed);
     }

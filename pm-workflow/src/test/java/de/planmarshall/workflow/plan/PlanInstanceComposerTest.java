@@ -148,7 +148,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(CompositionEvent.START, header.event()),
                     () -> assertEquals(PlanFixtures.PLAN_ID, header.planId()),
                     () -> assertEquals(PlanFixtures.COMPOSED_AT, header.composedAt()),
-                    () -> assertEquals(Optional.of(Lane.DEEP), header.lane()),
+                    () -> assertEquals(Lane.DEEP, header.lane(), "version 1 carries the lane of the facts"),
                     () -> assertEquals(List.of(), HeaderSchemaCheck.check(header)),
                     () -> assertEquals(PlanInstanceComposer.PLAN_UNIT, instance.unit().id()),
                     () -> assertEquals(1, instance.unit().version()),
@@ -240,7 +240,8 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings",
                             DeclarationBounds.ADJUDICATION_UNIT), subUnits.stream().map(UnitReference::unit).toList()),
-                    () -> assertEquals(Optional.of(InvariantFixtures.ADJUDICATION_FILE), adjudication.file()),
+                    () -> assertEquals(InvariantFixtures.ADJUDICATION_FILE, adjudication.file(),
+                            "the adjudication unit names its file"),
                     () -> assertEquals(PlanFacts.sha256(text), adjudication.digest()),
                     () -> assertEquals(UnitOrigin.DEFAULT, adjudication.origin()),
                     () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, line.unit()),
@@ -270,8 +271,8 @@ class PlanInstanceComposerTest {
         @EnumSource(value = CompositionEvent.class, mode = EnumSource.Mode.EXCLUDE, names = "START")
         @DisplayName("each event after the start composes the version after the one in force")
         void nextVersion(CompositionEvent event) {
-            var instance = composed(composer().compose(request(event, facts(event).build(), Optional.of(version1()),
-                    List.of(), AT_START)));
+            var instance = composed(composer().compose(request(event, facts(event).build(), version1(), List.of(),
+                    AT_START)));
 
             assertAll(
                     () -> assertEquals(2, instance.version()),
@@ -285,18 +286,19 @@ class PlanInstanceComposerTest {
         void diffSummary() {
             var first = version1();
             var second = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(first), List.of(Waiver.met("W-2", "ci_check:build")), AT_START)));
+                    first, List.of(Waiver.met("W-2", "ci_check:build")), AT_START)));
 
-            var firstRecord = CompositionRecord.composed(first, Optional.empty(), PlanFixtures.COMPOSED_AT);
-            var secondRecord = CompositionRecord.composed(second, Optional.of(first), PlanFixtures.COMPOSED_AT);
+            var firstRecord = CompositionRecord.composed(first, null, PlanFixtures.COMPOSED_AT);
+            var secondRecord = CompositionRecord.composed(second, first, PlanFixtures.COMPOSED_AT);
+            var secondSummary = Objects.requireNonNull(secondRecord.diffSummary(), "diffSummary");
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), firstRecord.diffSummary()),
+                    () -> assertNull(firstRecord.diffSummary(), "version 1 carries no diff summary"),
                     () -> assertTrue(firstRecord.toJson().contains("\"diff_summary\":null"), firstRecord.toJson()),
-                    () -> assertEquals(Optional.of(DiffSummary.between(first.header(), second.header())),
-                            secondRecord.diffSummary()),
-                    () -> assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")),
-                            secondRecord.diffSummary().orElseThrow().gatesWaived()),
+                    () -> assertEquals(DiffSummary.between(first.header(), second.header()), secondSummary,
+                            "version 2 carries the summary against version 1"),
+                    () -> assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")), secondSummary.gatesWaived(),
+                            "the summary names the waived gate"),
                     () -> assertTrue(secondRecord.toJson().contains("\"gates_waived\":[{\"gate\":\"ci_check:build\","
                             + "\"waiver_id\":\"W-2\"}]"), secondRecord.toJson()));
         }
@@ -304,7 +306,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("the start event has no previous version, every other event needs one")
         void eventAndPrevious() {
-            var previous = Optional.of(version1());
+            var previous = version1();
             var facts = facts().build();
             var otherPlan = "other-" + Generators.letterStrings(1, 8).next().toLowerCase(Locale.ROOT);
 
@@ -312,7 +314,7 @@ class PlanInstanceComposerTest {
                     () -> assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.START, facts,
                             previous, List.of(), AT_START)),
                     () -> assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.PLAN, facts,
-                            Optional.empty(), List.of(), AT_START)),
+                            null, List.of(), AT_START)),
                     () -> assertThrows(IllegalArgumentException.class, () -> request(otherPlan,
                             CompositionEvent.PLAN, facts, previous, List.of(), AT_START)));
         }
@@ -321,12 +323,12 @@ class PlanInstanceComposerTest {
         @CsvSource({"FALLBACK, returned", "FALLBACK, handed_back", "EMPTY_HARVEST, empty_harvest"})
         @DisplayName("a fallback and an empty harvest are accepted with the post_run fact they compose")
         void postRunMatchesEvent(CompositionEvent event, String postRun) {
-            var previous = Optional.of(version1());
+            var previous = version1();
             var facts = facts().postRun(postRun).build();
 
             var request = request(event, facts, previous, List.of(), AT_START);
 
-            assertEquals(Optional.of(postRun), request.facts().postRun());
+            assertEquals(postRun, request.facts().postRun(), "the request carries the post_run fact");
         }
 
         @ParameterizedTest(name = "{0} with {1}")
@@ -334,7 +336,7 @@ class PlanInstanceComposerTest {
                 "PLAN, returned", "WAIVER, handed_back", "REPLAN, empty_harvest", "START, returned"}, nullValues = "-")
         @DisplayName("an event whose post_run fact it does not compose is refused, naming the event and the fact")
         void postRunContradictsEvent(CompositionEvent event, String postRun) {
-            var previous = event == CompositionEvent.START ? Optional.<PlanInstance>empty() : Optional.of(version1());
+            var previous = event == CompositionEvent.START ? null : version1();
             var facts = facts().postRun(postRun).build();
 
             var refused = assertThrows(IllegalArgumentException.class,
@@ -405,7 +407,7 @@ class PlanInstanceComposerTest {
         @DisplayName("the post-run-only form prunes every step below order 900 and keeps the post-run band")
         void postRun() {
             var instance = composed(composer().compose(request(CompositionEvent.FALLBACK,
-                    facts().postRun("returned").build(), Optional.of(version1()), List.of(), AT_START)));
+                    facts().postRun("returned").build(), version1(), List.of(), AT_START)));
 
             assertAll(
                     () -> assertEquals(List.of("default:lessons-capture", "default:emit-landing",
@@ -438,8 +440,7 @@ class PlanInstanceComposerTest {
         void raise() {
             var raised = Generators.integers(4, 5).next();
             var instance = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(version1()), List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", raised)),
-                    AT_START)));
+                    version1(), List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", raised)), AT_START)));
 
             assertAll(
                     () -> assertEquals(BoundArgument.fromWaiver(new CallValue.IntValue(raised), "W-1"),
@@ -454,7 +455,7 @@ class PlanInstanceComposerTest {
         @DisplayName("a raise of another policy binds nothing at this call")
         void raiseOfAnotherPolicy() {
             var instance = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(version1()), List.of(Waiver.raise("W-1", "fix_budget:ci-failure",
+                    version1(), List.of(Waiver.raise("W-1", "fix_budget:ci-failure",
                             Generators.integers(4, 5).next())), AT_START)));
 
             assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(3), TEMPLATE_FILE),
@@ -465,7 +466,7 @@ class PlanInstanceComposerTest {
         @DisplayName("a met waiver marks its gate waived with the waiver id")
         void met() {
             var instance = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(version1()), List.of(Waiver.met("W-2", "ci_check:build")), AT_START)));
+                    version1(), List.of(Waiver.met("W-2", "ci_check:build")), AT_START)));
 
             assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")), instance.header().waivedGates());
         }
@@ -476,9 +477,10 @@ class PlanInstanceComposerTest {
         void waiverShape() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "fix_budget:x",
-                            Waiver.Mode.RAISE, Optional.empty())),
+                            Waiver.Mode.RAISE, null)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "ci_check:build",
-                            Waiver.Mode.MET, Optional.of(Generators.integers(1, 10).next()))),
+                            Waiver.Mode.MET, Generators.integers(1, 10).next())),
+                    () -> assertNull(Waiver.met("W-1", "ci_check:build").value(), "a met waiver carries no value"),
                     () -> assertEquals(Optional.of(Waiver.Mode.RAISE), Waiver.Mode.fromWireName("raise")),
                     () -> assertEquals(Optional.empty(), Waiver.met("W-1", "ci_check:build").raisedUnit()));
         }
@@ -575,8 +577,7 @@ class PlanInstanceComposerTest {
         @DisplayName("an override of the plan composes the override version, which binds the plan's new variant")
         void override() {
             var instance = composed(composerWithoutRules().compose(request(CompositionEvent.OVERRIDE,
-                    asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), Optional.of(version1()), List.of(),
-                    AT_START)));
+                    asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), version1(), List.of(), AT_START)));
 
             assertAll(
                     () -> assertEquals(2, instance.version()),
@@ -591,8 +592,7 @@ class PlanInstanceComposerTest {
         @DisplayName("an override whose version would not contain the position is refused position_not_contained")
         void overrideOutsidePosition() {
             var refused = refused(composer().compose(request(CompositionEvent.OVERRIDE,
-                    asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), Optional.of(version1()), List.of(),
-                    IN_MERGE_QUEUE)));
+                    asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), version1(), List.of(), IN_MERGE_QUEUE)));
 
             assertAll(
                     () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
@@ -604,8 +604,7 @@ class PlanInstanceComposerTest {
         @DisplayName("an override to a variant that merges by itself keeps the position and is composed")
         void overrideInsidePositionControl() {
             var instance = composed(composer().compose(request(CompositionEvent.OVERRIDE,
-                    asking(PlanFacts.Level.PLAN, QUESTIONS_ONLY).build(), Optional.of(version1()), List.of(),
-                    IN_MERGE_QUEUE)));
+                    asking(PlanFacts.Level.PLAN, QUESTIONS_ONLY).build(), version1(), List.of(), IN_MERGE_QUEUE)));
 
             assertAll(
                     () -> assertEquals(2, instance.version()),
@@ -698,7 +697,7 @@ class PlanInstanceComposerTest {
 
         private static CompositionResult atStart(Lane lane, List<InvariantFixtures.Mutation> mutations) {
             return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
-                    factsOf(lane), Optional.empty(), AT_INIT, mutations));
+                    factsOf(lane), null, AT_INIT, mutations));
         }
 
         /** @return version 1 of the passing units, the version in force at the outline event */
@@ -709,7 +708,7 @@ class PlanInstanceComposerTest {
         private static CompositionResult atOutline(Lane lane, String position,
                 List<InvariantFixtures.Mutation> mutations) {
             return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.OUTLINE,
-                    factsOf(lane), Optional.of(mergedVersion1(lane)), InstancePosition.at(position), mutations));
+                    factsOf(lane), mergedVersion1(lane), InstancePosition.at(position), mutations));
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -783,12 +782,12 @@ class PlanInstanceComposerTest {
 
         private static PlanInstance version1(Lane lane) {
             return composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
-                    CompositionEvent.START, factsOf(lane), Optional.empty(), AT_INIT)));
+                    CompositionEvent.START, factsOf(lane), null, AT_INIT)));
         }
 
         private static PlanInstance outline(Lane lane) {
             return composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
-                    CompositionEvent.OUTLINE, factsOf(lane), Optional.of(version1(lane)),
+                    CompositionEvent.OUTLINE, factsOf(lane), version1(lane),
                     InstancePosition.at(lane == Lane.DEEP ? "outline.deep" : "outline.light"))));
         }
 
@@ -844,14 +843,13 @@ class PlanInstanceComposerTest {
 
         private static PlanInstance merged() {
             return composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
-                    facts().build(), Optional.empty(), AT_INIT, List.of())));
+                    facts().build(), null, AT_INIT, List.of())));
         }
 
         private static PlanInstance perLane(CompositionEvent event, Lane lane, String position) {
-            var previous = event == CompositionEvent.START ? Optional.<PlanInstance>empty()
-                    : Optional.of(composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
-                    CompositionEvent.START, facts().lane(lane).build(), Optional.empty(),
-                    InstancePosition.at("init.ready")))));
+            var previous = event == CompositionEvent.START ? null
+                    : composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
+                    CompositionEvent.START, facts().lane(lane).build(), null, InstancePosition.at("init.ready"))));
             return composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(event,
                     facts().lane(lane).build(), previous, InstancePosition.at(position))));
         }
@@ -862,13 +860,12 @@ class PlanInstanceComposerTest {
         void headerNamesTheSet() {
             var instance = merged();
             var composedUnits = instance.header().inputs().templates().stream()
-                    .filter(reference -> reference.file().filter(file -> file.startsWith("instance/"))
-                            .isPresent())
+                    .filter(reference -> reference.file() != null && reference.file().startsWith("instance/"))
                     .toList();
 
             assertAll(
-                    () -> assertEquals(PlanInstanceStore.versionPath(1),
-                            composedUnits.getFirst().file().orElseThrow()),
+                    () -> assertEquals(PlanInstanceStore.versionPath(1), composedUnits.getFirst().file(),
+                            "the first composed file is the version path"),
                     () -> assertTrue(composedUnits.size() > 2, composedUnits::toString),
                     () -> composedUnits.stream().skip(1).forEach(reference ->
                             assertEquals(reference.digest(), instance.composed(reference.unit()).orElseThrow()
@@ -949,7 +946,7 @@ class PlanInstanceComposerTest {
                                            "reason": "other_lane"}]}}]}
                     """.getBytes(StandardCharsets.UTF_8))).rules();
             var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
-                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+                    CompositionEvent.START, facts().build(), null, AT_INIT, List.of())));
             var phase = instance.composed("phase-5-execute").orElseThrow();
 
             assertAll(
@@ -977,7 +974,7 @@ class PlanInstanceComposerTest {
                                            "reason": "other_lane"}]}}]}
                     """.getBytes(StandardCharsets.UTF_8))).rules();
             var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
-                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+                    CompositionEvent.START, facts().build(), null, AT_INIT, List.of())));
             var phase = instance.composed("phase-5-execute").orElseThrow();
 
             assertAll(
@@ -993,10 +990,9 @@ class PlanInstanceComposerTest {
         @DisplayName("a call the lane prunes reaches nothing, so a request that omits its callee still composes")
         void prunedCallWithOmittedCalleeComposes() {
             var start = composed(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
-                    CompositionEvent.START, facts().lane(Lane.DEEP).build(), Optional.empty(),
-                    InstancePosition.at("init.ready"))));
+                    CompositionEvent.START, facts().lane(Lane.DEEP).build(), null, InstancePosition.at("init.ready"))));
             var outline = PlanFixtures.perLaneRequest(CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
-                    Optional.of(start), InstancePosition.at("outline.deep"));
+                    start, InstancePosition.at("outline.deep"));
             var withoutLightCalves = outline.subUnits().stream().filter(subUnit ->
                     !"phase-plan-light".equals(subUnit.definition().id())
                             && !"phase-execute-light".equals(subUnit.definition().id())).toList();
@@ -1028,7 +1024,7 @@ class PlanInstanceComposerTest {
                                            "reason": "other_lane"}]}}]}
                     """.getBytes(StandardCharsets.UTF_8))).rules();
             var instance = composed(PlanFixtures.mergedComposer(rules).compose(PlanFixtures.mergedRequest(
-                    CompositionEvent.START, facts().build(), Optional.empty(), AT_INIT, List.of())));
+                    CompositionEvent.START, facts().build(), null, AT_INIT, List.of())));
             var phase = instance.composed("phase-6-finalize").orElseThrow();
 
             assertAll(
@@ -1046,8 +1042,8 @@ class PlanInstanceComposerTest {
         @DisplayName("a kept call the request supplies no sub-unit for is refused, so no executable callee is left "
                 + "unnamed")
         void unresolvedCallRefused() {
-            var request = PlanFixtures.mergedRequest(CompositionEvent.START, facts().build(), Optional.empty(),
-                    AT_INIT, List.of());
+            var request = PlanFixtures.mergedRequest(CompositionEvent.START, facts().build(), null, AT_INIT,
+                    List.of());
             var withoutLand = request.subUnits().stream()
                     .filter(subUnit -> !"land".equals(subUnit.definition().id())).toList();
             var refused = refused(PlanFixtures.mergedComposer().compose(new CompositionRequest(request.planId(),
@@ -1068,7 +1064,7 @@ class PlanInstanceComposerTest {
         void positionOverTheSet() {
             var refused = refused(PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
                     CompositionEvent.OUTLINE, facts().lane(Lane.DEEP).build(),
-                    Optional.of(perLane(CompositionEvent.START, Lane.DEEP, "init.ready")),
+                    perLane(CompositionEvent.START, Lane.DEEP, "init.ready"),
                     InstancePosition.at("phase-plan-light.begin"))));
 
             assertAll(
@@ -1093,7 +1089,7 @@ class PlanInstanceComposerTest {
         /** @return version 1 of the merged fixture units, a deep plan */
         private static PlanInstance mergedInForce() {
             return composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
-                    facts().build(), Optional.empty(), AT_INIT, List.of())));
+                    facts().build(), null, AT_INIT, List.of())));
         }
 
         /**
@@ -1102,7 +1098,7 @@ class PlanInstanceComposerTest {
          */
         private static CompositionResult withoutRatchet(PlanInstance inForce) {
             return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.CONFIG_ADOPTED,
-                    facts().lane(Lane.LIGHT).build(), Optional.of(inForce), AT_INIT,
+                    facts().lane(Lane.LIGHT).build(), inForce, AT_INIT,
                     List.of(InvariantFixtures.WITHOUT_RATCHET)));
         }
 
@@ -1110,7 +1106,7 @@ class PlanInstanceComposerTest {
         @DisplayName("a version without the current state is refused position_not_contained")
         void currentStateMissing() {
             var refused = refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
-                    mergePruned(), Optional.of(version1()), List.of(),
+                    mergePruned(), version1(), List.of(),
                     InstancePosition.at("finalize.merge-dispatch"))));
 
             assertAll(
@@ -1124,7 +1120,7 @@ class PlanInstanceComposerTest {
         @DisplayName("a version without a state of the call stack is refused position_not_contained")
         void callStackStateMissing() {
             var refused = refused(composer().compose(request(CompositionEvent.WAIVER,
-                    mergePruned(), Optional.of(version1()), List.of(),
+                    mergePruned(), version1(), List.of(),
                     new InstancePosition("finalize.push-barrier", List.of("finalize.merge-dispatch")))));
 
             assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal());
@@ -1145,8 +1141,8 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a header that breaks its schema is refused invariant_failed")
         void headerSchema() {
-            var refused = refused(composer().compose(request("X", CompositionEvent.START, facts().build(),
-                    Optional.empty(), List.of(), AT_START)));
+            var refused = refused(composer().compose(request("X", CompositionEvent.START, facts().build(), null,
+                    List.of(), AT_START)));
 
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
@@ -1162,7 +1158,7 @@ class PlanInstanceComposerTest {
             refused(withoutRatchet(inForce));
 
             var next = composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
-                    CompositionEvent.WAIVER, facts().build(), Optional.of(inForce), AT_INIT, List.of())));
+                    CompositionEvent.WAIVER, facts().build(), inForce, AT_INIT, List.of())));
 
             assertEquals(2, next.version());
         }

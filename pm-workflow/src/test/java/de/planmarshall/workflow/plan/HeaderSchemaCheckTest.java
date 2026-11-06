@@ -289,15 +289,13 @@ class HeaderSchemaCheckTest {
         void headerRecord() {
             var header = new PlanInstanceHeader("Plan_24", 0, CompositionEvent.START,
                     Instant.parse("2026-10-14T08:05:00Z"),
-                    new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, Optional.empty(),
-                            Optional.empty(), Optional.empty()),
-                    Optional.empty(), Optional.empty(), new PlanInstanceHeader.Steps(List.of(), List.of()),
-                    List.of(), List.of(), List.of());
+                    new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, null, null, null),
+                    null, null, new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
 
             assertEquals(List.of(
                             new HeaderViolation("/plan_id", "must match ^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"),
                             new HeaderViolation("/version", HeaderSchemaCheck.BELOW_ONE)),
-                    HeaderSchemaCheck.check(header));
+                    HeaderSchemaCheck.check(header), "the absent members break no constraint");
         }
     }
 

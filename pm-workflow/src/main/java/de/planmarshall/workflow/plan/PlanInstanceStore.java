@@ -208,19 +208,18 @@ public final class PlanInstanceStore {
     private static Map<String, String> namedFiles(PlanInstance instance, int version) {
         var named = new HashMap<String, String>();
         for (var reference : instance.header().inputs().templates()) {
-            reference.file().ifPresent(file -> {
-                if (named.put(file, reference.digest()) != null) {
-                    throw new IllegalArgumentException("the header of version %d names the file '%s' twice"
-                            .formatted(version, file));
-                }
-            });
+            var file = reference.file();
+            if (file != null && named.put(file, reference.digest()) != null) {
+                throw new IllegalArgumentException("the header of version %d names the file '%s' twice"
+                        .formatted(version, file));
+            }
         }
         return named;
     }
 
     private static Optional<UnitReference> entryFor(PlanInstance instance, String file) {
         return instance.header().inputs().templates().stream()
-                .filter(reference -> reference.file().filter(file::equals).isPresent()).findFirst();
+                .filter(reference -> file.equals(reference.file())).findFirst();
     }
 
     /**
@@ -270,9 +269,10 @@ public final class PlanInstanceStore {
         createDirectory(INSTANCE_DIRECTORY);
         transaction.append(COMPOSITION_LOG, line(compositionRecord));
         if (compositionRecord.result() == CompositionRecord.Result.REFUSED) {
+            var cause = compositionRecord.cause();
+            var refusal = cause == null ? null : cause.refusal();
             LOGGER.warn(WARN.PLAN_INSTANCE_COMPOSITION_REFUSED, compositionRecord.event().wireName(),
-                    scope.scopeId(), compositionRecord.cause().flatMap(CompositionCause::refusal).map(CompositionResult.Refusal::wireName)
-                            .orElse("unknown"));
+                    scope.scopeId(), refusal == null ? "unknown" : refusal.wireName());
         }
     }
 
@@ -311,12 +311,12 @@ public final class PlanInstanceStore {
     private boolean recordsComposition(CompositionRecord compositionRecord, PlanInstance instance) {
         var header = instance.header();
         return compositionRecord.result() == CompositionRecord.Result.COMPOSED
-                && compositionRecord.version().equals(Optional.of(instance.version()))
+                && Integer.valueOf(instance.version()).equals(compositionRecord.version())
                 && compositionRecord.event() == header.event()
                 && compositionRecord.trigger() == header.event().trigger()
                 && compositionRecord.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()))
-                && compositionRecord.diffSummary().equals(previousHeader(instance.version())
-                .map(previous -> DiffSummary.between(previous, header)));
+                && previousHeader(instance.version()).map(previous -> DiffSummary.between(previous, header))
+                        .equals(Optional.ofNullable(compositionRecord.diffSummary()));
     }
 
     /**

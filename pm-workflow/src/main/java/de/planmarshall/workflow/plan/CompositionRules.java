@@ -122,7 +122,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
         }
         var checker = new Checker();
         var rules = checker.file(root);
-        return checker.refusal.<Loading>map(refusal -> refusal)
+        return checker.refusal().<Loading>map(refusal -> refusal)
                 .orElseGet(() -> new Loaded(new CompositionRules(
                         Objects.requireNonNull(checker.revision, REVISION_MEMBER), PlanFacts.sha256(content), rules)));
     }
@@ -175,12 +175,23 @@ public record CompositionRules(String revision, String digest, List<CompositionR
     /** Walks a parsed rule file; the first refusal found ends the walk. */
     private static final class Checker {
 
-        private Optional<Refused> refusal = Optional.empty();
-        private String revision;
+        /** The first refusal found; {@code null} while the walk has refused nothing. */
+        private @Nullable Refused firstRefusal;
+        private @Nullable String revision;
+
+        /** @return the first refusal found, or empty while the walk has refused nothing */
+        Optional<Refused> refusal() {
+            return Optional.ofNullable(firstRefusal);
+        }
+
+        /** @return whether the walk has refused the file */
+        private boolean refused() {
+            return firstRefusal != null;
+        }
 
         List<CompositionRule> file(Node root) {
             var members = object(root, "the rule file");
-            if (refusal.isPresent()
+            if (refused()
                     || !only(members, "the rule file", Set.of("format_version", REVISION_MEMBER, "rules"))) {
                 return List.of();
             }
@@ -213,7 +224,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private Optional<CompositionRule> rule(Node node) {
             var members = object(node, "a rule");
-            if (refusal.isPresent()) {
+            if (refused()) {
                 return Optional.empty();
             }
             var id = text(members.get("id"), "the id of a rule");
@@ -227,7 +238,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             }
             var when = condition(members.get("when"), name);
             var then = object(members.get("then"), name + " 'then'");
-            if (when.isEmpty() || refusal.isPresent()) {
+            if (when.isEmpty() || refused()) {
                 return Optional.empty();
             }
             if (then.containsKey("add")) {
@@ -245,13 +256,13 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                     .map(entry -> prune(entry, name)).flatMap(Optional::stream).toList();
             var bindings = list(then.get("bind"), name + " 'bind'").stream()
                     .map(entry -> binding(entry, name)).flatMap(Optional::stream).toList();
-            return refusal.isPresent() ? Optional.empty()
+            return refused() ? Optional.empty()
                     : Optional.of(new CompositionRule(id.get(), when.get(), prunes, bindings));
         }
 
         private Optional<CompositionRule.Condition> condition(Node node, String name) {
             var members = object(node, name + " 'when'");
-            if (refusal.isPresent()) {
+            if (refused()) {
                 return Optional.empty();
             }
             var fact = text(members.get("fact"), name + " 'fact'");
@@ -283,7 +294,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private Optional<CompositionRule.Prune> prune(Node node, String name) {
             var members = object(node, name + " prune entry");
-            if (refusal.isPresent()) {
+            if (refused()) {
                 return Optional.empty();
             }
             if (members.get(ELEMENT_MEMBER) instanceof StringNode(var kind) && GATE.equals(kind)) {
@@ -297,7 +308,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                     name + " 'element'").orElse("null"));
             var id = text(members.get("id"), name + " prune 'id'");
             var reason = PruneReason.fromWireName(text(members.get("reason"), name + " 'reason'").orElse("null"));
-            if (refusal.isPresent()) {
+            if (refused()) {
                 return Optional.empty();
             }
             if (element.isEmpty() || reason.isEmpty() || id.isEmpty() || id.get().isEmpty()) {
@@ -309,7 +320,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private Optional<CompositionRule.Binding> binding(Node node, String name) {
             var members = object(node, name + " bind entry");
-            if (refusal.isPresent()) {
+            if (refused()) {
                 return Optional.empty();
             }
             var argument = text(members.get("argument"), name + " bind 'argument'");
@@ -327,7 +338,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             }
             var callSite = text(members.get("call_site"), name + " bind 'call_site'");
             var value = literal(members.get("value"), name + " bind 'value'");
-            return refusal.isPresent() ? Optional.empty()
+            return refused() ? Optional.empty()
                     : Optional.of(new CompositionRule.Binding(callSite.get(), argument.get(), value.get()));
         }
 
@@ -403,7 +414,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
         private List<String> texts(@Nullable Node node, String what) {
             var values = list(node, what).stream().map(element -> text(element, what + " element"))
                     .flatMap(Optional::stream).toList();
-            return refusal.isPresent() ? List.of() : values;
+            return refused() ? List.of() : values;
         }
 
         private boolean flag(@Nullable Node node, String what) {
@@ -415,8 +426,8 @@ public record CompositionRules(String revision, String digest, List<CompositionR
         }
 
         private <T> List<T> refuse(Refusal reason, String detail) {
-            if (refusal.isEmpty()) {
-                refusal = Optional.of(new Refused(reason, detail));
+            if (firstRefusal == null) {
+                firstRefusal = new Refused(reason, detail);
             }
             return List.of();
         }

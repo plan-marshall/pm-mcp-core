@@ -15,7 +15,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.TreeSet;
 
 import de.planmarshall.workflow.ast.CallValue;
@@ -24,6 +23,7 @@ import de.planmarshall.workflow.plan.HeaderJson.Node;
 import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code diff_summary} of a line of the composition log (PM-IMPL-5, PM-WF-1): a composed version relative to the
@@ -107,9 +107,11 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
             var names = new TreeSet<>(previousArgs.keySet());
             names.addAll(currentArgs.keySet());
             for (var name : names) {
-                var was = value(previousArgs, name);
-                var is = value(currentArgs, name);
-                if (!was.equals(is)) {
+                var previousArgument = previousArgs.get(name);
+                var currentArgument = currentArgs.get(name);
+                var was = previousArgument == null ? null : previousArgument.value();
+                var is = currentArgument == null ? null : currentArgument.value();
+                if (!Objects.equals(was, is)) {
                     changes.add(new CeilingChange(callSite, name, was, is));
                 }
             }
@@ -124,37 +126,31 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
         return calls;
     }
 
-    private static Optional<CallValue> value(Map<String, BoundArgument> args, String name) {
-        return Optional.ofNullable(args.get(name)).map(BoundArgument::value);
-    }
-
     /**
      * A bound argument of a policy call whose value differs between two versions.
      *
      * @param callSite the calling state of the policy call
      * @param argument the bound argument ({@code retry_budget}, {@code fix_budget}, {@code actions})
-     * @param previous the value in the previous version; empty where it did not bind the argument
-     * @param value    the value in this version; empty where it does not bind the argument
+     * @param previous the value in the previous version; {@code null} where it did not bind the argument
+     * @param value    the value in this version; {@code null} where it does not bind the argument
      * @since 0.1
      */
-    public record CeilingChange(String callSite, String argument, Optional<CallValue> previous,
-    Optional<CallValue> value) {
+    public record CeilingChange(String callSite, String argument, @Nullable CallValue previous,
+            @Nullable CallValue value) {
 
         /**
-         * Refuses a missing component and a change that changes nothing.
+         * Refuses a missing call site or argument and a change that changes nothing.
          *
          * @param callSite the calling state of the policy call
          * @param argument the bound argument
-         * @param previous the value in the previous version
-         * @param value    the value in this version
+         * @param previous the value in the previous version, {@code null} if unbound
+         * @param value    the value in this version, {@code null} if unbound
          * @throws IllegalArgumentException if the two values are equal
          */
         public CeilingChange {
             Objects.requireNonNull(callSite, "callSite");
             Objects.requireNonNull(argument, "argument");
-            Objects.requireNonNull(previous, PREVIOUS);
-            Objects.requireNonNull(value, "value");
-            if (previous.equals(value)) {
+            if (Objects.equals(previous, value)) {
                 throw new IllegalArgumentException("the argument '%s' of '%s' did not change".formatted(argument,
                         callSite));
             }
@@ -164,8 +160,8 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
             var members = new LinkedHashMap<String, Node>();
             members.put("call_site", new StringNode(callSite));
             members.put("argument", new StringNode(argument));
-            members.put(PREVIOUS, previous.map(HeaderJson::callValue).orElse(NullNode.INSTANCE));
-            members.put("value", value.map(HeaderJson::callValue).orElse(NullNode.INSTANCE));
+            members.put(PREVIOUS, previous == null ? NullNode.INSTANCE : HeaderJson.callValue(previous));
+            members.put("value", value == null ? NullNode.INSTANCE : HeaderJson.callValue(value));
             return new ObjectNode(members);
         }
     }

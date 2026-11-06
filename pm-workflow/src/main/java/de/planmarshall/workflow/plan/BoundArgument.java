@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.workflow.ast.CallValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The effective value of one argument of a policy call, with its provenance (PM-IMPL-5): the template's call argument,
@@ -22,25 +23,24 @@ import de.planmarshall.workflow.ast.CallValue;
  *
  * @param value    the effective value
  * @param source   where the value comes from
- * @param file     for {@link Source#TEMPLATE}, the unit file whose call argument is the value, if known
- * @param waiverId for {@link Source#WAIVER}, the id of the {@code raise} waiver that set the value
+ * @param file     for {@link Source#TEMPLATE}, the unit file whose call argument is the value; {@code null} if unknown
+ * @param waiverId for {@link Source#WAIVER}, the id of the {@code raise} waiver that set the value; {@code null}
+ *                 otherwise
  * @since 0.1
  */
-public record BoundArgument(CallValue value, Source source, Optional<String> file, Optional<String> waiverId) {
+public record BoundArgument(CallValue value, Source source, @Nullable String file, @Nullable String waiverId) {
 
     /**
-     * Refuses a missing component; an absent file or waiver id is an empty {@link Optional}.
+     * Refuses a missing value or source; an absent file or waiver id is {@code null}.
      *
      * @param value    the effective value
      * @param source   where the value comes from
-     * @param file     the unit file of a template value, if known
-     * @param waiverId the waiver id of a waiver value
+     * @param file     the unit file of a template value, {@code null} if unknown
+     * @param waiverId the waiver id of a waiver value, {@code null} otherwise
      */
     public BoundArgument {
         Objects.requireNonNull(value, "value");
         Objects.requireNonNull(source, "source");
-        Objects.requireNonNull(file, "file");
-        Objects.requireNonNull(waiverId, "waiverId");
     }
 
     /**
@@ -49,7 +49,7 @@ public record BoundArgument(CallValue value, Source source, Optional<String> fil
      * @return the argument as the template binds it
      */
     public static BoundArgument fromTemplate(CallValue value, String file) {
-        return new BoundArgument(value, Source.TEMPLATE, Optional.of(file), Optional.empty());
+        return new BoundArgument(value, Source.TEMPLATE, file, null);
     }
 
     /**
@@ -57,7 +57,7 @@ public record BoundArgument(CallValue value, Source source, Optional<String> fil
      * @return the argument as the rule binds it
      */
     public static BoundArgument fromCompositionRule(CallValue value) {
-        return new BoundArgument(value, Source.COMPOSITION_RULE, Optional.empty(), Optional.empty());
+        return new BoundArgument(value, Source.COMPOSITION_RULE, null, null);
     }
 
     /**
@@ -66,7 +66,7 @@ public record BoundArgument(CallValue value, Source source, Optional<String> fil
      * @return the argument as the waiver binds it
      */
     public static BoundArgument fromWaiver(CallValue value, String waiverId) {
-        return new BoundArgument(value, Source.WAIVER, Optional.empty(), Optional.of(waiverId));
+        return new BoundArgument(value, Source.WAIVER, null, waiverId);
     }
 
     /**

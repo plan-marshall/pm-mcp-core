@@ -11,9 +11,9 @@ package de.planmarshall.workflow.plan;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything one composition reads, passed in as values (PM-IMPL-5, PM-WF-1, PM-EXT-7): the composer reads no store.
@@ -37,20 +37,21 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param subUnits                every sub-unit a call of the template may reach, with its reference
  * @param facts                   the facts of the plan, the effective configuration values included
  * @param configHash              the SHA-256 over the effective configuration
- * @param realizedFootprintDigest the SHA-256 over the realized footprint, if the composition reads one
- * @param providersDigest         the SHA-256 over the provider configuration, if the composition reads one
+ * @param realizedFootprintDigest the SHA-256 over the realized footprint; {@code null} if the composition reads none
+ * @param providersDigest         the SHA-256 over the provider configuration; {@code null} if the composition reads
+ *                                none
  * @param waivers                 the waivers in force
  * @param position                the current state and the call stack of the plan
- * @param previous                the version in force; empty only for {@link CompositionEvent#START}
+ * @param previous                the version in force; {@code null} only for {@link CompositionEvent#START}
  * @param verificationSteps       the Phase 5 verification step ids of the plan, before pruning
  * @param finalizeSteps           the Phase 6 steps of the plan with their order, before pruning
  * @since 0.1
  */
 public record CompositionRequest(String planId, CompositionEvent event, WorkflowDefinition template,
-List<UnitReference> templates, List<SubUnit> subUnits, PlanFacts facts, String configHash,
-Optional<String> realizedFootprintDigest, Optional<String> providersDigest, List<Waiver> waivers,
-InstancePosition position, Optional<PlanInstance> previous, List<String> verificationSteps,
-List<Step> finalizeSteps) {
+        List<UnitReference> templates, List<SubUnit> subUnits, PlanFacts facts, String configHash,
+        @Nullable String realizedFootprintDigest, @Nullable String providersDigest, List<Waiver> waivers,
+        InstancePosition position, @Nullable PlanInstance previous, List<String> verificationSteps,
+        List<Step> finalizeSteps) {
 
     /** The post-run-only form of a fallback that returns the plan. */
     static final String POST_RUN_RETURNED = "returned";
@@ -71,11 +72,11 @@ List<Step> finalizeSteps) {
      * @param subUnits                the sub-units
      * @param facts                   the facts of the plan
      * @param configHash              the SHA-256 over the effective configuration
-     * @param realizedFootprintDigest the SHA-256 over the realized footprint, if any
-     * @param providersDigest         the SHA-256 over the provider configuration, if any
+     * @param realizedFootprintDigest the SHA-256 over the realized footprint, {@code null} if none
+     * @param providersDigest         the SHA-256 over the provider configuration, {@code null} if none
      * @param waivers                 the waivers in force
      * @param position                the position of the plan
-     * @param previous                the version in force
+     * @param previous                the version in force, {@code null} for {@link CompositionEvent#START}
      * @param verificationSteps       the Phase 5 verification step ids
      * @param finalizeSteps           the Phase 6 steps
      * @throws IllegalArgumentException if {@link CompositionEvent#START} has a previous version, another event has
@@ -93,23 +94,20 @@ List<Step> finalizeSteps) {
         }
         Objects.requireNonNull(facts, "facts");
         Objects.requireNonNull(configHash, "configHash");
-        Objects.requireNonNull(realizedFootprintDigest, "realizedFootprintDigest");
-        Objects.requireNonNull(providersDigest, "providersDigest");
         waivers = List.copyOf(waivers);
         Objects.requireNonNull(position, "position");
-        Objects.requireNonNull(previous, "previous");
         verificationSteps = List.copyOf(verificationSteps);
         finalizeSteps = List.copyOf(finalizeSteps);
-        if (event == CompositionEvent.START && previous.isPresent()) {
+        if (event == CompositionEvent.START && previous != null) {
             throw new IllegalArgumentException("the event 'start' composes version 1 and has no previous version");
         }
-        if (event != CompositionEvent.START && previous.isEmpty()) {
+        if (event != CompositionEvent.START && previous == null) {
             throw new IllegalArgumentException("the event '%s' needs the version in force".formatted(event.wireName()));
         }
-        previous.filter(instance -> !instance.header().planId().equals(planId)).ifPresent(instance -> {
+        if (previous != null && !previous.header().planId().equals(planId)) {
             throw new IllegalArgumentException("the previous version belongs to the plan '%s'"
-                    .formatted(instance.header().planId()));
-        });
+                    .formatted(previous.header().planId()));
+        }
         checkPostRun(event, facts.postRun());
     }
 
@@ -118,20 +116,20 @@ List<Step> finalizeSteps) {
      * {@code returned} or {@code handed_back}, {@link CompositionEvent#EMPTY_HARVEST} composes {@code empty_harvest},
      * and every other event composes no post-run-only form.
      */
-    private static void checkPostRun(CompositionEvent event, Optional<String> postRun) {
+    private static void checkPostRun(CompositionEvent event, @Nullable String postRun) {
         var admitted = switch (event) {
             case FALLBACK -> List.of(POST_RUN_RETURNED, POST_RUN_HANDED_BACK);
             case EMPTY_HARVEST -> List.of(POST_RUN_EMPTY_HARVEST);
             default -> List.<String>of();
         };
-        if (admitted.isEmpty() && postRun.isPresent()) {
+        if (admitted.isEmpty() && postRun != null) {
             throw new IllegalArgumentException("the event '%s' has no %s fact, but it is '%s'"
-                    .formatted(event.wireName(), PlanFacts.POST_RUN_FACT, postRun.get()));
+                    .formatted(event.wireName(), PlanFacts.POST_RUN_FACT, postRun));
         }
-        if (!admitted.isEmpty() && postRun.filter(admitted::contains).isEmpty()) {
+        if (!admitted.isEmpty() && (postRun == null || !admitted.contains(postRun))) {
             throw new IllegalArgumentException("the event '%s' needs the %s fact %s, but it is %s"
                     .formatted(event.wireName(), PlanFacts.POST_RUN_FACT, admitted,
-                            postRun.map("'%s'"::formatted).orElse("unset")));
+                            postRun == null ? "unset" : "'%s'".formatted(postRun)));
         }
     }
 
@@ -140,7 +138,7 @@ List<Step> finalizeSteps) {
      *         after the previous version
      */
     int nextVersion() {
-        return previous.map(instance -> instance.version() + 1).orElse(1);
+        return previous == null ? 1 : previous.version() + 1;
     }
 
     /**

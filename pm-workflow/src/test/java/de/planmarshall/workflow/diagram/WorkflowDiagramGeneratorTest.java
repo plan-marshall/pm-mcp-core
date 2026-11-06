@@ -770,8 +770,7 @@ class WorkflowDiagramGeneratorTest {
             var fixture = DiagramFixtures.instance();
             var header = fixture.header();
             var bare = new PlanInstanceHeader(header.planId(), header.version(), header.event(), header.composedAt(),
-                    header.inputs(), Optional.empty(), Optional.empty(), header.steps(), List.of(), List.of(),
-                    List.of());
+                    header.inputs(), null, null, header.steps(), List.of(), List.of(), List.of());
             return new PlanInstance(fixture.version(), bare, fixture.unit(), fixture.text());
         }
     }

@@ -37,6 +37,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The canonical JSON form of a {@link PlanInstanceHeader} (PM-IMPL-5), over the streaming API of jackson-core.
@@ -376,8 +377,10 @@ final class HeaderJson {
         root.put(EVENT, new StringNode(header.event().wireName()));
         root.put(COMPOSED_AT, new StringNode(header.composedAt().toString()));
         root.put(INPUTS, inputs(header.inputs()));
-        root.put(LANE, optional(header.lane().map(PlanInstanceHeader.Lane::wireName)));
-        root.put(POSTURE, optional(header.posture().map(PlanInstanceHeader.Posture::wireName)));
+        var lane = header.lane();
+        root.put(LANE, optional(lane == null ? null : lane.wireName()));
+        var posture = header.posture();
+        root.put(POSTURE, optional(posture == null ? null : posture.wireName()));
         root.put(STEPS, new ObjectNode(Map.of(PHASE_5_VERIFICATION, strings(header.steps().phase5Verification()),
                 PHASE_6, strings(header.steps().phase6()))));
         root.put(PRUNED, new ArrayNode(header.pruned().stream().map(HeaderJson::prunedElement).toList()));
@@ -463,8 +466,8 @@ final class HeaderJson {
         return new ArrayNode(values.stream().map(value -> (Node) new StringNode(value)).toList());
     }
 
-    private static Node optional(Optional<String> value) {
-        return value.<Node>map(StringNode::new).orElse(NullNode.INSTANCE);
+    private static Node optional(@Nullable String value) {
+        return value == null ? NullNode.INSTANCE : new StringNode(value);
     }
 
     // ------------------------------------------------------------------------------------------------- tree -> header
@@ -477,8 +480,9 @@ final class HeaderJson {
                 wire(members.get(EVENT), CompositionEvent::fromWireName),
                 instant(text(members.get(COMPOSED_AT))),
                 inputs((ObjectNode) members.get(INPUTS)),
-                optionalText(members.get(LANE)).flatMap(PlanInstanceHeader.Lane::fromWireName),
-                optionalText(members.get(POSTURE)).flatMap(PlanInstanceHeader.Posture::fromWireName),
+                members.get(LANE) instanceof StringNode lane ? wire(lane, PlanInstanceHeader.Lane::fromWireName) : null,
+                members.get(POSTURE) instanceof StringNode posture
+                        ? wire(posture, PlanInstanceHeader.Posture::fromWireName) : null,
                 new PlanInstanceHeader.Steps(texts(steps.members().get(PHASE_5_VERIFICATION)),
                         texts(steps.members().get(PHASE_6))),
                 elements(members.get(PRUNED)).stream().map(HeaderJson::prunedElement).toList(),
@@ -511,16 +515,18 @@ final class HeaderJson {
         var rules = ((ObjectNode) members.get(COMPOSITION_RULES)).members();
         return new CompositionInputs(text(members.get(CONFIG_HASH)), unitRefs(members.get(TEMPLATES)),
                 unitRefs(members.get(SUB_UNITS)), text(rules.get(REVISION)), text(rules.get(DIGEST)),
-                text(members.get(PLAN_FACTS_DIGEST)), optionalText(members.get(REALIZED_FOOTPRINT_DIGEST)),
-                optionalText(members.get(CHANGE_TYPE)), optionalText(members.get(PROVIDERS_DIGEST)));
+                text(members.get(PLAN_FACTS_DIGEST)),
+                members.get(REALIZED_FOOTPRINT_DIGEST) instanceof StringNode(var footprint) ? footprint : null,
+                members.get(CHANGE_TYPE) instanceof StringNode(var changeType) ? changeType : null,
+                members.get(PROVIDERS_DIGEST) instanceof StringNode(var providers) ? providers : null);
     }
 
     private static List<UnitReference> unitRefs(Node node) {
         return elements(node).stream().map(element -> {
             var ref = ((ObjectNode) element).members();
             var origin = "project".equals(text(ref.get(ORIGIN))) ? UnitOrigin.PROJECT : UnitOrigin.DEFAULT;
-            return new UnitReference(text(ref.get(UNIT)), optionalText(ref.get(FILE)), text(ref.get(DIGEST)),
-                    origin);
+            return new UnitReference(text(ref.get(UNIT)), ref.get(FILE) instanceof StringNode(var file) ? file : null,
+                    text(ref.get(DIGEST)), origin);
         }).toList();
     }
 
@@ -538,7 +544,8 @@ final class HeaderJson {
             var argument = ((ObjectNode) value).members();
             args.put(name, new BoundArgument(callValue(argument.get(VALUE), name),
                     wire(argument.get(SOURCE), BoundArgument.Source::fromWireName),
-                    optionalText(argument.get(FILE)), optionalText(argument.get(WAIVER_ID))));
+                    argument.get(FILE) instanceof StringNode(var file) ? file : null,
+                    argument.get(WAIVER_ID) instanceof StringNode(var waiverId) ? waiverId : null));
         });
         return new PolicyCall(text(members.get(CALL_SITE)), text(members.get(UNIT)), args);
     }
@@ -564,10 +571,6 @@ final class HeaderJson {
 
     private static List<String> texts(Node node) {
         return elements(node).stream().map(HeaderJson::text).toList();
-    }
-
-    private static Optional<String> optionalText(Node node) {
-        return node instanceof StringNode(var value) ? Optional.of(value) : Optional.empty();
     }
 
     /**

@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Optional;
-
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,14 +57,13 @@ class DiffSummaryTest {
     }
 
     private static PlanInstance waiverVersion(List<Waiver> waivers) {
-        return composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                Optional.of(version1()), waivers, AT_START)));
+        return composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(), version1(), waivers,
+                AT_START)));
     }
 
     private static PlanInstance localOnlyVersion() {
         return composed(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
-                facts().configuration("derived.push_remote", "").build(), Optional.of(version1()), List.of(),
-                AT_START)));
+                facts().configuration("derived.push_remote", "").build(), version1(), List.of(), AT_START)));
     }
 
     private static PrunedElement localOnly(String step) {
@@ -107,9 +104,8 @@ class DiffSummaryTest {
 
             assertAll(
                     () -> assertEquals(List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget",
-                                    Optional.of(new CallValue.IntValue(3)),
-                                    Optional.of(new CallValue.IntValue(raised)))),
-                            summary.ceilingsChanged()),
+                                    new CallValue.IntValue(3), new CallValue.IntValue(raised))),
+                            summary.ceilingsChanged(), "the raise changes the fix budget ceiling"),
                     () -> assertEquals(List.of(), summary.prunedAdded()),
                     () -> assertEquals(List.of(), summary.gatesWaived()));
         }
@@ -167,13 +163,13 @@ class DiffSummaryTest {
                     with.waivedGates());
             var expectedAdded = with.policyCalls().stream()
                     .flatMap(call -> call.args().entrySet().stream()
-                            .map(argument -> new CeilingChange(call.callSite(), argument.getKey(), Optional.empty(),
-                                    Optional.of(argument.getValue().value()))))
+                            .map(argument -> new CeilingChange(call.callSite(), argument.getKey(), null,
+                                    argument.getValue().value())))
                     .toList();
             var expectedRemoved = with.policyCalls().stream()
                     .flatMap(call -> call.args().entrySet().stream()
                             .map(argument -> new CeilingChange(call.callSite(), argument.getKey(),
-                                    Optional.of(argument.getValue().value()), Optional.empty())))
+                                    argument.getValue().value(), null)))
                     .toList();
 
             var added = DiffSummary.between(without, with);
@@ -204,8 +200,8 @@ class DiffSummaryTest {
         @DisplayName("the summary is written with its five arrays, a ceiling with its call site, argument and values")
         void canonical() {
             var summary = new DiffSummary(List.of(localOnly("default:push")), List.of(),
-                    List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget", Optional.of(new CallValue.IntValue(3)),
-                            Optional.empty())), List.of(new WaivedGate("ci_check:build", "W-2")), List.of());
+                    List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget", new CallValue.IntValue(3), null)),
+                    List.of(new WaivedGate("ci_check:build", "W-2")), List.of());
 
             var json = HeaderJson.canonical(summary.toNode());
 
@@ -213,18 +209,42 @@ class DiffSummaryTest {
                     + "\"previous\":3,\"value\":null}],\"gates_unwaived\":[],\"gates_waived\":[{\"gate\":"
                     + "\"ci_check:build\",\"waiver_id\":\"W-2\"}],\"pruned_added\":[{\"element\":\"step\",\"id\":"
                     + "\"default:push\",\"reason\":\"local_only\",\"source_fact\":\"derived.push_remote\"}],"
-                    + "\"pruned_removed\":[]}", json);
+                    + "\"pruned_removed\":[]}", json, "the absent value is written as null");
+        }
+
+        @Test
+        @DisplayName("an argument the previous version did not bind is written with a null previous value")
+        void absentPrevious() {
+            var summary = new DiffSummary(List.of(), List.of(),
+                    List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget", null, new CallValue.IntValue(4))),
+                    List.of(), List.of());
+
+            var json = HeaderJson.canonical(summary.toNode());
+
+            // the expected text is the wire format of the composition log
+            assertEquals("{\"ceilings_changed\":[{\"argument\":\"fix_budget\",\"call_site\":\"finalize.remediate\","
+                    + "\"previous\":null,\"value\":4}],\"gates_unwaived\":[],\"gates_waived\":[],\"pruned_added\":[],"
+                    + "\"pruned_removed\":[]}", json, "the absent previous value is written as null");
         }
 
         @Test
         @DisplayName("a ceiling that changes nothing is refused")
         void unchangedCeiling() {
-            var three = Optional.<CallValue>of(new CallValue.IntValue(3));
+            var three = new CallValue.IntValue(3);
 
             var refused = assertThrows(IllegalArgumentException.class,
                     () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", three, three));
 
             assertTrue(refused.getMessage().contains("fix_budget"), refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("a ceiling that binds the argument in neither version is refused")
+        void unboundOnBothSides() {
+            var refused = assertThrows(IllegalArgumentException.class,
+                    () -> new CeilingChange(REMEDIATION_SITE, "fix_budget", null, null));
+
+            assertTrue(refused.getMessage().contains("did not change"), refused.getMessage());
         }
     }
 }

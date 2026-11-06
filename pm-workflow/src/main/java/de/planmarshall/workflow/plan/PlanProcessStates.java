@@ -14,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.PlanHistoryLine;
@@ -62,7 +61,17 @@ public final class PlanProcessStates {
         var ended = instance.unit().states().values().stream()
                 .anyMatch(state -> state.terminalOutcome() != null && last.containsKey(state.id())
                         && last.get(state.id()).event() == PlanHistoryLine.Event.ENTERED);
-        var current = currentState(history);
+        // the state the plan is in, read from the history alone: the node of the last entered line that no later left
+        // line of that node follows; null when there is none
+        @Nullable String resting = null;
+        for (var line : history) {
+            if (line.event() == PlanHistoryLine.Event.ENTERED) {
+                resting = line.node();
+            } else if (line.event() == PlanHistoryLine.Event.LEFT && line.node().equals(resting)) {
+                resting = null;
+            }
+        }
+        var current = resting;
         var nodes = new ArrayList<NodeState>();
         append(nodes, instance.unit(), last, ended, current);
         instance.units().forEach(unit -> append(nodes, unit.definition(), last, ended, current));
@@ -75,7 +84,7 @@ public final class PlanProcessStates {
     }
 
     private static void append(List<NodeState> nodes, WorkflowDefinition unit,
-            Map<String, PlanHistoryLine> last, boolean ended, Optional<String> current) {
+            Map<String, PlanHistoryLine> last, boolean ended, @Nullable String current) {
         for (var state : unit.states().values()) {
             if (nodes.stream().anyMatch(node -> node.node().equals(state.id()))) {
                 continue;
@@ -85,45 +94,27 @@ public final class PlanProcessStates {
     }
 
     private static NodeState nodeState(StateNode state, @Nullable PlanHistoryLine line, boolean ended,
-            Optional<String> current) {
+            @Nullable String current) {
         if (line == null) {
-            return new NodeState(state.id(), ended ? State.NOT_TAKEN : State.PLANNED, Optional.empty(),
-                    Optional.empty());
+            return new NodeState(state.id(), ended ? State.NOT_TAKEN : State.PLANNED, null, null);
         }
         var terminalOutcome = state.terminalOutcome();
         var failed = terminalOutcome != null && terminalOutcome.outcomeClass() == OutcomeClass.FAILURE;
+        var lineOutcome = line.outcome();
         if (line.event() == PlanHistoryLine.Event.LEFT) {
             if (terminalOutcome != null && failed) {
-                var outcome = line.outcome() != null ? line.outcome() : terminalOutcome.id();
-                return new NodeState(state.id(), State.FAILED, Optional.of(outcome), Optional.empty());
+                var outcome = lineOutcome != null ? lineOutcome : terminalOutcome.id();
+                return new NodeState(state.id(), State.FAILED, outcome, null);
             }
-            return new NodeState(state.id(), State.DONE, Optional.ofNullable(line.outcome()), Optional.empty());
+            return new NodeState(state.id(), State.DONE, lineOutcome, null);
         }
         if (terminalOutcome != null) {
-            return new NodeState(state.id(), failed ? State.FAILED : State.DONE, Optional.of(terminalOutcome.id()),
-                    Optional.empty());
+            return new NodeState(state.id(), failed ? State.FAILED : State.DONE, terminalOutcome.id(), null);
         }
         var waiting = (state.behavior() instanceof StateBehavior.QuestionWait
                 || state.behavior() instanceof StateBehavior.InteractiveLinks)
-                && current.filter(state.id()::equals).isPresent();
-        return new NodeState(state.id(), waiting ? State.WAITING_FOR_OPERATOR : State.RUNNING, Optional.empty(),
-                Optional.empty());
-    }
-
-    /**
-     * @return the state the plan is in, read from the history alone: the node of the last {@code entered} line that no
-     *         later {@code left} line of that node follows
-     */
-    private static Optional<String> currentState(List<PlanHistoryLine> history) {
-        @Nullable String current = null;
-        for (var line : history) {
-            if (line.event() == PlanHistoryLine.Event.ENTERED) {
-                current = line.node();
-            } else if (line.event() == PlanHistoryLine.Event.LEFT && line.node().equals(current)) {
-                current = null;
-            }
-        }
-        return Optional.ofNullable(current);
+                && state.id().equals(current);
+        return new NodeState(state.id(), waiting ? State.WAITING_FOR_OPERATOR : State.RUNNING, null, null);
     }
 
     /**
@@ -134,13 +125,12 @@ public final class PlanProcessStates {
         var nodes = new ArrayList<NodeState>();
         instance.header().pruned().forEach(pruned -> {
             switch (pruned.element()) {
-                case STATE -> nodes.add(new NodeState(pruned.id(), State.NOT_IN_THIS_PLAN, Optional.empty(),
-                        Optional.of(pruned.reason().wireName())));
+                case STATE -> nodes.add(new NodeState(pruned.id(), State.NOT_IN_THIS_PLAN, null,
+                        pruned.reason().wireName()));
                 case CALL -> {
                     var slash = pruned.id().indexOf('/');
                     var callSite = slash > 0 ? pruned.id().substring(0, slash) : pruned.id();
-                    nodes.add(new NodeState(callSite, State.NOT_IN_THIS_PLAN, Optional.empty(),
-                            Optional.of(pruned.reason().wireName())));
+                    nodes.add(new NodeState(callSite, State.NOT_IN_THIS_PLAN, null, pruned.reason().wireName()));
                 }
                 default -> {
                     // a pruned step, link or policy action is no node of the process
@@ -155,18 +145,16 @@ public final class PlanProcessStates {
      *
      * @param node    the state id
      * @param state   the derived state
-     * @param outcome the outcome the node settled or failed with, when it has one
-     * @param reason  the prune reason of a {@link State#NOT_IN_THIS_PLAN} node
+     * @param outcome the outcome the node settled or failed with; {@code null} when it has none
+     * @param reason  the prune reason of a {@link State#NOT_IN_THIS_PLAN} node; {@code null} for every other node
      * @since 0.1
      */
-    public record NodeState(String node, State state, Optional<String> outcome, Optional<String> reason) {
+    public record NodeState(String node, State state, @Nullable String outcome, @Nullable String reason) {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if the node or the state is {@code null} */
         public NodeState {
             Objects.requireNonNull(node, "node");
             Objects.requireNonNull(state, "state");
-            Objects.requireNonNull(outcome, "outcome");
-            Objects.requireNonNull(reason, "reason");
         }
     }
 

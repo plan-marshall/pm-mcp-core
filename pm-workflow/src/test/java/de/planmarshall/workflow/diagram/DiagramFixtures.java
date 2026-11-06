@@ -141,12 +141,11 @@ final class DiagramFixtures {
      * @return the instance version of that unit
      */
     static PlanInstance instance(WorkflowDefinition unit, String text) {
-        var inputs = new CompositionInputs(DIGEST, List.of(new UnitReference("plan", Optional.of("plan.pmwf"), DIGEST,
-                        UnitOrigin.DEFAULT)), List.of(), "1", DIGEST, DIGEST, Optional.empty(), Optional.of("feature"),
-                Optional.empty());
+        var inputs = new CompositionInputs(DIGEST, List.of(new UnitReference("plan", "plan.pmwf", DIGEST,
+                UnitOrigin.DEFAULT)), List.of(), "1", DIGEST, DIGEST, null, "feature", null);
         var header = new PlanInstanceHeader(INSTANCE_PLAN_ID, INSTANCE_VERSION, CompositionEvent.PLAN,
-                Instant.parse("2026-10-14T09:00:00Z"), inputs, Optional.of(PlanInstanceHeader.Lane.DEEP),
-                Optional.of(PlanInstanceHeader.Posture.STANDARD),
+                Instant.parse("2026-10-14T09:00:00Z"), inputs, PlanInstanceHeader.Lane.DEEP,
+                PlanInstanceHeader.Posture.STANDARD,
                 new PlanInstanceHeader.Steps(List.of(), List.of("default:archive-plan")), PRUNED, List.of(),
                 List.of(new WaivedGate(WAIVED_GATE, WAIVER_ID)));
         return new PlanInstance(INSTANCE_VERSION, header, unit, text);

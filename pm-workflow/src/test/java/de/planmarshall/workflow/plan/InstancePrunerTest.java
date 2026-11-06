@@ -16,8 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Stream;
 
+import org.jspecify.annotations.Nullable;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -83,7 +84,7 @@ class InstancePrunerTest {
     }
 
     private static InstancePruner.Pruned prune(WorkflowDefinition template, RuleEffects effects,
-            Optional<PlanInstanceHeader.Lane> lane) {
+            PlanInstanceHeader.@Nullable Lane lane) {
         return InstancePruner.prune(template, effects, List.of(), List.of(), PlanFixtures.VERIFICATION_STEPS,
                 finalizeSteps(), lane);
     }
@@ -93,8 +94,7 @@ class InstancePrunerTest {
     void adoptPruneReachesThePruner() {
         var adopt = new PrunedElement(PrunedElement.Kind.STEP, "default:create-pr", PruneReason.ADOPT, "lane");
 
-        var pruned = prune(planTemplate(), new RuleEffects(List.of(adopt), List.of()),
-                Optional.of(PlanInstanceHeader.Lane.ADOPT));
+        var pruned = prune(planTemplate(), new RuleEffects(List.of(adopt), List.of()), PlanInstanceHeader.Lane.ADOPT);
 
         assertAll(
                 () -> assertEquals(List.of(adopt), pruned.pruned(), "the prune is listed with its reason"),
@@ -109,27 +109,26 @@ class InstancePrunerTest {
     void linkSelectorPrunesTheLink() {
         var link = new PrunedElement(PrunedElement.Kind.LINK, "setup.wait/skip_wait", PruneReason.OTHER_LANE, "lane");
 
-        var pruned = prune(linkTemplate(), new RuleEffects(List.of(link), List.of()), Optional.empty());
+        var pruned = prune(linkTemplate(), new RuleEffects(List.of(link), List.of()), null);
 
         var kept = assertInstanceOf(StateBehavior.InteractiveLinks.class,
                 pruned.states().get("setup.wait").behavior());
         assertAll(
                 () -> assertEquals(List.of(link), pruned.pruned(), "the link is listed once"),
                 () -> assertEquals(List.of("keep_going"),
-                        kept.links().stream().map(LinkSpec::idPattern).toList()));
+                        kept.links().stream().map(LinkSpec::idPattern).toList(), "only the unpruned link is kept"));
     }
 
     @Test
-    @DisplayName("an empty lane and the land and adopt lanes prune no state")
+    @DisplayName("an absent lane and the land and adopt lanes prune no state")
     void otherLaneGuardPrunesNothing() {
         var template = planTemplate();
-        var lanes = List.of(Optional.<PlanInstanceHeader.Lane>empty(),
-                Optional.of(PlanInstanceHeader.Lane.LAND), Optional.of(PlanInstanceHeader.Lane.ADOPT));
+        var lanes = Stream.of(null, PlanInstanceHeader.Lane.LAND, PlanInstanceHeader.Lane.ADOPT);
 
-        assertAll(lanes.stream().map(lane -> () -> assertNoPrune(template, lane)));
+        assertAll(lanes.map(lane -> () -> assertNoPrune(template, lane)));
     }
 
-    private static void assertNoPrune(WorkflowDefinition template, Optional<PlanInstanceHeader.Lane> lane) {
+    private static void assertNoPrune(WorkflowDefinition template, PlanInstanceHeader.@Nullable Lane lane) {
         var pruned = prune(template, NOTHING, lane);
 
         assertAll("lane " + lane,
