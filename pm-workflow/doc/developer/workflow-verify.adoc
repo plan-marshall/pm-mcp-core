@@ -26,7 +26,7 @@ The rules themselves are defined by the specification, link:../../../doc/specifi
 
 Every walk of the package starts at the starting states of the unit, `WorkflowDefinition.startingStates()`: the start state of a unit without entries, every entry-bound state of a unit with entries.
 `WorkflowCatalog`:: The registered units a `call` may name and an entity kind's entity unit must name.
-`EntityKindRegistry`:: The entity kinds with their optional entity unit and return-evaluation primitive. The defaults carry no test identifier: `screen` has no entity unit, `task` runs `worker-task`, `decision`, `triage` and `simplify` run `entity`, and the multi-submit lesson review `lessons-review` (return evaluation `lessons-review.evaluate`) runs `entity-multi`, named as the State Catalogue's `job llm lessons-review role lessons` (link:../adr/workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[ADR 012]). The entity kind is not the question class `review` below.
+`EntityKindRegistry`:: The entity kinds with their optional entity unit and return-evaluation primitive; a kind without an entity unit carries `null` as its `entityUnit`. The defaults carry no test identifier: `screen` has no entity unit, `task` runs `worker-task`, `decision`, `triage` and `simplify` run `entity`, and the multi-submit lesson review `lessons-review` (return evaluation `lessons-review.evaluate`) runs `entity-multi`, named as the State Catalogue's `job llm lessons-review role lessons` (link:../adr/workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[ADR 012]). The entity kind is not the question class `review` below.
 `QuestionClassRegistry`:: The question classes and their closed resolution outcomes: `init`, `clarification`, `review`, `task`, `setup` and `ask` (`answered`, `assumed`).
 `SchemaRegistry`:: The names of the registered parameter schemas.
 
@@ -256,7 +256,7 @@ The invariants are specified in link:../../../doc/specification/workflow-dsl/04-
 
 [horizontal]
 `InvariantId`:: The closed list of the invariants and the only source of their vocabulary; the enum is the list, and this guide does not repeat it; `CompiledInvariants.checkedIds()` returns the set that is checked. Each constant carries its wire id, the patterns of the units it applies to (a unit id, `*` for every unit, or a namespace such as `remediation.*`) and an optional named hook; `ofWireId` finds a constant by its wire id.
-`CompiledInvariants`:: The facade. Built from the `PrimitiveRegistry`, the verified default units and the default finalize roster, it checks one unit, `check(unit, rules, pipeline, lane)`, against every invariant whose pattern matches the unit's id. The lane is the wire name of the plan's lane (`light`, `deep`, `land`, `adopt`), a value so that `workflow.verify` takes no type of `workflow.plan`, or empty where the lane is unknown (<<_inv_init_2_per_lane>>). `remediationBudgetParameters()` publishes the budget parameters of the remediation schema (`retry_budget`, `fix_budget`, `waiver_wait_seconds`), whose one definition is the cap table of `RemediationInvariants` that `INV-REM-1` and `INV-REM-5` use; the check of the composition rule file in `workflow.plan` refuses a binding of exactly this set.
+`CompiledInvariants`:: The facade. Built from the `PrimitiveRegistry`, the verified default units and the default finalize roster, it checks one unit, `check(unit, rules, pipeline, lane)`, against every invariant whose pattern matches the unit's id. The lane is the wire name of the plan's lane (`light`, `deep`, `land`, `adopt`), a value so that `workflow.verify` takes no type of `workflow.plan`, or `null` where the lane is unknown (<<_inv_init_2_per_lane>>). `remediationBudgetParameters()` publishes the budget parameters of the remediation schema (`retry_budget`, `fix_budget`, `waiver_wait_seconds`), whose one definition is the cap table of `RemediationInvariants` that `INV-REM-1` and `INV-REM-5` use; the check of the composition rule file in `workflow.plan` refuses a binding of exactly this set.
 `InvariantViolation`:: One violation: the `InvariantId`, the state it concerns, its `SourceLocation` and a message; a value, never an exception. It is a record of its own rather than a widened `Violation` (link:../adr/workflow-verify/017-one-checker-per-phase-behind-one-id-list.adoc[ADR 017]).
 `LaneEntryIds`:: The two state ids that split the lanes, declared once: `DEEP_ENTRY` (`refine.baseline-reconcile`) and `LIGHT_ENTRY` (`init.light-gate`). The phase invariants read them instead of repeating the literals, and so does `InstancePruner` in `workflow.plan`, so a rename of an entry moves the split and the checks that guard it together (link:../adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc[ADR 030]).
 The checker classes:: One package-private class per phase or unit kind, named `…Invariants`, each contributing the checks of its invariants. `CompiledInvariants` collects them at class load and fails when an invariant has no check or two; `checkedIds()` returns the checked set.
@@ -320,7 +320,7 @@ The author part of `INV-GEN-1` (no project unit names the author `plan-marshall`
 _Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Compiled Invariants] (`INV-INIT-2`)_
 
 `INV-INIT-2` guards the light lane: wherever `outline.light` is a state of the unit, every path into it passes `init.light-gate` and every path from it into `outline.gate` passes `outline.light-regate`; and every transition of the default unit that leaves `init.light-gate` or `outline.light-regate`, the `light -> deep` ratchet, is a transition of the unit.
-The ratchet clause holds per lane (link:../adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[ADR 029]): `InitInvariants` requires it only where the lane `check` receives is `light` or empty.
+The ratchet clause holds per lane (link:../adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[ADR 029]): `InitInvariants` requires it only where the lane `check` receives is `light` or `null`.
 A `deep` version of a plan instance holds no state of the light route, its states pruned with `other_lane` (link:workflow-plan.adoc#_lane_pruning[Plan Instance § Lane Pruning]), so it owes no ratchet; a version of the `land` or `adopt` lane owes none either.
 
 The two callers pass the lane they know:
@@ -406,12 +406,13 @@ The registries are immutable; `with(...)` returns a new registry:
 [source,java]
 ----
 EntityKindRegistry customKinds = EntityKindRegistry.defaults()
-        .with(new EntityKind("custom", Optional.of("custom-unit"), "custom.evaluate"));
+        .with(new EntityKind("custom", "custom-unit", "custom.evaluate"));
 
 QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
         .with(new QuestionClass("custom_gate", Set.of("approved", "rejected")));
 ----
 
+A kind without an entity unit passes `null` as its unit.
 `QuestionClass` carries the class name and its closed set of resolution outcomes; the specification gives a resolution outcome no outcome class, so none is recorded.
 
 == Invariants and Failure Modes
@@ -421,6 +422,7 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 3. **Parse boundary**: syntax is refused by `WorkflowParser`; cross-references and the graph are checked by `WorkflowValidator`.
 4. **An exemption stays at its check**: the abort terminals exempt from reachability, the implicit `step_out` and the default `lost` route counted as exits, the workspace unit returning to its start state: each exemption is written where its check runs, as a named constant (`ABORT_TERMINALS`, `UnitGraph.hasImplicitExit`) or condition with its reason, never as a filter on the result, so a new check does not inherit an exemption it should not have.
 5. **One vocabulary for the rules**: a new check is a new constant of `VerificationRule`; no message, test or document names a rule by a string of its own.
+6. **Null for an absent member**: a member that may be absent is a `@Nullable` field, parameter or record component, `null` when absent (the entity unit of an `EntityKind`, the lane `CompiledInvariants.check` takes); absence a method returns stays `Optional`.
 
 == Specification Tracing
 

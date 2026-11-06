@@ -457,7 +457,7 @@ for a bootstrap, its pending entry record. The binding of `pm_state` and `pm_do`
 follow in Milestone 7; this package provides the addresses, their grammar and their resolution.
 
 [horizontal]
-`EntityAddress`:: The scope type (`PLAN`, `EPIC` or `WORKSPACE`), the plan or epic id (empty for the workspace scope)
+`EntityAddress`:: The scope type (`PLAN`, `EPIC` or `WORKSPACE`), the plan or epic id (`null` for the workspace scope)
 and the entity identifier as supplied. `fromArguments(planId, epicId, entity)` builds it from the arguments of a
 scoped tool call, where `plan_id` `NO_PLAN` names the workspace scope. A malformed address (a `null` component, the
 lesson store as scope, a scope id where none belongs or none where one does, `NO_PLAN` as a scope id) is refused with
@@ -530,6 +530,9 @@ of the caller's units and refused with an exception
   dedicated cross-scope reason (link:../adr/workflow-engine/007-refused-address-is-a-value.adoc[ADR 007]).
 * *A refusal is a value*: every refusal of a well-formed address is `Refused`; no refusal throws and none is logged
   (link:../adr/workflow-engine/010-no-log-records-for-addressing.adoc[ADR 010]).
+* *Null for an absent member*: a member that may be absent is a `@Nullable` parameter or record component, `null` when
+  absent (the scope id of a workspace address, the `queue_task_id` of a resolved bootstrap, the progress token
+  `WaitSelection.select` takes); absence a method returns stays `Optional`.
 
 === Failure Modes
 

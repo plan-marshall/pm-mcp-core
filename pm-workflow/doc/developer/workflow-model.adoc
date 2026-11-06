@@ -119,6 +119,11 @@ lets its state take the conservative fallback.
   assignment stores afresh.
 * A queue task id must match `^qt-[0-9a-f]{16}$`; `ModelQueue.Queued` refuses anything else.
 * The caller holds no worker, no job and no session. If a change needs one, it belongs to the supervisor.
+* A member that may be absent is a `@Nullable` parameter or record component, `null` when absent: the `scopeId` of a
+  `ModelJob` and of the `ModelQueue` records is `null` for the workspace scope, and the validation reason of a
+  `role_undefined` closure is `null` where there is none. Absence a method returns stays `Optional`
+  (`CompositionRefusal.roleClass()`); the `Optional` a `pm-core` accessor returns is unwrapped once, where it enters the
+  caller (`RoleResolution.Undefined.reason()`, `GradingPlan.previous()`).
 
 == Tests
 

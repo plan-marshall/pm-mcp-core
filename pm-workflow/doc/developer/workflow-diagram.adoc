@@ -49,12 +49,12 @@ Render a unit that passed `WorkflowValidator`:
 
 [source,java]
 ----
-String diagram = WorkflowDiagramGenerator.renderMermaid(definition, Optional.empty());
+String diagram = WorkflowDiagramGenerator.renderMermaid(definition, null);
 String tables = WorkflowDiagramGenerator.renderAsciiDocTables(definition);
-String terminal = WorkflowDiagramGenerator.renderAscii(definition, Optional.of("build.judge"));
+String terminal = WorkflowDiagramGenerator.renderAscii(definition, "build.judge");
 ----
 
-An empty `activeState` renders the whole unit without a highlight; a present one adds the Mermaid style `active` and the terminal mark `*` with an `(ACTIVE)` line (see link:../adr/workflow-diagram/003-empty-active-state-renders-without-highlight.adoc[ADR 003]).
+A `null` `activeState` renders the whole unit without a highlight; a present one adds the Mermaid style `active` and the terminal mark `*` with an `(ACTIVE)` line (see link:../adr/workflow-diagram/003-empty-active-state-renders-without-highlight.adoc[ADR 003]).
 Write the terminal form as UTF-8 (see link:../adr/workflow-diagram/008-unicode-box-drawing-utf8.adoc[ADR 008]).
 
 The excerpts below are copied from the golden files of the fixture unit `diagram/diagram-fixture.pmwf` in `src/test/resources/diagram/`.
@@ -136,9 +136,9 @@ A plan instance version, a `PlanInstance` of `workflow.plan`, is rendered in the
 
 [source,java]
 ----
-String diagram = WorkflowDiagramGenerator.renderInstanceMermaid(instance, Optional.empty());
-String tables = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, Optional.of("finalize.merge-gate"));
-String terminal = WorkflowDiagramGenerator.renderInstanceAscii(instance, Optional.empty());
+String diagram = WorkflowDiagramGenerator.renderInstanceMermaid(instance, null);
+String tables = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, "finalize.merge-gate");
+String terminal = WorkflowDiagramGenerator.renderInstanceAscii(instance, null);
 ----
 
 Each form draws the composed unit through the renderer of its unit form, so the unit part is byte-identical to the unit form of `instance.unit()`, and adds what the header records beside the unit.
@@ -220,6 +220,7 @@ Every form keeps these invariants (see link:../adr/workflow-diagram/009-byte-sta
 . *No environment*: no timestamp, path, locale or other environment data enters the output.
 . *Byte stability*: two renderings of the same unit give identical bytes.
 . *Encoding*: the terminal form contains box-drawing characters and is written as UTF-8; the golden files are read as UTF-8.
+. *Null for an absent member*: a member that may be absent is a `@Nullable` parameter or record component, `null` when absent (the `activeState` of the `render*` methods and of `InstanceAnnotations`, the link of a `StateTransitions` edge); absence a method returns stays `Optional` (`Edge.guard()`), and a `null` active state renders the unit without a highlight in every form.
 
 == Failure Modes
 
@@ -232,7 +233,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |`activeState` names no state of the unit
 |`renderMermaid` and `renderAscii` throw `IllegalArgumentException` naming the state and the unit.
 
-|`definition` or `activeState` is `null`
+|`definition` is `null`
 |`NullPointerException`.
 
 |The unit did not pass the static verifier

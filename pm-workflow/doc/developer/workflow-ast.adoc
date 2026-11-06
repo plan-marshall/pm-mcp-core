@@ -30,8 +30,8 @@ declarations, migrations and states it carries:
 
 [horizontal]
 `frontmatter`:: The `UnitFrontmatter` the unit opens with (<<_the_frontmatter>>).
-`startState`:: `Optional<String>`: the state a `start <state_id>` line names, where the server starts the unit. It is
-empty for a unit that binds entries instead; there is no empty-string stand-in
+`startState`:: `@Nullable String`: the state a `start <state_id>` line names, where the server starts the unit. It is
+`null` for a unit that binds entries instead; there is no empty-string stand-in
 (link:../adr/workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR 002]).
 `entryBindings`:: The `entry <name> -> <state_id>` lines, an ordered map from the entry name to a
 `WorkflowDefinition.EntryBinding`, which holds the bound state id and the `SourceLocation` of the line.
@@ -131,8 +131,8 @@ unit's revision, which the `workflow` header counts.
 (link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
 
 |`signature`
-|`Optional<String>`
-|A signature over the file's content, carried with the unit and never verified.
+|`@Nullable String`
+|A signature over the file's content, carried with the unit and never verified; `null` when the frontmatter has none.
 
 |`location`
 |`SourceLocation`
@@ -216,7 +216,7 @@ unit with entries is called: the frontmatter declares each entry, and the header
 through it enters.
 
 `StateBehavior.SubWorkflowCall` is the `call <unit> [entry <name>] (…)` clause of a state. Its components are
-`subWorkflowId`, `entry` (`Optional<String>`, the entry the call names; empty when the call omits it, which the verifier
+`subWorkflowId`, `entry` (`@Nullable String`, the entry the call names; `null` when the call omits it, which the verifier
 admits only for a callee with exactly one entry), `paramBindings` and `transitions`. The parameters belong to the
 callee, not to an entry: a call binds every declared parameter whichever entry it uses.
 
@@ -261,7 +261,11 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   and each entry binding; the entries and exits of the frontmatter carry none. The verifier therefore reports a declared
   entry or exit at the frontmatter's location, and a binding of an undeclared entry or of a missing state at the
   binding's.
-* *No empty start state*: a unit with entries has an empty `startState`; no reader passes or expects an empty string.
+* *No empty start state*: a unit with entries has a `null` `startState`; no reader passes or expects an empty string.
+* *Null for an absent member*: a member that may be absent is a `@Nullable` record component, `null` when absent (the
+  start state, the frontmatter's signature and an element's description, the entry of a call, a link's guard, a
+  transition's result guard, the bounds of a `text` or `int` type, among others); absence a method returns stays
+  `Optional`, and the printer omits the clause of a `null` member, so the round trip of a unit without the clause holds.
 * *Closed hierarchies*: every sealed interface lists its variants as nested records, so a `switch` over them needs no
   `default`, and adding a variant breaks every such `switch` at compile time. A new construct is a new variant, never an
   open base class.
@@ -308,6 +312,6 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 * link:../adr/workflow-ast/001-ast-as-records-sealed-interfaces-and-enums.adoc[ADR 001]: the tree as records, sealed
   interfaces and enums.
 * link:../adr/workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR 002]: the start state is
-  `Optional<String>`, empty for a unit with entries.
+  optional, absent for a unit with entries, with no empty-string stand-in.
 * link:../adr/workflow-ast/003-the-phase-is-the-phase-unit-on-the-call-stack.adoc[ADR 003]: the phase is the phase
   unit on the call stack; no state and no frontmatter declares one.

@@ -17,7 +17,7 @@ The descriptor and the rules are specified in link:../../../doc/specification/ph
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 [horizontal]
-`FinalizeStepDescriptor`:: The immutable record of one step, built-in, bundle or project-local: its name, order, default state and presets, description, whether it mutates source, whether its verdict depends on the commit it ran at (`headDependent`) with its `inputScope` and `verdictInputs`, whether it rebases onto main, whether it reviews the run after the merge (`postRunReview`), the artifact tokens it `reads` and `destroys`, the facts it records, its lane, the steps it requires, its configurable keys, persona, required prompt fields, the defect class it cannot reach, and the finding sources it may file. The compact constructor copies every list and set into an immutable collection and refuses a `null` component, element or nested value. The nested types are `Lane`, `LaneClass`, `InputScope` and `ConfigurableKey`.
+`FinalizeStepDescriptor`:: The immutable record of one step, built-in, bundle or project-local: its name, order, default state and presets, description, whether it mutates source, whether its verdict depends on the commit it ran at (`headDependent`) with its `inputScope` and `verdictInputs`, whether it rebases onto main, whether it reviews the run after the merge (`postRunReview`), the artifact tokens it `reads` and `destroys`, the facts it records, its lane, the steps it requires, its configurable keys, persona, required prompt fields, the defect class it cannot reach, and the finding sources it may file. The compact constructor copies every list and set into an immutable collection and refuses a `null` required component, element or nested value; the four components a step may lack, `inputScope`, `lane`, `persona` and `cannotReach`, are `@Nullable` and `null` when absent. The nested types are `Lane`, `LaneClass`, `InputScope` and `ConfigurableKey`.
 `PipelineRule`:: The closed set of the validator's rules 1 to 8, the only source of their vocabulary; each constant names its specification rule number and, where a part of the rule cannot be decided from a descriptor, a named hook.
 `PipelineViolation`:: One violation: the `PipelineRule`, the name of the step and a message; a value, never an exception.
 `FinalizePipelineValidator`:: `validate(roster)` returns every violation, ordered by the order of the step and then by rule; `findingSources(roster)` derives the finding-filing steps.
@@ -66,7 +66,8 @@ Set<String> filingSteps = FinalizePipelineValidator.findingSources(roster);
 
 1. **Roster as input**: no default step is compiled into this module; a test builds its own roster.
 2. **Every violation at once**: the validator never stops at the first violation.
-3. **Values, not exceptions**: a violation is a `PipelineViolation`; only a `null` roster or descriptor component throws.
+3. **Values, not exceptions**: a violation is a `PipelineViolation`; only a `null` roster or required descriptor component throws.
+4. **Null for an absent member**: a member that may be absent is a `@Nullable` record component, `null` when absent; absence a method returns stays `Optional`.
 
 == Testing
 
