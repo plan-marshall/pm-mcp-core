@@ -117,7 +117,7 @@ class EnrolmentIntegrityStepTest {
     }
 
     private String failure(Outcome outcome) {
-        return assertInstanceOf(Outcome.Failed.class, outcome, "the step must fail").reason();
+        return assertInstanceOf(Outcome.Failed.class, outcome, "the step must fail with a reason").reason();
     }
 
     private void assertOtherProjectStillDone() {
