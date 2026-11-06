@@ -1233,7 +1233,37 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals(8, settled.outcomeRow(), "the fallback's record was written on the retry"),
                     () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
                     () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
-                            "the record of the job is the settled one"));
+                            "the record of the job is the settled one"),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR,
+                            ERROR.JOB_LAST_RESORT_FAILED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("a last-resort write that fails as well is logged and leaves the record running for the recovery")
+        void lastResortFails() throws Exception {
+            var failure = new IllegalStateException(Generators.nonEmptyStrings().next());
+            var fallbackLockFailure = new IllegalStateException(Generators.nonEmptyStrings().next());
+            var lastResortLockFailure = new IllegalStateException(Generators.nonEmptyStrings().next());
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
+                    (job, output) -> {
+                        // the fallback's record write opens the next transaction, the last-resort retry the one after
+                        locks.beforeNextTransaction(() -> {
+                            locks.failNextTransaction(fallbackLockFailure);
+                            locks.beforeNextTransaction(() -> locks.failNextTransaction(lastResortLockFailure));
+                        });
+                        throw failure;
+                    }, request -> Optional.empty());
+
+            var jobId = started(runner.start(git(30, "ok")));
+            supervisionFailureLogged.await();
+
+            var stored = jobs.read(jobId).orElseThrow();
+            assertAll(
+                    () -> assertEquals(Status.RUNNING, stored.status(), "the unwritten job stays running"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            ERROR.JOB_LAST_RESORT_FAILED.resolveIdentifierString(), IllegalStateException.class),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.ERROR,
+                            lastResortLockFailure.getMessage()));
         }
 
         @Test
@@ -1532,6 +1562,39 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("an audit sink that refuses a survivor's record is logged per survivor and stops nothing")
+        void refusedSurvivorAuditIsLogged() {
+            var failureMessage = Generators.nonEmptyStrings().next();
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
+                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .audit(event -> {
+                        throw new IllegalStateException(failureMessage);
+                    }).build();
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null))
+                    .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
+                    .argvDigest("ab".repeat(32)).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .createdAt(Instant.now()).clampedValues(List.of()).build();
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+                    Set.of());
+            int pid = Generators.integers(2, 4_000_000).next();
+
+            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, Optional.empty()),
+                    new ProcessTreeTracker.Survivor(pid + 1, Optional.empty())));
+
+            var logged = TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(TestLogLevel.WARN,
+                    WARN.JOB_DESCENDANT_AUDIT_FAILED.resolveIdentifierString());
+            assertAll(
+                    () -> assertEquals(2, logged.size(), "one refused audit record is logged per survivor"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, failureMessage),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "the refused audit starts no job"));
+        }
+
+        @Test
         @DisplayName("a sweep that throws is logged and does not keep the job from being settled")
         void failingSweepDoesNotAbortTheSettlement() {
             var start = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
@@ -1569,6 +1632,8 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(List.of(), survivors, "the sweep answers no survivor"),
                     () -> assertTrue(runner.runningJobs().isEmpty(), "the test runner starts no job"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.JOB_DESCENDANT_SWEEP_FAILED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
                             "The descendant sweep of job '%s' failed".formatted(jobId)));
         }

@@ -16,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -39,6 +42,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.log.RuntimeLogMessages;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -52,6 +56,7 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * {@code harnesses.json}, the shell script shape of the fixture executable, and the usage figure and event names with
  * their stage result {@code reported}.
  */
+@EnableTestLogger
 @EnableGeneratorController
 @DisplayName("Harness verifier")
 class HarnessVerifierTest {
@@ -91,6 +96,8 @@ class HarnessVerifierTest {
         var verification = verifier().verify(CLIENT, LaunchFixtures.block());
         assertEquals(LaunchRefusal.HARNESS_NOT_ENROLLED, refusal(verification),
                 "a harness not enrolled refuses the launch");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED.resolveIdentifierString());
     }
 
     @Test
@@ -170,6 +177,10 @@ class HarnessVerifierTest {
         assertEquals(version, event.details().get(AuditEvent.DETAIL_NEW_VERSION), "the audit names the new version");
         assertNotEquals(event.details().get(AuditEvent.DETAIL_NEW_SHA256), stale,
                 "the audit names a digest other than the stale");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                RuntimeLogMessages.INFO.HARNESS_SELF_UPDATE_ACCEPTED.resolveIdentifierString());
+        LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED.resolveIdentifierString());
     }
 
     @Test

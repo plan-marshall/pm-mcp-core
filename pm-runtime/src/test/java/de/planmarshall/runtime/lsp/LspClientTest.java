@@ -16,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.runtime.log.RuntimeLogMessages;
 import de.planmarshall.runtime.lsp.LspClient.LspLocation;
 
 /**
@@ -37,6 +41,7 @@ import de.planmarshall.runtime.lsp.LspClient.LspLocation;
  * answers for it, the LSP language id {@code java}, the negotiated encoding {@code utf-32}, the fixture diagnostic's
  * message and the request bounds.
  */
+@EnableTestLogger
 @EnableGeneratorController
 @DisplayName("LspClient against a fixture language server")
 class LspClientTest {
@@ -68,6 +73,10 @@ class LspClientTest {
                     "the definition is the fixture's location");
         }
         assertFalse(client.isAlive(), "the server process ended after shutdown and exit");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                RuntimeLogMessages.INFO.LSP_STARTED.resolveIdentifierString());
+        LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.LSP_SHUTDOWN_FAILED.resolveIdentifierString());
     }
 
     @Test
@@ -114,6 +123,8 @@ class LspClientTest {
         client.close();
 
         assertFalse(client.isAlive(), "a server that ignores exit is terminated");
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.LSP_SHUTDOWN_FAILED.resolveIdentifierString());
     }
 
     @Test
