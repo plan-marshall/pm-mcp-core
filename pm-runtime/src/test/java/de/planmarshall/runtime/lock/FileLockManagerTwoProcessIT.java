@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -23,12 +25,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -42,13 +46,18 @@ import de.planmarshall.core.store.LockKey;
  * {@link LockHolderProcess} holds the key in a JVM of its own, started with the java and the class path of this one.
  * <p>
  * The other process is ended after every test, also after a failed one, and never waited for without a bound.
+ * <p>
+ * The project and plan ids are generated and passed to the other process. The literals that stay are the contract:
+ * the child-process protocol (its arguments and the {@link LockHolderProcess#HELD} line), its exit code 0 and the
+ * process and observation bounds.
  */
+@EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("File lock manager across two processes")
 class FileLockManagerTwoProcessIT {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "a-plan";
+    private String projectId;
+    private String planId;
 
     /** Covers the start of a JVM on a loaded build machine. */
     private static final Duration PROCESS_BOUND = Duration.ofSeconds(30);
@@ -60,6 +69,12 @@ class FileLockManagerTwoProcessIT {
     Path base;
 
     private Process holder;
+
+    @BeforeEach
+    void ids() {
+        projectId = "project-" + Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+        planId = "plan-" + Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+    }
 
     @AfterEach
     void endHolder() throws IOException, InterruptedException {
@@ -77,7 +92,7 @@ class FileLockManagerTwoProcessIT {
     private void startHolder() throws IOException, InterruptedException, ExecutionException, TimeoutException {
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         holder = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
-                LockHolderProcess.class.getName(), base.toString(), PROJECT, PLAN)
+                LockHolderProcess.class.getName(), base.toString(), projectId, planId)
                 .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .start();
         var reader = new BufferedReader(new InputStreamReader(holder.getInputStream(), StandardCharsets.UTF_8));
@@ -96,7 +111,7 @@ class FileLockManagerTwoProcessIT {
     private int releaseHolder() throws IOException, InterruptedException {
         holder.getOutputStream().close();
         assertTrue(holder.waitFor(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS),
-                "the other process did not end after its standard input was closed");
+                "the other process ends once its input is closed");
         return holder.exitValue();
     }
 
@@ -115,7 +130,7 @@ class FileLockManagerTwoProcessIT {
     @Test
     @DisplayName("a key held in another process locks its lock file for this process until that process releases it")
     void lockFileIsLockedForThisProcess() throws Exception {
-        var key = LockKey.plan(base, PROJECT, PLAN);
+        var key = LockKey.plan(base, projectId, planId);
         startHolder();
 
         var lockedWhileHeld = lockedByAnotherProcess(key.lockFile());
@@ -131,7 +146,7 @@ class FileLockManagerTwoProcessIT {
     @Test
     @DisplayName("a transaction of this process waits for a key held in another process and gets it on its release")
     void transactionWaitsForTheOtherProcess() throws Exception {
-        var key = LockKey.plan(base, PROJECT, PLAN);
+        var key = LockKey.plan(base, projectId, planId);
         var manager = new FileLockManager(new RecordingAuditSink());
         var acquired = new AtomicBoolean();
         startHolder();
@@ -149,8 +164,8 @@ class FileLockManagerTwoProcessIT {
         assertAll(
                 () -> assertFalse(endedWhileHeld, "acquisition came back while the other process holds the key"),
                 () -> assertEquals(0, exitCode, "exit code of the other process"),
-                () -> assertTrue(endedAfterRelease, "acquisition came back after the other process released the key"),
-                () -> assertTrue(acquired.get(), "key acquired"),
+                () -> assertTrue(endedAfterRelease, "acquisition came back after the other's release"),
+                () -> assertTrue(acquired.get(), "the key is acquired by this process"),
                 () -> assertFalse(lockedByAnotherProcess(key.lockFile()), "locked after both released the key"));
     }
 }

@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -30,6 +32,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -62,17 +65,20 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * The sweep of a lease store at a runtime start (PM-IMPL-7), over a real lease store and the lock manager of the
  * runtime. The holder that is alive is the process of this test; the holder that is not alive has the process id of
  * this test and another start instant, as the lease of an ended runtime whose process id was reused.
+ *
+ * <p>
+ * The instants, the project and plan ids and the lease keys are generated. The literals that stay are the contract:
+ * the holder liveness at its boundary (this process, and a start one day before its own), the store's file name
+ * {@code build-slots.json} and the refused store documents in its wire format, the rule and population codes, the
+ * logged message texts and the decision counts.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Stale lease sweep")
 class StaleLeaseSweepTest {
 
-    private static final Instant ACQUIRED_AT = Instant.parse("2026-10-09T08:16:00Z");
-    private static final Instant NOW = Instant.parse("2026-10-09T10:00:00Z");
     private static final Predicate<LeaseRecord> NO_EVIDENCE = lease -> false;
     private static final Predicate<LeaseRecord> ABANDONED = lease -> true;
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String OTHER_PROJECT = "other-project";
 
     @TempDir
     Path base;
@@ -82,12 +88,24 @@ class StaleLeaseSweepTest {
     private LeaseStore leaseStore;
     private HolderInstance alive;
     private HolderInstance dead;
+    private Instant acquiredAt;
+    private Instant now;
+    private String project;
+    private String otherProject;
+    private String planId;
+    private String slot;
 
     /** The channels the probes opened; closed after the test, when the lock of the store is released. */
     private final List<FileChannel> probes = new ArrayList<>();
 
     @BeforeEach
     void createStore() throws IOException {
+        acquiredAt = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE / 2).next());
+        now = acquiredAt.plusSeconds(Generators.integers(1, 1_000_000).next());
+        project = "project-" + lowerLetters();
+        otherProject = project + "-other";
+        planId = "plan-" + lowerLetters();
+        slot = slotKey();
         store = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
         storeKey = LockKey.buildSlots(base);
         leaseStore = new LeaseStore(new AtomicStoreFile(store, storeKey), new FileLockManager(new RecordingAuditSink()));
@@ -97,14 +115,22 @@ class StaleLeaseSweepTest {
         dead = new HolderInstance(self.pid(), startedAt.minusSeconds(86_400));
     }
 
+    private static String lowerLetters() {
+        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String slotKey() {
+        return "slot-" + lowerLetters();
+    }
+
     private LeaseRecord claim(String key, HolderInstance holder) {
-        return claim(key, PROJECT, holder);
+        return claim(key, project, holder);
     }
 
     private LeaseRecord claim(String key, String projectId, HolderInstance holder) {
-        var owner = new LeaseOwner(projectId, ScopeType.PLAN, "a-plan", holder, null);
-        var lease = new LeaseRecord(key, owner, ACQUIRED_AT, null);
-        assertTrue(leaseStore.claim(lease).granted());
+        var owner = new LeaseOwner(projectId, ScopeType.PLAN, planId, holder, null);
+        var lease = new LeaseRecord(key, owner, acquiredAt, null);
+        assertTrue(leaseStore.claim(lease).granted(), "the fixture lease is granted");
         return lease;
     }
 
@@ -162,17 +188,19 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("its lease is kept, and the store is left byte-identical and unwritten")
         void kept() throws Exception {
-            var lease = claim("slot-1", alive);
+            var lease = claim(slot, alive);
             var bytesBefore = Files.readAllBytes(store);
             var fileBefore = fileIdentity();
 
-            var result = StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, now);
 
             assertAll(
                     () -> assertEquals(List.of(new Decision(lease, Action.KEPT, Rule.HOLDER_ALIVE)),
-                            result.decisions()),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation()),
-                    () -> assertArrayEquals(bytesBefore, Files.readAllBytes(store)),
+                            result.decisions(), "the live holder's lease is kept"),
+                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation(),
+                            "the population is reported all kept"),
+                    () -> assertArrayEquals(bytesBefore, Files.readAllBytes(store),
+                            "the store is left byte-identical"),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.STALE_LEASE_SWEEP_FINISHED.resolveIdentifierString()),
@@ -188,18 +216,19 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("its lease is kept even when the caller's evidence would call it abandoned")
         void keptAgainstEvidence() {
-            var lease = claim("slot-1", alive);
+            var lease = claim(slot, alive);
             var asked = new ArrayList<LeaseRecord>();
 
             var result = StaleLeaseSweep.sweep(leaseStore, candidate -> {
                 asked.add(candidate);
                 return true;
-            }, NOW);
+            }, now);
 
             assertAll(
-                    () -> assertEquals(Rule.HOLDER_ALIVE, result.decisions().getFirst().rule()),
-                    () -> assertEquals(List.of(), asked),
-                    () -> assertEquals(List.of(lease), leaseStore.snapshot()));
+                    () -> assertEquals(Rule.HOLDER_ALIVE, result.decisions().getFirst().rule(),
+                            "the live holder decides the lease"),
+                    () -> assertEquals(List.of(), asked, "the evidence is not asked for a live holder"),
+                    () -> assertEquals(List.of(lease), leaseStore.snapshot(), "the live holder's lease stays"));
         }
     }
 
@@ -214,22 +243,27 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("without evidence its lease is kept and marked as orphaned at the instant of the sweep")
         void orphaned() {
-            var lease = claim("slot-1", dead);
+            var lease = claim(slot, dead);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, now);
 
-            var orphaned = lease.withOwner(lease.owner().orphaned(NOW));
+            var orphaned = lease.withOwner(lease.owner().orphaned(now));
             assertAll(
                     () -> assertEquals(List.of(new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)),
-                            result.decisions()),
-                    () -> assertEquals("skipped_no_evidence", result.decisions().getFirst().rule().code()),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation()),
-                    () -> assertEquals(List.of(orphaned), leaseStore.snapshot()),
-                    () -> assertEquals(dead, leaseStore.snapshot().getFirst().owner().holderInstance()),
+                            result.decisions(), "the dead holder's lease is orphaned"),
+                    () -> assertEquals("skipped_no_evidence", result.decisions().getFirst().rule().code(),
+                            "the rule code names the missing evidence"),
+                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation(),
+                            "the population is reported all kept"),
+                    () -> assertEquals(List.of(orphaned), leaseStore.snapshot(),
+                            "the store holds the orphaned lease"),
+                    () -> assertEquals(dead, leaseStore.snapshot().getFirst().owner().holderInstance(),
+                            "the orphaned lease keeps its holder"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.LEASE_ORPHANED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
-                            "Lease 'slot-1' in '%s' orphaned: its holder (pid %s)".formatted(store, dead.runtimePid())),
+                            "Lease '%s' in '%s' orphaned: its holder (pid %s)".formatted(slot, store,
+                                    dead.runtimePid())),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             sweepFinished(store, 0, 1, 0)));
         }
@@ -238,16 +272,18 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("with evidence of abandonment its lease is removed")
         void removed() {
-            var lease = claim("slot-1", dead);
+            var lease = claim(slot, dead);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, now);
 
             assertAll(
                     () -> assertEquals(List.of(new Decision(lease, Action.REMOVED, Rule.ABANDONED)),
-                            result.decisions()),
-                    () -> assertEquals("abandoned", result.decisions().getFirst().rule().code()),
-                    () -> assertEquals(Optional.empty(), result.emptyPopulation()),
-                    () -> assertEquals(List.of(), leaseStore.snapshot()),
+                            result.decisions(), "the abandoned lease is removed"),
+                    () -> assertEquals("abandoned", result.decisions().getFirst().rule().code(),
+                            "the rule code names the abandonment"),
+                    () -> assertEquals(Optional.empty(), result.emptyPopulation(),
+                            "a removal is no empty population"),
+                    () -> assertEquals(List.of(), leaseStore.snapshot(), "the store holds no lease any more"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, StaleLeaseSweep.class),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             sweepFinished(store, 0, 0, 1)));
@@ -256,18 +292,21 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("a lease that is orphaned already keeps its first orphaned_at, and the store is not written")
         void orphanedOnce() throws Exception {
-            claim("slot-1", dead);
-            StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, NOW);
+            claim(slot, dead);
+            StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, now);
             var fileBefore = fileIdentity();
 
-            var result = StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, NOW.plusSeconds(3600));
+            var result = StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, now.plusSeconds(3600));
 
             var decision = result.decisions().getFirst();
             assertAll(
-                    () -> assertEquals(Action.KEPT, decision.action()),
-                    () -> assertEquals(Rule.SKIPPED_NO_EVIDENCE, decision.rule()),
-                    () -> assertEquals(NOW, decision.lease().owner().orphanedAt()),
-                    () -> assertEquals(NOW, leaseStore.snapshot().getFirst().owner().orphanedAt()),
+                    () -> assertEquals(Action.KEPT, decision.action(), "an orphaned lease is kept again"),
+                    () -> assertEquals(Rule.SKIPPED_NO_EVIDENCE, decision.rule(),
+                            "the missing evidence decides again"),
+                    () -> assertEquals(now, decision.lease().owner().orphanedAt(),
+                            "the decision keeps the first orphaned_at"),
+                    () -> assertEquals(now, leaseStore.snapshot().getFirst().owner().orphanedAt(),
+                            "the store keeps the first orphaned_at"),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.LEASE_ORPHANED.resolveIdentifierString()));
@@ -276,25 +315,26 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("an orphaned lease is removed by a later sweep that has the evidence")
         void orphanedThenRemoved() {
-            claim("slot-1", dead);
-            StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, NOW);
+            claim(slot, dead);
+            StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, now);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW.plusSeconds(3600));
+            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, now.plusSeconds(3600));
 
             assertAll(
-                    () -> assertEquals(Action.REMOVED, result.decisions().getFirst().action()),
-                    () -> assertEquals(List.of(), leaseStore.snapshot()));
+                    () -> assertEquals(Action.REMOVED, result.decisions().getFirst().action(),
+                            "the later sweep removes the orphaned lease"),
+                    () -> assertEquals(List.of(), leaseStore.snapshot(), "the store holds no lease any more"));
         }
 
         @Test
         @DisplayName("a reclaimed key is free: after the removal another scope claims it")
         void reclaimable() {
-            claim("slot-1", dead);
-            StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW);
+            claim(slot, dead);
+            StaleLeaseSweep.sweep(leaseStore, ABANDONED, now);
 
-            var next = claim("slot-1", alive);
+            var next = claim(slot, alive);
 
-            assertEquals(List.of(next), leaseStore.snapshot());
+            assertEquals(List.of(next), leaseStore.snapshot(), "another scope holds the reclaimed key");
         }
     }
 
@@ -305,23 +345,29 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("each lease gets its own decision, in the order of the store, and the counts are logged")
         void mixed() {
-            var live = claim("slot-live", alive);
-            var withEvidence = claim("slot-abandoned", dead);
-            var withoutEvidence = claim("slot-waiting", dead);
+            var liveKey = slot + "-live";
+            var abandonedKey = slot + "-abandoned";
+            var waitingKey = slot + "-waiting";
+            var live = claim(liveKey, alive);
+            var withEvidence = claim(abandonedKey, dead);
+            var withoutEvidence = claim(waitingKey, dead);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, lease -> "slot-abandoned".equals(lease.key()), NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, lease -> abandonedKey.equals(lease.key()), now);
 
-            var orphaned = withoutEvidence.withOwner(withoutEvidence.owner().orphaned(NOW));
+            var orphaned = withoutEvidence.withOwner(withoutEvidence.owner().orphaned(now));
             assertAll(
                     () -> assertEquals(List.of(
                             new Decision(live, Action.KEPT, Rule.HOLDER_ALIVE),
                             new Decision(withEvidence, Action.REMOVED, Rule.ABANDONED),
-                            new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)), result.decisions()),
-                    () -> assertEquals(1, result.count(Action.KEPT)),
-                    () -> assertEquals(1, result.count(Action.ORPHANED)),
-                    () -> assertEquals(1, result.count(Action.REMOVED)),
-                    () -> assertEquals(Optional.empty(), result.emptyPopulation()),
-                    () -> assertEquals(List.of(live, orphaned), leaseStore.snapshot()),
+                            new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)), result.decisions(),
+                            "each lease is decided in the store's order"),
+                    () -> assertEquals(1, result.count(Action.KEPT), "one lease is kept"),
+                    () -> assertEquals(1, result.count(Action.ORPHANED), "one lease is orphaned"),
+                    () -> assertEquals(1, result.count(Action.REMOVED), "one lease is removed"),
+                    () -> assertEquals(Optional.empty(), result.emptyPopulation(),
+                            "a mixed store is no empty population"),
+                    () -> assertEquals(List.of(live, orphaned), leaseStore.snapshot(),
+                            "the kept and the orphaned lease remain"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             sweepFinished(store, 1, 1, 1)));
         }
@@ -333,46 +379,51 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("the evidence is asked for while the lock of the store is held, and the lock is released after")
         void underOneLock() {
-            claim("slot-1", dead);
+            claim(slot, dead);
             var lockedWhileJudging = new ArrayList<Boolean>();
 
             StaleLeaseSweep.sweep(leaseStore, lease -> {
                 lockedWhileJudging.add(isLocked(storeKey.lockFile()));
                 return false;
-            }, NOW);
+            }, now);
 
             assertAll(
-                    () -> assertEquals(List.of(true), lockedWhileJudging),
-                    () -> assertFalse(isLocked(storeKey.lockFile())));
+                    () -> assertEquals(List.of(true), lockedWhileJudging,
+                            "the store is locked while the evidence is asked"),
+                    () -> assertFalse(isLocked(storeKey.lockFile()), "the store lock is released after"));
         }
 
         @Test
         @DisplayName("a store without leases is reported as nothing_listed and is not written")
         void nothingListed() throws Exception {
-            claim("slot-1", alive);
-            leaseStore.release("slot-1");
+            claim(slot, alive);
+            leaseStore.release(slot);
             var fileBefore = fileIdentity();
 
-            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, now);
 
             assertAll(
-                    () -> assertEquals(List.of(), result.decisions()),
-                    () -> assertEquals(Optional.of(EmptyPopulation.NOTHING_LISTED), result.emptyPopulation()),
-                    () -> assertEquals("nothing_listed", result.emptyPopulation().orElseThrow().code()),
-                    () -> assertEquals(Optional.empty(), result.refusal()),
+                    () -> assertEquals(List.of(), result.decisions(), "an empty store yields no decision"),
+                    () -> assertEquals(Optional.of(EmptyPopulation.NOTHING_LISTED), result.emptyPopulation(),
+                            "an empty store is reported nothing listed"),
+                    () -> assertEquals("nothing_listed", result.emptyPopulation().orElseThrow().code(),
+                            "the population code is nothing_listed"),
+                    () -> assertEquals(Optional.empty(), result.refusal(), "an empty store is not refused"),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"));
         }
 
         @Test
         @DisplayName("a store that does not exist is reported as root_absent, is not created and is not logged as swept")
         void rootAbsent() {
-            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, now);
 
             assertAll(
-                    () -> assertEquals(List.of(), result.decisions()),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_ABSENT), result.emptyPopulation()),
-                    () -> assertEquals("root_absent", result.emptyPopulation().orElseThrow().code()),
-                    () -> assertFalse(Files.exists(store)),
+                    () -> assertEquals(List.of(), result.decisions(), "an absent store yields no decision"),
+                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_ABSENT), result.emptyPopulation(),
+                            "an absent store is reported root absent"),
+                    () -> assertEquals("root_absent", result.emptyPopulation().orElseThrow().code(),
+                            "the population code is root_absent"),
+                    () -> assertFalse(Files.exists(store), "the absent store is not created"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, StaleLeaseSweep.class));
         }
 
@@ -383,15 +434,18 @@ class StaleLeaseSweepTest {
             var refused = document.getBytes(StandardCharsets.UTF_8);
             Files.write(store, refused);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, now);
 
             assertAll(
-                    () -> assertEquals(List.of(), result.decisions()),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation()),
-                    () -> assertEquals("root_unreadable", result.emptyPopulation().orElseThrow().code()),
-                    () -> assertEquals(Optional.of(outcome), result.refusal()),
-                    () -> assertArrayEquals(refused, Files.readAllBytes(store)),
-                    () -> assertFalse(isLocked(storeKey.lockFile())),
+                    () -> assertEquals(List.of(), result.decisions(), "a refused store yields no decision"),
+                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation(),
+                            "a refused store is reported root unreadable"),
+                    () -> assertEquals("root_unreadable", result.emptyPopulation().orElseThrow().code(),
+                            "the population code is root_unreadable"),
+                    () -> assertEquals(Optional.of(outcome), result.refusal(), "the result names the refusal"),
+                    () -> assertArrayEquals(refused, Files.readAllBytes(store),
+                            "the refused store is left byte-identical"),
+                    () -> assertFalse(isLocked(storeKey.lockFile()), "the store lock is released after"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, StaleLeaseSweep.class));
         }
 
@@ -400,11 +454,12 @@ class StaleLeaseSweepTest {
         void missingArguments() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> StaleLeaseSweep.sweep(null, NO_EVIDENCE, NOW)),
-                    () -> assertThrows(NullPointerException.class, () -> StaleLeaseSweep.sweep(leaseStore, null, NOW)),
+                            () -> StaleLeaseSweep.sweep(null, NO_EVIDENCE, now), "a missing store is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> StaleLeaseSweep.sweep(leaseStore, null, now),
+                            "a missing evidence is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, null)),
-                    () -> assertFalse(Files.exists(storeKey.lockFile())));
+                            () -> StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, null), "a missing instant is refused"),
+                    () -> assertFalse(Files.exists(storeKey.lockFile()), "nothing is read before the refusal"));
         }
     }
 
@@ -415,19 +470,21 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("only the leases of the selected project are orphaned; those of another project stay as they were")
         void orphanedOnlyForProject() {
-            var own = claim("slot-own", PROJECT, dead);
-            var foreign = claim("slot-foreign", OTHER_PROJECT, dead);
+            var own = claim(slot + "-own", project, dead);
+            var foreign = claim(slot + "-foreign", otherProject, dead);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, PROJECT, NO_EVIDENCE, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, project, NO_EVIDENCE, now);
 
-            var orphaned = own.withOwner(own.owner().orphaned(NOW));
+            var orphaned = own.withOwner(own.owner().orphaned(now));
             assertAll(
                     () -> assertEquals(List.of(new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)),
-                            result.decisions()),
-                    () -> assertEquals(1, result.count(Action.ORPHANED)),
+                            result.decisions(), "only the project's lease is decided"),
+                    () -> assertEquals(1, result.count(Action.ORPHANED), "the project's lease is orphaned"),
                     () -> assertEquals(0, result.count(Action.KEPT), "a lease of another project is not counted"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation()),
-                    () -> assertEquals(List.of(orphaned, foreign), leaseStore.snapshot()),
+                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation(),
+                            "the population is reported all kept"),
+                    () -> assertEquals(List.of(orphaned, foreign), leaseStore.snapshot(),
+                            "the other project's lease is unchanged"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             sweepFinished(store, 0, 1, 0)));
         }
@@ -435,38 +492,45 @@ class StaleLeaseSweepTest {
         @Test
         @DisplayName("with evidence of abandonment only the lease of the selected project is removed")
         void removedOnlyForProject() {
-            claim("slot-own", PROJECT, dead);
-            var foreign = claim("slot-foreign", OTHER_PROJECT, dead);
+            var ownKey = slot + "-own";
+            claim(ownKey, project, dead);
+            var foreign = claim(slot + "-foreign", otherProject, dead);
             var asked = new ArrayList<LeaseRecord>();
 
-            var result = StaleLeaseSweep.sweep(leaseStore, PROJECT, lease -> {
+            var result = StaleLeaseSweep.sweep(leaseStore, project, lease -> {
                 asked.add(lease);
                 return true;
-            }, NOW);
+            }, now);
 
             assertAll(
                     () -> assertEquals(List.of(Action.REMOVED),
-                            result.decisions().stream().map(Decision::action).toList()),
-                    () -> assertEquals(Optional.empty(), result.emptyPopulation()),
-                    () -> assertEquals(List.of("slot-own"), asked.stream().map(LeaseRecord::key).toList(),
+                            result.decisions().stream().map(Decision::action).toList(),
+                            "only the project's lease is removed"),
+                    () -> assertEquals(Optional.empty(), result.emptyPopulation(),
+                            "a removal is no empty population"),
+                    () -> assertEquals(List.of(ownKey), asked.stream().map(LeaseRecord::key).toList(),
                             "the evidence is asked for the selected project only"),
-                    () -> assertEquals(List.of(foreign), leaseStore.snapshot()));
+                    () -> assertEquals(List.of(foreign), leaseStore.snapshot(),
+                            "the other project's lease remains"));
         }
 
         @Test
         @DisplayName("a store without a lease of the project is reported as nothing_listed and is not written")
         void nothingListedForProject() throws Exception {
-            var foreign = claim("slot-foreign", OTHER_PROJECT, dead);
+            var foreign = claim(slot + "-foreign", otherProject, dead);
             var bytesBefore = Files.readAllBytes(store);
             var fileBefore = fileIdentity();
 
-            var result = StaleLeaseSweep.sweep(leaseStore, PROJECT, ABANDONED, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, project, ABANDONED, now);
 
             assertAll(
-                    () -> assertEquals(List.of(), result.decisions()),
-                    () -> assertEquals(Optional.of(EmptyPopulation.NOTHING_LISTED), result.emptyPopulation()),
-                    () -> assertEquals(List.of(foreign), leaseStore.snapshot()),
-                    () -> assertArrayEquals(bytesBefore, Files.readAllBytes(store)),
+                    () -> assertEquals(List.of(), result.decisions(), "no lease of the project is decided"),
+                    () -> assertEquals(Optional.of(EmptyPopulation.NOTHING_LISTED), result.emptyPopulation(),
+                            "the project's population is nothing listed"),
+                    () -> assertEquals(List.of(foreign), leaseStore.snapshot(),
+                            "the other project's lease remains"),
+                    () -> assertArrayEquals(bytesBefore, Files.readAllBytes(store),
+                            "the store is left byte-identical"),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"));
         }
 
@@ -476,12 +540,15 @@ class StaleLeaseSweepTest {
             var refused = "{\"format_version\":1,\"leases\":[".getBytes(StandardCharsets.UTF_8);
             Files.write(store, refused);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, PROJECT, ABANDONED, NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, project, ABANDONED, now);
 
             assertAll(
-                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation()),
-                    () -> assertEquals(Optional.of(Outcome.UNREADABLE), result.refusal()),
-                    () -> assertArrayEquals(refused, Files.readAllBytes(store)));
+                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation(),
+                            "a refused store is reported root unreadable"),
+                    () -> assertEquals(Optional.of(Outcome.UNREADABLE), result.refusal(),
+                            "the refusal names the unreadable store"),
+                    () -> assertArrayEquals(refused, Files.readAllBytes(store),
+                            "the refused store is left byte-identical"));
         }
 
         @Test
@@ -489,8 +556,9 @@ class StaleLeaseSweepTest {
         void missingProject() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> StaleLeaseSweep.sweep(leaseStore, null, NO_EVIDENCE, NOW)),
-                    () -> assertFalse(Files.exists(storeKey.lockFile())));
+                            () -> StaleLeaseSweep.sweep(leaseStore, null, NO_EVIDENCE, now),
+                            "a missing project is refused"),
+                    () -> assertFalse(Files.exists(storeKey.lockFile()), "nothing is read before the refusal"));
         }
     }
 }

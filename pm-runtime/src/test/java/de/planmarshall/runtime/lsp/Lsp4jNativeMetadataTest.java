@@ -39,6 +39,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  * {@link LanguageServer} as a dynamic proxy, and dispatches incoming requests reflectively to the
  * methods of {@link PoolLanguageClient}. The expected metadata is computed from the jars on the classpath;
  * run with {@code -Dpm.native-metadata.write=true} to rewrite the committed files after a version change.
+ * <p>
+ * Every datum of this test is a contract: the native-image metadata resource paths, file names and JSON shape, and
+ * the class names the metadata must cover; nothing is generated.
  */
 @DisplayName("Native reachability metadata for LSP4J")
 class Lsp4jNativeMetadataTest {
@@ -59,7 +62,7 @@ class Lsp4jNativeMetadataTest {
             Files.writeString(target, expected, StandardCharsets.UTF_8);
         }
 
-        assertEquals(expected, committed(file));
+        assertEquals(expected, committed(file), "the committed metadata matches the classpath");
     }
 
     @Test
@@ -70,7 +73,7 @@ class Lsp4jNativeMetadataTest {
         for (String type : List.of("org.eclipse.lsp4j.InitializeParams", "org.eclipse.lsp4j.ServerCapabilities",
                 "org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage", "org.eclipse.lsp4j.services.TextDocumentService",
                 PoolLanguageClient.class.getName())) {
-            assertTrue(reflect.contains("\"name\":\"" + type + "\""), type);
+            assertTrue(reflect.contains("\"name\":\"" + type + "\""), "the reflect metadata covers the known type");
         }
     }
 

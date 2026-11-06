@@ -15,11 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -45,6 +47,7 @@ import de.planmarshall.core.store.DerivedFactKinds;
 import de.planmarshall.core.store.DerivedFactReading;
 import de.planmarshall.core.store.DerivedFactStore;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The derived facts store under the real {@link FileLockManager} (PM-IMPL-7; the guard of PM-WATCH-STORE-43): a
@@ -54,15 +57,16 @@ import de.planmarshall.core.store.LockKey;
  * The manager asserts the order within one transaction only, and {@code refresh} opens its own transaction, so no test
  * here claims to show the lock order; the place of the derived-facts lock in the total order is asserted by the pure
  * {@code LockOrder.check} of the pm-core {@code LockOrderTest}.
+ * <p>
+ * The instant, the project and plan ids, the input digest and the two derived values are generated. The literals that
+ * stay are the contract: the kind's JSON schema, the store's file name {@code derived-facts.json}, the derivation
+ * source {@code fixture} and the bounds of the latches and the test timeout.
  */
 @EnableGeneratorController
 @Timeout(value = 30, unit = TimeUnit.SECONDS)
 @DisplayName("Derived fact store lock")
 class DerivedFactStoreLockTest {
 
-    private static final Instant NOW = Instant.parse("2026-10-29T12:00:00Z");
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String DIGEST = "a".repeat(64);
     private static final String SCHEMA = "{\"type\":\"object\",\"required\":[\"name\"],"
             + "\"additionalProperties\":false,\"properties\":{\"name\":{\"type\":\"string\"}}}";
     private static final DerivedFactKey FIRST = new DerivedFactKey(DerivedFactKind.MODULE_DISCOVERY, null);
@@ -74,18 +78,30 @@ class DerivedFactStoreLockTest {
     private FileLockManager manager;
     private RecordingAuditSink auditSink;
     private DerivedFactStore store;
+    private Instant now;
+    private String project;
+    private String planId;
+    private String digest;
+    private String first;
+    private String second;
 
     @BeforeEach
     void createStore() throws IOException {
+        now = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
+        project = "project-" + Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+        planId = "plan-" + Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+        digest = RuntimeGenerators.sha256Digests().next();
+        first = Generators.letterStrings(1, 12).next();
+        second = first + "-" + Generators.letterStrings(1, 12).next();
         auditSink = new RecordingAuditSink();
         manager = new FileLockManager(auditSink);
-        var directory = base.resolve("projects").resolve(PROJECT);
+        var directory = base.resolve("projects").resolve(project);
         Files.createDirectories(directory);
         var kinds = new DerivedFactKinds();
         kinds.register(DerivedFactKind.MODULE_DISCOVERY, spec());
         kinds.register(DerivedFactKind.PUSH_REMOTE, spec());
         store = new DerivedFactStore(
-                new AtomicStoreFile(directory.resolve("derived-facts.json"), LockKey.derivedFacts(base, PROJECT)),
+                new AtomicStoreFile(directory.resolve("derived-facts.json"), LockKey.derivedFacts(base, project)),
                 manager, kinds);
     }
 
@@ -103,7 +119,6 @@ class DerivedFactStoreLockTest {
     }
 
     private static Derivation valueOf(String name) {
-        // "first" and "second" identify the entries in the assertions; they are the fixture's data.
         var value = payload(name);
         return () -> new Derived(value, "fixture", DerivedFact.DerivationClass.LOCAL);
     }
@@ -128,11 +143,11 @@ class DerivedFactStoreLockTest {
     @Test
     @DisplayName("a transaction holding a plan lock may refresh a fact (the refresh is permitted, not its order)")
     void planLockThenRefresh() {
-        var plan = LockKey.plan(base, PROJECT, "plan-one");
+        var plan = LockKey.plan(base, project, planId);
         try (var transaction = manager.openTransaction()) {
             transaction.acquire(plan);
 
-            var reading = store.refresh(FIRST, DIGEST, valueOf("first"), NOW);
+            var reading = store.refresh(FIRST, digest, valueOf(first), now);
 
             assertInstanceOf(DerivedFactReading.Value.class, reading, "A held plan lock permits the refresh");
         }
@@ -141,7 +156,7 @@ class DerivedFactStoreLockTest {
     @Test
     @DisplayName("a refresh under a held plan lock overlaps one of the same key without deadlock or violation")
     void planLockAndConcurrentRefresh() throws Exception {
-        var plan = LockKey.plan(base, PROJECT, "plan-one");
+        var plan = LockKey.plan(base, project, planId);
         var planAcquired = new CountDownLatch(1);
         var firstDerivation = new CountDownLatch(1);
         var secondDerivation = new CountDownLatch(1);
@@ -152,21 +167,21 @@ class DerivedFactStoreLockTest {
                 try (var transaction = manager.openTransaction()) {
                     transaction.acquire(plan);
                     planAcquired.countDown();
-                    firstResult.set(store.refresh(FIRST, DIGEST, () -> {
+                    firstResult.set(store.refresh(FIRST, digest, () -> {
                         firstDerivation.countDown();
                         await(secondDerivation);
-                        return new Derived(payload("first"), "fixture", DerivedFact.DerivationClass.LOCAL);
-                    }, NOW));
+                        return new Derived(payload(first), "fixture", DerivedFact.DerivationClass.LOCAL);
+                    }, now));
                 }
                 return null;
             });
             var secondRun = executor.submit(() -> {
                 await(planAcquired);
-                secondResult.set(store.refresh(FIRST, DIGEST, () -> {
+                secondResult.set(store.refresh(FIRST, digest, () -> {
                     secondDerivation.countDown();
                     await(firstDerivation);
-                    return new Derived(payload("second"), "fixture", DerivedFact.DerivationClass.LOCAL);
-                }, NOW.plusSeconds(1)));
+                    return new Derived(payload(second), "fixture", DerivedFact.DerivationClass.LOCAL);
+                }, now.plusSeconds(1)));
                 return null;
             });
             firstRun.get();
@@ -174,7 +189,7 @@ class DerivedFactStoreLockTest {
         }
 
         var stored = store.fact(FIRST).orElseThrow();
-        var expectedDerivedAt = payload("second").equals(stored.value()) ? NOW.plusSeconds(1) : NOW;
+        var expectedDerivedAt = payload(second).equals(stored.value()) ? now.plusSeconds(1) : now;
         var violations = auditSink.events().stream()
                 .filter(event -> AuditEvent.LOCK_ORDER_VIOLATION.equals(event.event()))
                 .toList();
@@ -183,7 +198,7 @@ class DerivedFactStoreLockTest {
                         "The refresh under the plan lock returns a value"),
                 () -> assertInstanceOf(DerivedFactReading.Value.class, secondResult.get(),
                         "The concurrent refresh returns a value"),
-                () -> assertTrue(payload("first").equals(stored.value()) || payload("second").equals(stored.value()),
+                () -> assertTrue(payload(first).equals(stored.value()) || payload(second).equals(stored.value()),
                         "The stored entry is one of the two results"),
                 () -> assertEquals(expectedDerivedAt, stored.derivedAt(),
                         "The stored instant belongs to the stored value"),
@@ -205,8 +220,8 @@ class DerivedFactStoreLockTest {
     @DisplayName("two threads refreshing two keys at once lose no update")
     void twoKeysAtOnce() throws Exception {
         runConcurrently(
-                () -> store.refresh(FIRST, DIGEST, valueOf("first"), NOW),
-                () -> store.refresh(SECOND, DIGEST, valueOf("second"), NOW));
+                () -> store.refresh(FIRST, digest, valueOf(first), now),
+                () -> store.refresh(SECOND, digest, valueOf(second), now));
 
         var facts = store.snapshot().facts();
         assertAll(
