@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -32,6 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,7 +61,12 @@ import de.planmarshall.runtime.test.TestBases;
  * A matched control makes the pass non-vacuous: after a start on a seeded base no seeded file has been read (step 4
  * reads no project file), shown by the access times of the seeded files, while a file read on purpose afterwards
  * does show the read.
+ * <p>
+ * The populations, run counts and tolerances are the parameters of the measurement, not test data. The project ids,
+ * project roots and the times of the seeded files are generated; the file names and keys of the seeded files are the
+ * layout of the base.
  */
+@EnableGeneratorController
 @Timeout(value = 300, unit = TimeUnit.SECONDS)
 @DisplayName("JVM cold start of startup steps 1 to 5")
 class StartupColdStartIT {
@@ -85,9 +93,16 @@ class StartupColdStartIT {
 
     private static final String USER = System.getProperty("user.name");
 
-    /** The modification time of the seeded files; their access time lies before it, so a read advances it. */
-    private static final Instant SEEDED_MODIFIED = Instant.now().minus(Duration.ofHours(1));
-    private static final Instant SEEDED_ACCESSED = SEEDED_MODIFIED.minus(Duration.ofHours(1));
+    /** The generated modification time of the seeded files, an hour to a day in the past. */
+    private final Instant seededModified = Instant.now()
+            .minus(Duration.ofMinutes(Generators.integers(60, 1_440).next()));
+
+    /** The generated access time of the seeded files; it lies before their modification, so a read advances it. */
+    private final Instant seededAccessed = seededModified
+            .minus(Duration.ofMinutes(Generators.integers(1, 1_440).next()));
+
+    /** The generated directory below which the seeded projects have their roots. */
+    private final String workDirectory = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     private final List<Path> bases = new ArrayList<>();
 
@@ -117,9 +132,11 @@ class StartupColdStartIT {
         directories.add(enrolments);
         var seeded = new ArrayList<Path>();
         for (var i = 0; i < projects; i++) {
-            var projectId = "project-%03d".formatted(i);
+            // The index keeps the generated ids of one base distinct
+            var projectId = "%s-%03d".formatted(Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT), i);
+            // Contract literals: the file name, the keys of an enrolment and the per-project store layout of the base
             seeded.add(writeSettled(enrolments.resolve(projectId + ".json"),
-                    "{\"project_id\":\"" + projectId + "\",\"root\":\"/work/" + projectId + "\"}"));
+                    "{\"project_id\":\"" + projectId + "\",\"root\":\"/" + workDirectory + "/" + projectId + "\"}"));
             var store = Files.createDirectories(base.resolve("projects").resolve(projectId));
             directories.add(store);
             seeded.add(writeSettled(store.resolve("store.json"), "{\"project_id\":\"" + projectId + "\"}"));
@@ -137,14 +154,14 @@ class StartupColdStartIT {
     /**
      * Writes a seeded file, sets its times so that a later read shows, and forces content and metadata to disk once.
      */
-    private static Path writeSettled(Path file, String content) throws IOException {
+    private Path writeSettled(Path file, String content) throws IOException {
         try (var channel = FileChannel.open(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             var buffer = ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8));
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
             }
             Files.getFileAttributeView(file, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
-                    .setTimes(FileTime.from(SEEDED_MODIFIED), FileTime.from(SEEDED_ACCESSED), null);
+                    .setTimes(FileTime.from(seededModified), FileTime.from(seededAccessed), null);
             channel.force(true);
         }
         return file;
@@ -162,11 +179,13 @@ class StartupColdStartIT {
         var sequence = new StartupSequence(new MachinePaths(base, MachinePaths.Os.current()), USER,
                 AuditChainVerification.NONE, _ -> {
                 });
+        // The SecureRandom is the entropy source the startup needs to create its token, not test data
         var random = new SecureRandom();
         var started = System.nanoTime();
         var outcome = sequence.run(random);
         var elapsed = System.nanoTime() - started;
-        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, outcome, () -> "base " + base);
+        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, outcome,
+                "steps 1 to 5 must reach ready on every base");
         ready.lock().close();
         return elapsed;
     }
@@ -210,9 +229,9 @@ class StartupColdStartIT {
                 TimeUnit.NANOSECONDS.toMicros(verdict.emptyQuartile()), NO_PROJECTS,
                 TimeUnit.NANOSECONDS.toMicros(verdict.seededQuartile()), SEEDED_PROJECTS,
                 TimeUnit.NANOSECONDS.toMicros(verdict.allowed()));
+        LOGGER.info("JVM cold start, steps 1 to 5, verdict: %s", verdict.describe(NO_PROJECTS, SEEDED_PROJECTS));
 
-        assertTrue(verdict.agrees(), () -> "the cold start grows with the enrolled projects: "
-                + verdict.describe(NO_PROJECTS, SEEDED_PROJECTS));
+        assertTrue(verdict.agrees(), "the cold start must not grow with the projects");
     }
 
     @Test
@@ -237,8 +256,8 @@ class StartupColdStartIT {
 
         assertAll(
                 () -> assertEquals(2 * SEEDED_PROJECTS, seededFiles.size(), "an enrolment and a store per project"),
-                () -> assertEquals(List.of(), readAfterStart, "seeded files read by steps 1 to 5"),
-                () -> assertTrue(accessed(control).isAfter(SEEDED_ACCESSED),
-                        "the file system records a read, so an unread file is evidence"));
+                () -> assertEquals(List.of(), readAfterStart, "steps 1 to 5 must read no seeded file"),
+                () -> assertTrue(accessed(control).isAfter(seededAccessed),
+                        "the file system must record the read of the control"));
     }
 }

@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,13 +50,26 @@ import de.planmarshall.runtime.test.TestBases;
  * The implemented recovery steps after a runtime killed with {@code SIGKILL} in the middle of the work each step
  * recovers (PM-ARCH-7). The killed runtime is a child JVM of {@link KilledRuntimeFixture}; the step of the next
  * runtime instance runs in this JVM on the same {@code PM_MCP_BASE}.
+ * <p>
+ * The modes, projects, plans, slot keys and the content written are the protocol with the child
+ * ({@link RuntimeChildProcess}); the counts in the reports and the names of the audit records are the specified
+ * outcome format of the steps. The instant of the lease step is generated.
  */
+@EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("Recovery steps with a killed runtime")
 class RecoveryStepsKilledRuntimeIT {
 
-    private static final Instant NOW = Instant.parse("2026-10-11T12:00:00Z");
+    /** Contract literals of the child-process protocol: the slot keys the child of mode leases claims. */
+    private static final List<String> CHILD_SLOT_KEYS = List.of("slot-a", "slot-b");
 
+    /** Contract literal: the wire name of the audit record of a rolled-forward transaction. */
+    private static final String ROLLED_FORWARD = "transaction_rolled_forward";
+
+    /** Contract literal: the wire name of the audit record of an applied reconciliation. */
+    private static final String RECONCILED = "cross_scope_reconciled";
+
+    private final Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
     private final RecordingAuditSink auditSink = new RecordingAuditSink();
 
@@ -63,6 +78,7 @@ class RecoveryStepsKilledRuntimeIT {
 
     @BeforeEach
     void createBase() throws IOException {
+        // A fixture argument, the prefix of the base directory, not test data
         base = Files.createDirectory(TestBases.create("pms"));
         lockManager = new FileLockManager(auditSink);
     }
@@ -90,16 +106,19 @@ class RecoveryStepsKilledRuntimeIT {
         var before = store.snapshot();
 
         var outcome = new LeaseRecoveryStep(List.of(store), LeaseRecoveryStep.AbandonmentEvidence.NONE,
-                Clock.fixed(NOW, ZoneOffset.UTC)).run(PROJECT_A);
+                Clock.fixed(now, ZoneOffset.UTC)).run(PROJECT_A);
 
         var after = store.snapshot();
-        var report = assertInstanceOf(Outcome.Done.class, outcome).report();
+        var report = assertInstanceOf(Outcome.Done.class, outcome, "the lease step must be done").report();
         assertAll(
-                () -> assertEquals(List.of("slot-a", "slot-b"), after.stream().map(LeaseRecord::key).toList()),
-                () -> assertEquals(NOW, after.get(0).owner().orphanedAt(), "lease of the project orphaned"),
-                () -> assertEquals(before.get(1), after.get(1), "lease of the other project unchanged"),
-                () -> assertFalse(after.get(1).owner().isOrphaned()),
-                () -> assertTrue(report.contains("0 kept, 1 orphaned, 0 removed"), report));
+                () -> assertEquals(CHILD_SLOT_KEYS, after.stream().map(LeaseRecord::key).toList(),
+                        "both leases of the killed runtime must stay"),
+                () -> assertEquals(now, after.get(0).owner().orphanedAt(), "the lease of the project is orphaned"),
+                () -> assertEquals(before.get(1), after.get(1), "the lease of the other project is unchanged"),
+                () -> assertFalse(after.get(1).owner().isOrphaned(), "the other lease must not be orphaned"),
+                // Contract literal: the specified counts of the report of the lease step
+                () -> assertTrue(report.contains("0 kept, 1 orphaned, 0 removed"),
+                        "the report must count the orphaned lease"));
     }
 
     @Test
@@ -115,15 +134,20 @@ class RecoveryStepsKilledRuntimeIT {
         var storeAfterFirst = Files.readAllBytes(scope.resolve(STORE));
         var second = step.run(PROJECT_A);
 
-        var report = assertInstanceOf(Outcome.Done.class, first).report();
+        var report = assertInstanceOf(Outcome.Done.class, first, "the first run of the step must be done").report();
         assertAll(
                 () -> assertTrue(journalLeft, "the killed runtime left its journal"),
                 () -> assertFalse(storeLeft, "the killed runtime did not rename"),
-                () -> assertTrue(report.startsWith("plan " + ROLLED_PLAN + ": rolled forward"), report),
-                () -> assertArrayEquals(WRITTEN, storeAfterFirst),
-                () -> assertEquals(new Outcome.Done("plan " + ROLLED_PLAN + ": nothing to recover"), second),
-                () -> assertArrayEquals(storeAfterFirst, Files.readAllBytes(scope.resolve(STORE)), "unchanged"),
-                () -> assertEquals(List.of("transaction_rolled_forward"), auditSink.eventNames()));
+                // Contract literals: the specified reports of the roll-forward step
+                () -> assertTrue(report.startsWith("plan " + ROLLED_PLAN + ": rolled forward"),
+                        "the first run must roll the transaction forward"),
+                () -> assertArrayEquals(WRITTEN, storeAfterFirst, "the store must hold the content of the child"),
+                () -> assertEquals(new Outcome.Done("plan " + ROLLED_PLAN + ": nothing to recover"), second,
+                        "the second run must find nothing to recover"),
+                () -> assertArrayEquals(storeAfterFirst, Files.readAllBytes(scope.resolve(STORE)),
+                        "the second run must leave the store unchanged"),
+                () -> assertEquals(List.of(ROLLED_FORWARD), auditSink.eventNames(),
+                        "exactly one roll-forward record is handed over"));
     }
 
     @Test
@@ -140,12 +164,17 @@ class RecoveryStepsKilledRuntimeIT {
         var second = step.run(PROJECT_A);
 
         assertAll(
-                () -> assertArrayEquals(WRITTEN, Files.readAllBytes(authoritative.resolve(STORE))),
+                () -> assertArrayEquals(WRITTEN, Files.readAllBytes(authoritative.resolve(STORE)),
+                        "the killed runtime wrote the authoritative store"),
                 () -> assertFalse(derivedLeft, "the killed runtime did not write the derived store"),
-                () -> assertTrue(assertInstanceOf(Outcome.Done.class, first).report()
-                        .startsWith("1 reconciliations applied"), first::toString),
-                () -> assertArrayEquals(WRITTEN, Files.readAllBytes(derived.resolve(STORE))),
-                () -> assertEquals(new Outcome.Done("no reconciliation applied"), second),
-                () -> assertEquals(List.of("cross_scope_reconciled"), auditSink.eventNames()));
+                // Contract literals: the specified reports of the reconciliation step
+                () -> assertTrue(assertInstanceOf(Outcome.Done.class, first, "the first run must be done").report()
+                        .startsWith("1 reconciliations applied"), "the first run must apply one reconciliation"),
+                () -> assertArrayEquals(WRITTEN, Files.readAllBytes(derived.resolve(STORE)),
+                        "the derived store must hold the written content"),
+                () -> assertEquals(new Outcome.Done("no reconciliation applied"), second,
+                        "the second run must apply no reconciliation"),
+                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(),
+                        "exactly one reconciliation record is handed over"));
     }
 }
