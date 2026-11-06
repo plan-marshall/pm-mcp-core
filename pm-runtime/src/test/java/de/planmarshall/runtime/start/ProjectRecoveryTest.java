@@ -236,7 +236,7 @@ class ProjectRecoveryTest {
                             outcome.steps().stream().map(StepResult::name).toList(),
                             "the outcome must list every step in order"),
                     () -> assertEquals(new StepResult(Name.OWED_ENROLMENT_AUDIT,
-                            new Outcome.Done(RecoveryStep.NOT_IMPLEMENTED)), outcome.steps().get(1),
+                                    new Outcome.Done(RecoveryStep.NOT_IMPLEMENTED)), outcome.steps().get(1),
                             "the missing step must be a seam"));
         }
 
@@ -329,7 +329,7 @@ class ProjectRecoveryTest {
         @Test
         @DisplayName("the project recovery wait is 10 seconds (the specified bound)")
         void shouldWaitTenSeconds() {
-            assertEquals(Duration.ofSeconds(10), ProjectRecovery.RECOVERY_WAIT,
+            assertEquals(ProjectRecovery.RECOVERY_WAIT, Duration.ofSeconds(10),
                     "the recovery wait must be the specified bound");
         }
 
@@ -631,7 +631,7 @@ class ProjectRecoveryTest {
                             "the tampered project must stop at step 1"),
                     () -> assertFalse(owingOutcome.failed(), "the owing project must not fail"),
                     () -> assertEquals(new StepResult(Name.OWED_ENROLMENT_AUDIT,
-                            new Outcome.Done("1 owed audit records handed over")), owingOutcome.steps().get(1),
+                                    new Outcome.Done("1 owed audit records handed over")), owingOutcome.steps().get(1),
                             "the owing project must hand over in step 2"),
                     () -> assertFalse(Files.exists(fixture.store.auditIntent(owing)),
                             "the owed intent must be gone"),
@@ -691,8 +691,8 @@ class ProjectRecoveryTest {
                             cleanOutcome.steps().stream().map(StepResult::name).toList(),
                             "the outcome must list every step in order"),
                     () -> assertEquals(new StepResult(Name.JOBS_AND_WORKERS, new Outcome.Done(
-                            "1 jobs settled killed {QUEUED=1}, 0 groups terminated; worker part of 0 workers "
-                                    + RecoveryStep.NOT_IMPLEMENTED)), cleanOutcome.steps().get(2),
+                                    "1 jobs settled killed {QUEUED=1}, 0 groups terminated; worker part of 0 workers "
+                                            + RecoveryStep.NOT_IMPLEMENTED)), cleanOutcome.steps().get(2),
                             "the jobs step must settle the queued job"),
                     () -> assertEquals(List.of(Name.ENROLMENT_INTEGRITY, Name.OWED_ENROLMENT_AUDIT),
                             cleanOutcome.steps().subList(0, 2).stream().map(StepResult::name).toList(),

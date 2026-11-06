@@ -122,7 +122,7 @@ class ServiceManagerTest {
 
             assertAll(
                     () -> assertTrue(thrown.getMessage().startsWith(
-                            "Command 'launchctl bootout gui/" + uid + "/" + LABEL + "' exited with " + exitCode),
+                                    "Command 'launchctl bootout gui/" + uid + "/" + LABEL + "' exited with " + exitCode),
                             "the failure must name the bootout command"),
                     () -> assertEquals(List.of(bootout), call.commands(), "no bootstrap after a failing bootout"));
         }
@@ -256,7 +256,7 @@ class ServiceManagerTest {
 
             assertAll(
                     () -> assertTrue(thrown.getMessage().startsWith(
-                            "Command 'systemctl --user stop " + UNIT + "' exited with " + exitCode),
+                                    "Command 'systemctl --user stop " + UNIT + "' exited with " + exitCode),
                             "the failure must name the stop command"),
                     () -> assertEquals(List.of(STOP), call.commands(), "no reload after a failing stop"));
         }

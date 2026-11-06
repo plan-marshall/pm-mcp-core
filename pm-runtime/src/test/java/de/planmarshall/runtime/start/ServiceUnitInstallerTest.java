@@ -810,7 +810,7 @@ class ServiceUnitInstallerTest {
 
             assertAll(
                     () -> assertTrue(thrown.getMessage().startsWith(
-                            "Command 'systemctl --user disable pm-mcpd.service' exited with " + exitCode),
+                                    "Command 'systemctl --user disable pm-mcpd.service' exited with " + exitCode),
                             "the failure must name the disable command"),
                     () -> assertFalse(unit.exists(), "the unit must be removed all the same"),
                     () -> assertEquals(List.of(DISABLE, STOP, DAEMON_RELOAD), call.commands(),

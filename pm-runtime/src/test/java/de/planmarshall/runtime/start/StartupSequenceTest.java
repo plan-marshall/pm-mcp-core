@@ -127,10 +127,10 @@ class StartupSequenceTest {
                         () -> assertEquals(TOKEN_LENGTH, Files.readString(paths.runtimeToken()).length(),
                                 "the token must be written"),
                         () -> assertEquals(List.of(new AuditEvent(StartupSequence.AUDIT_CHAIN_BROKEN,
-                                StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
-                                Map.of(StartupSequence.DETAIL_REASON, LINK_BROKEN_REASON,
-                                        StartupSequence.DETAIL_FIRST_BROKEN_LINE, firstBrokenLine,
-                                        StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records,
+                                        StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
+                                        Map.of(StartupSequence.DETAIL_REASON, LINK_BROKEN_REASON,
+                                                StartupSequence.DETAIL_FIRST_BROKEN_LINE, firstBrokenLine,
+                                                StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records,
                                 "exactly one audit_chain_broken record"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.AUDIT_CHAIN_BROKEN.resolveIdentifierString()),
@@ -164,8 +164,8 @@ class StartupSequenceTest {
                                 "first broken line " + line + "): " + file + " line " + line
                                         + " does not parse; the start goes on"),
                         () -> assertEquals(Map.of(StartupSequence.DETAIL_REASON, LINK_BROKEN_REASON,
-                                StartupSequence.DETAIL_FIRST_BROKEN_LINE, line,
-                                StartupSequence.DETAIL_OS_PRINCIPAL, USER), records.getFirst().details(),
+                                        StartupSequence.DETAIL_FIRST_BROKEN_LINE, line,
+                                        StartupSequence.DETAIL_OS_PRINCIPAL, USER), records.getFirst().details(),
                                 "the record must carry no file"));
             }
         }
@@ -184,9 +184,9 @@ class StartupSequenceTest {
                 assertAll(
                         () -> assertEquals(broken, ready.verification(), "the outcome must carry the break"),
                         () -> assertEquals(List.of(new AuditEvent(StartupSequence.AUDIT_CHAIN_BROKEN,
-                                StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
-                                Map.of(StartupSequence.DETAIL_REASON, reason.wireName(),
-                                        StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records,
+                                        StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
+                                        Map.of(StartupSequence.DETAIL_REASON, reason.wireName(),
+                                                StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records,
                                 "the record must carry no first broken line"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.AUDIT_CHAIN_BROKEN.resolveIdentifierString()),
@@ -314,7 +314,7 @@ class StartupSequenceTest {
 
                 // A read of the unreadable enrolment file or a walk of the closed projects directory would throw
                 try (var _ = assertInstanceOf(StartupSequence.Outcome.Ready.class, outcome,
-                        "the start must not read the stores").lock()) {
+                             "the start must not read the stores").lock()) {
                     assertAll(
                             () -> assertEquals(Set.of(), Files.getPosixFilePermissions(enrolment),
                                     "the enrolment file must stay closed"),

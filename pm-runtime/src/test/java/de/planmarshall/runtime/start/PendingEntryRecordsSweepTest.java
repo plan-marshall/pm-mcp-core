@@ -174,7 +174,7 @@ class PendingEntryRecordsSweepTest {
                         "the audit record must be pending_entry_removed"),
                 // Contract literals: the detail keys of pending_entry_removed and the store path prefix
                 () -> assertEquals(Map.of("entry_id", oldEntry.value(), "store", "pending/" + oldEntry.fileName(),
-                        "created_at", old.toString()), withoutTransaction(removals.getFirst().details()),
+                                "created_at", old.toString()), withoutTransaction(removals.getFirst().details()),
                         "the audit record must name the removed record"),
                 () -> assertTrue(removals.getFirst().details().containsKey("transaction_id"),
                         "the audit record must carry a transaction_id"),
@@ -342,7 +342,7 @@ class PendingEntryRecordsSweepTest {
 
         assertAll(
                 () -> assertTrue(assertInstanceOf(Outcome.Failed.class, outcome, "a journal to recover fails the step")
-                        .reason().startsWith("pending entry records not swept: "),
+                                .reason().startsWith("pending entry records not swept: "),
                         "the report must say that nothing was swept"),
                 () -> assertTrue(store.read(oldEntry).isPresent(), "the record is kept"),
                 PendingEntryRecordsSweepTest::assertNothingSweptLogged);

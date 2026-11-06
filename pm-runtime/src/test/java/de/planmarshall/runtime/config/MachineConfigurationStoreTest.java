@@ -189,10 +189,10 @@ class MachineConfigurationStoreTest {
                 () -> assertEquals(defaults(), read.providers(), "the written defaults must be read back"),
                 () -> assertEquals(1L, read.revision(), "a created document is at revision 1"),
                 () -> assertTrue(written.contains("\"max_build_slots\":"
-                        + MachineConfigurationCodec.DEFAULT_MAX_BUILD_SLOTS),
+                                + MachineConfigurationCodec.DEFAULT_MAX_BUILD_SLOTS),
                         "the build slot limit takes its schema default"),
                 () -> assertTrue(written.contains("\"lsp_idle_timeout_seconds\":"
-                        + MachineConfigurationCodec.DEFAULT_LSP_IDLE_TIMEOUT_SECONDS),
+                                + MachineConfigurationCodec.DEFAULT_LSP_IDLE_TIMEOUT_SECONDS),
                         "the LSP idle timeout takes its schema default"));
     }
 

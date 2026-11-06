@@ -351,7 +351,7 @@ class JobRecoveryStepTest {
 
             assertAll(
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM),
-                            new Call(true, pid, Signal.PROBE)), signals.calls,
+                                    new Call(true, pid, Signal.PROBE)), signals.calls,
                             "the group must be probed, terminated, probed"),
                     () -> assertKilled(read(job), Signal.SIGTERM.name()),
                     () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job), "the job must match rule (d)"),
@@ -401,7 +401,7 @@ class JobRecoveryStepTest {
 
             assertAll(
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM),
-                            new Call(true, pid, Signal.PROBE)), signals.calls,
+                                    new Call(true, pid, Signal.PROBE)), signals.calls,
                             "the group must be probed, terminated, probed"),
                     () -> assertKilled(read(job), Signal.SIGTERM.name()),
                     () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job), "the job must match rule (d)"),
@@ -580,7 +580,7 @@ class JobRecoveryStepTest {
             var failed = assertInstanceOf(Outcome.Failed.class, outcome, "an unreleasable slot must fail the step");
             assertAll(
                     () -> assertTrue(failed.reason().startsWith("job " + job.jobId()
-                            + " was not settled, the settlement stopped at SLOT_RELEASE"),
+                                    + " was not settled, the settlement stopped at SLOT_RELEASE"),
                             "the reason must name the slot release"),
                     () -> assertKilled(read(job), RUNTIME_RESTART));
         }

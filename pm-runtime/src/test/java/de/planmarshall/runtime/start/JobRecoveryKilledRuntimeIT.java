@@ -157,7 +157,7 @@ class JobRecoveryKilledRuntimeIT {
                         "exactly one orphan note must be handed over"),
                 // Contract literal: the specified report of the step, its counts and the kind of evidence
                 () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith(
-                        "1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups terminated"),
+                                "1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups terminated"),
                         "the report must count one unidentifiable job"));
     }
 
@@ -202,7 +202,7 @@ class JobRecoveryKilledRuntimeIT {
                 () -> assertEquals(List.of(), auditSink.eventNames(), "no orphan note may be handed over"),
                 // Contract literal: the specified report of the step, its counts and the kind of evidence
                 () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith(
-                        "1 jobs settled killed {PROBED=1}, 1 groups terminated"),
+                                "1 jobs settled killed {PROBED=1}, 1 groups terminated"),
                         "the report must count one probed, terminated job"),
                 () -> assertTrue(signals.signalGroup(group, Signal.PROBE) instanceof NoSuchProcess
                         || awaitGroupEnd(group), "the group was terminated"));

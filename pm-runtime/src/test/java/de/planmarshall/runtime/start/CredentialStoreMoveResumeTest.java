@@ -227,7 +227,7 @@ class CredentialStoreMoveResumeTest {
                 () -> assertTrue(resumed.isEmpty(), "without a record nothing is resumed"),
                 () -> assertEquals(Optional.of(Store.OS), choice.recorded(), "the OS store must stay recorded"),
                 () -> assertEquals(SecretStore.ordered(Set.of(github, sonar)), osStore.entries().stream()
-                        .filter(account -> !EnrolmentKey.ACCOUNT.equals(account.account())).toList(),
+                                .filter(account -> !EnrolmentKey.ACCOUNT.equals(account.account())).toList(),
                         "the OS store must keep both of its entries"),
                 () -> assertTrue(fileStore.entries().isEmpty(), "the file store must stay empty"),
                 () -> assertTrue(movedEvents().isEmpty(), "no move audit record is appended"),
@@ -402,7 +402,7 @@ class CredentialStoreMoveResumeTest {
         private void assertRecorded(Optional<CredentialStoreMoveRecord> resumed, Phase phase, SecretKey key) {
             assertAll(
                     () -> assertEquals(Optional.of(new CredentialStoreMoveRecord(Store.OS, Store.FILE, started, phase,
-                            false, Operation.FIRST_RECORDING, transaction)), resumed,
+                                    false, Operation.FIRST_RECORDING, transaction)), resumed,
                             "the resume must return the record it ended"),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded(), "the file store must be recorded"),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded(),

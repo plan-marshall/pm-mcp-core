@@ -259,7 +259,7 @@ class RuntimeLogMessagesTest {
                 () -> assertTrue(all.stream().noneMatch(logRecord -> logRecord.getIdentifier() == 104),
                         "the identifier 104 must not be reused"),
                 () -> assertTrue(all.stream()
-                        .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves")),
+                                .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves")),
                         "the file-store fallback record must be gone"));
     }
 

@@ -174,7 +174,7 @@ class CrossScopeReconciliationStepTest {
                 () -> assertEquals(List.of(firstRule.name(), secondRule.name()), order,
                         "the reconcilers must run in their order"),
                 () -> assertEquals(new Outcome.Done("2 reconciliations applied: %s in %s, %s in %s".formatted(
-                        firstRule.name(), firstRule.store(), secondRule.name(), secondRule.store())), outcome,
+                                firstRule.name(), firstRule.store(), secondRule.name(), secondRule.store())), outcome,
                         "the outcome must name what each applied"));
     }
 

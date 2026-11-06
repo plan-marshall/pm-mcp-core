@@ -357,7 +357,7 @@ class EnrolmentIntegrityStepTest {
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()),
                     () -> assertTrue(TestLoggerFactory.getTestHandler()
-                            .resolveLogMessagesContaining(TestLogLevel.ERROR, keyText).isEmpty(),
+                                    .resolveLogMessagesContaining(TestLogLevel.ERROR, keyText).isEmpty(),
                             "the log must never carry the key"));
             assertOtherProjectStillDone();
         }
