@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serial;
@@ -27,6 +29,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -51,26 +54,36 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
  * and repairs a torn JSONL tail before it appends.
  * <p>
  * What a commit stopped between its steps leaves, and how the recovery completes it, is the subject of
- * {@link JournalRecoveryTest}.
+ * {@link JournalRecoveryTest}. The store file names of the plan scope, the layout below the workspace and the fixture
+ * paths outside the scope are contracts; the plan ids, the store contents, the rule name and the instant of the commits
+ * are generated. Targets added to one transaction stay in a deliberate order.
  */
+@EnableGeneratorController
 @DisplayName("Scope transaction")
 class ScopeTransactionTest {
 
     private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "store-substrate";
+
+    // Store file names of the plan scope (Store Schemas).
     private static final String STATUS = "status.json";
     private static final String REFERENCES = "references.json";
     private static final String WORK_LOG = "logs/work.jsonl";
-    private static final String OLD_STATUS = "{\"format_version\":1,\"phase\":\"4-plan\"}";
-    private static final String NEW_STATUS = "{\"format_version\":1,\"phase\":\"5-execute\"}";
-    private static final String NEW_REFERENCES = "{\"format_version\":1,\"files\":[]}";
-    private static final String FIRST = "{\"format_version\":1,\"n\":1}\n";
-    private static final String SECOND = "{\"format_version\":1,\"n\":2}\n";
-    private static final String TORN = "{\"format_version\":1,\"n\":";
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-10T12:00:00Z"), ZoneOffset.UTC);
+
+    // Fixture path of a file outside the scope.
+    private static final String OUTSIDE = "outside.json";
 
     @TempDir
     Path base;
+
+    private String plan;
+    private String anotherPlan;
+    private String oldStatus;
+    private String newStatus;
+    private String newReferences;
+    private String firstLine;
+    private String secondLine;
+    private String tornTail;
+    private Clock clock;
 
     private JournalScope scope;
     private RecordingLockManager locks;
@@ -78,11 +91,27 @@ class ScopeTransactionTest {
 
     @BeforeEach
     void createScope() throws IOException {
-        scope = JournalScope.plan(base, PROJECT, PLAN);
+        plan = "plan-" + lowerName();
+        anotherPlan = plan + "x";
+        var phase = lowerName();
+        oldStatus = "{\"format_version\":1,\"phase\":\"" + phase + "\"}";
+        newStatus = "{\"format_version\":1,\"phase\":\"" + phase + "-" + lowerName() + "\"}";
+        newReferences = "{\"format_version\":1,\"files\":[\"" + lowerName() + ".java\"]}";
+        var n = Generators.integers(1, 1000).next();
+        firstLine = "{\"format_version\":1,\"n\":" + n + "}\n";
+        secondLine = "{\"format_version\":1,\"n\":" + (n + 1) + "}\n";
+        tornTail = "{\"format_version\":1,\"text\":\"" + lowerName();
+        clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next()),
+                ZoneOffset.UTC);
+        scope = JournalScope.plan(base, PROJECT, plan);
         Files.createDirectories(scope.journalFile().getParent());
         Files.createDirectories(scope.resolve(WORK_LOG).getParent());
         locks = new RecordingLockManager();
         audit = new RecordingAuditSink();
+    }
+
+    private static String lowerName() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     private static byte[] bytes(String... parts) {
@@ -94,7 +123,7 @@ class ScopeTransactionTest {
     }
 
     private ScopeTransaction openUnder(LockTransaction transaction) {
-        return ScopeTransaction.open(transaction, scope, audit, CLOCK);
+        return ScopeTransaction.open(transaction, scope, audit, clock);
     }
 
     private DigestSidecar sidecar() {
@@ -116,8 +145,6 @@ class ScopeTransactionTest {
     @DisplayName("owed records")
     class OwedRecords {
 
-        private static final String RULE = "rule";
-
         private static Object idOf(AuditEvent event) {
             return event.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
         }
@@ -125,27 +152,29 @@ class ScopeTransactionTest {
         @Test
         @DisplayName("two records owed by one transaction carry two ids, both distinct from the transaction's own")
         void distinctIds() {
+            var rule = lowerName();
             String transactionId;
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
-                write.owe(AuditEvent.crossScopeReconciled(RULE, STATUS, write.recordId().value()));
-                write.owe(AuditEvent.crossScopeReconciled(RULE, REFERENCES, write.recordId().value()));
+                write.replace(STATUS, bytes(newStatus));
+                write.owe(AuditEvent.crossScopeReconciled(rule, STATUS, write.recordId().value()));
+                write.owe(AuditEvent.crossScopeReconciled(rule, REFERENCES, write.recordId().value()));
                 transactionId = write.transactionId().value();
                 write.commit();
             }
 
             var ids = audit.events().stream().map(OwedRecords::idOf).toList();
             assertAll(
-                    () -> assertEquals(2, ids.size()),
-                    () -> assertEquals(2, ids.stream().distinct().count(), "each record has its own id"),
-                    () -> assertFalse(ids.contains(transactionId), "no record carries the transaction's id"));
+                    () -> assertEquals(2, ids.size(), "both owed records should be delivered"),
+                    () -> assertEquals(2, ids.stream().distinct().count(), "each record should have its own id"),
+                    () -> assertFalse(ids.contains(transactionId), "no record should carry the transaction id"));
         }
 
         @Test
         @DisplayName("a crash after the journal re-delivers each owed record with its own id")
         void crashAfterJournal() {
+            var rule = lowerName();
             List<String> owedIds;
             String transactionId;
             try (var transaction = locks.openTransaction()) {
@@ -155,13 +184,14 @@ class ScopeTransactionTest {
                         throw new FailingAuditSink.ProcessStopped();
                     }
                 };
-                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, stop);
-                write.replace(STATUS, bytes(NEW_STATUS));
+                var write = ScopeTransaction.open(transaction, scope, audit, clock, stop);
+                write.replace(STATUS, bytes(newStatus));
                 owedIds = List.of(write.recordId().value(), write.recordId().value());
-                write.owe(AuditEvent.crossScopeReconciled(RULE, STATUS, owedIds.get(0)));
-                write.owe(AuditEvent.crossScopeReconciled(RULE, REFERENCES, owedIds.get(1)));
+                write.owe(AuditEvent.crossScopeReconciled(rule, STATUS, owedIds.get(0)));
+                write.owe(AuditEvent.crossScopeReconciled(rule, REFERENCES, owedIds.get(1)));
                 transactionId = write.transactionId().value();
-                assertThrows(FailingAuditSink.ProcessStopped.class, write::commit);
+                assertThrows(FailingAuditSink.ProcessStopped.class, write::commit,
+                        "the hook should stop the commit");
             }
 
             try (var transaction = locks.openTransaction()) {
@@ -176,9 +206,9 @@ class ScopeTransactionTest {
                     .filter(event -> AuditEvent.TRANSACTION_ROLLED_FORWARD.equals(event.event()))
                     .map(OwedRecords::idOf).toList();
             assertAll(
-                    () -> assertEquals(owedIds, reconciled, "each record re-delivered with the id it was owed with"),
+                    () -> assertEquals(owedIds, reconciled, "each record should keep the id it was owed"),
                     () -> assertEquals(List.of(transactionId), rolledForward,
-                            "the roll-forward record carries the transaction's id"));
+                            "the roll-forward should carry the transaction id"));
         }
     }
 
@@ -189,31 +219,34 @@ class ScopeTransactionTest {
         @Test
         @DisplayName("two replaces and one append leave the stores, their digests, no journal and no staged file")
         void replacesAndAppend() throws Exception {
-            Files.write(store(STATUS), bytes(OLD_STATUS));
-            Files.write(store(WORK_LOG), bytes(FIRST));
+            Files.write(store(STATUS), bytes(oldStatus));
+            Files.write(store(WORK_LOG), bytes(firstLine));
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
-                write.replace(REFERENCES, bytes(NEW_REFERENCES));
-                write.append(WORK_LOG, bytes(SECOND));
+                write.replace(STATUS, bytes(newStatus));
+                write.replace(REFERENCES, bytes(newReferences));
+                write.append(WORK_LOG, bytes(secondLine));
                 write.commit();
             }
 
             var expectedSidecar = DigestSidecar.of(Map.of(
-                    STATUS, StoreDigest.of(bytes(NEW_STATUS)),
-                    REFERENCES, StoreDigest.of(bytes(NEW_REFERENCES)),
-                    WORK_LOG, StoreDigest.of(bytes(FIRST, SECOND))));
+                    STATUS, StoreDigest.of(bytes(newStatus)),
+                    REFERENCES, StoreDigest.of(bytes(newReferences)),
+                    WORK_LOG, StoreDigest.of(bytes(firstLine, secondLine))));
             assertAll(
-                    () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS))),
-                    () -> assertArrayEquals(bytes(NEW_REFERENCES), Files.readAllBytes(store(REFERENCES))),
-                    () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store(WORK_LOG)),
-                            "the block appended once, earlier records kept"),
-                    () -> assertEquals(expectedSidecar, sidecar()),
-                    () -> assertArrayEquals(expectedSidecar.write(), Files.readAllBytes(scope.sidecarFile())),
-                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
-                    () -> assertEquals(List.of(), stagedFiles(), "no staged file remains"));
+                    () -> assertArrayEquals(bytes(newStatus), Files.readAllBytes(store(STATUS)),
+                            "the status should hold the new content"),
+                    () -> assertArrayEquals(bytes(newReferences), Files.readAllBytes(store(REFERENCES)),
+                            "the references should hold the new content"),
+                    () -> assertArrayEquals(bytes(firstLine, secondLine), Files.readAllBytes(store(WORK_LOG)),
+                            "the block should be appended once after the old"),
+                    () -> assertEquals(expectedSidecar, sidecar(), "the sidecar should hold every digest"),
+                    () -> assertArrayEquals(expectedSidecar.write(), Files.readAllBytes(scope.sidecarFile()),
+                            "the sidecar file should hold its wire form"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
 
         /** Matched control of the roll-forward: a commit that is not stopped has nothing rolled forward. */
@@ -223,48 +256,51 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
-                write.append(WORK_LOG, bytes(FIRST));
+                write.replace(STATUS, bytes(newStatus));
+                write.append(WORK_LOG, bytes(firstLine));
                 write.commit();
 
                 var outcome = JournalRecovery.recover(transaction, scope, audit);
 
                 assertAll(
-                        () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome),
+                        () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome,
+                                "there should be nothing to recover"),
                         () -> assertEquals(List.of(), audit.events().stream().map(AuditEvent::event)
-                                .filter(AuditEvent.TRANSACTION_ROLLED_FORWARD::equals).toList()),
-                        () -> assertEquals(List.of(), audit.events()));
+                                        .filter(AuditEvent.TRANSACTION_ROLLED_FORWARD::equals).toList(),
+                                "no roll-forward should be recorded"),
+                        () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
             }
         }
 
         @Test
         @DisplayName("the digests of the stores the transaction does not write stay in the sidecar")
         void otherDigestsKept() {
-            var other = StoreDigest.of(bytes(OLD_STATUS));
+            var otherStore = lowerName() + ".json";
+            var other = StoreDigest.of(bytes(oldStatus));
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 new AtomicStoreFile(scope.sidecarFile(), scope.lockKey()).write(transaction,
-                        DigestSidecar.of(Map.of("other.json", other)).write());
+                        DigestSidecar.of(Map.of(otherStore, other)).write());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
+                write.replace(STATUS, bytes(newStatus));
                 write.commit();
             }
 
-            assertEquals(DigestSidecar.of(Map.of("other.json", other, STATUS, StoreDigest.of(bytes(NEW_STATUS)))),
-                    sidecar());
+            assertEquals(DigestSidecar.of(Map.of(otherStore, other, STATUS, StoreDigest.of(bytes(newStatus)))),
+                    sidecar(), "the digest of the other store should stay");
         }
 
         @Test
         @DisplayName("the digests of a transaction are written over a temporary sidecar its stopped write left")
         void digestsOverLeftoverTemporary() throws Exception {
-            var transactionId = TransactionId.generate(CLOCK);
-            var journal = new TransactionJournal(transactionId, JournalScopeType.PLAN, PLAN, CLOCK.instant(),
+            var transactionId = TransactionId.generate(clock);
+            var journal = new TransactionJournal(transactionId, JournalScopeType.PLAN, plan, clock.instant(),
                     List.of(new TransactionJournal.Target(STATUS, TransactionJournal.Mode.REPLACE,
                             transactionId.stagedName(STATUS, TransactionJournal.Mode.REPLACE),
-                            OptionalLong.empty(), StoreDigest.of(bytes(NEW_STATUS)))));
+                            OptionalLong.empty(), StoreDigest.of(bytes(newStatus)))));
             var leftover = scope.sidecarFile().resolveSibling(transactionId.stagedName(
                     scope.sidecarFile().getFileName().toString(), TransactionJournal.Mode.REPLACE));
-            Files.write(leftover, bytes(OLD_STATUS));
+            Files.write(leftover, bytes(oldStatus));
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
@@ -272,35 +308,39 @@ class ScopeTransactionTest {
             }
 
             assertAll(
-                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(NEW_STATUS)))), sidecar()),
-                    () -> assertFalse(Files.exists(leftover), "the temporary sidecar was replaced and moved"));
+                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(newStatus)))), sidecar(),
+                            "the sidecar should hold the journaled digest"),
+                    () -> assertFalse(Files.exists(leftover), "the temporary sidecar should be moved away"));
         }
 
         @Test
         @DisplayName("an append onto a torn tail repairs it first, with one jsonl_tail_repaired record")
         void tornTailRepaired() throws Exception {
-            Files.write(store(WORK_LOG), bytes(FIRST, TORN));
+            Files.write(store(WORK_LOG), bytes(firstLine, tornTail));
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.append(WORK_LOG, bytes(SECOND));
+                write.append(WORK_LOG, bytes(secondLine));
                 write.commit();
             }
 
             assertAll(
-                    () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store(WORK_LOG))),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store(WORK_LOG), bytes(TORN))),
-                            RecordingAuditSink.withoutTransactionIds(audit.events())),
-                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(FIRST, SECOND)))),
-                            sidecar(), "the digest is of the repaired store with the block"),
-                    () -> assertEquals(List.of(), stagedFiles()));
+                    () -> assertArrayEquals(bytes(firstLine, secondLine), Files.readAllBytes(store(WORK_LOG)),
+                            "the torn tail should be replaced by the block"),
+                    () -> assertEquals(
+                            List.of(RecordingAuditSink.tailRepairWithoutId(store(WORK_LOG), bytes(tornTail))),
+                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                            "one tail repair should be recorded"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(firstLine, secondLine)))),
+                            sidecar(), "the digest should be of the repaired store"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
 
         @Test
         @DisplayName("an append to a store of several buffer sizes records the digest of the whole resulting store")
         void largeAppend() throws Exception {
-            var line = bytes(FIRST);
+            var line = bytes(firstLine);
             var large = new ByteArrayOutputStream();
             while (large.size() < 4 * StoreDigest.Builder.BUFFER_SIZE + 5) {
                 large.writeBytes(line);
@@ -310,15 +350,16 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.append(WORK_LOG, bytes(SECOND));
+                write.append(WORK_LOG, bytes(secondLine));
                 write.commit();
             }
 
-            large.writeBytes(bytes(SECOND));
+            large.writeBytes(bytes(secondLine));
             assertAll(
-                    () -> assertArrayEquals(large.toByteArray(), Files.readAllBytes(store(WORK_LOG))),
+                    () -> assertArrayEquals(large.toByteArray(), Files.readAllBytes(store(WORK_LOG)),
+                            "the block should follow the large store"),
                     () -> assertEquals(Optional.of(StoreDigest.of(large.toByteArray())),
-                            sidecar().digest(WORK_LOG)));
+                            sidecar().digest(WORK_LOG), "the digest should be of the whole store"));
         }
 
         @Test
@@ -327,17 +368,18 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.append(WORK_LOG, bytes(FIRST));
+                write.append(WORK_LOG, bytes(firstLine));
                 write.commit();
             }
 
-            assertEquals(Optional.of(StoreDigest.of(bytes(FIRST))), sidecar().digest(WORK_LOG));
+            assertEquals(Optional.of(StoreDigest.of(bytes(firstLine))), sidecar().digest(WORK_LOG),
+                    "the digest should be of the block alone");
         }
 
         @Test
         @DisplayName("the content handed to replace is copied, so a later change of the array is not written")
         void contentCopied() throws Exception {
-            var content = bytes(NEW_STATUS);
+            var content = bytes(newStatus);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
@@ -346,21 +388,25 @@ class ScopeTransactionTest {
                 write.commit();
             }
 
-            assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS)));
+            assertArrayEquals(bytes(newStatus), Files.readAllBytes(store(STATUS)),
+                    "the content as handed over should be written");
         }
 
         @Test
         @DisplayName("a commit that cannot stage a target fails, and the transaction is not committed again")
         void unwritableTarget() {
+            var missing = "missing-" + lowerName() + "/" + STATUS;
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace("missing/status.json", bytes(NEW_STATUS));
+                write.replace(missing, bytes(newStatus));
 
-                assertThrows(UncheckedIOException.class, write::commit);
+                assertThrows(UncheckedIOException.class, write::commit,
+                        "staging into a missing directory should fail");
                 assertAll(
-                        () -> assertThrows(IllegalStateException.class, write::commit),
-                        () -> assertFalse(Files.exists(scope.journalFile()), "nothing was journaled"));
+                        () -> assertThrows(IllegalStateException.class, write::commit,
+                                "a second commit should be refused"),
+                        () -> assertFalse(Files.exists(scope.journalFile()), "nothing should be journaled"));
             }
         }
     }
@@ -390,8 +436,8 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(OLD_STATUS));
-                write.append(WORK_LOG, bytes(FIRST));
+                write.replace(STATUS, bytes(oldStatus));
+                write.append(WORK_LOG, bytes(firstLine));
                 write.commit();
             }
         }
@@ -427,11 +473,13 @@ class ScopeTransactionTest {
             commitDeleting(STATUS);
 
             assertAll(
-                    () -> assertFalse(Files.exists(store(STATUS)), "the store is removed"),
-                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(FIRST)))), sidecar()),
-                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
-                    () -> assertEquals(List.of(), stagedFiles(), "a delete stages nothing"),
-                    () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS)));
+                    () -> assertFalse(Files.exists(store(STATUS)), "the store should be removed"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(firstLine)))),
+                            sidecar(), "only the work-log digest should remain"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "a delete should stage nothing"),
+                    () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS),
+                            "the deleted store should be Absent"));
         }
 
         @Test
@@ -442,11 +490,12 @@ class ScopeTransactionTest {
             commitDeleting(REFERENCES);
 
             assertAll(
-                    () -> assertFalse(Files.exists(store(REFERENCES))),
-                    () -> assertEquals(before, sidecar()),
-                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS))),
-                    () -> assertFalse(Files.exists(scope.journalFile())),
-                    () -> assertEquals(List.of(), stagedFiles()));
+                    () -> assertFalse(Files.exists(store(REFERENCES)), "the missing store should stay absent"),
+                    () -> assertEquals(before, sidecar(), "the sidecar should be left as it was"),
+                    () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
+                            "the status should be left as it was"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
 
         @Test
@@ -455,38 +504,45 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(REFERENCES, bytes(NEW_REFERENCES));
+                write.replace(REFERENCES, bytes(newReferences));
                 write.delete(STATUS);
-                write.append(WORK_LOG, bytes(SECOND));
+                write.append(WORK_LOG, bytes(secondLine));
                 write.commit();
             }
 
             assertAll(
-                    () -> assertFalse(Files.exists(store(STATUS))),
-                    () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store(WORK_LOG))),
+                    () -> assertFalse(Files.exists(store(STATUS)), "the deleted store should be removed"),
+                    () -> assertArrayEquals(bytes(firstLine, secondLine), Files.readAllBytes(store(WORK_LOG)),
+                            "the block should be appended to the work log"),
                     () -> assertEquals(DigestSidecar.of(Map.of(
-                            REFERENCES, StoreDigest.of(bytes(NEW_REFERENCES)),
-                            WORK_LOG, StoreDigest.of(bytes(FIRST, SECOND)))), sidecar()),
-                    () -> assertEquals(List.of(), stagedFiles()));
+                                    REFERENCES, StoreDigest.of(bytes(newReferences)),
+                                    WORK_LOG, StoreDigest.of(bytes(firstLine, secondLine)))), sidecar(),
+                            "the sidecar should hold the two written stores"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
 
         @Test
         @DisplayName("and a replace, an append or a second delete of the same store in one transaction are refused")
         void sameStoreTwice() {
-            var content = bytes(NEW_STATUS);
-            var block = bytes(SECOND);
+            var content = bytes(newStatus);
+            var block = bytes(secondLine);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
+                write.replace(STATUS, bytes(newStatus));
                 write.delete(WORK_LOG);
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(STATUS)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete("./" + STATUS)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(WORK_LOG, content)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, block)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(WORK_LOG)));
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(STATUS),
+                                "a delete of a replaced store should fail"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete("./" + STATUS),
+                                "a delete in another spelling should fail"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(WORK_LOG, content),
+                                "a replace of a deleted store should fail"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, block),
+                                "an append to a deleted store should fail"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(WORK_LOG),
+                                "a second delete should be refused"));
             }
         }
 
@@ -495,17 +551,20 @@ class ScopeTransactionTest {
         void notAStore() {
             var journal = scope.pathBase().relativize(scope.journalFile()).toString();
             var sidecar = scope.pathBase().relativize(scope.sidecarFile()).toString();
+            var outside = "../" + anotherPlan + "/" + STATUS;
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(journal)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(sidecar)),
-                        () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.delete("../another-plan/status.json")));
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(journal),
+                                "a delete of the journal should be refused"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(sidecar),
+                                "a delete of the sidecar should be refused"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(outside),
+                                "a delete outside the scope should be refused"));
             }
-            assertTrue(Files.exists(scope.sidecarFile()), "the sidecar is untouched");
+            assertTrue(Files.exists(scope.sidecarFile()), "the sidecar should be untouched");
         }
 
         @Test
@@ -517,7 +576,8 @@ class ScopeTransactionTest {
                 write.delete(STATUS);
                 write.commit();
 
-                assertThrows(IllegalStateException.class, () -> write.delete(WORK_LOG));
+                assertThrows(IllegalStateException.class, () -> write.delete(WORK_LOG),
+                        "a committed transaction should take no target");
             }
         }
 
@@ -533,9 +593,9 @@ class ScopeTransactionTest {
             };
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
-                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, hook);
+                var write = ScopeTransaction.open(transaction, scope, audit, clock, hook);
                 write.delete(STATUS);
-                assertThrows(StopWrite.class, write::commit);
+                assertThrows(StopWrite.class, write::commit, "the hook should stop the commit");
             }
             var journal = StoreSnapshot.read(scope.journalFile()).content()
                     .map(document -> TransactionJournal.read(scope.journalFile(), document));
@@ -544,25 +604,30 @@ class ScopeTransactionTest {
 
             if (stop == Step.STAGE) {
                 assertAll(
-                        () -> assertEquals(Optional.empty(), journal, "no journal was written"),
-                        () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome),
-                        () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
-                                "the store is as before the commit"),
-                        () -> assertArrayEquals(sidecarBefore, Files.readAllBytes(scope.sidecarFile())),
-                        () -> assertEquals(List.of(), audit.events()));
+                        () -> assertEquals(Optional.empty(), journal, "no journal should be written"),
+                        () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome,
+                                "there should be nothing to recover"),
+                        () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
+                                "the store should be as before the commit"),
+                        () -> assertArrayEquals(sidecarBefore, Files.readAllBytes(scope.sidecarFile()),
+                                "the sidecar should be as before the commit"),
+                        () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
                 return;
             }
             var applied = stop == Step.JOURNAL ? List.of(STATUS) : List.<String>of();
             assertAll(
-                    () -> assertEquals(new JournalRecovery.RolledForward(journal.orElseThrow(), applied), outcome),
-                    () -> assertFalse(Files.exists(store(STATUS)), "the store is absent"),
-                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(FIRST)))), sidecar(),
-                            "the entry of the deleted store is dropped"),
-                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
-                    () -> assertEquals(List.of(), stagedFiles()),
+                    () -> assertEquals(new JournalRecovery.RolledForward(journal.orElseThrow(), applied), outcome,
+                            "the recovery should roll the delete forward"),
+                    () -> assertFalse(Files.exists(store(STATUS)), "the store should be absent"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(firstLine)))),
+                            sidecar(), "the entry of the deleted store should be dropped"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                            PLAN, journal.orElseThrow().transactionId().value(), List.of(STATUS))), audit.events()),
-                    () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS), "consistent, no Mismatch"));
+                                    plan, journal.orElseThrow().transactionId().value(), List.of(STATUS))), audit.events(),
+                            "the roll-forward should be audited"),
+                    () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS),
+                            "the store should be consistent, no Mismatch"));
         }
     }
 
@@ -580,15 +645,17 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.create(STATUS, bytes(NEW_STATUS));
+                write.create(STATUS, bytes(newStatus));
                 write.commit();
             }
 
             assertAll(
-                    () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS))),
-                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(NEW_STATUS)))), sidecar()),
-                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
-                    () -> assertEquals(List.of(), stagedFiles(), "no staged file remains"));
+                    () -> assertArrayEquals(bytes(newStatus), Files.readAllBytes(store(STATUS)),
+                            "the created store should hold its content"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(newStatus)))), sidecar(),
+                            "the sidecar should hold the created digest"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
 
         @Test
@@ -597,32 +664,33 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var first = openUnder(transaction);
-                first.replace(STATUS, bytes(OLD_STATUS));
+                first.replace(STATUS, bytes(oldStatus));
                 first.commit();
             }
             var sidecarBefore = Files.readAllBytes(scope.sidecarFile());
-            var references = bytes(NEW_REFERENCES);
+            var references = bytes(newReferences);
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(REFERENCES, bytes(NEW_REFERENCES));
-                write.create(STATUS, bytes(NEW_STATUS));
+                write.replace(REFERENCES, bytes(newReferences));
+                write.create(STATUS, bytes(newStatus));
 
-                var refusal = assertThrows(IllegalStateException.class, write::commit);
+                var refusal = assertThrows(IllegalStateException.class, write::commit,
+                        "a create of an existing store should fail");
 
                 assertAll(
-                        () -> assertTrue(refusal.getMessage().contains(STATUS), "the refusal names the store"),
-                        () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
-                                "the store is untouched"),
-                        () -> assertFalse(Files.exists(store(REFERENCES)), "no other target was written"),
+                        () -> assertTrue(refusal.getMessage().contains(STATUS), "the refusal should name the store"),
+                        () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
+                                "the store should be untouched"),
+                        () -> assertFalse(Files.exists(store(REFERENCES)), "no other target should be written"),
                         () -> assertArrayEquals(sidecarBefore, Files.readAllBytes(scope.sidecarFile()),
-                                "the sidecar is untouched"),
-                        () -> assertFalse(Files.exists(scope.journalFile()), "no journal was written"),
-                        () -> assertEquals(List.of(), stagedFiles(), "nothing was staged"),
+                                "the sidecar should be untouched"),
+                        () -> assertFalse(Files.exists(scope.journalFile()), "no journal should be written"),
+                        () -> assertEquals(List.of(), stagedFiles(), "nothing should be staged"),
                         () -> assertThrows(IllegalArgumentException.class,
                                 () -> write.replace(REFERENCES, references),
-                                "the transaction is still open: it takes targets and refuses a second one"));
+                                "the open transaction should refuse a second"));
             }
         }
 
@@ -633,35 +701,38 @@ class ScopeTransactionTest {
                 transaction.acquire(scope.lockKey());
                 var first = openUnder(transaction);
                 var second = openUnder(transaction);
-                first.create(STATUS, bytes(OLD_STATUS));
-                second.create(STATUS, bytes(NEW_STATUS));
+                first.create(STATUS, bytes(oldStatus));
+                second.create(STATUS, bytes(newStatus));
 
                 first.commit();
 
-                assertThrows(IllegalStateException.class, second::commit);
+                assertThrows(IllegalStateException.class, second::commit, "the second create should be refused");
             }
 
             assertAll(
-                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
-                            "the content of the first transaction is kept"),
-                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(OLD_STATUS)))), sidecar()),
-                    () -> assertFalse(Files.exists(scope.journalFile())),
-                    () -> assertEquals(List.of(), stagedFiles()));
+                    () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
+                            "the first transaction's content should stay"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(oldStatus)))), sidecar(),
+                            "the sidecar should hold the first digest"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"));
         }
 
         @Test
         @DisplayName("is refused for a store that is a target of the transaction already, like a replace")
         void sameStoreTwice() {
-            var content = bytes(NEW_STATUS);
+            var content = bytes(newStatus);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(OLD_STATUS));
-                write.create(REFERENCES, bytes(NEW_REFERENCES));
+                write.replace(STATUS, bytes(oldStatus));
+                write.create(REFERENCES, bytes(newReferences));
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.create(STATUS, content)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(REFERENCES, content)));
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.create(STATUS, content),
+                                "a create of a replaced store should fail"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(REFERENCES, content),
+                                "a replace of a created store should fail"));
             }
         }
     }
@@ -674,12 +745,16 @@ class ScopeTransactionTest {
         @DisplayName("a transaction is refused without the lock of the scope, and nothing is written")
         void openWithoutLock() {
             try (var transaction = locks.openTransaction()) {
-                var fault = assertThrows(InternalFaultException.class, () -> openUnder(transaction));
+                var fault = assertThrows(InternalFaultException.class, () -> openUnder(transaction),
+                        "an open without the lock should be refused");
 
                 assertAll(
-                        () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason()),
-                        () -> assertEquals(scope.journalFile().toString(), fault.details().get("store")),
-                        () -> assertEquals(List.of(), stagedFiles()));
+                        () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
+                                "the fault should be STORE_LOCK_NOT_HELD"),
+                        // detail key "store" of the fault is its wire contract
+                        () -> assertEquals(scope.journalFile().toString(), fault.details().get("store"),
+                                "the fault should name the journal"),
+                        () -> assertEquals(List.of(), stagedFiles(), "nothing should be staged"));
             }
         }
 
@@ -687,68 +762,77 @@ class ScopeTransactionTest {
         @DisplayName("a transaction is refused under the key of another plan")
         void openUnderAnotherKey() {
             try (var transaction = locks.openTransaction()) {
-                transaction.acquire(LockKey.plan(base, PROJECT, "another-plan"));
+                transaction.acquire(LockKey.plan(base, PROJECT, anotherPlan));
 
-                var fault = assertThrows(InternalFaultException.class, () -> openUnder(transaction));
+                var fault = assertThrows(InternalFaultException.class, () -> openUnder(transaction),
+                        "an open under another key should be refused");
 
-                assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason());
+                assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(), "the fault should be STORE_LOCK_NOT_HELD");
             }
         }
 
         @Test
         @DisplayName("a commit after the lock of the scope was released is refused, and nothing is written")
         void commitWithoutLock() throws Exception {
-            Files.write(store(STATUS), bytes(OLD_STATUS));
+            Files.write(store(STATUS), bytes(oldStatus));
             ScopeTransaction write;
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
+                write.replace(STATUS, bytes(newStatus));
             }
 
-            var fault = assertThrows(InternalFaultException.class, write::commit);
+            var fault = assertThrows(InternalFaultException.class, write::commit,
+                    "a commit without the lock should be refused");
 
             assertAll(
-                    () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason()),
-                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS))),
-                    () -> assertFalse(Files.exists(scope.journalFile())),
-                    () -> assertFalse(Files.exists(scope.sidecarFile())),
-                    () -> assertEquals(List.of(), stagedFiles()));
+                    () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
+                            "the fault should be STORE_LOCK_NOT_HELD"),
+                    () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
+                            "the store should be untouched"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "no journal should be written"),
+                    () -> assertFalse(Files.exists(scope.sidecarFile()), "no sidecar should be written"),
+                    () -> assertEquals(List.of(), stagedFiles(), "nothing should be staged"));
         }
 
         @Test
         @DisplayName("a store is a target of a transaction once: a second replace or append of its path is refused")
         void samePathTwice() {
-            var newStatus = bytes(NEW_STATUS);
-            var second = bytes(SECOND);
+            var replacement = bytes(newStatus);
+            var second = bytes(secondLine);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(OLD_STATUS));
-                write.append(WORK_LOG, bytes(FIRST));
+                write.replace(STATUS, bytes(oldStatus));
+                write.append(WORK_LOG, bytes(firstLine));
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(STATUS, newStatus)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, second)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(STATUS, replacement),
+                                "a second replace should be refused"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, second),
+                                "a second append should be refused"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.replace(WORK_LOG, newStatus)));
+                                () -> write.replace(WORK_LOG, replacement),
+                                "a replace of an appended store should fail"));
             }
         }
 
         @Test
         @DisplayName("a store named through another spelling of its path is the same target and is refused")
         void sameStoreOtherSpelling() {
-            var content = bytes(NEW_STATUS);
+            var content = bytes(newStatus);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(OLD_STATUS));
+                write.replace(STATUS, bytes(oldStatus));
 
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.replace("./" + STATUS, content)),
+                                () -> write.replace("./" + STATUS, content),
+                                "the dot spelling should be the same target"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.replace("logs/../" + STATUS, content)));
+                                () -> write.replace("logs/../" + STATUS, content),
+                                "the parent spelling should be the same target"));
             }
         }
 
@@ -758,11 +842,12 @@ class ScopeTransactionTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace("./logs/../" + STATUS, bytes(NEW_STATUS));
+                write.replace("./logs/../" + STATUS, bytes(newStatus));
                 write.commit();
             }
 
-            assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(NEW_STATUS)))), sidecar());
+            assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(newStatus)))), sidecar(),
+                    "the sidecar should name the normalized path");
         }
 
         @Test
@@ -770,45 +855,51 @@ class ScopeTransactionTest {
         void notAStore() {
             var journal = scope.pathBase().relativize(scope.journalFile()).toString();
             var sidecar = scope.pathBase().relativize(scope.sidecarFile()).toString();
-            var content = bytes(NEW_STATUS);
+            var outside = "../" + anotherPlan + "/" + STATUS;
+            var content = bytes(newStatus);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(journal, content)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(sidecar, content)),
-                        () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.replace("../another-plan/status.json", content)));
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(journal, content),
+                                "the journal should be no target"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(sidecar, content),
+                                "the sidecar should be no target"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(outside, content),
+                                "a path outside the scope should be no target"));
             }
         }
 
         @Test
         @DisplayName("a store that is a symbolic link to a file outside the scope is no target; nothing is written")
         void linkedStore() throws Exception {
-            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            var outside = Files.writeString(base.resolve(OUTSIDE), oldStatus);
             SymbolicLinks.createOrSkip(store(STATUS), outside);
-            var content = bytes(NEW_STATUS);
+            var content = bytes(newStatus);
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
 
-                assertThrows(IllegalArgumentException.class, () -> write.replace(STATUS, content));
+                assertThrows(IllegalArgumentException.class, () -> write.replace(STATUS, content),
+                        "a linked store should be no target");
             }
             assertAll(
-                    () -> assertEquals(OLD_STATUS, Files.readString(outside)),
-                    () -> assertEquals(List.of(), stagedFiles()));
+                    () -> assertEquals(oldStatus, Files.readString(outside),
+                            "the file outside should be left as it is"),
+                    () -> assertEquals(List.of(), stagedFiles(), "nothing should be staged"));
         }
 
         @Test
         @DisplayName("a store below a symbolic link to a directory outside the scope is no target; nothing is written")
         void linkedParent() throws Exception {
+            // fixture paths: the directory outside the scope and the link to it
             var outside = Files.createDirectories(base.resolve("outside"));
             var linked = scope.pathBase().resolve("linked");
             SymbolicLinks.createOrSkip(linked, outside);
-            var block = bytes(FIRST);
-            var content = bytes(NEW_STATUS);
+            var block = bytes(firstLine);
+            var content = bytes(newStatus);
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
@@ -816,12 +907,14 @@ class ScopeTransactionTest {
 
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.append("linked/work.jsonl", block)),
+                                () -> write.append("linked/work.jsonl", block),
+                                "an append below the link should be refused"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.replace("linked/status.json", content)));
+                                () -> write.replace("linked/status.json", content),
+                                "a replace below the link should be refused"));
             }
             try (Stream<Path> files = Files.list(outside)) {
-                assertEquals(List.of(), files.toList(), "nothing was written outside the scope");
+                assertEquals(List.of(), files.toList(), "nothing should be written outside the scope");
             }
         }
 
@@ -829,13 +922,15 @@ class ScopeTransactionTest {
         @DisplayName("a store below the path base of the workspace but outside its owned directories is no target")
         void outsideOwnedDirectories() {
             var workspace = JournalScope.workspace(base, PROJECT);
-            var planStore = "plans/" + PLAN + "/" + STATUS;
-            var content = bytes(NEW_STATUS);
+            // layout contract: the plans directory below the workspace path base
+            var planStore = "plans/" + plan + "/" + STATUS;
+            var content = bytes(newStatus);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(workspace.lockKey());
-                var write = ScopeTransaction.open(transaction, workspace, audit, CLOCK);
+                var write = ScopeTransaction.open(transaction, workspace, audit, clock);
 
-                assertThrows(IllegalArgumentException.class, () -> write.replace(planStore, content));
+                assertThrows(IllegalArgumentException.class, () -> write.replace(planStore, content),
+                        "a plan store should be no workspace target");
             }
         }
 
@@ -843,15 +938,17 @@ class ScopeTransactionTest {
         @DisplayName("an empty block and a block without a trailing newline are no append")
         void invalidBlock() {
             var empty = new byte[0];
-            var unterminated = bytes(FIRST.strip());
+            var unterminated = bytes(firstLine.strip());
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, empty)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, empty),
+                                "an empty block should be no append"),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> write.append(WORK_LOG, unterminated)));
+                                () -> write.append(WORK_LOG, unterminated),
+                                "an unterminated block should be no append"));
             }
         }
 
@@ -862,25 +959,29 @@ class ScopeTransactionTest {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
 
-                assertThrows(IllegalStateException.class, write::commit);
+                assertThrows(IllegalStateException.class, write::commit,
+                        "a commit without a target should be refused");
             }
         }
 
         @Test
         @DisplayName("a committed transaction takes no further target and is not committed again")
         void committedOnce() {
-            var references = bytes(NEW_REFERENCES);
-            var first = bytes(FIRST);
+            var references = bytes(newReferences);
+            var block = bytes(firstLine);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);
-                write.replace(STATUS, bytes(NEW_STATUS));
+                write.replace(STATUS, bytes(newStatus));
                 write.commit();
 
                 assertAll(
-                        () -> assertThrows(IllegalStateException.class, write::commit),
-                        () -> assertThrows(IllegalStateException.class, () -> write.replace(REFERENCES, references)),
-                        () -> assertThrows(IllegalStateException.class, () -> write.append(WORK_LOG, first)));
+                        () -> assertThrows(IllegalStateException.class, write::commit,
+                                "a second commit should be refused"),
+                        () -> assertThrows(IllegalStateException.class, () -> write.replace(REFERENCES, references),
+                                "a replace after the commit should fail"),
+                        () -> assertThrows(IllegalStateException.class, () -> write.append(WORK_LOG, block),
+                                "an append after the commit should fail"));
             }
         }
     }

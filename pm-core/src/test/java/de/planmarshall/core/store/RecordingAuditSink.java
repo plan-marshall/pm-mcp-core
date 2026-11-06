@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import de.cuioss.test.generator.Generators;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +22,8 @@ import de.planmarshall.core.service.AuditSink;
  * The audit sink of the tests of the stores: it keeps the records it is handed, in the order they arrive, and writes
  * nothing.
  */
+// The records this class holds are handed to it, so they are the callers' data; the only value it makes up is the
+// placeholder transaction id of a tail repair, which is generated because withoutTransactionId strips it before any comparison.
 final class RecordingAuditSink implements AuditSink {
 
     private final List<AuditEvent> events = new CopyOnWriteArrayList<>();
@@ -50,7 +53,7 @@ final class RecordingAuditSink implements AuditSink {
      */
     static AuditEvent tailRepairWithoutId(Path store, byte[] torn) {
         return withoutTransactionId(AuditEvent.jsonlTailRepaired(store, torn.length, StoreSnapshot.sha256(torn),
-                "unknown"));
+                Generators.letterStrings(3, 12).next()));
     }
 
     private static AuditEvent withoutTransactionId(AuditEvent event) {

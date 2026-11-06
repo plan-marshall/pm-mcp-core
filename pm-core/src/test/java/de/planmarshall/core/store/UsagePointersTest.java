@@ -17,8 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +35,12 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 /**
  * The usage pointers of a client profile (PM-CLIENT-2): a recorded harness output lands in the metrics columns of the
  * same name, and a figure the harness does not report is unmeasured with its reason, never a zero.
+ * <p>
+ * The recorded harness outputs and the pointers into them are golden wire documents of the profile verification and
+ * stay literal, and so do the member names of the {@code headless.usage} block; the pointers of a declaration, the cost
+ * and the figures of the documents written for a test are generated.
  */
+@EnableGeneratorController
 @DisplayName("Usage pointers")
 class UsagePointersTest {
 
@@ -49,15 +57,28 @@ class UsagePointersTest {
              "cache_read_input_tokens":3000,"cache_creation_input_tokens":700}},
              "tool_uses":4}""";
 
-    private static final UsagePointers OPENCODE = new UsagePointers("/part/tokens/input", "/part/tokens/output",
-            "/part/tokens/cache/read", "/part/tokens/cache/write", "/part/tokens/reasoning", null, "/tool_uses");
+    // Pointers into the recorded opencode output.
+    private static final String INPUT = "/part/tokens/input";
+    private static final String OUTPUT = "/part/tokens/output";
+    private static final String TOOL_USES = "/tool_uses";
+
+    private static final UsagePointers OPENCODE = new UsagePointers(INPUT, OUTPUT,
+            "/part/tokens/cache/read", "/part/tokens/cache/write", "/part/tokens/reasoning", null, TOOL_USES);
 
     private static final UsagePointers CLAUDE = new UsagePointers("/message/usage/input_tokens",
             "/message/usage/output_tokens", "/message/usage/cache_read_input_tokens",
-            "/message/usage/cache_creation_input_tokens", UsagePointers.NOT_APPLICABLE, null, "/tool_uses");
+            "/message/usage/cache_creation_input_tokens", UsagePointers.NOT_APPLICABLE, null, TOOL_USES);
 
     private static JsonNode parse(String document) {
         return JsonDocument.parse(document.getBytes(UTF_8), "turn");
+    }
+
+    private static String lowerName() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String pointer() {
+        return "/" + lowerName();
     }
 
     @Nested
@@ -65,20 +86,28 @@ class UsagePointersTest {
     class RecordedOutput {
 
         @Test
-        @DisplayName("lands in the metrics row with each column")
+        @DisplayName("lands in the metrics row with each column (golden recorded output)")
         void recordedHarnessOutputLandsInTheMetricsRowWithEachColumn() {
             var usage = OPENCODE.read(parse(OPENCODE_TURN));
 
             assertAll(
-                    () -> assertEquals(Measurement.measured(1200), usage.inputTokens()),
-                    () -> assertEquals(Measurement.measured(340), usage.outputTokens()),
-                    () -> assertEquals(Measurement.measured(5000), usage.cacheReadInputTokens()),
-                    () -> assertEquals(Measurement.measured(800), usage.cacheCreationInputTokens()),
-                    () -> assertEquals(Measurement.measured(150), usage.reasoningTokens()),
-                    () -> assertEquals(Measurement.measured(7), usage.toolUses()),
-                    () -> assertEquals(Optional.empty(), usage.costUsd(), "opencode reports no cost"),
-                    () -> assertEquals(OptionalLong.of(7490), usage.totalTokens()),
-                    () -> assertEquals(Optional.empty(), usage.unmeasuredReason()));
+                    () -> assertEquals(Measurement.measured(1200), usage.inputTokens(),
+                            "the input should be read from the output"),
+                    () -> assertEquals(Measurement.measured(340), usage.outputTokens(),
+                            "the output should be read from the output"),
+                    () -> assertEquals(Measurement.measured(5000), usage.cacheReadInputTokens(),
+                            "the cache read should be read from the output"),
+                    () -> assertEquals(Measurement.measured(800), usage.cacheCreationInputTokens(),
+                            "the cache write should be read from the output"),
+                    () -> assertEquals(Measurement.measured(150), usage.reasoningTokens(),
+                            "the reasoning should be read from the output"),
+                    () -> assertEquals(Measurement.measured(7), usage.toolUses(),
+                            "the tool uses should be read from the output"),
+                    () -> assertEquals(Optional.empty(), usage.costUsd(), "opencode should report no cost"),
+                    () -> assertEquals(OptionalLong.of(7490), usage.totalTokens(),
+                            "the total should sum the five components"),
+                    () -> assertEquals(Optional.empty(), usage.unmeasuredReason(),
+                            "no unmeasured reason should be given"));
         }
 
         @Test
@@ -87,24 +116,30 @@ class UsagePointersTest {
             var usage = CLAUDE.read(parse(CLAUDE_TURN));
 
             assertAll(
-                    () -> assertTrue(usage.reasoningTokens().isNotApplicable()),
-                    () -> assertEquals(OptionalLong.of(900 + 410 + 3000 + 700), usage.totalTokens()),
-                    () -> assertEquals(Optional.empty(), usage.unmeasuredReason()));
+                    () -> assertTrue(usage.reasoningTokens().isNotApplicable(),
+                            "the reasoning should be not_applicable"),
+                    () -> assertEquals(OptionalLong.of(900 + 410 + 3000 + 700), usage.totalTokens(),
+                            "not_applicable should count zero in the total"),
+                    () -> assertEquals(Optional.empty(), usage.unmeasuredReason(),
+                            "no unmeasured reason should be given"));
         }
 
         @Test
         @DisplayName("the cost stays recorded data, read from its own pointer")
         void cost() {
-            var pointers = new UsagePointers("/part/tokens/input", "/part/tokens/output",
-                    "/part/tokens/cache/read", "/part/tokens/cache/write", "/part/tokens/reasoning",
-                    "/part/cost", "/tool_uses");
-            var document = """
-                    {"part":{"tokens":{"input":1,"output":1,"reasoning":0,"cache":{"read":0,"write":0}},
-                     "cost":0.0123},"tool_uses":1}""";
+            // the prefix keeps the cost member apart from the "part" member of the document
+            var costPointer = "/cost-" + lowerName();
+            var pointers = new UsagePointers(INPUT, OUTPUT, "/part/tokens/cache/read", "/part/tokens/cache/write",
+                    "/part/tokens/reasoning", costPointer, TOOL_USES);
+            var cost = BigDecimal.valueOf(Generators.integers(1, 99_999).next(), 4);
+            var document = "{\"part\":{\"tokens\":{\"input\":" + Generators.integers(0, 1000).next()
+                    + ",\"output\":" + Generators.integers(0, 1000).next()
+                    + ",\"reasoning\":0,\"cache\":{\"read\":0,\"write\":0}}},\"" + costPointer.substring(1) + "\":"
+                    + cost.toPlainString() + ",\"tool_uses\":1}";
 
             var usage = pointers.read(parse(document));
 
-            assertEquals(Optional.of(new BigDecimal("0.0123")), usage.costUsd());
+            assertEquals(Optional.of(cost), usage.costUsd(), "the cost should be read from its pointer");
         }
     }
 
@@ -115,46 +150,50 @@ class UsagePointersTest {
         @Test
         @DisplayName("is recorded unmeasured with the reason not_reported_by_harness")
         void missingFigureIsRecordedUnmeasuredWithItsReason() {
-            var pointers = new UsagePointers("/part/tokens/input", "/part/tokens/output", null, null, null, null,
-                    "/tool_uses");
+            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, TOOL_USES);
 
             var usage = pointers.read(parse(OPENCODE_TURN));
 
             assertAll(
-                    () -> assertEquals(Measurement.unmeasured(), usage.cacheReadInputTokens()),
-                    () -> assertEquals(Measurement.unmeasured(), usage.cacheCreationInputTokens()),
-                    () -> assertEquals(Measurement.unmeasured(), usage.reasoningTokens()),
+                    () -> assertEquals(Measurement.unmeasured(), usage.cacheReadInputTokens(),
+                            "the cache read should be unmeasured"),
+                    () -> assertEquals(Measurement.unmeasured(), usage.cacheCreationInputTokens(),
+                            "the cache write should be unmeasured"),
+                    () -> assertEquals(Measurement.unmeasured(), usage.reasoningTokens(),
+                            "the reasoning should be unmeasured"),
                     () -> assertEquals(Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS),
-                            usage.unmeasuredReason()),
-                    () -> assertEquals(OptionalLong.empty(), usage.totalTokens()));
+                            usage.unmeasuredReason(), "the reason should be not_reported_by_harness"),
+                    () -> assertEquals(OptionalLong.empty(), usage.totalTokens(), "the total should be unmeasured"));
         }
 
         @Test
         @DisplayName("a pointer that does not resolve is unmeasured, not a zero")
         void unresolvedPointer() {
-            var pointers = new UsagePointers("/part/tokens/input", "/part/tokens/output", "/part/tokens/cache/absent",
-                    UsagePointers.NOT_APPLICABLE, UsagePointers.NOT_APPLICABLE, null, "/tool_uses");
+            var pointers = new UsagePointers(INPUT, OUTPUT, "/part/tokens/cache/absent-" + lowerName(),
+                    UsagePointers.NOT_APPLICABLE, UsagePointers.NOT_APPLICABLE, null, TOOL_USES);
 
             var usage = pointers.read(parse(OPENCODE_TURN));
 
             assertAll(
-                    () -> assertEquals(Measurement.unmeasured(), usage.cacheReadInputTokens()),
-                    () -> assertEquals(OptionalLong.empty(), usage.totalTokens()));
+                    () -> assertEquals(Measurement.unmeasured(), usage.cacheReadInputTokens(),
+                            "an unresolved pointer should be unmeasured"),
+                    () -> assertEquals(OptionalLong.empty(), usage.totalTokens(), "the total should be unmeasured"));
         }
 
         @Test
         @DisplayName("a figure whose output is not an integer is unmeasured with the reason output_unparsed")
         void unparsedFigure() {
-            var pointers = new UsagePointers("/part/tokens/input", "/part/tokens/output", null, null, null, null,
-                    "/tool_uses");
-            var document = """
-                    {"part":{"tokens":{"input":"many","output":1}},"tool_uses":1}""";
+            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, TOOL_USES);
+            var document = "{\"part\":{\"tokens\":{\"input\":\"" + lowerName() + "\",\"output\":"
+                    + Generators.integers(0, 1000).next() + "}},\"tool_uses\":1}";
 
             var usage = pointers.read(parse(document));
 
             assertAll(
-                    () -> assertEquals(Measurement.unmeasured(), usage.inputTokens()),
-                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), usage.unmeasuredReason()));
+                    () -> assertEquals(Measurement.unmeasured(), usage.inputTokens(),
+                            "a text figure should be unmeasured"),
+                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), usage.unmeasuredReason(),
+                            "the reason should be output_unparsed"));
         }
     }
 
@@ -165,15 +204,16 @@ class UsagePointersTest {
         @Test
         @DisplayName("makes every applicable component unmeasured and the total unmeasured")
         void emptyTurn() {
-            var pointers = new UsagePointers("/part/tokens/input", "/part/tokens/output", null, null, null, null,
-                    null);
+            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, null);
 
-            var usage = pointers.read(parse("{\"type\":\"text\"}"));
+            var usage = pointers.read(parse("{\"type\":\"" + lowerName() + "\"}"));
 
             assertAll(
-                    () -> assertEquals(Measurement.unmeasured(), usage.inputTokens()),
-                    () -> assertEquals(Measurement.unmeasured(), usage.outputTokens()),
-                    () -> assertFalse(usage.totalTokens().isPresent()));
+                    () -> assertEquals(Measurement.unmeasured(), usage.inputTokens(),
+                            "the input should be unmeasured"),
+                    () -> assertEquals(Measurement.unmeasured(), usage.outputTokens(),
+                            "the output should be unmeasured"),
+                    () -> assertFalse(usage.totalTokens().isPresent(), "the total should be unmeasured"));
         }
     }
 
@@ -184,25 +224,39 @@ class UsagePointersTest {
         @Test
         @DisplayName("is measured per component when every turn measured it, and unmeasured when one did not")
         void sumOfTurns() {
-            var measured = new HarnessUsage(Measurement.measured(1), Measurement.measured(2),
+            long input1 = Generators.longs(0L, 10_000L).next();
+            long output1 = Generators.longs(0L, 10_000L).next();
+            long tools1 = Generators.longs(0L, 50L).next();
+            long input2 = Generators.longs(0L, 10_000L).next();
+            long output2 = Generators.longs(0L, 10_000L).next();
+            long tools2 = Generators.longs(0L, 50L).next();
+            var measured = new HarnessUsage(Measurement.measured(input1), Measurement.measured(output1),
                     Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
-                    Measurement.measured(1), Optional.empty(), Optional.empty());
-            var other = new HarnessUsage(Measurement.measured(10), Measurement.measured(20),
+                    Measurement.measured(tools1), Optional.empty(), Optional.empty());
+            var other = new HarnessUsage(Measurement.measured(input2), Measurement.measured(output2),
                     Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
-                    Measurement.measured(2), Optional.empty(), Optional.empty());
+                    Measurement.measured(tools2), Optional.empty(), Optional.empty());
 
             var sum = HarnessUsage.sum(List.of(measured, other));
             var partial = HarnessUsage.sum(List.of(measured, HarnessUsage.unparsed()));
 
             assertAll(
-                    () -> assertEquals(Measurement.measured(11), sum.inputTokens()),
-                    () -> assertEquals(Measurement.measured(22), sum.outputTokens()),
-                    () -> assertEquals(Measurement.measured(3), sum.toolUses()),
-                    () -> assertEquals(Measurement.notApplicable(), sum.reasoningTokens()),
-                    () -> assertEquals(Optional.empty(), sum.unmeasuredReason()),
-                    () -> assertEquals(OptionalLong.of(33), sum.totalTokens()),
-                    () -> assertEquals(Measurement.unmeasured(), partial.inputTokens()),
-                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), partial.unmeasuredReason()));
+                    () -> assertEquals(Measurement.measured(input1 + input2), sum.inputTokens(),
+                            "the inputs should be summed"),
+                    () -> assertEquals(Measurement.measured(output1 + output2), sum.outputTokens(),
+                            "the outputs should be summed"),
+                    () -> assertEquals(Measurement.measured(tools1 + tools2), sum.toolUses(),
+                            "the tool uses should be summed"),
+                    () -> assertEquals(Measurement.notApplicable(), sum.reasoningTokens(),
+                            "the reasoning should stay not_applicable"),
+                    () -> assertEquals(Optional.empty(), sum.unmeasuredReason(),
+                            "no unmeasured reason should be given"),
+                    () -> assertEquals(OptionalLong.of(input1 + input2 + output1 + output2), sum.totalTokens(),
+                            "the total should sum both turns"),
+                    () -> assertEquals(Measurement.unmeasured(), partial.inputTokens(),
+                            "an unparsed turn should leave input unmeasured"),
+                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), partial.unmeasuredReason(),
+                            "the reason should be output_unparsed"));
         }
     }
 
@@ -215,13 +269,16 @@ class UsagePointersTest {
         void toolUsesRefused() {
             var unmeasured = Measurement.unmeasured();
             var notApplicable = Measurement.notApplicable();
+            var input = pointer();
+            var output = pointer();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new UsagePointers("/a", "/b", null, null,
-                            null, null, UsagePointers.NOT_APPLICABLE)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new UsagePointers(input, output, null,
+                                    null, null, null, UsagePointers.NOT_APPLICABLE),
+                            "a not_applicable tool-use pointer should fail"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new HarnessUsage(unmeasured, unmeasured,
                             notApplicable, notApplicable, notApplicable, notApplicable, Optional.empty(),
-                            Optional.empty())));
+                            Optional.empty()), "a not_applicable tool-use figure should fail"));
         }
     }
 
@@ -230,37 +287,47 @@ class UsagePointersTest {
     class Declaration {
 
         @Test
-        @DisplayName("is read from the headless.usage block, a null member meaning not reported")
+        @DisplayName("is read from the headless.usage block, a null member meaning not reported (member names are wire)")
         void readBlock() {
-            var block = JsonDocument.parse("""
-                    {"input_tokens":"/a","output_tokens":"/b","cache_read":null,
-                     "cache_creation":"not_applicable","reasoning":"/c","cost_usd":null,"tool_uses":"/d"}"""
-                    .getBytes(UTF_8), "usage");
+            var input = pointer();
+            var output = pointer();
+            var reasoning = pointer();
+            var toolUses = pointer();
+            var block = JsonDocument.parse(("{\"input_tokens\":\"" + input + "\",\"output_tokens\":\"" + output
+                    + "\",\"cache_read\":null,\"cache_creation\":\"not_applicable\",\"reasoning\":\"" + reasoning
+                    + "\",\"cost_usd\":null,\"tool_uses\":\"" + toolUses + "\"}").getBytes(UTF_8), "usage");
 
             var pointers = UsagePointers.of(block);
 
             assertAll(
-                    () -> assertEquals("/a", pointers.inputTokens()),
-                    () -> assertEquals("/b", pointers.outputTokens()),
-                    () -> assertNull(pointers.cacheRead()),
-                    () -> assertEquals(UsagePointers.NOT_APPLICABLE, pointers.cacheCreation()),
-                    () -> assertEquals("/c", pointers.reasoning()),
-                    () -> assertNull(pointers.costUsd()),
-                    () -> assertEquals("/d", pointers.toolUses()));
+                    () -> assertEquals(input, pointers.inputTokens(), "the input pointer should be read"),
+                    () -> assertEquals(output, pointers.outputTokens(), "the output pointer should be read"),
+                    () -> assertNull(pointers.cacheRead(), "a null cache read should be not reported"),
+                    () -> assertEquals(UsagePointers.NOT_APPLICABLE, pointers.cacheCreation(),
+                            "the cache creation should be not_applicable"),
+                    () -> assertEquals(reasoning, pointers.reasoning(), "the reasoning pointer should be read"),
+                    () -> assertNull(pointers.costUsd(), "a null cost should be not reported"),
+                    () -> assertEquals(toolUses, pointers.toolUses(), "the tool-use pointer should be read"));
         }
 
         @Test
         @DisplayName("refuses not_applicable for input and output tokens, and a missing member")
         void refusals() {
             var notApplicable = UsagePointers.NOT_APPLICABLE;
-            var withoutMember = JsonDocument.parse("{\"input_tokens\":\"/a\"}".getBytes(UTF_8), "usage");
+            var input = pointer();
+            var output = pointer();
+            var withoutMember = JsonDocument.parse(("{\"input_tokens\":\"" + input + "\"}").getBytes(UTF_8),
+                    "usage");
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new UsagePointers(notApplicable, "/b", null, null, null, null, null)),
+                            () -> new UsagePointers(notApplicable, output, null, null, null, null, null),
+                            "a not_applicable input should be refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new UsagePointers("/a", notApplicable, null, null, null, null, null)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> UsagePointers.of(withoutMember)));
+                            () -> new UsagePointers(input, notApplicable, null, null, null, null, null),
+                            "a not_applicable output should be refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> UsagePointers.of(withoutMember),
+                            "a block without a member should be refused"));
         }
     }
 }

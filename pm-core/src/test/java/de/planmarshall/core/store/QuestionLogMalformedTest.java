@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.delivered;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.id;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.revised;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -20,8 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Locale;
 import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,23 +33,36 @@ import org.junit.jupiter.api.Test;
 /**
  * A line malformed for the question log (PM-WF-12, PM-IMPL-2): a question asked twice, a part asked into a set the log
  * holds, a set the log does not hold, a line of another event or through a transaction of another scope. Each is a
- * fault of the caller, an `IllegalArgumentException`, and none appends a line.
+ * fault of the caller, an `IllegalArgumentException`, and none appends a line. The malformed lines and the fragments of
+ * the fault messages are the contract; the questions outside the set and the other plan are generated.
  */
+@EnableGeneratorController
 @DisplayName("Question log: a line malformed for the log")
 class QuestionLogMalformedTest extends QuestionLogFixture {
+
+    /** @return a question id outside the set Q-001, between the given numbers */
+    private static String outsideTheSet(int from, int to) {
+        return id("Q-%03d", Generators.integers(from, to).next());
+    }
 
     @Test
     @DisplayName("a question asked twice, or a line about a question the log has not asked, is refused")
     void unknownOrRepeatedQuestion() {
         askSet();
+        var notAsked = outsideTheSet(4, 999);
+        var part = outsideTheSet(4, 500);
+        var set = outsideTheSet(501, 999);
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> write(t -> log.ask(t, List.of(asked("Q-002", "Q-002"))))),
+                        () -> write(t -> log.ask(t, List.of(asked("Q-002", "Q-002")))),
+                        "a question asked twice should be a fault"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> write(t -> log.answer(t, List.of(answered("Q-009", 1))))),
+                        () -> write(t -> log.answer(t, List.of(answered(notAsked, 1)))),
+                        "an answer to an unknown question is a fault"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> write(t -> log.ask(t, List.of(asked("Q-005", "Q-004"))))));
+                        () -> write(t -> log.ask(t, List.of(asked(part, set)))),
+                        "a part of an unknown set should be a fault"));
     }
 
     @Test
@@ -53,13 +70,16 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     void partIntoExistingSet() throws Exception {
         askSet();
         var before = content();
+        var part = outsideTheSet(4, 999);
 
         var fault = assertThrows(IllegalArgumentException.class,
-                () -> write(t -> log.append(t, List.of(asked("Q-004", "Q-001")))));
+                () -> write(t -> log.append(t, List.of(asked(part, "Q-001")))),
+                "a part into a held set should be a fault");
 
         assertAll(
-                () -> assertTrue(fault.getMessage().contains("asked already"), fault.getMessage()),
-                () -> assertArrayEquals(before, content()),
+                () -> assertTrue(fault.getMessage().contains("asked already"),
+                        "the fault should say the set is asked already"),
+                () -> assertArrayEquals(before, content(), "the faulty append should add nothing"),
                 () -> assertEquals(OptionalInt.of(1), log.read().currentRevision("Q-001"),
                         "the set stays revisable as it was asked"));
     }
@@ -69,13 +89,17 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     void partNamesASetTheLogDoesNotHold() throws Exception {
         askSet();
         var before = content();
+        var part = outsideTheSet(4, 500);
+        var set = outsideTheSet(501, 999);
 
         var fault = assertThrows(IllegalArgumentException.class,
-                () -> write(t -> log.append(t, List.of(asked("Q-004", "Q-009")))));
+                () -> write(t -> log.append(t, List.of(asked(part, set)))),
+                "a part of an unknown set should be a fault");
 
         assertAll(
-                () -> assertTrue(fault.getMessage().contains("which is not asked"), fault.getMessage()),
-                () -> assertArrayEquals(before, content()));
+                () -> assertTrue(fault.getMessage().contains("which is not asked"),
+                        "the fault should say the set is not asked"),
+                () -> assertArrayEquals(before, content(), "the faulty append should add nothing"));
     }
 
     @Test
@@ -83,15 +107,18 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     void partNamesNoFirstQuestion() throws Exception {
         askSet();
         var before = content();
+        var part = outsideTheSet(4, 999);
 
         var fault = assertThrows(IllegalArgumentException.class,
-                () -> write(t -> log.append(t, List.of(asked("Q-005", "Q-002")))));
+                () -> write(t -> log.append(t, List.of(asked(part, "Q-002")))),
+                "a part of a part should be a fault");
 
         assertAll(
-                () -> assertTrue(fault.getMessage().contains("no first question of a set"), fault.getMessage()),
-                () -> assertTrue(fault.getMessage().contains("Q-005"), fault.getMessage()),
-                () -> assertTrue(fault.getMessage().contains("Q-002"), fault.getMessage()),
-                () -> assertArrayEquals(before, content()));
+                () -> assertTrue(fault.getMessage().contains("no first question of a set"),
+                        "the fault should name no first question"),
+                () -> assertTrue(fault.getMessage().contains(part), "the fault should name the asked part"),
+                () -> assertTrue(fault.getMessage().contains("Q-002"), "the fault should name the named question"),
+                () -> assertArrayEquals(before, content(), "the faulty append should add nothing"));
     }
 
     @Test
@@ -100,14 +127,16 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     void partAfterRevisionInOneAppend() {
         var fault = assertThrows(IllegalArgumentException.class,
                 () -> write(t -> log.append(t, List.of(asked("Q-001", "Q-001"), revised("Q-001", 2),
-                        asked("Q-002", "Q-001")))));
+                        asked("Q-002", "Q-001")))), "a part after a revision should be a fault");
         write(t -> log.append(t, List.of(asked("Q-003", "Q-003"), asked("Q-004", "Q-003"))));
 
         assertAll(
-                () -> assertTrue(fault.getMessage().contains("revised already"), fault.getMessage()),
+                () -> assertTrue(fault.getMessage().contains("revised already"),
+                        "the fault should say the set is revised"),
                 () -> assertEquals(2, log.read().records().size(),
-                        "the refused append added nothing, the accepted one asked its whole set"),
-                () -> assertEquals(OptionalInt.of(1), log.read().currentRevision("Q-003")));
+                        "only the accepted append should hold lines"),
+                () -> assertEquals(OptionalInt.of(1), log.read().currentRevision("Q-003"),
+                        "the accepted set should be at revision 1"));
     }
 
     @Test
@@ -115,10 +144,11 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     void partAfterFirstQuestionClosedInOneAppend() {
         var fault = assertThrows(IllegalArgumentException.class,
                 () -> write(t -> log.append(t, List.of(asked("Q-001", "Q-001"), answered("Q-001", 1),
-                        asked("Q-002", "Q-001")))));
+                        asked("Q-002", "Q-001")))), "a part after the close should be a fault");
 
         assertAll(
-                () -> assertTrue(fault.getMessage().contains("closed already"), fault.getMessage()),
+                () -> assertTrue(fault.getMessage().contains("closed already"),
+                        "the fault should say the set is closed"),
                 () -> assertFalse(Files.exists(log.store()), "the refused append adds nothing"));
     }
 
@@ -127,24 +157,29 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
     void wrongShape() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> write(t -> log.ask(t, List.of(asked("Q-002", "Q-001"), asked("Q-001", "Q-001"))))),
+                        () -> write(t -> log.ask(t, List.of(asked("Q-002", "Q-001"), asked("Q-001", "Q-001")))),
+                        "a set not led by its first question is a fault"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> write(t -> log.answer(t, List.of(delivered("Q-001", 1))))),
-                () -> assertThrows(IllegalArgumentException.class, () -> write(t -> log.append(t, List.of()))),
-                () -> assertFalse(Files.exists(log.store())));
+                        () -> write(t -> log.answer(t, List.of(delivered("Q-001", 1)))),
+                        "a delivered line as an answer is a fault"),
+                () -> assertThrows(IllegalArgumentException.class, () -> write(t -> log.append(t, List.of())),
+                        "an append without a line should be a fault"),
+                () -> assertFalse(Files.exists(log.store()), "the faulty appends should create no log"));
     }
 
     @Test
     @DisplayName("an append through a transaction of another scope is refused")
     void otherScope() throws Exception {
-        var other = JournalScope.plan(base, PROJECT, "other-plan");
+        var other = JournalScope.plan(base, PROJECT,
+                "other-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(other.journalFile().getParent());
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(other.lockKey());
             var write = ScopeTransaction.open(transaction, other, audit, CLOCK);
             var questions = List.of(asked("Q-001", "Q-001"));
 
-            assertThrows(IllegalArgumentException.class, () -> log.ask(write, questions));
+            assertThrows(IllegalArgumentException.class, () -> log.ask(write, questions),
+                    "a transaction of another scope is a fault");
         }
     }
 }

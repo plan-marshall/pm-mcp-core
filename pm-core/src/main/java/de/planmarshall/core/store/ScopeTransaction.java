@@ -128,7 +128,7 @@ public final class ScopeTransaction {
      * @param content      the new content or the appended block, held, not copied; empty for a delete
      * @param mustBeAbsent whether the commit is refused when the store exists; true only for a create
      */
-    private record PendingTarget(String path, Mode mode, byte[] content, boolean mustBeAbsent) {
+    record PendingTarget(String path, Mode mode, byte[] content, boolean mustBeAbsent) {
 
         @Override
         public boolean equals(Object other) {

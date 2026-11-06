@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serial;
@@ -26,6 +28,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,22 +55,31 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
  * re-baseline through the journal.
  * <p>
  * An out-of-band edit is a write of a store file that bypasses every transaction, as an editor or a script makes it.
+ * The store file names of the plan scope, the sidecar format and the shape of a digest are contracts; the plan id, the
+ * store contents and the instant of the commits are generated.
  */
+@EnableGeneratorController
 @DisplayName("Scope integrity")
 class ScopeIntegrityTest {
 
     private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "store-substrate";
+
+    // Store file names of the plan scope (Store Schemas).
     private static final String STATUS = "status.json";
     private static final String REFERENCES = "references.json";
     private static final String WORK_LOG = "logs/work.jsonl";
-    private static final String OLD_STATUS = "{\"format_version\":1,\"phase\":\"4-plan\"}";
-    private static final String NEW_STATUS = "{\"format_version\":1,\"phase\":\"5-execute\"}";
-    private static final String FIRST = "{\"format_version\":1,\"n\":1}\n";
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-10T12:00:00Z"), ZoneOffset.UTC);
+
+    // Fixture path of a file outside the scope.
+    private static final String OUTSIDE = "outside.json";
 
     @TempDir
     Path base;
+
+    private String plan;
+    private String oldStatus;
+    private String newStatus;
+    private String first;
+    private Clock clock;
 
     private JournalScope scope;
     private RecordingLockManager locks;
@@ -87,18 +99,29 @@ class ScopeIntegrityTest {
     /** Creates a scope whose status and work log were written by a commit, so the sidecar holds their digests. */
     @BeforeEach
     void createScope() throws IOException {
-        scope = JournalScope.plan(base, PROJECT, PLAN);
+        plan = "plan-" + lowerName();
+        var phase = lowerName();
+        oldStatus = "{\"format_version\":1,\"phase\":\"" + phase + "\"}";
+        newStatus = "{\"format_version\":1,\"phase\":\"" + phase + "-" + lowerName() + "\"}";
+        first = "{\"format_version\":1,\"n\":" + Generators.integers(1, 1000).next() + "}\n";
+        clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next()),
+                ZoneOffset.UTC);
+        scope = JournalScope.plan(base, PROJECT, plan);
         Files.createDirectories(scope.journalFile().getParent());
         Files.createDirectories(scope.resolve(WORK_LOG).getParent());
         locks = new RecordingLockManager();
         audit = new RecordingAuditSink();
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
-            write.replace(STATUS, bytes(OLD_STATUS));
-            write.append(WORK_LOG, bytes(FIRST));
+            var write = ScopeTransaction.open(transaction, scope, audit, clock);
+            write.replace(STATUS, bytes(oldStatus));
+            write.append(WORK_LOG, bytes(first));
             write.commit();
         }
+    }
+
+    private static String lowerName() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     private static byte[] bytes(String text) {
@@ -109,9 +132,9 @@ class ScopeIntegrityTest {
         return scope.resolve(relativePath);
     }
 
-    /** Changes one byte of the status outside every transaction. */
+    /** Changes one byte of the status outside every transaction: the last letter of the phase becomes a digit. */
     private byte[] editStatus() throws IOException {
-        var edited = bytes(OLD_STATUS);
+        var edited = bytes(oldStatus);
         edited[edited.length - 3] = '5';
         Files.write(store(STATUS), edited);
         return edited;
@@ -147,9 +170,9 @@ class ScopeIntegrityTest {
         };
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, hook);
-            write.replace(STATUS, bytes(NEW_STATUS));
-            assertThrows(StopWrite.class, write::commit);
+            var write = ScopeTransaction.open(transaction, scope, audit, clock, hook);
+            write.replace(STATUS, bytes(newStatus));
+            assertThrows(StopWrite.class, write::commit, "the hook should stop the commit");
         }
         return TransactionJournal.read(scope.journalFile(),
                 StoreSnapshot.read(scope.journalFile()).content().orElseThrow());
@@ -159,16 +182,18 @@ class ScopeIntegrityTest {
     @Test
     @DisplayName("an unedited store is Verified under the lock and VERIFIED lock-free")
     void unedited() {
-        var digest = StoreDigest.of(bytes(OLD_STATUS));
+        var digest = StoreDigest.of(bytes(oldStatus));
 
         var locked = verify(STATUS);
         var lockFree = ScopeIntegrity.snapshot(scope, STATUS);
 
         assertAll(
-                () -> assertEquals(new Verified(STATUS, digest), locked),
-                () -> assertEquals(StoreIntegrity.VERIFIED, lockFree.integrity()),
-                () -> assertEquals(store(STATUS), lockFree.store()),
-                () -> assertEquals(List.of(), audit.events()));
+                () -> assertEquals(new Verified(STATUS, digest), locked,
+                        "the unedited store should be Verified"),
+                () -> assertEquals(StoreIntegrity.VERIFIED, lockFree.integrity(),
+                        "the lock-free read should be VERIFIED"),
+                () -> assertEquals(store(STATUS), lockFree.store(), "the snapshot should name the store"),
+                () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
     }
 
     @Nested
@@ -182,8 +207,9 @@ class ScopeIntegrityTest {
 
             var outcome = verify(STATUS);
 
-            assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)),
-                    Optional.of(StoreDigest.of(edited))), outcome);
+            assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)),
+                            Optional.of(StoreDigest.of(edited))), outcome,
+                    "the edit should be a Mismatch of both digests");
         }
 
         @Test
@@ -195,11 +221,13 @@ class ScopeIntegrityTest {
             var snapshot = ScopeIntegrity.snapshot(scope, STATUS);
 
             assertAll(
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity()),
-                    () -> assertEquals(store(STATUS), snapshot.store()),
-                    () -> assertArrayEquals(edited, snapshot.content().orElseThrow()),
-                    () -> assertEquals(0, locks.transactions(), "no lock was taken"),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity(),
+                            "the lock-free read should be DIGEST_UNVERIFIED"),
+                    () -> assertEquals(store(STATUS), snapshot.store(), "the snapshot should name the store"),
+                    () -> assertArrayEquals(edited, snapshot.content().orElseThrow(),
+                            "the snapshot should carry the edited bytes"),
+                    () -> assertEquals(0, locks.transactions(), "no lock should be taken lock-free"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
 
         @Test
@@ -211,10 +239,11 @@ class ScopeIntegrityTest {
             var snapshot = ScopeIntegrity.snapshot(scope, STATUS);
 
             assertAll(
-                    () -> assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)), Optional.empty()),
-                            outcome),
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity()),
-                    () -> assertTrue(snapshot.content().isEmpty(), "the store does not exist"));
+                    () -> assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)), Optional.empty()),
+                            outcome, "the deletion should be a Mismatch without digest"),
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity(),
+                            "the lock-free read should be DIGEST_UNVERIFIED"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "the deleted store should have no content"));
         }
 
         @Test
@@ -224,9 +253,9 @@ class ScopeIntegrityTest {
 
             var answers = verifyAll();
 
-            assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(FIRST))),
-                            new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)), Optional.of(StoreDigest.of(edited)))),
-                    answers);
+            assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(first))),
+                            new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)), Optional.of(StoreDigest.of(edited)))),
+                    answers, "verifyAll should find the edit in path order");
         }
 
         @Test
@@ -237,14 +266,19 @@ class ScopeIntegrityTest {
             var answers = rebaseline(STATUS);
 
             assertAll(
-                    () -> assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(FIRST))),
-                            new Verified(STATUS, StoreDigest.of(edited))), answers),
+                    () -> assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(first))),
+                                    new Verified(STATUS, StoreDigest.of(edited))), answers,
+                            "the re-baseline should verify every store"),
                     () -> assertEquals(Optional.of(StoreDigest.of(edited)),
-                            DigestSidecar.load(scope.sidecarFile()).digest(STATUS)),
-                    () -> assertArrayEquals(edited, Files.readAllBytes(store(STATUS)), "the store is not changed"),
-                    () -> assertFalse(Files.exists(scope.journalFile()), "the re-baseline transaction is closed"),
-                    () -> assertEquals(StoreIntegrity.VERIFIED, ScopeIntegrity.snapshot(scope, STATUS).integrity()),
-                    () -> assertEquals(List.of(), audit.events()));
+                            DigestSidecar.load(scope.sidecarFile()).digest(STATUS),
+                            "the sidecar should hold the edited digest"),
+                    () -> assertArrayEquals(edited, Files.readAllBytes(store(STATUS)),
+                            "the store should not be changed"),
+                    () -> assertFalse(Files.exists(scope.journalFile()),
+                            "the re-baseline transaction should be closed"),
+                    () -> assertEquals(StoreIntegrity.VERIFIED, ScopeIntegrity.snapshot(scope, STATUS).integrity(),
+                            "the lock-free read should be VERIFIED again"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
     }
 
@@ -261,13 +295,15 @@ class ScopeIntegrityTest {
             var workLog = ScopeIntegrity.snapshot(scope, WORK_LOG);
 
             assertAll(
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, status.integrity()),
-                    () -> assertEquals(store(STATUS), status.store()),
-                    () -> assertArrayEquals(bytes(OLD_STATUS), status.content().orElseThrow(),
-                            "the store still has the content its sidecar entry records"),
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, workLog.integrity()),
-                    () -> assertTrue(Files.exists(scope.journalFile()), "a lock-free read never recovers"),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, status.integrity(),
+                            "the status read should be DIGEST_UNVERIFIED"),
+                    () -> assertEquals(store(STATUS), status.store(), "the snapshot should name the status"),
+                    () -> assertArrayEquals(bytes(oldStatus), status.content().orElseThrow(),
+                            "the store should keep its recorded content"),
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, workLog.integrity(),
+                            "the work-log read should be DIGEST_UNVERIFIED"),
+                    () -> assertTrue(Files.exists(scope.journalFile()), "a lock-free read should never recover"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
 
         /**
@@ -278,16 +314,19 @@ class ScopeIntegrityTest {
         @Test
         @DisplayName("race guard: a journal found after the read turns a VERIFIED read into DIGEST_UNVERIFIED, same bytes")
         void journalAfterRead() {
-            var digest = StoreDigest.of(bytes(OLD_STATUS));
+            var digest = StoreDigest.of(bytes(oldStatus));
             var read = StoreSnapshot.read(store(STATUS), digest.size(), digest.sha256());
 
             var unverified = read.asUnverified();
 
             assertAll(
-                    () -> assertEquals(StoreIntegrity.VERIFIED, read.integrity()),
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, unverified.integrity()),
-                    () -> assertEquals(read.store(), unverified.store()),
-                    () -> assertArrayEquals(read.content().orElseThrow(), unverified.content().orElseThrow()));
+                    () -> assertEquals(StoreIntegrity.VERIFIED, read.integrity(),
+                            "the read itself should be VERIFIED"),
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, unverified.integrity(),
+                            "the turned read should be DIGEST_UNVERIFIED"),
+                    () -> assertEquals(read.store(), unverified.store(), "the turned read should keep its store"),
+                    () -> assertArrayEquals(read.content().orElseThrow(), unverified.content().orElseThrow(),
+                            "the turned read should keep its bytes"));
         }
 
         @Test
@@ -298,10 +337,12 @@ class ScopeIntegrityTest {
             var outcome = verify(STATUS);
 
             assertAll(
-                    () -> assertEquals(new Verified(STATUS, StoreDigest.of(bytes(NEW_STATUS))), outcome),
-                    () -> assertFalse(Files.exists(scope.journalFile())),
+                    () -> assertEquals(new Verified(STATUS, StoreDigest.of(bytes(newStatus))), outcome,
+                            "the rolled-forward store should be Verified"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be removed"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                            PLAN, journal.transactionId().value(), List.of(STATUS))), audit.events()));
+                                    plan, journal.transactionId().value(), List.of(STATUS))), audit.events(),
+                            "the roll-forward should be audited"));
         }
 
         @Test
@@ -318,13 +359,16 @@ class ScopeIntegrityTest {
             var rebaselined = rebaseline(STATUS);
 
             assertAll(
-                    () -> assertEquals(violation, verified),
-                    () -> assertEquals(List.of(violation), all),
-                    () -> assertEquals(List.of(violation), rebaselined),
-                    () -> assertArrayEquals(journalBytes, Files.readAllBytes(scope.journalFile())),
-                    () -> assertArrayEquals(sidecarBytes, Files.readAllBytes(scope.sidecarFile())),
-                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS))),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertEquals(violation, verified, "verify should answer the violation"),
+                    () -> assertEquals(List.of(violation), all, "verifyAll should answer the violation"),
+                    () -> assertEquals(List.of(violation), rebaselined, "rebaseline should answer the violation"),
+                    () -> assertArrayEquals(journalBytes, Files.readAllBytes(scope.journalFile()),
+                            "the journal should be left as it is"),
+                    () -> assertArrayEquals(sidecarBytes, Files.readAllBytes(scope.sidecarFile()),
+                            "the sidecar should be left as it is"),
+                    () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
+                            "the store should keep its old content"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
     }
 
@@ -335,20 +379,22 @@ class ScopeIntegrityTest {
         @Test
         @DisplayName("Absent is built only with a store")
         void absentRecord() {
-            assertThrows(NullPointerException.class, () -> new Absent(null));
+            assertThrows(NullPointerException.class, () -> new Absent(null),
+                    "Absent without a store should be refused");
         }
 
         @Test
         @DisplayName("is Untracked under the lock and UNCHECKED lock-free")
         void untracked() throws Exception {
-            Files.write(store(REFERENCES), bytes(NEW_STATUS));
+            Files.write(store(REFERENCES), bytes(newStatus));
 
             var outcome = verify(REFERENCES);
             var snapshot = ScopeIntegrity.snapshot(scope, REFERENCES);
 
             assertAll(
-                    () -> assertEquals(new Untracked(REFERENCES), outcome),
-                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity()));
+                    () -> assertEquals(new Untracked(REFERENCES), outcome, "the store should be Untracked"),
+                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity(),
+                            "the lock-free read should be UNCHECKED"));
         }
 
         @Test
@@ -358,10 +404,11 @@ class ScopeIntegrityTest {
             var snapshot = ScopeIntegrity.snapshot(scope, REFERENCES);
 
             assertAll(
-                    () -> assertEquals(new Absent(REFERENCES), outcome),
-                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity()),
-                    () -> assertTrue(snapshot.content().isEmpty()),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertEquals(new Absent(REFERENCES), outcome, "the missing store should be Absent"),
+                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity(),
+                            "the lock-free read should be UNCHECKED"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "the missing store should have no content"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
 
         @Test
@@ -369,7 +416,7 @@ class ScopeIntegrityTest {
         void deletedByTransaction() {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
-                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+                var write = ScopeTransaction.open(transaction, scope, audit, clock);
                 write.delete(STATUS);
                 write.commit();
             }
@@ -378,9 +425,11 @@ class ScopeIntegrityTest {
             var all = verifyAll();
 
             assertAll(
-                    () -> assertEquals(new Absent(STATUS), outcome),
-                    () -> assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(FIRST)))), all),
-                    () -> assertTrue(all.stream().noneMatch(Mismatch.class::isInstance), "no store_tampered"));
+                    () -> assertEquals(new Absent(STATUS), outcome, "the deleted store should be Absent"),
+                    () -> assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(first)))), all,
+                            "verifyAll should name only the work log"),
+                    () -> assertTrue(all.stream().noneMatch(Mismatch.class::isInstance),
+                            "no store should be reported tampered"));
         }
 
         /** Matched control of {@link #absent()}: an entry that outlives its store stays the evidence of an edit. */
@@ -391,7 +440,8 @@ class ScopeIntegrityTest {
 
             var outcome = verify(STATUS);
 
-            assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)), Optional.empty()), outcome);
+            assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)), Optional.empty()), outcome,
+                    "a recorded digest should keep the Mismatch");
         }
 
         @Test
@@ -399,13 +449,15 @@ class ScopeIntegrityTest {
         void rebaselineAbsent() throws Exception {
             var sidecarBytes = Files.readAllBytes(scope.sidecarFile());
 
-            assertThrows(IllegalArgumentException.class, () -> rebaseline(REFERENCES));
+            assertThrows(IllegalArgumentException.class, () -> rebaseline(REFERENCES),
+                    "a re-baseline of a missing store should fail");
 
             assertAll(
-                    () -> assertFalse(Files.exists(store(REFERENCES))),
-                    () -> assertFalse(Files.exists(scope.journalFile())),
-                    () -> assertArrayEquals(sidecarBytes, Files.readAllBytes(scope.sidecarFile())),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertFalse(Files.exists(store(REFERENCES)), "the store should not be created"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "no journal should be written"),
+                    () -> assertArrayEquals(sidecarBytes, Files.readAllBytes(scope.sidecarFile()),
+                            "the sidecar should be left as it is"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
     }
 
@@ -416,7 +468,7 @@ class ScopeIntegrityTest {
         private byte[] large() {
             var large = new ByteArrayOutputStream();
             while (large.size() < 4 * StoreDigest.Builder.BUFFER_SIZE + 5) {
-                large.writeBytes(bytes(FIRST));
+                large.writeBytes(bytes(first));
             }
             return large.toByteArray();
         }
@@ -434,9 +486,11 @@ class ScopeIntegrityTest {
             var mismatch = verify(REFERENCES);
 
             assertAll(
-                    () -> assertEquals(new Verified(REFERENCES, StoreDigest.of(large())), verified),
+                    () -> assertEquals(new Verified(REFERENCES, StoreDigest.of(large())), verified,
+                            "the large store should be Verified"),
                     () -> assertEquals(new Mismatch(REFERENCES, StoreDigest.of(large()),
-                            Optional.of(StoreDigest.of(content))), mismatch));
+                                    Optional.of(StoreDigest.of(content))), mismatch,
+                            "a changed last byte should be a Mismatch"));
         }
 
         @Test
@@ -447,7 +501,8 @@ class ScopeIntegrityTest {
 
             var outcome = verify(REFERENCES);
 
-            assertEquals(new Verified(REFERENCES, StoreDigest.of(new byte[0])), outcome);
+            assertEquals(new Verified(REFERENCES, StoreDigest.of(new byte[0])), outcome,
+                    "an empty store should be Verified");
         }
     }
 
@@ -455,6 +510,7 @@ class ScopeIntegrityTest {
     @DisplayName("a store path that leaves the scope")
     class Confinement {
 
+        /** Writes a sidecar in its wire format whose one entry carries a well-formed digest of 64 hex digits. */
         private void writeSidecarWithKey(String key) throws IOException {
             Files.writeString(scope.sidecarFile(), "{\"format_version\":1,\"stores\":{\"" + key
                     + "\":{\"size\":1,\"sha256\":\"" + "a".repeat(64) + "\"}}}");
@@ -463,76 +519,88 @@ class ScopeIntegrityTest {
         @Test
         @DisplayName("an absolute sidecar key makes verifyAll a StoreRefusal naming the sidecar")
         void absoluteKey() throws Exception {
-            writeSidecarWithKey(base.resolve("outside.json").toString());
+            writeSidecarWithKey(base.resolve(OUTSIDE).toString());
 
-            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll(),
+                    "an absolute key should be refused");
 
             assertAll(
-                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(scope.sidecarFile(), refusal.file()));
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
+                            "the refusal should be UNREADABLE"),
+                    () -> assertEquals(scope.sidecarFile(), refusal.file(), "the refusal should name the sidecar"));
         }
 
         @Test
         @DisplayName("a sidecar key with a parent segment makes verifyAll a StoreRefusal naming the sidecar")
         void parentKey() throws Exception {
-            writeSidecarWithKey("../another-plan/status.json");
+            writeSidecarWithKey("../plan-" + lowerName() + "/" + STATUS);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll(),
+                    "a key with a parent segment should fail");
 
             assertAll(
-                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(scope.sidecarFile(), refusal.file()));
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
+                            "the refusal should be UNREADABLE"),
+                    () -> assertEquals(scope.sidecarFile(), refusal.file(), "the refusal should name the sidecar"));
         }
 
         @Test
         @DisplayName("a sidecar entry whose store is a symbolic link makes verifyAll a StoreRefusal naming the sidecar")
         void linkedStoreOfSidecar() throws Exception {
-            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            var outside = Files.writeString(base.resolve(OUTSIDE), oldStatus);
             Files.delete(store(STATUS));
             SymbolicLinks.createOrSkip(store(STATUS), outside);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll(),
+                    "a linked store should be refused");
 
-            assertEquals(scope.sidecarFile(), refusal.file());
+            assertEquals(scope.sidecarFile(), refusal.file(), "the refusal should name the sidecar");
         }
 
         @Test
         @DisplayName("a caller path through a symbolic link is refused by verify, snapshot and rebaseline")
         void linkedCallerPath() throws Exception {
-            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            var outside = Files.writeString(base.resolve(OUTSIDE), oldStatus);
             Files.delete(store(STATUS));
             SymbolicLinks.createOrSkip(store(STATUS), outside);
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> verify(STATUS)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> ScopeIntegrity.snapshot(scope, STATUS)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> rebaseline(STATUS)),
-                    () -> assertEquals(OLD_STATUS, Files.readString(outside)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> verify(STATUS),
+                            "verify should refuse the linked path"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> ScopeIntegrity.snapshot(scope, STATUS),
+                            "snapshot should refuse the linked path"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> rebaseline(STATUS),
+                            "rebaseline should refuse the linked path"),
+                    () -> assertEquals(oldStatus, Files.readString(outside),
+                            "the file outside should be left as it is"));
         }
 
         @Test
         @DisplayName("a journal whose store became a symbolic link is refused naming the journal, and nothing moves")
         void linkedStoreOfJournal() throws Exception {
             stopAfterJournal();
-            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            var outside = Files.writeString(base.resolve(OUTSIDE), oldStatus);
             Files.delete(store(STATUS));
             SymbolicLinks.createOrSkip(store(STATUS), outside);
             var journalBytes = Files.readAllBytes(scope.journalFile());
 
-            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll(),
+                    "a journal with a linked store should fail");
 
             assertAll(
-                    () -> assertEquals(scope.journalFile(), refusal.file()),
-                    () -> assertArrayEquals(journalBytes, Files.readAllBytes(scope.journalFile())),
-                    () -> assertEquals(OLD_STATUS, Files.readString(outside), "nothing written outside the scope"),
-                    () -> assertTrue(Files.isSymbolicLink(store(STATUS)), "the link was not replaced"),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertEquals(scope.journalFile(), refusal.file(), "the refusal should name the journal"),
+                    () -> assertArrayEquals(journalBytes, Files.readAllBytes(scope.journalFile()),
+                            "the journal should be left as it is"),
+                    () -> assertEquals(oldStatus, Files.readString(outside),
+                            "nothing should be written outside the scope"),
+                    () -> assertTrue(Files.isSymbolicLink(store(STATUS)), "the link should not be replaced"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
     }
 
     /**
      * The sidecar records a store under its normalized path; a caller that spells the path otherwise, but below the
-     * path base, names the same store and must be compared with the same entry.
+     * path base, names the same store and must be compared with the same entry. The spellings are fixture paths.
      */
     @Nested
     @DisplayName("a store path spelled non-normalized")
@@ -542,15 +610,18 @@ class ScopeIntegrityTest {
         @ValueSource(strings = {"./status.json", "logs/../status.json", "x/../status.json"})
         @DisplayName("is Verified under the lock and VERIFIED lock-free for an unedited store, not Untracked")
         void unedited(String spelling) {
-            var digest = StoreDigest.of(bytes(OLD_STATUS));
+            var digest = StoreDigest.of(bytes(oldStatus));
 
             var locked = verify(spelling);
             var lockFree = ScopeIntegrity.snapshot(scope, spelling);
 
             assertAll(
-                    () -> assertEquals(new Verified(STATUS, digest), locked),
-                    () -> assertEquals(StoreIntegrity.VERIFIED, lockFree.integrity()),
-                    () -> assertEquals(store(STATUS), lockFree.store()));
+                    () -> assertEquals(new Verified(STATUS, digest), locked,
+                            "the spelling should be Verified as the store"),
+                    () -> assertEquals(StoreIntegrity.VERIFIED, lockFree.integrity(),
+                            "the lock-free read should be VERIFIED"),
+                    () -> assertEquals(store(STATUS), lockFree.store(),
+                            "the snapshot should name the normalized store"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -563,10 +634,13 @@ class ScopeIntegrityTest {
             var lockFree = ScopeIntegrity.snapshot(scope, spelling);
 
             assertAll(
-                    () -> assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)),
-                            Optional.of(StoreDigest.of(edited))), locked),
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, lockFree.integrity()),
-                    () -> assertArrayEquals(edited, lockFree.content().orElseThrow()));
+                    () -> assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(oldStatus)),
+                                    Optional.of(StoreDigest.of(edited))), locked,
+                            "the spelling should be a Mismatch as the store"),
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, lockFree.integrity(),
+                            "the lock-free read should be DIGEST_UNVERIFIED"),
+                    () -> assertArrayEquals(edited, lockFree.content().orElseThrow(),
+                            "the snapshot should carry the edited bytes"));
         }
     }
 
@@ -577,18 +651,24 @@ class ScopeIntegrityTest {
 
         try (var transaction = locks.openTransaction()) {
             var fault = assertThrows(InternalFaultException.class,
-                    () -> ScopeIntegrity.verify(transaction, scope, STATUS, audit));
+                    () -> ScopeIntegrity.verify(transaction, scope, STATUS, audit),
+                    "verify without the lock should be refused");
 
             assertAll(
-                    () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason()),
-                    () -> assertArrayEquals(edited, Files.readAllBytes(store(STATUS))),
-                    () -> assertEquals(List.of(), audit.events()));
+                    () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
+                            "the fault should be STORE_LOCK_NOT_HELD"),
+                    () -> assertArrayEquals(edited, Files.readAllBytes(store(STATUS)),
+                            "the store should be left as it is"),
+                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
         }
     }
 
     @Test
     @DisplayName("a store path outside the scope is refused")
     void outsideScope() {
-        assertThrows(IllegalArgumentException.class, () -> ScopeIntegrity.snapshot(scope, "../another-plan/x"));
+        var outside = "../plan-" + lowerName() + "/" + lowerName();
+
+        assertThrows(IllegalArgumentException.class, () -> ScopeIntegrity.snapshot(scope, outside),
+                "a path outside the scope should be refused");
     }
 }

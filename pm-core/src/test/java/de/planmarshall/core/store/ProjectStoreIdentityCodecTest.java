@@ -18,8 +18,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,14 +36,17 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 /**
  * The identity record {@code store.json} of a per-project machine store (PM-ARCH-1, PM-IMPL-2): read strictly by the
  * closed schema of the store identity and written in the one canonical form, every value outside the schema refused
- * as unreadable, never read as something close to it.
+ * as unreadable, never read as something close to it. The canonical documents are golden wire documents and the
+ * refusal table names the schema's contract; the identity round-tripped through the codec is generated.
  */
+@EnableGeneratorController
 @DisplayName("Project store identity codec")
 class ProjectStoreIdentityCodecTest {
 
+    // Fixture path: the file a refusal names.
     static final Path FILE = Path.of("/base/projects/pm-mcp-core/store.json");
 
-    /** An enrolled project's identity in the canonical form. */
+    /** An enrolled project's identity in the canonical form (golden document). */
     static final String ENROLLED = "{\"format_version\":1,\"project_id\":\"pm-mcp-core\",\"project_root\":"
             + "\"/home/oliver/git/pm-mcp-core\",\"display_name\":\"plan-marshall/pm-mcp-core\",\"created_at\":"
             + "\"2026-10-17T09:00:00Z\",\"unenrolled_at\":null}";
@@ -73,12 +79,16 @@ class ProjectStoreIdentityCodecTest {
             var identity = read(ENROLLED);
 
             assertAll(
-                    () -> assertArrayEquals(ENROLLED.getBytes(UTF_8), ProjectStoreIdentityCodec.write(identity)),
-                    () -> assertEquals("pm-mcp-core", identity.projectId()),
-                    () -> assertEquals("/home/oliver/git/pm-mcp-core", identity.projectRoot()),
-                    () -> assertEquals("plan-marshall/pm-mcp-core", identity.displayName()),
-                    () -> assertEquals(Instant.parse("2026-10-17T09:00:00Z"), identity.createdAt()),
-                    () -> assertNull(identity.unenrolledAt()));
+                    () -> assertArrayEquals(ENROLLED.getBytes(UTF_8), ProjectStoreIdentityCodec.write(identity),
+                            "the golden document should be written back"),
+                    () -> assertEquals("pm-mcp-core", identity.projectId(), "the project id should be read"),
+                    () -> assertEquals("/home/oliver/git/pm-mcp-core", identity.projectRoot(),
+                            "the project root should be read"),
+                    () -> assertEquals("plan-marshall/pm-mcp-core", identity.displayName(),
+                            "the display name should be read"),
+                    () -> assertEquals(Instant.parse("2026-10-17T09:00:00Z"), identity.createdAt(),
+                            "the creation instant should be read"),
+                    () -> assertNull(identity.unenrolledAt(), "an enrolled identity has no unenrolment"));
         }
 
         @Test
@@ -87,18 +97,35 @@ class ProjectStoreIdentityCodecTest {
             var identity = read(UNENROLLED);
 
             assertAll(
-                    () -> assertArrayEquals(UNENROLLED.getBytes(UTF_8), ProjectStoreIdentityCodec.write(identity)),
-                    () -> assertEquals(Instant.parse("2026-10-18T09:00:00Z"), identity.unenrolledAt()));
+                    () -> assertArrayEquals(UNENROLLED.getBytes(UTF_8), ProjectStoreIdentityCodec.write(identity),
+                            "the golden document should be written back"),
+                    () -> assertEquals(Instant.parse("2026-10-18T09:00:00Z"), identity.unenrolledAt(),
+                            "the unenrolment instant should be read"));
         }
 
         @Test
-        @DisplayName("a display name of exactly 128 characters is read, counted in code points")
+        @DisplayName("a generated identity round-trips, its display name with spaces, quotes and escapes")
+        void generatedIdentity() {
+            var createdAt = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
+            var identity = new ProjectStoreIdentity(
+                    "project-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT),
+                    "/" + Generators.letterStrings(1, 12).next() + "/" + Generators.letterStrings(1, 12).next(),
+                    Generators.letterStrings(1, 20).next() + " \"" + Generators.letterStrings(1, 20).next()
+                            + "\" \\ /;",
+                    createdAt, createdAt.plusSeconds(Generators.longs(1, 100_000L).next()));
+
+            assertEquals(identity, ProjectStoreIdentityCodec.read(FILE, ProjectStoreIdentityCodec.write(identity)),
+                    "a generated identity should round-trip");
+        }
+
+        @Test
+        @DisplayName("a display name of exactly 128 characters is read, counted in code points (boundary)")
         void longestDisplayName() {
             var name = "ä".repeat(127) + "😀";
 
             var identity = read(ENROLLED.replace("plan-marshall/pm-mcp-core", name));
 
-            assertEquals(name, identity.displayName());
+            assertEquals(name, identity.displayName(), "a display name of 128 code points should be read");
         }
     }
 
@@ -149,20 +176,21 @@ class ProjectStoreIdentityCodecTest {
         @DisplayName("matched control: both canonical documents are read")
         void controlsAreRead() {
             assertAll(
-                    () -> assertDoesNotThrow(() -> read(ENROLLED)),
-                    () -> assertDoesNotThrow(() -> read(UNENROLLED)));
+                    () -> assertDoesNotThrow(() -> read(ENROLLED), "the enrolled document should be read"),
+                    () -> assertDoesNotThrow(() -> read(UNENROLLED), "the unenrolled document should be read"));
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.store.ProjectStoreIdentityCodecTest#refusals")
         @DisplayName("a record outside the schema is refused as unreadable, naming the file and the value")
         void refusedAsUnreadable(String name, String document, String detail) {
-            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document),
+                    "a record outside the schema should fail");
 
             assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(FILE, refusal.file()),
-                    () -> assertTrue(refusal.getMessage().contains(detail), refusal.getMessage()));
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(), "the refusal should be unreadable"),
+                    () -> assertEquals(FILE, refusal.file(), "the refusal should name the file"),
+                    () -> assertTrue(refusal.getMessage().contains(detail), "the refusal should name the value"));
         }
 
         @Test
@@ -172,26 +200,36 @@ class ProjectStoreIdentityCodecTest {
             var outdatedDocument = ENROLLED.replace("\"format_version\":1", "\"format_version\":0")
                     .replace("pm-mcp-core\",", "x\",");
 
-            var newer = assertThrows(StoreRefusal.class, () -> read(newerDocument));
-            var outdated = assertThrows(StoreRefusal.class, () -> read(outdatedDocument));
+            var newer = assertThrows(StoreRefusal.class, () -> read(newerDocument),
+                    "a newer format version should fail");
+            var outdated = assertThrows(StoreRefusal.class, () -> read(outdatedDocument),
+                    "an outdated format version should fail");
 
             assertAll(
-                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),
-                    () -> assertEquals(Outcome.FORMAT_OUTDATED, outdated.outcome()));
+                    () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome(), "the refusal should be format newer"),
+                    () -> assertEquals(Outcome.FORMAT_OUTDATED, outdated.outcome(),
+                            "the refusal should be format outdated"));
         }
 
         @Test
         @DisplayName("an identity outside the schema cannot be built, so it is never written")
         void notBuilt() {
-            var createdAt = Instant.parse("2026-10-17T09:00:00Z");
+            var createdAt = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
+            var projectId = "project-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+            var root = "/" + Generators.letterStrings(1, 12).next();
+            var relative = Generators.letterStrings(1, 12).next();
+            var name = Generators.letterStrings(1, 20).next();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new ProjectStoreIdentity("pm-mcp-core", "relative", "name", createdAt, null)),
+                            () -> new ProjectStoreIdentity(projectId, relative, name, createdAt, null),
+                            "a relative root should not be built"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new ProjectStoreIdentity("pm-mcp-core", "/repo", "name", null, null)),
+                            () -> new ProjectStoreIdentity(projectId, root, name, null, null),
+                            "a missing creation instant should fail"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new ProjectStoreIdentity("pm-mcp-core", "/repo", null, createdAt, null)));
+                            () -> new ProjectStoreIdentity(projectId, root, null, createdAt, null),
+                            "a missing display name should fail"));
         }
     }
 }

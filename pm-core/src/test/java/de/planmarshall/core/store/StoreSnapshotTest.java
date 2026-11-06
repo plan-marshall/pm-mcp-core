@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -42,26 +44,39 @@ import de.planmarshall.core.service.LockTransaction;
 
 /**
  * The lock-free read of a store (PM-IMPL-7): it takes no lock, never sees a part of a write, and reports a digest
- * mismatch as unverified instead of deciding that the store was edited.
+ * mismatch as unverified instead of deciding that the store was edited. The layout path of the build-slot store, the
+ * digest algorithm and the integrity codes are contracts; the snapshot contents are generated.
  */
+@EnableGeneratorController
 @DisplayName("Store snapshot")
 class StoreSnapshotTest {
 
-    private static final byte[] CONTENT = "{\"format_version\":1,\"leases\":[]}".getBytes(StandardCharsets.UTF_8);
+    // Layout paths of the build-slot store below the path base.
+    private static final String STATE = "state";
+    private static final String BUILD_SLOTS = "build-slots.json";
+
+    // The digest algorithm of the sidecar.
+    private static final String SHA_256 = "SHA-256";
 
     @TempDir
     Path base;
 
     private Path store;
 
+    private byte[] content;
+
     private static String sha256(byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        return HexFormat.of().formatHex(MessageDigest.getInstance(SHA_256).digest(bytes));
     }
 
     private static byte[] filled(int length, char character) {
         var bytes = new byte[length];
         Arrays.fill(bytes, (byte) character);
         return bytes;
+    }
+
+    private static String lowerName() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     /** A transaction on one in-process lock, which is all a writer needs to exclude other writers in this test. */
@@ -96,8 +111,10 @@ class StoreSnapshotTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        store = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
-        Files.write(store, CONTENT);
+        content = ("{\"format_version\":1,\"leases\":[\"" + lowerName() + " " + lowerName() + "\"]}")
+                .getBytes(StandardCharsets.UTF_8);
+        store = Files.createDirectories(base.resolve(STATE)).resolve(BUILD_SLOTS);
+        Files.write(store, content);
     }
 
     @Nested
@@ -110,9 +127,11 @@ class StoreSnapshotTest {
             var snapshot = StoreSnapshot.read(store);
 
             assertAll(
-                    () -> assertArrayEquals(CONTENT, snapshot.content().orElseThrow()),
-                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity()),
-                    () -> assertEquals(store, snapshot.store()));
+                    () -> assertArrayEquals(content, snapshot.content().orElseThrow(),
+                            "the read should return the content"),
+                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity(),
+                            "the read should be UNCHECKED"),
+                    () -> assertEquals(store, snapshot.store(), "the snapshot should name the store"));
         }
 
         @Test
@@ -139,8 +158,9 @@ class StoreSnapshotTest {
                 release.countDown();
                 holder.get();
                 assertAll(
-                        () -> assertTrue(lockedDuringRead, "the sibling key was held while the snapshot was read"),
-                        () -> assertArrayEquals(CONTENT, snapshot.content().orElseThrow()));
+                        () -> assertTrue(lockedDuringRead, "the sibling key should be held during the read"),
+                        () -> assertArrayEquals(content, snapshot.content().orElseThrow(),
+                                "the read should return the content"));
             }
         }
 
@@ -181,9 +201,9 @@ class StoreSnapshotTest {
                 int reads = 0;
                 int incomplete = 0;
                 while (writing.get()) {
-                    var content = StoreSnapshot.read(store).content().orElseThrow();
+                    var read = StoreSnapshot.read(store).content().orElseThrow();
                     reads++;
-                    if (!Arrays.equals(first, content) && !Arrays.equals(second, content)) {
+                    if (!Arrays.equals(first, read) && !Arrays.equals(second, read)) {
                         incomplete++;
                     }
                 }
@@ -192,8 +212,8 @@ class StoreSnapshotTest {
                 int observedReads = reads;
                 int observedIncomplete = incomplete;
                 assertAll(
-                        () -> assertTrue(observedReads > 0, "the reader ran beside the writer"),
-                        () -> assertEquals(0, observedIncomplete, "reads of a content no write produced"));
+                        () -> assertTrue(observedReads > 0, "the reader should run beside the writer"),
+                        () -> assertEquals(0, observedIncomplete, "no read should see a content never written"));
             }
         }
 
@@ -205,8 +225,9 @@ class StoreSnapshotTest {
             var snapshot = StoreSnapshot.read(store);
 
             assertAll(
-                    () -> assertTrue(snapshot.content().isEmpty()),
-                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity()));
+                    () -> assertTrue(snapshot.content().isEmpty(), "a missing store should have no content"),
+                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity(),
+                            "a missing store should be UNCHECKED"));
         }
 
         @Test
@@ -216,7 +237,7 @@ class StoreSnapshotTest {
 
             snapshot.content().orElseThrow()[0] = 'X';
 
-            assertArrayEquals(CONTENT, snapshot.content().orElseThrow());
+            assertArrayEquals(content, snapshot.content().orElseThrow(), "the snapshot should keep its content");
         }
 
         @Test
@@ -225,9 +246,12 @@ class StoreSnapshotTest {
             var directory = store.getParent();
 
             assertAll(
-                    () -> assertThrows(UncheckedIOException.class, () -> StoreSnapshot.read(directory)),
-                    () -> assertThrows(NullPointerException.class, () -> StoreSnapshot.read(null)),
-                    () -> assertThrows(NullPointerException.class, () -> StoreSnapshot.read(store, 1, null)));
+                    () -> assertThrows(UncheckedIOException.class, () -> StoreSnapshot.read(directory),
+                            "a directory should fail to be read"),
+                    () -> assertThrows(NullPointerException.class, () -> StoreSnapshot.read(null),
+                            "a read without a store should fail"),
+                    () -> assertThrows(NullPointerException.class, () -> StoreSnapshot.read(store, 1, null),
+                            "a read without a SHA-256 should fail"));
         }
     }
 
@@ -238,36 +262,44 @@ class StoreSnapshotTest {
         @Test
         @DisplayName("a content with the recorded size and SHA-256 is verified, whatever the case of the digits")
         void verified() throws Exception {
-            var digest = sha256(CONTENT);
+            var digest = sha256(content);
 
-            var lowerCase = StoreSnapshot.read(store, CONTENT.length, digest);
-            var upperCase = StoreSnapshot.read(store, CONTENT.length, digest.toUpperCase(Locale.ROOT));
+            var lowerCase = StoreSnapshot.read(store, content.length, digest);
+            var upperCase = StoreSnapshot.read(store, content.length, digest.toUpperCase(Locale.ROOT));
 
             assertAll(
-                    () -> assertEquals(StoreIntegrity.VERIFIED, lowerCase.integrity()),
-                    () -> assertEquals(StoreIntegrity.VERIFIED, upperCase.integrity()),
-                    () -> assertArrayEquals(CONTENT, lowerCase.content().orElseThrow()));
+                    () -> assertEquals(StoreIntegrity.VERIFIED, lowerCase.integrity(),
+                            "lower-case digits should be VERIFIED"),
+                    () -> assertEquals(StoreIntegrity.VERIFIED, upperCase.integrity(),
+                            "upper-case digits should be VERIFIED"),
+                    () -> assertArrayEquals(content, lowerCase.content().orElseThrow(),
+                            "the read should return the content"));
         }
 
         @Test
         @DisplayName("another SHA-256 is reported as digest_unverified for the store, with its content, and nothing is thrown")
         void digestMismatch() throws Exception {
-            var recorded = sha256("another content".getBytes(StandardCharsets.UTF_8));
+            var recorded = sha256((lowerName() + new String(content, StandardCharsets.UTF_8))
+                    .getBytes(StandardCharsets.UTF_8));
 
-            var snapshot = assertDoesNotThrow(() -> StoreSnapshot.read(store, CONTENT.length, recorded));
+            var snapshot = assertDoesNotThrow(() -> StoreSnapshot.read(store, content.length, recorded),
+                    "a digest mismatch should throw nothing");
 
             assertAll(
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity()),
-                    () -> assertEquals(store, snapshot.store()),
-                    () -> assertArrayEquals(CONTENT, snapshot.content().orElseThrow()));
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity(),
+                            "the read should be DIGEST_UNVERIFIED"),
+                    () -> assertEquals(store, snapshot.store(), "the snapshot should name the store"),
+                    () -> assertArrayEquals(content, snapshot.content().orElseThrow(),
+                            "the read should return the content"));
         }
 
         @Test
         @DisplayName("another size is reported as digest_unverified although the SHA-256 is the recorded one")
         void sizeMismatch() throws Exception {
-            var snapshot = StoreSnapshot.read(store, CONTENT.length + 1L, sha256(CONTENT));
+            var snapshot = StoreSnapshot.read(store, content.length + 1L, sha256(content));
 
-            assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity());
+            assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity(),
+                    "another size should be DIGEST_UNVERIFIED");
         }
 
         @Test
@@ -275,18 +307,20 @@ class StoreSnapshotTest {
         void absentStore() throws Exception {
             Files.delete(store);
 
-            var snapshot = StoreSnapshot.read(store, CONTENT.length, sha256(CONTENT));
+            var snapshot = StoreSnapshot.read(store, content.length, sha256(content));
 
             assertAll(
-                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity()),
-                    () -> assertTrue(snapshot.content().isEmpty()));
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, snapshot.integrity(),
+                            "a missing store should be DIGEST_UNVERIFIED"),
+                    () -> assertTrue(snapshot.content().isEmpty(), "a missing store should have no content"));
         }
 
         @Test
-        @DisplayName("the results of a snapshot read are unchecked, verified and digest_unverified")
+        @DisplayName("the results of a snapshot read are unchecked, verified and digest_unverified (wire codes)")
         void integrityValues() {
             assertEquals(List.of("unchecked", "verified", "digest_unverified"),
-                    Arrays.stream(StoreIntegrity.values()).map(StoreIntegrity::code).toList());
+                    Arrays.stream(StoreIntegrity.values()).map(StoreIntegrity::code).toList(),
+                    "the integrity codes should be the closed set");
         }
     }
 }

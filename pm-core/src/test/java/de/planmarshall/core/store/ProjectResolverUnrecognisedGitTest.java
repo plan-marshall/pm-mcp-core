@@ -9,8 +9,11 @@
  */
 package de.planmarshall.core.store;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -23,11 +26,14 @@ import de.planmarshall.core.store.ProjectResolution.NotEnrolled;
 /**
  * A {@code .git} that is neither a main checkout nor a linked worktree (PM-SEC-2, PM-ARCH-1): an empty pointer, a
  * missing {@code gitdir}, a target that does not exist, another namespace, a common directory that names no
- * {@code .git}, and a symbolic link. Each resolves to no project.
+ * {@code .git}, and a symbolic link. Each resolves to no project. The malformed pointer table is the git wire
+ * contract; the directory of the linked toplevel is generated.
  */
+@EnableGeneratorController
 @DisplayName("ProjectResolver: a .git that is no main checkout and no linked worktree")
 class ProjectResolverUnrecognisedGitTest extends ProjectResolverFixture {
 
+    // Malformed git pointer contents, the contract of an unrecognised .git file.
     @ParameterizedTest(name = "pointer {index}")
     @ValueSource(strings = {"", "gitdir:", "worktree: %s", "gitdir: %s/absent", "gitdir: bad\0path"})
     @DisplayName("resolves a .git file that is no pointer to a git directory to no project")
@@ -52,7 +58,8 @@ class ProjectResolverUnrecognisedGitTest extends ProjectResolverFixture {
     @DisabledOnOs(value = OS.WINDOWS, disabledReason = "creating a symbolic link needs a privilege there")
     @DisplayName("resolves a toplevel whose .git is a symbolic link to no project")
     void refusesLinkedGit() throws Exception {
-        var linked = Files.createDirectories(home.resolve("git/linked"));
+        var linked = Files.createDirectories(home.resolve("git")
+                .resolve("linked-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT)));
         Files.createSymbolicLink(linked.resolve(".git"), main.resolve(".git"));
 
         assertNotEnrolled(NotEnrolled.Reason.UNRECOGNISED_GIT, resolver.resolve(linked));

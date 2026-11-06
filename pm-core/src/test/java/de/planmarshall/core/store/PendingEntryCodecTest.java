@@ -18,14 +18,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -41,11 +45,14 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 /**
  * The pending entry record (PM-CLIENT-1, PM-IMPL-2): written in the order of its schema, read back equal, its raw
  * members {@code facts}, {@code source} and {@code options} written back byte for byte, and every other shape refused
- * as a {@link StoreRefusal} naming the file.
+ * as a {@link StoreRefusal} naming the file. The member names, the raw members, the call frame, the condition overlay
+ * and the refusal tables are wire contracts; the entry id, the requested id, the hint and the instants are generated.
  */
+@EnableGeneratorController
 @DisplayName("Pending entry codec")
 class PendingEntryCodecTest {
 
+    // Fixture path: the file a refusal names.
     private static final Path FILE = Path.of("/base/projects/pm-mcp-core/pending/ent-0123456789abcdef.json");
 
     /** Raw members spelled with spaces, newlines and an order no writer of this codec would choose. */
@@ -58,19 +65,45 @@ class PendingEntryCodecTest {
     private static final String CONDITION = "{\"kind\":\"precondition_unmet\",\"remedy_attempts\":0,"
             + "\"integrity\":null,\"facts\":{ \"reason\" : \"config_dirty\" },\"raised_at\":\"2026-10-13T08:02:00Z\"}";
 
+    private String entryId;
+    private String requestedId;
+    private String hint;
+    private String epicId;
+    private Instant createdAt;
+    private Instant updatedAt;
+
+    @BeforeEach
+    void generate() {
+        entryId = "ent-%016x".formatted(Generators.longs(0, Long.MAX_VALUE).next());
+        requestedId = lowerName();
+        hint = Generators.letterStrings(1, 20).next() + ' ' + Generators.letterStrings(1, 20).next();
+        epicId = "epic-" + lowerName();
+        // After the instants of the refusal table, so that its earlier update lies before the creation.
+        createdAt = Instant.ofEpochSecond(Generators.longs(1_800_000_000L, 1_900_000_000L).next());
+        updatedAt = createdAt.plusSeconds(Generators.longs(0, 100_000L).next());
+    }
+
+    private static String lowerName() {
+        return Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+    }
+
     /** @return the members of a plan entry, each with its JSON value, in schema order */
-    private static Map<String, String> members() {
+    private Map<String, String> members() {
         var members = new LinkedHashMap<String, String>();
         members.put("format_version", "1");
-        members.put("entry_id", "\"ent-0123456789abcdef\"");
+        members.put("entry_id", quoted(entryId));
         members.put("kind", "\"plan\"");
-        members.put("requested_id", "\"my-plan\"");
-        members.put("hint", "\"fix the login\"");
+        members.put("requested_id", quoted(requestedId));
+        members.put("hint", quoted(hint));
         members.put("from_epic", "null");
-        members.put("created_at", "\"2026-10-13T08:00:00Z\"");
-        members.put("updated_at", "\"2026-10-13T08:05:00Z\"");
+        members.put("created_at", quoted(createdAt.toString()));
+        members.put("updated_at", quoted(updatedAt.toString()));
         members.put("bootstrap", bootstrap(bootstrapMembers()));
         return members;
+    }
+
+    private static String quoted(String value) {
+        return "\"" + value + "\"";
     }
 
     private static Map<String, String> bootstrapMembers() {
@@ -104,11 +137,13 @@ class PendingEntryCodecTest {
     }
 
     private static StoreRefusal assertRefused(Outcome outcome, byte[] document) {
-        var refusal = assertThrows(StoreRefusal.class, () -> PendingEntryCodec.read(FILE, document));
+        var refusal = assertThrows(StoreRefusal.class, () -> PendingEntryCodec.read(FILE, document),
+                "the document should be refused");
         assertAll(
-                () -> assertEquals(outcome, refusal.outcome()),
-                () -> assertEquals(FILE, refusal.file()),
-                () -> assertTrue(refusal.getMessage().contains(FILE.toString()), "the message names the file"));
+                () -> assertEquals(outcome, refusal.outcome(), "the refusal should carry its outcome"),
+                () -> assertEquals(FILE, refusal.file(), "the refusal should name the file"),
+                () -> assertTrue(refusal.getMessage().contains(FILE.toString()),
+                        "the message should name the file"));
         return refusal;
     }
 
@@ -124,10 +159,12 @@ class PendingEntryCodecTest {
             var entry = PendingEntryCodec.read(FILE, document);
 
             assertAll(
-                    () -> assertArrayEquals(document, PendingEntryCodec.write(entry)),
-                    () -> assertEquals(FACTS, entry.bootstrap().facts()),
-                    () -> assertEquals(SOURCE, entry.bootstrap().source()),
-                    () -> assertEquals(OPTIONS, entry.bootstrap().options()));
+                    () -> assertArrayEquals(document, PendingEntryCodec.write(entry),
+                            "the record should be written byte for byte"),
+                    () -> assertEquals(FACTS, entry.bootstrap().facts(), "the raw facts should be kept verbatim"),
+                    () -> assertEquals(SOURCE, entry.bootstrap().source(), "the raw source should be kept verbatim"),
+                    () -> assertEquals(OPTIONS, entry.bootstrap().options(),
+                            "the raw options should be kept verbatim"));
         }
 
         @Test
@@ -136,21 +173,26 @@ class PendingEntryCodecTest {
             var entry = PendingEntryCodec.read(FILE, document(members()));
 
             assertAll(
-                    () -> assertEquals(new EntryId("ent-0123456789abcdef"), entry.entryId()),
-                    () -> assertEquals(Kind.PLAN, entry.kind()),
-                    () -> assertEquals("my-plan", entry.requestedId()),
-                    () -> assertEquals(Instant.parse("2026-10-13T08:00:00Z"), entry.createdAt()),
-                    () -> assertEquals("source-issue", entry.bootstrap().callStack().getFirst().subworkflowId()),
-                    () -> assertEquals("screen", entry.bootstrap().callStack().getFirst().entry()),
-                    () -> assertEquals("precondition_unmet", entry.bootstrap().condition().orElseThrow().kind()),
-                    () -> assertEquals("config_dirty", entry.bootstrap().lastRefusal()));
+                    () -> assertEquals(new EntryId(entryId), entry.entryId(), "the entry id should be read"),
+                    () -> assertEquals(Kind.PLAN, entry.kind(), "the kind should be read"),
+                    () -> assertEquals(requestedId, entry.requestedId(), "the requested id should be read"),
+                    () -> assertEquals(hint, entry.hint(), "the hint should be read with its space"),
+                    () -> assertEquals(createdAt, entry.createdAt(), "the creation instant should be read"),
+                    () -> assertEquals("source-issue", entry.bootstrap().callStack().getFirst().subworkflowId(),
+                            "the frame's subworkflow should be read"),
+                    () -> assertEquals("screen", entry.bootstrap().callStack().getFirst().entry(),
+                            "the frame's entry should be read"),
+                    () -> assertEquals("precondition_unmet", entry.bootstrap().condition().orElseThrow().kind(),
+                            "the condition kind should be read"),
+                    () -> assertEquals("config_dirty", entry.bootstrap().lastRefusal(),
+                            "the last refusal should be read"));
         }
 
         @Test
         @DisplayName("a plan the server starts for an epic row has no source, and round-trips")
         void serverStarted() {
             var members = members();
-            members.put("from_epic", "\"an-epic\"");
+            members.put("from_epic", quoted(epicId));
             members.put("hint", "null");
             var inner = bootstrapMembers();
             inner.put("source", "null");
@@ -163,9 +205,10 @@ class PendingEntryCodecTest {
             var entry = PendingEntryCodec.read(FILE, document);
 
             assertAll(
-                    () -> assertEquals("an-epic", entry.fromEpic()),
-                    () -> assertNull(entry.bootstrap().source()),
-                    () -> assertArrayEquals(document, PendingEntryCodec.write(entry)));
+                    () -> assertEquals(epicId, entry.fromEpic(), "the epic of the entry should be read"),
+                    () -> assertNull(entry.bootstrap().source(), "a server-started plan has no source"),
+                    () -> assertArrayEquals(document, PendingEntryCodec.write(entry),
+                            "the entry should round-trip byte for byte"));
         }
 
         @Test
@@ -174,7 +217,7 @@ class PendingEntryCodecTest {
             // The work package removes exactly the member `session` of the pending entry record; every other member
             // stays for the work package start-source-intake, which gives the record its directory form.
             assertEquals(PendingEntryCodec.MEMBERS, List.of("format_version", "entry_id", "kind", "requested_id", "hint", "from_epic", "created_at",
-                    "updated_at", "bootstrap"));
+                    "updated_at", "bootstrap"), "the members should be the schema's members");
         }
 
         @Test
@@ -186,7 +229,7 @@ class PendingEntryCodecTest {
 
             var entry = PendingEntryCodec.read(FILE, document);
 
-            assertArrayEquals(document, PendingEntryCodec.write(entry));
+            assertArrayEquals(document, PendingEntryCodec.write(entry), "the record should round-trip unchanged");
         }
 
         @Test
@@ -198,19 +241,21 @@ class PendingEntryCodecTest {
 
             var refusal = assertRefused(Outcome.UNREADABLE, document(members));
 
-            assertTrue(refusal.getMessage().contains("session"), refusal.getMessage());
+            assertTrue(refusal.getMessage().contains("session"), "the refusal should name the session member");
         }
 
         @Test
         @DisplayName("a record built in code is written and read back equal")
         void builtRecord() {
-            var entry = PendingEntryRecord.builder().entryId(new EntryId("ent-00000000")).kind(Kind.EPIC)
-                    .createdAt(Instant.parse("2026-10-13T08:00:00Z")).updatedAt(Instant.parse("2026-10-13T08:00:00Z"))
-                    .bootstrap(Bootstrap.builder().state("start.choose").callStack(List.of()).facts("{}")
-                            .options("{}").build())
+            var entry = PendingEntryRecord.builder()
+                    .entryId(new EntryId("ent-%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next())))
+                    .kind(Kind.EPIC).createdAt(createdAt).updatedAt(updatedAt)
+                    .bootstrap(Bootstrap.builder().state(lowerName() + "." + lowerName()).callStack(List.of())
+                            .facts("{}").options("{}").build())
                     .build();
 
-            assertEquals(entry, PendingEntryCodec.read(FILE, PendingEntryCodec.write(entry)));
+            assertEquals(entry, PendingEntryCodec.read(FILE, PendingEntryCodec.write(entry)),
+                    "the built record should round-trip");
         }
     }
 
@@ -225,7 +270,8 @@ class PendingEntryCodecTest {
             var members = members();
             members.put("format_version", Integer.toString(version));
 
-            assertEquals(OptionalInt.of(version), assertRefused(outcome, document(members)).found());
+            assertEquals(OptionalInt.of(version), assertRefused(outcome, document(members)).found(),
+                    "the refusal should carry the version found");
         }
 
         @ParameterizedTest(name = "without {0}")
@@ -235,7 +281,8 @@ class PendingEntryCodecTest {
             var members = members();
             members.remove(member);
 
-            assertTrue(assertRefused(Outcome.UNREADABLE, document(members)).getMessage().contains(member));
+            assertTrue(assertRefused(Outcome.UNREADABLE, document(members)).getMessage().contains(member),
+                    "the refusal should name the missing member");
         }
 
         @ParameterizedTest(name = "bootstrap without {0}")
@@ -247,7 +294,8 @@ class PendingEntryCodecTest {
             var members = members();
             members.put("bootstrap", bootstrap(inner));
 
-            assertTrue(assertRefused(Outcome.UNREADABLE, document(members)).getMessage().contains(member));
+            assertTrue(assertRefused(Outcome.UNREADABLE, document(members)).getMessage().contains(member),
+                    "the refusal should name the missing member");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -262,12 +310,12 @@ class PendingEntryCodecTest {
                 updated before created         | updated_at       | "2026-10-13T07:00:00Z"
                 bootstrap as an array          | bootstrap        | []
                 """)
-        @DisplayName("a member outside its one shape is refused")
+        @DisplayName("a member outside its one shape is refused (the shapes are the schema's contract)")
         void memberShape(String name, String member, String value) {
             var members = members();
             members.put(member, value);
             if ("epic naming a parent epic".equals(name)) {
-                members.put("from_epic", "\"an-epic\"");
+                members.put("from_epic", quoted(epicId));
             }
 
             assertRefused(Outcome.UNREADABLE, document(members));
@@ -286,7 +334,7 @@ class PendingEntryCodecTest {
                 frame without its entry     | call_stack        | [{"caller_workflow_id":"a","caller_state_id":"b","subworkflow_id":"c","bound_args":{},"pushed_at":"2026-10-13T08:01:00Z"}]
                 frame with a numeric entry  | call_stack        | [{"caller_workflow_id":"a","caller_state_id":"b","subworkflow_id":"c","entry":1,"bound_args":{},"pushed_at":"2026-10-13T08:01:00Z"}]
                 """)
-        @DisplayName("a bootstrap member outside its one shape is refused")
+        @DisplayName("a bootstrap member outside its one shape is refused (the shapes are the schema's contract)")
         void bootstrapShape(String name, String member, String value) {
             var inner = bootstrapMembers();
             inner.put(member, value);
@@ -300,17 +348,23 @@ class PendingEntryCodecTest {
         @DisplayName("a requested id over 64 and a hint over 4000 characters are refused")
         void lengths() {
             var longId = members();
-            longId.put("requested_id", "\"" + "a".repeat(65) + "\"");
+            longId.put("requested_id", quoted(lowerLetters(PendingEntryRecord.MAX_REQUESTED_ID + 1)));
             var longHint = members();
-            longHint.put("hint", "\"" + "a".repeat(4001) + "\"");
+            longHint.put("hint", quoted(lowerLetters(PendingEntryRecord.MAX_HINT + 1)));
             var limits = members();
-            limits.put("requested_id", "\"" + "a".repeat(64) + "\"");
-            limits.put("hint", "\"" + "a".repeat(4000) + "\"");
+            limits.put("requested_id", quoted(lowerLetters(PendingEntryRecord.MAX_REQUESTED_ID)));
+            limits.put("hint", quoted(lowerLetters(PendingEntryRecord.MAX_HINT)));
 
             assertAll(
                     () -> assertRefused(Outcome.UNREADABLE, document(longId)),
                     () -> assertRefused(Outcome.UNREADABLE, document(longHint)),
-                    () -> assertEquals(4000, PendingEntryCodec.read(FILE, document(limits)).hint().length()));
+                    () -> assertEquals(PendingEntryRecord.MAX_HINT,
+                            PendingEntryCodec.read(FILE, document(limits)).hint().length(),
+                            "a hint at the limit should be accepted"));
+        }
+
+        private static String lowerLetters(int length) {
+            return Generators.letterStrings(length, length).next().toLowerCase(Locale.ROOT);
         }
 
         @Test
@@ -332,8 +386,10 @@ class PendingEntryCodecTest {
         var created = entry.createdAt();
 
         assertAll(
-                () -> assertTrue(entry.createdBefore(created.plusSeconds(1))),
-                () -> assertFalse(entry.createdBefore(created)),
-                () -> assertFalse(entry.createdBefore(created.minusSeconds(1))));
+                () -> assertTrue(entry.createdBefore(created.plusSeconds(1)),
+                        "a later instant should be after the creation"),
+                () -> assertFalse(entry.createdBefore(created), "the creation instant should not count"),
+                () -> assertFalse(entry.createdBefore(created.minusSeconds(1)),
+                        "an earlier instant should not count"));
     }
 }

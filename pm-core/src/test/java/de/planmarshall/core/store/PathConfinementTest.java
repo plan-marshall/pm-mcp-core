@@ -17,11 +17,14 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,11 +47,15 @@ import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 
 /**
  * The adversarial fixtures of the path confinement (PM-SEC-2). Every refusal stands beside the positive control
- * of its permitted counterpart (PM-TEST-5), so that a check that refuses everything fails here as well.
+ * of its permitted counterpart (PM-TEST-5), so that a check that refuses everything fails here as well. The paths of
+ * the parameter tables are the adversarial contract and the fixture layout ({@code repo/}, {@code outside/},
+ * {@code README.md}) is pinned by them; the contents of the files and the benign new names are generated.
  */
+@EnableGeneratorController
 @DisplayName("PathConfinement")
 class PathConfinementTest {
 
+    // Outcome code of the specification.
     private static final String OUTCOME_CODE = "path_traversal_rejected";
 
     @TempDir
@@ -69,12 +76,21 @@ class PathConfinementTest {
     void workspace() throws IOException {
         base = temp.toRealPath();
         root = Files.createDirectories(base.resolve("repo/src")).getParent();
-        Files.writeString(root.resolve("README.md"), "inside");
-        Files.writeString(root.resolve("src/Main.java"), "inside");
+        Files.writeString(root.resolve("README.md"), content());
+        Files.writeString(root.resolve("src/Main.java"), content());
         outside = Files.createDirectories(base.resolve("outside/nested")).getParent();
-        Files.writeString(outside.resolve("secret.txt"), "outside");
-        Files.writeString(outside.resolve("nested/secret.txt"), "outside");
+        Files.writeString(outside.resolve("secret.txt"), content());
+        Files.writeString(outside.resolve("nested/secret.txt"), content());
         roots = new WorkspaceRoots(temp.resolve("repo"), Set.of());
+    }
+
+    private static String content() {
+        return Generators.letterStrings(1, 40).next();
+    }
+
+    /** @return a benign generated name that no fixture file carries */
+    private static String newName() {
+        return "new-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     private ConfinementOutcome confine(String rawPath) {
@@ -144,7 +160,7 @@ class PathConfinementTest {
         @DisplayName("refuses an absolute path beside the root, a name that only begins like the root included")
         void refusesOutside(String belowBase) throws Exception {
             Files.createDirectories(base.resolve("repository"));
-            Files.writeString(base.resolve("repository/README.md"), "outside");
+            Files.writeString(base.resolve("repository/README.md"), content());
 
             var outcome = confine(base.resolve(belowBase).toString());
 
@@ -361,9 +377,9 @@ class PathConfinementTest {
         @BeforeEach
         void names() throws IOException {
             var composed = accented(Normalizer.Form.NFC);
-            Files.writeString(root.resolve(composed + ".txt"), "inside");
+            Files.writeString(root.resolve(composed + ".txt"), content());
             Files.createDirectories(base.resolve(composed));
-            Files.writeString(base.resolve(composed).resolve("secret.txt"), "outside");
+            Files.writeString(base.resolve(composed).resolve("secret.txt"), content());
         }
 
         @ParameterizedTest(name = "form {0}")
@@ -459,6 +475,23 @@ class PathConfinementTest {
             assertFalse(Files.exists(assertConfined(outcome)), "The check should create nothing");
         }
 
+        @Test
+        @DisplayName("accepts a generated new name below an existing part inside the root")
+        void acceptsGeneratedNewName() {
+            var name = "src/" + newName() + "/" + newName() + ".txt";
+
+            var outcome = confine(name);
+
+            assertConfinedTo(name, outcome);
+            assertFalse(Files.exists(assertConfined(outcome)), "The check should create nothing");
+        }
+
+        @Test
+        @DisplayName("refuses a generated new name below an existing part outside the root")
+        void refusesGeneratedNewNameOutside() {
+            assertRejected(Reason.OUTSIDE_WORKSPACE, confine("../outside/" + newName() + ".txt"));
+        }
+
         @ParameterizedTest(name = "refuses {0}")
         @ValueSource(strings = {"../outside/new.txt", "../not-there/new.txt", "../outside/nested/new/deep.txt"})
         @DisplayName("refuses new names below an existing part outside the root")
@@ -469,7 +502,7 @@ class PathConfinementTest {
         @Test
         @DisplayName("refuses every path when the enrolled root does not exist")
         void refusesWithoutRoot() {
-            var missingRoot = new WorkspaceRoots(base.resolve("not-enrolled"), Set.of());
+            var missingRoot = new WorkspaceRoots(base.resolve(newName()), Set.of());
 
             var outcome = PathConfinement.confine(missingRoot, "README.md");
 
@@ -489,9 +522,11 @@ class PathConfinementTest {
 
         @BeforeEach
         void linkedWorktree() throws IOException {
-            var gitDirectory = Files.createDirectories(root.resolve(".git/worktrees/linked"));
-            linked = Files.createDirectories(base.resolve("linked"));
-            Files.writeString(linked.resolve("file.txt"), "worktree");
+            var name = newName();
+            var gitDirectory = Files.createDirectories(root.resolve(".git/worktrees").resolve(name));
+            linked = Files.createDirectories(base.resolve(name));
+            Files.writeString(linked.resolve("file.txt"), content());
+            // Git wire tokens: the pointer files of a linked worktree.
             Files.writeString(gitDirectory.resolve("commondir"), "../..\n");
             Files.writeString(gitDirectory.resolve("gitdir"), linked.resolve(".git") + "\n");
             Files.writeString(linked.resolve(".git"), "gitdir: " + gitDirectory + "\n");

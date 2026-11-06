@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.Serial;
 import java.nio.file.Files;
@@ -27,6 +29,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -46,18 +49,24 @@ import de.planmarshall.core.store.TransactionJournal.Mode;
 /**
  * The pending entry records of the workspace scope (PM-CLIENT-1, PM-IMPL-7): created, replaced and removed only as
  * targets of a workspace transaction, a removal a delete target, a fresh id never shared by two entries
- * (PM-WATCH-STORE-42), and a listing that names only what parses as an entry id.
+ * (PM-WATCH-STORE-42), and a listing that names only what parses as an entry id. The {@code pending/} layout, the
+ * {@code .json} file names and the entry-id grammar table are contracts; ids, states and instants are generated.
  */
+@EnableGeneratorController
 @DisplayName("Pending entry store")
 class PendingEntryStoreTest {
 
     private static final String PROJECT = "pm-mcp-core";
-    private static final Instant CREATED_AT = Instant.parse("2026-10-13T08:00:00Z");
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-13T09:00:00Z"), ZoneOffset.UTC);
 
     @TempDir
     Path base;
 
+    private Instant createdAt;
+    private Clock clock;
+    private EntryId entryId;
+    private EntryId otherId;
+    private String state;
+    private String nextState;
     private JournalScope workspace;
     private PendingEntryStore store;
     private RecordingLockManager locks;
@@ -91,6 +100,13 @@ class PendingEntryStoreTest {
 
     @BeforeEach
     void createWorkspace() throws IOException {
+        createdAt = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_800_000_000L).next());
+        clock = Clock.fixed(createdAt.plusSeconds(Generators.longs(0, 100_000L).next()), ZoneOffset.UTC);
+        var first = Generators.longs(0, Long.MAX_VALUE - 1).next();
+        entryId = new EntryId("ent-%016x".formatted(first));
+        otherId = new EntryId("ent-%016x".formatted(first + 1));
+        state = lowerName() + "." + lowerName();
+        nextState = state + "-" + lowerName();
         workspace = JournalScope.workspace(base, PROJECT);
         Files.createDirectories(workspace.journalFile().getParent());
         Files.createDirectories(workspace.resolve(PendingEntryStore.DIRECTORY));
@@ -99,10 +115,19 @@ class PendingEntryStoreTest {
         audit = new RecordingAuditSink();
     }
 
-    private static PendingEntryRecord entry(EntryId entryId, String state) {
-        return PendingEntryRecord.builder().entryId(entryId).kind(Kind.PLAN).createdAt(CREATED_AT)
-                .updatedAt(CREATED_AT)
-                .bootstrap(Bootstrap.builder().state(state).callStack(List.of()).facts("{}").options("{}").build())
+    private static String lowerName() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String shortId() {
+        return "ent-%08x".formatted(Generators.integers(0, Integer.MAX_VALUE).next());
+    }
+
+    private PendingEntryRecord entry(EntryId id, String bootstrapState) {
+        return PendingEntryRecord.builder().entryId(id).kind(Kind.PLAN).createdAt(createdAt)
+                .updatedAt(createdAt)
+                .bootstrap(Bootstrap.builder().state(bootstrapState).callStack(List.of()).facts("{}").options("{}")
+                        .build())
                 .build();
     }
 
@@ -110,7 +135,7 @@ class PendingEntryStoreTest {
     private <T> T inTransaction(Function<ScopeTransaction, T> work) {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(workspace.lockKey());
-            var write = ScopeTransaction.open(transaction, workspace, audit, CLOCK);
+            var write = ScopeTransaction.open(transaction, workspace, audit, clock);
             var result = work.apply(write);
             write.commit();
             return result;
@@ -127,9 +152,9 @@ class PendingEntryStoreTest {
     /** Allocates an id and creates its record in one transaction, as an entry does. */
     private EntryId enter(RandomGenerator random) {
         return inTransaction(write -> {
-            var entryId = store.allocate(write, random);
-            store.create(write, entry(entryId, "start.choose"));
-            return entryId;
+            var allocated = store.allocate(write, random);
+            store.create(write, entry(allocated, state));
+            return allocated;
         });
     }
 
@@ -140,65 +165,68 @@ class PendingEntryStoreTest {
         @Test
         @DisplayName("is created as a target of the workspace transaction, read back equal and covered by the sidecar")
         void created() {
-            var entryId = new EntryId("ent-0123456789abcdef");
-            var entry = entry(entryId, "start.choose");
+            var entry = entry(entryId, state);
 
             run(write -> store.create(write, entry));
 
             assertAll(
-                    () -> assertEquals(Optional.of(entry), store.read(entryId)),
-                    () -> assertEquals(workspace.pathBase().resolve("pending/ent-0123456789abcdef.json"),
-                            store.store(entryId)),
+                    () -> assertEquals(Optional.of(entry), store.read(entryId), "the record should be read back"),
+                    () -> assertEquals(workspace.pathBase().resolve("pending/" + entryId.value() + ".json"),
+                            store.store(entryId), "the record should lie in pending/"),
                     () -> assertEquals(Optional.of(StoreDigest.of(PendingEntryCodec.write(entry))),
-                            DigestSidecar.load(workspace.sidecarFile()).digest(PendingEntryStore.storePath(entryId))),
-                    () -> assertFalse(Files.exists(workspace.journalFile())));
+                            DigestSidecar.load(workspace.sidecarFile()).digest(PendingEntryStore.storePath(entryId)),
+                            "the sidecar should hold the record digest"),
+                    () -> assertFalse(Files.exists(workspace.journalFile()), "the journal should be closed after it"));
         }
 
         @Test
         @DisplayName("is replaced by its next bootstrap state, and only once it exists")
         void replaced() {
-            var entryId = new EntryId("ent-0123456789abcdef");
-            var next = entry(entryId, "start.ready");
-            var absent = entry(new EntryId("ent-ffffffff"), "start.ready");
+            var next = entry(entryId, nextState);
+            var absent = entry(otherId, nextState);
 
-            run(write -> store.create(write, entry(entryId, "start.choose")));
+            run(write -> store.create(write, entry(entryId, state)));
             run(write -> store.replace(write, next));
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(workspace.lockKey());
-                var write = ScopeTransaction.open(transaction, workspace, audit, CLOCK);
+                var write = ScopeTransaction.open(transaction, workspace, audit, clock);
 
                 assertAll(
-                        () -> assertEquals(Optional.of(next), store.read(entryId)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> store.replace(write, absent)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, next)));
+                        () -> assertEquals(Optional.of(next), store.read(entryId), "the next state should be read"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.replace(write, absent),
+                                "an absent record should not be replaced"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, next),
+                                "an existing record should not be created"));
             }
         }
 
         @Test
         @DisplayName("that states another entry_id than its file name is refused as unreadable and left as it is")
         void entryIdDiffersFromFileName() throws Exception {
-            var named = new EntryId("ent-0123456789abcdef");
-            var stated = new EntryId("ent-fedcba9876543210");
-            var document = PendingEntryCodec.write(entry(stated, "start.choose"));
-            Files.write(store.store(named), document);
+            var document = PendingEntryCodec.write(entry(otherId, state));
+            Files.write(store.store(entryId), document);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> store.read(named));
+            var refusal = assertThrows(StoreRefusal.class, () -> store.read(entryId),
+                    "a record of another id should be refused");
 
             assertAll(
-                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
-                    () -> assertEquals(store.store(named), refusal.file()),
-                    () -> assertTrue(refusal.getMessage().contains(stated.value()), refusal::getMessage),
-                    () -> assertTrue(refusal.getMessage().contains(named.value()), refusal::getMessage),
-                    () -> assertEquals(Optional.empty(), store.read(stated)),
-                    () -> assertArrayEquals(document, Files.readAllBytes(store.store(named))));
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome(),
+                            "the refusal should be unreadable"),
+                    () -> assertEquals(store.store(entryId), refusal.file(), "the refusal should name the file"),
+                    () -> assertTrue(refusal.getMessage().contains(otherId.value()),
+                            "the refusal should name the stated id"),
+                    () -> assertTrue(refusal.getMessage().contains(entryId.value()),
+                            "the refusal should name the file's id"),
+                    () -> assertEquals(Optional.empty(), store.read(otherId), "the stated id should have no record"),
+                    () -> assertArrayEquals(document, Files.readAllBytes(store.store(entryId)),
+                            "the refused file should stay unchanged"));
         }
 
         @Test
         @DisplayName("is removed as a delete target of the workspace journal, with its sidecar entry")
         void removed() throws Exception {
-            var entryId = new EntryId("ent-0123456789abcdef");
-            run(write -> store.create(write, entry(entryId, "start.choose")));
+            run(write -> store.create(write, entry(entryId, state)));
             ScopeTransaction.StepHook hook = (step, target) -> {
                 if (step == Step.JOURNAL) {
                     throw new StopWrite();
@@ -207,9 +235,9 @@ class PendingEntryStoreTest {
             boolean existed;
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(workspace.lockKey());
-                var write = ScopeTransaction.open(transaction, workspace, audit, CLOCK, hook);
+                var write = ScopeTransaction.open(transaction, workspace, audit, clock, hook);
                 existed = store.remove(write, entryId);
-                assertThrows(StopWrite.class, write::commit);
+                assertThrows(StopWrite.class, write::commit, "the commit should stop after the journal");
             }
             var journal = TransactionJournal.read(workspace.journalFile(),
                     Files.readAllBytes(workspace.journalFile()));
@@ -220,52 +248,57 @@ class PendingEntryStoreTest {
             }
 
             assertAll(
-                    () -> assertTrue(existed),
-                    () -> assertEquals(List.of(TransactionJournal.Target.delete("pending/ent-0123456789abcdef.json")),
-                            journal.targets()),
-                    () -> assertEquals(JournalScopeType.WORKSPACE, journal.scopeType()),
-                    () -> assertEquals(Mode.DELETE, journal.targets().getFirst().mode()),
-                    () -> assertEquals(Optional.empty(), store.read(entryId)),
+                    () -> assertTrue(existed, "the removal should report the record"),
+                    () -> assertEquals(List.of(TransactionJournal.Target.delete("pending/" + entryId.fileName())),
+                            journal.targets(), "the journal should hold one delete target"),
+                    () -> assertEquals(JournalScopeType.WORKSPACE, journal.scopeType(),
+                            "the journal should be the workspace's"),
+                    () -> assertEquals(Mode.DELETE, journal.targets().getFirst().mode(),
+                            "the target should be a delete"),
+                    () -> assertEquals(Optional.empty(), store.read(entryId), "the record should be removed"),
                     () -> assertEquals(Optional.empty(), DigestSidecar.load(workspace.sidecarFile())
-                            .digest(PendingEntryStore.storePath(entryId))),
-                    () -> assertEquals(Set.of(), store.entryIds()));
+                            .digest(PendingEntryStore.storePath(entryId)), "the sidecar entry should be removed"),
+                    () -> assertEquals(Set.of(), store.entryIds(), "no entry should be listed"));
         }
 
         @Test
         @DisplayName("that does not exist is removed without error, and the removal says so")
         void removeAbsent() {
-            var removed = inTransaction(write -> store.remove(write, new EntryId("ent-0123456789abcdef")));
+            var removed = inTransaction(write -> store.remove(write, entryId));
 
             assertAll(
-                    () -> assertFalse(removed),
-                    () -> assertFalse(Files.exists(workspace.journalFile())),
-                    () -> assertEquals(Set.of(), store.entryIds()));
+                    () -> assertFalse(removed, "the removal should report no record"),
+                    () -> assertFalse(Files.exists(workspace.journalFile()), "no journal should remain"),
+                    () -> assertEquals(Set.of(), store.entryIds(), "no entry should be listed"));
         }
 
         @Test
         @DisplayName("of another scope's transaction is refused")
         void otherScope() throws Exception {
-            var plan = JournalScope.plan(base, PROJECT, "a-plan");
+            var plan = JournalScope.plan(base, PROJECT, "plan-" + lowerName());
             Files.createDirectories(plan.journalFile().getParent());
-            var entryId = new EntryId("ent-0123456789abcdef");
-            var entry = entry(entryId, "start.choose");
+            var entry = entry(entryId, state);
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(plan.lockKey());
-                var write = ScopeTransaction.open(transaction, plan, audit, CLOCK);
+                var write = ScopeTransaction.open(transaction, plan, audit, clock);
 
                 assertAll(
-                        () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, entry)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> store.allocate(write)),
-                        () -> assertThrows(IllegalArgumentException.class, () -> store.remove(write, entryId)));
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, entry),
+                                "a plan transaction should not create"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.allocate(write),
+                                "a plan transaction should not allocate"),
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.remove(write, entryId),
+                                "a plan transaction should not remove"));
             }
         }
 
         @Test
         @DisplayName("belongs to the workspace scope only")
         void workspaceOnly() {
-            var plan = JournalScope.plan(base, PROJECT, "a-plan");
+            var plan = JournalScope.plan(base, PROJECT, "plan-" + lowerName());
 
-            assertThrows(IllegalArgumentException.class, () -> new PendingEntryStore(plan));
+            assertThrows(IllegalArgumentException.class, () -> new PendingEntryStore(plan),
+                    "a plan scope should have no pending store");
         }
     }
 
@@ -277,41 +310,45 @@ class PendingEntryStoreTest {
         @Test
         @DisplayName("of two entries gives two distinct records, a colliding draw redrawn")
         void twoEntriesTwoRecords() {
-            var first = enter(new ScriptedRandom(7L));
+            var draw = Generators.longs(0, Long.MAX_VALUE - 1).next();
+            var first = enter(new ScriptedRandom(draw));
 
-            var second = enter(new ScriptedRandom(7L, 8L));
+            var second = enter(new ScriptedRandom(draw, draw + 1));
 
             assertAll(
-                    () -> assertNotEquals(first, second),
-                    () -> assertEquals(Set.of(first, second), store.entryIds()),
-                    () -> assertEquals("start.choose", store.read(first).orElseThrow().bootstrap().state()),
-                    () -> assertEquals("start.choose", store.read(second).orElseThrow().bootstrap().state()));
+                    () -> assertNotEquals(first, second, "the colliding draw should be redrawn"),
+                    () -> assertEquals(Set.of(first, second), store.entryIds(), "both entries should be listed"),
+                    () -> assertEquals(state, store.read(first).orElseThrow().bootstrap().state(),
+                            "the first record should keep its state"),
+                    () -> assertEquals(state, store.read(second).orElseThrow().bootstrap().state(),
+                            "the second record should keep its state"));
         }
 
         @Test
         @DisplayName("within one transaction never hands out an id the transaction already writes")
         void sameTransaction() {
+            var draw = Generators.longs(0, Long.MAX_VALUE - 2).next();
             var ids = inTransaction(write -> {
-                var first = store.allocate(write, new ScriptedRandom(7L));
-                store.create(write, entry(first, "start.choose"));
-                var second = store.allocate(write, new ScriptedRandom(7L, 9L));
-                store.create(write, entry(second, "start.choose"));
+                var first = store.allocate(write, new ScriptedRandom(draw));
+                store.create(write, entry(first, state));
+                var second = store.allocate(write, new ScriptedRandom(draw, draw + 2));
+                store.create(write, entry(second, state));
                 return List.of(first, second);
             });
 
             assertAll(
-                    () -> assertNotEquals(ids.getFirst(), ids.getLast()),
-                    () -> assertEquals(Set.copyOf(ids), store.entryIds()));
+                    () -> assertNotEquals(ids.getFirst(), ids.getLast(), "the two ids should be distinct"),
+                    () -> assertEquals(Set.copyOf(ids), store.entryIds(), "both ids should be listed"));
         }
 
         @Test
-        @DisplayName("draws an id of ent- and 16 hex digits from the secure source")
+        @DisplayName("draws an id of ent- and 16 hex digits from the secure source (id grammar)")
         void secureDraw() {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(workspace.lockKey());
-                var entryId = store.allocate(ScopeTransaction.open(transaction, workspace, audit, CLOCK));
+                var drawn = store.allocate(ScopeTransaction.open(transaction, workspace, audit, clock));
 
-                assertTrue(entryId.value().matches("ent-[0-9a-f]{16}"), entryId.value());
+                assertTrue(drawn.value().matches("ent-[0-9a-f]{16}"), "the drawn id should have 16 hex digits");
             }
         }
     }
@@ -321,7 +358,7 @@ class PendingEntryStoreTest {
     class Listing {
 
         @Test
-        @DisplayName("names only the files whose name parses as an entry id")
+        @DisplayName("names only the files whose name parses as an entry id (the file names are the grammar table)")
         void onlyEntryIds() throws Exception {
             var pending = workspace.resolve(PendingEntryStore.DIRECTORY);
             Files.writeString(pending.resolve("ent-0123abcd.json"), "{}");
@@ -332,7 +369,8 @@ class PendingEntryStoreTest {
             Files.writeString(pending.resolve("ent-89abcdef"), "{}");
             Files.createDirectories(pending.resolve("ent-11111111.json"));
 
-            assertEquals(Set.of(new EntryId("ent-0123abcd")), store.entryIds());
+            assertEquals(Set.of(new EntryId("ent-0123abcd")), store.entryIds(),
+                    "only the entry file should be listed");
         }
 
         @Test
@@ -340,7 +378,7 @@ class PendingEntryStoreTest {
         void absentDirectory() throws Exception {
             Files.delete(workspace.resolve(PendingEntryStore.DIRECTORY));
 
-            assertEquals(Set.of(), store.entryIds());
+            assertEquals(Set.of(), store.entryIds(), "a missing directory should list nothing");
         }
     }
 
@@ -349,35 +387,50 @@ class PendingEntryStoreTest {
     class EntryIds {
 
         @Test
-        @DisplayName("parses ent- and 8 to 32 hex digits and nothing else")
+        @DisplayName("parses ent- and 8 to 32 hex digits and nothing else (grammar boundaries)")
         void parse() {
+            var generated = shortId();
             assertAll(
-                    () -> assertEquals(Optional.of(new EntryId("ent-01234567")), EntryId.parse("ent-01234567")),
-                    () -> assertTrue(EntryId.parse("ent-" + "a".repeat(32)).isPresent()),
-                    () -> assertEquals(Optional.empty(), EntryId.parse("ent-0123456")),
-                    () -> assertEquals(Optional.empty(), EntryId.parse("ent-" + "a".repeat(33))),
-                    () -> assertEquals(Optional.empty(), EntryId.parse("ent-0123456G")),
-                    () -> assertEquals(Optional.empty(), EntryId.parse("ENT-01234567")),
-                    () -> assertEquals(Optional.empty(), EntryId.parse(null)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryId("x")));
+                    () -> assertEquals(Optional.of(new EntryId(generated)), EntryId.parse(generated),
+                            "a generated id should parse"),
+                    () -> assertEquals(Optional.of(new EntryId("ent-01234567")), EntryId.parse("ent-01234567"),
+                            "eight hex digits should parse"),
+                    () -> assertTrue(EntryId.parse("ent-" + "a".repeat(32)).isPresent(),
+                            "thirty-two hex digits should parse"),
+                    () -> assertEquals(Optional.empty(), EntryId.parse("ent-0123456"),
+                            "seven hex digits should not parse"),
+                    () -> assertEquals(Optional.empty(), EntryId.parse("ent-" + "a".repeat(33)),
+                            "thirty-three hex digits should not parse"),
+                    () -> assertEquals(Optional.empty(), EntryId.parse("ent-0123456G"),
+                            "a non-hex digit should not parse"),
+                    () -> assertEquals(Optional.empty(), EntryId.parse("ENT-01234567"),
+                            "an uppercase prefix should not parse"),
+                    () -> assertEquals(Optional.empty(), EntryId.parse(null), "a null text should not parse"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryId("x"),
+                            "a malformed id should be refused"));
         }
 
         @Test
         @DisplayName("names its record <entry_id>.json and is found again from that name")
         void fileName() {
-            var entryId = new EntryId("ent-01234567");
+            var value = shortId();
+            var id = new EntryId(value);
 
             assertAll(
-                    () -> assertEquals("ent-01234567.json", entryId.fileName()),
-                    () -> assertEquals(Optional.of(entryId), EntryId.ofFileName(entryId.fileName())),
-                    () -> assertEquals(Optional.empty(), EntryId.ofFileName("ent-01234567")),
-                    () -> assertEquals("ent-01234567", entryId.toString()));
+                    () -> assertEquals(value + ".json", id.fileName(), "the file name should add .json"),
+                    () -> assertEquals(Optional.of(id), EntryId.ofFileName(id.fileName()),
+                            "the file name should parse back"),
+                    () -> assertEquals(Optional.empty(), EntryId.ofFileName(value),
+                            "a name without .json should not parse"),
+                    () -> assertEquals(value, id.toString(), "the id should print as its value"));
         }
 
         @Test
         @DisplayName("drawn twice from the same digits is the same id")
         void deterministicDraw() {
-            assertEquals(EntryId.random(new ScriptedRandom(1L)), EntryId.random(new ScriptedRandom(1L)));
+            var draw = Generators.longs(0, Long.MAX_VALUE).next();
+            assertEquals(EntryId.random(new ScriptedRandom(draw)), EntryId.random(new ScriptedRandom(draw)),
+                    "the same digits should give the same id");
         }
     }
 }

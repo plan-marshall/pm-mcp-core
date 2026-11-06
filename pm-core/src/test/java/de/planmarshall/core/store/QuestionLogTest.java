@@ -13,6 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -22,27 +25,37 @@ import org.junit.jupiter.api.Test;
  * under the lock of the scope. The cases are tested one group per class, beside this one: the revision
  * ({@link QuestionLogRevisionTest}), a closing line ({@link QuestionLogClosingTest}), the revision of an answer
  * ({@link QuestionLogAnswerRevisionTest}), the current line ({@link QuestionLogCurrentLineTest}), a log with a refused
- * line ({@link QuestionLogRefusedLineTest}) and a line malformed for the log ({@link QuestionLogMalformedTest}).
+ * line ({@link QuestionLogRefusedLineTest}) and a line malformed for the log ({@link QuestionLogMalformedTest}). The
+ * store paths are the layout contract; the entry and the epic are generated.
  */
+@EnableGeneratorController
 @DisplayName("Question log")
 class QuestionLogTest extends QuestionLogFixture {
 
     @Test
     @DisplayName("lies at the path base of a plan or an epic, below workspace/ and below pending/<entry_id>/")
     void location() {
-        var entry = new EntryId("ent-0123456789abcdef");
+        var entryId = "ent-%016x".formatted(Generators.longs(0, Long.MAX_VALUE).next());
+        var entry = new EntryId(entryId);
         var workspace = JournalScope.workspace(base, PROJECT);
-        var epic = JournalScope.epic(base, PROJECT, "an-epic");
+        var epic = JournalScope.epic(base, PROJECT, Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         var lessons = JournalScope.lessons(base, PROJECT);
 
         assertAll(
-                () -> assertEquals(scope.pathBase().resolve("questions.jsonl"), log.store()),
-                () -> assertEquals("questions.jsonl", new QuestionLog(epic).storePath()),
-                () -> assertEquals(epic.pathBase().resolve("questions.jsonl"), new QuestionLog(epic).store()),
-                () -> assertEquals("workspace/questions.jsonl", new QuestionLog(workspace).storePath()),
-                () -> assertEquals("pending/ent-0123456789abcdef/questions.jsonl",
-                        QuestionLog.ofEntry(workspace, entry).storePath()),
-                () -> assertThrows(IllegalArgumentException.class, () -> QuestionLog.ofEntry(scope, entry)),
-                () -> assertThrows(IllegalArgumentException.class, () -> new QuestionLog(lessons)));
+                () -> assertEquals(scope.pathBase().resolve("questions.jsonl"), log.store(),
+                        "the plan log should lie at its path base"),
+                () -> assertEquals("questions.jsonl", new QuestionLog(epic).storePath(),
+                        "the epic log should be named questions.jsonl"),
+                () -> assertEquals(epic.pathBase().resolve("questions.jsonl"), new QuestionLog(epic).store(),
+                        "the epic log should lie at its path base"),
+                () -> assertEquals("workspace/questions.jsonl", new QuestionLog(workspace).storePath(),
+                        "the workspace log should lie below workspace"),
+                () -> assertEquals("pending/" + entryId + "/questions.jsonl",
+                        QuestionLog.ofEntry(workspace, entry).storePath(),
+                        "the entry log should lie below its entry"),
+                () -> assertThrows(IllegalArgumentException.class, () -> QuestionLog.ofEntry(scope, entry),
+                        "an entry log of a plan should be refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new QuestionLog(lessons),
+                        "the lessons scope should have no question log"));
     }
 }

@@ -18,9 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,11 +42,14 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The per-project machine store (PM-ARCH-1, PM-IMPL-2): its directories resolve below
  * {@code <PM_MCP_BASE>/projects/<project_id>/}, its creation under the workspace lock writes {@code store.json} once,
  * and a read of its identity tells a store that does not exist from an identity record that cannot be read, never
- * answering either as an empty record.
+ * answering either as an empty record. The store file and directory names are the layout contract, and the project
+ * id is the one of the golden identity document; roots, names and other project ids are generated.
  */
+@EnableGeneratorController
 @DisplayName("Project store")
 class ProjectStoreTest {
 
+    // Project id of the golden identity document ProjectStoreIdentityCodecTest.ENROLLED.
     private static final String PROJECT = "pm-mcp-core";
 
     @TempDir
@@ -53,11 +59,19 @@ class ProjectStoreTest {
     private RecordingLockManager locks;
     private ProjectStoreIdentity identity;
 
+    private static String name(String prefix) {
+        return prefix + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String root() {
+        return "/" + name("home-") + "/" + name("git-");
+    }
+
     @BeforeEach
     void createStore() {
         store = new ProjectStore(base, PROJECT);
         locks = new RecordingLockManager();
-        identity = ProjectStoreIdentityCodecTest.identity(PROJECT, "/home/oliver/git/pm-mcp-core");
+        identity = ProjectStoreIdentityCodecTest.identity(PROJECT, root());
     }
 
     private Creation create(ProjectStoreIdentity created) {
@@ -76,25 +90,29 @@ class ProjectStoreTest {
             var root = base.toAbsolutePath().normalize().resolve("projects").resolve(PROJECT);
 
             assertAll(
-                    () -> assertEquals(root, store.root()),
-                    () -> assertEquals(root.resolve("store.json"), store.identityFile()),
-                    () -> assertEquals(PROJECT, store.projectId()),
-                    () -> assertEquals(LockKey.workspace(base, PROJECT), store.lockKey()));
+                    () -> assertEquals(root, store.root(), "the store should lie below projects/"),
+                    () -> assertEquals(root.resolve("store.json"), store.identityFile(),
+                            "the identity should be store.json"),
+                    () -> assertEquals(PROJECT, store.projectId(), "the store should name its project"),
+                    () -> assertEquals(LockKey.workspace(base, PROJECT), store.lockKey(),
+                            "the store should use the workspace lock"));
         }
 
         @Test
-        @DisplayName("every directory resolves below the store by its name")
+        @DisplayName("every directory resolves below the store by its name (layout contract)")
         void directories() {
             var names = Arrays.stream(Directory.values()).map(directory -> store.directory(directory)).toList();
 
             assertEquals(Stream.of("plans", "archive", "workspace", "epics", "pending", "locks", "queue", "jobs")
-                    .map(store.root()::resolve).toList(), names);
+                    .map(store.root()::resolve).toList(), names, "the directories should resolve by name");
         }
 
         @Test
         @DisplayName("a project id outside the identifier grammar never becomes a path")
         void invalidProjectId() {
-            assertThrows(IllegalArgumentException.class, () -> new ProjectStore(base, "../other"));
+            var traversal = "../" + name("other-");
+            assertThrows(IllegalArgumentException.class, () -> new ProjectStore(base, traversal),
+                    "a traversing project id should fail");
         }
     }
 
@@ -113,13 +131,14 @@ class ProjectStoreTest {
             }
 
             assertAll(
-                    () -> assertEquals(Creation.CREATED, creation),
+                    () -> assertEquals(Creation.CREATED, creation, "the store should be created"),
                     () -> assertArrayEquals(ProjectStoreIdentityCodec.write(identity),
-                            Files.readAllBytes(store.identityFile())),
+                            Files.readAllBytes(store.identityFile()), "the identity should be written"),
                     () -> assertTrue(Arrays.stream(Directory.values())
                                     .allMatch(directory -> Files.isDirectory(store.directory(directory))),
-                            "every directory exists"),
-                    () -> assertEquals(new ProjectStore.Present(identity), store.readIdentity()));
+                            "every directory should exist"),
+                    () -> assertEquals(new ProjectStore.Present(identity), store.readIdentity(),
+                            "the identity should be read back"));
         }
 
         @Test
@@ -127,38 +146,42 @@ class ProjectStoreTest {
         void writesOnce() throws Exception {
             create(identity);
             var recorded = Files.readAllBytes(store.identityFile());
-            var renamed = new ProjectStoreIdentity(PROJECT, "/elsewhere/pm-mcp-core", "renamed",
-                    identity.createdAt().plusSeconds(60), null);
+            var renamed = new ProjectStoreIdentity(PROJECT, root(), name("renamed-"),
+                    identity.createdAt().plusSeconds(Generators.longs(1, 100_000L).next()), null);
 
             var second = create(renamed);
 
             assertAll(
-                    () -> assertEquals(Creation.EXISTED, second),
-                    () -> assertArrayEquals(recorded, Files.readAllBytes(store.identityFile())));
+                    () -> assertEquals(Creation.EXISTED, second, "the second creation should find it"),
+                    () -> assertArrayEquals(recorded, Files.readAllBytes(store.identityFile()),
+                            "the recorded identity should stay"));
         }
 
         @Test
-        @DisplayName("leaves an unreadable identity record as it is")
+        @DisplayName("leaves an unreadable identity record as it is (torn wire document)")
         void keepsUnreadableRecord() throws Exception {
+            var torn = "{\"format_version\":1";
             Files.createDirectories(store.root());
-            Files.writeString(store.identityFile(), "{\"format_version\":1", UTF_8);
+            Files.writeString(store.identityFile(), torn, UTF_8);
 
             var creation = create(identity);
 
             assertAll(
-                    () -> assertEquals(Creation.EXISTED, creation),
-                    () -> assertEquals("{\"format_version\":1", Files.readString(store.identityFile(), UTF_8)));
+                    () -> assertEquals(Creation.EXISTED, creation, "the torn record should count as existing"),
+                    () -> assertEquals(torn, Files.readString(store.identityFile(), UTF_8),
+                            "the torn record should stay unchanged"));
         }
 
         @Test
         @DisplayName("refuses the identity of another project and writes nothing")
         void otherProject() {
-            var other = ProjectStoreIdentityCodecTest.identity("other-project", "/home/oliver/git/other");
+            var other = ProjectStoreIdentityCodecTest.identity(name("project-"), root());
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> create(other)),
-                    () -> assertFalse(Files.exists(store.root()), "nothing is created"),
-                    () -> assertEquals(0, locks.acquisitions().size(), "no lock is taken"));
+                    () -> assertThrows(IllegalArgumentException.class, () -> create(other),
+                            "another project's identity should fail"),
+                    () -> assertFalse(Files.exists(store.root()), "nothing should have been created"),
+                    () -> assertEquals(0, locks.acquisitions().size(), "no lock should have been taken"));
         }
     }
 
@@ -181,7 +204,8 @@ class ProjectStoreTest {
         @Test
         @DisplayName("of a store that does not exist is absent, naming the record")
         void absent() {
-            assertEquals(new ProjectStore.Absent(store.identityFile()), store.readIdentity());
+            assertEquals(new ProjectStore.Absent(store.identityFile()), store.readIdentity(),
+                    "a missing store should be absent");
         }
 
         @Test
@@ -189,7 +213,8 @@ class ProjectStoreTest {
         void directoryWithoutRecord() throws Exception {
             Files.createDirectories(store.root());
 
-            assertEquals(new ProjectStore.Absent(store.identityFile()), store.readIdentity());
+            assertEquals(new ProjectStore.Absent(store.identityFile()), store.readIdentity(),
+                    "a store without store.json should be absent");
         }
 
         @Test
@@ -198,27 +223,31 @@ class ProjectStoreTest {
             Files.createDirectories(store.root());
             Files.writeString(store.identityFile(), ProjectStoreIdentityCodecTest.UNENROLLED, UTF_8);
 
-            var read = assertInstanceOf(ProjectStore.Present.class, store.readIdentity());
+            var read = assertInstanceOf(ProjectStore.Present.class, store.readIdentity(),
+                    "an unenrolled identity should be present");
 
             assertEquals(ProjectStoreIdentityCodecTest.read(ProjectStoreIdentityCodecTest.UNENROLLED),
-                    read.identity());
+                    read.identity(), "the unenrolled identity should be read");
         }
 
         @Test
         @DisplayName("of a store.json of another project, restored into this store, is unreadable naming the mismatch")
         void foreignIdentity() throws Exception {
-            var beta = new ProjectStore(base, "beta");
-            Files.createDirectories(beta.root());
-            Files.writeString(beta.identityFile(), ProjectStoreIdentityCodecTest.ENROLLED, UTF_8);
+            var otherId = name("project-");
+            var other = new ProjectStore(base, otherId);
+            Files.createDirectories(other.root());
+            Files.writeString(other.identityFile(), ProjectStoreIdentityCodecTest.ENROLLED, UTF_8);
 
-            var read = assertInstanceOf(ProjectStore.Unreadable.class, beta.readIdentity());
+            var read = assertInstanceOf(ProjectStore.Unreadable.class, other.readIdentity(),
+                    "a foreign identity should be unreadable");
 
             assertAll(
-                    () -> assertEquals(Outcome.UNREADABLE, read.refusal().outcome()),
-                    () -> assertEquals(beta.identityFile(), read.refusal().file()),
+                    () -> assertEquals(Outcome.UNREADABLE, read.refusal().outcome(),
+                            "the refusal should be unreadable"),
+                    () -> assertEquals(other.identityFile(), read.refusal().file(), "the refusal should name the file"),
                     () -> assertTrue(read.refusal().getMessage()
-                                    .contains("project_id " + PROJECT + " is not the project beta"),
-                            read.refusal().getMessage()));
+                                    .contains("project_id " + PROJECT + " is not the project " + otherId),
+                            "the refusal should name the mismatch"));
         }
 
         @Test
@@ -227,9 +256,11 @@ class ProjectStoreTest {
             Files.createDirectories(store.root());
             Files.writeString(store.identityFile(), ProjectStoreIdentityCodecTest.ENROLLED, UTF_8);
 
-            var read = assertInstanceOf(ProjectStore.Present.class, store.readIdentity());
+            var read = assertInstanceOf(ProjectStore.Present.class, store.readIdentity(),
+                    "its own identity should be present");
 
-            assertEquals(ProjectStoreIdentityCodecTest.read(ProjectStoreIdentityCodecTest.ENROLLED), read.identity());
+            assertEquals(ProjectStoreIdentityCodecTest.read(ProjectStoreIdentityCodecTest.ENROLLED), read.identity(),
+                    "its own identity should be read");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -239,11 +270,13 @@ class ProjectStoreTest {
             Files.createDirectories(store.root());
             Files.writeString(store.identityFile(), content, UTF_8);
 
-            var read = assertInstanceOf(ProjectStore.Unreadable.class, store.readIdentity());
+            var read = assertInstanceOf(ProjectStore.Unreadable.class, store.readIdentity(),
+                    "the record should be unreadable");
 
             assertAll(
-                    () -> assertEquals(outcome, read.refusal().outcome()),
-                    () -> assertEquals(store.identityFile(), read.refusal().file()));
+                    () -> assertEquals(outcome, read.refusal().outcome(), "the refusal should carry its outcome"),
+                    () -> assertEquals(store.identityFile(), read.refusal().file(),
+                            "the refusal should name the file"));
         }
     }
 }
