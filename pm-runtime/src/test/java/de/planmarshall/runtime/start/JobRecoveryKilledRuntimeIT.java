@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,14 +59,21 @@ import de.planmarshall.runtime.test.TestBases;
  * with {@code setsid}; the next runtime instance recovers the project in this JVM with the real
  * {@link JobRecoveryStep} and the real {@link ProcessGroupSignals}, in place of the seam of
  * {@link Name#JOBS_AND_WORKERS}.
+ * <p>
+ * The modes, the project and the job of the child are the protocol with it ({@link RuntimeChildProcess}); the outcome
+ * row, the signal names and the counts and kinds in the reports are the specified outcome format of the step. The
+ * instant of the lease step is generated.
  */
+@EnableGeneratorController
 @EnabledOnOs(OS.LINUX)
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("Jobs part of the recovery with a killed runtime")
 class JobRecoveryKilledRuntimeIT {
 
-    private static final Instant NOW = Instant.parse("2026-10-17T12:00:00Z");
+    /** Contract literal: the row of the outcome table of a job killed by a runtime restart. */
+    private static final int KILLED_OUTCOME_ROW = 4;
 
+    private final Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
     private final RecordingAuditSink auditSink = new RecordingAuditSink();
     private final ProcessGroupSignals signals = ProcessGroupSignals.system();
@@ -74,6 +83,7 @@ class JobRecoveryKilledRuntimeIT {
 
     @BeforeEach
     void createBase() throws IOException {
+        // A fixture argument, the prefix of the base directory, not test data
         base = Files.createDirectory(TestBases.create("pmjr"));
         lockManager = new FileLockManager(auditSink);
     }
@@ -102,31 +112,32 @@ class JobRecoveryKilledRuntimeIT {
 
     private JobRecord theJob() {
         var records = JobRecordStore.ofProject(base, PROJECT_A).records();
-        assertEquals(1, records.size(), records::toString);
+        assertEquals(1, records.size(), "the project must hold exactly one job");
         return records.getFirst();
     }
 
     /** The next runtime instance: the recovery of the project with the real job step and the lease step. */
     private ProjectOutcome recover() throws IOException {
         var leases = new LeaseRecoveryStep(List.of(RecoveryStepFixtures.buildSlots(base, lockManager)),
-                LeaseRecoveryStep.AbandonmentEvidence.NONE, Clock.fixed(NOW, ZoneOffset.UTC));
+                LeaseRecoveryStep.AbandonmentEvidence.NONE, Clock.fixed(now, ZoneOffset.UTC));
         var recovery = new ProjectRecovery(() -> List.of(PROJECT_A), RecoveryStepFixtures.completeSteps(
                 RuntimeChildProcess.jobStep(base, lockManager, auditSink), leases), Runnable::run);
-        return assertInstanceOf(ProjectRecovery.Result.Recovered.class, recovery.awaitRecovered(PROJECT_A))
-                .outcome();
+        return assertInstanceOf(ProjectRecovery.Result.Recovered.class, recovery.awaitRecovered(PROJECT_A),
+                "the project must be recovered").outcome();
     }
 
     private static String report(ProjectOutcome outcome, Name name) {
         var step = outcome.steps().stream().filter(result -> result.name() == name).findFirst().orElseThrow();
-        return assertInstanceOf(Outcome.Done.class, step.outcome(), step::toString).report();
+        return assertInstanceOf(Outcome.Done.class, step.outcome(), "the step of the recovery must be done")
+                .report();
     }
 
     private static void assertKilledByRestart(JobRecord job, String signal) {
         assertAll(
-                () -> assertEquals(Status.ENDED, job.status()),
-                () -> assertEquals(Fate.KILLED, job.fate()),
-                () -> assertEquals(4, job.outcomeRow(), "outcome row 4"),
-                () -> assertEquals(signal, job.signal()));
+                () -> assertEquals(Status.ENDED, job.status(), "the settled job must have ended"),
+                () -> assertEquals(Fate.KILLED, job.fate(), "the settled job must be killed"),
+                () -> assertEquals(KILLED_OUTCOME_ROW, job.outcomeRow(), "the job must carry outcome row 4"),
+                () -> assertEquals(signal, job.signal(), "the job must carry the signal of the restart"));
     }
 
     @Test
@@ -139,12 +150,15 @@ class JobRecoveryKilledRuntimeIT {
 
         assertAll(
                 () -> assertEquals(Status.RUNNING, left.status(), "the killed runtime left the write-ahead record"),
-                () -> assertFalse(left.isSpawnRecorded()),
-                () -> assertFalse(outcome.failed(), outcome::toString),
+                () -> assertFalse(left.isSpawnRecorded(), "the killed runtime recorded no spawn"),
+                () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
                 () -> assertKilledByRestart(theJob(), JobRecoveryStep.RUNTIME_RESTART),
-                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), auditSink.eventNames()),
+                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), auditSink.eventNames(),
+                        "exactly one orphan note must be handed over"),
+                // Contract literal: the specified report of the step, its counts and the kind of evidence
                 () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith(
-                        "1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups terminated")));
+                                "1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups terminated"),
+                        "the report must count one unidentifiable job"));
     }
 
     @Test
@@ -158,9 +172,10 @@ class JobRecoveryKilledRuntimeIT {
 
         assertAll(
                 () -> assertFalse(left.isSpawnRecorded(), "the post-spawn replace was not written"),
-                () -> assertFalse(outcome.failed(), outcome::toString),
+                () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
                 () -> assertKilledByRestart(theJob(), JobRecoveryStep.RUNTIME_RESTART),
-                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), auditSink.eventNames()),
+                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), auditSink.eventNames(),
+                        "exactly one orphan note must be handed over"),
                 () -> assertFalse(signals.signalGroup(orphan, Signal.PROBE) instanceof NoSuchProcess,
                         "the unidentifiable orphan was not signalled and still lives"));
     }
@@ -178,15 +193,17 @@ class JobRecoveryKilledRuntimeIT {
         var settled = theJob();
         assertAll(
                 () -> assertTrue(liveBefore, "the group outlived the killed runtime"),
-                () -> assertEquals(group, left.pid()),
-                () -> assertFalse(outcome.failed(), outcome::toString),
-                () -> assertEquals(Fate.KILLED, settled.fate()),
-                () -> assertEquals(4, settled.outcomeRow()),
+                () -> assertEquals(group, left.pid(), "the left record must name the group of the job"),
+                () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
+                () -> assertEquals(Fate.KILLED, settled.fate(), "the settled job must be killed"),
+                () -> assertEquals(KILLED_OUTCOME_ROW, settled.outcomeRow(), "the job must carry outcome row 4"),
                 () -> assertTrue(List.of(Signal.SIGTERM.name(), Signal.SIGKILL.name()).contains(settled.signal()),
-                        settled::signal),
-                () -> assertEquals(List.of(), auditSink.eventNames(), "no orphan note"),
+                        "the job must carry SIGTERM or SIGKILL"),
+                () -> assertEquals(List.of(), auditSink.eventNames(), "no orphan note may be handed over"),
+                // Contract literal: the specified report of the step, its counts and the kind of evidence
                 () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith(
-                        "1 jobs settled killed {PROBED=1}, 1 groups terminated")),
+                                "1 jobs settled killed {PROBED=1}, 1 groups terminated"),
+                        "the report must count one probed, terminated job"),
                 () -> assertTrue(signals.signalGroup(group, Signal.PROBE) instanceof NoSuchProcess
                         || awaitGroupEnd(group), "the group was terminated"));
     }
@@ -201,12 +218,15 @@ class JobRecoveryKilledRuntimeIT {
 
         assertAll(
                 () -> assertEquals(Fate.CANCELLED, left.fate(), "the killed runtime recorded the fate"),
-                () -> assertFalse(outcome.failed(), outcome::toString),
+                () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
                 () -> assertEquals(left, theJob(), "a settled job is never settled again"),
-                () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith("no job to settle")),
+                // Contract literals: the specified reports of the jobs and the lease step
+                () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith("no job to settle"),
+                        "the jobs step must find no job to settle"),
                 () -> assertTrue(report(outcome, Name.LEASES).contains("0 kept, 1 orphaned, 0 removed"),
-                        () -> report(outcome, Name.LEASES)),
-                () -> assertEquals(Name.values().length, outcome.steps().size()),
+                        "the lease step must orphan the slot lease"),
+                () -> assertEquals(Name.values().length, outcome.steps().size(),
+                        "every recovery step must have run"),
                 () -> assertEquals(List.of(Name.JOBS_AND_WORKERS, Name.LEASES),
                         outcome.steps().subList(2, 4).stream().map(StepResult::name).toList(),
                         "the jobs are settled in step 3, before the leases"));

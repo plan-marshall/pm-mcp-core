@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,11 +32,16 @@ import de.planmarshall.runtime.test.TestBases;
  * The per-project recovery under a runtime killed with {@code SIGKILL} inside a recovery step (PM-ARCH-7). The killed
  * runtime is a child JVM of {@link KilledRuntimeFixture}; a new runtime instance in this JVM recovers the project
  * again from the first step: a project is recovered once per runtime instance, not once ever.
+ * <p>
+ * The test holds no data of its own: the mode, the marker and the recovered project are the protocol with the child
+ * ({@link RuntimeChildProcess}).
  */
+@EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("Per-project recovery with a killed runtime")
 class ProjectRecoveryKilledRuntimeIT {
 
+    /** Contract literal of the child-process protocol: the project the child recovers. */
     private static final String PROJECT = RuntimeChildProcess.RECOVERED_PROJECT;
 
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
@@ -44,7 +50,8 @@ class ProjectRecoveryKilledRuntimeIT {
 
     @BeforeEach
     void createBase() throws IOException {
-        // The recovery runs after the startup sequence has created the base; this test needs no more of it
+        // The recovery runs after the startup sequence has created the base; this test needs no more of it. The
+        // prefix is a fixture argument, not test data
         base = Files.createDirectory(TestBases.create("pmr"));
     }
 
@@ -71,12 +78,14 @@ class ProjectRecoveryKilledRuntimeIT {
         var result = next.awaitRecovered(PROJECT);
         var repeated = next.awaitRecovered(PROJECT);
 
-        var outcome = assertInstanceOf(ProjectRecovery.Result.Recovered.class, result).outcome();
+        var outcome = assertInstanceOf(ProjectRecovery.Result.Recovered.class, result,
+                "the next instance must recover the project").outcome();
         assertAll(
                 () -> assertEquals(List.of(PROJECT), runsOfKilled, "the killed runtime ran the first step"),
-                () -> assertFalse(outcome.failed()),
-                () -> assertEquals(RecoveryStep.Name.values().length, outcome.steps().size()),
-                () -> assertEquals(result, repeated),
+                () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
+                () -> assertEquals(RecoveryStep.Name.values().length, outcome.steps().size(),
+                        "every recovery step must have run"),
+                () -> assertEquals(result, repeated, "a second wait must return the same result"),
                 () -> assertEquals(List.of(PROJECT, PROJECT), Files.readAllLines(RuntimeChildProcess.recoveryRuns(base)),
                         "recovered again from the first step, and once per instance"));
     }

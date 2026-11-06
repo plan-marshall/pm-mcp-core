@@ -9,21 +9,21 @@
  */
 package de.planmarshall.runtime.test;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.SecureRandom;
 import java.util.Comparator;
-import java.util.HexFormat;
 
 /**
  * Short private machine roots for tests: {@code /tmp/<prefix>-<8 hex>}, so that the socket path stays far below
  * the {@code sun_path} limit. The directory itself is not created: the runtime creates it.
+ * <p>
+ * The form {@code /tmp/<prefix>-<8 hex>} is the contract of the class; the eight hex digits are generated, and a path
+ * that already exists is never returned, so a base stays unique among the bases of concurrent tests.
  */
 public final class TestBases {
-
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private TestBases() {
     }
@@ -33,9 +33,13 @@ public final class TestBases {
      * @return a fresh, not yet existing base path
      */
     public static Path create(String prefix) {
-        var bytes = new byte[4];
-        RANDOM.nextBytes(bytes);
-        return Path.of("/tmp", prefix + "-" + HexFormat.of().formatHex(bytes));
+        while (true) {
+            // Contract literal: the short temporary directory that keeps the socket path below the sun_path limit
+            var base = Path.of("/tmp", prefix + "-" + "%08x".formatted(Generators.integers().next()));
+            if (!Files.exists(base)) {
+                return base;
+            }
+        }
     }
 
     /**

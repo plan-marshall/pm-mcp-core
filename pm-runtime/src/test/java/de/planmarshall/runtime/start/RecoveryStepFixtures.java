@@ -11,6 +11,7 @@ package de.planmarshall.runtime.start;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -45,6 +46,7 @@ import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.core.store.TransactionJournal;
 import de.planmarshall.core.store.TransactionJournal.Mode;
 import de.planmarshall.core.store.TransactionJournal.Target;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * The stores of the tests of the implemented recovery steps, shared by the tests in this JVM and by the children of
@@ -53,20 +55,20 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  */
 final class RecoveryStepFixtures {
 
-    /** The project being recovered. */
+    /**
+     * The project being recovered. Contract literal of the child-process protocol: the test JVM and the child JVM of
+     * {@link RuntimeChildProcess} must name the same project, which a value generated in each JVM would not.
+     */
     static final String PROJECT_A = "project-a";
 
-    /** Another project of the same machine. */
+    /** Another project of the same machine; a contract literal of the child-process protocol like {@link #PROJECT_A}. */
     static final String PROJECT_B = "project-b";
 
-    /** The store each scope writes, relative to its path base. */
+    /** The store each scope writes, relative to its path base; a fixture path shared with the child JVM. */
     static final String STORE = "state.json";
 
-    /** The instant of a lease claim. */
-    static final Instant ACQUIRED_AT = Instant.parse("2026-10-11T08:00:00Z");
-
-    /** The name of the reconciliation rule of {@link CopyReconciler}. */
-    static final String COPY_RULE = "copy-state";
+    /** The name of the reconciliation rule of {@link CopyReconciler}, generated once per JVM. */
+    static final String COPY_RULE = "copy-" + Generators.letterStrings(3, 12).next();
 
     private RecoveryStepFixtures() {
     }
@@ -136,19 +138,21 @@ final class RecoveryStepFixtures {
      * @throws IOException if the directory cannot be created
      */
     static LeaseStore buildSlots(Path base, LockManager lockManager) throws IOException {
+        // Contract literals: the directory and the file name of the build-slot lease store the runtime prescribes
         var file = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
         return new LeaseStore(new AtomicStoreFile(file, LockKey.buildSlots(base)), lockManager);
     }
 
     /**
-     * Claims a lease of a plan of the project.
+     * Claims a lease without a time bound of a generated plan of the project, at a generated instant.
      *
      * @return the lease claimed
      */
     static LeaseRecord claim(LeaseStore store, String key, String projectId, HolderInstance holder) {
-        var lease = new LeaseRecord(key, new LeaseOwner(projectId, ScopeType.PLAN, "a-plan", holder, null), ACQUIRED_AT,
-                null);
-        assertTrue(store.claim(lease).granted(), key);
+        var generated = CoreGenerators.leaseRecords().next();
+        var owner = new LeaseOwner(projectId, ScopeType.PLAN, generated.owner().scopeId(), holder, null);
+        var lease = new LeaseRecord(key, owner, generated.acquiredAt(), null);
+        assertTrue(store.claim(lease).granted(), "the lease claim of the fixture must be granted");
         return lease;
     }
 

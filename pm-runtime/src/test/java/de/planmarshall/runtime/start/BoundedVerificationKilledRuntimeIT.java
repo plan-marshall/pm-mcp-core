@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,12 +36,19 @@ import de.planmarshall.runtime.test.TestBases;
  * (PM-ARCH-7). The killed runtime is a child JVM of {@link KilledRuntimeFixture}; the next start runs in this JVM on
  * the same {@code PM_MCP_BASE}. The operating system releases the singleton lock of a killed process, so the next
  * start acquires it, runs step 4 again and writes a fresh token.
+ * <p>
+ * The modes and markers are the protocol with the child ({@link RuntimeChildProcess}); the token length is the
+ * specified form of the token. The test holds no other data: the token itself is created by the startup.
  */
+@EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("Bounded verification with a killed runtime")
 class BoundedVerificationKilledRuntimeIT {
 
     private static final String USER = System.getProperty("user.name");
+
+    /** Contract literal: the length of a 256-bit token in unpadded base64url. */
+    private static final int TOKEN_LENGTH = 43;
 
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
 
@@ -49,6 +57,7 @@ class BoundedVerificationKilledRuntimeIT {
 
     @BeforeEach
     void createBase() {
+        // The short prefix keeps the socket path below the limit of the OS; a fixture argument, not test data
         base = TestBases.create("pmk");
         paths = new MachinePaths(base, MachinePaths.Os.current());
     }
@@ -63,6 +72,7 @@ class BoundedVerificationKilledRuntimeIT {
     }
 
     private StartupSequence.Outcome start(AuditChainVerification auditChain) throws IOException {
+        // The SecureRandom is the entropy source the startup needs to create its token, not test data
         return new StartupSequence(paths, USER, auditChain, _ -> {
         }).run(new SecureRandom());
     }
@@ -82,14 +92,16 @@ class BoundedVerificationKilledRuntimeIT {
             return new AuditChainVerification.Outcome.Intact();
         });
 
-        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, next);
+        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, next,
+                "the next start must reach ready after the kill");
         try (var _ = ready.lock()) {
             assertAll(
                     () -> assertInstanceOf(StartupSequence.Outcome.LockHeld.class, whileHeld,
                             "a start while the child is inside step 4"),
-                    () -> assertFalse(tokenWhileHeld, "token written before step 4 ended"),
-                    () -> assertEquals(1, verifications.get(), "verifications of the next start"),
-                    () -> assertEquals(43, Files.readString(paths.runtimeToken()).length()));
+                    () -> assertFalse(tokenWhileHeld, "no token may be written before step 4 ended"),
+                    () -> assertEquals(1, verifications.get(), "the next start must verify exactly once"),
+                    () -> assertEquals(TOKEN_LENGTH, Files.readString(paths.runtimeToken()).length(),
+                            "the next start must write a full token"));
         }
     }
 
@@ -103,12 +115,13 @@ class BoundedVerificationKilledRuntimeIT {
         fixture.kill();
         var next = start(AuditChainVerification.NONE);
 
-        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, next);
+        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, next,
+                "the next start must reach ready after the kill");
         try (var _ = ready.lock()) {
             var token = Files.readString(paths.runtimeToken());
             assertAll(
-                    () -> assertEquals(43, token.length()),
-                    () -> assertNotEquals(killedToken, token, "token of the killed runtime replaced"));
+                    () -> assertEquals(TOKEN_LENGTH, token.length(), "the next start must write a full token"),
+                    () -> assertNotEquals(killedToken, token, "the token of the killed runtime is replaced"));
         }
     }
 }

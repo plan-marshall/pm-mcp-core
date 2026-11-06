@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -34,10 +35,17 @@ import de.planmarshall.runtime.test.TestBases;
  * The drain under a runtime killed with {@code SIGKILL} in the drain wait (PM-ARCH-7). The killed runtime is a child
  * JVM of {@link KilledRuntimeFixture}; the next start runs in this JVM on the same {@code PM_MCP_BASE} and cleans up
  * what the interrupted drain left, as after any crash.
+ * <p>
+ * The mode and marker are the protocol with the child ({@link RuntimeChildProcess}), the token length is the specified
+ * form of the token, and the provider leases come generated from {@link ProviderLeaseStores}.
  */
+@EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("Runtime drain with a killed runtime")
 class RuntimeDrainKilledRuntimeIT {
+
+    /** Contract literal: the length of a 256-bit token in unpadded base64url. */
+    private static final int TOKEN_LENGTH = 43;
 
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
 
@@ -45,6 +53,7 @@ class RuntimeDrainKilledRuntimeIT {
 
     @BeforeEach
     void createBase() {
+        // The short prefix keeps the socket path below the limit of the OS; a fixture argument, not test data
         paths = new MachinePaths(TestBases.create("pmk"), MachinePaths.Os.current());
     }
 
@@ -58,6 +67,7 @@ class RuntimeDrainKilledRuntimeIT {
     }
 
     private StartupSequence.Outcome start() throws IOException {
+        // The SecureRandom is the entropy source the startup needs to create its token, not test data
         return new StartupSequence(paths, System.getProperty("user.name"), AuditChainVerification.NONE, _ -> {
         }).run(new SecureRandom());
     }
@@ -75,15 +85,18 @@ class RuntimeDrainKilledRuntimeIT {
         fixture.kill();
         var next = start();
 
-        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, next);
+        var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, next,
+                "the next start must reach ready after the kill");
         try (var _ = ready.lock()) {
             var token = Files.readString(paths.runtimeToken());
             assertAll(
-                    () -> assertTrue(socketWhileDraining, "socket of the draining runtime"),
-                    () -> assertFalse(Files.exists(paths.socket(), LinkOption.NOFOLLOW_LINKS), "stale socket"),
-                    () -> assertFalse(Files.exists(paths.runtimeRecord()), "stale runtime record"),
-                    () -> assertEquals(43, token.length()),
-                    () -> assertNotEquals(killedToken, token, "token of the killed runtime replaced"),
+                    () -> assertTrue(socketWhileDraining, "the draining runtime had its socket"),
+                    () -> assertFalse(Files.exists(paths.socket(), LinkOption.NOFOLLOW_LINKS),
+                            "the next start removed the stale socket"),
+                    () -> assertFalse(Files.exists(paths.runtimeRecord()),
+                            "the next start removed the stale runtime record"),
+                    () -> assertEquals(TOKEN_LENGTH, token.length(), "the next start must write a full token"),
+                    () -> assertNotEquals(killedToken, token, "the token of the killed runtime is replaced"),
                     () -> ProviderLeaseStores.assertUnchanged(seeded));
         }
     }

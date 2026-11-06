@@ -15,6 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.generator.junit.parameterized.GeneratorType;
+import de.cuioss.test.generator.junit.parameterized.GeneratorsSource;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +28,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
+@EnableGeneratorController
 @DisplayName("ColdStartComparison")
 class ColdStartComparisonTest {
 
@@ -42,6 +46,11 @@ class ColdStartComparisonTest {
         return LongStream.range(0, RUNS).map(_ -> value).boxed().toList();
     }
 
+    /** @return a generated base of a quiet population, between 1 ms and 5 ms */
+    private static long quietBase() {
+        return Duration.ofMillis(Generators.integers(1, 5).next()).toNanos();
+    }
+
     @Nested
     @DisplayName("agrees")
     class Agrees {
@@ -49,39 +58,42 @@ class ColdStartComparisonTest {
         @Test
         @DisplayName("for identical populations")
         void shouldAgreeForIdenticalPopulations() {
-            var samples = quiet(Duration.ofMillis(3).toNanos());
+            var samples = quiet(quietBase());
 
             var verdict = ColdStartComparison.compare(samples, samples, RELATIVE, ABSOLUTE);
 
             assertAll(
-                    () -> assertTrue(verdict.agrees(), verdict.describe(0, 300)),
-                    () -> assertEquals(verdict.emptyQuartile(), verdict.seededQuartile()),
-                    () -> assertEquals(verdict.emptyMedian(), verdict.seededMedian()));
+                    () -> assertTrue(verdict.agrees(), "identical populations must agree"),
+                    () -> assertEquals(verdict.emptyQuartile(), verdict.seededQuartile(),
+                            "identical populations share their quartile"),
+                    () -> assertEquals(verdict.emptyMedian(), verdict.seededMedian(),
+                            "identical populations share their median"));
         }
 
         @ParameterizedTest(name = "with {0} of 15 runs disturbed by one-sided noise")
-        @ValueSource(ints = {1, 4, 9})
+        @GeneratorsSource(generator = GeneratorType.INTEGERS, low = "1", high = "9", count = 3)
         @DisplayName("for a population with large one-sided outliers against a quiet one")
         void shouldAgreeDespiteOneSidedNoise(int disturbed) {
-            var base = Duration.ofMillis(3).toNanos();
-            var calm = quiet(base);
+            var calm = quiet(quietBase());
             var noisy = new ArrayList<>(calm);
             for (var i = 0; i < disturbed; i++) {
-                noisy.set(RUNS - 1 - i, Duration.ofMillis(20 + 5L * i).toNanos());
+                noisy.set(RUNS - 1 - i, Duration.ofMillis(Generators.integers(20, 200).next()).toNanos());
             }
 
             var verdict = ColdStartComparison.compare(calm, noisy, RELATIVE, ABSOLUTE);
 
-            assertTrue(verdict.agrees(), verdict.describe(0, 300));
+            assertTrue(verdict.agrees(), "one-sided outliers must not break agreement");
         }
 
         @Test
         @DisplayName("where the medians alone would not, because more than half of the runs are disturbed")
         void shouldAgreeWhereTheMedianWouldNot() {
-            var calm = quiet(Duration.ofMillis(3).toNanos());
+            var calm = quiet(quietBase());
             var noisy = new ArrayList<>(calm);
+            // 9 of 15 runs: more than half, fewer than the runs above the lower quartile
+            var noise = Duration.ofMillis(Generators.integers(40, 200).next()).toNanos();
             for (var i = 0; i < 9; i++) {
-                noisy.set(RUNS - 1 - i, Duration.ofMillis(20).toNanos());
+                noisy.set(RUNS - 1 - i, noise);
             }
 
             var verdict = ColdStartComparison.compare(calm, noisy, RELATIVE, ABSOLUTE);
@@ -91,7 +103,7 @@ class ColdStartComparisonTest {
             assertAll(
                     () -> assertTrue(Math.abs(verdict.seededMedian() - verdict.emptyMedian()) > medianAllowed,
                             "the medians carry the noise"),
-                    () -> assertTrue(verdict.agrees(), verdict.describe(0, 300)));
+                    () -> assertTrue(verdict.agrees(), "the lower quartiles must still agree"));
         }
     }
 
@@ -100,7 +112,7 @@ class ColdStartComparisonTest {
     class Rejects {
 
         @ParameterizedTest(name = "a population three times one of {0} ms")
-        @ValueSource(longs = {20, 50, 200})
+        @GeneratorsSource(generator = GeneratorType.LONGS, low = "20", high = "500", count = 3)
         @DisplayName("a population whose every sample is a clear multiple of the other")
         void shouldRejectRealScaling(long baseMillis) {
             var base = Duration.ofMillis(baseMillis).toNanos();
@@ -109,23 +121,25 @@ class ColdStartComparisonTest {
 
             var verdict = ColdStartComparison.compare(empty, seeded, RELATIVE, ABSOLUTE);
 
-            assertFalse(verdict.agrees(), verdict.describe(0, 300));
+            assertFalse(verdict.agrees(), "a population three times as slow is rejected");
         }
 
         @Test
         @DisplayName("an empty population")
         void shouldRejectEmptyPopulation() {
-            var samples = quiet(1000);
+            var samples = quiet(quietBase());
             List<Long> none = List.of();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> ColdStartComparison.compare(none, samples, RELATIVE, ABSOLUTE));
+                    () -> ColdStartComparison.compare(none, samples, RELATIVE, ABSOLUTE),
+                    "an empty population must be refused");
         }
     }
 
     @ParameterizedTest(name = "seeded {0} ns against empty 10000000 ns agrees: {1}")
     @CsvSource({"29999998, true", "30000000, true", "30000002, false", "30000004, false"})
-    @DisplayName("at the tolerance edge, a difference just inside the band agrees and just outside is rejected")
+    @DisplayName("at the tolerance edge, a difference just inside the band agrees and just outside is rejected "
+            + "(the edge values are the specified tolerance)")
     void shouldHonourTheToleranceEdge(long seededNanos, boolean expected) {
         // allowed = 0.5 * 30 ms + 5 ms = 20 ms, exactly the difference of 30 ms and 10 ms
         var empty = constant(10_000_000L);
@@ -133,17 +147,30 @@ class ColdStartComparisonTest {
 
         var verdict = ColdStartComparison.compare(empty, seeded, RELATIVE, ABSOLUTE);
 
-        assertEquals(expected, verdict.agrees(), verdict.describe(0, 300));
+        assertAll(
+                () -> assertEquals(expected, verdict.agrees(), "the tolerance edge must decide the agreement"),
+                () -> assertEquals(10_000_000L, verdict.emptyMedian(), "the empty median is the empty population"),
+                () -> assertEquals(seededNanos, verdict.seededMedian(), "the seeded median is the seeded population"));
     }
 
     @Test
-    @DisplayName("describes both statistics of both populations and the allowed difference")
+    @DisplayName("describes both statistics of both populations and the allowed difference (the text is the format)")
     void shouldDescribeEveryNumber() {
-        var verdict = new ColdStartComparison.Verdict(11, 22, 3, 4, 55);
+        var numbers = Generators.longs(0, 1_000_000_000L);
+        var emptyMedian = numbers.next();
+        var seededMedian = numbers.next();
+        var emptyQuartile = numbers.next();
+        var seededQuartile = numbers.next();
+        var allowed = numbers.next();
+        var projects = Generators.integers(1, 10_000).next();
+        var verdict = new ColdStartComparison.Verdict(emptyMedian, seededMedian, emptyQuartile, seededQuartile,
+                allowed);
 
-        var description = verdict.describe(0, 300);
+        var description = verdict.describe(0, projects);
 
-        assertEquals("lower quartiles 3 ns (0 projects) and 4 ns (300 projects), allowed difference 55 ns;"
-                + " medians 11 ns (0 projects) and 22 ns (300 projects)", description);
+        assertEquals("lower quartiles %d ns (0 projects) and %d ns (%d projects), allowed difference %d ns;".formatted(
+                emptyQuartile, seededQuartile, projects, allowed)
+                + " medians %d ns (0 projects) and %d ns (%d projects)".formatted(emptyMedian, seededMedian, projects),
+                description, "the description must name every number");
     }
 }

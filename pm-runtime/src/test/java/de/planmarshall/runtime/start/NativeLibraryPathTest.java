@@ -9,24 +9,38 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.File;
 import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+@EnableGeneratorController
 @DisplayName("Native library path")
 class NativeLibraryPathTest {
+
+    /** @return a generated absolute directory of two segments */
+    private static String directory() {
+        return "/" + Generators.letterStrings(2, 10).next() + "/" + Generators.letterStrings(2, 10).next();
+    }
 
     @Test
     @DisplayName("prepends the executable directory to the library path")
     void shouldPrependLibraryPath() {
-        var dir = Path.of("/opt/pm/bin");
+        var dir = directory();
+        var existing = directory();
 
-        assertEquals("/opt/pm/bin", NativeLibraryPath.prepend(dir, null));
-        assertEquals("/opt/pm/bin", NativeLibraryPath.prepend(dir, ""));
-        assertEquals("/opt/pm/bin" + File.pathSeparator + "/usr/lib", NativeLibraryPath.prepend(dir, "/usr/lib"));
+        assertAll(
+                () -> assertEquals(dir, NativeLibraryPath.prepend(Path.of(dir), null),
+                        "without a library path only the directory is set"),
+                () -> assertEquals(dir, NativeLibraryPath.prepend(Path.of(dir), ""),
+                        "an empty library path is replaced by the directory"),
+                () -> assertEquals(dir + File.pathSeparator + existing, NativeLibraryPath.prepend(Path.of(dir), existing),
+                        "the directory must come before the library path"));
     }
 
     @Test
@@ -36,6 +50,7 @@ class NativeLibraryPathTest {
 
         NativeLibraryPath.includeExecutableDirectory();
 
-        assertEquals(before, System.getProperty(NativeLibraryPath.LIBRARY_PATH));
+        assertEquals(before, System.getProperty(NativeLibraryPath.LIBRARY_PATH),
+                "a JVM must keep its library path unchanged");
     }
 }

@@ -16,8 +16,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,15 +38,15 @@ import de.planmarshall.core.store.StoreRefusal;
  * Configuration Store, § Machine Provider Defaults): the member is written and the other members of the operator's
  * document survive, among them {@code credentials.store}; a change against an older revision is refused with the current
  * value.
+ * <p>
+ * The member names, the format version, the provider, variant and credential-store wire names and the schema defaults
+ * are the specified document format. The revisions, the limits, the credential keys and the free text of the members
+ * the store copies through are generated; the free text keeps a dash, a dot and a space, because it goes through a
+ * parse and a write of the document.
  */
+@EnableGeneratorController
 @DisplayName("Machine configuration store")
 class MachineConfigurationStoreTest {
-
-    private static final String DOCUMENT = """
-            {"format_version":1,"revision":3,"max_build_slots":4,"lsp_idle_timeout_seconds":900,
-             "credentials":{"store":"os"},
-             "harnesses":{"default":"acme-cli"},
-             "plan_defaults":{"landing":"landing.main"}}""";
 
     @TempDir
     Path base;
@@ -51,16 +54,47 @@ class MachineConfigurationStoreTest {
     private Path file;
     private MachineConfigurationStore store;
 
+    private final long revision = Generators.longs(1, 1_000_000).next();
+    private final int maxBuildSlots = Generators.integers(1, 64).next();
+    private final int lspIdleTimeout = Generators.integers(1, 86_400).next();
+    private final String harness = freeText();
+    private final String landing = freeText();
+    private final String githubKey = credentialKey();
+
     @BeforeEach
     void createStore() {
         store = new MachineConfigurationStore(MachineConfigurationStore.file(base), new TestLocks());
         file = base.resolve(MachineConfigurationStore.FILE_NAME);
     }
 
-    private static ProviderDefaults defaults() {
+    private static String lower() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    /** @return a generated credential key of the grammar of {@link ProviderDefault}, with an inner dash */
+    private static String credentialKey() {
+        return lower() + "-" + lower();
+    }
+
+    /** @return a generated free text with a dash, a dot and a space, none of which JSON escapes */
+    private static String freeText() {
+        return lower() + "-" + lower() + " " + lower() + "." + lower();
+    }
+
+    /** @return the operator's document at the generated revision, with members the store does not own */
+    private String document() {
+        return """
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
+                 "credentials":{"store":"os"},
+                 "harnesses":{"default":"%s"},
+                 "plan_defaults":{"landing":"%s"}}""".formatted(revision, maxBuildSlots, lspIdleTimeout, harness,
+                landing);
+    }
+
+    private ProviderDefaults defaults() {
         return new ProviderDefaults(Map.of(
                 Provider.GITHUB, new ProviderDefault(true, Optional.of(ProviderVariant.NATIVE),
-                        Optional.of("github")),
+                        Optional.of(githubKey)),
                 Provider.SONAR, new ProviderDefault(false, Optional.of(ProviderVariant.NATIVE), Optional.empty())));
     }
 
@@ -70,62 +104,78 @@ class MachineConfigurationStoreTest {
         var read = store.read();
 
         assertAll(
-                () -> assertTrue(read.providers().providers().isEmpty()),
-                () -> assertEquals(0L, read.revision()));
+                () -> assertTrue(read.providers().providers().isEmpty(), "an absent document holds no provider"),
+                () -> assertEquals(0L, read.revision(), "an absent document is at revision 0"));
     }
 
     @Test
     @DisplayName("reads the provider defaults of the document and ignores the members it does not own")
     void read() throws Exception {
+        var gitKey = credentialKey();
         Files.writeString(file, """
-                {"format_version":1,"revision":5,"max_build_slots":2,"lsp_idle_timeout_seconds":900,
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
                  "credentials":{"store":"file"},
-                 "providers":{"git":{"available":true,"variant":"cli","credential_key":"git-https"}}}""", UTF_8);
+                 "providers":{"git":{"available":true,"variant":"cli","credential_key":"%s"}}}"""
+                .formatted(revision, maxBuildSlots, lspIdleTimeout, gitKey), UTF_8);
 
         var read = store.read();
         var git = read.providers().of(Provider.GIT).orElseThrow();
 
         assertAll(
-                () -> assertEquals(5L, read.revision()),
-                () -> assertTrue(git.available()),
-                () -> assertEquals(ProviderVariant.CLI, git.variant().orElseThrow()),
-                () -> assertEquals("git-https", git.credentialKey().orElseThrow()),
-                () -> assertFalse(read.providers().available(Provider.GITHUB)));
+                () -> assertEquals(revision, read.revision(), "the revision of the document must be read"),
+                () -> assertTrue(git.available(), "the git provider must be available"),
+                () -> assertEquals(ProviderVariant.CLI, git.variant().orElseThrow(),
+                        "the variant of git must be read"),
+                () -> assertEquals(gitKey, git.credentialKey().orElseThrow(),
+                        "the credential key of git must be read"),
+                () -> assertFalse(read.providers().available(Provider.GITHUB),
+                        "an unnamed provider is not available"));
     }
 
     @Test
     @DisplayName("a write replaces providers alone, keeps credentials.store and the other members, and bumps the revision")
     void writeProviders() throws Exception {
-        Files.writeString(file, DOCUMENT, UTF_8);
+        Files.writeString(file, document(), UTF_8);
 
-        store.writeProviders(defaults(), 3L);
+        store.writeProviders(defaults(), revision);
 
         var read = store.read();
         var written = Files.readString(file, UTF_8);
         assertAll(
-                () -> assertEquals(4L, read.revision()),
-                () -> assertEquals(defaults(), read.providers()),
-                () -> assertTrue(read.providers().available(Provider.GITHUB)),
-                () -> assertFalse(read.providers().available(Provider.SONAR)),
-                () -> assertTrue(written.contains("\"credentials\":{\"store\":\"os\"}"), written),
-                () -> assertTrue(written.contains("\"harnesses\":{\"default\":\"acme-cli\"}"), written),
-                () -> assertTrue(written.contains("\"landing\":\"landing.main\""), written),
-                () -> assertTrue(written.contains("\"max_build_slots\":4"), written));
+                () -> assertEquals(revision + 1, read.revision(), "the write must bump the revision by one"),
+                () -> assertEquals(defaults(), read.providers(), "the written defaults must be read back"),
+                () -> assertTrue(read.providers().available(Provider.GITHUB), "github must be available"),
+                () -> assertFalse(read.providers().available(Provider.SONAR), "sonar must not be available"),
+                () -> assertTrue(written.contains("\"credentials\":{\"store\":\"os\"}"),
+                        "the credential store must be kept"),
+                () -> assertTrue(written.contains("\"harnesses\":{\"default\":\"" + harness + "\"}"),
+                        "the harness default must be kept verbatim"),
+                () -> assertTrue(written.contains("\"landing\":\"" + landing + "\""),
+                        "the plan default must be kept verbatim"),
+                () -> assertTrue(written.contains("\"max_build_slots\":" + maxBuildSlots + ","),
+                        "the build slot limit must be kept"));
     }
 
     @Test
     @DisplayName("a change against an older revision is refused with the current value, and nothing is written")
     void conflict() throws Exception {
-        Files.writeString(file, DOCUMENT, UTF_8);
+        var document = document();
+        Files.writeString(file, document, UTF_8);
         var stale = defaults();
+        long staleRevision = Generators.longs(0, revision - 1).next();
 
-        var conflict = assertThrows(SettingsConflict.class, () -> store.writeProviders(stale, 2L));
+        var conflict = assertThrows(SettingsConflict.class, () -> store.writeProviders(stale, staleRevision),
+                "a write against an older revision is refused");
 
         assertAll(
-                () -> assertEquals(2L, conflict.expectedRevision()),
-                () -> assertEquals(3L, conflict.currentRevision()),
-                () -> assertEquals(ProviderDefaults.none(), conflict.currentValue()),
-                () -> assertEquals(DOCUMENT, Files.readString(file, UTF_8)));
+                () -> assertEquals(staleRevision, conflict.expectedRevision(),
+                        "the conflict must name the stale revision"),
+                () -> assertEquals(revision, conflict.currentRevision(),
+                        "the conflict must name the current revision"),
+                () -> assertEquals(ProviderDefaults.none(), conflict.currentValue(),
+                        "the conflict must carry the current value"),
+                () -> assertEquals(document, Files.readString(file, UTF_8),
+                        "a refused write must leave the document"));
     }
 
     @Test
@@ -136,25 +186,31 @@ class MachineConfigurationStoreTest {
         var written = Files.readString(file, UTF_8);
         var read = store.read();
         assertAll(
-                () -> assertEquals(defaults(), read.providers()),
-                () -> assertEquals(1L, read.revision()),
-                () -> assertTrue(written.contains("\"max_build_slots\":2"), written),
-                () -> assertTrue(written.contains("\"lsp_idle_timeout_seconds\":900"), written));
+                () -> assertEquals(defaults(), read.providers(), "the written defaults must be read back"),
+                () -> assertEquals(1L, read.revision(), "a created document is at revision 1"),
+                () -> assertTrue(written.contains("\"max_build_slots\":"
+                                + MachineConfigurationCodec.DEFAULT_MAX_BUILD_SLOTS),
+                        "the build slot limit takes its schema default"),
+                () -> assertTrue(written.contains("\"lsp_idle_timeout_seconds\":"
+                                + MachineConfigurationCodec.DEFAULT_LSP_IDLE_TIMEOUT_SECONDS),
+                        "the LSP idle timeout takes its schema default"));
     }
 
     @Test
     @DisplayName("an empty set of defaults writes no providers member")
     void emptyProviders() throws Exception {
         Files.writeString(file, """
-                {"format_version":1,"revision":3,"max_build_slots":2,"lsp_idle_timeout_seconds":900,
-                 "providers":{"git":{"available":true}}}""", UTF_8);
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
+                 "providers":{"git":{"available":true}}}""".formatted(revision, maxBuildSlots, lspIdleTimeout),
+                UTF_8);
 
-        store.writeProviders(ProviderDefaults.none(), 3L);
+        store.writeProviders(ProviderDefaults.none(), revision);
 
         var written = Files.readString(file, UTF_8);
         assertAll(
-                () -> assertTrue(store.read().providers().providers().isEmpty()),
-                () -> assertFalse(written.contains("\"providers\""), written));
+                () -> assertTrue(store.read().providers().providers().isEmpty(),
+                        "no provider may be read after the write"),
+                () -> assertFalse(written.contains("\"providers\""), "no providers member may be written"));
     }
 
     @Test
@@ -163,27 +219,36 @@ class MachineConfigurationStoreTest {
         var cliForgejo = new ProviderDefault(true, Optional.of(ProviderVariant.CLI), Optional.empty());
         var cli = Map.of(Provider.FORGEJO, cliForgejo);
 
-        var refused = assertThrows(IllegalArgumentException.class, () -> new ProviderDefaults(cli));
+        var refused = assertThrows(IllegalArgumentException.class, () -> new ProviderDefaults(cli),
+                "a cli variant of forgejo must be refused");
 
-        assertTrue(refused.getMessage().contains("forgejo"));
+        // Contract literal: the wire name of the provider the refusal names
+        assertTrue(refused.getMessage().contains("forgejo"), "the refusal must name the provider");
     }
 
     @Test
     @DisplayName("a document in another format version or with an unknown provider is refused naming the file")
     void refusedDocuments() throws Exception {
+        // A fixture path beside the store; format version 2 is the next, unsupported version
         var version = base.resolve("other.json");
-        Files.writeString(version, "{\"format_version\":2,\"revision\":0}", UTF_8);
-        Files.writeString(file, "{\"format_version\":1,\"revision\":0,\"max_build_slots\":2,"
-                + "\"lsp_idle_timeout_seconds\":900,\"providers\":{\"mystery\":{\"available\":true}}}", UTF_8);
+        Files.writeString(version, "{\"format_version\":2,\"revision\":%d}".formatted(revision), UTF_8);
+        // Longer than every provider wire name, so it names none of them
+        var unknown = Generators.letterStrings(13, 20).next().toLowerCase(Locale.ROOT);
+        Files.writeString(file, ("{\"format_version\":1,\"revision\":%d,\"max_build_slots\":%d,"
+                + "\"lsp_idle_timeout_seconds\":%d,\"providers\":{\"%s\":{\"available\":true}}}")
+                .formatted(revision, maxBuildSlots, lspIdleTimeout, unknown), UTF_8);
         var versionBytes = Files.readAllBytes(version);
 
         var outdated = assertThrows(StoreRefusal.class,
-                () -> MachineConfigurationCodec.read(version, versionBytes));
-        var unknownProvider = assertThrows(StoreRefusal.class, store::read);
+                () -> MachineConfigurationCodec.read(version, versionBytes),
+                "a newer format version must be refused");
+        var unknownProvider = assertThrows(StoreRefusal.class, store::read,
+                "an unknown provider must be refused");
 
         assertAll(
-                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, outdated.outcome()),
-                () -> assertEquals(file, unknownProvider.file()));
+                () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, outdated.outcome(),
+                        "the refusal must name a newer format"),
+                () -> assertEquals(file, unknownProvider.file(), "the refusal must name the file"));
     }
 
     @Test
@@ -193,11 +258,13 @@ class MachineConfigurationStoreTest {
         var wrongLocks = new TestLocks();
 
         var refused = assertThrows(IllegalArgumentException.class,
-                () -> new MachineConfigurationStore(wrong, wrongLocks));
+                () -> new MachineConfigurationStore(wrong, wrongLocks), "a store under another lock is refused");
 
         assertAll(
-                () -> assertTrue(refused.getMessage().contains("machine configuration")),
+                () -> assertTrue(refused.getMessage().contains("machine configuration"),
+                        "the refusal must name the expected lock"),
                 () -> assertEquals(LockKey.machineConfiguration(base).lockFile(),
-                        MachineConfigurationStore.file(base).lockKey().lockFile()));
+                        MachineConfigurationStore.file(base).lockKey().lockFile(),
+                        "the store file uses the configuration lock"));
     }
 }

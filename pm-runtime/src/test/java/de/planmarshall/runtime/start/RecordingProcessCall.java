@@ -82,6 +82,7 @@ final class RecordingProcessCall implements ProcessCall {
     public Result run(List<String> command) {
         calls.add(new Call(List.copyOf(command), watched != null && Files.exists(watched)));
         var next = answers.poll();
+        // Contract literal: a command answered by default succeeds with an empty output
         return next == null ? new Result(0, "") : next.get();
     }
 

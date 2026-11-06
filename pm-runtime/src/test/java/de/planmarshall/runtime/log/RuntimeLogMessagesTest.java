@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.tools.logging.LogRecord;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -23,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,48 +40,55 @@ import de.planmarshall.core.log.CoreLogMessages;
 /**
  * The holder numbers every message of {@code pm-runtime} once (PM-IMPL-1): two messages with one identifier cannot be
  * told apart in a log, and an identifier outside the range of its level reads as another level.
+ * <p>
+ * The identifiers, level ranges, templates and the table form of {@code doc/LogMessages.adoc} are the specified
+ * catalogue and stay literal; the lock paths and the filler of the fixture table rows are generated.
  */
+@EnableGeneratorController
 @DisplayName("RuntimeLogMessages")
 class RuntimeLogMessagesTest {
-
-    private static final String QUEUE_LOCK = "/pm-base/projects/sample-project/locks/queue.lock";
-    private static final String PLAN_LOCK = "/pm-base/projects/sample-project/locks/plan-plan-one.lock";
 
     /** The documentation of every log message of the repository, from the module directory the tests run in. */
     private static final Path LOG_MESSAGES = Path.of("..", "doc", "LogMessages.adoc");
 
+    /** Contract literals: the level holders of the catalogue. */
+    private static final List<String> LEVELS = List.of("INFO", "WARN", "ERROR");
+
+    private static String lower() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
     @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
-    @DisplayName("every message lies in the range of its level and carries the prefix")
+    @DisplayName("every message lies in the range of its level and carries the prefix (the specified ranges)")
     void ranges(String level, int first, int last) throws Exception {
         var records = records(level);
 
-        assertFalse(records.isEmpty(), level);
+        assertFalse(records.isEmpty(), "every level must hold at least one message");
         for (LogRecord logRecord : records) {
-            assertEquals(RuntimeLogMessages.PREFIX, logRecord.getPrefix());
+            assertEquals(RuntimeLogMessages.PREFIX, logRecord.getPrefix(), "every message carries the prefix");
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
-                    logRecord.resolveIdentifierString());
+                    "out of the range of its level: " + logRecord.resolveIdentifierString());
         }
     }
 
     @Test
     @DisplayName("no identifier is used twice")
     void unique() throws Exception {
-        var all = new ArrayList<LogRecord>();
-        for (String level : List.of("INFO", "WARN", "ERROR")) {
-            all.addAll(records(level));
-        }
+        var all = allRecords();
         var seen = new HashSet<Integer>();
 
         for (LogRecord logRecord : all) {
-            assertTrue(seen.add(logRecord.getIdentifier()), logRecord.resolveIdentifierString());
+            assertTrue(seen.add(logRecord.getIdentifier()),
+                    "identifier used twice: " + logRecord.resolveIdentifierString());
         }
     }
 
     @Test
     @DisplayName("the prefix is not the prefix of the holder of pm-core")
     void prefixOwn() {
-        assertNotEquals(CoreLogMessages.PREFIX, RuntimeLogMessages.PREFIX);
+        assertNotEquals(CoreLogMessages.PREFIX, RuntimeLogMessages.PREFIX,
+                "the runtime must not share the prefix of pm-core");
     }
 
     static Stream<Arguments> enrolmentPolicyRecords() {
@@ -94,8 +104,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the enrolment policy and the owed-audit replay")
     void enrolmentPolicy(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> verifyNotResolveRecords() {
@@ -109,8 +121,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the verify-not-resolve pipeline")
     void verifyNotResolve(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> sweepRecords() {
@@ -124,8 +138,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the record of the sweep's pending-entry step")
     void sweep(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> credentialStoreRecords() {
@@ -143,8 +159,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the recorded credential store")
     void credentialStore(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> credentialStoreMoveRecords() {
@@ -164,8 +182,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the move between the credential stores")
     void credentialStoreMove(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> jobRunnerRecords() {
@@ -197,8 +217,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the subprocess job runner")
     void jobRunner(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> serviceUnitRecords() {
@@ -218,8 +240,10 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the service unit restore")
     void serviceUnit(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> workerSupervisorRecords() {
@@ -243,47 +267,50 @@ class RuntimeLogMessagesTest {
     @DisplayName("the records of the worker supervisor")
     void workerSupervisor(LogRecord logRecord, String identifier, String template) {
         assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
-                () -> assertEquals(template, logRecord.getTemplate()));
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     @Test
     @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
     void fileStoreFallbackRemoved() throws Exception {
-        var all = new ArrayList<LogRecord>();
-        for (String level : List.of("INFO", "WARN", "ERROR")) {
-            all.addAll(records(level));
-        }
+        var all = allRecords();
 
         assertAll(
-                () -> assertTrue(all.stream().noneMatch(logRecord -> logRecord.getIdentifier() == 104)),
+                // Contract literals: the retired identifier and a phrase of the retired template
+                () -> assertTrue(all.stream().noneMatch(logRecord -> logRecord.getIdentifier() == 104),
+                        "the identifier 104 must not be reused"),
                 () -> assertTrue(all.stream()
-                        .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves"))));
+                                .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves")),
+                        "the file-store fallback record must be gone"));
     }
 
     @Test
     @DisplayName("every record of the three holders is documented in doc/LogMessages.adoc by identifier and template")
     void everyRecordDocumented() throws Exception {
-        var all = new ArrayList<LogRecord>();
-        for (String level : List.of("INFO", "WARN", "ERROR")) {
-            all.addAll(records(level));
-        }
+        var all = allRecords();
         var rows = Files.readAllLines(LOG_MESSAGES);
 
-        assertEquals(List.of(), undocumented(rows, all));
+        assertEquals(List.of(), undocumented(rows, all), "every record must have its row in the table");
     }
 
     @Test
     @DisplayName("the documentation check names a record without a row and a record whose template differs")
     void undocumentedRecordsAreFound() {
+        // The identifiers and templates are the catalogue's; the components, notes and the wrong template are filler
+        var component = lower();
         var rows = List.of(
-                "|PM_RUNTIME-30 |SubprocessJobRunner |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |Logged",
-                "|PM_RUNTIME-31 |SubprocessJobRunner |Job '%s' settled with another template |Logged",
-                "|PM_RUNTIME-310 |Other |Job '%s' settled with fate '%s' (outcome row %s) |Another row, not row 31");
+                "|PM_RUNTIME-30 |" + component + " |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |"
+                        + lower(),
+                "|PM_RUNTIME-31 |" + component + " |Job '%s' " + lower() + " " + lower() + " |" + lower(),
+                "|PM_RUNTIME-310 |" + lower() + " |Job '%s' settled with fate '%s' (outcome row %s) |" + lower());
         var records = List.of(RuntimeLogMessages.INFO.JOB_STARTED, RuntimeLogMessages.INFO.JOB_SETTLED,
                 RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED);
 
-        assertEquals(List.of("PM_RUNTIME-31", "PM_RUNTIME-132"), undocumented(rows, records));
+        assertEquals(List.of("PM_RUNTIME-31", "PM_RUNTIME-132"), undocumented(rows, records),
+                "the check must name the wrong and the missing row");
     }
 
     /**
@@ -312,20 +339,36 @@ class RuntimeLogMessagesTest {
         @DisplayName("the messages of locks and leases carry the identifiers 11, 107 and 202")
         void identifiers() {
             assertAll(
-                    () -> assertEquals(11, RuntimeLogMessages.INFO.STALE_LEASE_SWEEP_FINISHED.getIdentifier()),
-                    () -> assertEquals(107, RuntimeLogMessages.WARN.LEASE_ORPHANED.getIdentifier()),
-                    () -> assertEquals(202, RuntimeLogMessages.ERROR.LOCK_ORDER_VIOLATION.getIdentifier()));
+                    () -> assertEquals(11, RuntimeLogMessages.INFO.STALE_LEASE_SWEEP_FINISHED.getIdentifier(),
+                            "the stale lease sweep must carry 11"),
+                    () -> assertEquals(107, RuntimeLogMessages.WARN.LEASE_ORPHANED.getIdentifier(),
+                            "the orphaned lease must carry 107"),
+                    () -> assertEquals(202, RuntimeLogMessages.ERROR.LOCK_ORDER_VIOLATION.getIdentifier(),
+                            "the lock order violation must carry 202"));
         }
 
         @Test
         @DisplayName("the lock order violation message names the requested and the held lock paths")
         void lockOrderViolation() {
-            var message = RuntimeLogMessages.ERROR.LOCK_ORDER_VIOLATION.format(PLAN_LOCK, List.of(QUEUE_LOCK));
+            var locks = "/" + lower() + "/projects/" + lower() + "/locks/";
+            // Contract literals: the file names of the queue lock and of a plan lock
+            var queueLock = locks + "queue.lock";
+            var planLock = locks + "plan-" + lower() + ".lock";
+
+            var message = RuntimeLogMessages.ERROR.LOCK_ORDER_VIOLATION.format(planLock, List.of(queueLock));
 
             assertAll(
-                    () -> assertTrue(message.contains(PLAN_LOCK), message),
-                    () -> assertTrue(message.contains(QUEUE_LOCK), message));
+                    () -> assertTrue(message.contains(planLock), "the message must name the requested lock"),
+                    () -> assertTrue(message.contains(queueLock), "the message must name the held lock"));
         }
+    }
+
+    private static List<LogRecord> allRecords() throws ReflectiveOperationException {
+        var all = new ArrayList<LogRecord>();
+        for (String level : LEVELS) {
+            all.addAll(records(level));
+        }
+        return all;
     }
 
     private static List<LogRecord> records(String level) throws ReflectiveOperationException {

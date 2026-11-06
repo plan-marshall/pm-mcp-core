@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.test.generator.Generators;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -24,6 +25,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -88,6 +90,9 @@ import de.planmarshall.runtime.lock.FileLockManager;
  */
 final class RuntimeChildProcess {
 
+    // Contract literals: the modes, the markers, the projects, plans, versions and content below are the protocol with
+    // the test JVM, which must know them before the child runs; a value generated in the child would not reach it.
+
     /** Mode: blocked inside step 4 of the startup sequence. */
     static final String STARTUP = "startup";
 
@@ -142,13 +147,10 @@ final class RuntimeChildProcess {
     /** Mode: a job blocked after its fate was recorded, before the release of its build slot. */
     static final String JOB_FATE = "job-fate";
 
-    /** The build slot the job of the mode {@value #JOB_FATE} holds. */
-    static final String JOB_SLOT = "slot-job";
-
     /** The scope of the job of the job modes. */
     static final JobRecord.Scope JOB_SCOPE = new JobRecord.Scope(JobRecord.Scope.Type.PLAN, ROLLED_PLAN);
 
-    /** How long the process group of a job sleeps; longer than any test. */
+    /** How long the process group of a job sleeps; a bound longer than any test, not test data. */
     private static final String JOB_SLEEP_SECONDS = "300";
 
     /** The content the modes {@value #ROLLFORWARD} and {@value #ORDERED_WRITE} write. */
@@ -221,6 +223,7 @@ final class RuntimeChildProcess {
      * @return the file the job modes write the PID of the job's process group to
      */
     static Path jobPid(Path base) {
+        // Contract literal: a fixture path shared with the test JVM
         return base.resolve("job-pid");
     }
 
@@ -251,16 +254,17 @@ final class RuntimeChildProcess {
         });
         var store = JobRecordStore.ofProject(base, RecoveryStepFixtures.PROJECT_A);
         if (JOB_FATE.equals(mode)) {
-            RecoveryStepFixtures.claim(RecoveryStepFixtures.buildSlots(base, lockManager), JOB_SLOT,
-                    RecoveryStepFixtures.PROJECT_A, RecoveryStepFixtures.self());
+            RecoveryStepFixtures.claim(RecoveryStepFixtures.buildSlots(base, lockManager),
+                    "slot-" + Generators.longs(100, Long.MAX_VALUE).next(), RecoveryStepFixtures.PROJECT_A,
+                    RecoveryStepFixtures.self());
         }
         JobRecord ahead;
         try (var transaction = lockManager.openTransaction()) {
             var jobId = store.allocate(transaction, JobId.Kind.BUILD, JOB_SCOPE);
             ahead = JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(JOB_SCOPE)
-                    .budgetKey("maven:verify").budgetSeconds(600)
+                    .budgetKey(budgetKey()).budgetSeconds(Generators.integers(300, 3_600).next())
                     .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
-                    .argvDigest("ab".repeat(32)).status(Status.RUNNING).confinement(Confinement.UNAVAILABLE)
+                    .argvDigest(argvDigest()).status(Status.RUNNING).confinement(Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
             store.writeAhead(transaction, ahead);
         }
@@ -284,7 +288,8 @@ final class RuntimeChildProcess {
         if (JOB_RUNNING.equals(mode)) {
             blockInside(mode, markers);
         }
-        // an engine cancel ends the job; its fate is recorded, and the slot release would come next
+        // an engine cancel ends the job; its fate is recorded, and the slot release would come next. Contract
+        // literal: SIGTERM is the wire name of the signal the record carries
         process.destroy();
         process.waitFor();
         var outcome = OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.BUILD,
@@ -296,6 +301,20 @@ final class RuntimeChildProcess {
             store.writeFate(transaction, settled);
         }
         blockInside(mode, markers);
+    }
+
+    /** @return a generated budget key of the grammar {@code <tool>:<command>} */
+    private static String budgetKey() {
+        return "maven:" + Generators.letterStrings(1, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    /** @return a generated argument vector digest: 64 lower-case hex digits, the form of a SHA-256 */
+    private static String argvDigest() {
+        var digest = new StringBuilder();
+        for (var part = 0; part < 4; part++) {
+            digest.append("%016x".formatted(Generators.longs().next()));
+        }
+        return digest.toString();
     }
 
     private static void blockInside(String mode, PrintStream markers) {
@@ -397,6 +416,7 @@ final class RuntimeChildProcess {
         var store = RecoveryStepFixtures.buildSlots(base, new FileLockManager(_ -> {
         }));
         var self = RecoveryStepFixtures.self();
+        // Contract literals: the slot keys the test JVM looks for after the kill
         RecoveryStepFixtures.claim(store, "slot-a", RecoveryStepFixtures.PROJECT_A, self);
         RecoveryStepFixtures.claim(store, "slot-b", RecoveryStepFixtures.PROJECT_B, self);
         markers.println(inside(LEASES));
@@ -488,6 +508,7 @@ final class RuntimeChildProcess {
 
     private static void drain(MachinePaths paths, PrintStream markers) throws IOException {
         markers.println(before(DRAIN));
+        // The SecureRandom is the entropy source the startup needs to create its token, not test data
         var outcome = new StartupSequence(paths, System.getProperty("user.name"), AuditChainVerification.NONE, _ -> {
         }).run(new SecureRandom());
         if (!(outcome instanceof StartupSequence.Outcome.Ready(var lock, _))) {
@@ -495,20 +516,22 @@ final class RuntimeChildProcess {
         }
         // Steps 6 and 7 of a real runtime: the socket and the runtime record exist while it drains
         Files.createFile(paths.socket(), PosixModes.fileAttribute());
+        // Contract literal: the smallest runtime record, an empty JSON object
         Files.writeString(paths.runtimeRecord(), "{}");
         Files.setPosixFilePermissions(paths.runtimeRecord(), PosixModes.FILE);
-        new RuntimeDrain(paths, lock, List.of(new NeverQuiet(markers)), Duration.ofSeconds(DrainTimeout.DEFAULT_SECONDS),
+        var participant = new NeverQuiet(markers, "participant-" + Generators.letterStrings(3, 12).next());
+        new RuntimeDrain(paths, lock, List.of(participant), Duration.ofSeconds(DrainTimeout.DEFAULT_SECONDS),
                 Clock.systemUTC()).drain();
         throw new IllegalStateException("the drain ended although its participant never got quiet");
     }
 
-    /** The participant of mode {@value #DRAIN}: it writes the marker inside the drain wait and blocks there. */
-    private record NeverQuiet(PrintStream markers) implements DrainParticipant {
-
-        @Override
-        public String name() {
-            return "never-quiet";
-        }
+    /**
+     * The participant of mode {@value #DRAIN}: it writes the marker inside the drain wait and blocks there.
+     *
+     * @param markers where the marker is written
+     * @param name    the generated name of the participant
+     */
+    private record NeverQuiet(PrintStream markers, String name) implements DrainParticipant {
 
         @Override
         public void stopAdmitting() {
@@ -540,6 +563,7 @@ final class RuntimeChildProcess {
     private static void startup(MachinePaths paths, PrintStream markers, AuditChainVerification auditChain,
             String mode) throws IOException {
         markers.println(before(mode));
+        // The SecureRandom is the entropy source the startup needs to create its token, not test data
         var outcome = new StartupSequence(paths, System.getProperty("user.name"), auditChain, _ -> {
         }).run(new SecureRandom());
         if (outcome instanceof StartupSequence.Outcome.Ready) {

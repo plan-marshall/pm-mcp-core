@@ -29,6 +29,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -69,21 +70,28 @@ import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
  * {@code kill} calls the rule made. Rules (a) to (c), a reused PID and a queued job make none; the matched control (d),
  * a job of this boot with a recorded PID whose group lives, is probed and terminated, also when no process owns the PID
  * any more (the group outlived its leader).
+ * <p>
+ * The outcome texts the tests compare are the specified report format of the step, contract literals.
  */
 @EnableGeneratorController
 @DisplayName("Jobs part of the recovery step JOBS_AND_WORKERS")
 class JobRecoveryStepTest {
 
-    private static final Scope PLAN = new Scope(Scope.Type.PLAN, "plan-a");
-    private static final Scope WORKER_QUEUE = new Scope(Scope.Type.PROJECT, null);
-    private static final Instant BOOT = Instant.parse("2026-10-17T06:00:00Z");
-    private static final Instant CREATED_AT = Instant.parse("2026-10-17T09:00:00Z");
-    private static final Instant NOW = Instant.parse("2026-10-17T12:00:00Z");
+    /** The boot of the system, generated once for the class, since the rules of the method source read it. */
+    private static final Instant BOOT = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_900_000_000L).next());
+    private static final Instant CREATED_AT = BOOT.plus(Duration.ofMinutes(Generators.integers(1, 600).next()));
+    private static final Instant NOW = CREATED_AT.plus(Duration.ofMinutes(Generators.integers(1, 600).next()));
     private static final String RUNTIME_RESTART = JobRecoveryStep.RUNTIME_RESTART;
+    /** Contract literal: the minimal worker description of a job record. */
+    private static final String WORKER = "{}";
+    /** Contract literal: a torn JSON file, the smallest content that cannot be read. */
+    private static final String TORN = "{";
 
     @TempDir
     Path base;
 
+    private final Scope plan = new Scope(Scope.Type.PLAN, "plan-" + name());
+    private final Scope workerQueue = new Scope(Scope.Type.PROJECT, null);
     private FileLockManager lockManager;
     private JobRecordStore store;
     private RecordingSignals signals;
@@ -144,14 +152,37 @@ class JobRecoveryStepTest {
         return step(audit, JobRecoveryStep.Slots.NONE);
     }
 
+    private static String name() {
+        return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String hex(int length) {
+        return Generators.strings("0123456789abcdef", length, length).next();
+    }
+
     private static long pid() {
         return Generators.longs(2, 4_000_000).next();
     }
 
-    private static JobRecord.JobRecordBuilder processJob(JobId jobId) {
-        return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(PLAN).budgetKey("maven:verify")
-                .budgetSeconds(600).budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
-                .argvDigest("ab".repeat(32)).confinement(Confinement.UNAVAILABLE).createdAt(CREATED_AT)
+    /** @return a generated PID above every PID the kernel hands out, so that no process owns it */
+    private static long unownedPid() {
+        return Generators.longs(1_000_000_000L, 2_000_000_000L).next();
+    }
+
+    /** @return a generated id of a build job: its prefix and 16 lower-case hex digits */
+    private static JobId buildJobId() {
+        return new JobId("b-" + hex(16));
+    }
+
+    private JobRecord.JobRecordBuilder processJob(JobId jobId) {
+        return processJob(jobId, plan);
+    }
+
+    private static JobRecord.JobRecordBuilder processJob(JobId jobId, Scope scope) {
+        return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(scope)
+                .budgetKey("maven:" + name()).budgetSeconds(Generators.integers(300, 3_600).next())
+                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                .argvDigest(hex(64)).confinement(Confinement.UNAVAILABLE).createdAt(CREATED_AT)
                 .clampedValues(List.of());
     }
 
@@ -169,16 +200,16 @@ class JobRecoveryStepTest {
     }
 
     private JobRecord queued() {
-        return write(JobId.Kind.BUILD, PLAN, jobId -> processJob(jobId).status(Status.QUEUED).build());
+        return write(JobId.Kind.BUILD, plan, jobId -> processJob(jobId).status(Status.QUEUED).build());
     }
 
     private JobRecord writeAhead() {
-        return write(JobId.Kind.BUILD, PLAN, jobId -> processJob(jobId).status(Status.RUNNING).build());
+        return write(JobId.Kind.BUILD, plan, jobId -> processJob(jobId).status(Status.RUNNING).build());
     }
 
     private JobRecord inProcess() {
-        return write(JobId.Kind.GIT, PLAN, jobId -> processJob(jobId).execution(Execution.IN_PROCESS).argvDigest(null)
-                .confinement(Confinement.NOT_APPLICABLE).budgetKey("git:status").status(Status.RUNNING).build());
+        return write(JobId.Kind.GIT, plan, jobId -> processJob(jobId).execution(Execution.IN_PROCESS).argvDigest(null)
+                .confinement(Confinement.NOT_APPLICABLE).budgetKey("git:" + name()).status(Status.RUNNING).build());
     }
 
     private JobRecord postSpawn(long pid, Instant spawnedAt) {
@@ -194,6 +225,11 @@ class JobRecoveryStepTest {
         return spawned;
     }
 
+    /** @return a generated instant of this boot, after the boot of the system */
+    private static Instant afterBoot() {
+        return BOOT.plusSeconds(Generators.integers(1, 3_600).next());
+    }
+
     /** @return the PID of the test's own process: a real PID whose start instant the process table answers */
     private static long ownPid() {
         return ProcessHandle.current().pid();
@@ -205,8 +241,8 @@ class JobRecoveryStepTest {
     }
 
     private JobRecord worker() {
-        return write(JobId.Kind.LLM, WORKER_QUEUE, jobId -> processJob(jobId).scope(WORKER_QUEUE).worker("{}")
-                .budgetKey("worker:claude").status(Status.RUNNING).build());
+        return write(JobId.Kind.LLM, workerQueue, jobId -> processJob(jobId).scope(workerQueue).worker(WORKER)
+                .budgetKey("worker:" + name()).status(Status.RUNNING).build());
     }
 
     private JobRecord read(JobRecord job) {
@@ -215,12 +251,23 @@ class JobRecoveryStepTest {
 
     private static void assertKilled(JobRecord settled, String signal) {
         assertAll(
-                () -> assertEquals(Status.ENDED, settled.status()),
-                () -> assertEquals(Fate.KILLED, settled.fate()),
-                () -> assertEquals(4, settled.outcomeRow(), "outcome row 4"),
-                () -> assertEquals(NOW, settled.endedAt()),
-                () -> assertNull(settled.childWallMs()),
-                () -> assertEquals(signal, settled.signal()));
+                () -> assertEquals(Status.ENDED, settled.status(), "the settled job must have ended"),
+                () -> assertEquals(Fate.KILLED, settled.fate(), "the settled job must be recorded killed"),
+                () -> assertEquals(4, settled.outcomeRow(), "outcome row 4 of the specification"),
+                () -> assertEquals(NOW, settled.endedAt(), "the job must end at the instant of the step"),
+                () -> assertNull(settled.childWallMs(), "a killed job records no child wall time"),
+                () -> assertEquals(signal, settled.signal(), "the job must record the signal of its end"));
+    }
+
+    private static Outcome.Done done(int settled, String rule, int terminated, int workers) {
+        return new Outcome.Done("%d jobs settled killed {%s=%d}, %d groups terminated; worker part of %d workers %s"
+                .formatted(settled, rule, settled, terminated, workers, RecoveryStep.NOT_IMPLEMENTED));
+    }
+
+    private AuditEvent unidentifiable(JobRecord job) {
+        return new AuditEvent(JobRecoveryStep.JOB_RECOVERED, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
+                Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT_A, JobRecoveryStep.DETAIL_JOB_ID, job.jobId().value(),
+                        JobRecoveryStep.DETAIL_NOTE, JobRecoveryStep.ORPHAN_UNIDENTIFIABLE));
     }
 
     @Nested
@@ -235,25 +282,28 @@ class JobRecoveryStepTest {
             var outcome = step().run(PROJECT_A);
 
             assertAll(
-                    () -> assertInstanceOf(Outcome.Done.class, outcome),
+                    () -> assertInstanceOf(Outcome.Done.class, outcome, "the step must be done"),
                     () -> assertEquals(List.of(), signals.calls, "rule (a) makes zero kill() calls"),
-                    () -> assertEquals(List.of(), audit.events(), "no orphan note"),
+                    () -> assertEquals(List.of(), audit.events(),
+                            "no orphan note may reach the audit sink"),
                     () -> assertKilled(read(job), null),
-                    () -> assertEquals(JobRecoveryStep.Rule.IN_PROCESS, step().rule(job)));
+                    () -> assertEquals(JobRecoveryStep.Rule.IN_PROCESS, step().rule(job),
+                            "the job must match rule (a)"));
         }
 
         @Test
         @DisplayName("rule (b): a job spawned before the boot of the system is settled without a signal")
         void spawnedBeforeBoot() {
-            var job = postSpawn(pid(), BOOT.minusSeconds(3_600));
+            var job = postSpawn(pid(), BOOT.minusSeconds(Generators.integers(1, 86_400).next()));
 
             step().run(PROJECT_A);
 
             assertAll(
-                    () -> assertEquals(List.of(), signals.calls),
-                    () -> assertEquals(List.of(), audit.events()),
+                    () -> assertEquals(List.of(), signals.calls, "rule (b) makes zero kill() calls"),
+                    () -> assertEquals(List.of(), audit.events(), "rule (b) writes no orphan note"),
                     () -> assertKilled(read(job), RUNTIME_RESTART),
-                    () -> assertEquals(JobRecoveryStep.Rule.BEFORE_BOOT, step().rule(job)));
+                    () -> assertEquals(JobRecoveryStep.Rule.BEFORE_BOOT, step().rule(job),
+                            "the job must match rule (b)"));
         }
 
         @Test
@@ -264,14 +314,12 @@ class JobRecoveryStepTest {
             step().run(PROJECT_A);
 
             assertAll(
-                    () -> assertEquals(List.of(), signals.calls),
-                    () -> assertEquals(List.of(new AuditEvent(JobRecoveryStep.JOB_RECOVERED,
-                            AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
-                            Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT_A, JobRecoveryStep.DETAIL_JOB_ID,
-                                    job.jobId().value(), JobRecoveryStep.DETAIL_NOTE,
-                                    JobRecoveryStep.ORPHAN_UNIDENTIFIABLE))), audit.events()),
+                    () -> assertEquals(List.of(), signals.calls, "rule (c) makes zero kill() calls"),
+                    () -> assertEquals(List.of(unidentifiable(job)), audit.events(),
+                            "the job must be noted as unidentifiable"),
                     () -> assertKilled(read(job), RUNTIME_RESTART),
-                    () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job)));
+                    () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job),
+                            "the job must match rule (c)"));
         }
 
         @Test
@@ -282,11 +330,10 @@ class JobRecoveryStepTest {
             var outcome = step().run(PROJECT_A);
 
             assertAll(
-                    () -> assertEquals(List.of(), signals.calls),
+                    () -> assertEquals(List.of(), signals.calls, "a queued job gets zero kill() calls"),
                     () -> assertKilled(read(job), RUNTIME_RESTART),
-                    () -> assertNull(read(job).pid()),
-                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {QUEUED=1}, 0 groups terminated; "
-                            + "worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+                    () -> assertNull(read(job).pid(), "a queued job records no PID"),
+                    () -> assertEquals(done(1, "QUEUED", 0, 0), outcome, "the outcome must count the queued job"));
         }
     }
 
@@ -299,30 +346,31 @@ class JobRecoveryStepTest {
         void liveGroupIsTerminated() {
             var pid = ownPid();
             signals.liveGroup = pid;
-            var job = postSpawn(pid, ownStart(), BOOT.plusSeconds(60));
+            var job = postSpawn(pid, ownStart(), afterBoot());
 
             var outcome = step().run(PROJECT_A);
 
             assertAll(
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM),
-                            new Call(true, pid, Signal.PROBE)), signals.calls),
+                                    new Call(true, pid, Signal.PROBE)), signals.calls,
+                            "the group must be probed, terminated, probed"),
                     () -> assertKilled(read(job), Signal.SIGTERM.name()),
-                    () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job)),
-                    () -> assertEquals(List.of(), audit.events()),
-                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {PROBED=1}, 1 groups terminated; "
-                            + "worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+                    () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job), "the job must match rule (d)"),
+                    () -> assertEquals(List.of(), audit.events(), "a probed job writes no orphan note"),
+                    () -> assertEquals(done(1, "PROBED", 1, 0), outcome, "the outcome must count the terminated group"));
         }
 
         @Test
         @DisplayName("a group that no longer exists is probed once and not terminated")
         void deadGroupIsNotTerminated() {
             var pid = ownPid();
-            var job = postSpawn(pid, ownStart(), BOOT.plusSeconds(60));
+            var job = postSpawn(pid, ownStart(), afterBoot());
 
             step().run(PROJECT_A);
 
             assertAll(
-                    () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE)), signals.calls),
+                    () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE)), signals.calls,
+                            "a dead group must be probed once only"),
                     () -> assertKilled(read(job), RUNTIME_RESTART));
         }
 
@@ -332,32 +380,33 @@ class JobRecoveryStepTest {
             var pid = ownPid();
             signals.liveGroup = pid;
             signals.refusing = true;
-            var job = postSpawn(pid, ownStart(), BOOT.plusSeconds(60));
+            var job = postSpawn(pid, ownStart(), afterBoot());
 
             step().run(PROJECT_A);
 
             assertAll(
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM)),
-                            signals.calls),
+                            signals.calls, "the group must be probed and signalled once"),
                     () -> assertKilled(read(job), RUNTIME_RESTART));
         }
 
         @Test
         @DisplayName("a group that outlived its leader is still terminated: no process owns the recorded PID")
         void groupThatOutlivedItsLeaderIsTerminated() {
-            var pid = 1_999_999_997L;
+            var pid = unownedPid();
             signals.liveGroup = pid;
-            var job = postSpawn(pid, BOOT.plusSeconds(60), BOOT.plusSeconds(60));
+            var spawnedAt = afterBoot();
+            var job = postSpawn(pid, spawnedAt, spawnedAt);
 
             var outcome = step().run(PROJECT_A);
 
             assertAll(
                     () -> assertEquals(List.of(new Call(true, pid, Signal.PROBE), new Call(true, pid, Signal.SIGTERM),
-                            new Call(true, pid, Signal.PROBE)), signals.calls),
+                                    new Call(true, pid, Signal.PROBE)), signals.calls,
+                            "the group must be probed, terminated, probed"),
                     () -> assertKilled(read(job), Signal.SIGTERM.name()),
-                    () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job)),
-                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {PROBED=1}, 1 groups terminated; "
-                            + "worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+                    () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job), "the job must match rule (d)"),
+                    () -> assertEquals(done(1, "PROBED", 1, 0), outcome, "the outcome must count the terminated group"));
         }
 
         @Test
@@ -365,22 +414,20 @@ class JobRecoveryStepTest {
         void reusedPidIsNotSignalled() {
             var pid = ownPid();
             signals.liveGroup = pid;
-            var job = postSpawn(pid, ownStart().minus(Duration.ofHours(1)), BOOT.plusSeconds(60));
+            var otherStart = ownStart().minus(Duration.ofMinutes(Generators.integers(1, 600).next()));
+            var job = postSpawn(pid, otherStart, afterBoot());
 
             var outcome = step().run(PROJECT_A);
 
             assertAll(
                     () -> assertEquals(List.of(), signals.calls, "a reused PID is not signalled"),
                     () -> assertKilled(read(job), RUNTIME_RESTART),
-                    () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job)),
-                    () -> assertEquals(List.of(new AuditEvent(JobRecoveryStep.JOB_RECOVERED,
-                                    AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
-                                    Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT_A, JobRecoveryStep.DETAIL_JOB_ID,
-                                            job.jobId().value(), JobRecoveryStep.DETAIL_NOTE,
-                                            JobRecoveryStep.ORPHAN_UNIDENTIFIABLE))), audit.events(),
+                    () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job),
+                            "a reused PID makes the job unidentifiable"),
+                    () -> assertEquals(List.of(unidentifiable(job)), audit.events(),
                             "the job is noted as unidentifiable"),
-                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups "
-                            + "terminated; worker part of 0 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+                    () -> assertEquals(done(1, "UNIDENTIFIABLE", 0, 0), outcome,
+                            "the outcome must count the unidentifiable job"));
         }
 
         @Test
@@ -389,8 +436,9 @@ class JobRecoveryStepTest {
             // The record refuses a PID without the process start it was spawned with, so the guard's
             // "no start recorded" branch cannot be reached from a stored record.
             var pid = ownPid();
-            var later = BOOT.plusSeconds(60);
-            assertThrows(IllegalArgumentException.class, () -> postSpawn(pid, null, later));
+            var later = afterBoot();
+            assertThrows(IllegalArgumentException.class, () -> postSpawn(pid, null, later),
+                    "a PID without a process start must be refused");
         }
     }
 
@@ -399,14 +447,14 @@ class JobRecoveryStepTest {
                 Arguments.of("queued", Status.QUEUED, Execution.PROCESS, null, null, JobRecoveryStep.Rule.QUEUED),
                 Arguments.of("in-process", Status.RUNNING, Execution.IN_PROCESS, null, null,
                         JobRecoveryStep.Rule.IN_PROCESS),
-                Arguments.of("before boot with PID", Status.RUNNING, Execution.PROCESS, 42L, BOOT.minusSeconds(1),
-                        JobRecoveryStep.Rule.BEFORE_BOOT),
+                Arguments.of("before boot with PID", Status.RUNNING, Execution.PROCESS, pid(),
+                        BOOT.minusSeconds(Generators.integers(1, 86_400).next()), JobRecoveryStep.Rule.BEFORE_BOOT),
                 Arguments.of("after boot without PID", Status.RUNNING, Execution.PROCESS, null, null,
                         JobRecoveryStep.Rule.UNIDENTIFIABLE),
-                Arguments.of("spawned at the boot instant", Status.RUNNING, Execution.PROCESS, 1_999_999_999L, BOOT,
+                Arguments.of("spawned at the boot instant", Status.RUNNING, Execution.PROCESS, unownedPid(), BOOT,
                         JobRecoveryStep.Rule.PROBED),
-                Arguments.of("a PID no process owns any more", Status.RUNNING, Execution.PROCESS, 1_999_999_998L, BOOT,
-                        JobRecoveryStep.Rule.PROBED));
+                Arguments.of("a PID no process owns any more", Status.RUNNING, Execution.PROCESS, unownedPid(),
+                        afterBoot(), JobRecoveryStep.Rule.PROBED));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -414,18 +462,21 @@ class JobRecoveryStepTest {
     @DisplayName("the first matching rule of the specification settles a job")
     void firstMatchingRuleSettles(String name, Status status, Execution execution, Long pid, Instant spawnedAt,
             JobRecoveryStep.Rule expected) {
-        var draft = processJob(new JobId("b-0123456789abcdef")).status(status).execution(execution).pid(pid)
+        var draft = processJob(buildJobId()).status(status).execution(execution).pid(pid)
                 .processStartedAt(spawnedAt).spawnedAt(spawnedAt);
         if (execution == Execution.IN_PROCESS) {
             draft.argvDigest(null).confinement(Confinement.NOT_APPLICABLE);
         }
 
-        assertEquals(expected, step().rule(draft.build()));
+        assertEquals(expected, step().rule(draft.build()), "the first matching rule must settle the job");
     }
 
     @Nested
     @DisplayName("the settlement")
     class Settlement {
+
+        /** Contract literal: the specified report of a step that found no job to settle. */
+        private static final String NO_JOB = "no job to settle; worker part " + RecoveryStep.NOT_IMPLEMENTED;
 
         @Test
         @DisplayName("a settled job is left as it is; no job to settle is reported as such")
@@ -438,17 +489,16 @@ class JobRecoveryStepTest {
             var outcome = step().run(PROJECT_A);
 
             assertAll(
-                    () -> assertEquals(new Outcome.Done("no job to settle; worker part " + RecoveryStep.NOT_IMPLEMENTED),
-                            outcome),
-                    () -> assertEquals(settled, read(job)),
-                    () -> assertEquals(List.of(), signals.calls));
+                    () -> assertEquals(new Outcome.Done(NO_JOB), outcome, "the step must report no job to settle"),
+                    () -> assertEquals(settled, read(job), "a settled job must be left as it is"),
+                    () -> assertEquals(List.of(), signals.calls, "a settled job gets zero kill() calls"));
         }
 
         @Test
         @DisplayName("a project without job records has no job to settle")
         void noRecords() {
-            assertEquals(new Outcome.Done("no job to settle; worker part " + RecoveryStep.NOT_IMPLEMENTED),
-                    step().run("project-b"));
+            assertEquals(new Outcome.Done(NO_JOB), step().run("project-" + name()),
+                    "a project without records has no job to settle");
         }
 
         @Test
@@ -460,15 +510,15 @@ class JobRecoveryStepTest {
 
             assertAll(
                     () -> assertKilled(read(job), RUNTIME_RESTART),
-                    () -> assertEquals(new Outcome.Done("1 jobs settled killed {UNIDENTIFIABLE=1}, 0 groups terminated;"
-                            + " worker part of 1 workers " + RecoveryStep.NOT_IMPLEMENTED), outcome));
+                    () -> assertEquals(done(1, "UNIDENTIFIABLE", 0, 1), outcome,
+                            "the outcome must count the worker"));
         }
 
         @Test
         @DisplayName("the slot the job held is released after its fate is recorded")
         void slotIsReleased() throws Exception {
             var slots = RecoveryStepFixtures.buildSlots(base, lockManager);
-            var lease = RecoveryStepFixtures.claim(slots, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
+            var lease = RecoveryStepFixtures.claim(slots, "slot-" + name(), PROJECT_A, RecoveryStepFixtures.self());
             var job = queued();
             var step = step(audit, held -> held.jobId().equals(job.jobId())
                     ? Optional.of(new SettlementStep.Slot(slots, lease.key(), lease.owner())) : Optional.empty());
@@ -477,25 +527,26 @@ class JobRecoveryStepTest {
 
             assertAll(
                     () -> assertKilled(read(job), RUNTIME_RESTART),
-                    () -> assertEquals(List.of(), slots.snapshot().stream().map(LeaseRecord::key).toList()));
+                    () -> assertEquals(List.of(), slots.snapshot().stream().map(LeaseRecord::key).toList(),
+                            "the slot of the job must be released"));
         }
     }
 
     @Nested
-    @DisplayName("failures")
+    @DisplayName("failures (the reasons are the specified error texts)")
     class Failures {
 
         @Test
         @DisplayName("unreadable job records fail the step")
         void unreadableRecords() throws Exception {
             var job = queued();
-            Files.writeString(store.recordPath(job.jobId()), "{");
+            Files.writeString(store.recordPath(job.jobId()), TORN);
 
             var outcome = step().run(PROJECT_A);
 
-            var failed = assertInstanceOf(Outcome.Failed.class, outcome);
+            var failed = assertInstanceOf(Outcome.Failed.class, outcome, "unreadable records must fail the step");
             assertTrue(failed.reason().startsWith("the job records of project " + PROJECT_A + " were not read"),
-                    failed.reason());
+                    "the reason must name the unread records");
         }
 
         @Test
@@ -503,33 +554,35 @@ class JobRecoveryStepTest {
         void refusedOrphanNote() {
             var job = writeAhead();
             AuditSink refusing = _ -> {
+                // Contract literal: the error text of the simulated refusal
                 throw new UncheckedIOException(new IOException("the audit log cannot be written"));
             };
 
             var outcome = step(refusing, JobRecoveryStep.Slots.NONE).run(PROJECT_A);
 
-            var failed = assertInstanceOf(Outcome.Failed.class, outcome);
+            var failed = assertInstanceOf(Outcome.Failed.class, outcome, "a refused note must fail the step");
             assertAll(
                     () -> assertTrue(failed.reason().startsWith("the orphan note of job " + job.jobId()),
-                            failed.reason()),
-                    () -> assertEquals(Status.RUNNING, read(job).status()));
+                            "the reason must name the orphan note"),
+                    () -> assertEquals(Status.RUNNING, read(job).status(), "the job must be left unsettled"));
         }
 
         @Test
         @DisplayName("a slot that cannot be released stops the step after the fate was recorded")
         void unreleasableSlot() throws Exception {
             var slots = RecoveryStepFixtures.buildSlots(base, lockManager);
-            var lease = RecoveryStepFixtures.claim(slots, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
-            Files.writeString(slots.store(), "{");
+            var lease = RecoveryStepFixtures.claim(slots, "slot-" + name(), PROJECT_A, RecoveryStepFixtures.self());
+            Files.writeString(slots.store(), TORN);
             var job = queued();
             var step = step(audit, _ -> Optional.of(new SettlementStep.Slot(slots, lease.key(), lease.owner())));
 
             var outcome = step.run(PROJECT_A);
 
-            var failed = assertInstanceOf(Outcome.Failed.class, outcome);
+            var failed = assertInstanceOf(Outcome.Failed.class, outcome, "an unreleasable slot must fail the step");
             assertAll(
                     () -> assertTrue(failed.reason().startsWith("job " + job.jobId()
-                            + " was not settled, the settlement stopped at SLOT_RELEASE"), failed.reason()),
+                                    + " was not settled, the settlement stopped at SLOT_RELEASE"),
+                            "the reason must name the slot release"),
                     () -> assertKilled(read(job), RUNTIME_RESTART));
         }
     }
@@ -537,10 +590,11 @@ class JobRecoveryStepTest {
     @Test
     @DisplayName("the step is the jobs part of JOBS_AND_WORKERS, and Slots.NONE names no slot")
     void nameAndNoSlot() {
-        var job = processJob(new JobId("b-0123456789abcdef")).status(Status.QUEUED).build();
+        var job = processJob(buildJobId()).status(Status.QUEUED).build();
 
         assertAll(
-                () -> assertEquals(RecoveryStep.Name.JOBS_AND_WORKERS, step().name()),
-                () -> assertFalse(JobRecoveryStep.Slots.NONE.of(job).isPresent()));
+                () -> assertEquals(RecoveryStep.Name.JOBS_AND_WORKERS, step().name(),
+                        "the step must carry its specified name"),
+                () -> assertFalse(JobRecoveryStep.Slots.NONE.of(job).isPresent(), "Slots.NONE must name no slot"));
     }
 }

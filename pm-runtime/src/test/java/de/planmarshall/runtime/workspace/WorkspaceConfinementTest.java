@@ -16,12 +16,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,11 +43,16 @@ import de.planmarshall.core.store.WorkspaceRoots;
  * The runtime entry of the path confinement (PM-SEC-2): the outcome of {@code pm-core} is passed on unchanged,
  * a refusal writes the WARN record and an accepted path writes none. The linked worktree is the pair of plain
  * pointer files git writes for one; no git process runs.
+ * <p>
+ * The names and the content of git's pointer files and the outcome code are the specified formats; the directory
+ * and file names of the workspace and the content of its files are generated.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("WorkspaceConfinement")
 class WorkspaceConfinementTest {
 
+    /** Contract literal: the closed outcome code of a refused path. */
     private static final String OUTCOME_CODE = "path_traversal_rejected";
 
     @TempDir
@@ -59,23 +67,46 @@ class WorkspaceConfinementTest {
     /** A canonical directory beside the enrolled root, outside the workspace. */
     private Path beside;
 
+    /** The generated name of the file in the enrolled root. */
+    private String rootFile;
+
+    /** The generated name of the file in the linked worktree. */
+    private String worktreeFile;
+
+    /** The generated name of the file beside the enrolled root. */
+    private String besideFile;
+
     private WorkspaceConfinement confinement;
+
+    /** @return a generated name; the prefix keeps the names of one workspace distinct */
+    private static String name(String prefix) {
+        return prefix + "-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    private static String content() {
+        return Generators.letterStrings(1, 40).next();
+    }
 
     @BeforeEach
     void workspace() throws IOException {
         var base = temp.toRealPath();
-        root = Files.createDirectories(base.resolve("repo"));
-        Files.writeString(root.resolve("README.md"), "root");
-        var gitDirectory = Files.createDirectories(root.resolve(".git/worktrees/linked"));
+        var worktreeName = name("linked");
+        root = Files.createDirectories(base.resolve(name("root")));
+        rootFile = name("in-root") + ".md";
+        Files.writeString(root.resolve(rootFile), content());
+        // Contract literals: the administrative directory and the pointer files git keeps for a linked worktree
+        var gitDirectory = Files.createDirectories(root.resolve(".git/worktrees").resolve(worktreeName));
         Files.writeString(gitDirectory.resolve("commondir"), "../..\n");
 
-        worktree = Files.createDirectories(base.resolve("linked"));
-        Files.writeString(worktree.resolve("Main.java"), "worktree");
+        worktree = Files.createDirectories(base.resolve(worktreeName));
+        worktreeFile = name("in-worktree") + ".java";
+        Files.writeString(worktree.resolve(worktreeFile), content());
         Files.writeString(worktree.resolve(".git"), "gitdir: " + gitDirectory + "\n");
         Files.writeString(gitDirectory.resolve("gitdir"), worktree.resolve(".git") + "\n");
 
-        beside = Files.createDirectories(base.resolve("beside"));
-        Files.writeString(beside.resolve("file.txt"), "beside");
+        beside = Files.createDirectories(base.resolve(name("beside")));
+        besideFile = name("outside") + ".txt";
+        Files.writeString(beside.resolve(besideFile), content());
 
         confinement = new WorkspaceConfinement(new WorkspaceRoots(root, Set.of(worktree)));
     }
@@ -108,17 +139,17 @@ class WorkspaceConfinementTest {
         @Test
         @DisplayName("returns a path inside the enrolled root as Confined and writes no record")
         void acceptsPathInsideRoot() {
-            var outcome = confine("README.md");
+            var outcome = confine(rootFile);
 
-            assertAcceptedWithoutRecord(root.resolve("README.md"), outcome);
+            assertAcceptedWithoutRecord(root.resolve(rootFile), outcome);
         }
 
         @Test
         @DisplayName("returns a path inside a live linked worktree as Confined and writes no record")
         void acceptsPathInsideLiveWorktree() {
-            var outcome = confine(worktree.resolve("Main.java").toString());
+            var outcome = confine(worktree.resolve(worktreeFile).toString());
 
-            assertAcceptedWithoutRecord(worktree.resolve("Main.java"), outcome);
+            assertAcceptedWithoutRecord(worktree.resolve(worktreeFile), outcome);
         }
     }
 
@@ -129,7 +160,7 @@ class WorkspaceConfinementTest {
         @Test
         @DisplayName("returns a .. escape as Rejected and writes the WARN record")
         void refusesParentEscape() {
-            var outcome = confine("../beside/file.txt");
+            var outcome = confine("../" + beside.getFileName() + "/" + besideFile);
 
             assertRefusedWithRecord(outcome);
         }
@@ -137,7 +168,7 @@ class WorkspaceConfinementTest {
         @Test
         @DisplayName("returns an absolute path outside the root as Rejected and writes the WARN record")
         void refusesAbsolutePathOutside() {
-            var outcome = confine(beside.resolve("file.txt").toString());
+            var outcome = confine(beside.resolve(besideFile).toString());
 
             assertRefusedWithRecord(outcome);
         }
@@ -146,9 +177,10 @@ class WorkspaceConfinementTest {
         @DisabledOnOs(value = OS.WINDOWS, disabledReason = "creating a symbolic link needs a privilege there")
         @DisplayName("returns a symbolic link out of the root as Rejected and writes the WARN record")
         void refusesSymbolicLinkOut() throws Exception {
-            Files.createSymbolicLink(root.resolve("link-out"), beside);
+            var link = name("link-out");
+            Files.createSymbolicLink(root.resolve(link), beside);
 
-            var outcome = confine("link-out/file.txt");
+            var outcome = confine(link + "/" + besideFile);
 
             assertRefusedWithRecord(outcome);
         }

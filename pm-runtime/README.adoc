@@ -53,6 +53,13 @@ hand (`ResolvedSkill`) and the `RuntimeGenerators` factory that registers it. Un
 one keeps the whole test scope, because the assembly already consumes `TestBases` and the fakes there. The assembly
 `plan-marshall-mcp` is the only consumer of this artifact.
 
+`TestBases` draws the random suffix of its directory names from `cui-test-generator` (`Generators`). The test scope of
+a module is not inherited through its test JAR, so a consumer of `pm-runtime:tests` must declare
+`de.cuioss.test:cui-test-generator` in its own test scope; without it `TestBases.create(String)` fails with a missing
+class. The assembly `plan-marshall-mcp` uses `TestBases` in `pm-mcp-server` and has to declare it before it consumes
+a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `delete(Path)` and the
+`/tmp/<prefix>-<8 hex>` form of the directories are unchanged.
+
 == Developer Documentation
 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]

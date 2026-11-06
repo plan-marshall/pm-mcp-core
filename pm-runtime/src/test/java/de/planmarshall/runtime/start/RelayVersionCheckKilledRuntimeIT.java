@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -31,11 +32,16 @@ import de.planmarshall.runtime.test.TestBases;
  * The relay version-mismatch detection under a runtime killed with {@code SIGKILL} after it recorded a mismatch. The
  * killed runtime is a child JVM of {@link KilledRuntimeFixture}; the detection state belongs to the instance and is
  * not persisted, so a new instance in this JVM that observes the same relay version records it again and reports it.
+ * <p>
+ * The test holds no data of its own: the versions are the protocol with the child ({@link RuntimeChildProcess}), which
+ * must record the same ones as this JVM, and the record line is the format of its file-backed sink.
  */
+@EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
 @DisplayName("Relay version-mismatch detection with a killed runtime")
 class RelayVersionCheckKilledRuntimeIT {
 
+    /** The line the recording sink of the child protocol writes for the mismatch the child records. */
     private static final String RECORD = RelayVersionCheck.RELAY_VERSION_MISMATCH + " "
             + RuntimeChildProcess.MISMATCHING_RELAY + " " + RuntimeChildProcess.CHILD_RUNTIME_VERSION;
 
@@ -45,6 +51,7 @@ class RelayVersionCheckKilledRuntimeIT {
 
     @BeforeEach
     void createBase() throws IOException {
+        // A fixture argument, the prefix of the base directory, not test data
         base = Files.createDirectory(TestBases.create("pmv"));
     }
 
@@ -75,10 +82,10 @@ class RelayVersionCheckKilledRuntimeIT {
         check.observe(RuntimeChildProcess.MISMATCHING_RELAY);
 
         assertAll(
-                () -> assertEquals(List.of(RECORD), afterKill, "the killed runtime recorded once"),
-                () -> assertEquals(List.of(RECORD, RECORD), records(), "the new instance recorded once again"),
+                () -> assertEquals(List.of(RECORD), afterKill, "the killed runtime recorded the mismatch once"),
+                () -> assertEquals(List.of(RECORD, RECORD), records(), "the new instance recorded it once again"),
                 () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(RuntimeChildProcess.MISMATCHING_RELAY,
                                 RuntimeChildProcess.CHILD_RUNTIME_VERSION, RelayVersionCheck.RECOMMENDED_COMMAND)),
-                        check.mismatch()));
+                        check.mismatch(), "the new instance must report the mismatch"));
     }
 }
