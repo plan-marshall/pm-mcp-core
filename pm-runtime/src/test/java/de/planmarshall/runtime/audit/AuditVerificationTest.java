@@ -10,15 +10,18 @@
 package de.planmarshall.runtime.audit;
 
 import static de.planmarshall.runtime.audit.AuditTrailFixture.editLine;
+import static de.planmarshall.runtime.audit.AuditTrailFixture.foreignKey;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.lines;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.recordAt;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.removeLine;
+import static de.planmarshall.runtime.audit.AuditTrailFixture.words;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.writeLines;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +34,6 @@ import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,14 +44,21 @@ import de.planmarshall.core.store.AuditIndexEntry;
 import de.planmarshall.core.store.AuditRecord;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.credentials.SecretStoreException;
-import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.start.AuditChainVerification.BreakReason;
 import de.planmarshall.runtime.start.AuditChainVerification.Outcome;
 
 /**
  * The verification of the audit trail, the acceptance of the package: every tamper case of the work package is
  * detected with its reason, a rotation in the middle of a verification is not, and a verification changes nothing.
+ *
+ * <p>
+ * The foreign key, the keyring's failure message and the unparsable lines are generated. The literals that stay are
+ * the contract: the rotation limits at their boundary (one byte, thirty days), the record counts the appends produce
+ * and the line numbers they break at, the record line's count member {@code "n"} and the index entry's member
+ * {@code "record_count"} the edits replace, the torn line of the store's wire format, and the reason and diagnostic
+ * texts of the verification.
  */
+@EnableGeneratorController
 @DisplayName("The audit verification")
 class AuditVerificationTest {
 
@@ -70,14 +79,14 @@ class AuditVerificationTest {
     }
 
     private static Outcome.Broken assertBroken(BreakReason reason, Outcome outcome) {
-        var broken = assertInstanceOf(Outcome.Broken.class, outcome);
-        assertEquals(reason, broken.reason(), broken::diagnostic);
+        var broken = assertInstanceOf(Outcome.Broken.class, outcome, "the verification reports a break");
+        assertEquals(reason, broken.reason(), "the verification names the break reason");
         return broken;
     }
 
     private static void assertLinkBroken(long line, Outcome outcome) {
         var broken = assertBroken(BreakReason.LINK_BROKEN, outcome);
-        assertEquals(OptionalLong.of(line), broken.firstBrokenLine(), broken::diagnostic);
+        assertEquals(OptionalLong.of(line), broken.firstBrokenLine(), "the verification names the broken line");
     }
 
     @Test
@@ -86,8 +95,8 @@ class AuditVerificationTest {
         var trail = fiveRecords();
 
         assertAll(
-                () -> assertEquals(INTACT, trail.verification().verify()),
-                () -> assertEquals(INTACT, trail.verification().full()));
+                () -> assertEquals(INTACT, trail.verification().verify(), "the incremental verification is intact"),
+                () -> assertEquals(INTACT, trail.verification().full(), "the full verification is intact"));
     }
 
     @Nested
@@ -100,27 +109,31 @@ class AuditVerificationTest {
             var trail = new AuditTrailFixture(base);
             trail.append(3);
 
-            assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify());
+            assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify(),
+                    "a trail without the key is not verified");
         }
 
         @Test
-        @DisplayName("with the key and no audit trail at all")
+        @DisplayName("with the key and no audit trail at all, for the reason \"no audit chain\"")
         void noChain() {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
 
-            assertEquals(new Outcome.NotVerified("no audit chain"), trail.verification().verify());
+            assertEquals(new Outcome.NotVerified("no audit chain"), trail.verification().verify(),
+                    "a missing trail is not verified");
         }
 
         @Test
         @DisplayName("with an unreadable key, naming its reason")
         void unreadableKey() {
             var trail = fiveRecords();
-            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, "keyring locked");
+            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, words());
 
-            var outcome = assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify());
+            var outcome = assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify(),
+                    "a trail with a locked key is not verified");
 
-            assertTrue(outcome.reason().contains(SecretStoreException.Reason.LOCKED.code()), outcome.reason());
+            assertTrue(outcome.reason().contains(SecretStoreException.Reason.LOCKED.code()),
+                    "the outcome names the reason of the keyring");
         }
     }
 
@@ -149,7 +162,7 @@ class AuditVerificationTest {
         }
 
         @Test
-        @DisplayName("an edited record")
+        @DisplayName("an edited record, its count member \"n\" replaced")
         void editedRecord() {
             var trail = fiveRecords();
             editLine(trail.logFile(), 2, line -> line.replace("\"n\":1", "\"n\":9"));
@@ -161,13 +174,14 @@ class AuditVerificationTest {
         @DisplayName("a line that does not parse")
         void unparsableRecord() {
             var trail = fiveRecords();
-            editLine(trail.logFile(), 4, _ -> "not a record");
+            var unparsable = words();
+            editLine(trail.logFile(), 4, _ -> unparsable);
 
             assertLinkBroken(4, trail.verification().verify());
         }
 
         @Test
-        @DisplayName("an index entry that does not chain")
+        @DisplayName("an index entry that does not chain, its member \"record_count\" replaced")
         void brokenIndex() {
             var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);
             trail.createKey();
@@ -176,7 +190,7 @@ class AuditVerificationTest {
 
             var broken = assertBroken(BreakReason.LINK_BROKEN, trail.verification().verify());
 
-            assertTrue(broken.diagnostic().contains(AuditIndex.FILE_NAME), broken.diagnostic());
+            assertTrue(broken.diagnostic().contains(AuditIndex.FILE_NAME), "the diagnostic names the index file");
         }
     }
 
@@ -189,8 +203,7 @@ class AuditVerificationTest {
         void replacedHead() throws Exception {
             var trail = fiveRecords();
             var head = trail.readHead().orElseThrow();
-            var otherKey = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
-            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(otherKey, head)));
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(foreignKey(), head)));
 
             assertBroken(BreakReason.HEAD_MISMATCH, trail.verification().verify());
         }
@@ -215,7 +228,7 @@ class AuditVerificationTest {
         }
 
         @Test
-        @DisplayName("an edited last record, which no line after it chains to")
+        @DisplayName("an edited last record, its count member \"n\" replaced, which no line after it chains to")
         void editedLastRecord() {
             var trail = fiveRecords();
             editLine(trail.logFile(), 5, line -> line.replace("\"n\":4", "\"n\":8"));
@@ -267,7 +280,8 @@ class AuditVerificationTest {
         Files.delete(trail.logFile());
 
         assertAll(
-                () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                () -> assertEquals(2, trail.head.index().snapshot().entries().size(),
+                        "the two rotations are entered in the index"),
                 () -> assertBroken(BreakReason.MISSING, trail.verification().verify()),
                 () -> assertBroken(BreakReason.MISSING, trail.verification().full()));
     }
@@ -294,7 +308,8 @@ class AuditVerificationTest {
             writeLines(trail.logFile(), List.of());
 
             assertAll(
-                    () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(2, trail.head.index().snapshot().entries().size(),
+                            "the two rotations are entered in the index"),
                     () -> assertBroken(BreakReason.RESET, trail.verification().verify()),
                     () -> assertBroken(BreakReason.RESET, trail.verification().full()));
         }
@@ -338,8 +353,9 @@ class AuditVerificationTest {
         var outcome = verification.verify();
 
         assertAll(
-                () -> assertEquals(INTACT, outcome),
-                () -> assertEquals(3, trail.head.index().snapshot().entries().size()),
+                () -> assertEquals(INTACT, outcome, "the verification across a rotation is intact"),
+                () -> assertEquals(3, trail.head.index().snapshot().entries().size(),
+                        "the rotation was entered in the index"),
                 () -> assertTrue(rotations.get() >= 2, "the reads were repeated after the rotation"));
     }
 
@@ -355,12 +371,13 @@ class AuditVerificationTest {
             trail.append(4);
 
             assertAll(
-                    () -> assertEquals(3, trail.head.index().snapshot().entries().size()),
-                    () -> assertEquals(INTACT, trail.verification().full()));
+                    () -> assertEquals(3, trail.head.index().snapshot().entries().size(),
+                            "the three rotations are entered in the index"),
+                    () -> assertEquals(INTACT, trail.verification().full(), "every rotated file verifies intact"));
         }
 
         @Test
-        @DisplayName("finds an edited rotated file, which the incremental verification does not read")
+        @DisplayName("finds an edited rotated file, its count member \"n\" replaced, which verify does not read")
         void editedRotatedFile() {
             var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);
             trail.createKey();
@@ -369,7 +386,8 @@ class AuditVerificationTest {
             editLine(rotated, 1, line -> line.replace("\"n\":1", "\"n\":9"));
 
             assertAll(
-                    () -> assertEquals(INTACT, trail.verification().verify()),
+                    () -> assertEquals(INTACT, trail.verification().verify(),
+                            "the incremental verification stays intact"),
                     () -> assertLinkBroken(2, trail.verification().full()));
         }
 
@@ -393,7 +411,7 @@ class AuditVerificationTest {
             trail.append(3);
             var rotated = trail.logFile().resolveSibling(trail.head.index().snapshot().entries().getFirst().file());
             var lines = new ArrayList<>(lines(rotated));
-            lines.add("not a record");
+            lines.add(words());
             writeLines(rotated, lines);
 
             assertLinkBroken(3, trail.verification().full());
@@ -407,16 +425,13 @@ class AuditVerificationTest {
             trail.append(4);
             Files.delete(trail.logFile().resolveSibling(trail.head.index().snapshot().entries().getFirst().file()));
 
-            assertEquals(INTACT, trail.verification().full());
+            assertEquals(INTACT, trail.verification().full(), "a purged rotated file still verifies intact");
         }
     }
 
     @Nested
     @DisplayName("a pending rotation")
     class Pending {
-
-        /** A key other than the integrity key, as anyone without the key could sign with. */
-        private static final SecretKey OTHER_KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
 
         @Test
         @DisplayName("closed by a genuine checkpoint is intact, incrementally and in full")
@@ -428,8 +443,9 @@ class AuditVerificationTest {
                     checkpoint(trail, key, 5, headHash)));
 
             assertAll(
-                    () -> assertEquals(INTACT, trail.verification().verify()),
-                    () -> assertEquals(INTACT, trail.verification().full()));
+                    () -> assertEquals(INTACT, trail.verification().verify(),
+                            "the incremental verification is intact"),
+                    () -> assertEquals(INTACT, trail.verification().full(), "the full verification is intact"));
         }
 
         @Test
@@ -439,8 +455,9 @@ class AuditVerificationTest {
             removeLine(trail.logFile(), 5);
             removeLine(trail.logFile(), 4);
             var headHash = AuditTrailFixture.hashOf(trail.logFile(), 3);
+            var otherKey = foreignKey();
             trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
-                    checkpoint(trail, OTHER_KEY, 3, headHash)));
+                    checkpoint(trail, otherKey, 3, headHash)));
 
             assertAll(
                     () -> assertLinkBroken(4, trail.verification().verify()),
@@ -454,8 +471,9 @@ class AuditVerificationTest {
             var first = recordAt(trail.logFile(), 1);
             removeLine(trail.logFile(), 5);
             var headHash = AuditTrailFixture.hashOf(trail.logFile(), 4);
+            var otherKey = foreignKey();
             trail.underAuditLock(transaction -> {
-                var forged = checkpoint(trail, OTHER_KEY, 4, headHash);
+                var forged = checkpoint(trail, otherKey, 4, headHash);
                 var forgedHash = trail.log.appendCheckpoint(transaction, forged);
                 trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
                         AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), forged.eventId(), 5,
@@ -490,10 +508,7 @@ class AuditVerificationTest {
     @DisplayName("a rotation stopped after its rename, before the next record and its head")
     class StoppedAfterRename {
 
-        /** A key other than the integrity key, as anyone without the key could sign with. */
-        private static final SecretKey OTHER_KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
-
-        /** A torn first line of the new log: a stop while the record was written. */
+        /** A torn first line of the new log, as the store's wire format leaves it at a stop while it was written. */
         private static final String TORN = "{\"format_version\":1,\"prev_hash\":\"00";
 
         /**
@@ -506,7 +521,8 @@ class AuditVerificationTest {
             trail.append(records);
             var rotation = new AuditRotation(trail.head.index(), ROTATE_ALWAYS, trail.clock, AuditTrailFixture.USER);
             trail.underAuditLock(transaction -> assertTrue(
-                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key)),
+                    "the due rotation is carried out"));
             return trail;
         }
 
@@ -542,10 +558,10 @@ class AuditVerificationTest {
             var torn = List.of(trail.verification().verify(), trail.verification().full());
 
             assertAll(
-                    () -> assertTrue(logAbsent, "the log was renamed"),
-                    () -> assertEquals(List.of(INTACT, INTACT), absent),
-                    () -> assertEquals(List.of(INTACT, INTACT), empty),
-                    () -> assertEquals(List.of(INTACT, INTACT), torn));
+                    () -> assertTrue(logAbsent, "the log was renamed by the rotation"),
+                    () -> assertEquals(List.of(INTACT, INTACT), absent, "an absent new log verifies intact"),
+                    () -> assertEquals(List.of(INTACT, INTACT), empty, "an empty new log verifies intact"),
+                    () -> assertEquals(List.of(INTACT, INTACT), torn, "a torn new log verifies intact"));
         }
 
         @Test
@@ -554,9 +570,11 @@ class AuditVerificationTest {
             var trail = stopped(ROTATE_ALWAYS, 3);
 
             assertAll(
-                    () -> assertEquals(3, trail.head.index().snapshot().entries().size()),
-                    () -> assertEquals(INTACT, trail.verification().verify()),
-                    () -> assertEquals(INTACT, trail.verification().full()));
+                    () -> assertEquals(3, trail.head.index().snapshot().entries().size(),
+                            "the three rotations are entered in the index"),
+                    () -> assertEquals(INTACT, trail.verification().verify(),
+                            "the incremental verification is intact"),
+                    () -> assertEquals(INTACT, trail.verification().full(), "the full verification is intact"));
         }
 
         @Test
@@ -564,19 +582,22 @@ class AuditVerificationTest {
         void notVerifiedWithoutKey() {
             var trail = stopped();
             var withoutKey = new AuditTrailFixture(base).verification().verify();
-            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, "keyring locked");
+            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, words());
 
             assertAll(
-                    () -> assertInstanceOf(Outcome.NotVerified.class, withoutKey),
-                    () -> assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify()),
-                    () -> assertInstanceOf(Outcome.NotVerified.class, trail.verification().full()));
+                    () -> assertInstanceOf(Outcome.NotVerified.class, withoutKey,
+                            "without the key it is not verified"),
+                    () -> assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify(),
+                            "a locked key is not verified incrementally"),
+                    () -> assertInstanceOf(Outcome.NotVerified.class, trail.verification().full(),
+                            "a locked key is not verified in full"));
         }
 
         @Test
         @DisplayName("with a head under another key is head_mismatch")
         void headUnderOtherKey() throws Exception {
             var trail = stopped();
-            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(OTHER_KEY,
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(foreignKey(),
                     trail.readHead().orElseThrow())));
 
             assertBrokenInBoth(BreakReason.HEAD_MISMATCH, trail);
@@ -592,7 +613,8 @@ class AuditVerificationTest {
             trail.append(1);
             var rotation = new AuditRotation(trail.head.index(), ROTATE_ALWAYS, trail.clock, AuditTrailFixture.USER);
             trail.underAuditLock(transaction -> assertTrue(
-                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key)),
+                    "the due rotation is carried out"));
             Files.write(trail.headFile(), earlier);
 
             assertBrokenInBoth(BreakReason.HEAD_MISMATCH, trail);
@@ -631,7 +653,9 @@ class AuditVerificationTest {
         /** Asserts the head_mismatch of a head that does not anchor the line before the rotated log's checkpoint. */
         private static void assertNotAnchoringLineBeforeCheckpoint(Outcome outcome) {
             var broken = assertBroken(BreakReason.HEAD_MISMATCH, outcome);
-            assertTrue(broken.diagnostic().contains("the line before its checkpoint"), broken::diagnostic);
+            // the diagnostic text of the verification is the contract
+            assertTrue(broken.diagnostic().contains("the line before its checkpoint"),
+                    "the diagnostic names the line before the checkpoint");
         }
 
         @Test
@@ -650,7 +674,8 @@ class AuditVerificationTest {
             removeLine(trail.indexFile(), 3);
 
             assertAll(
-                    () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(2, trail.head.index().snapshot().entries().size(),
+                            "two entries remain in the index"),
                     () -> assertBrokenInBoth(BreakReason.MISSING, trail));
         }
 
@@ -703,8 +728,9 @@ class AuditVerificationTest {
             removeLine(trail.logFile(), 4);
             removeLine(trail.logFile(), 3);
             var headHash = AuditTrailFixture.hashOf(trail.logFile(), 2);
+            var otherKey = foreignKey();
             trail.underAuditLock(transaction -> {
-                var forged = Pending.checkpoint(trail, OTHER_KEY, 2, headHash);
+                var forged = Pending.checkpoint(trail, otherKey, 2, headHash);
                 var forgedHash = trail.log.appendCheckpoint(transaction, forged);
                 trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
                         AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), forged.eventId(), 3,
@@ -723,7 +749,7 @@ class AuditVerificationTest {
             new AuditTrailFixture(base).append(1);
 
             assertAll(
-                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertEquals(1, lines(trail.logFile()).size(), "the record starts the new log"),
                     () -> assertBroken(BreakReason.HEAD_MISMATCH, trail.verification().verify()));
         }
 
@@ -736,7 +762,7 @@ class AuditVerificationTest {
             trail.verification().verify();
             trail.verification().full();
 
-            assertEquals(before, trail.files());
+            assertEquals(before, trail.files(), "the verification leaves every file as it was");
         }
     }
 
@@ -752,7 +778,7 @@ class AuditVerificationTest {
         trail.verification().verify();
         trail.verification().full();
 
-        assertEquals(before, trail.files());
+        assertEquals(before, trail.files(), "the verification leaves every file as it was");
     }
 
     private static void writeString(Path file, String content) {
