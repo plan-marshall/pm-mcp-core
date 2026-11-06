@@ -24,12 +24,14 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.LockTransaction;
@@ -48,17 +50,14 @@ import de.planmarshall.runtime.lock.FileLockManager;
 /**
  * An audit trail on a test base: the hash-chained log written through the production sink, anchored by an
  * {@link AuditHead} under an enrolment integrity key held in an in-memory keyring, with the helpers that edit the
- * files into the tamper cases. The key does not exist until a test creates it. The start instant of the clock is drawn
- * per fixture; the event name, the log and index file names and the rotated-file pattern are the contract of the audit
- * trail's store schema.
+ * files into the tamper cases. The key does not exist until a test creates it. The start instant of the clock and the
+ * name of the appended event are drawn per fixture; the log and index file names and the rotated-file pattern are the
+ * contract of the audit trail's store schema.
  */
 final class AuditTrailFixture {
 
     /** The OS principal of the records. */
     static final String USER = System.getProperty("user.name");
-
-    /** The name of the event the fixture appends; the tests find the fixture's records by it. */
-    static final String EVENT = "test_event";
 
     /** The first epoch second the start is drawn from, 2000-01-01T00:00:00Z. */
     private static final long EARLIEST_START = 946_684_800L;
@@ -70,10 +69,13 @@ final class AuditTrailFixture {
     final Keyring keyring = new Keyring();
     final EnrolmentKey integrityKey;
 
-    /** The instant the clock starts at, drawn per fixture. */
-    final Instant start = Instant.ofEpochSecond(Generators.longs(EARLIEST_START, LATEST_START).next());
+    /** The name of the event the fixture appends, drawn per fixture; the tests find the fixture's records by it. */
+    final String event;
 
-    final MutableClock clock = new MutableClock(start);
+    /** The instant the clock starts at, drawn per fixture. */
+    final Instant start;
+
+    final MutableClock clock;
     final FileLockManager locks = new FileLockManager(_ -> {
     });
     final AuditHead head;
@@ -88,6 +90,9 @@ final class AuditTrailFixture {
      */
     AuditTrailFixture(Path base, AuditRotation.Limits limits) {
         this.base = base;
+        event = Generators.letterStrings(8, 16).next().toLowerCase(Locale.ROOT);
+        start = Instant.ofEpochSecond(Generators.longs(EARLIEST_START, LATEST_START).next());
+        clock = new MutableClock(start);
         try {
             Files.createDirectories(base.resolve("state"));
             Files.createDirectories(LockKey.auditLog(base).lockFile().getParent());
@@ -105,6 +110,17 @@ final class AuditTrailFixture {
         this(base, AuditRotation.Limits.DEFAULTS);
     }
 
+    /** @return a generated key other than the integrity key, as anyone without the key could sign with */
+    static SecretKey foreignKey() {
+        return new SecretKeySpec(Generators.letterStrings(32, 32).next().getBytes(StandardCharsets.UTF_8),
+                EnrolmentKey.ALGORITHM);
+    }
+
+    /** @return a generated text of two words, for a message, a damaged file or a blocker */
+    static String words() {
+        return Generators.letterStrings(3, 12).next() + " " + Generators.letterStrings(3, 12).next();
+    }
+
     /** @return the integrity key, created now if it does not exist yet */
     SecretKey createKey() {
         return integrityKey.readOrCreate();
@@ -113,7 +129,7 @@ final class AuditTrailFixture {
     /** Appends records through the production sink, one per call of the sink. */
     void append(int records) {
         for (var i = 0; i < records; i++) {
-            sink.append(new AuditEvent(EVENT, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
+            sink.append(new AuditEvent(event, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
                     Map.of("n", appended++)));
         }
     }
