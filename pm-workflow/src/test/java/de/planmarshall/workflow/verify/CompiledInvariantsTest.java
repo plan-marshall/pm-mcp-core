@@ -15,6 +15,7 @@ import static de.planmarshall.workflow.verify.InvariantFixtures.PLAN_UNIT;
 import static de.planmarshall.workflow.verify.InvariantFixtures.REMEDIATION_FILE;
 import static de.planmarshall.workflow.verify.InvariantFixtures.REPLAN_FILE;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -802,6 +803,8 @@ class CompiledInvariantsTest {
                         () -> invariants.check(unit, null, List.of(), UNKNOWN_LANE)),
                 () -> assertThrows(NullPointerException.class,
                         () -> invariants.check(unit, rules, null, UNKNOWN_LANE)),
+                () -> assertDoesNotThrow(() -> invariants.check(unit, rules, List.of(), null),
+                        "a null lane is accepted as the unknown lane"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new CompiledInvariants(registry, noUnits, null, subject)),
                 () -> assertThrows(NullPointerException.class,
