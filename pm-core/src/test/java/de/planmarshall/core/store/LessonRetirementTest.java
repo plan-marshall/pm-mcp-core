@@ -362,6 +362,21 @@ class LessonRetirementTest {
     class Writes {
 
         @Test
+        @DisplayName("a successful outcome reports the id the lesson is listed under, not the one its front matter states")
+        void outcomeNamesTheListedId() throws Exception {
+            var legacy = new LessonId("2026-10-01-16-999");
+            var lesson = new Lesson(LessonFixtures.frontMatterBuilder().lessonId(legacy).build(), "# Body\n");
+            Files.write(expectedPath(LESSON_ID), LessonCodec.encode(lesson));
+            acceptEdit(LESSON_ID);
+
+            var outcome = withoutCommit(write -> store.claim(write, LESSON_ID, "a-plan", CLOCK.instant()));
+
+            var claimed = assertInstanceOf(LessonResolution.Claimed.class, outcome);
+            assertEquals(LESSON_ID, claimed.lessonId(),
+                    "the outcome names the id the lesson is listed under");
+        }
+
+        @Test
         @DisplayName("the retirement record and the status are written in one transaction")
         void oneTransaction() throws Exception {
             create();

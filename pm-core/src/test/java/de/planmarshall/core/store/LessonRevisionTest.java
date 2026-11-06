@@ -248,6 +248,57 @@ class LessonRevisionTest {
         }
 
         @Test
+        @DisplayName("a revision that cites a persisted blank body marked untrusted becomes untrusted")
+        void citesPersistedEmptyShell() {
+            var blank = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
+                    LessonFixtures.newLesson().derivedFromUntrusted(true).body("  \n").build(), CLOCK));
+            var lesson = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-001"),
+                    LessonFixtures.newLesson().build(), CLOCK));
+            var lessonId = lesson.frontMatter().lessonId();
+            var source = new Source(Source.Kind.LESSON, blank.frontMatter().lessonId().value(), null);
+
+            run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
+
+            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            assertTrue(found.lesson().frontMatter().derivedFromUntrusted(),
+                    "a blank persisted lesson marked untrusted still marks the revision");
+        }
+
+        @Test
+        @DisplayName("a revision that cites an absent lesson stays false")
+        void citesAbsentLesson() {
+            var lesson = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-001"),
+                    LessonFixtures.newLesson().build(), CLOCK));
+            var lessonId = lesson.frontMatter().lessonId();
+            var source = new Source(Source.Kind.LESSON, "2026-11-02-09-999", null);
+
+            run(write -> store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant()));
+
+            var found = assertInstanceOf(Found.class, store.get(lessonId));
+            assertFalse(found.lesson().frontMatter().derivedFromUntrusted(),
+                    "a cited lesson that does not resolve does not mark the revision");
+        }
+
+        @Test
+        @DisplayName("a revision that cites a clean lesson created in the same transaction stays false")
+        void citesPendingCleanLesson() {
+            var lesson = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-001"),
+                    LessonFixtures.newLesson().build(), CLOCK));
+            var lessonId = lesson.frontMatter().lessonId();
+
+            var outcome = inTransaction(write -> {
+                var clean = store.create(write, new LessonId("2026-11-02-09-002"),
+                        LessonFixtures.newLesson().build(), CLOCK);
+                var source = new Source(Source.Kind.LESSON, clean.frontMatter().lessonId().value(), null);
+                return store.revise(write, lessonId, "# Cites\n", List.of(source), false, CLOCK.instant());
+            });
+
+            var revised = assertInstanceOf(LessonResolution.Revised.class, outcome);
+            assertFalse(revised.lesson().frontMatter().derivedFromUntrusted(),
+                    "a pending clean lesson does not mark the revision");
+        }
+
+        @Test
         @DisplayName("a revision of a clean lesson that cites a trusted one stays false")
         void staysClean() {
             var trusted = inTransaction(write -> store.create(write, new LessonId("2026-11-02-09-002"),
