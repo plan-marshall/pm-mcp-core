@@ -16,12 +16,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.opentest4j.AssertionFailedError;
 
 /**
@@ -38,6 +42,7 @@ class SchemaResourceTest {
     private static final String DIRECTORY = "de/planmarshall/core/schema-resource/";
     private static final String PRESENT = DIRECTORY + "present.schema.json";
     private static final String INVALID = DIRECTORY + "invalid.schema.json";
+    private static final String NOT_OBJECT = DIRECTORY + "not-object.schema.json";
     private static final String PRESENT_ID = "https://plan-marshall.de/schema/test/present.schema.json";
 
     @Test
@@ -55,7 +60,9 @@ class SchemaResourceTest {
     @Test
     @DisplayName("returns the bytes of the present fixture unchanged (fixture path)")
     void returnsTextUnchanged() throws Exception {
-        var expected = Files.readString(Path.of("src/test/resources", PRESENT), StandardCharsets.UTF_8);
+        var location = Objects.requireNonNull(SchemaResourceTest.class.getClassLoader().getResource(PRESENT),
+                "The fixture is on the class path");
+        var expected = Files.readString(Path.of(location.toURI()), StandardCharsets.UTF_8);
 
         var text = SchemaResource.text(PRESENT);
 
@@ -80,5 +87,21 @@ class SchemaResourceTest {
                 "A schema file that is not JSON fails the test");
 
         assertTrue(failure.getMessage().contains(INVALID), "The failure names the invalid resource path");
+    }
+
+    @Test
+    @DisplayName("fails with the path for a file whose JSON value is not an object (fixture path)")
+    void failsOnNonObject() {
+        var failure = assertThrows(AssertionFailedError.class, () -> SchemaResource.load(NOT_OBJECT),
+                "A schema file that is not an object fails the test");
+
+        assertTrue(failure.getMessage().contains(NOT_OBJECT), "The failure names the non-object resource path");
+    }
+
+    @ParameterizedTest(name = "refuses the document ''{0}'' (JSON syntax literal)")
+    @ValueSource(strings = {"", "{} {}", "{\"a\":1,\"a\":2}"})
+    void refusesDocumentsThatAreNoSingleSchemaObject(String document) {
+        assertThrows(UncheckedIOException.class, () -> SchemaResource.parse(document),
+                "An empty, trailing or duplicate-member document is refused");
     }
 }

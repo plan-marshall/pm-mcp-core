@@ -76,15 +76,24 @@ public class SchemaResource {
 
     /**
      * Parses a JSON document into maps (in member order), lists, strings, numbers, booleans and {@code null} for a
-     * JSON {@code null}.
+     * JSON {@code null}. An empty document, content after the first value and a member name that occurs twice in one
+     * object are not JSON documents of a schema and are refused.
      *
      * @param json the JSON document
      * @return the parsed value
+     * @throws UncheckedIOException when the document is empty, malformed, carries content after the first value or
+     *             repeats a member name
      */
     public static Object parse(String json) {
         try (var parser = JSON.createParser(json)) {
-            parser.nextToken();
-            return read(parser);
+            if (parser.nextToken() == null) {
+                throw new IOException("the document is empty");
+            }
+            var value = read(parser);
+            if (parser.nextToken() != null) {
+                throw new IOException("unexpected content after the first value");
+            }
+            return value;
         } catch (IOException e) {
             throw new UncheckedIOException("specification schema is not JSON", e);
         }
@@ -98,6 +107,9 @@ public class SchemaResource {
                 while (parser.nextToken() == JsonToken.FIELD_NAME) {
                     var name = parser.currentName();
                     parser.nextToken();
+                    if (object.containsKey(name)) {
+                        throw new IOException("member name occurs twice: " + name);
+                    }
                     object.put(name, read(parser));
                 }
                 yield object;
