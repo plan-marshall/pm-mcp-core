@@ -30,8 +30,10 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 |link:{src}/GitLabClient.java[`GitLabClient`]
 |The native REST client (`/api/v4`): `merge(iid, sha)` and `mergeTrainAdd(iid, sha)` bound to the expected head,
 `discussions(iid)` with `Discussion` and `Note`, `reply(iid, discussionId, body)`, `resolve(iid, discussionId)`,
-`jobTrace(jobId)` and `tokenIdentity()` (`TokenIdentity`). Paginated reads follow the base's `Link` pagination with a
-page cap of 50.
+`jobTrace(jobId)` and `tokenIdentity()` (`TokenIdentity`), and the reads of the CI contract: `issue(iid)`,
+`issueComment(iid, body)`, and for the merge-request read `mergeRequest(iid)` (`MergeRequestPayload`),
+`mergeRequestDiffs(iid)` and `project(id)` (`Project`). Paginated reads follow the base's `Link` pagination with a page
+cap of 50 (`MAX_PAGES`).
 
 |link:{src}/GlabCommands.java[`GlabCommands`]
 |The argument vectors of the `glab` variant, composed server-side from the same closed set of operations, each an
@@ -40,7 +42,8 @@ of a merge request. Every operation goes through `glab api`, which answers with 
 
 |link:{src}/GitLabCiProvider.java[`GitLabCiProvider`]
 |The adapter of the CI contract: `ci.whoami` (the token identity the client reads, the kind from the bot user, the
-permissions from the project read), `ci.issue-view` and `ci.issue-comment`.
+permissions from the project read), `ci.issue-view`, `ci.issue-comment` and `ci.pr-view`
+(<<_the_merge_request_read>>).
 |===
 
 == The Native Client
@@ -73,6 +76,60 @@ ADR 006]). The login and the user id come from `GET /user`: a blank user id fall
 and an identity whose two ids are both blank is `FAILED`, never a thrown exception. A blank milestone title is no
 milestone.
 
+[#_the_merge_request_read]
+=== The Merge-Request Read
+
+`prView` reads a merge request; the contract calls it a pull request. A merge request on another origin or of another
+forge is refused with `REJECTED` before a request is sent. The read is the same for every state and is made of the
+following REST reads, each with the project path or id URL-encoded:
+
+. `GET /projects/{id}/merge_requests/{iid}` (`GitLabClient.mergeRequest`): the state, title, description,
+  `target_branch`, `source_branch`, `sha`, `source_project_id`, `target_project_id`, `allow_collaboration` and
+  whether `changes_count` is the string `1000+` (GitLab's diff limit capped the changed files). A body
+  without the state, title, branches, `sha` or target project is `FAILED`. GitLab numbers issues and merge requests
+  apart, so an issue iid without a merge request of the same iid is `NOT_FOUND`.
+. `GET /projects/{id}/merge_requests/{iid}/diffs?per_page=100` (`GitLabClient.mergeRequestDiffs`): the `new_path` of each
+  diff, through the `Link` pagination of the shared base. The paginated diffs endpoint exists from GitLab 15.7 on, which
+  is the minimum version of the read; a page that is not a JSON array, or a diff without a usable `new_path`, is `FAILED`
+  with a fixed reason, because the read compares no changed-file count with the list and a dropped diff would read as
+  `COMPLETE`.
+. `GET /projects/{id}` (`GitLabClient.project`), by the numeric id of the target or the source project: the project's
+  `path_with_namespace` and whether the credential's access level, as a project member (`permissions.project_access`)
+  or a group member (`permissions.group_access`), is Developer (30) or above. A response that carries neither level
+  reads as below Developer.
+
+*The state mapping.* `opened` is `OPEN`, `merged` is `MERGED`, and `closed` and `locked` are `CLOSED`; any other state is
+`FAILED`. `locked` is the state GitLab gives a merge request while it is being merged, and the contract has no state
+for that passage
+(link:../../../pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[`provider.ci` ADR 008]).
+
+*The two caps of the changed paths.* The diffs read stops after `MAX_PAGES` (50) pages of 100 diffs; a list the page
+cap (or a next link outside the origin) cut is `PAGE_CAP`. GitLab itself lists no file past its diff limit (1000 files
+by default) and does not paginate beyond it; it states the condition in the merge request's `changes_count`, which is
+then the string `1000+` instead of a number. A list read to its last page of a merge request with `changes_count`
+`1000+` is `PROVIDER_RESULT_CAP`. `PAGE_CAP` comes first: a read the local cap stopped ended before GitLab's limit
+could be seen. Every other list is `COMPLETE`.
+
+*`headWritable` for a same-project and a fork merge request.*
+
+* A same-project merge request (the source project is the target project) has its head in the addressed repository; it
+  is writable when the credential has Developer access or more on the project.
+* A fork merge request has its head in the source project, read by its id for its path; it is writable when the author
+  allows collaboration (`allow_collaboration`) and the credential has Developer access or more on the target project.
+  Without collaboration it is not writable, and the target project is not read.
+* A source project GitLab no longer knows (no `source_project_id`, or a `404` for the source project) leaves the head
+  repository absent and the head not writable.
+
+The rule and its reason are recorded in
+link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[`provider.ci` ADR
+007]. A refused read of the merge request, its diffs or a project is mapped to its outcome by the shared base, and a
+rate limit is `RATE_LIMITED` with its reset instant. `NOT_FOUND` says that the merge request does not exist, so a `404`
+of the diffs or of a target project read after the merge request was read is `FAILED` with a fixed reason; on GitLab
+older than 15.7 the diffs endpoint does not exist, and the reason names the minimum version. The one `404` of a later
+read that is a value is the source-project read of a fork (a deleted or hidden fork: the head repository is absent and
+the head not writable); every other non-`OK` outcome of a later read, such as a `403` or a `500` of the source project or
+a failure of the target-project read, is propagated as the failure it is.
+
 == The `glab` Variant
 
 `GlabCommands` composes the argument vector and the payload of one invocation, and the caller runs it. Three rules shape
@@ -103,6 +160,9 @@ it:
   filters it where the JSON enters.
 * *A missing issue is not found.* `issueView` answers `NOT_FOUND` for a missing issue and sends no merge-request probe;
   GitLab numbers issues and merge requests apart, so only the pull-request view may read a merge-request number.
+* *A merge request in any state is a value.* `closed`, `merged` and `locked` are `OK` with their mapped state, and a
+  diff list cut by the page cap is `PAGE_CAP` and one cut by GitLab's diff limit `PROVIDER_RESULT_CAP`, never presented
+  as the whole list.
 
 == Extending the Package
 
@@ -124,7 +184,12 @@ status and a transport failure.
 link:{test}/GitLabCiProviderTest.java[`GitLabCiProviderTest`]:: a personal, project, group and OAuth token identity, an
 issue of a nested group project with its structured fields, a missing issue beside an existing merge request, a blank
 user id and a blank milestone title, a rate limit, a `403`, a `404`, a malformed body, an issue on another origin and a
-comment with its derived URL.
+comment with its derived URL; and the merge-request read: the four GitLab states with `locked` as `CLOSED`, a
+same-project merge request with and without Developer access, a fork with and without collaboration, a source project
+GitLab no longer knows, a failing source-project read of a fork, a failing target-project read with collaboration, a
+diff without a `new_path`, the page cap of the diffs, GitLab's diff limit (`changes_count` `1000+`) as
+`PROVIDER_RESULT_CAP` and behind the page cap, a missing merge request, a rate limit with its reset instant, a
+`403`, a malformed body and a merge request on another origin.
 link:{test}/GlabCommandsTest.java[`GlabCommandsTest`]:: the vector of every operation, the body on standard input and
 never in the vector, the validated identifiers, the refusal of a value that would read as a flag, and the closed
 operation set.
@@ -148,5 +213,7 @@ operation set.
 * The CI contract: link:../../../pm-provider-ci/doc/developer/provider-ci.adoc[`provider.ci`]
 * Decisions: link:../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[`provider.http` ADR 001],
   link:../../../pm-provider-ci/doc/adr/provider-ci/001-contract-returns-the-closed-result.adoc[`provider.ci` ADR 001],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[`provider.ci` ADR 007],
+  link:../../../pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[`provider.ci` ADR 008],
   link:../../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[repository ADR 002],
   link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

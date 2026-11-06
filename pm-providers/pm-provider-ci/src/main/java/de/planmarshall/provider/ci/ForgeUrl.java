@@ -158,6 +158,13 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     }
 
     /**
+     * @return the pull request the URL names; present exactly when the kind is {@link Kind#PULL_REQUEST}
+     */
+    public Optional<PullRequestRef> pullRequest() {
+        return kind == Kind.PULL_REQUEST ? Optional.of(new PullRequestRef(repository, number)) : Optional.empty();
+    }
+
+    /**
      * Resolves a URL against the {@link #BUILT_IN_HOSTS built-in host table}.
      *
      * @param url the issue or pull-request URL

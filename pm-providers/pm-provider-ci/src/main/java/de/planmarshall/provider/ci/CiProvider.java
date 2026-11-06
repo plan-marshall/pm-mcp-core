@@ -20,8 +20,18 @@ import org.jspecify.annotations.Nullable;
  * {@link Result.Outcome#REJECTED} with the provider's reason, kept apart from {@link Result.Outcome#AUTH_FAILED} and
  * {@link Result.Outcome#PERMISSION_DENIED} (a credential refusal), {@link Result.Outcome#NOT_FOUND},
  * {@link Result.Outcome#RATE_LIMITED} with its reset instant, and {@link Result.Outcome#FAILED} (no usable answer).
- * A provider is bound to one origin and one credential; an issue, or a repository named to {@code whoami}, that is on
- * another origin (or of another forge) is refused as {@link Result.Outcome#REJECTED} before anything is sent.
+ * A provider is bound to one origin and one credential; an issue, a pull request, or a repository named to
+ * {@code whoami}, that is on another origin (or of another forge) is refused as {@link Result.Outcome#REJECTED} before
+ * anything is sent.
+ * <p>
+ * The operations are:
+ * <ul>
+ * <li>{@code ci.whoami} ({@link #whoami(RepositoryRef)}): the identity of the credential;</li>
+ * <li>{@code ci.issue-view} ({@link #issueView(IssueRef)}): one issue; it keeps its guard that a number naming a pull
+ * request is not read as an issue, and {@link #prView(PullRequestRef)} is the read for a pull request;</li>
+ * <li>{@code ci.issue-comment} ({@link #issueComment(IssueRef, String)}): one comment on an issue;</li>
+ * <li>{@code ci.pr-view} ({@link #prView(PullRequestRef)}): one pull request (a merge request on GitLab).</li>
+ * </ul>
  *
  * @since 0.1
  */
@@ -61,4 +71,26 @@ public interface CiProvider {
      * @return the posted comment; {@code REJECTED} when the issue is on another origin
      */
     Result<IssueComment> issueComment(IssueRef issue, String body);
+
+    /**
+     * The operation {@code ci.pr-view}: one pull request (a merge request on GitLab) by its reference.
+     * <p>
+     * A pull request that is not open is a value, not a refusal: a closed or merged pull request is
+     * {@link Result.Outcome#OK} with its {@link PullRequest#state() state}. A changed-path list the forge cut short is
+     * reported by the {@link PullRequest#pathCompleteness() completeness value}, never presented as the whole list.
+     *
+     * @param pullRequest the pull request
+     * @return the pull request; {@code NOT_FOUND} when no pull request has the number; on GitHub that includes a
+     *         number that names an issue, and on GitLab a number that names an issue and no merge request, because
+     *         GitLab numbers the two apart and an issue iid equal to a merge-request iid reads that merge request;
+     *         {@code FAILED} when a read that follows the pull-request read (the changed files, the diffs or the
+     *         target project) answers {@code 404}, never {@code NOT_FOUND}, which says that the pull request does
+     *         not exist; two {@code 404} answers of a later read are no failure and read as an {@code OK} value: the
+     *         push-fact read of GitHub (the credential cannot see the repository, so the head is not writable) and
+     *         the source-project read of a GitLab fork (a deleted or hidden fork, so the head repository is absent
+     *         and the head is not writable); every other non-{@code OK} outcome of a later read is propagated;
+     *         {@code REJECTED} when the pull request is on another origin or of another forge, before anything is
+     *         sent
+     */
+    Result<PullRequest> prView(PullRequestRef pullRequest);
 }

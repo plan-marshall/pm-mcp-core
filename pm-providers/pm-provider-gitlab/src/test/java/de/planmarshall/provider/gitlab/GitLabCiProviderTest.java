@@ -18,41 +18,90 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import lombok.Builder;
+import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.ci.Identity;
 import de.planmarshall.provider.ci.Issue;
 import de.planmarshall.provider.ci.IssueComment;
 import de.planmarshall.provider.ci.IssueRef;
+import de.planmarshall.provider.ci.PullRequest;
+import de.planmarshall.provider.ci.PullRequestRef;
 import de.planmarshall.provider.ci.RepositoryRef;
 import de.planmarshall.provider.ci.TokenKind;
 import de.planmarshall.provider.http.HttpClient;
+import de.planmarshall.provider.http.Json;
 import de.planmarshall.provider.http.Result;
 import de.planmarshall.provider.http.TokenSource;
 import de.planmarshall.provider.http.testing.generators.HttpGenerators;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import de.cuioss.test.mockwebserver.dispatcher.HttpMethodMapper;
+import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcher;
+import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcherElement;
 import de.cuioss.test.mockwebserver.mockresponse.MockResponseConfig;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @EnableMockWebServer
+@EnableGeneratorController
+@ModuleDispatcher
 @DisplayName("GitLabCiProvider")
 class GitLabCiProviderTest {
 
     private static final String WEB_ORIGIN = "https://gitlab.com";
     private static final RepositoryRef REPOSITORY = new RepositoryRef("gitlab", WEB_ORIGIN, "cuioss", "pm");
     private static final String TOKEN = "glpat-token";
+    private static final PullRequestRef MERGE_REQUEST = new PullRequestRef(REPOSITORY, 7);
+    /** The project reads a test primes, answered by {@link #getModuleDispatcher()}. */
+    private static final String PROJECTS_PATH = "/projects";
+    /** The merge-request read of {@link #MERGE_REQUEST}; the path is GitLab's wire format. */
+    private static final String MERGE_REQUEST_PATH = "/projects/cuioss%2Fpm/merge_requests/7";
+    private static final String DIFFS_PATH = MERGE_REQUEST_PATH + "/diffs";
 
     private final List<HttpClient> clients = new CopyOnWriteArrayList<>();
+    private final Map<String, MockResponse> primed = new ConcurrentHashMap<>();
+
+    /**
+     * Answers the project, merge-request and diffs reads a test primed by their path; those reads carry generated
+     * titles, branches, paths and project ids, which a static {@code @MockResponseConfig} cannot. A path no test
+     * primed falls through to the {@code @MockResponseConfig} of the test.
+     */
+    ModuleDispatcherElement getModuleDispatcher() {
+        return new ModuleDispatcherElement() {
+            @Override
+            public String getBaseUrl() {
+                return PROJECTS_PATH;
+            }
+
+            @Override
+            public Optional<MockResponse> handleGet(RecordedRequest request) {
+                return Optional.ofNullable(primed.get(request.getUrl().encodedPath()));
+            }
+
+            @Override
+            public Set<HttpMethodMapper> supportedMethods() {
+                return Set.of(HttpMethodMapper.GET);
+            }
+        };
+    }
 
     @AfterEach
     void closeClients() {
@@ -114,7 +163,7 @@ class GitLabCiProviderTest {
         var identity = provider(server).whoami(null).value().orElseThrow();
 
         assertAll("the project token",
-                () -> assertEquals(TokenKind.GITLAB_PROJECT_TOKEN, identity.tokenKind(), "the kind is project"),
+                () -> assertEquals(TokenKind.GITLAB_PROJECT_TOKEN, identity.tokenKind(), "the token kind is project"),
                 () -> assertTrue(identity.permissions().isEmpty(), "no repository means no permissions"));
     }
 
@@ -200,7 +249,7 @@ class GitLabCiProviderTest {
                         "a 403 is a permission refusal"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
                         provider.issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 6)).outcome(),
-                        "a 404 is not found"));
+                        "a 404 reads as not found"));
     }
 
     @Test
@@ -438,5 +487,518 @@ class GitLabCiProviderTest {
     @DisplayName("has the CI provider id")
     void hasProviderId(MockWebServer server) {
         assertEquals("gitlab", provider(server).id(), "the provider id is gitlab");
+    }
+
+    /** The generated fields of one merge request. */
+    @Builder
+    private record Fixture(String title, String body, String baseBranch, String headBranch, String headSha,
+    List<String> paths, int targetProjectId) {
+    }
+
+    private static Fixture fixture() {
+        return Fixture.builder().title(Generators.nonBlankStrings().next()).body(Generators.nonBlankStrings().next())
+                .baseBranch(branch()).headBranch(branch()).headSha(Generators.letterStrings(40, 40).next())
+                .paths(List.of(path(), path(), path())).targetProjectId(Generators.integers(1, 1_000_000).next())
+                .build();
+    }
+
+    private static String branch() {
+        return Generators.letterStrings(3, 20).next();
+    }
+
+    private static String path() {
+        return Generators.letterStrings(2, 10).next() + "/" + Generators.letterStrings(2, 10).next() + ".java";
+    }
+
+    private static int forkId(Fixture fixture) {
+        return fixture.targetProjectId() + Generators.integers(1, 1000).next();
+    }
+
+    private static String forkGroup() {
+        return "fork" + Generators.letterStrings(3, 10).next();
+    }
+
+    /**
+     * The body of {@code GET projects/{id}/merge_requests/{iid}}; the member names are GitLab's wire format.
+     *
+     * @param sourceProjectId the id of the source project, {@code null} for a source project GitLab no longer knows
+     */
+    private static Map<String, Object> mergeRequestBody(Fixture fixture, String state,
+            @Nullable Integer sourceProjectId, boolean allowCollaboration) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("state", state);
+        body.put("title", fixture.title());
+        body.put("description", fixture.body());
+        body.put("target_branch", fixture.baseBranch());
+        body.put("source_branch", fixture.headBranch());
+        body.put("sha", fixture.headSha());
+        body.put("source_project_id", sourceProjectId);
+        body.put("target_project_id", fixture.targetProjectId());
+        body.put("allow_collaboration", allowCollaboration);
+        return body;
+    }
+
+    private static List<Map<String, Object>> diffsBody(List<String> paths) {
+        return paths.stream().<Map<String, Object>>map(path -> Map.of("old_path", path, "new_path", path)).toList();
+    }
+
+    /**
+     * The body of {@code GET projects/{id}}; the member names and access levels are GitLab's wire format.
+     *
+     * @param projectLevel the project access level, {@code null} when the credential is no project member
+     * @param groupLevel   the group access level, {@code null} when the credential is no group member
+     */
+    private static Map<String, Object> projectBody(String path, @Nullable Integer projectLevel,
+            @Nullable Integer groupLevel) {
+        var permissions = new LinkedHashMap<String, Object>();
+        permissions.put("project_access", projectLevel == null ? null : Map.of("access_level", projectLevel));
+        permissions.put("group_access", groupLevel == null ? null : Map.of("access_level", groupLevel));
+        return Map.of("path_with_namespace", path, "permissions", permissions);
+    }
+
+    private static MockResponse json(int status, Object body) {
+        return new MockResponse.Builder().code(status).addHeader("Content-Type", "application/json")
+                .body(Json.write(body)).build();
+    }
+
+    private void prime(String path, MockResponse response) {
+        primed.put(path, response);
+    }
+
+    private void primeMergeRequest(Fixture fixture, Map<String, Object> mergeRequest) {
+        prime(MERGE_REQUEST_PATH, json(200, mergeRequest));
+        prime(DIFFS_PATH, json(200, diffsBody(fixture.paths())));
+    }
+
+    private void primeProject(int id, Map<String, Object> project) {
+        prime(PROJECTS_PATH + "/" + id, json(200, project));
+    }
+
+    /** Primes an open same-project merge request and its project with the given project access level. */
+    private void primeSameProject(Fixture fixture, @Nullable Integer projectLevel) {
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
+        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", projectLevel, null));
+    }
+
+    @Test
+    @DisplayName("prView reads an open same-project merge request with Developer access as writable")
+    void readsOpenSameProjectMergeRequest(MockWebServer server) {
+        var fixture = fixture();
+        primeSameProject(fixture, 30);
+
+        Result<PullRequest> result = provider(server).prView(MERGE_REQUEST);
+
+        PullRequest read = result.value().orElseThrow();
+        assertAll("the open merge request",
+                () -> assertEquals(PullRequest.State.OPEN, read.state(), "an opened merge request is OPEN"),
+                () -> assertEquals(fixture.title(), read.title(), "the title is read unchanged"),
+                () -> assertEquals(fixture.body(), read.body(), "the description is read as the body"),
+                () -> assertEquals(fixture.baseBranch(), read.baseBranch(), "the target branch is the base"),
+                () -> assertEquals(fixture.headBranch(), read.headBranch(), "the source branch is the head"),
+                () -> assertEquals(fixture.headSha(), read.headSha(), "the head commit is read"),
+                () -> assertEquals(Optional.of(REPOSITORY), read.headRepository(),
+                        "the head repository is the project"),
+                () -> assertTrue(read.headWritable(), "Developer access on the project is writable"),
+                () -> assertEquals(fixture.paths(), read.changedPaths(), "the changed paths keep their order"),
+                () -> assertEquals(PullRequest.PathCompleteness.COMPLETE, read.pathCompleteness(),
+                        "a list read to its end is COMPLETE"));
+    }
+
+    @ParameterizedTest(name = "state {0} is {1}")
+    @DisplayName("prView returns every GitLab state as a value, a locked one as CLOSED")
+    @CsvSource({"opened, OPEN", "closed, CLOSED", "merged, MERGED", "locked, CLOSED"})
+    // the state names are GitLab's wire format and the contract's enum constants
+    void mapsStates(String state, PullRequest.State expected, MockWebServer server) {
+        var fixture = fixture();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, state, fixture.targetProjectId(), false));
+        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 40, null));
+
+        Result<PullRequest> result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the state " + state,
+                () -> assertEquals(Result.Outcome.OK, result.outcome(), "a non-open merge request is OK"),
+                () -> assertEquals(expected, result.value().orElseThrow().state(),
+                        "the GitLab state is mapped to the contract"));
+    }
+
+    @Test
+    @DisplayName("prView reads a fork without collaboration as not writable, without a target read")
+    void forkWithoutCollaborationIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        String group = forkGroup();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
+        primeProject(forkId, projectBody(group + "/pm", 40, null));
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the fork without collaboration",
+                () -> assertFalse(read.headWritable(), "a fork without collaboration is not writable"),
+                () -> assertEquals(Optional.of(new RepositoryRef("gitlab", WEB_ORIGIN, group, "pm")),
+                        read.headRepository(), "the head repository is the fork"),
+                () -> assertEquals(3, server.getRequestCount(), "no target project read is sent"));
+    }
+
+    @Test
+    @DisplayName("prView reads a fork with collaboration and Developer group access on the target as writable")
+    void forkWithCollaborationAndDeveloperAccessIsWritable(MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        String group = forkGroup();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        primeProject(forkId, projectBody("sub/" + group + "/pm", null, null));
+        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", null, 30));
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the fork with collaboration",
+                () -> assertTrue(read.headWritable(), "collaboration and Developer access: writable"),
+                () -> assertEquals(Optional.of(new RepositoryRef("gitlab", WEB_ORIGIN, "sub/" + group, "pm")),
+                        read.headRepository(), "the head repository is the nested fork"));
+    }
+
+    @Test
+    @DisplayName("prView reads a fork with collaboration but Reporter access on the target as not writable")
+    void forkWithCollaborationBelowDeveloperIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        primeProject(forkId, projectBody(forkGroup() + "/pm", 40, null));
+        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 20, null));
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertFalse(read.headWritable(), "Reporter access on the target is not writable");
+    }
+
+    @ParameterizedTest(name = "access level {0}")
+    @DisplayName("prView reads a same-project head below Developer access as not writable")
+    @ValueSource(ints = {5, 10, 20})
+    // the access levels are GitLab's wire format: Minimal, Guest, Reporter
+    void accessBelowDeveloperIsNotWritable(int level, MockWebServer server) {
+        var fixture = fixture();
+        primeSameProject(fixture, level);
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertFalse(read.headWritable(), "an access level below 30 is not writable");
+    }
+
+    @Test
+    @DisplayName("prView reads a head as not writable when neither access level is present")
+    void absentAccessLevelIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
+        primeProject(fixture.targetProjectId(), Map.of("path_with_namespace", "cuioss/pm"));
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertFalse(read.headWritable(), "an absent access level reads as not writable");
+    }
+
+    @Test
+    @DisplayName("prView reads a source project GitLab no longer names as absent and not writable")
+    void unnamedSourceProjectIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", null, true));
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the unnamed source project",
+                () -> assertTrue(read.headRepository().isEmpty(), "an unnamed source project is absent"),
+                () -> assertFalse(read.headWritable(), "an unnamed source project is not writable"),
+                () -> assertEquals(2, server.getRequestCount(), "no project read is sent without a source"));
+    }
+
+    @Test
+    @DisplayName("prView reads a deleted source project as absent and not writable")
+    void deletedSourceProjectIsNotWritable(MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        prime(PROJECTS_PATH + "/" + forkId, json(404, Map.of("message", "404 Project Not Found")));
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the deleted source project",
+                () -> assertTrue(read.headRepository().isEmpty(), "a deleted source project is absent"),
+                () -> assertFalse(read.headWritable(), "a deleted source project is not writable"));
+    }
+
+    @Test
+    @DisplayName("prView answers a source project path of one segment with FAILED")
+    void refusesSourceProjectWithoutGroup(MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
+        primeProject(forkId, projectBody(Generators.letterStrings(3, 10).next(), 40, null));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertEquals(Result.Outcome.FAILED, result.outcome(), "a path without a group is a failure");
+    }
+
+    @Test
+    @DisplayName("prView reports a diff list cut by the page cap as PAGE_CAP")
+    void reportsPageCap(MockWebServer server) {
+        var fixture = fixture();
+        primeSameProject(fixture, 30);
+        String next = "http://" + server.getHostName() + ":" + server.getPort() + DIFFS_PATH
+                + "?per_page=100&page=2";
+        prime(DIFFS_PATH, new MockResponse.Builder().code(200).addHeader("Content-Type", "application/json")
+                .addHeader("Link", "<" + next + ">; rel=\"next\"").body(Json.write(diffsBody(fixture.paths())))
+                .build());
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the capped list",
+                () -> assertEquals(PullRequest.PathCompleteness.PAGE_CAP, read.pathCompleteness(),
+                        "a list cut by the page cap is PAGE_CAP"),
+                () -> assertEquals(GitLabClient.MAX_PAGES * fixture.paths().size(), read.changedPaths().size(),
+                        "every page up to the cap is kept"));
+    }
+
+    @ParameterizedTest(name = "changes_count {0} with page cap {1} is {2}")
+    @DisplayName("prView names GitLab's diff limit as PROVIDER_RESULT_CAP, after the local PAGE_CAP")
+    @CsvSource({"'1000+', false, PROVIDER_RESULT_CAP", "'3', false, COMPLETE", "'1000+', true, PAGE_CAP"})
+    // "1000+" is GitLab's wire format for a list its diff limit capped; the outcome names are the contract's
+    void reportsProviderResultCap(String changesCount, boolean pageCapped, PullRequest.PathCompleteness expected,
+            MockWebServer server) {
+        var fixture = fixture();
+        var mergeRequest = mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false);
+        mergeRequest.put("changes_count", changesCount);
+        primeMergeRequest(fixture, mergeRequest);
+        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 30, null));
+        if (pageCapped) {
+            String next = "http://" + server.getHostName() + ":" + server.getPort() + DIFFS_PATH
+                    + "?per_page=100&page=2";
+            prime(DIFFS_PATH, new MockResponse.Builder().code(200).addHeader("Content-Type", "application/json")
+                    .addHeader("Link", "<" + next + ">; rel=\"next\"").body(Json.write(diffsBody(fixture.paths())))
+                    .build());
+        }
+
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+
+        assertAll("the completeness of changes_count " + changesCount,
+                () -> assertEquals(expected, read.pathCompleteness(), "the completeness follows the caps"),
+                () -> assertFalse(read.changedPaths().isEmpty(), "the listed paths are kept"));
+    }
+
+    @ParameterizedTest(name = "HTTP {0} is {1}")
+    @DisplayName("prView maps a refused merge-request read by its status")
+    @CsvSource({"404, NOT_FOUND", "403, PERMISSION_DENIED", "500, FAILED"})
+    // the statuses and outcome names are the HTTP and contract vocabulary
+    void mapsRefusedRead(int status, Result.Outcome expected, MockWebServer server) {
+        prime(MERGE_REQUEST_PATH, json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the refused read",
+                () -> assertEquals(expected, result.outcome(), "the status is mapped to its outcome"),
+                () -> assertEquals(1, server.getRequestCount(), "nothing is read after a refused read"));
+    }
+
+    @Test
+    @DisplayName("prView passes a rate limit through with its reset instant")
+    void reportsMergeRequestRateLimit(MockWebServer server) {
+        int seconds = Generators.integers(30, 3600).next();
+        // the Retry-After header is the HTTP wire format GitLab answers a rate limit with
+        prime(MERGE_REQUEST_PATH, new MockResponse.Builder().code(429)
+                .addHeader("Retry-After", String.valueOf(seconds)).body("{\"message\":\"Too many requests\"}").build());
+
+        Instant before = Instant.now();
+        var result = provider(server).prView(MERGE_REQUEST);
+        Instant after = Instant.now();
+        Instant reset = result.resetAt().orElseThrow();
+
+        assertAll("the rate limit",
+                () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
+                () -> assertFalse(reset.isBefore(before.plusSeconds(seconds)),
+                        "the reset is no earlier than Retry-After"),
+                () -> assertFalse(reset.isAfter(after.plusSeconds(seconds)),
+                        "the reset is no later than Retry-After"));
+    }
+
+    @ParameterizedTest
+    @DisplayName("prView answers a malformed merge-request body with FAILED, never an exception")
+    @ValueSource(strings = {"this is not json", "{}", "{\"state\":\"opened\",\"title\":\"A title\"}",
+            "{\"state\":\"draft\",\"title\":\"A title\",\"target_branch\":\"main\",\"source_branch\":\"topic\","
+                    + "\"sha\":\"abc\",\"target_project_id\":1}"})
+    // recorded-shape fixtures of an unusable merge-request body
+    void refusesMalformedMergeRequest(String body, MockWebServer server) {
+        prime(MERGE_REQUEST_PATH, new MockResponse.Builder().code(200).body(body).build());
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertEquals(Result.Outcome.FAILED, result.outcome(), "a malformed body is a failure");
+    }
+
+    @Test
+    @DisplayName("prView answers a diffs page that is no JSON array with FAILED")
+    void refusesMalformedDiffs(MockWebServer server) {
+        var fixture = fixture();
+        primeSameProject(fixture, 30);
+        prime(DIFFS_PATH, json(200, Map.of("new_path", fixture.paths().getFirst())));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertEquals(Result.Outcome.FAILED, result.outcome(), "a diffs page without an array fails");
+    }
+
+    @Test
+    @DisplayName("prView answers a diff without a new path with FAILED, never a shortened COMPLETE list")
+    void refusesDiffWithoutNewPath(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeSameProject(fixture, 30);
+        prime(DIFFS_PATH, json(200, List.of(Map.of("old_path", fixture.paths().getFirst(), "new_path",
+                fixture.paths().getFirst()), Map.of("old_path", remote))));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the diff without a new path",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "a dropped diff is a failure"),
+                () -> assertTrue(result.detail().contains("new path"), "the reason names the missing member"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"),
+                () -> assertEquals(2, server.getRequestCount(), "no project read follows the failed diffs read"));
+    }
+
+    @ParameterizedTest(name = "HTTP {0} is {1}")
+    @DisplayName("prView propagates a failing source project read of a fork other than 404")
+    @CsvSource({"403, PERMISSION_DENIED", "500, FAILED"})
+    // the statuses and outcome names are the HTTP and contract vocabulary
+    void propagatesFailingSourceProjectRead(int status, Result.Outcome expected, MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        prime(PROJECTS_PATH + "/" + forkId, json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the failing source project read",
+                () -> assertEquals(expected, result.outcome(), "the failure is propagated as it is"),
+                () -> assertEquals(3, server.getRequestCount(), "no target project read follows the failure"));
+    }
+
+    @ParameterizedTest(name = "HTTP {0} is {1}")
+    @DisplayName("prView answers a failing target project read of a collaborating fork as a failure")
+    @CsvSource({"404, FAILED", "403, PERMISSION_DENIED", "500, FAILED"})
+    // the statuses and outcome names are the HTTP and contract vocabulary
+    void failsOnFailingTargetProjectRead(int status, Result.Outcome expected, MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
+        primeProject(forkId, projectBody(forkGroup() + "/pm", 40, null));
+        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(),
+                json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the failing target project read",
+                () -> assertEquals(expected, result.outcome(), "the target read failure is not a value"),
+                () -> assertEquals(4, server.getRequestCount(), "the target project read was the last request"));
+    }
+
+    @Test
+    @DisplayName("prView maps a refused diffs read")
+    void mapsRefusedDiffs(MockWebServer server) {
+        var fixture = fixture();
+        primeSameProject(fixture, 30);
+        prime(DIFFS_PATH, json(403, Map.of("message", "403 Forbidden")));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertEquals(Result.Outcome.PERMISSION_DENIED, result.outcome(), "a refused diffs read is mapped");
+    }
+
+    @Test
+    @DisplayName("prView answers a 404 of the diffs of an existing merge request with FAILED, not NOT_FOUND")
+    void notFoundDiffsAreFailed(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeSameProject(fixture, 30);
+        prime(DIFFS_PATH, json(404, Map.of("message", remote)));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the missing diffs endpoint",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
+                        "an existing merge request is never not found"),
+                () -> assertTrue(result.detail().contains("15.7"), "the reason names the GitLab version"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"),
+                () -> assertEquals(2, server.getRequestCount(), "no project read follows the failed diffs read"));
+    }
+
+    @Test
+    @DisplayName("prView answers a 404 of a project of an existing merge request with FAILED, not NOT_FOUND")
+    void notFoundProjectIsFailed(MockWebServer server) {
+        var fixture = fixture();
+        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
+        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(), json(404, Map.of("message", remote)));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the hidden target project",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
+                        "an existing merge request is never not found"),
+                () -> assertTrue(result.detail().contains("project"), "the reason names the project read"),
+                () -> assertFalse(result.detail().contains(remote), "the reason carries no remote text"));
+    }
+
+    @ParameterizedTest(name = "source project path {0}")
+    @DisplayName("prView refuses a source project path with a segment that is no plain segment with FAILED")
+    @ValueSource(strings = {"group/..", "../pm", "group//pm", "group/pm name", "group/pm%2Fx"})
+    // path-traversal, empty-segment, blank and escape values are the adversarial contract of a project path segment
+    void refusesSourceProjectPathWithInvalidSegment(String path, MockWebServer server) {
+        var fixture = fixture();
+        int forkId = forkId(fixture);
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
+        primeProject(forkId, projectBody(path, 40, null));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertAll("the refused source project path",
+                () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "an invalid segment is a failure"),
+                () -> assertTrue(result.detail().contains("source project"), "the reason names the source"),
+                () -> assertEquals(3, server.getRequestCount(), "no request is built from the remote path"));
+    }
+
+    @Test
+    @DisplayName("prView maps a refused project read")
+    void mapsRefusedProjectRead(MockWebServer server) {
+        var fixture = fixture();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
+        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(), json(401, Map.of("message", "401 Unauthorized")));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertEquals(Result.Outcome.AUTH_FAILED, result.outcome(), "a refused project read is mapped");
+    }
+
+    @Test
+    @DisplayName("prView answers a project body without a path with FAILED")
+    void refusesProjectWithoutPath(MockWebServer server) {
+        var fixture = fixture();
+        primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
+        primeProject(fixture.targetProjectId(), Map.of("permissions", Map.of()));
+
+        var result = provider(server).prView(MERGE_REQUEST);
+
+        assertEquals(Result.Outcome.FAILED, result.outcome(), "a project without a path is a failure");
+    }
+
+    @ParameterizedTest(name = "{0} on {1}")
+    @DisplayName("prView refuses a merge request of another origin or forge before sending")
+    @CsvSource({"gitlab, https://gitlab.example.com", "github, https://gitlab.com", "forgejo, https://gitlab.com"})
+    // the forge ids and origins are the contract's provider ids and web origins
+    void refusesForeignMergeRequest(String forge, String origin, MockWebServer server) {
+        var foreign = new PullRequestRef(new RepositoryRef(forge, origin, "cuioss", "pm"), 7);
+
+        var result = provider(server).prView(foreign);
+
+        assertAll("the foreign merge request",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a foreign merge request is refused"),
+                () -> assertEquals(0, server.getRequestCount(), "no request is sent for it"));
     }
 }

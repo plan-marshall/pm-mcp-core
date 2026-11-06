@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 @EnableGeneratorController
 @DisplayName("ForgeUrl")
@@ -31,7 +34,7 @@ class ForgeUrlTest {
     void resolvesGitHubIssue() {
         var resolution = ForgeUrl.resolve("https://github.com/cuioss/pm-mcp-core/issues/12");
 
-        assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the URL is resolved");
+        assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the pull request URL is resolved");
         var url = resolution.url().orElseThrow();
         assertAll("the resolved source",
                 () -> assertEquals("github", url.forge(), "the resolved forge is github"),
@@ -49,6 +52,42 @@ class ForgeUrlTest {
 
         assertEquals(ForgeUrl.Kind.PULL_REQUEST, url.kind(), "a pull path is a pull request");
         assertEquals(7, url.number(), "the pull request number is resolved");
+    }
+
+    /**
+     * The URL templates and hosts are the pull-request path grammar of each forge, so they are contract literals;
+     * the owner, the name and the number are generated.
+     */
+    @ParameterizedTest(name = "{0} pull-request path {2}")
+    @CsvSource({
+            "github, https://github.com, https://github.com/%s/%s/pull/%d",
+            "forgejo, https://codeberg.org, https://codeberg.org/%s/%s/pulls/%d",
+            "gitlab, https://gitlab.com, https://gitlab.com/%s/%s/-/merge_requests/%d"
+    })
+    @DisplayName("names the pull request of each forge's pull-request URL (grammar literals)")
+    void namesPullRequestOfEachForge(String forge, String origin, String template) {
+        var owner = Generators.letterStrings(1, 20).next();
+        var name = Generators.letterStrings(1, 20).next();
+        var number = Generators.integers(1, 99_999).next();
+        var expected = new PullRequestRef(new RepositoryRef(forge, origin, owner, name), number);
+
+        var pullRequest = ForgeUrl.resolve(template.formatted(owner, name, number)).url().orElseThrow()
+                .pullRequest();
+
+        assertEquals(expected, pullRequest.orElseThrow(), "the accessor names repository and number");
+    }
+
+    @Test
+    @DisplayName("names no pull request for an issue URL")
+    void namesNoPullRequestForIssue() {
+        var owner = Generators.letterStrings(1, 20).next();
+        var name = Generators.letterStrings(1, 20).next();
+        var number = Generators.integers(1, 99_999).next();
+
+        var url = ForgeUrl.resolve("https://github.com/%s/%s/issues/%d".formatted(owner, name, number)).url()
+                .orElseThrow();
+
+        assertTrue(url.pullRequest().isEmpty(), "an issue URL names no pull request");
     }
 
     @Test

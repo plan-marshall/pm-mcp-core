@@ -1,0 +1,47 @@
+{
+  "best_practices": [],
+  "generation": {
+    "by": "architecture",
+    "tree_sha": "1164157dcc16555b081d76ca50b0ed9e34184074b933b87a99977117aaccb2cd"
+  },
+  "insights": [],
+  "internal_dependencies": [],
+  "key_dependencies": [],
+  "key_dependencies_reasoning": "",
+  "key_packages": {
+    "src/guard-controls/provider-analysis-ci-module": {
+      "description": "The fixture project whose build must fail: a code analysis adapter depending on pm-provider-ci."
+    }
+  },
+  "purpose": "integration-tests",
+  "purpose_reasoning": "packaging=pom fixture with no sources, built only by BuildGuardsIT as a negative control",
+  "responsibility": "Build-rule control, not a module of the build: a code analysis adapter that depends on pm-provider-ci. The enforcer rule forbids this dependency (Sonar is no CI provider), so BuildGuardsIT of pm-core builds it and expects the build to fail.",
+  "responsibility_reasoning": "pom.xml comment and property pm.guard.provider-analysis.skip=false",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality",
+        "plan-marshall:persona-module-tester"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "Fixture pom with no sources: only the cross-cutting general-dev skills apply",
+  "tips": [],
+  "type": "module"
+}

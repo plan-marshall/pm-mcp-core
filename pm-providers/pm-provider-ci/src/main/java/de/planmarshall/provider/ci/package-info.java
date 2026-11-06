@@ -8,15 +8,16 @@
  * the root of this repository.
  */
 /**
- * The CI provider contract of the engine: the identity of the acting credential, one issue read and one
- * issue comment, each answered with the closed {@link de.planmarshall.provider.http.Result} of the shared
- * HTTP base.
+ * The CI provider contract of the engine: the identity of the acting credential, one issue read, one
+ * issue comment and one pull-request read ({@code ci.pr-view}), each answered with the closed
+ * {@link de.planmarshall.provider.http.Result} of the shared HTTP base.
  * <p>
  * {@link de.planmarshall.provider.ci.CiProvider} is the contract a forge adapter implements;
  * {@link de.planmarshall.provider.ci.CiProviders} is the explicit registry of a runtime, whose members are
  * passed to the constructor and never discovered on the classpath. The value types
  * ({@link de.planmarshall.provider.ci.Identity}, {@link de.planmarshall.provider.ci.Issue},
  * {@link de.planmarshall.provider.ci.IssueComment}, {@link de.planmarshall.provider.ci.IssueRef},
+ * {@link de.planmarshall.provider.ci.PullRequest}, {@link de.planmarshall.provider.ci.PullRequestRef},
  * {@link de.planmarshall.provider.ci.RepositoryRef}) carry the provider's answer as structured fields, and
  * {@link de.planmarshall.provider.ci.ForgeUrl} resolves a source's URL to its forge, repository and number.
  * <p>

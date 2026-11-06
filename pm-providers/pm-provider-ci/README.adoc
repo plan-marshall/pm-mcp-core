@@ -1,8 +1,8 @@
 = `pm-provider-ci`
 :nofooter:
 
-`pm-provider-ci` is the CI provider contract of the engine. It declares the identity, issue read and issue comment
-operations of a forge, the value types of their answers, the URL grammar that resolves a source's URL to its forge,
+`pm-provider-ci` is the CI provider contract of the engine. It declares the identity, issue read, issue comment and
+pull-request read operations of a forge, the value types of their answers, the URL grammar that resolves a source's URL to its forge,
 repository and number, and the explicit provider registry. The forge adapters `pm-provider-github` and
 `pm-provider-gitlab` implement it. What the module may depend on is stated in the
 https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
@@ -11,7 +11,7 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 
 The line is the first sentence of the package's `package-info.java`.
 
-* `de.planmarshall.provider.ci`: the CI provider contract of the engine: the identity of the acting credential, one issue read and one issue comment, each answered with the closed `Result` of the shared HTTP base.
+* `de.planmarshall.provider.ci`: the CI provider contract of the engine: the identity of the acting credential, one issue read, one issue comment and one pull-request read (`ci.pr-view`), each answered with the closed `Result` of the shared HTTP base.
 
 == Build and Test
 

@@ -1,0 +1,47 @@
+{
+  "best_practices": [],
+  "generation": {
+    "by": "architecture",
+    "tree_sha": "40452c1c67740db42c21f6609c8e8b14e76805ca3c6bee70eec1af186d71d1a5"
+  },
+  "insights": [],
+  "internal_dependencies": [],
+  "key_dependencies": [],
+  "key_dependencies_reasoning": "",
+  "key_packages": {
+    "src/guard-controls/provider-http-allowed": {
+      "description": "The fixture project whose build must pass: a provider adapter depending on pm-provider-http."
+    }
+  },
+  "purpose": "integration-tests",
+  "purpose_reasoning": "packaging=pom fixture with no sources, built only by BuildGuardsIT as a positive control",
+  "responsibility": "Build-rule control, not a module of the build: a provider adapter that depends on the shared HTTP base pm-provider-http. The provider rule admits it, so BuildGuardsIT of pm-core builds it and expects success.",
+  "responsibility_reasoning": "pom.xml comment and property pm.guard.provider.skip=false",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality",
+        "plan-marshall:persona-module-tester"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "Fixture pom with no sources: only the cross-cutting general-dev skills apply",
+  "tips": [],
+  "type": "module"
+}

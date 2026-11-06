@@ -1,0 +1,75 @@
+= ADR 009: The Pull-Request Split Is Closed by Types
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-05.
+
+== Context
+
+ADR 004 ("A Pull Request Is No Issue for `ci.issue-view`",
+link:004-a-pull-request-is-no-issue.adoc[`004-a-pull-request-is-no-issue.adoc`]) decides the issue side: `ci.issue-view`
+refuses a pull-request number with `REJECTED`, and `ForgeUrl.Kind.PULL_REQUEST` routes a pull-request URL to the
+follow-up read. ADR 006 removes the GitLab merge-request probe and leaves open how an issue number is split from a
+pull-request number, and whether `issueComment` on a pull-request number is guarded (refine finding S2).
+
+`ci.pr-view` is that follow-up read. It needs an address, and it needs an answer for a number that names an issue
+rather than a pull request. `IssueRef` carries no kind: the same repository and number address an issue or a pull
+request on GitHub, while GitLab numbers issues and merge requests apart.
+
+== Decision
+
+* `CiProvider.prView` takes a `PullRequestRef` (repository and number), a type of its own beside `IssueRef`. A consumer
+  reaches it from a URL through `ForgeUrl.pullRequest()`, which is present exactly when the resolved kind is
+  `Kind.PULL_REQUEST`; there is no conversion from an `IssueRef`.
+* `prView` of a number that names no pull request, an issue number among them, is `NOT_FOUND`. The adapter reads the
+  pull-request endpoint alone (GitHub `GET /repos/{owner}/{repo}/pulls/{n}`, GitLab
+  `GET /projects/{id}/merge_requests/{iid}`), and the forge answers `404`; no issue endpoint is probed. GitLab numbers
+  issues and merge requests apart, so an issue iid that equals the iid of a merge request reads that merge request.
+* `NOT_FOUND` says that the pull request does not exist, and nothing else. Once the pull request has been read, a
+  `404` of a read that follows it (the changed files of GitHub, the diffs or the target project of GitLab) is `FAILED`
+  with a fixed reason that carries no remote text; on GitLab older than 15.7 the diffs endpoint does not exist, and an
+  existing merge request must not read as missing. Two `404` answers of a later read are no failure and are `OK`
+  values: the `push` read of GitHub, which reads as not writable
+  (link:007-head-writable-is-the-credentials-push-fact.adoc[ADR 007]), and the source-project read of a GitLab fork,
+  which reads as an absent head repository that is not writable (a deleted or hidden fork). Every other non-`OK`
+  outcome of a later read is propagated as the failure it is.
+* `issueComment` gets no pull-request guard. It keeps its signature and its behaviour; a comment on a pull request is
+  an operation of the review and finalize slice, which brings its own reference and permission set.
+
+The split is therefore made by the type a consumer holds, not by a probe at run time.
+
+== Alternatives Considered
+
+* *Let `prView` take an `IssueRef` or a bare number.* The type would not say what it addresses, and a consumer could
+  pass an issue reference to the pull-request read without the compiler noticing.
+* *Answer an issue number to `prView` with `REJECTED` "is an issue", mirroring ADR 004.* It needs a second request to
+  the issue endpoint on every `404`, as the GitLab probe ADR 006 removed did, and the `ForgeUrl` kind already tells the
+  consumer which read to call.
+* *Guard `issueComment` against a pull-request number.* GitHub would need a read before every comment, GitLab's
+  issue-notes endpoint addresses an issue and never a merge request, and `IssueRef` has no kind to check against; the guard belongs to the operation that
+  comments on a pull request (S2).
+
+== Consequences
+
+* A consumer holds a `PullRequestRef` exactly when it may call `prView`, and the `ForgeUrl` kind decides between
+  `ci.issue-view` and `ci.pr-view`.
+* `prView` costs no extra request on a `404`; a consumer that passes an issue's number by mistake reads `not_found`
+  (on GitLab unless a merge request has the same iid, which is then read as that merge request).
+* `issueComment` on a pull-request number still posts on GitHub, through the issue-comment endpoint; a caller that
+  comments on a pull request uses the review slice's operation instead.
+* ADR 004 and ADR 006 stand unchanged.
+
+== Source
+
+* Work package: PLAN-V2-62 `ci-contract-pull-request-view` of the epic `pm-mcp-core-m2-m4-v2`; refine finding S2.
+* Decisions: link:004-a-pull-request-is-no-issue.adoc[ADR 004], link:006-a-missing-gitlab-issue-is-not-found.adoc[ADR
+  006].
+* Specification: State Catalogue 09 § Issues by Number or URL and § `source-pr.observe`; Phase Workflows 01 § Plan
+  Source Contracts.
+* `pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java`,
+  `PullRequestRef.java` and `ForgeUrl.java`.

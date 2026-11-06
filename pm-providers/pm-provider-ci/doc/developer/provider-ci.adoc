@@ -29,8 +29,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 |Type |What it does
 
 |link:{src}/CiProvider.java[`CiProvider`]
-|The contract: `id()`, `whoami(RepositoryRef)`, `issueView(IssueRef)` and `issueComment(IssueRef, String)`, each operation
-returning the closed `Result` of the shared HTTP base.
+|The contract: `id()`, `whoami(RepositoryRef)`, `issueView(IssueRef)`, `issueComment(IssueRef, String)` and
+`prView(PullRequestRef)`, each operation returning the closed `Result` of the shared HTTP base.
 
 |link:{src}/CiProviders.java[`CiProviders`]
 |The explicit registry of a runtime: the members are the ones passed to the constructor, nothing is discovered on the
@@ -39,6 +39,8 @@ classpath, an unknown id is empty, and `select(ForgeUrl)` finds the provider of 
 |link:{src}/ForgeUrl.java[`ForgeUrl`]
 |The URL grammar of each forge, resolved against a host-to-forge table (the built-in one names `github.com`,
 `gitlab.com` and `codeberg.org`). A resolution is `RESOLVED`, `UNKNOWN_FORGE` or `INVALID`, always a value.
+`pullRequest()` returns the `PullRequestRef` of a resolved URL; it is present exactly when the kind is
+`Kind.PULL_REQUEST`.
 
 |link:{src}/Identity.java[`Identity`]
 |The identity of the credential: login, user id, `TokenKind`, the operator login beside a GitHub App's bot identity, the
@@ -55,10 +57,19 @@ repository permissions, the scopes and the expiry.
 
 |link:{src}/IssueComment.java[`IssueComment`]
 |The posted comment: its provider id and its web URL.
+
+|link:{src}/PullRequest.java[`PullRequest`]
+|One pull request (a merge request on GitLab): `State` (`OPEN`, `CLOSED`, `MERGED`), title and body as text, base and
+head branch, head commit, the head repository, `headWritable`, the changed paths and their `PathCompleteness`
+(`COMPLETE`, `PAGE_CAP`, `PROVIDER_RESULT_CAP`). The head repository is the nullable component `headRepositoryRef`,
+read through `headRepository()`, which is empty when the forge no longer knows the repository (a deleted fork).
+
+|link:{src}/PullRequestRef.java[`PullRequestRef`]
+|The address of a pull request: its repository and the number the forge assigns, at least 1.
 |===
 
 `RepositoryRef` and `ForgeUrl` are the origin-pinning seam: a provider is bound to one web origin, and an `IssueRef`
-on another origin is `REJECTED` before anything is sent. `whoami` takes a `@Nullable RepositoryRef` rather than an
+or a `PullRequestRef` on another origin is `REJECTED` before anything is sent. `whoami` takes a `@Nullable RepositoryRef` rather than an
 `Optional`: the repository's null contract
 (link:../../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013]) forbids `Optional`
 in a parameter, so the spec's `Optional<RepositoryRef>` is realised as the nullable parameter.
@@ -76,10 +87,10 @@ The CLI variants are not part of this contract. A `gh` or `glab` job keeps its o
 (`GlabCommands`), and no CLI-lane token ever enters a `CiProvider`.
 
 The contract deliberately holds only the operations that have a stated field-level shape and a staged consumer.
-Everything else the Module Structure Specification gives the module is *Remaining*: the pull-request read
-(`ci.pr-view`, PLAN-V2-62), the review and merge operations, the four cross-repository reads with the grant check, the
-CLI variant of every operation, the Forgejo adapter, and the `Primitive` wrappers with the credential and origin
-resolution of the assembly.
+Everything else the Module Structure Specification gives the module is *Remaining*: the review and merge operations
+(a comment on a pull request among them), the four cross-repository reads with the grant check, the CLI variant of
+every operation, the Forgejo adapter, and the `Primitive` wrappers with the credential and origin resolution of the
+assembly (`ci.pr-view`'s among them).
 
 == Mapping a Result to the State Catalogue
 _Requirements: link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#issues[State Catalogue § Issues by Number or URL]_
@@ -96,7 +107,8 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
 |`Result.Outcome.AUTH_FAILED` with a credential stored |`not_readable`
 |`Result.Outcome.PERMISSION_DENIED` |`not_readable`
 |`Result.Outcome.RATE_LIMITED` |`rate_limited`, with `resets_at` from `Result.resetAt()`
-|`Result.Outcome.REJECTED` "is a pull request" |the consumer's own pull-request branch (the follow-up plan)
+|`Result.Outcome.REJECTED` "is a pull request" |the consumer's pull-request branch: the source is a pull request, read
+through `ci.pr-view` (<<pull-request-view>>)
 |`Result.Outcome.REJECTED` otherwise |`not_readable` (the provider refused the operation itself)
 |`Result.Outcome.FAILED` |`provider_unavailable`
 |`ForgeUrl.Resolution.Outcome.UNKNOWN_FORGE` |`unknown_forge`
@@ -105,10 +117,92 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
 
 `rate_limited` is not retried by the consumer on its own: it waits for `resets_at`.
 
+[#pull-request-view]
+== The Pull-Request View (`ci.pr-view`)
+_Requirements: link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#state-source-pr.observe[State Catalogue §
+`source-pr.observe`], link:{spec}/phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows §
+Plan Source Contracts (`pr`)]_
+
+`prView(PullRequestRef)` reads one pull request of the provider's origin; GitLab calls it a merge request, and the
+contract names both a pull request. A consumer reaches the reference through `ForgeUrl.resolve(url)` and
+`ForgeUrl.pullRequest()`, which is present exactly for a pull-request URL. The read returns, for every state, the state,
+the title and body, the base and head branch, the head commit, the head repository, `headWritable` and the changed paths
+with their completeness. The adapters' reads are described in their guides
+(link:../../../pm-provider-github/doc/developer/provider-github.adoc#_the_pull_request_read[GitHub],
+link:../../../pm-provider-gitlab/doc/developer/provider-gitlab.adoc#_the_merge_request_read[GitLab]).
+
+A pull request that is not open is a value: a closed or merged pull request is `OK` with its `state`, and the consumer
+decides what the state means for it
+(link:../adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[module ADR 008]). A number that names no pull
+request, an issue number among them, is `NOT_FOUND` (on GitLab an issue iid that equals a merge-request iid reads that
+merge request); once the pull request has been read, a `404` of a read that follows it (the changed files of GitHub, the
+diffs or the target project of GitLab) is `FAILED`, never `NOT_FOUND`, with two exceptions that are values: the push-fact
+read of GitHub answering `404` gives `headWritable` `false`, and the source-project read of a GitLab fork answering `404`
+gives an absent head repository and `headWritable` `false`; every other non-`OK` outcome of a later read is propagated
+(link:../adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[module ADR 009]).
+
+=== Mapping a Pull-Request Result to the State Catalogue
+
+The plan source `pr` (`source-pr.observe`) maps the result to its outcomes. The table is the consumer's, in the
+assembly; the contract only states the values it maps from.
+
+[cols="2,3",options="header"]
+|===
+|Contract value |Catalogue outcome
+
+|`OK`, `state` `OPEN`, `headWritable` `true` |`observed`
+|`OK`, `state` `CLOSED` or `MERGED` |`pr_not_open` (`state: closed` or `state: merged`)
+|`OK`, `state` `OPEN`, `headWritable` `false` |`head_not_writable`
+|`NOT_FOUND` |`not_found`; when `finalize.adopt-pr` re-observes an adopted pull request, `pr_not_open`
+(`state: absent`)
+|`RATE_LIMITED` |`rate_limited`, with `resets_at` from `Result.resetAt()`
+|`FAILED` |`provider_unavailable`
+|`AUTH_FAILED` without a credential in the credential store |the missing credential: a hold of kind `condition` with
+the credential's entry as its act, retried by the server within its bounded retry
+|`AUTH_FAILED` with a credential stored, `PERMISSION_DENIED` |the refused credential: `source-pr.observe` names no
+outcome of its own for it, and it stays the consumer's credential branch, never `provider_unavailable`, because the
+contract keeps a credential refusal apart from `FAILED`
+|`REJECTED` |the reference names another origin or forge; the consumer refuses it, because a `pr` source is a pull
+request of the project's own repository
+|===
+
+`pr_not_open` is never cleared by a retry; `rate_limited` waits for `resets_at` and is not retried on its own.
+
+=== What `headWritable` Is and Is Not
+
+`headWritable` is the provider's statement, at the moment of the read, that the credential the provider is bound to
+(the instance's credential) can push to the head branch, decided per forge and per head kind
+(link:../adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[module ADR 007]). A permission the forge
+does not report reads as not writable.
+
+It is not a promise that a later push succeeds: a branch protection rule, a changed membership or a moved head can
+refuse it. `start.create` observes the head again before the plan is created, and `finalize.adopt-pr` re-observes the
+pull request before it records the head; neither relies on an earlier value. It is not a permission vocabulary either:
+`Identity.permissions` keeps the provider's own permission names and gains no portable push entry.
+
+=== Changed Paths and Their Completeness
+
+`changedPaths` holds the paths in the provider's order. `pathCompleteness` says whether that is the whole list:
+`COMPLETE`, `PAGE_CAP` (the read stopped at its page cap) or `PROVIDER_RESULT_CAP` (every page was read, but the forge
+listed fewer files than the pull request changes). An incomplete list is a value, not a failure, and it must not be
+stored as the full `declared_files` of the plan: the consumer reads the completeness value before it uses the list as
+the declared footprint, never the length of the list.
+
+=== Text, Comments and the Issue Read
+
+* *Title and body are external text.* `prView` returns them unvalidated; `source-pr.store` runs the level-1 validator
+  and the credential-shaped-text check over them before a model sees them (PM-SEC-1).
+* *`issueView` keeps its guard.* GitHub still answers `REJECTED` "is a pull request" for a pull-request number, and
+  GitLab `NOT_FOUND` (link:../adr/provider-ci/004-a-pull-request-is-no-issue.adoc[module ADR 004],
+  link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006]).
+* *A comment on a pull request is not `issueComment`.* It is an operation of the review and finalize slice, which
+  brings its own operation and permission set; `issueComment` gets no pull-request guard, because `IssueRef` carries
+  no kind (module ADR 009).
+
 == Invariants and Failure Modes
 
-* *One origin per provider.* An `IssueRef` whose repository names another origin (or another forge) is `REJECTED` and no
-  request is sent, and a `RepositoryRef` given to `whoami` is checked the same way. The provider normalises the origin it
+* *One origin per provider.* An `IssueRef` or a `PullRequestRef` whose repository names another origin (or another
+  forge) is `REJECTED` and no request is sent, and a `RepositoryRef` given to `whoami` is checked the same way. The provider normalises the origin it
   is constructed with.
 * *Absence is a value, never an exception.* A URL on an unknown host is `UNKNOWN_FORGE`; a malformed or hostile URL is
   `INVALID`; a malformed provider body is `FAILED`. The URL grammar refuses user information, a `..` segment, a
@@ -119,8 +213,10 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
   operation answers `REJECTED` "is a pull request". GitLab numbers issues and merge requests apart, so the GitLab adapter
   answers `NOT_FOUND` for a missing issue and does not probe a merge request
   (link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006]).
-* *Text is returned unvalidated.* Title, body and comment text are remote text; the level-1 validator cleans them before a
-  model sees them (PM-SEC-1). The contract says so and does not validate.
+* *A non-open pull request and a short path list are values.* `prView` answers `OK` for a closed or merged pull request,
+  and an incomplete changed-path list is named by its `PathCompleteness`, never presented as the whole list.
+* *Text is returned unvalidated.* Title, body and comment text of an issue or a pull request are remote text; the
+  level-1 validator cleans them before a model sees them (PM-SEC-1). The contract says so and does not validate.
 * *No credential in a detail.* The outcome's detail carries the provider's reason or the failing step, never a token.
 
 == Adding an Operation or a Forge
@@ -138,10 +234,14 @@ A consumer maps the closed outcomes to the failure causes of `source-issue.fetch
 [horizontal]
 link:{test}/ForgeUrlTest.java[`ForgeUrlTest`]:: the grammar of every forge, a trailing slash, a query and a fragment, an
 unknown host, a pull-request URL, a hostile URL (user information, a parent segment, an encoded parent segment, an
-over-long path, an over-long segment), an uppercase and a trailing-dot host, and the value invariants.
+over-long path, an over-long segment), an uppercase and a trailing-dot host, the value invariants, and
+`pullRequest()` for the pull-request URL of every forge and empty for an issue URL.
 link:{test}/CiProvidersTest.java[`CiProvidersTest`]:: the lookup by id, the registration order, the selection by a
 resolved URL, and the refusal of a duplicate or malformed id.
 link:{test}/ValueTypesTest.java[`ValueTypesTest`]:: the invariants and the defensive copies of the value types.
+link:{test}/PullRequestTest.java[`PullRequestTest`]:: the invariants of `PullRequest` and `PullRequestRef`: a number
+below 1 and a missing repository refused, blank required text and missing components refused, an empty body kept, the
+changed paths copied immutably, and an absent head repository read as an empty `headRepository()`.
 
 The module has no shared abstract contract test and publishes no test JAR
 (link:../adr/provider-ci/005-no-shared-contract-test.adoc[module ADR 005]); each adapter tests the contract against its
@@ -154,6 +254,9 @@ own mock web server.
 * *Do not read a missing optional as a failure.* An identity without an expiry is complete; `expiresAt` is `null` when
   the provider reports none.
 * *Do not guess a credential kind.* A token whose kind the provider cannot establish is `FAILED`, not the nearest kind.
+* *Do not read `headWritable` as a lasting grant.* It is the statement of one read for the instance's credential; the
+  head is observed again where the plan relies on it.
+* *Do not take the length of `changedPaths` for the whole change.* Read `pathCompleteness` first.
 * *Do not depend on this module from `pm-runtime` or `pm-workflow`.* Their rule allows `pm-core` and `pm-api` alone (and
   `pm-workflow` `pm-core` alone); a consumer there declares its own port in `pm-core` or calls the primitive by name.
 
@@ -168,11 +271,16 @@ own mock web server.
   Issues], link:{spec}/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts
   (`agent_identity`, `ci_provider`)] and link:{spec}/store-schemas/12-machine-stores.adoc#credential-store[Store Schemas §
   Credential File (`token_kind`)], link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#issues[State Catalogue § Issues
-  by Number or URL], link:{spec}/job-runtime.adoc[Job Runtime § Outcome Derivation]
+  by Number or URL], link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#state-source-pr.observe[State Catalogue §
+  `source-pr.observe`], link:{spec}/phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows §
+  Plan Source Contracts (`pr`)], link:{spec}/job-runtime.adoc[Job Runtime § Outcome Derivation]
 * The shared base: link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]
 * The adapters: link:../../../pm-provider-github/doc/developer/provider-github.adoc[`provider.github`],
   link:../../../pm-provider-gitlab/doc/developer/provider-gitlab.adoc[`provider.gitlab`]
 * Decisions: link:../adr/provider-ci/[the module's ADRs],
   link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006],
+  link:../adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[module ADR 007],
+  link:../adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[module ADR 008],
+  link:../adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[module ADR 009],
   link:../../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013],
   link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

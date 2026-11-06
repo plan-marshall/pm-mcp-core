@@ -34,7 +34,12 @@ public enum GitHubOperation {
     /** Reading one issue. */
     ISSUE_READ(Map.of(Permission.ISSUES, Permission.READ)),
     /** Adding a pull request to the merge queue. */
-    MERGE_QUEUE_ENQUEUE(Map.of(Permission.CONTENTS, Permission.WRITE, Permission.PULL_REQUESTS, Permission.WRITE));
+    MERGE_QUEUE_ENQUEUE(Map.of(Permission.CONTENTS, Permission.WRITE, Permission.PULL_REQUESTS, Permission.WRITE)),
+    /**
+     * Reading one pull request ({@code ci.pr-view}): the permission set the specification names for this read.
+     */
+    PULL_REQUEST_READ(Map.of(Permission.PULL_REQUESTS, Permission.READ, Permission.CONTENTS, Permission.READ,
+            Permission.METADATA, Permission.READ));
 
     private final Map<String, String> permissions;
 
@@ -55,6 +60,7 @@ public enum GitHubOperation {
         static final String PULL_REQUESTS = "pull_requests";
         static final String ISSUES = "issues";
         static final String CONTENTS = "contents";
+        static final String METADATA = "metadata";
         static final String READ = "read";
         static final String WRITE = "write";
 

@@ -1,0 +1,47 @@
+{
+  "best_practices": [],
+  "generation": {
+    "by": "architecture",
+    "tree_sha": "2b6fd72800d0e6f8b9933b78253451dd6cbc94683c79e6cfc933ce5cf580eef7"
+  },
+  "insights": [],
+  "internal_dependencies": [],
+  "key_dependencies": [],
+  "key_dependencies_reasoning": "",
+  "key_packages": {
+    "src/guard-controls/runtime-core-tests": {
+      "description": "The fixture project whose build must pass: the runtime consuming the pm-core test-jar at test scope."
+    }
+  },
+  "purpose": "integration-tests",
+  "purpose_reasoning": "packaging=pom fixture with no sources, built only by BuildGuardsIT as a positive control",
+  "responsibility": "Build-rule control, not a module of the build: the runtime consuming the typed generators of pm-core through a test-scope test-jar dependency. The runtime rule admits it, so BuildGuardsIT of pm-core builds it and expects success.",
+  "responsibility_reasoning": "pom.xml comment and property pm.guard.runtime.skip=false",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    },
+    "module_testing": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality",
+        "plan-marshall:persona-module-tester"
+      ],
+      "optionals": []
+    },
+    "quality": {
+      "defaults": [
+        "plan-marshall:persona-plan-marshall-agent",
+        "plan-marshall:ref-code-quality"
+      ],
+      "optionals": []
+    }
+  },
+  "skills_by_profile_reasoning": "Fixture pom with no sources: only the cross-cutting general-dev skills apply",
+  "tips": [],
+  "type": "module"
+}
