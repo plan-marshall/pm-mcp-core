@@ -2,10 +2,10 @@
   "id": "PLAN-V2-87",
   "slug": "core-tests-rest",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#294, #295",
+  "landing": "landings/PLAN-V2-87.md",
   "seq": -20
 }

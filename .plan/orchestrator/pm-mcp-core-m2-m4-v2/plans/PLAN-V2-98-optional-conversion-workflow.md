@@ -4,7 +4,7 @@ epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
 > Lives at `plans/PLAN-V2-98-optional-conversion-workflow.md` and is queued as one row file, `queue/PLAN-V2-98.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -47,6 +47,7 @@ The null-safety skill forbids `Optional` as a field, a parameter or a record com
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
 - **Read the landing analysis of PLAN-V2-110 at the outline** (`landings/PLAN-V2-110.md` S3, C2–C4, owner-register Wa60; decide at refine, R07): the null-contract plan left about 200 `nullableX(…).orElse(null)` round trips into `@Nullable` locals and builders, an `Optional` return fed through `.orElse(null)` into an unannotated component (`EffectiveRole.idleWakeups`), and `@Nullable` annotations that are not true (`SubprocessJobRunner.latest`, `HarnessProfile.askUserTool`); convert the sites of this plan's modules by making the absence a type, not by another annotation. The expected surface is unchanged.
+- **Where the plan edits a workflow test, read the landing analysis of PLAN-V2-88** (`landings/PLAN-V2-88.md`, owner-register Wa66): a test that pins an order keeps its unsorted data, a round trip keeps its punctuation and escapes, and a "contract" statement is made per datum. The conversion changes signatures, not what a test pins; a test edited only to follow a signature keeps its data and gains no weaker assertion. Do not widen the surface to repair those regressions; list the ones you meet in the landing message.
 - **`Optional` stays as a return type** (absence); this plan converts fields, parameters and record components only.
 - **No format change** (R13): the codecs map `null` to the absent member exactly as `Optional.empty()` was mapped.
 - **R19 is replaced:** the Expected Surface names packages by directory; the plan runs in the conformance wave, after the test migration of its module.
@@ -89,7 +90,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-98-optional-conversion-workflow.md
+/plan-marshall task="implement .plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-98-optional-conversion-workflow.md"
 ```
 
 ## Write-Boundary
