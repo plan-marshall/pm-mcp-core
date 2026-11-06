@@ -44,6 +44,7 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -109,6 +110,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * write-ahead record, a cancel decides the fate by its cause, the budget ends a job {@code timed_out}, a refused
  * verification spawns nothing, and the enrolment lock is released before the launch. The enrolled host tool
  * {@code git} of the fixture is a shell script whose first argument selects what the job does.
+ *
+ * <p>
+ * The data of the tests are generated. The literals that stay are the contract: the fixture script's job selectors
+ * ({@code ok}, {@code fail}, {@code sleep}, ...), the outcome rows, fates, signal names and wait-status values, the
+ * refusal and audit codes, the logged message texts, the build-log resource URI, the host {@code PATH}
+ * {@code /usr/bin:/bin} the launched processes need, and the budgets in seconds that bound how long a job may run.
  */
 @EnableTestLogger
 @EnableGeneratorController
@@ -861,7 +868,7 @@ class SubprocessJobRunnerTest {
             var settled = jobs.records().getFirst();
             assertAll(
                     () -> assertEquals(Boolean.FALSE, late.get(),
-                            "the cancel did not run, or was answered true although it cannot decide the fate"),
+                            "the late cancel ran and was answered false"),
                     () -> assertEquals(jobId, settled.jobId(), "the record belongs to the started job"),
                     () -> assertEquals(Status.ENDED, settled.status(), "the unlaunched job has ended"),
                     () -> assertEquals(Fate.FAILED, settled.fate(), "the late cancel did not decide the fate"),
@@ -1464,7 +1471,7 @@ class SubprocessJobRunnerTest {
 
                 assertAll(
                         () -> assertTrue(SubprocessJobRunner.pidReused(reused),
-                                "the PID of the first is owned by the first, not by the second's handle"),
+                                "the first's PID is not owned by the second's handle"),
                         () -> assertFalse(cancelBeforeGroup, "a reused PID is not terminated by its handle"),
                         () -> assertTrue(recorded.isEmpty(), "a reused PID is never signalled: " + recorded),
                         () -> assertFalse(SubprocessJobRunner.pidReused(
@@ -1472,7 +1479,7 @@ class SubprocessJobRunnerTest {
                                 "the process the runner started is not a reused PID"),
                         () -> assertFalse(SubprocessJobRunner.pidReused(new PmExecLauncher.Launched(
                                         new StubProcess(() -> false), 1_999_999_999L)),
-                                "a PID no process owns leaves a surviving group to be terminated"));
+                                "an unowned PID leaves its group to be terminated"));
             } finally {
                 first.destroyForcibly();
                 second.destroyForcibly();
@@ -1760,7 +1767,7 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertTrue(cancelled, "the cancel decided the end of the job"),
                     () -> assertEquals(Optional.of(Termination.ENGINE_CANCEL), awaited.cause(),
-                            "the exit completed before the waiting thread looked: the cause still decides"));
+                            "an exit before the first look leaves the cause"));
         }
 
         @Test
@@ -1807,8 +1814,8 @@ class SubprocessJobRunnerTest {
             var exit = SubprocessJobRunner.waitFor(new StubProcess(() -> true, true));
 
             assertAll(
-                    () -> assertEquals(7, exit.value()),
-                    () -> assertTrue(exit.interrupted()));
+                    () -> assertEquals(7, exit.value(), "the exit of the stub process is returned"),
+                    () -> assertTrue(exit.interrupted(), "the interrupt of the wait is reported"));
         }
 
         @Test
@@ -1825,8 +1832,8 @@ class SubprocessJobRunnerTest {
             ending.join();
 
             assertAll(
-                    () -> assertTrue(awaited.interrupted()),
-                    () -> assertEquals(Optional.empty(), awaited.cause()));
+                    () -> assertTrue(awaited.interrupted(), "the interrupt of the wait is reported"),
+                    () -> assertEquals(Optional.empty(), awaited.cause(), "the exit ended the wait, no cause did"));
         }
 
         @Test
@@ -1843,8 +1850,8 @@ class SubprocessJobRunnerTest {
             var interruptStatus = Thread.interrupted();
 
             assertAll(
-                    () -> assertTrue(awaited.report().isEmpty()),
-                    () -> assertEquals(0L, awaited.observedLength()),
+                    () -> assertTrue(awaited.report().isEmpty(), "the interrupted wait ends without a report"),
+                    () -> assertEquals(0L, awaited.observedLength(), "nothing of the empty log was observed"),
                     () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
         }
 
@@ -1853,7 +1860,8 @@ class SubprocessJobRunnerTest {
         void tracksDescendantsOfProbesAndWorkers() {
             for (var kind : JobId.Kind.values()) {
                 assertEquals(kind == JobId.Kind.PROBE || kind == JobId.Kind.LLM,
-                        SubprocessJobRunner.tracksDescendants(kind), kind::wireName);
+                        SubprocessJobRunner.tracksDescendants(kind),
+                        () -> "descendants tracked only for probe and LLM: " + kind.wireName());
             }
         }
     }
@@ -1872,9 +1880,12 @@ class SubprocessJobRunnerTest {
             return (job, ignoredJobId) -> ENVIRONMENT;
         }
 
+        /** The plan whose scope the build jobs of these tests run in. */
+        private final String planId = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+
         private JobId startedBuild(String budgetKey, JobRequest.Target target) {
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.BUILD,
-                    new Scope(Scope.Type.PLAN, "plan-one"), budgetKey, 30, FLOOR,
+                    new Scope(Scope.Type.PLAN, planId), budgetKey, 30, FLOOR,
                     fixture.request(fixture.root.toString(), target), Optional.empty()));
             return assertInstanceOf(JobRunner.StartResult.Started.class, result,
                     () -> "the build job of key %s should start: %s".formatted(budgetKey, result)).jobId();
@@ -1945,7 +1956,8 @@ class SubprocessJobRunnerTest {
         @DisplayName("an unparsed build keeps its raw log and yields the bounded evidence")
         void failedUnparsedKeepsTheRawLogAndYieldsTheEvidence() throws Exception {
             var wrapper = fixture.root.resolve(JobEnrolmentFixture.MVNW);
-            Files.writeString(wrapper, "#!/bin/sh\necho 'opaque failure'\nexit 3\n");
+            var failureLine = Generators.letterStrings(8, 24).next();
+            Files.writeString(wrapper, "#!/bin/sh\necho '%s'\nexit 3\n".formatted(failureLine));
             Files.setPosixFilePermissions(wrapper, PosixFilePermissions.fromString("rwx------"));
             fixture.enrol();
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
@@ -1958,15 +1970,16 @@ class SubprocessJobRunnerTest {
             var jobId = startedBuild("maven:verify", new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
             var settledJob = settled(jobId);
             var rawLog = Files.readString(jobs.logPath(jobId));
-            var evidence = UnparsedEvidence.of("plan-one", jobId, rawLog);
+            var evidence = UnparsedEvidence.of(planId, jobId, rawLog);
 
+            // pm://plan/{plan}/builds/{job}/log is the resource URI of the build log
             assertAll(
                     () -> assertEquals(Fate.FAILED_UNPARSED, settledJob.fate(), "the build ended failed_unparsed"),
                     () -> assertEquals(10, settledJob.outcomeRow(), "row 10 decided the fate"),
-                    () -> assertTrue(rawLog.contains("opaque failure"), "the raw log is kept beside the record"),
-                    () -> assertTrue(evidence.excerpt().contains("opaque failure"), "the excerpt carries the tail"),
-                    () -> assertEquals("pm://plan/plan-one/builds/" + jobId.value() + "/log", evidence.excerptUri(),
-                            "the evidence names the full log"));
+                    () -> assertTrue(rawLog.contains(failureLine), "the raw log is kept beside the record"),
+                    () -> assertTrue(evidence.excerpt().contains(failureLine), "the excerpt carries the tail"),
+                    () -> assertEquals("pm://plan/" + planId + "/builds/" + jobId.value() + "/log",
+                            evidence.excerptUri(), "the evidence names the full log"));
         }
     }
 
