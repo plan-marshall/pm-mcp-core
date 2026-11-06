@@ -15,17 +15,28 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.testing.generators.CoreGenerators;
+
 /**
  * The per-project build daemon store (PM-EXEC-4, PM-SEC-5): the digest of a write set is stable, order-independent and
  * 16 lower-case hex characters, and the store of one project and write set sits apart from every other.
+ * <p>
+ * Contract literals that stay: the digest shape, the store layout {@code projects/<project>/daemons/<digest>} with
+ * its {@code mvnd} and {@code gradle} directories, and the Gradle registry argument. The project id and the paths of
+ * the write set are generated.
  */
+@EnableGeneratorController
 @DisplayName("Build daemon store")
 class BuildDaemonStoreTest {
 
@@ -34,8 +45,28 @@ class BuildDaemonStoreTest {
     @TempDir
     Path base;
 
-    private static List<Path> writeSet() {
-        return List.of(Path.of("/work/project"), Path.of("/home/operator/.m2/repository"), Path.of("/tmp"));
+    private Path first;
+    private Path second;
+    private Path third;
+
+    @BeforeEach
+    void drawWriteSet() {
+        first = absolute("first-");
+        second = absolute("second-");
+        third = absolute("third-");
+    }
+
+    /** @return a generated absolute path whose first segment starts with the prefix */
+    private static Path absolute(String prefix) {
+        return Path.of("/", prefix + word(), word());
+    }
+
+    private static String word() {
+        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
+    }
+
+    private List<Path> writeSet() {
+        return List.of(first, second, third);
     }
 
     @Test
@@ -44,40 +75,48 @@ class BuildDaemonStoreTest {
         var digest = BuildDaemonStore.digest(writeSet());
 
         assertAll(
-                () -> assertTrue(DIGEST.matcher(digest).matches(), digest),
-                () -> assertEquals(digest, BuildDaemonStore.digest(List.of(Path.of("/tmp"),
-                                Path.of("/work/project"), Path.of("/home/operator/.m2/repository"))),
+                () -> assertTrue(DIGEST.matcher(digest).matches(), "the digest is 16 lower-case hex characters"),
+                () -> assertEquals(digest, BuildDaemonStore.digest(List.of(third, first, second)),
                         "the order of the write set does not change the digest"),
-                () -> assertNotEquals(digest, BuildDaemonStore.digest(List.of(Path.of("/tmp"),
-                        Path.of("/work/other"))), "another write set gives another digest"));
+                () -> assertNotEquals(digest, BuildDaemonStore.digest(List.of(third, absolute("other-"))),
+                        "another write set gives another digest"));
     }
 
     @Test
     @DisplayName("the store is projects/<project>/daemons/<digest>")
     void storePath() {
-        var store = BuildDaemonStore.path(base, "job-project", writeSet());
+        var project = CoreGenerators.projectEnrolments().next().projectId();
+
+        var store = BuildDaemonStore.path(base, project, writeSet());
 
         assertAll(
-                () -> assertEquals(base.resolve("projects/job-project/daemons")
-                        .resolve(BuildDaemonStore.digest(writeSet())), store),
-                () -> assertEquals(store.resolve("mvnd"), BuildDaemonStore.mvndDirectory(store)),
-                () -> assertEquals(store.resolve("gradle"), BuildDaemonStore.gradleDirectory(store)),
+                () -> assertEquals(base.resolve("projects").resolve(project).resolve("daemons")
+                        .resolve(BuildDaemonStore.digest(writeSet())), store,
+                        "the store sits below the project's daemons"),
+                () -> assertEquals(store.resolve("mvnd"), BuildDaemonStore.mvndDirectory(store),
+                        "the mvnd directory sits in the store"),
+                () -> assertEquals(store.resolve("gradle"), BuildDaemonStore.gradleDirectory(store),
+                        "the gradle directory sits in the store"),
                 () -> assertEquals("-Dorg.gradle.daemon.registry.base=" + store.resolve("gradle"),
-                        BuildDaemonStore.gradleRegistryArgument(store)));
+                        BuildDaemonStore.gradleRegistryArgument(store),
+                        "the registry argument names the directory"));
     }
 
     @Test
     @DisplayName("a duplicate path does not change the digest")
     void duplicatePath() {
-        assertEquals(BuildDaemonStore.digest(List.of(Path.of("/tmp"))),
-                BuildDaemonStore.digest(List.of(Path.of("/tmp"), Path.of("/tmp"))));
+        assertEquals(BuildDaemonStore.digest(List.of(first)), BuildDaemonStore.digest(List.of(first, first)),
+                "a duplicate path leaves the digest unchanged");
     }
 
     @Test
     @DisplayName("a relative base is refused")
     void relativeBase() {
         var paths = writeSet();
-        var relativeBase = Path.of("base");
-        assertThrows(IllegalArgumentException.class, () -> BuildDaemonStore.path(relativeBase, "p", paths));
+        var relativeBase = Path.of(word());
+        var project = CoreGenerators.projectEnrolments().next().projectId();
+
+        assertThrows(IllegalArgumentException.class, () -> BuildDaemonStore.path(relativeBase, project, paths),
+                "a relative base is refused");
     }
 }
