@@ -223,7 +223,7 @@ The runtime creates every file under `<PM_MCP_BASE>` with mode `0600` and every 
 
 |`<PM_MCP_BASE>/run/jobs/<job_id>/`
 |`0700` (`drwx------`), files `0600`
-|Job-private directory of one worker (<<job-private-directories>>): written only by the runtime, readable by its own job only, writable by no job apart from its `data/` subdirectory, where the harness of that worker keeps its local state.
+|Job-private directory of one worker (<<job-private-directories>>): written only by the runtime, readable by its own job only, writable by no job apart from its `data/` subdirectory, where the harness of that worker keeps its local state; its `shim/` subdirectory holds the shim skill the launch loads (link:../model-work/04-worker-launch.adoc#shim-paragraph[Model Work Specification, Shim Paragraph]).
 
 |`<PM_MCP_BASE>/roles/` and `<PM_MCP_BASE>/projects/<project_id>/roles/` with their files
 |`0700` (`drwx------`), files `0600`

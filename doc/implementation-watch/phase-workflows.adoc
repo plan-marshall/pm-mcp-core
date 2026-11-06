@@ -1853,3 +1853,22 @@ ends in the ready hand-back with the gap cause `operator_path` and the section `
 the same with the file renamed out of `src/store/`. Matched controls: a plan touching only `src/feature/**` merges by
 itself; on `landing.main` the matching plan is not pushed; an unmeasured footprint hands back with `footprint_unmeasured`.
 Source:: Article analysis `review-playbook` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-130]
+=== PM-WATCH-PHASE-130: A worker never changes harness configuration unasked
+
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
+Hazard:: Repository content can steer a coding agent into a broad allow rule that later sessions reuse
+(arXiv:2610.22987, 58 of 100 synthetic cases reached a rule sufficient for the attacker's goal). A worker that writes
+`.claude/settings.json`, a hook, an MCP configuration or a skill into the plan worktree lands it as an unplanned change,
+listed but never reviewed, and after the merge the operator's own harness sessions load it. The guard misses it when
+it matches paths of one harness only: OpenCode also reads `.claude/skills/` and `.agents/skills/`, so a path that one
+harness's list omits still loads in another.
+Guard:: The footprint check derives the protected harness paths from every row of the harness integration table,
+whichever harness the plan's workers run on, and lifts the protection only for a path that `declared_files` names.
+Fixtures: a task that adds an allow rule to `.claude/settings.json` without declaring it raises `footprint_violation`
+and nothing is committed; the same for a skill under `.agents/skills/` on a project whose workers run on Claude Code.
+Matched controls: the same change declared in the outline is committed; a changed `CLAUDE.md` is recorded as an
+unplanned change only.
+Source:: Article analysis `obsidian-second-brain-approval-to-abuse` of plan-marshall-documentation.
