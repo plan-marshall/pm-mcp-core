@@ -1283,11 +1283,13 @@ class SubprocessJobRunnerTest {
             var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
                     Generators.letterStrings(4, 12).next()));
 
-            var refused = assertInstanceOf(JobStarter.StartResult.Refused.class, result);
+            var refused = assertInstanceOf(JobStarter.StartResult.Refused.class, result,
+                    "a primitive without a job spec is refused");
             assertAll(
-                    () -> assertEquals(SubprocessJobRunner.PRIMITIVE_WITHOUT_JOB, refused.reason()),
-                    () -> assertTrue(observations.isEmpty()),
-                    () -> assertTrue(jobs.records().isEmpty()));
+                    () -> assertEquals(SubprocessJobRunner.PRIMITIVE_WITHOUT_JOB, refused.reason(),
+                            "the refusal names the missing job spec"),
+                    () -> assertTrue(observations.isEmpty(), "nothing was launched for the primitive"),
+                    () -> assertTrue(jobs.records().isEmpty(), "no record is written for the primitive"));
         }
 
         @Test
@@ -1298,12 +1300,15 @@ class SubprocessJobRunnerTest {
             var job = git(30, "ok");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
 
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify", "git.status"));
+            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+                    Generators.letterStrings(4, 12).next()));
 
-            var started = assertInstanceOf(JobStarter.StartResult.Started.class, result);
+            var started = assertInstanceOf(JobStarter.StartResult.Started.class, result,
+                    "a primitive with a job spec is started");
             assertAll(
-                    () -> assertEquals(JobStarter.JobKind.GIT, started.kind()),
-                    () -> assertEquals(Fate.SUCCEEDED, settled(new JobId(started.jobId())).fate()));
+                    () -> assertEquals(JobStarter.JobKind.GIT, started.kind(), "the started job is a git job"),
+                    () -> assertEquals(Fate.SUCCEEDED, settled(new JobId(started.jobId())).fate(),
+                            "the started primitive job succeeded"));
         }
 
         @Test
@@ -1313,9 +1318,12 @@ class SubprocessJobRunnerTest {
                     fixture.gitStatus(fixture.beside.toString()), Optional.<String>empty());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
 
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify", "git.status"));
+            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+                    Generators.letterStrings(4, 12).next()));
 
-            assertEquals(new JobStarter.StartResult.Refused("path_traversal_rejected"), result);
+            // path_traversal_rejected is the reason code of the verification
+            assertEquals(new JobStarter.StartResult.Refused("path_traversal_rejected"), result,
+                    "the port refuses with the verification's reason");
         }
     }
 
@@ -1329,7 +1337,8 @@ class SubprocessJobRunnerTest {
             var request = new JobRunner.StartRequest<>(JobId.Kind.LLM, new Scope(Scope.Type.PROJECT, null),
                     BUDGET_KEY, 30, FLOOR, fixture.gitStatus(fixture.root.toString()), Optional.<String>empty());
 
-            assertThrows(IllegalArgumentException.class, () -> runner.start(request));
+            assertThrows(IllegalArgumentException.class, () -> runner.start(request),
+                    "a worker job is refused by the runner");
         }
 
         @Test
@@ -1338,9 +1347,11 @@ class SubprocessJobRunnerTest {
             var jobId = JobId.random(JobId.Kind.GIT);
 
             assertAll(
-                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL)),
-                    () -> assertEquals(Optional.empty(), runner.recordOf(jobId)),
-                    () -> assertEquals(Optional.empty(), runner.awaitSettled(jobId, Duration.ZERO)));
+                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL),
+                            "an unknown job is not cancelled"),
+                    () -> assertEquals(Optional.empty(), runner.recordOf(jobId), "an unknown job has no record"),
+                    () -> assertEquals(Optional.empty(), runner.awaitSettled(jobId, Duration.ZERO),
+                            "an unknown job is never settled"));
         }
     }
 
@@ -1348,15 +1359,18 @@ class SubprocessJobRunnerTest {
     @DisplayName("derives the record's values from what it observed")
     class Values {
 
+        // the exit values, signal numbers and signal names below are the wait-status contract of the two systems
         @ParameterizedTest(name = "exit value {0}")
         @CsvSource({"0, 0", "3, 3", "128, 128", "200, 200"})
         @DisplayName("an exit value outside 129 to 192 is an exit code")
         void exitCode(int exitValue, int code) {
             assertAll(
                     () -> assertEquals(new Exited(code),
-                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX)),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX),
+                            "Linux reads the exit value as an exit code"),
                     () -> assertEquals(new Exited(code),
-                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS)));
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS),
+                            "macOS reads the exit value as an exit code"));
         }
 
         @ParameterizedTest(name = "exit value {0} is {1}")
@@ -1365,9 +1379,11 @@ class SubprocessJobRunnerTest {
         void signal(int exitValue, String signal) {
             assertAll(
                     () -> assertEquals(new Signalled(signal),
-                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX)),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX),
+                            "Linux names the shared signal the same"),
                     () -> assertEquals(new Signalled(signal),
-                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS)));
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS),
+                            "macOS names the shared signal the same"));
         }
 
         @ParameterizedTest(name = "signal {0}: Linux {1}, macOS {2}")
@@ -1381,16 +1397,19 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertEquals(new Signalled(linux),
-                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX)),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX),
+                            "the Linux table names the signal"),
                     () -> assertEquals(new Signalled(macos),
-                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS)));
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS),
+                            "the macOS table names the signal"));
         }
 
+        // the names are the values of the system property os.name
         @ParameterizedTest(name = "{0}")
         @CsvSource({"Linux, LINUX", "Mac OS X, MACOS", "macOS, MACOS", "'', LINUX"})
         @DisplayName("the table is chosen by the name of the operating system")
         void signalTableOfOs(String osName, SubprocessJobRunner.SignalTable table) {
-            assertEquals(table, SubprocessJobRunner.SignalTable.of(osName));
+            assertEquals(table, SubprocessJobRunner.SignalTable.of(osName), "the OS name selects the signal table");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -1402,14 +1421,15 @@ class SubprocessJobRunnerTest {
                     Optional.of(termination), new Exited(0), JobEvidence.LogState.READABLE, SUCCESS, Set.of(), true));
 
             assertAll(
-                    () -> assertEquals(cause.fate(), outcome.fate()),
-                    () -> assertEquals(cause.outcomeRow(), outcome.row()));
+                    () -> assertEquals(cause.fate(), outcome.fate(), "the termination decides the cause's fate"),
+                    () -> assertEquals(cause.outcomeRow(), outcome.row(), "the termination decides the cause's row"));
         }
 
         @Test
         @DisplayName("a pause of the plan that holds now is the termination PAUSE_NOW")
         void pauseNow() {
-            assertEquals(Termination.PAUSE_NOW, SubprocessJobRunner.termination(CancelCause.PLAN_PAUSED_NOW));
+            assertEquals(Termination.PAUSE_NOW, SubprocessJobRunner.termination(CancelCause.PLAN_PAUSED_NOW),
+                    "a pause now is the termination PAUSE_NOW");
         }
 
         @Test
@@ -1445,7 +1465,7 @@ class SubprocessJobRunnerTest {
                 assertAll(
                         () -> assertTrue(SubprocessJobRunner.pidReused(reused),
                                 "the PID of the first is owned by the first, not by the second's handle"),
-                        () -> assertFalse(cancelBeforeGroup),
+                        () -> assertFalse(cancelBeforeGroup, "a reused PID is not terminated by its handle"),
                         () -> assertTrue(recorded.isEmpty(), "a reused PID is never signalled: " + recorded),
                         () -> assertFalse(SubprocessJobRunner.pidReused(
                                         new PmExecLauncher.Launched(first, first.pid())),
@@ -1480,18 +1500,26 @@ class SubprocessJobRunnerTest {
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of());
 
-            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(11, Optional.of("/usr/bin/sleep")),
-                    new ProcessTreeTracker.Survivor(12, Optional.empty())));
+            int pid = Generators.integers(2, 4_000_000).next();
+            var executable = "/" + Generators.letterStrings(3, 12).next();
 
+            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, Optional.of(executable)),
+                    new ProcessTreeTracker.Survivor(pid + 1, Optional.empty())));
+
+            // security and failed are the category and outcome of the audit record's schema
             assertAll(
-                    () -> assertEquals(2, events.size()),
-                    () -> assertEquals(SubprocessJobRunner.JOB_DESCENDANT_SURVIVED, events.get(0).event()),
-                    () -> assertEquals("security", events.get(0).category()),
-                    () -> assertEquals("failed", events.get(0).outcome()),
-                    () -> assertEquals(11L, events.get(0).details().get(SubprocessJobRunner.DETAIL_PID)),
-                    () -> assertEquals(jobId.value(), events.get(0).details().get(SubprocessJobRunner.DETAIL_JOB_ID)),
-                    () -> assertEquals("/usr/bin/sleep",
-                            events.get(0).details().get(SubprocessJobRunner.DETAIL_EXECUTABLE)),
+                    () -> assertEquals(2, events.size(), "one audit record per surviving descendant"),
+                    () -> assertEquals(SubprocessJobRunner.JOB_DESCENDANT_SURVIVED, events.get(0).event(),
+                            "the record names the surviving descendant"),
+                    () -> assertEquals("security", events.get(0).category(), "the record is a security record"),
+                    () -> assertEquals("failed", events.get(0).outcome(), "the record's outcome is failed"),
+                    () -> assertEquals(Long.valueOf(pid), events.get(0).details().get(SubprocessJobRunner.DETAIL_PID),
+                            "the record names the survivor's PID"),
+                    () -> assertEquals(jobId.value(), events.get(0).details().get(SubprocessJobRunner.DETAIL_JOB_ID),
+                            "the record names the job of the survivor"),
+                    () -> assertEquals(executable,
+                            events.get(0).details().get(SubprocessJobRunner.DETAIL_EXECUTABLE),
+                            "the record names the survivor's executable"),
                     () -> assertFalse(events.get(1).details()
                             .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE), "no executable known"));
         }
@@ -1499,20 +1527,23 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a sweep that throws is logged and does not keep the job from being settled")
         void failingSweepDoesNotAbortTheSettlement() {
-            var start = Instant.parse("2026-10-21T10:00:00Z");
+            var start = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
+            var failureMessage = Generators.nonEmptyStrings().next();
             ProcessGroupSignals throwing = new ProcessGroupSignals() {
 
                 @Override
                 public Answer signalGroup(long pgid, Signal signal) {
-                    throw new IllegalStateException("the primitive failed");
+                    throw new IllegalStateException(failureMessage);
                 }
 
                 @Override
                 public Answer signalProcess(long pid, Signal signal) {
-                    throw new IllegalStateException("the primitive failed");
+                    throw new IllegalStateException(failureMessage);
                 }
             };
-            var tracker = new ProcessTreeTracker(4242, root -> Set.of(new ProcessTreeTracker.Member(11, start)),
+            int root = Generators.integers(2, 4_000_000).next();
+            var tracker = new ProcessTreeTracker(root, ignoredRoot -> Set.of(new ProcessTreeTracker.Member(root + 1,
+                    start)),
                     pid -> Optional.of(start), throwing, InstantSource.system(), duration -> {
                     });
             tracker.refresh();
@@ -1538,7 +1569,7 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("the child's wall time runs from its reported start and never exceeds the job's")
         void childWall() {
-            var spawnedAt = Instant.parse("2026-10-17T10:00:00Z");
+            var spawnedAt = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
             var endedAt = spawnedAt.plusMillis(1500);
 
             assertAll(
@@ -1561,10 +1592,10 @@ class SubprocessJobRunnerTest {
             var split = SubprocessJobRunner.argvDigest(List.of(element, element));
 
             assertAll(
-                    () -> assertTrue(joined.matches("[0-9a-f]{64}"), joined),
-                    () -> assertNotEquals(joined, split),
+                    () -> assertTrue(joined.matches("[0-9a-f]{64}"), "the digest is 64 lower-case hex digits"),
+                    () -> assertNotEquals(joined, split, "a joined and a split vector differ in digest"),
                     () -> assertEquals(split, SubprocessJobRunner.argvDigest(new ArrayList<>(List.of(element,
-                            element)))));
+                            element))), "the digest depends on the elements, not the list"));
         }
     }
 
@@ -1580,18 +1611,24 @@ class SubprocessJobRunnerTest {
             var budget = JobBudget.of(git(seconds, "ok"));
 
             assertAll(
-                    () -> assertEquals(new JobBudget(BUDGET_KEY, seconds, FLOOR), budget),
-                    () -> assertEquals(Duration.ofSeconds(seconds), budget.duration()));
+                    () -> assertEquals(new JobBudget(BUDGET_KEY, seconds, FLOOR), budget,
+                            "the budget is the one the request names"),
+                    () -> assertEquals(Duration.ofSeconds(seconds), budget.duration(),
+                            "the budget is counted in seconds"));
         }
 
         @Test
         @DisplayName("refuses a blank key, a budget below one second and missing parts")
         void refusals() {
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(" ", 1, FLOOR)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(BUDGET_KEY, 0, FLOOR)),
-                    () -> assertThrows(NullPointerException.class, () -> new JobBudget(null, 1, FLOOR)),
-                    () -> assertThrows(NullPointerException.class, () -> new JobBudget(BUDGET_KEY, 1, null)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(" ", 1, FLOOR),
+                            "a blank budget key is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(BUDGET_KEY, 0, FLOOR),
+                            "a budget below one second is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new JobBudget(null, 1, FLOOR),
+                            "a missing budget key is refused"),
+                    () -> assertThrows(NullPointerException.class, () -> new JobBudget(BUDGET_KEY, 1, null),
+                            "a missing budget derivation is refused"));
         }
     }
 
@@ -1642,7 +1679,7 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertTrue(cancelled.get(), "the cancel was answered true: it decided the end of the job"),
                     () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides, not the exit"),
-                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertEquals(2, settled.outcomeRow(), "row 2 decided the engine cancel"),
                     () -> assertEquals(0L, settled.exitCode(), "the job ended by itself"),
                     () -> assertNull(settled.signal(), "the process was not signalled"));
         }
@@ -1666,7 +1703,7 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(Boolean.FALSE, late.get(), "the cancel ran, and was answered false"),
                     () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the late cancel did not decide the fate"),
-                    () -> assertEquals(7, settled.outcomeRow()));
+                    () -> assertEquals(7, settled.outcomeRow(), "row 7 decided the successful exit"));
         }
     }
 
