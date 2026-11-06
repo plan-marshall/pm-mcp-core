@@ -158,7 +158,7 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   Before PLAN-03 is emitted, compare the two copies or hand the ledger copy over. The copies were identical on
   2026-10-29, before the host split rewrote PLAN-03 and staged PLAN-04 in the ledger copy; landing the ledger fast-forwards
   the main checkout, so compare again after the land. Compared 2026-10-30: PLAN-03, PLAN-04 and `epic.md` were
-  byte-identical in both copies (before this day's `epic.md` edit, which is narrative only). — retire when PLAN-03 is launched.
+  byte-identical in both copies (before this day's `epic.md` edit, which is narrative only). Retired for PLAN-03 2026-10-30, launched from the ledger copy; PLAN-04 compares again.
 - Client versions, re-checked 2026-10-30: Claude Code 2.1.314 (also the npm latest; the smoke run was 2.1.306 to 2.1.310),
   OpenCode 2.2.3 (smoke 2.1.2 to 2.1.4), `agy` 1.4.7 (smoke 1.4.7 at the end). — re-read at the first run; the plan records
   the version per run.
