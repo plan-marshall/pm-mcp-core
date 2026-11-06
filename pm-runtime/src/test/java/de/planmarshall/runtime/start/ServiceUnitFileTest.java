@@ -212,7 +212,7 @@ class ServiceUnitFileTest {
 
         @Test
         @DisplayName("creates the parent directories and writes the rendered unit")
-        void shouldWriteUnit() throws Exception {
+        void shouldWriteUnit() {
             var unit = unit(Platform.SYSTEMD);
 
             unit.write();

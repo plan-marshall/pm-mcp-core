@@ -450,7 +450,7 @@ class StartupSequenceTest {
         @DisplayName("a symlinked run directory")
         void shouldRefuseSymlink() throws Exception {
             ((StartupSequence.Outcome.Ready) run()).lock().close();
-            var elsewhere = Files.createDirectory(base.resolve(name()), PosixModes.directoryAttribute());
+            var elsewhere = Files.createTempDirectory(base, "elsewhere-", PosixModes.directoryAttribute());
             TestBases.delete(paths.runDir());
             Files.createSymbolicLink(paths.runDir(), elsewhere);
 
