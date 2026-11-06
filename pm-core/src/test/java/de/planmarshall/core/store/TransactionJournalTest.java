@@ -620,8 +620,9 @@ class TransactionJournalTest {
                             "a bare id should be no staged name"),
                     () -> assertEquals(Optional.empty(), TransactionId.ofSuffix(store),
                             "a store name should carry no id"),
+                    // a well-formed id in upper case; a generated id may hold no letter to change in case
                     () -> assertEquals(Optional.empty(),
-                            TransactionId.ofSuffix(store + ".tmp." + id.value().toUpperCase(Locale.ROOT)),
+                            TransactionId.ofSuffix(store + ".tmp.0192A3B4-C5D6-7E8F-9A0B-1C2D3E4F5A6B"),
                             "an upper-case id should not be found"),
                     () -> assertEquals(Optional.empty(),
                             TransactionId.ofSuffix(store + ".tmp." + id.value() + ".bak"),

@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.delivered;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.id;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -47,7 +48,7 @@ class QuestionLogCurrentLineTest extends QuestionLogFixture {
         var asked = content();
         write(t -> log.deliver(t, List.of(delivered("Q-001", 1))));
         write(t -> log.answer(t, List.of(answered("Q-001", 1))));
-        var notAsked = "Q-%03d".formatted(Generators.integers(4, 999).next());
+        var notAsked = id("Q-%03d", Generators.integers(4, 999).next());
 
         var lines = log.read();
 

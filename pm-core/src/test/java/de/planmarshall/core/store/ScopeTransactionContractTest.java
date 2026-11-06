@@ -10,6 +10,8 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import de.cuioss.test.generator.Generators;
@@ -37,6 +39,19 @@ class ScopeTransactionContractTest implements ShouldHandleObjectContracts<ScopeT
         var path = Generators.letterStrings(1, 20).next() + "/" + Generators.letterStrings(1, 20).next();
         return new ScopeTransaction.PendingTarget(path, Generators.enumValues(TransactionJournal.Mode.class).next(),
                 Generators.strings(0, 40).next().getBytes(UTF_8), Generators.booleans().next());
+    }
+
+    @Test
+    @DisplayName("two targets with equal bytes in separate arrays are equal and hash alike")
+    void shouldCompareContentByValue() {
+        var first = getUnderTest();
+        var second = new ScopeTransaction.PendingTarget(first.path(), first.mode(), first.content().clone(),
+                first.mustBeAbsent());
+
+        assertAll(
+                () -> assertEquals(first, second, "equal bytes in two arrays should be equal"),
+                () -> assertEquals(second, first, "equality should be symmetric"),
+                () -> assertEquals(first.hashCode(), second.hashCode(), "equal targets should hash alike"));
     }
 
     @Override

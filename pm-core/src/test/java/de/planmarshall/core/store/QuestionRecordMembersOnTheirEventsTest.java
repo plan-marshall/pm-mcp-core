@@ -15,6 +15,7 @@ import static de.planmarshall.core.store.QuestionRecordCodecTest.askedMembers;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.assertRefused;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.deliveredMembers;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.document;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.id;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.json;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.lower;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -122,7 +123,7 @@ class QuestionRecordMembersOnTheirEventsTest {
     @DisplayName("only the first question of the set carries the decision, and it always does")
     void decisionOnlyOnFirstQuestion() {
         var part = askedMembers();
-        part.put("question_id", json("Q-%03d".formatted(Generators.integers(2, 999).next())));
+        part.put("question_id", json(id("Q-%03d", Generators.integers(2, 999).next())));
         var first = askedMembers();
         first.remove("decision");
 

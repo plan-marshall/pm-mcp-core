@@ -177,16 +177,23 @@ class QuestionLogRevisionTest extends QuestionLogFixture {
     void skippedRevision() throws Exception {
         askSet();
         var before = content();
-        var skipped = Generators.integers(3, 100).next();
-
-        var fault = assertThrows(IllegalArgumentException.class,
-                () -> write(t -> log.revise(t, List.of(revised("Q-001", skipped), revised("Q-002", skipped),
-                        revised("Q-003", skipped)))), "a skipped revision should be a fault");
+        // 3 is the first skipped revision, so it is the boundary of the contract and stays a literal
+        var firstSkipped = reviseSkipping(3);
+        var skipped = reviseSkipping(Generators.integers(4, 100).next());
 
         assertAll(
-                () -> assertTrue(fault.getMessage().contains("next revision 2"),
+                () -> assertTrue(firstSkipped.getMessage().contains("next revision 2"),
+                        "the first skipped revision should name revision 2"),
+                () -> assertTrue(skipped.getMessage().contains("next revision 2"),
                         "the fault should name the next revision 2"),
                 () -> assertArrayEquals(before, content(), "the skipped revision should append nothing"));
+    }
+
+    /** @return the fault of revising every question of the set to the given revision, which is not the next one */
+    private IllegalArgumentException reviseSkipping(int revision) {
+        return assertThrows(IllegalArgumentException.class,
+                () -> write(t -> log.revise(t, List.of(revised("Q-001", revision), revised("Q-002", revision),
+                        revised("Q-003", revision)))), "a skipped revision should be a fault");
     }
 
     @Test

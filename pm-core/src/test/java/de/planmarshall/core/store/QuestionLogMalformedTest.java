@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.delivered;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.id;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.revised;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -41,7 +42,7 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
 
     /** @return a question id outside the set Q-001, between the given numbers */
     private static String outsideTheSet(int from, int to) {
-        return "Q-%03d".formatted(Generators.integers(from, to).next());
+        return id("Q-%03d", Generators.integers(from, to).next());
     }
 
     @Test

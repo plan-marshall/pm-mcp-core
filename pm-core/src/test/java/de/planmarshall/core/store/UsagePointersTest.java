@@ -127,7 +127,8 @@ class UsagePointersTest {
         @Test
         @DisplayName("the cost stays recorded data, read from its own pointer")
         void cost() {
-            var costPointer = pointer();
+            // the prefix keeps the cost member apart from the "part" member of the document
+            var costPointer = "/cost-" + lowerName();
             var pointers = new UsagePointers(INPUT, OUTPUT, "/part/tokens/cache/read", "/part/tokens/cache/write",
                     "/part/tokens/reasoning", costPointer, TOOL_USES);
             var cost = BigDecimal.valueOf(Generators.integers(1, 99_999).next(), 4);

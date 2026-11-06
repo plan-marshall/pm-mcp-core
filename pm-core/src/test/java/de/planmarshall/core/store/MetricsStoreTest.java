@@ -544,6 +544,7 @@ class MetricsStoreTest {
             var refusedWithWorker = row(taskId, usage()).toBuilder().attempt(null).attemptEnd(null)
                     .causeClass(CauseClass.REFUSED);
             var badId = row(taskId, usage()).toBuilder().queueTaskId("qt-not-an-id");
+            var negativeCost = -Generators.longs(2, 1_000L).next();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, refusedWithWorker::build,
@@ -555,7 +556,7 @@ class MetricsStoreTest {
                             () -> new MetricsRow.PredictedCost(-1, MetricsRow.PredictedCost.Basis.UNCALIBRATED),
                             "the first negative predicted cost should fail"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new MetricsRow.PredictedCost(-Generators.longs(2, 1_000L).next(),
+                            () -> new MetricsRow.PredictedCost(negativeCost,
                                     MetricsRow.PredictedCost.Basis.UNCALIBRATED),
                             "a negative predicted cost should fail"));
         }

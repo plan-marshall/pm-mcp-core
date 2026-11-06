@@ -76,12 +76,12 @@ class QuestionRecordCodecTest {
     static final String TITLE = text(3);
     static final String HEADER = text(5);
     static final String EVIDENCE_REF = lower(3, 12) + "/" + lower(3, 12) + ".xml";
-    static final String SOURCE_ENTITY = "TASK-%03d".formatted(Generators.integers(0, 999).next());
-    static final String PLAN_TASK_ID = "TASK-%04d".formatted(Generators.integers(0, 9999).next());
+    static final String SOURCE_ENTITY = id("TASK-%03d", Generators.integers(0, 999).next());
+    static final String PLAN_TASK_ID = id("TASK-%04d", Generators.integers(0, 9999).next());
     static final String ASKING_ROLE = lower(2, 32);
     static final String PHASE = Generators.integers(1, 6).next() + "-" + lower(3, 12);
-    static final String ADJUDICATION_ID = "D-%04d".formatted(Generators.integers(0, 9999).next());
-    static final String ANSWER_DECISION_ID = "D-%05d".formatted(Generators.integers(0, 99_999).next());
+    static final String ADJUDICATION_ID = id("D-%04d", Generators.integers(0, 9999).next());
+    static final String ANSWER_DECISION_ID = id("D-%05d", Generators.integers(0, 99_999).next());
     static final String BRANCH_KEY = lower(2, 32);
     static final String WITHDRAW_REASON = lower(3, 20);
     static final String CANCEL_REASON = lower(3, 20) + "_" + lower(3, 20);
@@ -90,6 +90,11 @@ class QuestionRecordCodecTest {
 
     static final String CHOSEN_JSON = "{\"kind\":\"chosen\",\"branch_keys\":[" + json(BRANCH_KEY) + "],\"value\":null,"
             + "\"own_words\":null,\"note\":null,\"interpretation\":null,\"after_chat\":false}";
+
+    /** @return the number formatted into the identifier pattern with ASCII digits, whatever the host's locale */
+    static String id(String pattern, int number) {
+        return String.format(Locale.ROOT, pattern, number);
+    }
 
     /** @return lower-case letters within the given lengths, the form of a role, a branch key and a reason */
     static String lower(int min, int max) {

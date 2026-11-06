@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
+import static de.planmarshall.core.store.QuestionRecordCodecTest.id;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.revised;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.withdrawn;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -94,7 +95,7 @@ class QuestionLogRefusedLineTest extends QuestionLogFixture {
         askSet();
         appendRefusedAnswer();
         var before = content();
-        var question = "Q-%03d".formatted(Generators.integers(4, 999).next());
+        var question = id("Q-%03d", Generators.integers(4, 999).next());
 
         var refusal = write(t -> log.ask(t, List.of(asked(question, question))));
 
