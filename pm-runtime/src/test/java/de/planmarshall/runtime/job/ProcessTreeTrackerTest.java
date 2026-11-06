@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
@@ -23,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,17 +37,34 @@ import de.planmarshall.runtime.job.ProcessTreeTracker.Member;
  * The process tree of a job (termination step 3a): the descendants it recorded while the job ran are swept at its end,
  * a member that left the tree between two refreshes is still ended, a {@code SIGTERM} that does not end a member is
  * escalated to {@code SIGKILL}, and a PID whose process started at another instant was reused and is not signalled.
+ * <p>
+ * Contract literals that stay: the signals and the grace period with its poll interval. The root PID, the member PIDs,
+ * the start instant and the later instant of a reused PID are generated.
  */
+@EnableGeneratorController
 @DisplayName("Process tree of a job")
 class ProcessTreeTrackerTest {
-
-    private static final long ROOT = 4242;
-    private static final Instant START = Instant.parse("2026-10-21T10:00:00Z");
 
     private final Map<Long, Instant> starts = new ConcurrentHashMap<>();
     private final Set<Member> tree = ConcurrentHashMap.newKeySet();
     private final RecordingSignals signals = new RecordingSignals();
-    private final FakeTime time = new FakeTime();
+
+    private long root;
+    private long first;
+    private long second;
+    private Instant start;
+    private Instant later;
+    private FakeTime time;
+
+    @BeforeEach
+    void drawTree() {
+        root = Generators.longs(2, 1_000_000).next();
+        first = root + Generators.longs(1, 1_000).next();
+        second = first + Generators.longs(1, 1_000).next();
+        start = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
+        later = start.plus(Duration.ofSeconds(Generators.longs(1, 86_400).next()));
+        time = new FakeTime(start);
+    }
 
     private record Call(long pid, Signal signal) {
     }
@@ -70,7 +90,11 @@ class ProcessTreeTrackerTest {
 
     private static final class FakeTime implements InstantSource, TerminationProtocol.Pause {
 
-        private Instant now = START;
+        private Instant now;
+
+        FakeTime(Instant start) {
+            now = start;
+        }
 
         @Override
         public Instant instant() {
@@ -84,14 +108,14 @@ class ProcessTreeTrackerTest {
     }
 
     private ProcessTreeTracker tracker() {
-        return new ProcessTreeTracker(ROOT, root -> Set.copyOf(tree), pid -> Optional.ofNullable(starts.get(pid)), signals,
-                time, time);
+        return new ProcessTreeTracker(root, ignoredRoot -> Set.copyOf(tree), pid -> Optional.ofNullable(starts.get(pid)),
+                signals, time, time);
     }
 
     private void member(long pid) {
-        starts.put(ROOT, START);
-        tree.add(new Member(pid, START));
-        starts.put(pid, START);
+        starts.put(root, start);
+        tree.add(new Member(pid, start));
+        starts.put(pid, start);
     }
 
     @Nested
@@ -101,31 +125,32 @@ class ProcessTreeTrackerTest {
         @Test
         @DisplayName("a refresh remembers every descendant the tree answers")
         void refresh() {
-            member(11);
-            member(12);
+            member(first);
+            member(second);
 
             var tracker = tracker();
             tracker.refresh();
 
             assertAll(
-                    () -> assertEquals(Set.of(11L, 12L), tracker.members()),
+                    () -> assertEquals(Set.of(first, second), tracker.members(),
+                            "the refresh remembers both descendants"),
                     () -> assertEquals(List.of(), signals.calls, "a refresh signals nothing"));
         }
 
         @Test
         @DisplayName("a reused root PID records nothing new: the descendants below it are not the job's")
         void reusedRootRecordsNothing() {
-            member(11);
+            member(first);
             var tracker = tracker();
             tracker.refresh();
-            starts.put(ROOT, START.plus(Duration.ofHours(1)));
-            tree.add(new Member(12, START));
+            starts.put(root, later);
+            tree.add(new Member(second, start));
 
             tracker.refresh();
 
             assertAll(
-                    () -> assertEquals(Set.of(11L), tracker.members()),
-                    () -> assertEquals(List.of(), signals.calls));
+                    () -> assertEquals(Set.of(first), tracker.members(), "no descendant of a reused root is added"),
+                    () -> assertEquals(List.of(), signals.calls, "a refresh of a reused root signals nothing"));
         }
     }
 
@@ -136,7 +161,7 @@ class ProcessTreeTrackerTest {
         @Test
         @DisplayName("a member that left the tree after a refresh is ended by SIGTERM and is no survivor")
         void detachedMemberIsEnded() {
-            member(11);
+            member(first);
             var tracker = tracker();
             tracker.refresh();
             tree.clear();
@@ -144,14 +169,16 @@ class ProcessTreeTrackerTest {
             var survivors = tracker.sweep();
 
             assertAll(
-                    () -> assertEquals(List.of(new Call(11, Signal.SIGTERM)), signals.calls),
-                    () -> assertFalse(starts.containsKey(11L), "the member ended"), () -> assertEquals(List.of(), survivors));
+                    () -> assertEquals(List.of(new Call(first, Signal.SIGTERM)), signals.calls,
+                            "the detached member is sent SIGTERM"),
+                    () -> assertFalse(starts.containsKey(first), "the member ended"),
+                    () -> assertEquals(List.of(), survivors, "an ended member is no survivor"));
         }
 
         @Test
         @DisplayName("a member that does not end on SIGTERM is sent SIGKILL after the grace period")
         void escalated() {
-            member(11);
+            member(first);
             var surviving = new ProcessGroupSignals() {
 
                 @Override
@@ -165,7 +192,7 @@ class ProcessTreeTrackerTest {
                     return new Delivered();
                 }
             };
-            var tracker = new ProcessTreeTracker(ROOT, root -> Set.copyOf(tree),
+            var tracker = new ProcessTreeTracker(root, ignoredRoot -> Set.copyOf(tree),
                     pid -> Optional.ofNullable(starts.get(pid)), surviving, time, time);
             tracker.refresh();
             tree.clear();
@@ -173,39 +200,40 @@ class ProcessTreeTrackerTest {
             var survivors = tracker.sweep();
 
             assertAll(
-                    () -> assertEquals(List.of(new Call(11, Signal.SIGTERM), new Call(11, Signal.SIGKILL)),
-                            signals.calls),
-                    () -> assertEquals(List.of(11L), survivors.stream().map(ProcessTreeTracker.Survivor::pid).toList()),
+                    () -> assertEquals(List.of(new Call(first, Signal.SIGTERM), new Call(first, Signal.SIGKILL)),
+                            signals.calls, "SIGTERM is escalated to SIGKILL"),
+                    () -> assertEquals(List.of(first), survivors.stream().map(ProcessTreeTracker.Survivor::pid)
+                            .toList(), "the stubborn member is a survivor"),
                     () -> assertEquals(ProcessTreeTracker.SWEEP_GRACE.plus(ProcessTreeTracker.POLL_INTERVAL),
-                            Duration.between(START, time.instant())));
+                            Duration.between(start, time.instant()), "the sweep waited the grace period"));
         }
 
         @Test
         @DisplayName("a remembered PID whose process started at another instant was reused and is not signalled")
         void reusedPidIsNotSignalled() {
-            member(11);
+            member(first);
             var tracker = tracker();
             tracker.refresh();
-            starts.put(11L, START.plus(Duration.ofHours(1)));
+            starts.put(first, later);
 
             tracker.sweep();
 
             assertAll(
-                    () -> assertEquals(List.of(), signals.calls),
-                    () -> assertEquals(Set.of(11L), tracker.members(), "the member stays recorded"));
+                    () -> assertEquals(List.of(), signals.calls, "a reused PID is not signalled"),
+                    () -> assertEquals(Set.of(first), tracker.members(), "the member stays recorded"));
         }
 
         @Test
         @DisplayName("a remembered member that no longer runs is not signalled")
         void deadMemberIsNotSignalled() {
-            member(11);
+            member(first);
             var tracker = tracker();
             tracker.refresh();
-            starts.remove(11L);
+            starts.remove(first);
 
             tracker.sweep();
 
-            assertTrue(signals.calls.isEmpty(), signals.calls::toString);
+            assertTrue(signals.calls.isEmpty(), "a dead member is not signalled");
         }
     }
 }

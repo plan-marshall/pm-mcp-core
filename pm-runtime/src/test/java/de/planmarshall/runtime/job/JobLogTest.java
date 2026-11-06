@@ -16,11 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,32 +35,46 @@ import de.planmarshall.runtime.job.JobEvidence.LogState;
 import de.planmarshall.runtime.job.JobLog.Complete;
 import de.planmarshall.runtime.job.JobLog.Lines;
 import de.planmarshall.runtime.job.JobLog.Unavailable;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The job log (PM-EXEC-4): it is read while the job still writes it, a read continues at the offset the previous read
  * answered, the launch report is stripped exactly once, and a log that cannot be read is one of the
  * states of row 5 of the outcome derivation, never an exception.
+ * <p>
+ * Contract literals that stay: the wire format of the launch report (its member names, the confinement
+ * {@code unavailable} and the null Landlock ABI). The PID and the start instant of the report, the job id of the log
+ * file and every output line are generated.
  */
+@EnableGeneratorController
 @DisplayName("Job log")
 class JobLogTest {
-
-    private static final String REPORT = "{\"pid\":4242,\"process_started_at\":\"2026-10-17T10:00:05Z\","
-            + "\"confinement\":\"unavailable\",\"landlock_abi\":null}";
 
     @TempDir
     Path directory;
 
     private Path path;
     private JobLog log;
+    private long pid;
+    private String report;
 
     @BeforeEach
     void createLog() {
-        path = directory.resolve("b-0123456789abcdef.log");
+        path = directory.resolve("b-" + RuntimeGenerators.sha256Digests().next().substring(0, 16) + ".log");
         log = new JobLog(path);
+        pid = Generators.integers(2, 4_000_000).next();
+        var startedAt = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
+        report = "{\"pid\":" + pid + ",\"process_started_at\":\"" + startedAt + "\","
+                + "\"confinement\":\"unavailable\",\"landlock_abi\":null}";
     }
 
     private void append(String text) throws IOException {
         Files.writeString(path, text, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    }
+
+    /** @return a generated output line without a line break */
+    private static String line() {
+        return Generators.letterStrings(1, 32).next();
     }
 
     @Nested
@@ -67,69 +84,83 @@ class JobLogTest {
         @Test
         @DisplayName("answers the complete lines written so far and continues at the offset after them")
         void readsWhileAppending() throws Exception {
-            append(REPORT + "\n[INFO] first\n[INFO] sec");
+            var firstLine = line();
+            var secondLine = line() + line();
+            var split = secondLine.length() / 2;
+            var thirdLine = line();
+            append(report + "\n" + firstLine + "\n" + secondLine.substring(0, split));
 
-            var first = assertInstanceOf(Lines.class, log.readLines(0));
-            append("ond\n[INFO] third\n");
-            var second = assertInstanceOf(Lines.class, log.readLines(first.nextOffset()));
-            var third = assertInstanceOf(Lines.class, log.readLines(second.nextOffset()));
+            var first = assertInstanceOf(Lines.class, log.readLines(0), "the first read answers lines");
+            append(secondLine.substring(split) + "\n" + thirdLine + "\n");
+            var second = assertInstanceOf(Lines.class, log.readLines(first.nextOffset()),
+                    "the second read answers lines");
+            var third = assertInstanceOf(Lines.class, log.readLines(second.nextOffset()),
+                    "the third read answers lines");
 
             assertAll(
-                    () -> assertEquals(4242, first.report().orElseThrow().pid()),
-                    () -> assertEquals(List.of("[INFO] first"), first.lines()),
-                    () -> assertEquals((REPORT + "\n[INFO] first\n").getBytes(StandardCharsets.UTF_8).length,
-                            first.nextOffset()),
-                    () -> assertEquals(List.of("[INFO] second", "[INFO] third"), second.lines()),
-                    () -> assertTrue(second.report().isEmpty()),
-                    () -> assertEquals(Files.size(path), second.nextOffset()),
-                    () -> assertEquals(List.of(), third.lines()),
-                    () -> assertEquals(second.nextOffset(), third.nextOffset()));
+                    () -> assertEquals(pid, first.report().orElseThrow().pid(), "the report's PID is read"),
+                    () -> assertEquals(List.of(firstLine), first.lines(), "the first read holds the complete line"),
+                    () -> assertEquals((report + "\n" + firstLine + "\n").getBytes(StandardCharsets.UTF_8).length,
+                            first.nextOffset(), "the offset follows the complete line"),
+                    () -> assertEquals(List.of(secondLine, thirdLine), second.lines(),
+                            "the second read joins the split line"),
+                    () -> assertTrue(second.report().isEmpty(), "a later read carries no report"),
+                    () -> assertEquals(Files.size(path), second.nextOffset(), "the second read reaches the end"),
+                    () -> assertEquals(List.of(), third.lines(), "a read at the end answers no line"),
+                    () -> assertEquals(second.nextOffset(), third.nextOffset(), "a read at the end keeps the offset"));
         }
 
         @Test
         @DisplayName("strips the report once: a report-shaped job line read from a later offset is kept")
         void reportStrippedOnce() throws Exception {
-            append(REPORT + "\n");
-            var first = assertInstanceOf(Lines.class, log.readLines(0));
-            append(REPORT + "\n");
+            append(report + "\n");
+            var first = assertInstanceOf(Lines.class, log.readLines(0), "the first read answers lines");
+            append(report + "\n");
 
-            var second = assertInstanceOf(Lines.class, log.readLines(first.nextOffset()));
+            var second = assertInstanceOf(Lines.class, log.readLines(first.nextOffset()),
+                    "the second read answers lines");
 
             assertAll(
-                    () -> assertTrue(first.report().isPresent()),
-                    () -> assertEquals(List.of(), first.lines()),
-                    () -> assertEquals(List.of(REPORT), second.lines()),
-                    () -> assertTrue(second.report().isEmpty()));
+                    () -> assertTrue(first.report().isPresent(), "the first read strips the report"),
+                    () -> assertEquals(List.of(), first.lines(), "the report is no line of the job"),
+                    () -> assertEquals(List.of(report), second.lines(), "a later report-shaped line is kept"),
+                    () -> assertTrue(second.report().isEmpty(), "a later read strips no report"));
         }
 
         @Test
         @DisplayName("keeps a first line that is no report, and waits for an incomplete first line")
         void noReport() throws Exception {
-            append("pm-exec: usage");
-            var incomplete = assertInstanceOf(Lines.class, log.readLines(0));
-            append(" error\n");
+            var start = line();
+            var end = line();
+            append(start);
+            var incomplete = assertInstanceOf(Lines.class, log.readLines(0), "an incomplete read answers lines");
+            append(end + "\n");
 
-            var complete = assertInstanceOf(Lines.class, log.readLines(0));
+            var complete = assertInstanceOf(Lines.class, log.readLines(0), "a complete read answers lines");
 
             assertAll(
-                    () -> assertEquals(List.of(), incomplete.lines()),
-                    () -> assertEquals(0, incomplete.nextOffset()),
-                    () -> assertEquals(List.of("pm-exec: usage error"), complete.lines()),
-                    () -> assertTrue(complete.report().isEmpty()));
+                    () -> assertEquals(List.of(), incomplete.lines(), "an incomplete line is not answered"),
+                    () -> assertEquals(0, incomplete.nextOffset(), "an incomplete line keeps the offset"),
+                    () -> assertEquals(List.of(start + end), complete.lines(), "the completed line is answered"),
+                    () -> assertTrue(complete.report().isEmpty(), "a first line that is no report is kept"));
         }
 
         @Test
         @DisplayName("is missing before the launcher created it, and truncated when shorter than the offset")
         void missingAndTruncated() throws Exception {
-            var missing = assertInstanceOf(Unavailable.class, log.readLines(0));
-            append("short\n");
+            var missing = assertInstanceOf(Unavailable.class, log.readLines(0), "a missing log is unavailable");
+            var written = line() + "\n";
+            append(written);
 
-            var truncated = assertInstanceOf(Unavailable.class, log.readLines(100));
+            var truncated = assertInstanceOf(Unavailable.class,
+                    log.readLines(written.length() + Generators.integers(1, 1000).next()),
+                    "a read beyond the end is unavailable");
 
             assertAll(
-                    () -> assertEquals(LogState.MISSING, missing.state()),
-                    () -> assertEquals(LogState.TRUNCATED, truncated.state()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> log.readLines(-1)));
+                    () -> assertEquals(LogState.MISSING, missing.state(), "the log is missing"),
+                    () -> assertEquals(LogState.TRUNCATED, truncated.state(), "the log is truncated"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> log.readLines(-1),
+                            "a negative offset is refused"));
         }
     }
 
@@ -140,36 +171,39 @@ class JobLogTest {
         @Test
         @DisplayName("readable: the report and the job's output after it")
         void readable() throws Exception {
-            append(REPORT + "\n[INFO] BUILD SUCCESS\n");
+            var output = line() + "\n";
+            append(report + "\n" + output);
 
-            var whole = assertInstanceOf(Complete.class, log.readWhole(0));
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a readable log is complete");
 
-            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading());
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(),
+                    "the complete log carries the report");
             assertAll(
-                    () -> assertEquals("[INFO] BUILD SUCCESS\n", reading.jobOutput()),
-                    () -> assertEquals(Files.size(path), whole.length()));
+                    () -> assertEquals(output, reading.jobOutput(), "the job output follows the report"),
+                    () -> assertEquals(Files.size(path), whole.length(), "the length is the size of the log"));
         }
 
         @Test
         @DisplayName("missing: the log does not exist")
         void missing() {
-            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0));
+            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a missing log is unavailable");
 
-            assertEquals(LogState.MISSING, whole.state());
+            assertEquals(LogState.MISSING, whole.state(), "the ended log is missing");
         }
 
         @Test
         @DisplayName("truncated: the log is shorter than what was already read from it")
         void truncated() throws Exception {
-            append(REPORT + "\n[INFO] first\n");
-            var read = assertInstanceOf(Lines.class, log.readLines(0));
-            Files.writeString(path, REPORT + "\n");
+            append(report + "\n" + line() + "\n");
+            var read = assertInstanceOf(Lines.class, log.readLines(0), "the first read answers lines");
+            Files.writeString(path, report + "\n");
 
-            var whole = assertInstanceOf(Unavailable.class, log.readWhole(read.nextOffset()));
+            var whole = assertInstanceOf(Unavailable.class, log.readWhole(read.nextOffset()),
+                    "a shortened log is unavailable");
 
             assertAll(
-                    () -> assertEquals(LogState.TRUNCATED, whole.state()),
-                    () -> assertFalse(whole.detail().isBlank()));
+                    () -> assertEquals(LogState.TRUNCATED, whole.state(), "the shortened log is truncated"),
+                    () -> assertFalse(whole.detail().isBlank(), "the truncation carries a detail"));
         }
 
         @Test
@@ -177,15 +211,17 @@ class JobLogTest {
         void unreadable() throws Exception {
             Files.createDirectory(path);
 
-            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0));
-            var lines = assertInstanceOf(Unavailable.class, log.readLines(0));
+            var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a directory log is unavailable");
+            var lines = assertInstanceOf(Unavailable.class, log.readLines(0), "a directory log has no lines");
 
             assertAll(
-                    () -> assertEquals(LogState.UNREADABLE, whole.state()),
-                    () -> assertEquals(LogState.UNREADABLE, lines.state()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> log.readWhole(-1)),
+                    () -> assertEquals(LogState.UNREADABLE, whole.state(), "the whole read is unreadable"),
+                    () -> assertEquals(LogState.UNREADABLE, lines.state(), "the line read is unreadable"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> log.readWhole(-1),
+                            "a negative offset is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Unavailable(LogState.READABLE, "readable")));
+                            () -> new Unavailable(LogState.READABLE, line()),
+                            "a readable state is no unavailability"));
         }
     }
 }

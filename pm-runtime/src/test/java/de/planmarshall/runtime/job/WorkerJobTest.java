@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -52,20 +55,25 @@ import de.planmarshall.runtime.launch.ResolvedSkill;
 import de.planmarshall.runtime.launch.WorkerLaunch;
 import de.planmarshall.runtime.security.JobTokens;
 import de.planmarshall.runtime.security.Secrets;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * A worker started through the subprocess runner (PM-WORK-3, Job Record): the generation id is the job id, the record
  * carries the {@code worker} block, the job token is revoked with the fate, and a descendant that leaves the process
  * group is ended with the worker.
+ * <p>
+ * Contract literals that stay: the modes of the worker script with its sleeps, the host {@code PATH} the fake launcher
+ * runs with, the harness {@code claude} with its model tier {@code frontier}, the tool {@code read_file}, the effort
+ * {@code high} and the bounds of the role artifact. The generation id, the job token, the role name and description,
+ * the prompt, the model, the versions and the budget are generated.
  */
 @EnabledOnOs(OS.LINUX)
+@EnableGeneratorController
 @DisplayName("Worker jobs of SubprocessJobRunner")
 class WorkerJobTest {
 
     private static final Duration SETTLE_TIMEOUT = Duration.ofSeconds(30);
     private static final Scope PROJECT = new Scope(Scope.Type.PROJECT, null);
-    private static final String GENERATION = "l-0123456789abcdef";
-    private static final String TOKEN = "job-token";
     private static final Map<String, String> ENVIRONMENT = Map.of("PATH", "/usr/bin:/bin");
 
     private static final String WORKER_SCRIPT = """
@@ -82,10 +90,18 @@ class WorkerJobTest {
     private Path script;
     private JobTokenStore tokens;
     private SubprocessJobRunner runner;
+    private String generation;
+    private String token;
+    private String role;
+    private int budgetSeconds;
 
     @BeforeEach
     void setUp() throws IOException {
         fixture = new JobEnrolmentFixture();
+        generation = "l-" + RuntimeGenerators.sha256Digests().next().substring(0, 16);
+        token = Generators.letterStrings(16, 32).next();
+        role = Generators.letterStrings(4, 16).next().toLowerCase(Locale.ROOT);
+        budgetSeconds = Generators.integers(60, 3600).next();
         script = fixture.base.resolve("worker/run");
         Files.createDirectories(script.getParent());
         Files.writeString(script, WORKER_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString())
@@ -111,6 +127,10 @@ class WorkerJobTest {
         fixture.close();
     }
 
+    private String workerBlock() {
+        return "{\"role\":\"" + role + "\"}";
+    }
+
     @Test
     @DisplayName("a worker is recorded as kind llm with its worker block and its token revoked")
     void startedWorker() {
@@ -119,12 +139,13 @@ class WorkerJobTest {
                 .jobId();
         var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
         assertAll(
-                () -> assertEquals(JobId.Kind.LLM, jobId.kind()),
-                () -> assertEquals(Status.ENDED, settled.status()),
-                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
-                () -> assertTrue(settled.worker().contains("implementer")),
-                () -> assertEquals(GENERATION, tokens.resolve(Secrets.sha256(TOKEN)).orElseThrow().jobId()),
-                () -> assertTrue(tokens.revoked(GENERATION), "the token is revoked with the fate"));
+                () -> assertEquals(JobId.Kind.LLM, jobId.kind(), "a worker is a job of kind llm"),
+                () -> assertEquals(Status.ENDED, settled.status(), "the worker has ended"),
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the worker succeeded"),
+                () -> assertTrue(settled.worker().contains(role), "the record carries the worker block"),
+                () -> assertEquals(generation, tokens.resolve(Secrets.sha256(token)).orElseThrow().jobId(),
+                        "the token resolves to the generation"),
+                () -> assertTrue(tokens.revoked(generation), "the token is revoked with the fate"));
     }
 
     @Test
@@ -132,51 +153,62 @@ class WorkerJobTest {
     void descendantOutsideTheGroupIsEnded() throws Exception {
         var pidFile = fixture.base.resolve("detached.pid");
         var result = runner.startWorker(start("detach"));
-        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result).jobId();
+        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the worker should be started")
+                .jobId();
         var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
         var descendant = Long.parseLong(Files.readString(pidFile).trim());
         awaitDead(descendant);
         assertAll(
-                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
-                () -> assertFalse(alive(descendant), "the descendant is not left running: " + descendant));
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the detaching worker succeeded"),
+                () -> assertFalse(alive(descendant), "the descendant is not left running"));
     }
 
     @Test
     @DisplayName("a refused worker records its fate, its refusal reason and its worker block")
     void refusedWorker() {
-        var jobId = runner.refuseWorker(new WorkerStart.Refusal(GENERATION, role(), fixture.enrolment(), PROJECT,
-                "worker:implementer", 600, new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT,
-                        null), "{\"role\":\"implementer\"}", LaunchRefusal.HARNESS_NOT_ENROLLED,
-                "the harness 'claude' is not enrolled"));
+        var jobId = runner.refuseWorker(new WorkerStart.Refusal(generation, role(), fixture.enrolment(), PROJECT,
+                "worker:" + role, budgetSeconds, new JobRecord.BudgetDerivation(
+                        JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null), workerBlock(),
+                LaunchRefusal.HARNESS_NOT_ENROLLED, Generators.letterStrings(8, 64).next()));
         var settled = runner.recordOf(jobId).orElseThrow();
         assertAll(
-                () -> assertEquals(Status.REFUSED, settled.status()),
-                () -> assertEquals(Fate.REFUSED, settled.fate()),
-                () -> assertEquals(LaunchRefusal.HARNESS_NOT_ENROLLED.code(), settled.refusalReason()),
-                () -> assertTrue(settled.worker().contains("implementer")));
+                () -> assertEquals(Status.REFUSED, settled.status(), "the refused worker's status is refused"),
+                () -> assertEquals(Fate.REFUSED, settled.fate(), "the refused worker's fate is refused"),
+                () -> assertEquals(LaunchRefusal.HARNESS_NOT_ENROLLED.code(), settled.refusalReason(),
+                        "the record names the refusal reason"),
+                () -> assertTrue(settled.worker().contains(role), "the record carries the worker block"));
     }
 
     private WorkerStart start(String mode) {
-        var prompt = new LaunchPrompt("prompt", ResolvedSkill.sha256("prompt"), List.of(), 6);
-        var launch = new WorkerLaunch(GENERATION, "implementer", RoleClass.WRITER,
+        var promptText = Generators.letterStrings(8, 64).next();
+        var prompt = new LaunchPrompt(promptText, ResolvedSkill.sha256(promptText), List.of(),
+                promptText.getBytes(StandardCharsets.UTF_8).length);
+        var launch = new WorkerLaunch(generation, role, RoleClass.WRITER,
                 RoleForm.FRESH, List.of(script.toString(), mode), ENVIRONMENT, script
-                        .getParent(), fixture.base.resolve("run/jobs").resolve(GENERATION), script, prompt, Optional
-                        .empty(), Optional.empty(), TOKEN, JobTokens.sha256Hex(TOKEN), "claude", "1.5.0", "m",
-                null, null, JsonDocument.parse("{\"role\":\"implementer\"}".getBytes(
-                        StandardCharsets.UTF_8), "worker"));
-        return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:implementer", 600,
+                        .getParent(), fixture.base.resolve("run/jobs").resolve(generation), script, prompt, Optional
+                        .empty(), Optional.empty(), token, JobTokens.sha256Hex(token), "claude", version(),
+                Generators.letterStrings(1, 16).next(), null, null,
+                JsonDocument.parse(workerBlock().getBytes(StandardCharsets.UTF_8), "worker"));
+        return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:" + role, budgetSeconds,
                 new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(),
                 Optional.empty());
     }
 
-    private static EffectiveRole role() {
-        var artifact = new RoleArtifact(1, "implementer", "the implementer",
+    /** @return a generated version of the form major.minor.patch */
+    private static String version() {
+        return Generators.integers(0, 99).next() + "." + Generators.integers(0, 99).next() + "."
+                + Generators.integers(0, 99).next();
+    }
+
+    private EffectiveRole role() {
+        var artifact = new RoleArtifact(1, role, Generators.letterStrings(4, 32).next(),
                 RoleClass.WRITER, List.of("read_file"), "claude", "frontier",
                 new EffortValue("high"), RoleForm.FRESH, 1,
-                List.of("skill://pm/role/implementer/SKILL.md"), null, 60, null, new RoleArtifact
+                List.of("skill://pm/role/" + role + "/SKILL.md"), null, 60, null, new RoleArtifact
                         .Questions(0, 0), Map.of());
         return new EffectiveRole(artifact, "claude", "frontier",
-                new EffortValue("high"), List.of(), "1.5", Optional.empty(),
+                new EffortValue("high"), List.of(), Generators.integers(0, 99).next() + "."
+                        + Generators.integers(0, 99).next(), Optional.empty(),
                 new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
     }
 

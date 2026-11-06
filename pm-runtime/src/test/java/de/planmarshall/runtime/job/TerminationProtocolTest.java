@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,11 +56,16 @@ import de.planmarshall.runtime.job.TerminationProtocol.Report;
  * the group when a member lives, and the cancel before the group exists. The decisive assertions run against the
  * recording signalling primitive on every platform; on Linux a job started through {@link FakePmExec} shows the
  * protocol against real process groups, waiting no longer than the compiled grace period plus a bounded tolerance.
+ * <p>
+ * Contract literals that stay: the signals and their numbers, the errno {@code EPERM} (1) of a refused call, the
+ * probe and retry intervals with the attempts they bound, the exit status 137 of a killed shell, the ids the system
+ * primitive refuses and the scripts of the real jobs. The PID and the start instant of the recorded runs are
+ * generated.
  */
+@EnableGeneratorController
 @DisplayName("Termination protocol")
 class TerminationProtocolTest {
 
-    private static final long PID = 4242;
     private static final Answer DELIVERED = new Delivered();
     private static final Answer ESRCH = new NoSuchProcess();
 
@@ -98,8 +106,12 @@ class TerminationProtocolTest {
     /** A clock that advances only by the pauses of the protocol. */
     static final class FakeTime implements InstantSource, TerminationProtocol.Pause {
 
-        private Instant now = Instant.parse("2026-10-17T10:00:00Z");
+        private Instant now;
         private Duration slept = Duration.ZERO;
+
+        FakeTime(Instant start) {
+            now = start;
+        }
 
         @Override
         public Instant instant() {
@@ -134,10 +146,17 @@ class TerminationProtocolTest {
     @DisplayName("against the recording primitive")
     class Recorded {
 
-        private final FakeTime time = new FakeTime();
+        private long pid;
+        private FakeTime time;
+
+        @BeforeEach
+        void drawJob() {
+            pid = Generators.longs(2, Integer.MAX_VALUE).next();
+            time = new FakeTime(Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next()));
+        }
 
         private Report terminate(RecordingSignals signals) {
-            return new TerminationProtocol(signals, time, time).terminate(PID);
+            return new TerminationProtocol(signals, time, time).terminate(pid);
         }
 
         @Test
@@ -149,10 +168,12 @@ class TerminationProtocolTest {
             var report = terminate(signals);
 
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_EXITED, false, OptionalInt.empty()), report),
-                    () -> assertEquals(new Call(true, PID, Signal.SIGTERM), signals.calls.getFirst()),
-                    () -> assertEquals(0, signals.count(true, Signal.SIGKILL)),
-                    () -> assertEquals(Duration.ofMillis(200), time.slept()));
+                    () -> assertEquals(new Report(Ending.GROUP_EXITED, false, OptionalInt.empty()), report,
+                            "the group exited within the grace period"),
+                    () -> assertEquals(new Call(true, pid, Signal.SIGTERM), signals.calls.getFirst(),
+                            "the group is sent SIGTERM first"),
+                    () -> assertEquals(0, signals.count(true, Signal.SIGKILL), "the group is never sent SIGKILL"),
+                    () -> assertEquals(Duration.ofMillis(200), time.slept(), "two probe intervals were waited"));
         }
 
         @Test
@@ -164,11 +185,14 @@ class TerminationProtocolTest {
             var report = terminate(signals);
 
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_KILLED, false, OptionalInt.empty()), report),
-                    () -> assertEquals(TerminationProtocol.GRACE_PERIOD, time.slept()),
-                    () -> assertEquals(new Call(true, PID, Signal.SIGKILL), signals.calls.getLast()),
-                    () -> assertEquals(1, signals.count(true, Signal.SIGKILL)),
-                    () -> assertEquals(0, signals.count(false, Signal.SIGTERM)));
+                    () -> assertEquals(new Report(Ending.GROUP_KILLED, false, OptionalInt.empty()), report,
+                            "the living group is killed"),
+                    () -> assertEquals(TerminationProtocol.GRACE_PERIOD, time.slept(),
+                            "the whole grace period was waited"),
+                    () -> assertEquals(new Call(true, pid, Signal.SIGKILL), signals.calls.getLast(),
+                            "the last call is SIGKILL to the group"),
+                    () -> assertEquals(1, signals.count(true, Signal.SIGKILL), "SIGKILL is sent once"),
+                    () -> assertEquals(0, signals.count(false, Signal.SIGTERM), "the bare PID is not signalled"));
         }
 
         @Test
@@ -179,7 +203,7 @@ class TerminationProtocolTest {
 
             var report = terminate(signals);
 
-            assertEquals(Ending.GROUP_EXITED, report.ending());
+            assertEquals(Ending.GROUP_EXITED, report.ending(), "a group gone at SIGKILL has exited");
         }
 
         @Test
@@ -191,11 +215,14 @@ class TerminationProtocolTest {
             var report = terminate(signals);
 
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_EXITED, true, OptionalInt.empty()), report),
-                    () -> assertEquals(new Call(false, PID, Signal.SIGTERM), signals.calls.get(1)),
-                    () -> assertEquals(1, signals.count(false, Signal.SIGTERM)),
-                    () -> assertEquals(4, signals.count(true, Signal.SIGTERM)),
-                    () -> assertEquals(TerminationProtocol.GROUP_RETRY_INTERVAL.multipliedBy(3), time.slept()));
+                    () -> assertEquals(new Report(Ending.GROUP_EXITED, true, OptionalInt.empty()), report,
+                            "the cancel before the group is reported"),
+                    () -> assertEquals(new Call(false, pid, Signal.SIGTERM), signals.calls.get(1),
+                            "the bare PID is sent SIGTERM second"),
+                    () -> assertEquals(1, signals.count(false, Signal.SIGTERM), "the bare PID is signalled once"),
+                    () -> assertEquals(4, signals.count(true, Signal.SIGTERM), "the group is tried four times"),
+                    () -> assertEquals(TerminationProtocol.GROUP_RETRY_INTERVAL.multipliedBy(3), time.slept(),
+                            "three retry intervals were waited"));
         }
 
         @Test
@@ -206,11 +233,12 @@ class TerminationProtocolTest {
             var report = terminate(signals);
 
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, true, OptionalInt.empty()), report),
+                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, true, OptionalInt.empty()), report,
+                            "the group was never reached"),
                     () -> assertEquals(1 + TerminationProtocol.GROUP_RETRY_ATTEMPTS,
-                            signals.count(true, Signal.SIGTERM)),
-                    () -> assertEquals(Duration.ofSeconds(1), time.slept()),
-                    () -> assertEquals(0, signals.count(true, Signal.SIGKILL)));
+                            signals.count(true, Signal.SIGTERM), "the group is tried once plus the retries"),
+                    () -> assertEquals(Duration.ofSeconds(1), time.slept(), "the retries take one second"),
+                    () -> assertEquals(0, signals.count(true, Signal.SIGKILL), "no SIGKILL reaches no group"));
         }
 
         @Test
@@ -218,13 +246,15 @@ class TerminationProtocolTest {
         void deadLeaderSkipsTheBarePidStep() {
             var signals = new RecordingSignals(groupAnswers(Map.of(Signal.SIGTERM, List.of(ESRCH)), DELIVERED));
 
-            var report = new TerminationProtocol(signals, time, time).terminate(PID, false);
+            var report = new TerminationProtocol(signals, time, time).terminate(pid, false);
 
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty()), report),
-                    () -> assertEquals(List.of(new Call(true, PID, Signal.SIGTERM)), signals.calls),
-                    () -> assertEquals(0, signals.count(false, Signal.SIGTERM)),
-                    () -> assertEquals(Duration.ZERO, time.slept()));
+                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty()), report,
+                            "the group was not reached"),
+                    () -> assertEquals(List.of(new Call(true, pid, Signal.SIGTERM)), signals.calls,
+                            "only the group is signalled"),
+                    () -> assertEquals(0, signals.count(false, Signal.SIGTERM), "the freed PID is not signalled"),
+                    () -> assertEquals(Duration.ZERO, time.slept(), "nothing was waited"));
         }
 
         @Test
@@ -235,11 +265,13 @@ class TerminationProtocolTest {
             var report = terminate(signals);
 
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty()), report),
-                    () -> assertEquals(2, signals.calls.size()),
-                    () -> assertEquals(Duration.ZERO, time.slept()));
+                    () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty()), report,
+                            "an ended process is not reached"),
+                    () -> assertEquals(2, signals.calls.size(), "only the group and the PID are tried"),
+                    () -> assertEquals(Duration.ZERO, time.slept(), "nothing was waited"));
         }
 
+        /** The calls that may be refused, each with the answer that refuses it as EPERM: contract of the protocol. */
         static Stream<Arguments> refusals() {
             var eperm = new Refused(1);
             return Stream.of(
@@ -259,7 +291,8 @@ class TerminationProtocolTest {
         void refused(String call, Function<Call, Answer> answers, boolean cancelBeforeGroup) {
             var report = terminate(new RecordingSignals(answers));
 
-            assertEquals(new Report(Ending.SIGNAL_REFUSED, cancelBeforeGroup, OptionalInt.of(1)), report);
+            assertEquals(new Report(Ending.SIGNAL_REFUSED, cancelBeforeGroup, OptionalInt.of(1)), report,
+                    "the refused call stops with its errno");
         }
 
         @Test
@@ -268,31 +301,33 @@ class TerminationProtocolTest {
             var signals = new RecordingSignals(groupAnswers(Map.of(Signal.SIGTERM, List.of(DELIVERED),
                     Signal.PROBE, List.of(DELIVERED), Signal.SIGKILL, List.of(DELIVERED)), DELIVERED));
             TerminationProtocol.Pause interrupting = _ -> {
-                throw new InterruptedException("drain");
+                throw new InterruptedException(Generators.letterStrings(1, 16).next());
             };
 
-            var report = new TerminationProtocol(signals, time, interrupting).terminate(PID);
+            var report = new TerminationProtocol(signals, time, interrupting).terminate(pid);
 
             var interruptStatus = Thread.interrupted();
             assertAll(
-                    () -> assertEquals(Ending.GROUP_KILLED, report.ending()),
-                    () -> assertEquals(1, signals.count(true, Signal.PROBE)),
-                    () -> assertTrue(interruptStatus));
+                    () -> assertEquals(Ending.GROUP_KILLED, report.ending(), "the interrupted group is killed"),
+                    () -> assertEquals(1, signals.count(true, Signal.PROBE), "the group is probed once"),
+                    () -> assertTrue(interruptStatus, "the interrupt status is kept"));
         }
 
         @Test
         @DisplayName("a report carries an errno exactly for a refused signal")
         void reportInvariants() {
-            var someErrno = OptionalInt.of(1);
+            var someErrno = OptionalInt.of(Generators.integers(1, 133).next());
             var noErrno = OptionalInt.empty();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Report(Ending.GROUP_KILLED, false, someErrno)),
+                            () -> new Report(Ending.GROUP_KILLED, false, someErrno),
+                            "an errno without a refusal is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Report(Ending.SIGNAL_REFUSED, false, noErrno)),
+                            () -> new Report(Ending.SIGNAL_REFUSED, false, noErrno),
+                            "a refusal without an errno is refused"),
                     () -> assertEquals(List.of(0, 9, 15), Stream.of(Signal.PROBE, Signal.SIGKILL, Signal.SIGTERM)
-                            .map(Signal::number).toList()));
+                            .map(Signal::number).toList(), "the signals carry their POSIX numbers"));
         }
     }
 
@@ -352,13 +387,15 @@ class TerminationProtocolTest {
             assertTrue(launched.process().waitFor(10, TimeUnit.SECONDS), "the leader should have ended");
             descendant.onExit().get(10, TimeUnit.SECONDS);
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_KILLED, false, OptionalInt.empty()), report),
-                    () -> assertEquals(1, signals.count(true, Signal.SIGKILL)),
-                    () -> assertTrue(elapsed.compareTo(TerminationProtocol.GRACE_PERIOD) >= 0, elapsed::toString),
+                    () -> assertEquals(new Report(Ending.GROUP_KILLED, false, OptionalInt.empty()), report,
+                            "the ignoring group is killed"),
+                    () -> assertEquals(1, signals.count(true, Signal.SIGKILL), "the group is sent SIGKILL once"),
+                    () -> assertTrue(elapsed.compareTo(TerminationProtocol.GRACE_PERIOD) >= 0,
+                            "the kill came after the grace period"),
                     () -> assertTrue(elapsed.compareTo(TerminationProtocol.GRACE_PERIOD.plus(TOLERANCE)) < 0,
-                            elapsed::toString),
-                    () -> assertFalse(descendant.isAlive()),
-                    () -> assertEquals(137, launched.process().exitValue()));
+                            "the kill came within the tolerance"),
+                    () -> assertFalse(descendant.isAlive(), "the descendant was killed with the group"),
+                    () -> assertEquals(137, launched.process().exitValue(), "the leader died of SIGKILL"));
         }
 
         @Test
@@ -372,10 +409,12 @@ class TerminationProtocolTest {
 
             var elapsed = Duration.ofNanos(System.nanoTime() - started);
             assertAll(
-                    () -> assertEquals(new Report(Ending.GROUP_EXITED, false, OptionalInt.empty()), report),
-                    () -> assertEquals(0, signals.count(true, Signal.SIGKILL)),
-                    () -> assertTrue(elapsed.compareTo(TerminationProtocol.GRACE_PERIOD) < 0, elapsed::toString),
-                    () -> assertTrue(launched.process().waitFor(10, TimeUnit.SECONDS)));
+                    () -> assertEquals(new Report(Ending.GROUP_EXITED, false, OptionalInt.empty()), report,
+                            "the obedient group exited"),
+                    () -> assertEquals(0, signals.count(true, Signal.SIGKILL), "the group is never sent SIGKILL"),
+                    () -> assertTrue(elapsed.compareTo(TerminationProtocol.GRACE_PERIOD) < 0,
+                            "the group exited within the grace period"),
+                    () -> assertTrue(launched.process().waitFor(10, TimeUnit.SECONDS), "the leader has ended"));
         }
 
         @Test
@@ -384,10 +423,13 @@ class TerminationProtocolTest {
             var system = ProcessGroupSignals.system();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> system.signalGroup(1, Signal.PROBE)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> system.signalProcess(0, Signal.PROBE)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> system.signalGroup(1, Signal.PROBE),
+                            "the group of init is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> system.signalProcess(0, Signal.PROBE),
+                            "the PID 0 is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> system.signalGroup(Integer.MAX_VALUE + 1L, Signal.PROBE)));
+                            () -> system.signalGroup(Integer.MAX_VALUE + 1L, Signal.PROBE),
+                            "a PID beyond the int range is refused"));
         }
     }
 }

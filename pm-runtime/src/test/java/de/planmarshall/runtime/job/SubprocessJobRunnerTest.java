@@ -9,6 +9,10 @@
  */
 package de.planmarshall.runtime.job;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -282,10 +286,10 @@ class SubprocessJobRunnerTest {
 
         var log = Files.readString(jobs.logPath(jobId));
         assertAll(
-                () -> assertTrue(log.contains("ARGV:--write "), log),
-                () -> assertTrue(log.contains("--deny-read "), log),
-                () -> assertTrue(log.contains(fixture.base.toString()), log),
-                () -> assertTrue(log.contains("-- "), log));
+                () -> assertTrue(log.contains("ARGV:--write "), "the launcher received a write option"),
+                () -> assertTrue(log.contains("--deny-read "), "the launcher received a deny-read option"),
+                () -> assertTrue(log.contains(fixture.base.toString()), "the runtime base is named to the launcher"),
+                () -> assertTrue(log.contains("-- "), "the launcher received the separator"));
     }
 
     /** Waits until the job's output holds a line, so a signal meets the job only once it is ready for it. */
@@ -327,10 +331,10 @@ class SubprocessJobRunnerTest {
             var before = observations.getFirst().records();
             assertAll(
                     () -> assertEquals(1, before.size(), "one record before the launch"),
-                    () -> assertEquals(jobId, before.getFirst().jobId()),
-                    () -> assertEquals(Status.RUNNING, before.getFirst().status()),
+                    () -> assertEquals(jobId, before.getFirst().jobId(), "the record is the started job's"),
+                    () -> assertEquals(Status.RUNNING, before.getFirst().status(), "the write-ahead record is running"),
                     () -> assertNull(before.getFirst().pid(), "no PID before the launch"),
-                    () -> assertFalse(before.getFirst().isSpawnRecorded()));
+                    () -> assertFalse(before.getFirst().isSpawnRecorded(), "no spawn is recorded before launch"));
         }
 
         @Test
@@ -341,11 +345,11 @@ class SubprocessJobRunnerTest {
             var running = runner.recordOf(jobId).orElseThrow();
 
             assertAll(
-                    () -> assertEquals(Status.RUNNING, running.status()),
+                    () -> assertEquals(Status.RUNNING, running.status(), "the started job is running"),
                     () -> assertTrue(running.isSpawnRecorded(), "the post-spawn record is written"),
-                    () -> assertNotNull(running.processStartedAt()),
-                    () -> assertNotNull(running.spawnedAt()),
-                    () -> assertTrue(runner.runningJobs().contains(jobId)),
+                    () -> assertNotNull(running.processStartedAt(), "the process start is recorded"),
+                    () -> assertNotNull(running.spawnedAt(), "the spawn instant is recorded"),
+                    () -> assertTrue(runner.runningJobs().contains(jobId), "the job is among the running jobs"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.JOB_STARTED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
@@ -363,12 +367,13 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertTrue(cancelled),
+                    () -> assertTrue(cancelled, "the running job is cancelled"),
                     () -> assertEquals(1, heldWhileRunning, "the running job's store is held"),
                     () -> assertEquals(0, runner.storesHeld(), "the settled job's store is pruned"),
                     () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
                             "the settled record is still read"),
-                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO)));
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO),
+                            "the settled record is awaited at once"));
         }
 
         @Test
@@ -378,7 +383,8 @@ class SubprocessJobRunnerTest {
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
             try {
                 var request = git(30, "ok");
-                assertThrows(UncheckedIOException.class, () -> runner.start(request));
+                assertThrows(UncheckedIOException.class, () -> runner.start(request),
+                        "an unwritable store fails the start");
 
                 assertAll(
                         () -> assertTrue(runner.runningJobs().isEmpty(), "the job was never registered"),
@@ -400,12 +406,13 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(List.of(jobId), settledIds),
+                    () -> assertEquals(List.of(jobId), settledIds, "the drain settled the queued job"),
                     () -> assertEquals(1, heldWhileQueued, "the queued job's store is held"),
                     () -> assertEquals(0, runner.storesHeld(), "the settled queued job's store is pruned"),
-                    () -> assertEquals(Status.ENDED, settled.status()),
-                    () -> assertEquals(Fate.KILLED, settled.fate()),
-                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
+                    () -> assertEquals(Status.ENDED, settled.status(), "the queued job has ended"),
+                    () -> assertEquals(Fate.KILLED, settled.fate(), "the drained queued job is killed"),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
+                            "the settled record is still read"));
         }
 
         @Test
@@ -425,7 +432,8 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(Optional.empty(), runner.recordOf(first),
                             "the oldest settled record left the window"),
-                    () -> assertEquals(Optional.of(secondSettled), runner.recordOf(second)),
+                    () -> assertEquals(Optional.of(secondSettled), runner.recordOf(second),
+                            "the newest settled record is answered"),
                     () -> assertEquals(0, runner.storesHeld(), "both stores are pruned"));
         }
 
@@ -437,14 +445,14 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Status.ENDED, settled.status()),
-                    () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
-                    () -> assertEquals(7, settled.outcomeRow()),
-                    () -> assertEquals(0L, settled.exitCode()),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the job has ended"),
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the job succeeded"),
+                    () -> assertEquals(7, settled.outcomeRow(), "row 7 decided the success"),
+                    () -> assertEquals(0L, settled.exitCode(), "the exit code 0 is recorded"),
                     () -> assertNotNull(settled.childWallMs(), "an observed exit records the child's wall time"),
                     () -> assertTrue(settled.childWallMs() <= settled.jobWallTime().orElseThrow().toMillis(),
-                            "child %s ms, job %s".formatted(settled.childWallMs(), settled.jobWallTime())),
-                    () -> assertEquals(Optional.of(settled), jobs.read(jobId)),
+                            "the child's wall time is within the job's"),
+                    () -> assertEquals(Optional.of(settled), jobs.read(jobId), "the settled record is stored"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' settled with fate 'succeeded' (outcome row 7)".formatted(jobId)));
         }
@@ -457,10 +465,10 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.FAILED, settled.fate()),
-                    () -> assertEquals(10, settled.outcomeRow()),
-                    () -> assertEquals(3L, settled.exitCode()),
-                    () -> assertNull(settled.signal()));
+                    () -> assertEquals(Fate.FAILED, settled.fate(), "the failing job failed"),
+                    () -> assertEquals(10, settled.outcomeRow(), "row 10 decided the failure"),
+                    () -> assertEquals(3L, settled.exitCode(), "the script's exit code 3 is recorded"),
+                    () -> assertNull(settled.signal(), "an exited job carries no signal"));
         }
     }
 
@@ -484,10 +492,11 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertTrue(cancelled, "the running job is cancelled by this call"),
-                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
-                    () -> assertEquals(2, settled.outcomeRow()),
-                    () -> assertFalse(runner.runningJobs().contains(jobId)),
-                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL), "a settled job is not"));
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "a paused job is cancelled"),
+                    () -> assertEquals(2, settled.outcomeRow(), "row 2 decided the cancel"),
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "the job is no longer running"),
+                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL),
+                            "a settled job is not cancelled again"));
         }
 
         @Test
@@ -498,9 +507,9 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.TIMED_OUT, settled.fate()),
-                    () -> assertEquals(3, settled.outcomeRow()),
-                    () -> assertEquals(1, settled.budgetSeconds()));
+                    () -> assertEquals(Fate.TIMED_OUT, settled.fate(), "the job over budget timed out"),
+                    () -> assertEquals(3, settled.outcomeRow(), "row 3 decided the timeout"),
+                    () -> assertEquals(1, settled.budgetSeconds(), "the budget of one second is recorded"));
         }
 
         @Test
@@ -512,8 +521,8 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.KILLED, settled.fate()),
-                    () -> assertEquals(4, settled.outcomeRow()));
+                    () -> assertEquals(Fate.KILLED, settled.fate(), "the drained job is killed"),
+                    () -> assertEquals(4, settled.outcomeRow(), "row 4 decided the kill"));
         }
 
         @Test
@@ -531,8 +540,8 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
-                    () -> assertEquals("SIGKILL", settled.signal()),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides the fate cancelled"),
+                    () -> assertEquals("SIGKILL", settled.signal(), "the escalated job ended by SIGKILL"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.JOB_TERMINATION_ESCALATED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
@@ -548,8 +557,8 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
-                    () -> assertEquals("SIGTERM", settled.signal()),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cancelled job is cancelled"),
+                    () -> assertEquals("SIGTERM", settled.signal(), "the obedient job ended by SIGTERM"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             WARN.JOB_TERMINATION_ESCALATED.resolveIdentifierString()));
         }
@@ -579,7 +588,7 @@ class SubprocessJobRunnerTest {
 
                 assertAll(
                         () -> assertTrue(cancelled, "the job was running and the cancel decided its end"),
-                        () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                        () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cancelled job is cancelled"),
                         () -> assertEquals(foreign.pid(), settled.pid(), "the record carries the reported PID"),
                         () -> assertTrue(foreign.isAlive(),
                                 "the process group of the reported PID was not signalled"));
@@ -602,20 +611,23 @@ class SubprocessJobRunnerTest {
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
                     request, Optional.empty()));
 
-            var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result);
+            var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result, "the job is refused");
             var records = jobs.records();
             assertAll(
-                    () -> assertEquals("path_traversal_rejected", refused.reason()),
+                    () -> assertEquals("path_traversal_rejected", refused.reason(),
+                            "the refusal is path_traversal_rejected"),
                     () -> assertTrue(observations.isEmpty(), "nothing was launched"),
-                    () -> assertEquals(1, records.size()),
-                    () -> assertEquals(Status.REFUSED, records.getFirst().status()),
-                    () -> assertEquals(Fate.REFUSED, records.getFirst().fate()),
-                    () -> assertEquals(1, records.getFirst().outcomeRow()),
-                    () -> assertEquals("path_traversal_rejected", records.getFirst().refusalReason()),
-                    () -> assertNull(records.getFirst().childWallMs()),
-                    () -> assertNull(records.getFirst().pid()),
+                    () -> assertEquals(1, records.size(), "one refusal record is written"),
+                    () -> assertEquals(Status.REFUSED, records.getFirst().status(), "the record's status is refused"),
+                    () -> assertEquals(Fate.REFUSED, records.getFirst().fate(), "the record's fate is refused"),
+                    () -> assertEquals(1, records.getFirst().outcomeRow(), "row 1 decided the refusal"),
+                    () -> assertEquals("path_traversal_rejected", records.getFirst().refusalReason(),
+                            "the record names the refusal reason"),
+                    () -> assertNull(records.getFirst().childWallMs(), "a refused job has no child wall time"),
+                    () -> assertNull(records.getFirst().pid(), "a refused job has no PID"),
                     () -> assertFalse(Files.exists(jobs.logPath(records.getFirst().jobId())), "no job log"),
-                    () -> assertEquals(Optional.of(records.getFirst()), runner.recordOf(records.getFirst().jobId())),
+                    () -> assertEquals(Optional.of(records.getFirst()), runner.recordOf(records.getFirst().jobId()),
+                            "the refused record is answered"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "settled with fate 'refused' (outcome row 1)"));
         }
@@ -631,7 +643,7 @@ class SubprocessJobRunnerTest {
             var enrolmentLock = fixture.store.lockKey(fixture.project);
             assertAll(
                     () -> assertTrue(locks.acquired.contains(enrolmentLock), "the verification takes the lock"),
-                    () -> assertEquals(1, observations.size()),
+                    () -> assertEquals(1, observations.size(), "the environment is asked once"),
                     () -> assertFalse(observations.getFirst().enrolmentLockHeld(),
                             "no transaction holds the enrolment lock at the launch"));
         }
@@ -1851,20 +1863,14 @@ class SubprocessJobRunnerTest {
         void settlementStepsReachTheRunner() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var ran = new AtomicBoolean();
-            var replacement = new SettlementStep() {
-
-                @Override
-                public Name name() {
-                    return Name.CHANGE_LEDGER_ROW;
-                }
-
-                @Override
-                public Outcome run(Settled settled) {
-                    ran.set(true);
-                    return new Outcome.Done("replacement ran");
-                }
-            };
-            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+            SettlementStep replacement = createMock(SettlementStep.class);
+            expect(replacement.name()).andStubReturn(Name.CHANGE_LEDGER_ROW);
+            expect(replacement.run(anyObject(SettlementStep.Settled.class))).andStubAnswer(() -> {
+                ran.set(true);
+                return new SettlementStep.Outcome.Done(Generators.letterStrings(1, 32).next());
+            });
+            replay(replacement);
+            runner =runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
                     (job, output) -> SUCCESS, request -> Optional.empty(), null,
                     Map.of(Name.CHANGE_LEDGER_ROW, replacement));
 
@@ -1877,25 +1883,17 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("refuses a misnamed settlement step at construction")
         void refusesAMisnamedSettlementStep() {
-            var misnamed = new SettlementStep() {
-
-                @Override
-                public Name name() {
-                    return Name.TIMING_OBSERVATION;
-                }
-
-                @Override
-                public Outcome run(Settled settled) {
-                    return new Outcome.Done("ran");
-                }
-            };
+            SettlementStep misnamed = createMock(SettlementStep.class);
+            expect(misnamed.name()).andStubReturn(Name.TIMING_OBSERVATION);
+            replay(misnamed);
 
             var termination = new TerminationProtocol(ProcessGroupSignals.system());
             var env = environment();
             Map<Name, SettlementStep> steps = Map.of(Name.METRICS_ROW, misnamed);
 
             assertThrows(IllegalArgumentException.class, () -> runner(termination, env,
-                    (job, output) -> SUCCESS, request -> Optional.empty(), null, steps));
+                    (job, output) -> SUCCESS, request -> Optional.empty(), null, steps),
+                    "a step filed under another name is refused");
         }
 
         @Test

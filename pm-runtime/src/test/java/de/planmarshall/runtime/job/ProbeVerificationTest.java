@@ -42,23 +42,28 @@ import de.planmarshall.runtime.job.JobRefusal.Reason;
 import de.planmarshall.runtime.job.ProbeCandidate.CheckoutRoot;
 import de.planmarshall.runtime.job.ProbeCandidate.DigestedFile;
 import de.planmarshall.runtime.job.ProbeCandidate.JobPrivate;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Step 0 of a probe job (PM-EXEC-1, PM-EXEC-3): the verification against the candidate record refuses a changed
  * executable or interpreter, a working directory that is not the canonical one of the probe and a changed argument
  * vector, each against its matched control that passes, and the candidate record and the fixed budgets refuse what
  * they rule out.
+ * <p>
+ * Contract literals that stay: the reason details, the fixed budgets and their keys, the store layout
+ * {@code run/jobs/<job>/cwd} and the three ways a vector can change. The entry id, the job id, the arguments, the
+ * names of links and directories and the file contents are generated.
  */
 @EnableGeneratorController
 @DisplayName("ProbeVerification")
 class ProbeVerificationTest {
 
-    private static final Scope ENTRY = new Scope(Scope.Type.ENTRY, "entry-one");
     private static final Scope MACHINE = new Scope(Scope.Type.MACHINE, null);
 
     @TempDir
     Path temporary;
 
+    private Scope entry;
     private Path executable;
     private Path interpreter;
     private Path checkout;
@@ -69,13 +74,19 @@ class ProbeVerificationTest {
     @BeforeEach
     void setUp() throws IOException {
         var root = temporary.toRealPath();
+        entry = new Scope(Scope.Type.ENTRY, "entry-" + word());
         executable = Files.write(root.resolve("probe"), randomContent());
         interpreter = Files.write(root.resolve("interpreter"), randomContent());
         checkout = Files.createDirectories(root.resolve("checkout"));
         Files.createDirectories(checkout.resolve(ProbeVerification.GIT));
-        jobPrivate = Files.createDirectories(root.resolve("run/jobs/v-0123456789abcdef/cwd"));
+        jobPrivate = Files.createDirectories(root.resolve("run/jobs")
+                .resolve("v-" + RuntimeGenerators.sha256Digests().next().substring(0, 16)).resolve("cwd"));
         outside = Files.createDirectories(root.resolve("outside"));
         arguments = List.of("--" + Generators.letterStrings(3, 10).next());
+    }
+
+    private static String word() {
+        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
     }
 
     private ProbeCandidate candidate(Scope scope, ProbeCandidate.WorkingDirectory workingDirectory) {
@@ -85,7 +96,7 @@ class ProbeVerificationTest {
     }
 
     private ProbeCandidate inCheckout() {
-        return candidate(ENTRY, new CheckoutRoot(checkout));
+        return candidate(entry, new CheckoutRoot(checkout));
     }
 
     private JobRefusal refused(ProbeVerification.Result result) {
@@ -101,12 +112,12 @@ class ProbeVerificationTest {
         void checkout() {
             var result = ProbeVerification.verify(inCheckout(), arguments, checkout, jobPrivate);
 
-            var verified = assertInstanceOf(ProbeVerification.Verified.class, result);
+            var verified = assertInstanceOf(ProbeVerification.Verified.class, result, "the probe is verified");
             var argv = new ArrayList<String>(List.of(interpreter.toString(), executable.toString()));
             argv.addAll(arguments);
             assertAll(
-                    () -> assertEquals(checkout, verified.workingDirectory()),
-                    () -> assertEquals(argv, verified.argv()));
+                    () -> assertEquals(checkout, verified.workingDirectory(), "the probe runs in the checkout"),
+                    () -> assertEquals(argv, verified.argv(), "the argv is interpreter, probe and vector"));
         }
 
         @Test
@@ -115,7 +126,8 @@ class ProbeVerificationTest {
             var result = ProbeVerification.verify(candidate(MACHINE, new JobPrivate()), arguments, jobPrivate,
                     jobPrivate);
 
-            assertEquals(jobPrivate, assertInstanceOf(ProbeVerification.Verified.class, result).workingDirectory());
+            assertEquals(jobPrivate, assertInstanceOf(ProbeVerification.Verified.class, result,
+                    "the machine probe is verified").workingDirectory(), "the probe runs job-private");
         }
     }
 
@@ -131,7 +143,8 @@ class ProbeVerificationTest {
 
             var refusal = refused(ProbeVerification.verify(candidate, arguments, checkout, jobPrivate));
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason());
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason(),
+                    "a changed executable is a digest mismatch");
         }
 
         @Test
@@ -143,9 +156,10 @@ class ProbeVerificationTest {
             var refusal = refused(ProbeVerification.verify(candidate, arguments, checkout, jobPrivate));
 
             assertAll(
-                    () -> assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason()),
+                    () -> assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason(),
+                            "a changed interpreter is a digest mismatch"),
                     () -> assertEquals("the interpreter does not match the digest of its candidate record",
-                            refusal.detail()));
+                            refusal.detail(), "the detail names the interpreter"));
         }
 
         @Test
@@ -156,7 +170,8 @@ class ProbeVerificationTest {
 
             var refusal = refused(ProbeVerification.verify(candidate, arguments, outside, jobPrivate));
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason());
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason(),
+                    "a missing executable is refused first");
         }
     }
 
@@ -169,27 +184,27 @@ class ProbeVerificationTest {
         void outsideCheckout() {
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, outside, jobPrivate));
 
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(), "a directory outside is refused");
         }
 
         @Test
         @DisplayName("a symbolic link in the checkout that escapes it")
         void symlinkEscape() throws Exception {
-            var link = Files.createSymbolicLink(checkout.resolve("escape"), outside);
+            var link = Files.createSymbolicLink(checkout.resolve(word()), outside);
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, link, jobPrivate));
 
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(), "an escaping link is refused");
         }
 
         @Test
         @DisplayName("a symbolic link that resolves to the checkout root itself")
         void symlinkToRoot() throws Exception {
-            var link = Files.createSymbolicLink(outside.resolve("root"), checkout);
+            var link = Files.createSymbolicLink(outside.resolve(word()), checkout);
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, link, jobPrivate));
 
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(), "a link to the root is refused");
         }
 
         @Test
@@ -200,8 +215,10 @@ class ProbeVerificationTest {
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, checkout, jobPrivate));
 
             assertAll(
-                    () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason()),
-                    () -> assertEquals("the checkout root is no git top-level", refusal.detail()));
+                    () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(),
+                            "a root without .git is refused"),
+                    () -> assertEquals("the checkout root is no git top-level", refusal.detail(),
+                            "the detail names the missing top-level"));
         }
 
         @Test
@@ -210,19 +227,21 @@ class ProbeVerificationTest {
             var refusal = refused(ProbeVerification.verify(candidate(MACHINE, new JobPrivate()), arguments, checkout,
                     jobPrivate));
 
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(),
+                    "a machine probe elsewhere is refused");
         }
 
         @Test
         @DisplayName("a working directory that does not exist")
         void missing() {
-            var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, checkout.resolve("missing"),
+            var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, checkout.resolve(word()),
                     jobPrivate));
 
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(), "a missing directory is refused");
         }
     }
 
+    // The three ways a declared vector can change: contract literals.
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"added", "changed", "removed"})
     @DisplayName("refuses a vector other than the declared one as argument_rejected")
@@ -230,13 +249,13 @@ class ProbeVerificationTest {
         var asked = new ArrayList<>(arguments);
         switch (change) {
             case "added" -> asked.add(Generators.letterStrings(3, 10).next());
-            case "changed" -> asked.set(0, asked.getFirst() + "x");
+            case "changed" -> asked.set(0, asked.getFirst() + Generators.letterStrings(1, 4).next());
             default -> asked.clear();
         }
 
         var refusal = refused(ProbeVerification.verify(inCheckout(), asked, checkout, jobPrivate));
 
-        assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason());
+        assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(), "a changed vector is argument_rejected");
     }
 
     @Nested
@@ -258,28 +277,30 @@ class ProbeVerificationTest {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
                             ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, successExitZero,
-                            workspace, privateWorkingDirectory)),
+                            workspace, privateWorkingDirectory), "a workspace scope is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
                             ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, successExitZero,
-                            MACHINE, checkoutRoot)),
+                            MACHINE, checkoutRoot), "a machine probe in a checkout is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
                             ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, noSuccessExitCodes,
-                            MACHINE, privateWorkingDirectory)));
+                            MACHINE, privateWorkingDirectory), "a probe without success codes is refused"));
         }
 
         @Test
         @DisplayName("names its files by absolute path and lower-case SHA-256")
         void digestedFile() {
             var digest = sha256(executable);
-            var relativeProbe = Path.of("probe");
+            var relativeProbe = Path.of(word());
             var upperCaseDigest = digest.toUpperCase(Locale.ROOT);
-            var relativeCheckout = Path.of("checkout");
+            var relativeCheckout = Path.of(word());
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new DigestedFile(relativeProbe, digest)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new DigestedFile(relativeProbe, digest),
+                            "a relative file is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new DigestedFile(executable, upperCaseDigest)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new CheckoutRoot(relativeCheckout)));
+                            () -> new DigestedFile(executable, upperCaseDigest), "an upper-case digest is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CheckoutRoot(relativeCheckout),
+                            "a relative checkout root is refused"));
         }
 
         @Test
@@ -288,17 +309,20 @@ class ProbeVerificationTest {
             var candidate = new ProbeCandidate(ProbeCandidate.Kind.LOGIN, new DigestedFile(executable,
                     sha256(executable)), Optional.empty(), arguments, Set.of(0), MACHINE, new JobPrivate());
 
-            assertEquals(executable.toString(), candidate.declaredArgv().getFirst());
+            assertEquals(executable.toString(), candidate.declaredArgv().getFirst(),
+                    "the vector starts with the program");
         }
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(ProbeCandidate.Kind.class)
         @DisplayName("every kind is found by its name")
         void kindNames(ProbeCandidate.Kind kind) {
-            assertEquals(Optional.of(kind), ProbeCandidate.Kind.fromWireName(kind.wireName()));
+            assertEquals(Optional.of(kind), ProbeCandidate.Kind.fromWireName(kind.wireName()),
+                    "the kind is found by its wire name");
         }
     }
 
+    // The fixed budgets the guide names: contract literals.
     @ParameterizedTest(name = "{0}: {1} seconds")
     @CsvSource({"VERSION, probe:version, 15", "MODELS, probe:models, 30", "LOGIN, probe:login, 120",
             "SCRIPT, probe:script, 600"})
@@ -307,8 +331,9 @@ class ProbeVerificationTest {
         var budget = ProbeBudget.of(kind);
 
         assertAll(
-                () -> assertEquals(key, budget.key()),
-                () -> assertEquals(seconds, budget.seconds()),
-                () -> assertEquals(BudgetDerivation.Kind.FLOOR_DEFAULT, budget.derivation().kind()));
+                () -> assertEquals(key, budget.key(), "the budget key is the guide's key"),
+                () -> assertEquals(seconds, budget.seconds(), "the budget is the guide's seconds"),
+                () -> assertEquals(BudgetDerivation.Kind.FLOOR_DEFAULT, budget.derivation().kind(),
+                        "the budget is recorded as floor_default"));
     }
 }

@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -48,7 +50,13 @@ import de.planmarshall.runtime.job.OutcomeDerivation.Outcome;
  * The hazard these cases guard: a job reports a status about itself (a project script's {@code status}, a worker's
  * final message). Adopting it as the outcome would let a job that failed report itself successful, so a self-reported
  * status is evidence the derivation checks and never the fate (PM-WATCH-JOB-1).
+ * <p>
+ * Contract literals that stay: the row numbers and fates of the closed table, its one example evidence per row
+ * ({@code rows}, with the exit code 143 of a terminated process and the signal names), the reason code of a refusal,
+ * the exit code 0 and the bound 13 of the row numbers. The failing exit codes, the declared probe codes, the
+ * diagnostic counts and the self-reported statuses of the cases outside the table are generated.
  */
+@EnableGeneratorController
 @DisplayName("Outcome derivation")
 class OutcomeDerivationTest {
 
@@ -67,6 +75,24 @@ class OutcomeDerivationTest {
         return process(kind, null, new Exited(code), LogState.READABLE, parse);
     }
 
+    /** @return a generated non-zero exit code */
+    private static int failing() {
+        return Generators.integers(1, 255).next();
+    }
+
+    /** @return a parse result with a generated, positive number of diagnostics and contradicting evidence */
+    private static ParseResult diagnostics() {
+        return new ParseResult(false, Generators.integers(1, 100).next(), true, Optional.empty());
+    }
+
+    /** @return a parse result with a success marker and a generated self-report contradiction */
+    private static ParseResult contradicted() {
+        return new ParseResult(true, 0, false, Optional.of(new SelfReportContradiction(
+                Generators.letterStrings(1, 16).next(), Generators.longs(1, 10_000).next(),
+                Generators.letterStrings(1, 16).next())));
+    }
+
+    /** The closed table: one example evidence per row, the contract of the derivation. */
     static Stream<Arguments> rows() {
         return Stream.of(
                 Arguments.of(1, Fate.REFUSED, new RefusedBeforeSpawn("executable_digest_mismatch")),
@@ -97,9 +123,11 @@ class OutcomeDerivationTest {
         @MethodSource("de.planmarshall.runtime.job.OutcomeDerivationTest#rows")
         @DisplayName("each row of the table derives its fate")
         void row(int row, Fate fate, JobEvidence evidence) {
-            assertEquals(new Outcome(fate, row), OutcomeDerivation.derive(evidence));
+            assertEquals(new Outcome(fate, row), OutcomeDerivation.derive(evidence),
+                    "the row's evidence derives the row's fate");
         }
 
+        // The termination causes with their rows of the closed table: contract literals.
         @ParameterizedTest(name = "{0}")
         @CsvSource({
                 "ENGINE_CANCEL, CANCELLED, 2",
@@ -114,16 +142,18 @@ class OutcomeDerivationTest {
 
             assertAll(
                     () -> assertEquals(expected, OutcomeDerivation.derive(process(Kind.GIT, termination,
-                            new Exited(0), LogState.READABLE, SUCCESS))),
+                            new Exited(0), LogState.READABLE, SUCCESS)), "a terminated process decides by its row"),
                     () -> assertEquals(expected, OutcomeDerivation.derive(
-                            new InProcessEnded(Optional.of(termination), InProcessResult.DOMAIN))));
+                            new InProcessEnded(Optional.of(termination), InProcessResult.DOMAIN)),
+                            "a terminated operation decides by its row"));
         }
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(NeverStarted.Cause.class)
         @DisplayName("a job that never got an observed end is killed, without a signal")
         void neverStarted(NeverStarted.Cause cause) {
-            assertEquals(new Outcome(Fate.KILLED, 4), OutcomeDerivation.derive(new NeverStarted(cause)));
+            assertEquals(new Outcome(Fate.KILLED, 4), OutcomeDerivation.derive(new NeverStarted(cause)),
+                    "a job never seen to end is killed");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -131,7 +161,8 @@ class OutcomeDerivationTest {
         @DisplayName("a log that cannot be read is indeterminate, also for exit code 0 and a success marker")
         void unreadableLog(LogState log) {
             assertEquals(new Outcome(Fate.INDETERMINATE, 5),
-                    OutcomeDerivation.derive(process(Kind.BUILD, null, new Exited(0), log, SUCCESS)));
+                    OutcomeDerivation.derive(process(Kind.BUILD, null, new Exited(0), log, SUCCESS)),
+                    "an unreadable log is indeterminate");
         }
     }
 
@@ -142,10 +173,11 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("a cancel decides over a non-zero exit with diagnostics")
         void cancelOverFailure() {
-            var evidence = process(Kind.BUILD, Termination.ENGINE_CANCEL, new Exited(1), LogState.READABLE,
-                    DIAGNOSTICS);
+            var evidence = process(Kind.BUILD, Termination.ENGINE_CANCEL, new Exited(failing()), LogState.READABLE,
+                    diagnostics());
 
-            assertEquals(new Outcome(Fate.CANCELLED, 2), OutcomeDerivation.derive(evidence));
+            assertEquals(new Outcome(Fate.CANCELLED, 2), OutcomeDerivation.derive(evidence),
+                    "the cancel decides over the failure");
         }
 
         @Test
@@ -154,7 +186,8 @@ class OutcomeDerivationTest {
             var evidence = process(Kind.BUILD, Termination.BUDGET_EXPIRED, new Signalled("SIGSEGV"),
                     LogState.READABLE, NO_MARKER);
 
-            assertEquals(new Outcome(Fate.TIMED_OUT, 3), OutcomeDerivation.derive(evidence));
+            assertEquals(new Outcome(Fate.TIMED_OUT, 3), OutcomeDerivation.derive(evidence),
+                    "the budget expiry decides over the crash");
         }
 
         @Test
@@ -162,23 +195,27 @@ class OutcomeDerivationTest {
         void missingLogOverSuccess() {
             var evidence = process(Kind.BUILD, null, new Exited(0), LogState.MISSING, SUCCESS);
 
-            assertEquals(new Outcome(Fate.INDETERMINATE, 5), OutcomeDerivation.derive(evidence));
+            assertEquals(new Outcome(Fate.INDETERMINATE, 5), OutcomeDerivation.derive(evidence),
+                    "the missing log decides over the success");
         }
 
         @Test
         @DisplayName("a self-reported success never decides: the contradiction makes the job indeterminate")
         void selfReportNeverAdopted() {
-            var evidence = exited(Kind.PROJECT_SCRIPT, 0, CONTRADICTED);
+            var evidence = exited(Kind.PROJECT_SCRIPT, 0, contradicted());
 
-            assertEquals(new Outcome(Fate.INDETERMINATE, 6), OutcomeDerivation.derive(evidence));
+            assertEquals(new Outcome(Fate.INDETERMINATE, 6), OutcomeDerivation.derive(evidence),
+                    "a contradicted self-report is indeterminate");
         }
 
         @Test
         @DisplayName("contradicting evidence keeps exit code 0 with a marker out of succeeded")
         void contradictingEvidence() {
-            var evidence = exited(Kind.BUILD, 0, new ParseResult(true, 0, true, Optional.empty()));
+            var evidence = exited(Kind.BUILD, 0, new ParseResult(true, Generators.integers(0, 100).next(), true,
+                    Optional.empty()));
 
-            assertEquals(new Outcome(Fate.INDETERMINATE, 8), OutcomeDerivation.derive(evidence));
+            assertEquals(new Outcome(Fate.INDETERMINATE, 8), OutcomeDerivation.derive(evidence),
+                    "contradicting evidence keeps it indeterminate");
         }
     }
 
@@ -189,32 +226,40 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("a probe succeeds with an exit code it declares, and not with another")
         void probe() {
-            var declared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(2), LogState.READABLE,
-                    NO_MARKER, Set.of(0, 2), true);
-            var undeclared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(3), LogState.READABLE,
-                    NO_MARKER, Set.of(0, 2), true);
+            var declaredCode = Generators.integers(1, 100).next();
+            var undeclaredCode = declaredCode + Generators.integers(1, 100).next();
+            var declared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(declaredCode),
+                    LogState.READABLE, NO_MARKER, Set.of(0, declaredCode), true);
+            var undeclared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(undeclaredCode),
+                    LogState.READABLE, NO_MARKER, Set.of(0, declaredCode), true);
             var zeroUndeclared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(0), LogState.READABLE,
-                    SUCCESS, Set.of(2), true);
+                    SUCCESS, Set.of(declaredCode), true);
 
             assertAll(
-                    () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), OutcomeDerivation.derive(declared)),
-                    () -> assertEquals(new Outcome(Fate.FAILED, 10), OutcomeDerivation.derive(undeclared)),
-                    () -> assertEquals(new Outcome(Fate.INDETERMINATE, 8), OutcomeDerivation.derive(zeroUndeclared)));
+                    () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), OutcomeDerivation.derive(declared),
+                            "a declared exit code succeeds"),
+                    () -> assertEquals(new Outcome(Fate.FAILED, 10), OutcomeDerivation.derive(undeclared),
+                            "an undeclared exit code fails"),
+                    () -> assertEquals(new Outcome(Fate.INDETERMINATE, 8), OutcomeDerivation.derive(zeroUndeclared),
+                            "an undeclared zero is indeterminate"));
         }
 
         @Test
         @DisplayName("a worker with an unreliable exit code is decided by its final result event")
         void unreliableWorker() {
-            var withResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(1), LogState.READABLE, SUCCESS,
-                    Set.of(), false);
+            var withResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(failing()), LogState.READABLE,
+                    SUCCESS, Set.of(), false);
             var withoutResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(0), LogState.READABLE,
                     NO_MARKER, Set.of(), false);
 
             assertAll(
-                    () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), OutcomeDerivation.derive(withResult)),
-                    () -> assertEquals(new Outcome(Fate.FAILED, 10), OutcomeDerivation.derive(withoutResult)));
+                    () -> assertEquals(new Outcome(Fate.SUCCEEDED, 7), OutcomeDerivation.derive(withResult),
+                            "a final result event succeeds"),
+                    () -> assertEquals(new Outcome(Fate.FAILED, 10), OutcomeDerivation.derive(withoutResult),
+                            "no final result event fails"));
         }
 
+        // Each job kind with its fate for a non-zero exit without a diagnostic: contract of row 10.
         @ParameterizedTest(name = "{0}")
         @CsvSource({
                 "BUILD, FAILED_UNPARSED",
@@ -225,13 +270,15 @@ class OutcomeDerivationTest {
                 "PROBE, FAILED"})
         @DisplayName("a non-zero exit without a diagnostic is failed_unparsed for a build job only")
         void failedUnparsed(Kind kind, Fate fate) {
-            assertEquals(new Outcome(fate, 10), OutcomeDerivation.derive(exited(kind, 1, NO_MARKER)));
+            assertEquals(new Outcome(fate, 10), OutcomeDerivation.derive(exited(kind, failing(), NO_MARKER)),
+                    "a bare non-zero exit decides row 10");
         }
 
         @Test
         @DisplayName("a contradiction counts for a project script only")
         void contradictionOfOtherKinds() {
-            assertEquals(new Outcome(Fate.SUCCEEDED, 7), OutcomeDerivation.derive(exited(Kind.CI, 0, CONTRADICTED)));
+            assertEquals(new Outcome(Fate.SUCCEEDED, 7), OutcomeDerivation.derive(exited(Kind.CI, 0, contradicted())),
+                    "a ci job ignores a self-report");
         }
     }
 
@@ -247,16 +294,22 @@ class OutcomeDerivationTest {
             var declaredZero = Set.of(0);
             var noDeclaredCodes = Set.<Integer>of();
             Optional<SelfReportContradiction> noContradiction = Optional.empty();
+            var negative = -Generators.integers(1, 100).next();
 
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> OutcomeDerivation.derive(null)),
+                    () -> assertThrows(NullPointerException.class, () -> OutcomeDerivation.derive(null),
+                            "null evidence is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProcessEnded(Kind.BUILD,
-                            noTermination, exitedZero, LogState.READABLE, SUCCESS, declaredZero, true)),
+                            noTermination, exitedZero, LogState.READABLE, SUCCESS, declaredZero, true),
+                            "declared codes outside a probe are refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProcessEnded(Kind.BUILD,
-                            noTermination, exitedZero, LogState.READABLE, SUCCESS, noDeclaredCodes, false)),
+                            noTermination, exitedZero, LogState.READABLE, SUCCESS, noDeclaredCodes, false),
+                            "an unreliable exit outside a worker is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new ParseResult(false, -1, false, noContradiction)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Outcome(Fate.FAILED, 14)));
+                            () -> new ParseResult(false, negative, false, noContradiction),
+                            "a negative diagnostic count is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Outcome(Fate.FAILED, 14),
+                            "a row beyond the table is refused"));
         }
     }
 }

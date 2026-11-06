@@ -16,10 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +42,13 @@ import de.planmarshall.runtime.job.PmExecLauncher.Launched;
  * absolute path below {@code PM_MCP_HOME} with {@code --} before the verified vector, {@code stdin} is
  * {@code /dev/null} unless an in-memory payload is given, a payload reaches the child and is closed so the child sees
  * EOF, the output lands in the job log, and the job PID is its process-group id.
+ * <p>
+ * Contract literals that stay: the launcher path {@code bin/pm-exec}, the separator {@code --}, the launcher's
+ * confinement options, the {@code -} that names stdin, the variable {@code HOME} that must stay unset, the fake
+ * launcher's tools and the 30 seconds of the sleeping job, which only has to outlive the test. The executables,
+ * arguments, payloads, paths and environment of the vectors are generated.
  */
+@EnableGeneratorController
 @DisplayName("Launch through pm-exec")
 class PmExecLauncherTest {
 
@@ -48,6 +58,15 @@ class PmExecLauncherTest {
     @TempDir
     Path work;
 
+    private static String word() {
+        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
+    }
+
+    /** @return a generated absolute path */
+    private static String absolute() {
+        return "/" + word() + "/" + word();
+    }
+
     @Nested
     @DisplayName("the command line")
     class CommandLine {
@@ -56,21 +75,25 @@ class PmExecLauncherTest {
         @DisplayName("is the launcher's absolute path below PM_MCP_HOME, the separator and the verified vector")
         void argvShape() {
             var launcher = new PmExecLauncher(home);
+            var argv = List.of(absolute(), "-C", absolute(), word(), "-F", "-");
 
-            var command = launcher.command(List.of("/usr/bin/git", "-C", "/tree", "commit", "-F", "-"));
+            var command = launcher.command(argv);
 
+            var expected = new ArrayList<>(List.of(home.resolve("bin/pm-exec").toString(), "--"));
+            expected.addAll(argv);
             assertAll(
-                    () -> assertEquals(home.resolve("bin/pm-exec"), launcher.launcher()),
-                    () -> assertTrue(launcher.launcher().isAbsolute()),
-                    () -> assertEquals(List.of(home.resolve("bin/pm-exec").toString(), "--", "/usr/bin/git", "-C",
-                            "/tree", "commit", "-F", "-"), command));
+                    () -> assertEquals(home.resolve("bin/pm-exec"), launcher.launcher(),
+                            "the launcher lies below PM_MCP_HOME"),
+                    () -> assertTrue(launcher.launcher().isAbsolute(), "the launcher path is absolute"),
+                    () -> assertEquals(expected, command, "the command is launcher, separator and vector"));
         }
 
         @Test
         @DisplayName("an in-memory payload never enters the argument vector")
         void payloadNotInArgv() {
-            var payload = "fix: the message\n\nwith a body";
-            var launch = new Launch(work, List.of("/usr/bin/git", "commit", "-F", "-"), Map.of(),
+            var marker = Generators.letterStrings(8, 32).next();
+            var payload = word() + ": " + marker + "\n\n" + Generators.letterStrings(1, 64).next();
+            var launch = new Launch(work, List.of(absolute(), word(), "-F", "-"), Map.of(),
                     Optional.of(payload), work.resolve("job.log"));
 
             var launcher = new PmExecLauncher(home);
@@ -80,10 +103,10 @@ class PmExecLauncherTest {
             assertAll(
                     () -> assertEquals(launcher.command(launch.argv()), builder.command(),
                             "the builder starts exactly the launcher, the separator and the verified vector"),
-                    () -> assertTrue(builder.command().stream().noneMatch(argument -> argument.contains(
-                            "the message"))),
+                    () -> assertTrue(builder.command().stream().noneMatch(argument -> argument.contains(marker)),
+                            "the payload is in no argument"),
                     () -> assertTrue(builder.environment().values().stream().noneMatch(value -> value.contains(
-                            "the message"))),
+                            marker)), "the payload is in no environment value"),
                     () -> assertEquals(ProcessBuilder.Redirect.PIPE, builder.redirectInput(),
                             "the payload reaches the child through its stdin"));
         }
@@ -92,47 +115,55 @@ class PmExecLauncherTest {
         @DisplayName("carries the confinement options between the launcher and the separator")
         void confinementArgv() {
             var launcher = new PmExecLauncher(home);
-            var confinement = new JobConfinement(List.of(Path.of("/tmp")),
-                    List.of(Path.of("/base/run/jobs/b-0123456789abcdef")), List.of(Path.of("/base")));
-            var launch = new Launch(work, List.of("/bin/true"), Map.of(), Optional.empty(), work.resolve("job.log"),
+            var write = absolute();
+            var read = absolute();
+            var denied = absolute();
+            var executable = absolute();
+            var confinement = new JobConfinement(List.of(Path.of(write)), List.of(Path.of(read)),
+                    List.of(Path.of(denied)));
+            var launch = new Launch(work, List.of(executable), Map.of(), Optional.empty(), work.resolve("job.log"),
                     confinement);
 
             assertEquals(List.of(home.resolve("bin/pm-exec").toString(),
-                    "--write", "/tmp",
-                    "--read", "/base/run/jobs/b-0123456789abcdef",
-                    "--deny-read", "/base",
-                    "--", "/bin/true"), launcher.command(launch));
+                    "--write", write,
+                    "--read", read,
+                    "--deny-read", denied,
+                    "--", executable), launcher.command(launch), "the options precede the separator");
         }
 
         @Test
         @DisplayName("a missing launcher is not looked up anywhere else: the start fails")
         void missingLauncher() {
             var launcher = new PmExecLauncher(home);
-            var launch = new Launch(work, List.of("/bin/true"), Map.of("PATH", "/usr/bin:/bin"), Optional.empty(),
+            var launch = new Launch(work, List.of(absolute()), Map.of("PATH", absolute()), Optional.empty(),
                     work.resolve("job.log"));
 
-            assertThrows(IOException.class, () -> launcher.launch(launch));
+            assertThrows(IOException.class, () -> launcher.launch(launch), "a missing launcher fails the start");
         }
 
         @Test
         @DisplayName("a relative home, an empty vector and a relative executable are refused")
         void refusals() {
             var log = work.resolve("job.log");
-            var relativeHome = Path.of("home");
+            var relativeHome = Path.of(word());
             List<String> emptyVector = List.of();
-            List<String> relativeVector = List.of("git", "status");
-            List<String> absoluteVector = List.of("/bin/true");
+            List<String> relativeVector = List.of(word(), word());
+            List<String> absoluteVector = List.of(absolute());
             Map<String, String> noEnvironment = Map.of();
             Optional<String> noInput = Optional.empty();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new PmExecLauncher(relativeHome)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new PmExecLauncher(relativeHome),
+                            "a relative home is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Launch(work, emptyVector, noEnvironment, noInput, log)),
+                            () -> new Launch(work, emptyVector, noEnvironment, noInput, log),
+                            "an empty vector is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Launch(work, relativeVector, noEnvironment, noInput, log)),
+                            () -> new Launch(work, relativeVector, noEnvironment, noInput, log),
+                            "a relative executable is refused"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Launch(work, absoluteVector, noEnvironment, null, log)));
+                            () -> new Launch(work, absoluteVector, noEnvironment, null, log),
+                            "a null stdin is refused"));
         }
     }
 
@@ -149,7 +180,8 @@ class PmExecLauncherTest {
 
         private JobLog.Complete awaitEnd(Launched launched) throws InterruptedException {
             assertTrue(launched.process().waitFor(10, TimeUnit.SECONDS), "the job should have ended");
-            return assertInstanceOf(JobLog.Complete.class, new JobLog(work.resolve("job.log")).readWhole(0));
+            return assertInstanceOf(JobLog.Complete.class, new JobLog(work.resolve("job.log")).readWhole(0),
+                    "the ended job's log is complete");
         }
 
         @Test
@@ -159,38 +191,43 @@ class PmExecLauncherTest {
 
             var log = awaitEnd(launched);
 
-            var reading = assertInstanceOf(LaunchReport.Reported.class, log.reading());
+            var reading = assertInstanceOf(LaunchReport.Reported.class, log.reading(), "the log carries a report");
             assertAll(
-                    () -> assertEquals(0, launched.process().exitValue()),
-                    () -> assertEquals("", reading.jobOutput()));
+                    () -> assertEquals(0, launched.process().exitValue(), "the reader of stdin exits 0"),
+                    () -> assertEquals("", reading.jobOutput(), "the reader of /dev/null prints nothing"));
         }
 
         @Test
         @DisplayName("receives an in-memory payload as UTF-8 and sees EOF after it")
         void inMemoryStdin() throws Exception {
-            var payload = "erste Zeile\nzweite Zeile mit Ümlaut\n";
+            var payload = Generators.letterStrings(1, 32).next() + "\n" + Generators.letterStrings(1, 32).next()
+                    + " Ü " + Generators.letterStrings(1, 32).next() + "\n";
             var launched = start(List.of(FakePmExec.tool("cat").toString()), Map.of(), Optional.of(payload));
 
             var log = awaitEnd(launched);
 
-            var reading = assertInstanceOf(LaunchReport.Reported.class, log.reading());
+            var reading = assertInstanceOf(LaunchReport.Reported.class, log.reading(), "the log carries a report");
             assertAll(
-                    () -> assertEquals(0, launched.process().exitValue()),
-                    () -> assertEquals(payload, reading.jobOutput()));
+                    () -> assertEquals(0, launched.process().exitValue(), "the reader exits 0 after EOF"),
+                    () -> assertEquals(payload, reading.jobOutput(), "the payload arrives as UTF-8"));
         }
 
         @Test
         @DisplayName("runs with exactly the supplied environment and writes its output to the log")
         void environmentAndOutput() throws Exception {
-            var launched = start(List.of(FakePmExec.tool("env").toString()), Map.of("PM_JOB_TEST", "allowed"),
-                    Optional.empty());
+            var name = "PM_JOB_" + Generators.letterStrings(1, 16).next().toUpperCase(Locale.ROOT);
+            var value = word();
+            var launched = start(List.of(FakePmExec.tool("env").toString()), Map.of(name, value), Optional.empty());
 
             var log = awaitEnd(launched);
 
-            var output = assertInstanceOf(LaunchReport.Reported.class, log.reading()).jobOutput();
+            var output = assertInstanceOf(LaunchReport.Reported.class, log.reading(), "the log carries a report")
+                    .jobOutput();
             assertAll(
-                    () -> assertTrue(output.lines().anyMatch("PM_JOB_TEST=allowed"::equals), output),
-                    () -> assertFalse(output.lines().anyMatch(line -> line.startsWith("HOME=")), output));
+                    () -> assertTrue(output.lines().anyMatch((name + "=" + value)::equals),
+                            "the supplied variable reaches the job"),
+                    () -> assertFalse(output.lines().anyMatch(line -> line.startsWith("HOME=")),
+                            "no unsupplied HOME reaches the job"));
         }
 
         @Test
@@ -201,9 +238,12 @@ class PmExecLauncherTest {
                 var lines = FakePmExec.awaitLines(new JobLog(work.resolve("job.log")), launched.process(), 0);
 
                 assertAll(
-                        () -> assertEquals(launched.process().pid(), launched.pid()),
-                        () -> assertEquals(launched.pid(), lines.report().orElseThrow().pid()),
-                        () -> assertEquals(launched.pid(), processGroup(launched.pid())));
+                        () -> assertEquals(launched.process().pid(), launched.pid(),
+                                "the job PID is the process PID"),
+                        () -> assertEquals(launched.pid(), lines.report().orElseThrow().pid(),
+                                "the job PID is the reported PID"),
+                        () -> assertEquals(launched.pid(), processGroup(launched.pid()),
+                                "the job PID is its process-group id"));
             } finally {
                 launched.process().destroyForcibly();
                 launched.process().waitFor(10, TimeUnit.SECONDS);

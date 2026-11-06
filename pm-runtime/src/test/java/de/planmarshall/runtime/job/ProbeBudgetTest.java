@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,10 +26,15 @@ import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 /**
  * The fixed probe budgets (Job Runtime Developer Guide § Probe Jobs): a compiled constant per kind of probe, recorded
  * with the derivation {@code floor_default} and never learned or escalated.
+ * <p>
+ * Every datum here is a contract literal: the budget keys and the seconds are the values the guide names, so the test
+ * holds no generated data.
  */
+@EnableGeneratorController
 @DisplayName("Probe budgets")
 class ProbeBudgetTest {
 
+    /** The budget key and seconds per kind of probe, as the guide names them. */
     static Stream<Arguments> kinds() {
         return Stream.of(
                 Arguments.of(ProbeCandidate.Kind.VERSION, "probe:version", 15L),
@@ -44,19 +50,20 @@ class ProbeBudgetTest {
         var budget = ProbeBudget.of(kind);
 
         assertAll(
-                () -> assertEquals(key, budget.key()),
-                () -> assertEquals(seconds, budget.seconds()),
-                () -> assertEquals(BudgetDerivation.Kind.FLOOR_DEFAULT, budget.derivation().kind()),
-                () -> assertNull(budget.derivation().observations()));
+                () -> assertEquals(key, budget.key(), "the budget key is the guide's key"),
+                () -> assertEquals(seconds, budget.seconds(), "the budget is the guide's seconds"),
+                () -> assertEquals(BudgetDerivation.Kind.FLOOR_DEFAULT, budget.derivation().kind(),
+                        "the budget is recorded as floor_default"),
+                () -> assertNull(budget.derivation().observations(), "a fixed budget has no observations"));
     }
 
     @Test
     @DisplayName("the four compiled constants are the guide's values")
     void constants() {
         assertAll(
-                () -> assertEquals(15, ProbeBudget.VERSION_SECONDS),
-                () -> assertEquals(30, ProbeBudget.MODELS_SECONDS),
-                () -> assertEquals(120, ProbeBudget.LOGIN_SECONDS),
-                () -> assertEquals(600, ProbeBudget.SCRIPT_SECONDS));
+                () -> assertEquals(15, ProbeBudget.VERSION_SECONDS, "a version probe has 15 seconds"),
+                () -> assertEquals(30, ProbeBudget.MODELS_SECONDS, "a models probe has 30 seconds"),
+                () -> assertEquals(120, ProbeBudget.LOGIN_SECONDS, "a login probe has 120 seconds"),
+                () -> assertEquals(600, ProbeBudget.SCRIPT_SECONDS, "a script probe has 600 seconds"));
     }
 }
