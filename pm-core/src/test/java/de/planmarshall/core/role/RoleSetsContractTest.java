@@ -10,7 +10,10 @@
 package de.planmarshall.core.role;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -31,6 +34,21 @@ class RoleSetsContractTest implements ShouldHandleObjectContracts<RoleSets.Shipp
     @Override
     public RoleSets.ShippedRole getUnderTest() {
         return new RoleSets.ShippedRole(Generators.letterStrings(1, 40).next().getBytes(UTF_8));
+    }
+
+    @Test
+    @DisplayName("the constructor and the accessor copy the document")
+    void defensiveCopies() {
+        var bytes = Generators.letterStrings(1, 40).next().getBytes(UTF_8);
+        var original = bytes.clone();
+        var role = new RoleSets.ShippedRole(bytes);
+        bytes[0] = (byte) (bytes[0] + 1);
+        var returned = role.document();
+        returned[1] = (byte) (returned[1] + 1);
+
+        assertAll(
+                () -> assertArrayEquals(original, role.document(), "The document survives a mutated input"),
+                () -> assertNotSame(returned, role.document(), "Each accessor call returns its own copy"));
     }
 
     /** The document is handed on as bytes; Java serialization is not part of its contract. */

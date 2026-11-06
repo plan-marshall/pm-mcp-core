@@ -157,9 +157,8 @@ class QueueStoreTest {
                     records.getFirst().withStatus(QueueTaskRecord.Status.CLOSED),
                     records.getLast().withRole("reviewer"))));
             assertAll(
-                    () -> assertEquals(QueueTaskRecord.Status.QUEUED,
-                            store.read(first.queueTaskId()).orElseThrow().status()),
-                    () -> assertEquals("writer", store.read(second.queueTaskId()).orElseThrow().role()));
+                    () -> assertEquals(first, store.read(first.queueTaskId()).orElseThrow()),
+                    () -> assertEquals(second, store.read(second.queueTaskId()).orElseThrow()));
         }
 
         @Test

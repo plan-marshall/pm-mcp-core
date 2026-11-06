@@ -55,8 +55,8 @@ class ItemGeneratorTest {
     private static final int LINE = 3;
     private static final String QUESTION = Generators.letterStrings(5, 20).next();
     private static final String SUBJECT = Generators.letterStrings(3, 12).next();
-    private static final String OPTION_A = Generators.letterStrings(1, 8).next();
-    private static final String OPTION_B = Generators.letterStrings(1, 8).next();
+    private static final String OPTION_A = "a" + Generators.letterStrings(1, 8).next();
+    private static final String OPTION_B = "b" + Generators.letterStrings(1, 8).next();
     private static final String DIFF = Generators.letterStrings(5, 20).next();
 
     /**

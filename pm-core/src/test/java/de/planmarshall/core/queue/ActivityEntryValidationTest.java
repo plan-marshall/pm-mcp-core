@@ -45,7 +45,7 @@ class ActivityEntryValidationTest {
         var toolTarget = Generators.letterStrings(1, 64).next();
         var resultBytes = Generators.integers(0, 100_000).next();
         var failed = Generators.booleans().next();
-        var path = Generators.letterStrings(1, 64).next();
+        var path = "src/" + Generators.letterStrings(1, 60).next() + ".java";
         var inputTokens = Generators.integers(0, 10_000).next();
         var linkTarget = "TASK-" + Generators.integers(100, 999).next();
         var questionId = "Q-" + Generators.integers(100, 999).next();
