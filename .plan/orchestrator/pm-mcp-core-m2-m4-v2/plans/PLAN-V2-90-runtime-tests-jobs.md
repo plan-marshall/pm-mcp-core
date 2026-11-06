@@ -4,7 +4,7 @@ epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
 > Lives at `plans/PLAN-V2-90-runtime-tests-jobs.md` and is queued as one row file, `queue/PLAN-V2-90.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -51,6 +51,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Generated data, with the exemption of the rule R20:** a literal stays where it is the contract (a wire format or JSON document under test, an error or reason code, a schema or specification string, a golden file, a path of a fixture). Every class of the plan ends with `@EnableGeneratorController` and at least one `Generators.*` call, or with a one-line comment above the class saying that every datum is a contract; the pull request body lists per class the number of generator calls, the number of literals kept and the category of each kept literal.
 - **Seeds:** a failing generated test must be reproducible: the lane uses the seed reporting of `cui-test-generator` (`@GeneratorSeed` only on a test that needs a fixed value), and never `Random` or `UUID.randomUUID()` for test data.
 - **Read the landing analysis of PLAN-V2-36 at the outline** (`landings/PLAN-V2-36.md`, owner-register Wa69): PLAN-V2-36 added `BuildOutputParserTest`, `JobSettlementTest` and `SubprocessJobRunnerTest` cases under this plan's surface with the same conversion weaknesses. (1) Assertions without a message or outside 20 to 60 characters (`BuildOutputParserTest` has about 20 without, line 154 has 17; `UnparsedEvidenceTest:117-121, 133-134` are bare `assertThrows`; `JobSettlementTest:440-453`; `SubprocessJobRunnerTest:1898`). (2) Identifiers (plan id, job id, digests, instants) stay literal where no contract demands it; the log texts are fixtures and may stay. (3) Three anonymous `SettlementStep` implementations are new hand-written doubles; replace them with EasyMock or a generator-backed record, or state in the PR why not. Also read the PLAN-V2-88 landing (Wa66) for order pinning, punctuation in round trips and per-datum contract statements.
+- **Read the landing analyses of PLAN-V2-86 and PLAN-V2-87 at the outline** (`landings/PLAN-V2-86.md`, owner-register Wa72; `landings/PLAN-V2-87.md`, Wa70): the same conversion shipped there with four weaknesses this plan must not repeat. (1) A BOUNDARY test keeps its boundary: `QuestionLogAnswerRevisionTest:66` drew the first revision above current from 3..100 instead of using 3, and `QualificationSettingsStoreTest:144` drew the one-behind revision from 1..revision, so an off-by-one guard passed; a test that pins the value just beyond a limit keeps that literal (or a generated value pinned to `limit + 1`). (2) A helper that two or more classes need (a lowercased `letterStrings(3,12)` was copied into 20 classes) goes into the module's generator artifact, not into each class. (3) A `static final` field filled by `Generators` runs at class load, outside the per-test seed, so a failure cannot be replayed; draw inside the test or a per-test supplier. (4) Contract tests through `ShouldHandleObjectContracts` prove only the basic contract on one instance: add one value-equality and one inequality assertion per component for a class with hand-written `equals`.
 
 ## Claim Labels
 
@@ -77,7 +78,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-90-runtime-tests-jobs.md
+/plan-marshall task="implement .plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-90-runtime-tests-jobs.md"
 ```
 
 ## Write-Boundary

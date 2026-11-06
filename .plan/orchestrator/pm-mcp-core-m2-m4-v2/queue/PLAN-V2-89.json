@@ -2,10 +2,10 @@
   "id": "PLAN-V2-89",
   "slug": "runtime-tests-start-and-config",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#302",
+  "landing": "landings/PLAN-V2-89.md",
   "seq": -18
 }
