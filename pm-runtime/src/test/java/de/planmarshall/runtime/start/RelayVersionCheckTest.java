@@ -191,7 +191,7 @@ class RelayVersionCheckTest {
                     () -> assertEquals(List.of(expectedRecord(oldRelay), expectedRecord(otherRelay)), records,
                             "each distinct version must be recorded once"),
                     () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(oldRelay, runtimeVersion,
-                            RelayVersionCheck.RECOMMENDED_COMMAND)), check.mismatch(),
+                                    RelayVersionCheck.RECOMMENDED_COMMAND)), check.mismatch(),
                             "the latest mismatch must be the status data"));
         }
 
