@@ -262,6 +262,12 @@ unevaluated fails through `BuildLogFixtures.assertConsumed`. The roster is close
 The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the original at the new commit and moving every
 `original:` header and every `suite:` line with it, because the loader refuses any other commit.
 
+== The Unparsed Evidence
+
+_Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
+
+`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the tail of the last `MAX_LINES` (50) lines, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
+
 == Invariants and Failure Modes
 
 * *A parser never guesses a count.* No summary block, an unaggregatable block or a quiet log never yields a zero.
@@ -273,8 +279,8 @@ The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the or
 
 == Specification Tracing
 
-* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
+* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime Specification § Unparseable Output Fallback]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
   PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
   by every parser of the package
-* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes]
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free]

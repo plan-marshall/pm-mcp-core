@@ -911,13 +911,14 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Develo
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]
 
-Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`). Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, and the `egress` field of the job record (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the parsers that supply the success markers and diagnostics, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
+Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets; the launch of a worker of an enrolled harness (`runtime.launch`: the composed argument vector, the worker block, the job token and its revocation with the fate, and the refused launch recorded before a spawn, `SubprocessJobRunner.startWorker` and `refuseWorker`). Not implemented yet: the launcher `pm-exec` itself and its Landlock, Seatbelt, network-namespace and egress enforcement, and the `egress` field of the job record (the confinement and the environment of a job are composed here, PM-SEC-5, but their enforcement is the launcher's), the wait of a queued job for its build or model slot, the settlement steps that are seams (a worker's queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the wiring of the build log parsers (which exist in `pm-core` with the adapter `BuildOutputParser` in `pm-runtime`) into the assembly, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java[JobRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordCodec.java[JobRecordCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java[JobRecordStore],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
 link:../pm-core/src/main/java/de/planmarshall/core/service/JobRunner.java[JobRunner],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/BuildOutputParser.java[BuildOutputParser],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/PmExecLauncher.java[PmExecLauncher],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/LaunchReport.java[LaunchReport],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobLog.java[JobLog],
@@ -948,6 +949,7 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java[Job
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/TerminationProtocolTest.java[TerminationProtocolTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/OutcomeDerivationTest.java[OutcomeDerivationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/BuildOutputParserTest.java[BuildOutputParserTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[ProbeJobTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryStepTest.java[JobRecoveryStepTest],
@@ -961,10 +963,12 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_launch_and_launch_report[§ L
 link:../pm-runtime/doc/developer/runtime-job.adoc#_job_log[§ Job Log],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_termination[§ Termination],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_outcome_derivation[§ Outcome Derivation],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_build_output_parsing[§ Build Output Parsing],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_settlement[§ Settlement],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[§ Probe Jobs],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
-link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant]
+link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant],
+link:../pm-runtime/doc/adr/runtime-job/015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR runtime-job/015]
 
 [#PM-EXEC-5]
 === PM-EXEC-5: Git & Provider Operations: Native and CLI Variants
@@ -1084,12 +1088,16 @@ write boundary, and the activity is served as plain entries that no model reads 
 link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityJournal.java[ActivityJournal],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/web/ActivityService.java[ActivityService]
 
+Implementation (the `failed_unparsed` excerpt's share: the raw build log is untrusted content, and the excerpt built for a
+failure handler is bounded and redacted through the same `SecretRedactor`, with no diagnostic invented from the raw text): link:../pm-core/src/main/java/de/planmarshall/core/build/UnparsedEvidence.java[UnparsedEvidence]
+
 Implementation (the CI contract's share: the title, body and comment text a provider returns travel unvalidated and are
 cleaned by the consumer's level-1 validator before a model sees them; the contract says so and validates nothing):
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/Issue.java[Issue],
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value and a provider token masked; prose, a path and a commit id kept),
+link:../pm-core/src/test/java/de/planmarshall/core/build/UnparsedEvidenceTest.java[UnparsedEvidenceTest] (the tail bound, the redaction of a secret in the excerpt, and the resource URI),
 link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and a non-empty body are carried unchanged)
 
 Documentation: link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide] (§ Invariants and failure modes),
@@ -1998,7 +2006,8 @@ Implementation (in part: the result model of a parsed build — the located diag
 unmeasured test counts, the status with the positive success marker and the `no_tests_ran` verdict — the compiled category
 table of the JVM tools, and the parsers for Maven, Gradle, the OpenRewrite finding log, npm errors, TypeScript, ESLint,
 Jest, TAP and the pyproject log of pytest, ruff and mypy, each a pure function of the log text with no Python and no
-external script; the `failed_unparsed` fallback with its bounded redacted log tail is not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
+external script; the `failed_unparsed` fallback with its bounded, redacted log tail, whose failure envelope is not
+implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
 link:../pm-core/src/main/java/de/planmarshall/core/build/Diagnostic.java[Diagnostic],
 link:../pm-core/src/main/java/de/planmarshall/core/build/TestCounts.java[TestCounts],
 link:../pm-core/src/main/java/de/planmarshall/core/build/JvmCategoryPatterns.java[JvmCategoryPatterns],
@@ -2010,7 +2019,8 @@ link:../pm-core/src/main/java/de/planmarshall/core/build/TypeScriptOutputParser.
 link:../pm-core/src/main/java/de/planmarshall/core/build/EslintOutputParser.java[EslintOutputParser],
 link:../pm-core/src/main/java/de/planmarshall/core/build/JestOutputParser.java[JestOutputParser],
 link:../pm-core/src/main/java/de/planmarshall/core/build/TapOutputParser.java[TapOutputParser],
-link:../pm-core/src/main/java/de/planmarshall/core/build/PyprojectOutputParser.java[PyprojectOutputParser]
+link:../pm-core/src/main/java/de/planmarshall/core/build/PyprojectOutputParser.java[PyprojectOutputParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/UnparsedEvidence.java[UnparsedEvidence]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
@@ -2024,12 +2034,15 @@ link:../pm-core/src/test/java/de/planmarshall/core/build/TypeScriptOutputParserT
 link:../pm-core/src/test/java/de/planmarshall/core/build/EslintOutputParserTest.java[EslintOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/JestOutputParserTest.java[JestOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/TapOutputParserTest.java[TapOutputParserTest],
-link:../pm-core/src/test/java/de/planmarshall/core/build/PyprojectOutputParserTest.java[PyprojectOutputParserTest]
+link:../pm-core/src/test/java/de/planmarshall/core/build/PyprojectOutputParserTest.java[PyprojectOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/UnparsedEvidenceTest.java[UnparsedEvidenceTest]
 
 Documentation: link:../pm-core/doc/developer/core-build.adoc[Build Output Parsers Developer Guide],
 link:../pm-core/doc/adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR core-build/003],
 link:../pm-core/doc/adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR core-build/001],
-link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR core-build/002]
+link:../pm-core/doc/adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR core-build/002],
+link:../pm-core/doc/adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR core-build/004],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_build_output_parsing[Job Runtime Developer Guide § Build Output Parsing]
 
 [#PM-IMPL-7]
 === PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering

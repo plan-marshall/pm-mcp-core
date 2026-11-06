@@ -24,11 +24,15 @@ maven-build:
   maven-profiles-snapshot: ''
   maven-profiles-release: ''
   npm-cache: false
-  # Do not skip the build when a pull request changes only documentation: the schema parity tests of pm-core read
-  # doc/specification/**/*.adoc as their input (ADR doc/adr/007), so a specification-only pull request can break the
-  # build while the skip reports it green (ADR doc/adr/009). The reusable workflow's check-changes job is what the
-  # false disables; see cuioss/cuioss-organization reusable-maven-build.yml input skip-on-docs-only.
-  skip-on-docs-only: false
+  # The docs-only skip of the reusable workflows stays on, but every documentation and source tree counts as code even
+  # though the default ignore list (**/*.adoc, **/*.md, doc/**) matches it (ADR doc/adr/015, which supersedes ADR
+  # doc/adr/009): tests read doc/specification (pm.specification.root, ADR doc/adr/007), doc/LogMessages.adoc, the
+  # developer guides below {module}/doc/developer and the .md/.adoc fixtures below src/test/resources, and a rule over
+  # whole trees needs no list that mirrors those readers. A pull request that changes only .plan/, .claude/, the
+  # README/CLAUDE.md files or .github/project.yml still skips the build.
+  paths-code-extra:
+    - '**/doc/**'
+    - '**/src/**'
 
 # The project of the SonarCloud organisation plan-marshall; its Automatic Analysis is off, the CI build analyses.
 sonar:

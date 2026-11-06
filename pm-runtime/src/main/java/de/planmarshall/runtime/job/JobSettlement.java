@@ -15,8 +15,10 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JobRecordStore;
@@ -42,6 +44,12 @@ import de.planmarshall.runtime.job.SettlementStep.Settled;
  * @since 0.1
  */
 public final class JobSettlement {
+
+    /**
+     * The steps this runtime implements. A new implementation in the factory switch below is added here in the same
+     * change, so {@link #replacements(Map)} refuses to replace it.
+     */
+    private static final Set<Name> IMPLEMENTED = EnumSet.of(Name.FATE, Name.SLOT_RELEASE);
 
     private final List<SettlementStep> steps;
 
@@ -75,12 +83,66 @@ public final class JobSettlement {
      * @return the settlement
      */
     public static JobSettlement of(JobRecordStore store, LockManager lockManager) {
-        return new JobSettlement(Arrays.stream(Name.values()).<SettlementStep>map(name -> switch (name) {
-            case FATE -> SettlementStep.fate(store, lockManager);
-            case SLOT_RELEASE -> SettlementStep.slotRelease();
-            case WORKER_QUEUE_TASK, METRICS_ROW, CHANGE_LEDGER_ROW, TIMING_OBSERVATION, JOB_PRIVATE_DIRECTORY ->
-                SettlementStep.notImplemented(name);
+        return of(store, lockManager, Map.of());
+    }
+
+    /**
+     * The settlement of this runtime with the caller's steps in place of the named seams.
+     * <p>
+     * A package that brings one of the stores replaces only its step and leaves the fixed write order as it is. Every
+     * name the map does not carry keeps the default step of {@link #of(JobRecordStore, LockManager)}. Only the named
+     * seams may be replaced; the two implemented steps, {@code FATE} and {@code SLOT_RELEASE}, are the settlement's own.
+     *
+     * @param store       the job records of the job's store
+     * @param lockManager the lock manager of the runtime
+     * @param replacements the steps by the name they replace
+     * @return the settlement
+     * @throws NullPointerException     if a component or a replacement is {@code null}
+     * @throws IllegalArgumentException if a replacement names a step other than its key, or replaces an implemented
+     *                                  step
+     */
+    public static JobSettlement of(JobRecordStore store, LockManager lockManager,
+            Map<Name, SettlementStep> replacements) {
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(lockManager, "lockManager");
+        var replacement = replacements(replacements);
+        return new JobSettlement(Arrays.stream(Name.values()).<SettlementStep>map(name -> {
+            var replaced = replacement.get(name);
+            if (replaced != null) {
+                return replaced;
+            }
+            return switch (name) {
+                case FATE -> SettlementStep.fate(store, lockManager);
+                case SLOT_RELEASE -> SettlementStep.slotRelease();
+                case WORKER_QUEUE_TASK, METRICS_ROW, CHANGE_LEDGER_ROW, TIMING_OBSERVATION, JOB_PRIVATE_DIRECTORY ->
+                    SettlementStep.notImplemented(name);
+            };
         }).toList());
+    }
+
+    /**
+     * Validates a map of replacement steps and freezes it, so a caller that carries one can fail at construction rather
+     * than at the first settlement.
+     *
+     * @param replacements the steps by the name they replace
+     * @return a frozen copy of the map
+     * @throws NullPointerException     if the map, a name or a step is {@code null}
+     * @throws IllegalArgumentException if a replacement names a step other than its key
+     */
+    static Map<Name, SettlementStep> replacements(Map<Name, SettlementStep> replacements) {
+        var checked = Objects.requireNonNull(replacements, "replacements");
+        for (var entry : checked.entrySet()) {
+            var name = Objects.requireNonNull(entry.getKey(), "name");
+            if (Objects.requireNonNull(entry.getValue(), "step").name() != name) {
+                throw new IllegalArgumentException("A replacement step is filed under another name than its own: "
+                        + name);
+            }
+            if (IMPLEMENTED.contains(name)) {
+                throw new IllegalArgumentException("The implemented settlement step %s cannot be replaced"
+                        .formatted(name));
+            }
+        }
+        return Map.copyOf(checked);
     }
 
     /**
@@ -134,13 +196,37 @@ public final class JobSettlement {
         Objects.requireNonNull(settled, "settled");
         var reports = new ArrayList<StepReport>();
         for (var step : steps) {
-            var outcome = Objects.requireNonNull(step.run(settled), "outcome");
+            var outcome = run(step, settled);
             reports.add(new StepReport(step.name(), outcome));
             if (outcome instanceof Outcome.Failed) {
                 break;
             }
         }
         return new Report(reports);
+    }
+
+    /**
+     * Runs one step. A step after the fate never throws: a fault it cannot report as a value is a programming fault,
+     * and the settlement turns any runtime fault into a {@link Outcome.Failed} so a settlement of an already-ended job
+     * never escapes to the caller. The fate step is the exception: a fault it does not report as a {@code Failed}
+     * propagates so the runner's last-resort path can retry the record write; a store fault the fate step names is a
+     * {@code Failed} step and the record stays for the recovery.
+     * <p>
+     * The catch is the last-resort handler the specification names (Job Runtime § Outcome Derivation, Write order at
+     * job end): the fate may already be durable, and a later step's fault must not hide the record from the settlement
+     * wait. It is a {@code RuntimeException} rather than {@code Throwable}: an {@code Error} is not contained.
+     */
+    @SuppressWarnings("java:S1181")
+    private static Outcome run(SettlementStep step, Settled settled) {
+        try {
+            return Objects.requireNonNull(step.run(settled), "outcome");
+            // cui-rewrite:disable InvalidExceptionUsageRecipe
+        } catch (RuntimeException e) {
+            if (step.name() == Name.FATE) {
+                throw e;
+            }
+            return new Outcome.Failed("the step %s failed: %s".formatted(step.name(), e.getMessage()));
+        }
     }
 
     /** @return the names of the steps in the order they run */

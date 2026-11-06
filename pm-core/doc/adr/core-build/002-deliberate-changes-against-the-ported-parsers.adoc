@@ -39,8 +39,8 @@ specification names.
 |An unmeasured test population carries no number: `TestCounts.Unmeasured` has no count accessor. The original keeps the
 summed counts of an unmeasured population. The port therefore loses the original's `failed > 0` signal for a quiet
 (`-q`) log, which an `[INFO]`-level failing count line also leaves unfiled; recovering that signal — a failing
-`Tests run:` line filed regardless of its level, or a status derived at the gate — belongs to the wiring plan
-(PLAN-V2-36), not to this model.
+`Tests run:` line filed regardless of its level, or a status derived at the gate — is not repaired by the wiring plan
+(PLAN-V2-36): that plan records the limit and leaves a change inside the parser to a separate decision.
 |`ported/build/maven/deliberate-unmeasured-on-success.txt`
 
 |`no_tests_ran` needs the tool's own positive marker (`No tests to run.` for Maven, `No tests found for given includes`
