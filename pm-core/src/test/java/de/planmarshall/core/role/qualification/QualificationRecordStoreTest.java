@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -32,8 +35,11 @@ import de.planmarshall.core.store.StoreRefusal;
  * per role below {@code qualification/}, written by atomic rename under the store's lock, and a lookup that answers
  * empty for a set that holds none and refuses a record that does not parse.
  */
+@EnableGeneratorController
 @DisplayName("Qualification record store")
 class QualificationRecordStoreTest {
+
+    private static final String DIGEST = "%064x".formatted(Generators.longs().next());
 
     @TempDir
     Path base;
@@ -42,8 +48,8 @@ class QualificationRecordStoreTest {
     @DisplayName("a written record is read back from the role set")
     void writeAndRead() {
         var store = store();
-        var entry = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, new BigDecimal("90")),
-                new BigDecimal("10"));
+        var entry = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, agreement()),
+                BigDecimal.valueOf(Generators.integers(0, 100).next()));
 
         store.write(entry);
 
@@ -80,28 +86,34 @@ class QualificationRecordStoreTest {
     @DisplayName("a lookup reads the project set before the artifact's set")
     void firstOf() {
         var project = store();
-        var projectRecord = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, new BigDecimal("90")),
-                new BigDecimal("10"));
+        var projectRecord = QualificationFixtures.recordWithBaseline(Map.of(Topic.OWN, agreement()),
+                BigDecimal.valueOf(Generators.integers(0, 100).next()));
         project.write(projectRecord);
         QualificationRecords shipped = role -> "review-code".equals(role)
-                ? Optional.of(QualificationFixtures.qualification(Map.of(Topic.OWN, new BigDecimal("70"))))
+                ? Optional.of(QualificationFixtures.qualification(Map.of(Topic.OWN, agreement())))
                 : Optional.empty();
 
         var lookup = QualificationRecords.firstOf(project, shipped);
 
         assertEquals(Optional.of(projectRecord), lookup.lookup("review-code"));
-        assertEquals(Optional.empty(), lookup.lookup("another-role"));
+        assertEquals(Optional.empty(), lookup.lookup(
+                "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)));
     }
 
     @Test
     @DisplayName("the judge check record is written beside the role records")
     void judgeCheck() {
         var checks = new JudgeCheckStore(directory(), lock(base), QualificationFixtures.locks());
-        var scored = new JudgeCheck.ItemScore("judge/right", JudgeCheck.Label.RIGHT, Grade.of(true),
-                Grade.of(false), TokenTotal.measured(100), 10L);
-        var entry = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
-                QualificationFixtures.JUDGE_MODEL, QualificationFixtures.CORPUS_REVISION, new BigDecimal("100"),
-                BigDecimal.ZERO, new BigDecimal("50"), 0, QualificationFixtures.GRADED_AT, List.of(scored));
+        var scored = new JudgeCheck.ItemScore(
+                "judge/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
+                JudgeCheck.Label.RIGHT, Grade.of(true), Grade.of(false),
+                TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                Generators.longs(1, 100).next());
+        var entry = new JudgeCheck.Record(DIGEST, QualificationFixtures.HARNESS,
+                QualificationFixtures.JUDGE_MODEL, QualificationFixtures.CORPUS_REVISION,
+                BigDecimal.valueOf(Generators.integers(0, 100).next()), BigDecimal.ZERO,
+                BigDecimal.valueOf(Generators.integers(0, 100).next()), 0, QualificationFixtures.GRADED_AT,
+                List.of(scored));
 
         checks.write(entry);
 
@@ -112,6 +124,10 @@ class QualificationRecordStoreTest {
 
     private QualificationRecordStore store() {
         return new QualificationRecordStore(directory(), lock(base), QualificationFixtures.locks());
+    }
+
+    private static BigDecimal agreement() {
+        return BigDecimal.valueOf(Generators.integers(0, 100).next());
     }
 
     private Path directory() {

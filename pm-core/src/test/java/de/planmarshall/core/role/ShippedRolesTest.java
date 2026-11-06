@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
  * documents are the fixtures below, the reserved {@code default-assignment.json} is not a role, and the qualification
  * subdirectory is not read as a role set. The test uses fixture roles only.
  */
+// Every datum in this class is a contract: the classpath fixtures' names, class and budget are what the loader reads.
 @DisplayName("The shipped role set")
 class ShippedRolesTest {
 

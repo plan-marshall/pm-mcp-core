@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,12 +33,14 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * The activity journal of a task lies in the store of the task's scope and appends one entry per line under its own
  * leaf lock (Store Schemas § Activity Journal).
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the refusal cases call one throwing method per case, by design
 @DisplayName("Activity journal")
 class ActivityJournalTest {
 
-    private static final String TASK = "qt-0000000000000001";
+    private static final String TASK = "qt-" + "%016x".formatted(Generators.longs().next());
+    private static final String LINE_PREFIX = Generators.letterStrings(3, 8).next();
 
     private static ActivityEntry signal(int seq) {
         return ActivityEntry.builder()
@@ -55,7 +59,7 @@ class ActivityJournalTest {
                 .attempt(1)
                 .source(ActivityEntry.Source.HARNESS)
                 .kind(ActivityEntry.Kind.TEXT)
-                .text("line " + seq)
+                .text(LINE_PREFIX + " " + seq)
                 .at(QueueFixtures.AT)
                 .build();
     }

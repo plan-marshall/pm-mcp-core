@@ -18,8 +18,11 @@ import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -44,10 +47,13 @@ import de.planmarshall.core.store.JobRecord.Scope;
  * The service interface of the job runner (PM-EXEC-4): its value types validate their components, the closed cancel
  * causes map to the outcome rows 2 to 4, and the runtime, not the foundation, implements it.
  */
+@EnableGeneratorController
 @DisplayName("Job runner")
 class JobRunnerTest {
 
-    private static final Scope PLAN = new Scope(Scope.Type.PLAN, "plan-one");
+    private static final String PLAN_ID = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final Scope PLAN = new Scope(Scope.Type.PLAN, PLAN_ID);
+    private static final String REQUEST_TEXT = Generators.letterStrings(3, 10).next();
     private static final BudgetDerivation FLOOR = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
 
     /** A runner that is no part of the foundation, so the guard below has an implementation it must find. */
@@ -75,7 +81,7 @@ class JobRunnerTest {
     }
 
     private static StartRequest<String> request(JobId.Kind kind, String budgetKey, long budgetSeconds) {
-        return new StartRequest<>(kind, PLAN, budgetKey, budgetSeconds, FLOOR, "verify", Optional.empty());
+        return new StartRequest<>(kind, PLAN, budgetKey, budgetSeconds, FLOOR, REQUEST_TEXT, Optional.empty());
     }
 
     private static List<String> implementations(JavaClasses classes) {
@@ -90,13 +96,16 @@ class JobRunnerTest {
         @Test
         @DisplayName("a complete request keeps its components")
         void complete() {
-            var request = new StartRequest<>(JobId.Kind.BUILD, PLAN, "build:verify", 600, FLOOR, "verify",
-                    Optional.of("payload"));
+            long budgetSeconds = Generators.longs(1, 100_000).next();
+            var requestText = Generators.letterStrings(3, 10).next();
+            var payload = Generators.letterStrings(1, 30).next();
+            var request = new StartRequest<>(JobId.Kind.BUILD, PLAN, "build:verify", budgetSeconds, FLOOR,
+                    requestText, Optional.of(payload));
 
             assertAll(
                     () -> assertEquals(JobId.Kind.BUILD, request.kind()),
-                    () -> assertEquals(600, request.budgetSeconds()),
-                    () -> assertEquals(Optional.of("payload"), request.stdin()));
+                    () -> assertEquals(budgetSeconds, request.budgetSeconds()),
+                    () -> assertEquals(Optional.of(payload), request.stdin()));
         }
 
         @Test
@@ -104,26 +113,28 @@ class JobRunnerTest {
         void missing() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, "r", Optional.empty())),
+                            () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, Optional.empty())),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, null,
-                            "build:verify", 1, FLOOR, "r", Optional.empty())),
+                            "build:verify", 1, FLOOR, REQUEST_TEXT, Optional.empty())),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, "r", Optional.empty())),
+                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, REQUEST_TEXT, Optional.empty())),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, PLAN,
                             "build:verify", 1, null, "r", Optional.empty())),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<String>(JobId.Kind.BUILD,
                             PLAN, "build:verify", 1, FLOOR, null, Optional.empty())),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, "build:verify", 1, FLOOR, "r", null)));
+                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, null)));
         }
 
         @Test
         @DisplayName("a probe, a blank budget key and a budget under one second are refused")
         void invalid() {
+            long budgetSeconds = Generators.longs(2, 100).next();
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> request(JobId.Kind.PROBE, "probe:version", 15)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> request(JobId.Kind.BUILD, " ", 15)),
+                            () -> request(JobId.Kind.PROBE, "probe:version", budgetSeconds)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> request(JobId.Kind.BUILD, " ", budgetSeconds)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> request(JobId.Kind.BUILD, "build:verify", 0)),
                     () -> assertEquals(1, request(JobId.Kind.BUILD, "build:verify", 1).budgetSeconds()));
@@ -132,7 +143,8 @@ class JobRunnerTest {
         @Test
         @DisplayName("a probe request requires its candidate and carries the consent")
         void probeRequest() {
-            var consented = new ProbeRequest<>("candidate", true);
+            var candidate = Generators.letterStrings(3, 10).next();
+            var consented = new ProbeRequest<>(candidate, true);
 
             assertAll(
                     () -> assertTrue(consented.consented()),
@@ -147,7 +159,7 @@ class JobRunnerTest {
         @Test
         @DisplayName("a started job names its id")
         void started() {
-            var jobId = new JobId("b-0123456789abcdef");
+            var jobId = new JobId("b-" + "%016x".formatted(Generators.longs().next()));
 
             assertAll(
                     () -> assertEquals(jobId, new StartResult.Started(jobId).jobId()),

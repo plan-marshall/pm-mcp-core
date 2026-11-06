@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,7 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  * topic grades no role, a {@code zero_tool} role has the own topic alone, and a judgment role is graded on
  * {@code decision/question} alone.
  */
+@EnableGeneratorController
 @DisplayName("Role topics")
 class RoleTopicsTest {
 
@@ -37,10 +41,12 @@ class RoleTopicsTest {
     @Test
     @DisplayName("a writer role has the own and the generic topic")
     void writerTopics() {
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var genericTopic = "u" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var items = List.of(
-                item("review/own", ROLE, ImportedItem.ReviewStatus.CONFIRMED),
-                item("review/draft", ROLE, ImportedItem.ReviewStatus.DRAFT),
-                item("review/generic", "worker", ImportedItem.ReviewStatus.CONFIRMED));
+                item(topic + "/own", ROLE, ImportedItem.ReviewStatus.CONFIRMED),
+                item(topic + "/draft", ROLE, ImportedItem.ReviewStatus.DRAFT),
+                item(genericTopic + "/generic", RoleTopics.GENERIC_ROLE, ImportedItem.ReviewStatus.CONFIRMED));
 
         var topics = RoleTopics.of(ROLE, RoleClass.WRITER, items);
 
@@ -50,9 +56,10 @@ class RoleTopicsTest {
     @Test
     @DisplayName("only draft and confirmed items count, and the judge topic grades no role")
     void statuses() {
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var items = List.of(
-                item("review/contested", ROLE, ImportedItem.ReviewStatus.CONTESTED),
-                item("review/retired", ROLE, ImportedItem.ReviewStatus.RETIRED),
+                item(topic + "/contested", ROLE, ImportedItem.ReviewStatus.CONTESTED),
+                item(topic + "/retired", ROLE, ImportedItem.ReviewStatus.RETIRED),
                 item("judge/right", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
 
         assertTrue(RoleTopics.of(ROLE, RoleClass.READ_ONLY, items).isEmpty());
@@ -62,8 +69,11 @@ class RoleTopicsTest {
     @Test
     @DisplayName("a zero_tool role has the own topic alone, and without items of its own no topic")
     void zeroTool() {
-        var generic = List.of(item("review/generic", "worker", ImportedItem.ReviewStatus.CONFIRMED));
-        var own = List.of(item("review/own", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var genericTopic = "u" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var generic = List.of(item(genericTopic + "/generic", RoleTopics.GENERIC_ROLE,
+                ImportedItem.ReviewStatus.CONFIRMED));
+        var own = List.of(item(topic + "/own", ROLE, ImportedItem.ReviewStatus.CONFIRMED));
 
         assertAll(
                 () -> assertTrue(RoleTopics.of(ROLE, RoleClass.ZERO_TOOL, generic).isEmpty()),
@@ -75,8 +85,9 @@ class RoleTopicsTest {
     @Test
     @DisplayName("the topic items keep the corpus order and each item once")
     void topicItems() {
-        var first = item("review/first", ROLE, ImportedItem.ReviewStatus.CONFIRMED);
-        var second = item("review/second", ROLE, ImportedItem.ReviewStatus.CONFIRMED);
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var first = item(topic + "/first", ROLE, ImportedItem.ReviewStatus.CONFIRMED);
+        var second = item(topic + "/second", ROLE, ImportedItem.ReviewStatus.CONFIRMED);
 
         var selected = RoleTopics.items(List.of(first, second, first), Topic.OWN, ROLE);
 
@@ -86,13 +97,16 @@ class RoleTopicsTest {
     @Test
     @DisplayName("an item of another role is in no topic of this role")
     void foreignItem() {
-        var items = List.of(item("review/other", "review-plan", ImportedItem.ReviewStatus.CONFIRMED));
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var foreignRole = "f" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var items = List.of(item(topic + "/other", foreignRole, ImportedItem.ReviewStatus.CONFIRMED));
 
         assertFalse(RoleTopics.items(items, Topic.OWN, ROLE).size() > 0);
     }
 
     private static ImportedItem item(String id, String role, ImportedItem.ReviewStatus status) {
-        return QualificationFixtures.item(id, role, "clean").status(status).build();
+        return QualificationFixtures.item(id, role,
+                "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)).status(status).build();
     }
 
     private static List<ImportedItem> concat(List<ImportedItem> first, List<ImportedItem> second) {

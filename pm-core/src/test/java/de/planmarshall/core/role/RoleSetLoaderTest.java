@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.io.TempDir;
  * same name of a lower set as a whole, members are never merged, a higher set adds a role, and an invalid artifact of a
  * higher set leaves the role undefined instead of falling back to the lower set.
  */
+@EnableGeneratorController
 @DisplayName("Role set precedence")
 class RoleSetLoaderTest {
 
@@ -40,16 +44,19 @@ class RoleSetLoaderTest {
     @Test
     @DisplayName("the project artifact replaces the machine and shipped artifact as a whole")
     void projectReplacesWhole() throws Exception {
-        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", 4)
-                .set("/context_budget_tokens", 120_000).bytes());
-        write(project, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", 8)
-                .set("/description", "The project's artifact").bytes());
+        var machineCount = Generators.integers(3, 8).next();
+        var projectCount = Generators.integers(9, 16).next();
+        var description = Generators.letterStrings(10, 60).next();
+        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", machineCount)
+                .set("/context_budget_tokens", Generators.integers(10_000, 500_000).next()).bytes());
+        write(project, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", projectCount)
+                .set("/description", description).bytes());
 
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine).withProject(project));
 
         assertAll(
-                () -> assertEquals(8, set.effective(RoleFixtures.ROLE).orElseThrow().count()),
-                () -> assertEquals("The project's artifact",
+                () -> assertEquals(projectCount, set.effective(RoleFixtures.ROLE).orElseThrow().count()),
+                () -> assertEquals(description,
                         set.effective(RoleFixtures.ROLE).orElseThrow().description()),
                 () -> assertTrue(set.effective(RoleFixtures.ROLE).orElseThrow().declaredContextBudget().isEmpty(),
                         "the project artifact omits the machine artifact's context budget"),
@@ -59,23 +66,25 @@ class RoleSetLoaderTest {
     @Test
     @DisplayName("the machine set of the test directory replaces the shipped artifact")
     void machineReplacesShipped() throws Exception {
-        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", 4).bytes());
+        var count = Generators.integers(3, 16).next();
+        write(machine, RoleFixtures.ROLE, RoleFixtures.valid().set("/count", count).bytes());
 
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
-        assertEquals(4, set.effective(RoleFixtures.ROLE).orElseThrow().count());
+        assertEquals(count, set.effective(RoleFixtures.ROLE).orElseThrow().count());
     }
 
     @Test
     @DisplayName("a set adds a role that the lower sets do not define")
     void higherSetAddsRole() throws Exception {
-        write(machine, "review-code", RoleFixtures.valid().set("/name", "review-code").bytes());
+        var role = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        write(machine, role, RoleFixtures.valid().set("/name", role).bytes());
 
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
         assertAll(
-                () -> assertTrue(set.effective("review-code").isPresent()),
-                () -> assertEquals(300, set.effective("review-code").orElseThrow().budgetFloorSeconds()));
+                () -> assertTrue(set.effective(role).isPresent()),
+                () -> assertEquals(300, set.effective(role).orElseThrow().budgetFloorSeconds()));
     }
 
     @Test
@@ -95,12 +104,13 @@ class RoleSetLoaderTest {
     @Test
     @DisplayName("a file whose name differs from the artifact name is schema_invalid")
     void fileNameMustEqualName() throws Exception {
-        write(machine, "review-code", RoleFixtures.validBytes());
+        var role = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        write(machine, role, RoleFixtures.validBytes());
 
         var set = RoleSetLoader.load(RoleFixtures.shippedValid().withMachine(machine));
 
         assertAll(
-                () -> assertTrue(set.effective("review-code").isEmpty()),
+                () -> assertTrue(set.effective(role).isEmpty()),
                 () -> assertEquals(RoleValidationReason.SCHEMA_INVALID,
                         set.refused().getFirst().refusal().reason()));
     }

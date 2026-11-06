@@ -45,6 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * encoder option PM-MCP does not offer (a delimiter other than comma, an indentation other than two
  * spaces); a listed fixture must carry such an option, so a skip never hides a wrong encoding.
  */
+// Every datum in this class is a contract: fixture paths, JSON member names and the pinned verification output.
 @DisplayName("TOON conformance fixtures (encode)")
 class ToonConformanceTest {
 

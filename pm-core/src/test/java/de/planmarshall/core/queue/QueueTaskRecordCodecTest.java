@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -32,10 +34,15 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * {@code suspended} attempt end and {@code signals[]} entries survives a write and a read, and an
  * {@code agent_started} signal with any action but {@code restart} is refused.
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the assertion table names one throwing builder call per case, by design
 @DisplayName("Queue task record codec")
 class QueueTaskRecordCodecTest {
+
+    private static String taskId() {
+        return "qt-" + "%016x".formatted(Generators.longs().next());
+    }
 
     private static QueueTaskRecord roundTrip(QueueTaskRecord task) {
         return QueueTaskRecordCodec.read(Path.of("queue", task.queueTaskId() + ".json"),
@@ -49,7 +56,7 @@ class QueueTaskRecordCodecTest {
         @Test
         @DisplayName("a queued task")
         void queued() {
-            var task = QueueFixtures.queued("qt-0000000000000001").build();
+            var task = QueueFixtures.queued(taskId()).build();
 
             assertEquals(task, roundTrip(task));
         }
@@ -57,7 +64,7 @@ class QueueTaskRecordCodecTest {
         @Test
         @DisplayName("a record with a continuation, a suspended attempt end and signals[]")
         void suspendedWithContinuationAndSignals() {
-            var task = QueueFixtures.suspended("qt-0000000000000002").toBuilder()
+            var task = QueueFixtures.suspended(taskId()).toBuilder()
                     .signals(List.of(new Signal(SignalName.REPEATING, 1, SignalAction.NUDGE, 4, 3,
                             QueueFixtures.AT.plusSeconds(7))))
                     .build();
@@ -74,7 +81,7 @@ class QueueTaskRecordCodecTest {
         @Test
         @DisplayName("an agent_started signal with the action restart")
         void agentStarted() {
-            var task = QueueFixtures.queued("qt-0000000000000003")
+            var task = QueueFixtures.queued(taskId())
                     .status(QueueTaskRecord.Status.QUEUED)
                     .attempts(List.of(QueueFixtures.endedAttempt(1, QueueFixtures.GENERATION,
                             AttemptEnd.OFF_TRACK)))
@@ -94,7 +101,7 @@ class QueueTaskRecordCodecTest {
         @Test
         @DisplayName("a closed submitted task")
         void submitted() {
-            var task = QueueFixtures.closedSubmitted("qt-0000000000000004");
+            var task = QueueFixtures.closedSubmitted(taskId());
 
             assertEquals(task, roundTrip(task));
         }
@@ -102,7 +109,7 @@ class QueueTaskRecordCodecTest {
         @Test
         @DisplayName("a lost task with its reason")
         void lost() {
-            var task = QueueFixtures.lostAttemptsSpent("qt-0000000000000005");
+            var task = QueueFixtures.lostAttemptsSpent(taskId());
 
             assertEquals(task, roundTrip(task));
         }
@@ -110,10 +117,12 @@ class QueueTaskRecordCodecTest {
         @Test
         @DisplayName("a consultation task with its consultations")
         void consultation() {
-            var asking = QueueFixtures.queued("qt-0000000000000006")
-                    .consultations(List.of(QueueFixtures.answeredConsultation("qt-0000000000000007")))
+            var askingId = taskId();
+            var consultationId = taskId();
+            var asking = QueueFixtures.queued(askingId)
+                    .consultations(List.of(QueueFixtures.answeredConsultation(consultationId)))
                     .build();
-            var consultation = QueueFixtures.consultation("qt-0000000000000007", "qt-0000000000000006");
+            var consultation = QueueFixtures.consultation(consultationId, askingId);
 
             assertAll(
                     () -> assertEquals(asking, roundTrip(asking)),

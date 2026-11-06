@@ -19,6 +19,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,43 +30,56 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  * the accepted alternatives, a control is right when it reports nothing, and a rubric answer is right from the item's
  * pass threshold — a declared threshold where it declares one, the compiled {@code 0.5} where it declares none.
  */
-@DisplayName("Scoring")
 @EnableGeneratorController
+@DisplayName("Scoring")
 class ScoringTest {
 
     @Test
     @DisplayName("a closed answer is right when it is the reference or an accepted alternative")
     void closed() {
-        var item = QualificationFixtures.item("review/clean-plan", QualificationFixtures.ROLE, "clean").build();
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var reference = "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var other = "b" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var item = QualificationFixtures.item(topic + "/clean-plan", QualificationFixtures.ROLE, reference).build();
 
         assertAll(
-                () -> assertTrue(Scoring.closed(item, "clean").judgedRight()),
-                () -> assertFalse(Scoring.closed(item, "defective").judgedRight()),
-                () -> assertTrue(Scoring.closed(item, " clean ").judgedRight()));
+                () -> assertTrue(Scoring.closed(item, reference).judgedRight()),
+                () -> assertFalse(Scoring.closed(item, other).judgedRight()),
+                () -> assertTrue(Scoring.closed(item, " " + reference + " ").judgedRight()));
     }
 
     @Test
     @DisplayName("a control is right only when it reports nothing")
     void control() {
-        var item = new ImportedItem("review/control", "review", QualificationFixtures.ROLE, "A control",
-                List.of(), null,
-                new ImportedItem.Input("Is it right?", "", List.of("yes", "no"), null),
-                new ImportedItem.Target(null, "Nothing to report.", List.of(), List.of(), true),
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var other = "b" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var item = new ImportedItem(topic + "/control", topic, QualificationFixtures.ROLE,
+                Generators.letterStrings(5, 30).next(), List.of(), null,
+                new ImportedItem.Input(Generators.letterStrings(5, 30).next(), "",
+                        List.of("y" + Generators.letterStrings(2, 6).next(),
+                                "n" + Generators.letterStrings(2, 6).next()), null),
+                new ImportedItem.Target(null, Generators.letterStrings(5, 30).next(), List.of(), List.of(), true),
                 new ImportedItem.Grading(ImportedItem.GradingMethod.EXACT_CHOICE, null, null),
-                new ImportedItem.Provenance(LocalDate.of(2026, 1, 1),
-                        new ImportedItem.Origin(QualificationFixtures.DATASET, "b".repeat(40), "data/rows.csv", 1),
-                        List.of("created")),
-                new ImportedItem.Review(ImportedItem.ReviewStatus.CONFIRMED, "operator", null, null), null, "canary");
+                new ImportedItem.Provenance(LocalDate.ofEpochDay(Generators.longs(19_000, 21_000).next()),
+                        new ImportedItem.Origin(QualificationFixtures.DATASET,
+                                "%040x".formatted(Generators.longs().next()),
+                                Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/rows.csv",
+                                Generators.integers(1, 100).next()),
+                        List.of(Generators.letterStrings(5, 30).next())),
+                new ImportedItem.Review(ImportedItem.ReviewStatus.CONFIRMED,
+                        Generators.letterStrings(3, 10).next(), null, null),
+                null, "canary");
 
         assertAll(
                 () -> assertTrue(Scoring.closed(item, "").judgedRight()),
-                () -> assertFalse(Scoring.closed(item, "a defect").judgedRight()));
+                () -> assertFalse(Scoring.closed(item, other).judgedRight()));
     }
 
     @Test
     @DisplayName("a rubric answer is right from the item's pass threshold")
     void rubric() {
-        var item = QualificationFixtures.item("review/rubric", QualificationFixtures.ROLE, null)
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var item = QualificationFixtures.item(topic + "/rubric", QualificationFixtures.ROLE, null)
                 .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build();
 
         assertAll(
@@ -112,7 +126,9 @@ class ScoringTest {
     @Test
     @DisplayName("a closed item is never sent to the judge")
     void closedIsNotJudged() {
-        var item = QualificationFixtures.item("review/clean-plan", QualificationFixtures.ROLE, "clean").build();
+        var topic = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        var item = QualificationFixtures.item(topic + "/clean-plan", QualificationFixtures.ROLE,
+                "a" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)).build();
 
         assertFalse(Scoring.judged(item));
     }

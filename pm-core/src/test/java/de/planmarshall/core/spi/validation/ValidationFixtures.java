@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.spi.validation;
 
+import de.cuioss.test.generator.Generators;
 import java.util.List;
 
 import de.planmarshall.core.store.IntentRecord;
@@ -34,37 +35,50 @@ import de.planmarshall.core.store.OutlineRecord.Verification;
 /** Records and outlines the validation tests share. */
 final class ValidationFixtures {
 
+    private static final String WHY = Generators.letterStrings(20, 60).next();
+    private static final String GOAL = Generators.letterStrings(10, 40).next();
+    private static final String NON_GOAL = Generators.letterStrings(5, 40).next();
+    private static final String CONSTRAINT = Generators.letterStrings(5, 40).next();
+    private static final String DECISION = Generators.letterStrings(5, 40).next();
+    private static final String OPTION = Generators.letterStrings(5, 20).next();
+    private static final String OTHER_OPTION = Generators.letterStrings(5, 20).next();
+    private static final String CLAIM = Generators.letterStrings(5, 40).next();
+    private static final String OTHER_CLAIM = Generators.letterStrings(5, 40).next();
+    private static final String OUTLINE_TITLE = Generators.letterStrings(20, 60).next();
+    private static final String DELIVERABLE_NAME = Generators.letterStrings(5, 20).next();
+    private static final String DELIVERABLE_DESCRIPTION = Generators.letterStrings(5, 20).next();
+    private static final String DELIVERABLE_CHANGE = Generators.letterStrings(10, 20).next();
+
     private ValidationFixtures() {
     }
 
     static IntentRecord intent(Criterion... criteria) {
         return new IntentRecord(
-                "The operator cannot see what a plan intends before it is built.",
-                "A plan states its intent in one record that every later phase reads.",
+                WHY,
+                GOAL,
                 List.of(criteria),
                 null,
-                List.of(new NonGoal("NG-1", "The record is not edited by a later phase.")),
-                List.of(new Constraint("CN-1", "A record is never accepted half-written.", ConstraintSource.OPERATOR,
-                        null)),
-                List.of(new Decision("DC-1", "The record is one file beside request.md", List.of("a store", "one file"),
+                List.of(new NonGoal("NG-1", NON_GOAL)),
+                List.of(new Constraint("CN-1", CONSTRAINT, ConstraintSource.OPERATOR, null)),
+                List.of(new Decision("DC-1", DECISION, List.of(OPTION, OTHER_OPTION),
                         Decider.MODEL, null, null, null)),
                 List.of(), List.of(), List.of(),
-                List.of(new SourceClaim("The operator wants the intent visible", "goal", null),
-                        new SourceClaim("A half-written record would mislead the phases", "CN-1", null)));
+                List.of(new SourceClaim(CLAIM, "goal", null),
+                        new SourceClaim(OTHER_CLAIM, "CN-1", null)));
     }
 
     static IntentRecord intentWithoutConstraints(Criterion... criteria) {
         return new IntentRecord(
-                "The operator cannot see what a plan intends before it is built.",
-                "A plan states its intent in one record that every later phase reads.",
+                WHY,
+                GOAL,
                 List.of(criteria),
                 null,
-                List.of(new NonGoal("NG-1", "The record is not edited by a later phase.")),
+                List.of(new NonGoal("NG-1", NON_GOAL)),
                 List.of(),
-                List.of(new Decision("DC-1", "The record is one file beside request.md", List.of("a store", "one file"),
+                List.of(new Decision("DC-1", DECISION, List.of(OPTION, OTHER_OPTION),
                         Decider.MODEL, null, null, null)),
                 List.of(), List.of(), List.of(),
-                List.of(new SourceClaim("The operator wants the intent visible", "goal", null)));
+                List.of(new SourceClaim(CLAIM, "goal", null)));
     }
 
     static Criterion criterion(String id, CriterionKind kind, VerifiedBy verifiedBy) {
@@ -75,17 +89,16 @@ final class ValidationFixtures {
     }
 
     static OutlineRecord outline(Deliverable... deliverables) {
-        return new OutlineRecord("The deliverables that implement the intent record", null,
-                ScopeEstimate.SINGLE_MODULE, List.of(deliverables));
+        return new OutlineRecord(OUTLINE_TITLE, null, ScopeEstimate.SINGLE_MODULE, List.of(deliverables));
     }
 
     static Deliverable deliverable(int number, List<Integer> depends, String... satisfies) {
-        return new Deliverable(number, "Deliverable " + number, "The deliverable " + number,
+        return new Deliverable(number, DELIVERABLE_NAME + " " + number, DELIVERABLE_DESCRIPTION + " " + number,
                 ChangeType.FEATURE, ExecutionMode.AUTOMATED, "core", "pm-core", depends, null,
                 List.of(Profile.IMPLEMENTATION),
                 List.of(new AffectedFile("pm-core/src/main/java/%d.java".formatted(number), FileIntent.WRITE_NEW,
                         null)),
-                "Change the file of the deliverable " + number,
+                DELIVERABLE_CHANGE + " " + number,
                 List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies),
                 List.of(), List.of(), List.of());
     }

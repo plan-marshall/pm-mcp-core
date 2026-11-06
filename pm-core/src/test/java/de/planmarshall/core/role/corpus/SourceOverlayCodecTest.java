@@ -49,6 +49,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * field, every value in its format, every item id once; a refusal names the file. Every test runs under a default
  * locale with non-Latin digits, so the numbers of a document and of a refusal must be ASCII digits.
  */
+// Every datum in this class is a contract: the overlay wire document and the item ids its rows derive.
 @ExtendWith(NonLatinDigits.class)
 @DisplayName("Source overlay codec")
 class SourceOverlayCodecTest {

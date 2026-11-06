@@ -29,6 +29,7 @@ import de.planmarshall.core.profile.ProfileSetKind;
  * classes and their tool sets, the efforts, the tiers, the context budget, the idle wakeups, the resumability and the
  * ask-user tool. The test reads a profile document, so a mapping error in {@link HarnessProfile#of} fails here.
  */
+// Every datum in this class is a contract: every profile value in the document is the projection the test asserts.
 @DisplayName("Harness profile projection")
 class HarnessProfileTest {
 

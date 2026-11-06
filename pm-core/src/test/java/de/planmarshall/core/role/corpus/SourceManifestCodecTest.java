@@ -15,11 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -39,19 +42,21 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The manifest of a corpus source (PM-WORK-6): one format version, every declared field exactly once, no undeclared
  * field, and every value in its format; a refusal names the file.
  */
+@EnableGeneratorController
 @DisplayName("Source manifest codec")
 class SourceManifestCodecTest {
 
     private static final Path FILE = Path.of("/corpus/sources/sample-set/manifest.json");
+    private static final String NAME = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
-    private static final String HASH = "a".repeat(64);
-    private static final String OBJECT_HASH = "b".repeat(64);
+    private static final String HASH = "%064x".formatted(Generators.longs().next());
+    private static final String OBJECT_HASH = "%064x".formatted(Generators.longs().next());
 
     /** The members of a valid manifest, each with its JSON value. */
     private static Map<String, String> members() {
         var members = new LinkedHashMap<String, String>();
         members.put("format_version", "1");
-        members.put("name", "\"sample-set\"");
+        members.put("name", "\"" + NAME + "\"");
         members.put("repository", "\"https://github.com/example/sample-set\"");
         members.put("commit", "\"" + COMMIT + "\"");
         members.put("licence", "\"CC-BY-4.0\"");
@@ -98,7 +103,7 @@ class SourceManifestCodecTest {
             var manifest = SourceManifestCodec.read(FILE, document(members()));
 
             assertAll(
-                    () -> assertEquals("sample-set", manifest.name()),
+                    () -> assertEquals(NAME, manifest.name()),
                     () -> assertEquals(URI.create("https://github.com/example/sample-set"), manifest.repository()),
                     () -> assertEquals(COMMIT, manifest.commit()),
                     () -> assertEquals("CC-BY-4.0", manifest.licence()),

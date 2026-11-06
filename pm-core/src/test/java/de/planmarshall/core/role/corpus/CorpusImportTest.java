@@ -80,6 +80,7 @@ import de.planmarshall.core.role.corpus.SourceOverlay.Row;
  * import {@link Verdict#FAILED} while the other source's items are still generated; an unreachable source or a missing
  * pin makes it {@link Verdict#PARTIAL} and names the missed source. Nothing is ever written below the corpus root.
  */
+// Every datum in this class is a contract: the CSV and JSON Lines documents under test, their ids and refusal texts.
 @EnableTestLogger
 @DisplayName("Corpus import")
 class CorpusImportTest {

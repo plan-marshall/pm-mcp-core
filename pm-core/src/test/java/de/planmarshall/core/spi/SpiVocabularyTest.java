@@ -16,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+// Every datum in this class is a contract: the enum values and their order.
 @DisplayName("Closed vocabularies of the primitive SPI")
 class SpiVocabularyTest {
 

@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
@@ -23,10 +25,11 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The journal masks what it writes, is archived with its plan and deleted with it (Store Schemas § Activity Journal).
  */
+@EnableGeneratorController
 @DisplayName("Activity journal masking and lifetime")
 class ActivityJournalMaskingTest {
 
-    private static final String TASK = "qt-0000000000000001";
+    private static final String TASK = "qt-" + "%016x".formatted(Generators.longs().next());
 
     @Test
     @DisplayName("an appended entry is masked before it is written")

@@ -21,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+// Every datum in this class is a contract: the AsciiDoc fixtures and the rule keys and lines asserted from them.
 @DisplayName("Validator of submitted AsciiDoc text")
 class AsciiDocValidatorTest {
 

@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -22,20 +24,26 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 
 /**
  * Each navigation figure is derived with its population and the right sentinel where the population cannot be read, and
  * the skill residency names the bytes delivered in-band and the sections read on demand (Model Work § Navigation
  * Figures).
  */
+@EnableGeneratorController
 @DisplayName("Navigation figures")
 class NavigationFiguresTest {
 
-    private static final Instant AT = Instant.parse("2026-10-26T10:00:00Z");
+    private static final Instant AT =
+            Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+
+    private static final String READ_FILE = "r" + Generators.letterStrings(3, 10).next();
+    private static final String READ_RANGE = "q" + Generators.letterStrings(3, 10).next();
+    private static final String SEARCH_CODE = "s" + Generators.letterStrings(3, 10).next();
 
     private static final NavigationVocabulary VOCABULARY = new NavigationVocabulary(
-            Set.of("read_file", "read_range"), Set.of("read_file"), Set.of("search_code"),
+            Set.of(READ_FILE, READ_RANGE), Set.of(READ_FILE), Set.of(SEARCH_CODE),
             "pm_lsp", "pm_skill");
 
     private static ActivityEntry turn(String usage) {
@@ -105,9 +113,11 @@ class NavigationFiguresTest {
     @Test
     @DisplayName("revisits count a file read twice in the same task over all its reads")
     void revisits() {
+        var readTwice = "a" + Generators.letterStrings(1, 8).next() + ".java";
+        var readOnce = "b" + Generators.letterStrings(1, 8).next() + ".java";
         var figures = NavigationFigures.derive(List.of(
-                call(1, "read_file", "A.java"), call(2, "read_file", "B.java"),
-                call(3, "read_file", "A.java")), VOCABULARY, List.of(), Map.of());
+                call(1, READ_FILE, readTwice), call(2, READ_FILE, readOnce),
+                call(3, READ_FILE, readTwice)), VOCABULARY, List.of(), Map.of());
 
         assertAll(
                 () -> assertEquals(1.0 / 3, figures.revisits().value(), 0.0001),
@@ -128,8 +138,10 @@ class NavigationFiguresTest {
     @Test
     @DisplayName("the language-server share counts its reads among all code lookups")
     void languageServerUse() {
+        var file = Generators.letterStrings(1, 8).next() + ".java";
+        var code = Generators.letterStrings(1, 8).next();
         var figures = NavigationFigures.derive(List.of(
-                        call(1, "pm_lsp", "A.java"), call(2, "pm_lsp", "B.java"), call(3, "search_code", "C")),
+                        call(1, "pm_lsp", file), call(2, "pm_lsp", file), call(3, SEARCH_CODE, code)),
                 VOCABULARY, List.of(), Map.of());
 
         assertAll(
@@ -140,10 +152,11 @@ class NavigationFiguresTest {
     @Test
     @DisplayName("a whole-file read after a lookup is a fallback; a partial read is not")
     void fallbackToRead() {
+        var file = Generators.letterStrings(1, 8).next() + ".java";
         var whole = NavigationFigures.derive(List.of(
-                call(1, "pm_lsp", "A.java"), call(2, "read_file", "A.java")), VOCABULARY, List.of(), Map.of());
+                call(1, "pm_lsp", file), call(2, READ_FILE, file)), VOCABULARY, List.of(), Map.of());
         var partial = NavigationFigures.derive(List.of(
-                call(1, "pm_lsp", "A.java"), call(2, "read_range", "A.java")), VOCABULARY, List.of(), Map.of());
+                call(1, "pm_lsp", file), call(2, READ_RANGE, file)), VOCABULARY, List.of(), Map.of());
 
         assertAll(
                 () -> assertEquals(1.0, whole.fallbackToReadRate().value(), 0.0001),
@@ -154,14 +167,15 @@ class NavigationFiguresTest {
     @Test
     @DisplayName("the residency of a skill names its in-band bytes and the sections read on demand")
     void residency() {
-        var required = List.of(new RoleSkill("skill://pm/implementation/SKILL.md", "a".repeat(64)),
-                new RoleSkill("skill://pm/testing/SKILL.md", "b".repeat(64)));
+        var skill = CoreGenerators.roleSkills().next();
+        var other = CoreGenerators.roleSkills().next();
+        var required = List.of(skill, other);
         var figures = NavigationFigures.derive(List.of(
-                        call(1, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-one"),
-                        call(2, "pm_skill", "skill://pm/implementation/SKILL.md#anchor-two"),
-                        call(3, "pm_skill", "skill://pm/implementation/SKILL.md")),
+                        call(1, "pm_skill", skill.uri() + "#anchor-one"),
+                        call(2, "pm_skill", skill.uri() + "#anchor-two"),
+                        call(3, "pm_skill", skill.uri())),
                 VOCABULARY, required,
-                Map.of("skill://pm/implementation/SKILL.md", 4096L));
+                Map.of(skill.uri(), 4096L));
 
         assertAll(
                 () -> assertEquals(2, figures.residency().size()),
@@ -175,13 +189,14 @@ class NavigationFiguresTest {
     @Test
     @DisplayName("a figure is either measured with a population or one of the two sentinels")
     void figureShape() {
+        var name = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> new Figure("f", 1.0, 0, null)),
-                () -> assertThrows(IllegalArgumentException.class, () -> new Figure("f", null, 1, null)),
-                () -> assertThrows(IllegalArgumentException.class, () -> new Figure("f", 1.0, 0, "other")),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Figure(name, 1.0, 0, null)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Figure(name, null, 1, null)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new Figure(name, 1.0, 0, "other")),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new Figure("f", 1.0, 1, Figure.SENTINEL_INDETERMINATE)),
-                () -> assertTrue(Figure.measured("f", 0.5, 2).isMeasured()),
-                () -> assertEquals(Figure.SENTINEL_UNMEASURED, Figure.unmeasured("f").sentinel()));
+                        () -> new Figure(name, 1.0, 1, Figure.SENTINEL_INDETERMINATE)),
+                () -> assertTrue(Figure.measured(name, 0.5, 2).isMeasured()),
+                () -> assertEquals(Figure.SENTINEL_UNMEASURED, Figure.unmeasured(name).sentinel()));
     }
 }

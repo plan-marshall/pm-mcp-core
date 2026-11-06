@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,16 +42,28 @@ import de.planmarshall.core.store.IntentRecord.NonGoal;
 import de.planmarshall.core.store.IntentRecord.SourceClaim;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 
+@EnableGeneratorController
 @DisplayName("The builder check's submission (PM-WATCH-PHASE-109)")
 class BuilderCheckTest {
+
+    private static final String OPERATOR_QUESTION = Generators.letterStrings(20, 60).next();
+    private static final String MINOR_QUESTION = Generators.letterStrings(10, 40).next();
+    private static final String MINOR_DECISION = Generators.letterStrings(10, 40).next();
+    private static final String ANSWERED_QUESTION = Generators.letterStrings(10, 40).next();
+    private static final String WHY = Generators.letterStrings(20, 60).next();
+    private static final String GOAL = Generators.letterStrings(10, 40).next();
+    private static final String NON_GOAL = Generators.letterStrings(5, 40).next();
+    private static final String CONSTRAINT = Generators.letterStrings(5, 40).next();
+    private static final String DECISION = Generators.letterStrings(5, 40).next();
+    private static final String OPTION = Generators.letterStrings(5, 20).next();
+    private static final String OTHER_OPTION = Generators.letterStrings(5, 20).next();
+    private static final String CLAIM = Generators.letterStrings(5, 40).next();
+    private static final String OTHER_CLAIM = Generators.letterStrings(5, 40).next();
 
     @DisplayName("A question about a constraint is always the operator's")
     @Test
     void constraintQuestionIsTheOperators() {
-        var question = new Question(Sort.OPERATOR,
-                "The record's default permits what 'no item is lost' rules out: the fallback drops items and the "
-                        + "criterion accepts it. Is dropping an item acceptable?",
-                List.of("CN-1", "AC-1"), null);
+        var question = new Question(Sort.OPERATOR, OPERATOR_QUESTION, List.of("CN-1", "AC-1"), null);
         var accepted = assertInstanceOf(Accepted.class,
                 BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         assertEquals(List.of(question), accepted.operatorQuestions());
@@ -58,8 +72,7 @@ class BuilderCheckTest {
     @DisplayName("A minor question that names a constraint is refused")
     @Test
     void minorQuestionAboutConstraintIsRefused() {
-        var question = new Question(Sort.MINOR, "The constraint is fine as the default", List.of("CN-1"),
-                "Keep the default");
+        var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("CN-1"), MINOR_DECISION);
         var refused = assertInstanceOf(Refused.class,
                 BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         assertTrue(refused.detail().contains("CN-1"));
@@ -68,16 +81,14 @@ class BuilderCheckTest {
     @DisplayName("A minor question that names two criteria is refused")
     @Test
     void minorQuestionAboutTwoCriteriaIsRefused() {
-        var question = new Question(Sort.MINOR, "Both criteria hold", List.of("AC-1", "AC-2"),
-                "Keep both criteria");
+        var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1", "AC-2"), MINOR_DECISION);
         assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
     }
 
     @DisplayName("The builder's own call becomes a model decision of the record")
     @Test
     void minorCallBecomesModelDecision() {
-        var question = new Question(Sort.MINOR, "The record does not say where the file lives",
-                List.of("AC-1"), "Place the file beside request.md");
+        var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), MINOR_DECISION);
         var accepted = assertInstanceOf(Accepted.class,
                 BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         var decision = accepted.intentRecord().decisions().getLast();
@@ -90,14 +101,14 @@ class BuilderCheckTest {
     @DisplayName("An answered question names exactly one item the record holds")
     @Test
     void answeredQuestionNamesOneHeldItem() {
-        var answered = new Question(Sort.ANSWERED, "The goal says it", List.of("AC-1"), null);
+        var answered = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-1"), null);
         assertInstanceOf(Accepted.class, BuilderCheck.validate(new Submission(List.of(answered)), intentRecord()));
 
-        var unknown = new Question(Sort.ANSWERED, "The goal says it", List.of("AC-9"), null);
+        var unknown = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-9"), null);
         assertTrue(assertInstanceOf(Refused.class,
                 BuilderCheck.validate(new Submission(List.of(unknown)), intentRecord())).detail().contains("AC-9"));
 
-        var two = new Question(Sort.ANSWERED, "The goal says it", List.of("AC-1", "AC-2"), null);
+        var two = new Question(Sort.ANSWERED, ANSWERED_QUESTION, List.of("AC-1", "AC-2"), null);
         assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(two)), intentRecord()));
     }
 
@@ -116,7 +127,7 @@ class BuilderCheckTest {
     @DisplayName("A minor decision too long for the record is refused, not thrown")
     @Test
     void refusesOverlongMinorDecision() {
-        var question = new Question(Sort.MINOR, "Where does it live?", List.of("AC-1"), "x".repeat(401));
+        var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), "x".repeat(401));
         var refused = assertInstanceOf(Refused.class,
                 BuilderCheck.validate(new Submission(List.of(question)), intentRecord()));
         assertTrue(refused.detail().contains("longer"));
@@ -128,7 +139,7 @@ class BuilderCheckTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new Question(Sort.OPERATOR, "no", List.of(), null));
         assertThrows(IllegalArgumentException.class,
-                () -> new Question(Sort.MINOR, "Where does it live?", List.of(), "no"));
+                () -> new Question(Sort.MINOR, MINOR_QUESTION, List.of(), "no"));
     }
 
     @DisplayName("A builder that would exceed the decision bound is refused, not thrown")
@@ -137,13 +148,13 @@ class BuilderCheckTest {
         var base = intentRecord();
         var decisions = new ArrayList<Decision>();
         for (var index = 1; index <= 30; index++) {
-            decisions.add(new Decision("DC-" + index, "Decision " + index, List.of(), Decider.MODEL, null, null, null));
+            decisions.add(new Decision("DC-" + index, Generators.letterStrings(5, 20).next(), List.of(),
+                    Decider.MODEL, null, null, null));
         }
         var full = new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(),
                 base.nonGoals(), base.constraints(), decisions, base.assumptions(), base.openQuestions(),
                 base.deferred(), base.sourceClaims());
-        var question = new Question(Sort.MINOR, "The record does not say where the file lives", List.of("AC-1"),
-                "Place the file beside request.md");
+        var question = new Question(Sort.MINOR, MINOR_QUESTION, List.of("AC-1"), MINOR_DECISION);
 
         var refused = assertInstanceOf(Refused.class,
                 BuilderCheck.validate(new Submission(List.of(question)), full));
@@ -160,21 +171,20 @@ class BuilderCheckTest {
 
     private static IntentRecord intentRecord() {
         return new IntentRecord(
-                "The operator cannot see what a plan intends before it is built.",
-                "A plan states its intent in one record that every later phase reads.",
+                WHY,
+                GOAL,
                 List.of(new Criterion("AC-1", "WHEN a plan is refined THE system SHALL write the intent record",
                                 CriterionKind.NEW, VerifiedBy.TEST, null),
                         new Criterion("AC-2",
                                 "WHEN a plan is refined THE system SHALL CONTINUE TO keep the previous record intact",
                                 CriterionKind.UNCHANGED, VerifiedBy.TEST, null)),
                 null,
-                List.of(new NonGoal("NG-1", "The record is not edited by a later phase.")),
-                List.of(new Constraint("CN-1", "A record is never accepted half-written.", ConstraintSource.OPERATOR,
-                        null)),
-                List.of(new Decision("DC-1", "The record is one file beside request.md", List.of("a store", "one file"),
+                List.of(new NonGoal("NG-1", NON_GOAL)),
+                List.of(new Constraint("CN-1", CONSTRAINT, ConstraintSource.OPERATOR, null)),
+                List.of(new Decision("DC-1", DECISION, List.of(OPTION, OTHER_OPTION),
                         Decider.MODEL, null, null, null)),
                 List.of(), List.of(), List.of(),
-                List.of(new SourceClaim("The operator wants the intent visible", "goal", null),
-                        new SourceClaim("A half-written record would mislead the phases", "CN-1", null)));
+                List.of(new SourceClaim(CLAIM, "goal", null),
+                        new SourceClaim(OTHER_CLAIM, "CN-1", null)));
     }
 }

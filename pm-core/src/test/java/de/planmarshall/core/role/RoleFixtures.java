@@ -9,12 +9,14 @@
  */
 package de.planmarshall.core.role;
 
+import de.cuioss.test.generator.Generators;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -38,13 +40,20 @@ final class RoleFixtures {
     static final String ROLE = "implement";
 
     /** The harness of the base artifact. */
-    static final String HARNESS = "acme-cli";
+    static final String HARNESS = "c" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     /** The model of the base artifact. */
-    static final String MODEL = "acme-standard";
+    static final String MODEL = "m" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     /** The digest of a resolved skill the fixture environment reports unless a test changes it. */
-    static final String SKILL_DIGEST = "a".repeat(64);
+    static final String SKILL_DIGEST = "%064x".formatted(Generators.longs().next());
+
+    static final String FRONTIER_MODEL = "f" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    static final String FAST_MODEL = "s" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    private static final int CONTEXT_BUDGET = Generators.integers(200_000, 900_000).next();
+    private static final int IDLE_WAKEUPS = Generators.integers(1, 10).next();
+    private static final int MAX_HOLD_SECONDS = Generators.integers(301, 3_600).next();
+    private static final int MAX_RESUME_SECONDS = Generators.integers(601, 604_800).next();
 
     private RoleFixtures() {
     }
@@ -63,7 +72,7 @@ final class RoleFixtures {
         var root = new LinkedHashMap<String, Object>();
         root.put("format_version", 1);
         root.put("name", ROLE);
-        root.put("description", "Implements the tasks of a plan.");
+        root.put("description", Generators.letterStrings(10, 60).next());
         root.put("class", "read_only");
         root.put("tools", new ArrayList<>(List.of("pm_wait", "pm_state", "pm_do", "pm_skill", "pm_skill_file")));
         root.put("harness", HARNESS);
@@ -90,11 +99,11 @@ final class RoleFixtures {
                 Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED,
                         RoleClass.READ_ONLY, HarnessProfile.ToolSet.ADVISORY,
                         RoleClass.ZERO_TOOL, HarnessProfile.ToolSet.ENFORCED),
-                Map.of(MODEL, List.of("medium", "high"), "acme-frontier", List.of("medium", "high"),
-                        "acme-fast", List.of()),
-                Map.of("frontier", "acme-frontier", "standard", MODEL, "fast", "acme-fast"),
-                400_000, 3,
-                new HarnessProfile.Resumability(true, 600, true, 604_800), "ask_user");
+                Map.of(MODEL, List.of("medium", "high"), FRONTIER_MODEL, List.of("medium", "high"),
+                        FAST_MODEL, List.of()),
+                Map.of("frontier", FRONTIER_MODEL, "standard", MODEL, "fast", FAST_MODEL),
+                CONTEXT_BUDGET, IDLE_WAKEUPS,
+                new HarnessProfile.Resumability(true, MAX_HOLD_SECONDS, true, MAX_RESUME_SECONDS), "ask_user");
     }
 
     /**
@@ -103,12 +112,13 @@ final class RoleFixtures {
      * @return the enrolled build of that harness
      */
     static EnrolledHarness enrolled(String clientId, String version) {
-        return new EnrolledHarness(clientId, version, "sha256:" + "0".repeat(64));
+        return new EnrolledHarness(clientId, version,
+                "sha256:" + "%064x".formatted(Generators.longs().next()));
     }
 
     /** @return the enrolled build of the base harness */
     static EnrolledHarness enrolled() {
-        return enrolled(HARNESS, "1.4.2");
+        return enrolled(HARNESS, "1.4." + Generators.integers(0, 99).next());
     }
 
     /** @return a store-backed environment with the base harness, its enrolment and the base catalogue */

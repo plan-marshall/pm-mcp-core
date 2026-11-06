@@ -56,6 +56,7 @@ import de.planmarshall.core.role.corpus.SourceOverlay.Row;
  * product's content: a valid corpus with two items, a context file and one source reports nothing, and each rule has
  * a fixture that breaks it alone and reports exactly its violation.
  */
+// Every datum in this class is a contract: the item schema, the item fields and the violation details.
 @DisplayName("Corpus validator")
 class CorpusValidatorTest {
 

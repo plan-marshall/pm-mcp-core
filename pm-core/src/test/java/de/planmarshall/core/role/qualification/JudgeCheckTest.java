@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -23,6 +25,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -41,13 +44,24 @@ import de.planmarshall.core.store.StoreRefusal;
  * follows its own opinion and fails, and a judge that follows the reference passes. A lost judge task leaves the answer
  * unscored and the check without a verdict; a changed judge configuration or corpus revision leaves no valid checkRecord.
  */
+@EnableGeneratorController
 @DisplayName("Judge instrument check")
 class JudgeCheckTest {
 
-    private static final Instant NOW = Instant.parse("2026-10-26T10:00:00Z");
-    private static final String CORPUS = "corpus-7";
-    private static final String RIGHT_ANSWER = "a right answer";
-    private static final String WRONG_ANSWER = "another wrong answer";
+    private static final Instant NOW =
+            Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+    private static final String CORPUS = "c" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    private static final String OTHER_CORPUS = CORPUS + "-other";
+    private static final String RIGHT_ANSWER = "r" + Generators.letterStrings(5, 20).next();
+    private static final String SECOND_RIGHT_ANSWER = "s" + Generators.letterStrings(5, 20).next();
+    private static final String WRONG_ANSWER = "w" + Generators.letterStrings(5, 20).next();
+    private static final String QUESTION = "q" + Generators.letterStrings(5, 20).next();
+    private static final String FIRST_RIGHT = "judge/r1-" + Generators.letterStrings(3, 10).next();
+    private static final String SECOND_RIGHT = "judge/r2-" + Generators.letterStrings(3, 10).next();
+    private static final String FIRST_WRONG = "judge/w1-" + Generators.letterStrings(3, 10).next();
+    private static final String SECOND_WRONG = "judge/w2-" + Generators.letterStrings(3, 10).next();
+    private static final String DIGEST = "%064x".formatted(Generators.longs().next());
+    private static final String OTHER_DIGEST = "%064x".formatted(Generators.longs().next());
 
     @TempDir
     Path directory;
@@ -104,7 +118,7 @@ class JudgeCheckTest {
     @Test
     @DisplayName("a lost judge task leaves the answer unscored and the check without a verdict")
     void lostJudge() {
-        var runner = new Runner(prompt -> "judge/right-1".equals(prompt.itemId())
+        var runner = new Runner(prompt -> FIRST_RIGHT.equals(prompt.itemId())
                 ? Optional.empty()
                 : Optional.of(score(BigDecimal.ONE)));
 
@@ -128,7 +142,7 @@ class JudgeCheckTest {
         assertEquals(4, oracle.size());
         assertEquals(4, blind.size());
         assertEquals(RIGHT_ANSWER, oracle.getFirst().reference());
-        assertEquals("another right answer", oracle.get(1).reference());
+        assertEquals(SECOND_RIGHT_ANSWER, oracle.get(1).reference());
         assertTrue(blind.stream().allMatch(prompt -> prompt.reference() == null));
     }
 
@@ -146,19 +160,20 @@ class JudgeCheckTest {
     @Test
     @DisplayName("an oracle exactly at the baseline plus the margin passes, like the topic bound")
     void equalityPasses() {
-        var scored = new JudgeCheck.ItemScore("judge/right", JudgeCheck.Label.RIGHT, Grade.of(true),
-                Grade.of(false), TokenTotal.measured(100), 10L);
-        var checkRecord = new JudgeCheck.Record("a".repeat(64), QualificationFixtures.HARNESS,
+        var scored = new JudgeCheck.ItemScore(FIRST_RIGHT, JudgeCheck.Label.RIGHT, Grade.of(true),
+                Grade.of(false), TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                Generators.longs(1, 100).next());
+        var checkRecord = new JudgeCheck.Record(DIGEST, QualificationFixtures.HARNESS,
                 QualificationFixtures.JUDGE_MODEL, CORPUS, new BigDecimal("60"), BigDecimal.ZERO,
                 new BigDecimal("50"), 0, NOW, List.of(scored));
 
-        assertTrue(JudgeCheck.Verdict.of(checkRecord, "a".repeat(64), CORPUS).passes());
+        assertTrue(JudgeCheck.Verdict.of(checkRecord, DIGEST, CORPUS).passes());
     }
 
     @Test
     @DisplayName("a judge check record without an item is refused")
     void itemsRequired() {
-        var digest = "a".repeat(64);
+        var digest = DIGEST;
         var oracle = new BigDecimal("60");
         var baseline = new BigDecimal("50");
         var noItems = List.<JudgeCheck.ItemScore>of();
@@ -173,8 +188,9 @@ class JudgeCheckTest {
     void staleRecord() {
         var checkRecord = new Runner(JudgeCheckTest::followsReference).run();
 
-        assertFalse(JudgeCheck.Verdict.of(checkRecord, "b".repeat(64), CORPUS).passes());
-        assertFalse(JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), "corpus-8").passes());
+        assertFalse(JudgeCheck.Verdict.of(checkRecord, OTHER_DIGEST, CORPUS).passes());
+        assertFalse(JudgeCheck.Verdict.of(checkRecord, digestOf(JudgeCheckTest::judgeRole), OTHER_CORPUS)
+                .passes());
     }
 
     @Test
@@ -239,18 +255,16 @@ class JudgeCheckTest {
 
     private static List<JudgeCheck.Item> items() {
         return List.of(
-                new JudgeCheck.Item("judge/right-1", "Is the answer right?", "", RIGHT_ANSWER, RIGHT_ANSWER,
+                new JudgeCheck.Item(FIRST_RIGHT, QUESTION, "", RIGHT_ANSWER, RIGHT_ANSWER, JudgeCheck.Label.RIGHT),
+                new JudgeCheck.Item(SECOND_RIGHT, QUESTION, "", SECOND_RIGHT_ANSWER, RIGHT_ANSWER,
                         JudgeCheck.Label.RIGHT),
-                new JudgeCheck.Item("judge/right-2", "Is the answer right?", "", "another right answer", RIGHT_ANSWER,
-                        JudgeCheck.Label.RIGHT),
-                new JudgeCheck.Item("judge/wrong-1", "Is the answer right?", "", "a wrong answer", WRONG_ANSWER,
-                        JudgeCheck.Label.WRONG),
-                new JudgeCheck.Item("judge/wrong-2", "Is the answer right?", "", "a wrong answer", WRONG_ANSWER,
-                        JudgeCheck.Label.WRONG));
+                new JudgeCheck.Item(FIRST_WRONG, QUESTION, "", WRONG_ANSWER, WRONG_ANSWER, JudgeCheck.Label.WRONG),
+                new JudgeCheck.Item(SECOND_WRONG, QUESTION, "", WRONG_ANSWER, WRONG_ANSWER, JudgeCheck.Label.WRONG));
     }
 
     private static JudgeScorer.JudgeScore score(BigDecimal score) {
-        return new JudgeScorer.JudgeScore(score, TokenTotal.measured(100), 10);
+        return new JudgeScorer.JudgeScore(score, TokenTotal.measured(Generators.integers(1, 1_000).next()),
+                Generators.integers(1, 100).next());
     }
 
     /** The runner of one check, which records every prompt. */

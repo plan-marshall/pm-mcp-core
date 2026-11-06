@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -32,8 +34,11 @@ import de.planmarshall.core.store.IntentRecord;
 import de.planmarshall.core.store.IntentRecord.CriterionKind;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 
+@EnableGeneratorController
 @DisplayName("The self-review over the intent's constraints and non-goals")
 class SelfReviewSubmissionTest {
+
+    private static final String EVIDENCE = Generators.letterStrings(5, 30).next();
 
     @DisplayName("A clean round judges every criterion, constraint, non-goal and decision")
     @Test
@@ -119,14 +124,14 @@ class SelfReviewSubmissionTest {
                 criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
         var results = List.of(
-                new ItemResult("AC-1", Verdict.MET, "IntentRecordTest.revisionMovesCurrentToHistory"),
-                new ItemResult("AC-2", Verdict.MET, "OutlineRecordTest.roundTripsAndRenders"),
+                new ItemResult("AC-1", Verdict.MET, EVIDENCE),
+                new ItemResult("AC-2", Verdict.MET, EVIDENCE),
                 new ItemResult("NG-1", Verdict.RESPECTED, null),
-                new ItemResult("DC-1", Verdict.FOLLOWED, "The record is one file beside request.md"));
+                new ItemResult("DC-1", Verdict.FOLLOWED, EVIDENCE));
         assertInstanceOf(Accepted.class,
                 SelfReviewSubmission.validate(new SelfReviewSubmission(results), withoutConstraints));
 
-        var wrongVerdict = replace(clean(), new ItemResult("AC-1", Verdict.RESPECTED, "a review"));
+        var wrongVerdict = replace(clean(), new ItemResult("AC-1", Verdict.RESPECTED, EVIDENCE));
         assertInstanceOf(Refused.class, SelfReviewSubmission.validate(new SelfReviewSubmission(wrongVerdict), intentRecord()));
     }
 
@@ -161,11 +166,11 @@ class SelfReviewSubmissionTest {
 
     private static SelfReviewSubmission clean() {
         return new SelfReviewSubmission(List.of(
-                new ItemResult("AC-1", Verdict.MET, "IntentRecordTest.revisionMovesCurrentToHistory"),
-                new ItemResult("AC-2", Verdict.MET, "OutlineRecordTest.roundTripsAndRenders"),
-                new ItemResult("CN-1", Verdict.RESPECTED, "The store writes once, under the plan lock"),
+                new ItemResult("AC-1", Verdict.MET, EVIDENCE),
+                new ItemResult("AC-2", Verdict.MET, EVIDENCE),
+                new ItemResult("CN-1", Verdict.RESPECTED, EVIDENCE),
                 new ItemResult("NG-1", Verdict.RESPECTED, null),
-                new ItemResult("DC-1", Verdict.FOLLOWED, "The record is one file beside request.md")));
+                new ItemResult("DC-1", Verdict.FOLLOWED, EVIDENCE)));
     }
 
     private static List<ItemResult> replace(SelfReviewSubmission submission, ItemResult replacement) {

@@ -33,6 +33,7 @@ import de.planmarshall.core.role.corpus.JsonValue.JsonString;
  * The JSON Schema keyword subset of the corpus (PM-WORK-6), evaluated as {@code validate.py} evaluates it: per keyword
  * a passing and a failing value, a boolean never a number, an unknown keyword not evaluated.
  */
+// Every datum in this class is a contract: the schema keywords and the values and violations they evaluate.
 @DisplayName("Schema subset")
 class SchemaSubsetTest {
 
@@ -139,40 +140,31 @@ class SchemaSubsetTest {
         @Test
         @DisplayName("a value over maxLength that also fails its pattern yields only the length error")
         void overLongSkipsFailingPattern() {
-            // Arrange
             var value = "\"bbbb\"";
 
-            // Act
             var errors = validate(value, BOUNDED);
 
-            // Assert
             assertEquals(List.of("$: longer than 3"), errors);
         }
 
         @Test
         @DisplayName("a value over maxLength with a pattern that does not compile yields the length error alone")
         void overLongSkipsBrokenPattern() {
-            // Arrange
             var schema = "{\"pattern\":\"(\",\"maxLength\":3}";
 
-            // Act
             var errors = validate("\"abcd\"", schema);
 
-            // Assert
             assertEquals(List.of("$: longer than 3"), errors);
         }
 
         @Test
         @DisplayName("a value inside the bound with the same broken pattern still reports the pattern error")
         void insideBoundReportsBrokenPattern() {
-            // Arrange
             var schema = "{\"pattern\":\"(\",\"maxLength\":3}";
             var value = "\"abc\"";
 
-            // Act
             var errors = validate(value, schema);
 
-            // Assert
             assertEquals(1, errors.size(), errors::toString);
             assertTrue(errors.getFirst().startsWith("$: the schema pattern ( does not compile:"), errors::toString);
         }
@@ -180,24 +172,19 @@ class SchemaSubsetTest {
         @Test
         @DisplayName("a value inside the bound still yields the pattern error")
         void insideBoundEvaluatesPattern() {
-            // Arrange
             var value = "\"bb\"";
 
-            // Act
             var errors = validate(value, BOUNDED);
 
-            // Assert
             assertEquals(List.of("$: does not match ^a+$"), errors);
         }
 
         @Test
         @DisplayName("a value of exactly maxLength code points still goes through the pattern")
         void exactBoundEvaluatesPattern() {
-            // Arrange
             var matching = "\"aaa\"";
             var failing = "\"abb\"";
 
-            // Act and Assert
             assertAll(
                     () -> assertEquals(List.of(), validate(matching, BOUNDED), "matching"),
                     () -> assertEquals(List.of("$: does not match ^a+$"), validate(failing, BOUNDED), "failing"));

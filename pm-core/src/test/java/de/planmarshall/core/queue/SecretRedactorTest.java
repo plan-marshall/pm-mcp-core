@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * The redactor removes the value of an explicit credential-shaped assignment and keeps every other text
  * (Store Schemas § Activity Journal: every text and target is redacted; Job Runtime § Pipeline names `SecretRedactor`).
  */
+@EnableGeneratorController
 @DisplayName("Secret redactor")
 class SecretRedactorTest {
 
@@ -119,18 +122,20 @@ class SecretRedactorTest {
     @Test
     @DisplayName("an entry's text, tool target and link target are redacted; its path is not")
     void entry() {
-        var at = Instant.parse("2026-10-26T00:00:00Z");
+        var at = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        var seq = Generators.integers(1, 100).next();
+        var attempt = Generators.integers(1, 10).next();
         var call = ActivityEntry.builder()
-                .seq(1)
-                .attempt(1)
+                .seq(seq)
+                .attempt(attempt)
                 .source(ActivityEntry.Source.HARNESS)
                 .kind(ActivityEntry.Kind.TOOL_CALL)
                 .tool(new ActivityEntry.Tool("bash", "curl -H 'Authorization: Bearer abcdefghijkl'"))
                 .at(at)
                 .build();
         var changed = ActivityEntry.builder()
-                .seq(2)
-                .attempt(1)
+                .seq(seq + 1)
+                .attempt(attempt)
                 .source(ActivityEntry.Source.HARNESS)
                 .kind(ActivityEntry.Kind.FILE_CHANGED)
                 .path("src/secret/config.properties")

@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.net.URI;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -45,11 +47,17 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
  * the row fills its templates, the provenance names the row, and the item is valid against
  * {@code imported-item.schema.json}; a template naming a field the row lacks is refused.
  */
+@EnableGeneratorController
 @DisplayName("Item generator")
 class ItemGeneratorTest {
 
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
     private static final int LINE = 3;
+    private static final String QUESTION = Generators.letterStrings(5, 20).next();
+    private static final String SUBJECT = Generators.letterStrings(3, 12).next();
+    private static final String OPTION_A = "a" + Generators.letterStrings(1, 8).next();
+    private static final String OPTION_B = "b" + Generators.letterStrings(1, 8).next();
+    private static final String DIFF = Generators.letterStrings(5, 20).next();
 
     /**
      * @param document an imported item as written
@@ -64,11 +72,11 @@ class ItemGeneratorTest {
     private static Map<String, String> fields() {
         var fields = new LinkedHashMap<String, String>();
         fields.put("question_id", "q-1");
-        fields.put("question", "Is the sky blue?");
-        fields.put("subject", "weather");
-        fields.put("option_a", "yes");
-        fields.put("option_b", "no");
-        fields.put("diff", "drop the null check");
+        fields.put("question", QUESTION);
+        fields.put("subject", SUBJECT);
+        fields.put("option_a", OPTION_A);
+        fields.put("option_b", OPTION_B);
+        fields.put("diff", DIFF);
         return fields;
     }
 
@@ -96,10 +104,10 @@ class ItemGeneratorTest {
                     () -> assertEquals("screening", item.role()),
                     () -> assertEquals("closed question", item.title()),
                     () -> assertEquals(List.of("imported"), item.tags()),
-                    () -> assertEquals("Is the sky blue?", item.input().question()),
-                    () -> assertEquals("Subject: weather", item.input().facts()),
-                    () -> assertEquals(List.of("yes", "no"), item.input().choices()),
-                    () -> assertEquals("yes", item.target().answer()),
+                    () -> assertEquals(QUESTION, item.input().question()),
+                    () -> assertEquals("Subject: " + SUBJECT, item.input().facts()),
+                    () -> assertEquals(List.of(OPTION_A, OPTION_B), item.input().choices()),
+                    () -> assertEquals(OPTION_A, item.target().answer()),
                     () -> assertEquals("the first holds", item.target().rationale()),
                     () -> assertEquals(GradingMethod.LABEL, item.grading().method()),
                     () -> assertEquals(ReviewStatus.DRAFT, item.review().status()),
@@ -155,7 +163,7 @@ class ItemGeneratorTest {
 
             assertAll(
                     () -> assertEquals("review/sample-set/q-2", item.id()),
-                    () -> assertEquals("Review: drop the null check", item.input().question()),
+                    () -> assertEquals("Review: " + DIFF, item.input().question()),
                     () -> assertEquals("", item.input().facts()),
                     () -> assertNull(item.input().choices()),
                     () -> assertNull(item.target().answer()),

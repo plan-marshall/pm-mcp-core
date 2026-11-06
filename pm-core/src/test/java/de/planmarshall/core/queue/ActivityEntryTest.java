@@ -12,6 +12,8 @@ package de.planmarshall.core.queue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
  * An activity {@code signal} entry round-trips, and an {@code agent_started} entry with any action but {@code restart}
  * is refused (Store Schemas § Activity Journal).
  */
+@EnableGeneratorController
 @SuppressWarnings("java:S5778")
 // the assertion table names one throwing builder call per case, by design
 @DisplayName("Activity entry")
@@ -31,9 +34,11 @@ class ActivityEntryTest {
     @Test
     @DisplayName("an agent_started signal entry round-trips")
     void agentStarted() {
+        var seq = Generators.integers(1, 100).next();
+        var attempt = Generators.integers(1, 10).next();
         var entry = ActivityEntry.builder()
-                .seq(4)
-                .attempt(2)
+                .seq(seq)
+                .attempt(attempt)
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.SIGNAL)
                 .signal(new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.RESTART))
@@ -58,12 +63,13 @@ class ActivityEntryTest {
     @Test
     @DisplayName("a kind is recorded by its own source")
     void sourceOfKind() {
+        var text = Generators.letterStrings(1, 20).next();
         assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder()
                 .seq(1)
                 .attempt(1)
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.TEXT)
-                .text("text")
+                .text(text)
                 .at(QueueFixtures.AT)
                 .build());
     }

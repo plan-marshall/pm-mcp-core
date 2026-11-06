@@ -26,6 +26,7 @@ import de.planmarshall.core.store.IntentRecord.CriterionKind;
 import de.planmarshall.core.store.IntentRecord.VerifiedBy;
 import de.planmarshall.core.store.OutlineRecord;
 
+// Every datum in this class is a contract: the criterion and deliverable ids and the asserted messages.
 @DisplayName("The outline's satisfies coverage")
 class OutlineCoverageTest {
 

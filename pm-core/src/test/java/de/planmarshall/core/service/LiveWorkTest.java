@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,6 +31,7 @@ import de.planmarshall.core.service.LiveWork.Kind;
  * The live work of a project (PM-EXEC-2): each item is named by its kind and its id, and an empty report means the
  * project has none.
  */
+@EnableGeneratorController
 @DisplayName("Live work")
 class LiveWorkTest {
 
@@ -52,8 +55,10 @@ class LiveWorkTest {
         @Test
         @DisplayName("refuses a missing kind or id")
         void missingComponents() {
+            var id = Generators.letterStrings(3, 10).next();
+
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> new Item(null, "add-login")),
+                    () -> assertThrows(NullPointerException.class, () -> new Item(null, id)),
                     () -> assertThrows(NullPointerException.class, () -> new Item(Kind.PLAN, null)));
         }
 
@@ -78,20 +83,25 @@ class LiveWorkTest {
         @Test
         @DisplayName("that is empty means the project has no live work")
         void empty() {
-            LiveWork none = projectId -> List.of();
+            var projectId = Generators.letterStrings(5, 20).next();
+            LiveWork none = ignored -> List.of();
 
-            assertTrue(none.of("pm-mcp-core").isEmpty());
+            assertTrue(none.of(projectId).isEmpty());
         }
 
         @Test
         @DisplayName("names every item of the project it was asked for")
         void namesItems() {
-            var items = List.of(new Item(Kind.PLAN, "add-login"), new Item(Kind.JOB, "job-1"));
-            LiveWork work = projectId -> "pm-mcp-core".equals(projectId) ? items : List.of();
+            var projectId = Generators.letterStrings(5, 20).next();
+            var otherProject = projectId + "-" + Generators.letterStrings(1, 5).next();
+            var planId = Generators.letterStrings(3, 10).next();
+            var jobId = Generators.letterStrings(3, 10).next();
+            var items = List.of(new Item(Kind.PLAN, planId), new Item(Kind.JOB, jobId));
+            LiveWork work = candidate -> projectId.equals(candidate) ? items : List.of();
 
             assertAll(
-                    () -> assertEquals(items, work.of("pm-mcp-core")),
-                    () -> assertTrue(work.of("other-project").isEmpty()));
+                    () -> assertEquals(items, work.of(projectId)),
+                    () -> assertTrue(work.of(otherProject).isEmpty()));
         }
     }
 }
