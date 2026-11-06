@@ -146,10 +146,6 @@ final class AsciiDocTableRenderer {
         out.append(Arrays.stream(columns).map(column -> "|" + column).collect(Collectors.joining(" "))).append('\n');
     }
 
-    private static String capitalize(String text) {
-        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
-    }
-
     private void row(String... cells) {
         out.append('\n');
         for (var cell : cells) {
@@ -261,6 +257,10 @@ final class AsciiDocTableRenderer {
         /** The title line of a table: the phase prefix and the table name, or the capitalised name alone. */
         String title(String name) {
             return titlePrefix.isEmpty() ? "." + capitalize(name) : titlePrefix + name;
+        }
+
+        private static String capitalize(String text) {
+            return Character.toUpperCase(text.charAt(0)) + text.substring(1);
         }
     }
 }

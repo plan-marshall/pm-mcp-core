@@ -19,6 +19,7 @@ import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.PlanHistoryLine;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import org.jspecify.annotations.Nullable;
 
@@ -98,22 +99,31 @@ public final class PlanProcessStates {
             return new NodeState(state.id(), ended ? State.NOT_TAKEN : State.PLANNED, null, null);
         }
         var terminalOutcome = state.terminalOutcome();
-        var failed = terminalOutcome != null && terminalOutcome.outcomeClass() == OutcomeClass.FAILURE;
-        var lineOutcome = line.outcome();
         if (line.event() == PlanHistoryLine.Event.LEFT) {
-            if (terminalOutcome != null && failed) {
-                var outcome = lineOutcome != null ? lineOutcome : terminalOutcome.id();
-                return new NodeState(state.id(), State.FAILED, outcome, null);
-            }
-            return new NodeState(state.id(), State.DONE, lineOutcome, null);
+            return left(state, line, terminalOutcome);
         }
         if (terminalOutcome != null) {
-            return new NodeState(state.id(), failed ? State.FAILED : State.DONE, terminalOutcome.id(), null);
+            return new NodeState(state.id(), isFailure(terminalOutcome) ? State.FAILED : State.DONE,
+                    terminalOutcome.id(), null);
         }
         var waiting = (state.behavior() instanceof StateBehavior.QuestionWait
                 || state.behavior() instanceof StateBehavior.InteractiveLinks)
                 && state.id().equals(current);
         return new NodeState(state.id(), waiting ? State.WAITING_FOR_OPERATOR : State.RUNNING, null, null);
+    }
+
+    /** @return the node state of a state whose last history line is {@code left}: {@code failed} or {@code done} */
+    private static NodeState left(StateNode state, PlanHistoryLine line, @Nullable TerminalOutcome terminalOutcome) {
+        var lineOutcome = line.outcome();
+        if (terminalOutcome != null && isFailure(terminalOutcome)) {
+            return new NodeState(state.id(), State.FAILED, lineOutcome != null ? lineOutcome : terminalOutcome.id(),
+                    null);
+        }
+        return new NodeState(state.id(), State.DONE, lineOutcome, null);
+    }
+
+    private static boolean isFailure(TerminalOutcome outcome) {
+        return outcome.outcomeClass() == OutcomeClass.FAILURE;
     }
 
     /**
