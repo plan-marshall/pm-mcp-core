@@ -43,6 +43,7 @@ class SchemaResourceTest {
     private static final String PRESENT = DIRECTORY + "present.schema.json";
     private static final String INVALID = DIRECTORY + "invalid.schema.json";
     private static final String NOT_OBJECT = DIRECTORY + "not-object.schema.json";
+    private static final String INVALID_ENCODING = DIRECTORY + "invalid-encoding.schema.json";
     private static final String PRESENT_ID = "https://plan-marshall.de/schema/test/present.schema.json";
 
     @Test
@@ -80,22 +81,14 @@ class SchemaResourceTest {
         assertTrue(failure.getMessage().contains(absent), "The failure names the absent resource path");
     }
 
-    @Test
-    @DisplayName("fails with the path for a file that is not JSON (fixture path)")
-    void failsOnInvalidJson() {
-        var failure = assertThrows(AssertionFailedError.class, () -> SchemaResource.load(INVALID),
-                "A schema file that is not JSON fails the test");
+    @ParameterizedTest(name = "fails with the path for the fixture {0}")
+    @ValueSource(strings = {INVALID, NOT_OBJECT, INVALID_ENCODING})
+    @DisplayName("fails with the path for a file that is not JSON, not an object or not UTF-8 (fixture paths)")
+    void failsOnUnusableFile(String resource) {
+        var failure = assertThrows(AssertionFailedError.class, () -> SchemaResource.load(resource),
+                "An unusable schema file fails the test");
 
-        assertTrue(failure.getMessage().contains(INVALID), "The failure names the invalid resource path");
-    }
-
-    @Test
-    @DisplayName("fails with the path for a file whose JSON value is not an object (fixture path)")
-    void failsOnNonObject() {
-        var failure = assertThrows(AssertionFailedError.class, () -> SchemaResource.load(NOT_OBJECT),
-                "A schema file that is not an object fails the test");
-
-        assertTrue(failure.getMessage().contains(NOT_OBJECT), "The failure names the non-object resource path");
+        assertTrue(failure.getMessage().contains(resource), "The failure names the unusable resource path");
     }
 
     @ParameterizedTest(name = "refuses the document ''{0}'' (JSON syntax literal)")

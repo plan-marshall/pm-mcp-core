@@ -16,6 +16,8 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,7 +41,8 @@ public class SchemaResource {
     private static final JsonFactory JSON = new JsonFactory();
 
     /**
-     * Reads a class-path resource as UTF-8 text.
+     * Reads a class-path resource as UTF-8 text. Malformed UTF-8 fails the test; it is never replaced by a
+     * replacement character, so the text returned is the content of the file.
      *
      * @param resourcePath the absolute class-path location of the resource, without a leading slash
      * @return the content of the resource, unchanged
@@ -49,7 +52,9 @@ public class SchemaResource {
             if (stream == null) {
                 return fail("the schema resource is absent from the class path: " + resourcePath);
             }
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            var strict = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT);
+            return strict.decode(ByteBuffer.wrap(stream.readAllBytes())).toString();
         } catch (IOException e) {
             return fail("the schema resource cannot be read: " + resourcePath, e);
         }
@@ -95,7 +100,7 @@ public class SchemaResource {
             }
             return value;
         } catch (IOException e) {
-            throw new UncheckedIOException("specification schema is not JSON", e);
+            throw new UncheckedIOException("the schema document is not JSON", e);
         }
     }
 
