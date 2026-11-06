@@ -9,7 +9,6 @@
  */
 package de.planmarshall.runtime.job;
 
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -155,7 +154,7 @@ class SubprocessJobRunnerTest {
                         release.toString()));
         fixture.enrol();
         locks = new RecordingLocks(fixture.locks);
-        jobs = JobRecordStore.ofProject(fixture.base, PROJECT);
+        jobs = JobRecordStore.ofProject(fixture.base, fixture.project);
         home = fixture.base.resolve("home");
         runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty());
     }
@@ -204,7 +203,7 @@ class SubprocessJobRunnerTest {
         return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(pipeline)
                 .launcher(new PmExecLauncher(home)).termination(termination).environment((job, ignoredJobId) -> {
             observations.add(new Observation(jobs.records(),
-                    locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
+                    locks.anyOpenHolds(fixture.store.lockKey(fixture.project))));
             return environment.of(job, ignoredJobId);
         }).probeEnvironment((candidate, jobId) -> ENVIRONMENT).parser(parser).primitives(primitives).clock(clock)
                 .settlementSteps(settlementSteps).build();
@@ -629,7 +628,7 @@ class SubprocessJobRunnerTest {
 
             settled(started(runner.start(git(30, "ok"))));
 
-            var enrolmentLock = fixture.store.lockKey(PROJECT);
+            var enrolmentLock = fixture.store.lockKey(fixture.project);
             assertAll(
                     () -> assertTrue(locks.acquired.contains(enrolmentLock), "the verification takes the lock"),
                     () -> assertEquals(1, observations.size()),
