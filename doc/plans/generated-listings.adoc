@@ -1,0 +1,30 @@
+= The listings that tests compare with the code
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `generated-listings`
+
+[horizontal]
+Roadmap item:: none: two tests compare a hand-written list of a document with the code, `RuntimeLogMessagesTest` (`doc/LogMessages.adoc`, one row per log record with identifier and template) and `ProtocolVocabularyParityTest` (`pm-workflow/doc/developer/workflow-task.adoc`: the `TaskRefusal` values in order, the `WaitAgain` and `End` reasons)
+Where:: pm-runtime (`RuntimeLogMessages`), pm-workflow (`TaskProtocol`), their documents
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them; the form of the listing waits for the operator
+
+== Tasks
+
+The code is the source of these lists, so the direction of the check turns: the document takes the list from the code. How the document gets it is open (link:../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#generated-listings[Open Questions, `generated-listings`]); the package starts when the question is decided and its answer is written down here as the first task.
+
+. *Apply the decision* of the open question to the log message table and to the three protocol lists: the listing is generated from the holder or the enum, or the list is dropped from the document and the document links the Javadoc.
+. *Remove the check that parses the document*: `everyRecordDocumented` and `undocumentedRecordsAreFound` of `RuntimeLogMessagesTest`, and the two tests of `ProtocolVocabularyParityTest`, are replaced by what the decision requires (a test of the generator, or none).
+. *The other holders*: `doc/LogMessages.adoc` documents the messages of the modules by ADR link:../adr/005-one-log-message-holder-per-module.adoc[005]; a holder whose rows no test checks follows the same form.
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Specification: none; the documents are the developer documents named above
+* Watch: none
+
+== Done When
+
+* The two documents state their lists in the form the decision names, and no test opens `doc/LogMessages.adoc` or `workflow-task.adoc` by a hand-written parser. Where the decision keeps a check of a generated file, that check compares bytes and parses nothing.
+* Tests: as the decision requires; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in pm-runtime and pm-workflow.
