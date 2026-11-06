@@ -430,7 +430,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |link:adoc-reading-retired.adoc[`adoc-reading-retired`]
-|`SpecificationDocument` and `pm.specification.root` deleted, the entries for the specification and `LogMessages.adoc` removed from the docs-only include list (once that list is on `main`), the ADRs of the docs-only skip marked superseded
+|`SpecificationDocument` and `pm.specification.root` deleted, the `**/doc/**` entry removed from the docs-only include list, the ADRs of the docs-only skip marked superseded
 |`open`
 |`schema-files-tested-records`; `schema-files-machine-stores`; `schema-files-remaining-records`; `schema-files-other-specifications`; `limits-in-data-files`; `generated-listings`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
