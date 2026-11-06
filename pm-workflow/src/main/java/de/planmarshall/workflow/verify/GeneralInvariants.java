@@ -9,9 +9,12 @@
  */
 package de.planmarshall.workflow.verify;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,7 +96,7 @@ final class GeneralInvariants {
             context.reportUnit(id, "the scope %s differs from the scope %s of the default unit".formatted(unit.scope(),
                     reference.scope()));
         }
-        if (!unit.startState().equals(reference.startState())) {
+        if (!Objects.equals(unit.startState(), reference.startState())) {
             context.reportUnit(id, "the start state %s differs from the start state %s of the default unit"
                     .formatted(describeStart(unit.startState()), describeStart(reference.startState())));
         }
@@ -111,7 +114,7 @@ final class GeneralInvariants {
             if (counterpart.isEmpty()) {
                 context.reportState(id, state, "the terminal state '%s' is not a terminal state of the default unit"
                         .formatted(state.id()));
-            } else if (!counterpart.get().terminalOutcome().equals(state.terminalOutcome())) {
+            } else if (!Objects.equals(counterpart.get().terminalOutcome(), state.terminalOutcome())) {
                 context.reportState(id, state, "the terminal state '%s' reports %s, the default unit %s"
                         .formatted(state.id(), describe(state), describe(counterpart.get())));
             }
@@ -177,13 +180,13 @@ final class GeneralInvariants {
     }
 
     /** Names an optional start state for a message: quoted, or {@code none} for a unit that binds entries instead. */
-    private static String describeStart(Optional<String> startState) {
-        return startState.map("'%s'"::formatted).orElse("none");
+    private static String describeStart(@Nullable String startState) {
+        return startState != null ? "'%s'".formatted(startState) : "none";
     }
 
     private static String describe(StateNode terminal) {
-        return terminal.terminalOutcome().map(outcome -> "'%s' of class %s".formatted(outcome.id(),
-                outcome.outcomeClass())).orElse("no outcome");
+        var outcome = terminal.terminalOutcome();
+        return outcome != null ? "'%s' of class %s".formatted(outcome.id(), outcome.outcomeClass()) : "no outcome";
     }
 
     private static void waiverDataFlow(Context context) {
@@ -192,7 +195,7 @@ final class GeneralInvariants {
             var remediationUnit = context.ownerOf(state.id())
                     .filter(owner -> owner.startsWith(CompiledInvariants.REMEDIATION_PREFIX)).isPresent();
             var waivedTerminal = Context.isTerminal(state)
-                    && state.terminalOutcome().map(outcome -> WAIVED.equals(outcome.id())).orElse(false);
+                    && Context.reports(state, WAIVED);
             if (waivedTerminal && !remediationUnit) {
                 context.reportState(id, state, "the terminal '%s' ends a waived path outside a remediation unit"
                         .formatted(state.id()));

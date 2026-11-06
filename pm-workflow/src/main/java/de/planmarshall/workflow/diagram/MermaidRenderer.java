@@ -89,7 +89,10 @@ final class MermaidRenderer {
         } else {
             declare(1, states, aliases);
         }
-        definition.startState().ifPresent(start -> line(1, "[*] --> " + aliases.state(start)));
+        var startState = definition.startState();
+        if (startState != null) {
+            line(1, "[*] --> " + aliases.state(startState));
+        }
         definition.entryBindings().forEach((entry, binding) -> line(1, "[*] --> %s : entry %s"
                 .formatted(aliases.state(binding.stateId()), entry)));
         definition.states().values().stream().flatMap(state -> transitions.outgoing(state.id()).stream())

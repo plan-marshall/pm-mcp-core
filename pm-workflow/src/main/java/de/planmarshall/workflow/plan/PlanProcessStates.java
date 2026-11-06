@@ -60,7 +60,7 @@ public final class PlanProcessStates {
             }
         }
         var ended = instance.unit().states().values().stream()
-                .anyMatch(state -> state.terminalOutcome().isPresent() && last.containsKey(state.id())
+                .anyMatch(state -> state.terminalOutcome() != null && last.containsKey(state.id())
                         && last.get(state.id()).event() == PlanHistoryLine.Event.ENTERED);
         var current = currentState(history);
         var nodes = new ArrayList<NodeState>();
@@ -90,20 +90,17 @@ public final class PlanProcessStates {
             return new NodeState(state.id(), ended ? State.NOT_TAKEN : State.PLANNED, Optional.empty(),
                     Optional.empty());
         }
+        var terminalOutcome = state.terminalOutcome();
+        var failed = terminalOutcome != null && terminalOutcome.outcomeClass() == OutcomeClass.FAILURE;
         if (line.event() == PlanHistoryLine.Event.LEFT) {
-            var failed = state.terminalOutcome().filter(outcome -> outcome.outcomeClass() == OutcomeClass.FAILURE);
-            if (failed.isPresent()) {
-                var outcome = line.outcome() != null ? line.outcome() : failed.get().id();
+            if (terminalOutcome != null && failed) {
+                var outcome = line.outcome() != null ? line.outcome() : terminalOutcome.id();
                 return new NodeState(state.id(), State.FAILED, Optional.of(outcome), Optional.empty());
             }
             return new NodeState(state.id(), State.DONE, Optional.ofNullable(line.outcome()), Optional.empty());
         }
-        if (state.terminalOutcome().isPresent()) {
-            var failure = state.terminalOutcome().filter(outcome -> outcome.outcomeClass() == OutcomeClass.FAILURE);
-            if (failure.isPresent()) {
-                return new NodeState(state.id(), State.FAILED, Optional.of(failure.get().id()), Optional.empty());
-            }
-            return new NodeState(state.id(), State.DONE, state.terminalOutcome().map(TerminalOutcome::id),
+        if (terminalOutcome != null) {
+            return new NodeState(state.id(), failed ? State.FAILED : State.DONE, Optional.of(terminalOutcome.id()),
                     Optional.empty());
         }
         var waiting = (state.behavior() instanceof StateBehavior.QuestionWait

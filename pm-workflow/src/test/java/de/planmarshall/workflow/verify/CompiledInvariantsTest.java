@@ -148,7 +148,7 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> assertEquals(Phase.unitIds(), phases),
-                    () -> assertEquals(Optional.of("phases.init"), plan.startState()));
+                    () -> assertEquals("phases.init", plan.startState(), "the plan unit starts at phases.init"));
         }
 
         @Test

@@ -176,9 +176,13 @@ final class StateTransitions {
             case StateBehavior.ModelJob job -> taskLabel(job);
             case StateBehavior.SubWorkflowCall(var subWorkflowId, var _, var _, var _) -> kind + " " + subWorkflowId;
             case StateBehavior.QuestionWait(var questionClass, var _) -> kind + " " + questionClass;
-            case StateBehavior.TerminalState _ -> kind + state.terminalOutcome().map(outcome -> " " + outcome.id())
-                    .orElse("");
+            case StateBehavior.TerminalState _ -> kind + terminalSuffix(state);
         };
+    }
+
+    private static String terminalSuffix(StateNode state) {
+        var outcome = state.terminalOutcome();
+        return outcome != null ? " " + outcome.id() : "";
     }
 
     /**
@@ -190,9 +194,18 @@ final class StateTransitions {
      */
     static String taskLabel(StateBehavior.ModelJob job) {
         var label = new StringBuilder("task");
-        job.roleName().ifPresent(role -> label.append(' ').append(role));
-        job.fanOutPrimitiveId().ifPresent(primitive -> label.append(" each ").append(primitive));
-        job.rolesPrimitiveId().ifPresent(primitive -> label.append(" role each ").append(primitive));
+        var roleName = job.roleName();
+        if (roleName != null) {
+            label.append(' ').append(roleName);
+        }
+        var fanOutPrimitiveId = job.fanOutPrimitiveId();
+        if (fanOutPrimitiveId != null) {
+            label.append(" each ").append(fanOutPrimitiveId);
+        }
+        var rolesPrimitiveId = job.rolesPrimitiveId();
+        if (rolesPrimitiveId != null) {
+            label.append(" role each ").append(rolesPrimitiveId);
+        }
         return label.toString();
     }
 
@@ -287,9 +300,9 @@ final class StateTransitions {
          */
         Optional<String> guard() {
             if (link.isPresent()) {
-                return link.orElseThrow().guard().map(spec -> StateTransitions.guard(spec.expr()));
+                return Optional.ofNullable(link.orElseThrow().guard()).map(spec -> StateTransitions.guard(spec.expr()));
             }
-            return transition.resultGuard().map(StateTransitions::resultGuard);
+            return Optional.ofNullable(transition.resultGuard()).map(StateTransitions::resultGuard);
         }
     }
 

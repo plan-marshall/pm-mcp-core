@@ -9,11 +9,12 @@
  */
 package de.planmarshall.workflow.dsl;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.CallValue;
@@ -99,21 +100,28 @@ public final class WorkflowPrinter {
         field("icon", frontmatter.icon());
         frontmatter.entries().forEach(entry -> {
             field("entry", entry.name());
-            entry.description().ifPresent(description -> field("entry_description", description));
+            optionalField("entry_description", entry.description());
         });
         frontmatter.exits().forEach(exit -> {
             field("exit", exit.name());
-            exit.description().ifPresent(description -> field("exit_description", description));
+            optionalField("exit_description", exit.description());
         });
         field("modification_date", frontmatter.modificationDate().toString());
         field("version", frontmatter.version());
         field("author", frontmatter.author());
-        frontmatter.signature().ifPresent(signature -> field("signature", signature));
+        optionalField("signature", frontmatter.signature());
         line(0, UnitFrontmatterReader.DELIMITER);
     }
 
     private void field(String key, String value) {
         line(0, key + ": " + scalar(value));
+    }
+
+    /** Writes the field when its value is not {@code null}; a {@code null} value writes no line. */
+    private void optionalField(String key, @Nullable String value) {
+        if (value != null) {
+            field(key, value);
+        }
     }
 
     /**
@@ -136,17 +144,26 @@ public final class WorkflowPrinter {
             unitHeader.append(" derived_from ").append(derivedFrom);
         }
         line(0, unitHeader.toString());
-        definition.instance().ifPresent(header -> line(0, "instance " + header.json()));
+        var instance = definition.instance();
+        if (instance != null) {
+            line(0, "instance " + instance.json());
+        }
         line(0, "scope " + lower(definition.scope()));
         if (definition.scope() == WorkflowScope.SUBWORKFLOW) {
             definition.params().forEach(param -> line(0, "param %s : %s".formatted(param.name(), type(param.type()))));
-            definition.resultSchema().ifPresent(schema -> line(0, "result schema[" + schema + "]"));
+            var resultSchema = definition.resultSchema();
+            if (resultSchema != null) {
+                line(0, "result schema[" + resultSchema + "]");
+            }
         }
         definition.declarations().forEach((name, declaration) -> line(0, "declare %s = %s".formatted(name,
                 value(declaration.value()))));
         definition.decisions().forEach((kind, decision) -> line(0, "decide %s -> %s".formatted(kind,
                 decision(decision))));
-        definition.startState().ifPresent(startState -> line(0, "start " + startState));
+        var startState = definition.startState();
+        if (startState != null) {
+            line(0, "start " + startState);
+        }
         definition.entryBindings().forEach((entry, binding) -> line(0, "entry %s -> %s".formatted(entry,
                 binding.stateId())));
         definition.migrations().forEach(migration -> line(0, "migrate %s -> %s".formatted(migration.oldStateId(),
@@ -157,11 +174,19 @@ public final class WorkflowPrinter {
     private void printState(StateNode state) {
         out.append('\n');
         var header = new StringBuilder("state ").append(state.id());
-        state.terminalOutcome().ifPresent(outcome -> header.append(" terminal ").append(outcome.id()).append(' ')
-                .append(lower(outcome.outcomeClass())));
+        var outcome = state.terminalOutcome();
+        if (outcome != null) {
+            header.append(" terminal ").append(outcome.id()).append(' ').append(lower(outcome.outcomeClass()));
+        }
         line(0, header.toString());
-        state.skillPath().ifPresent(path -> line(1, "skill " + path));
-        state.factsPrimitiveId().ifPresent(primitive -> line(1, "facts " + primitive));
+        var skillPath = state.skillPath();
+        if (skillPath != null) {
+            line(1, "skill " + skillPath);
+        }
+        var factsPrimitiveId = state.factsPrimitiveId();
+        if (factsPrimitiveId != null) {
+            line(1, "facts " + factsPrimitiveId);
+        }
         printBehavior(state.behavior());
     }
 
@@ -178,7 +203,7 @@ public final class WorkflowPrinter {
             }
             case StateBehavior.ModelJob job -> printModelJob(job);
             case StateBehavior.SubWorkflowCall(var subWorkflowId, var entry, var paramBindings, var transitions) -> {
-                line(1, "call " + subWorkflowId + entry.map(name -> " entry " + name).orElse("")
+                line(1, "call " + subWorkflowId + (entry != null ? " entry " + entry : "")
                         + bindings(paramBindings));
                 printTransitions(2, transitions);
             }
@@ -194,9 +219,18 @@ public final class WorkflowPrinter {
 
     private void printModelJob(StateBehavior.ModelJob job) {
         var clause = new StringBuilder("job llm ").append(job.entityKind()).append(" role");
-        job.roleName().ifPresent(role -> clause.append(' ').append(role));
-        job.fanOutPrimitiveId().ifPresent(primitive -> clause.append(" each ").append(primitive));
-        job.rolesPrimitiveId().ifPresent(primitive -> clause.append(" each ").append(primitive));
+        var roleName = job.roleName();
+        if (roleName != null) {
+            clause.append(' ').append(roleName);
+        }
+        var fanOutPrimitiveId = job.fanOutPrimitiveId();
+        if (fanOutPrimitiveId != null) {
+            clause.append(" each ").append(fanOutPrimitiveId);
+        }
+        var rolesPrimitiveId = job.rolesPrimitiveId();
+        if (rolesPrimitiveId != null) {
+            clause.append(" each ").append(rolesPrimitiveId);
+        }
         if (job.askForm() != StateBehavior.AskForm.NONE) {
             clause.append(' ').append(job.askForm().sourceText());
         }
@@ -210,7 +244,10 @@ public final class WorkflowPrinter {
             line(1, "link %s %s [%s] (%s)".formatted(lower(link.rel()), link.idPattern(), lower(link.form()),
                     link.freeParams().stream().map(WorkflowPrinter::param)
                             .collect(Collectors.joining(LIST_SEPARATOR))));
-            link.guard().ifPresent(this::printGuard);
+            var guard = link.guard();
+            if (guard != null) {
+                printGuard(guard);
+            }
             line(2, "do " + action(link.action()));
             printTransitions(3, link.transitions());
         }
@@ -226,8 +263,10 @@ public final class WorkflowPrinter {
     private void printTransitions(int depth, List<OutcomeTransition> transitions) {
         for (var transition : transitions) {
             line(depth, transition.outcomeName() + " -> " + transition.targetStateId());
-            transition.resultGuard().ifPresent(guard -> line(depth + 1,
-                    "guard " + (guard.negated() ? "not " : "") + "result." + guard.field()));
+            var resultGuard = transition.resultGuard();
+            if (resultGuard != null) {
+                line(depth + 1, "guard " + (resultGuard.negated() ? "not " : "") + "result." + resultGuard.field());
+            }
             transition.completions().forEach(completion -> line(depth + 1, completion(completion)));
         }
     }
@@ -260,11 +299,11 @@ public final class WorkflowPrinter {
         };
     }
 
-    private static String range(Optional<Integer> low, Optional<Integer> high) {
-        if (low.isEmpty() || high.isEmpty()) {
+    private static String range(@Nullable Integer low, @Nullable Integer high) {
+        if (low == null || high == null) {
             return "";
         }
-        return "[" + low.orElseThrow() + ".." + high.orElseThrow() + "]";
+        return "[" + low + ".." + high + "]";
     }
 
     private static String value(CallValue value) {

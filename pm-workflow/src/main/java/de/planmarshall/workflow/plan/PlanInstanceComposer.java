@@ -278,7 +278,7 @@ public final class PlanInstanceComposer {
         var pruned = InstancePruner.prune(definition, effects, bound, request.waivers(), request.verificationSteps(),
                 request.finalizeSteps(), lane);
         var composed = new WorkflowDefinition(definition.frontmatter(), definition.id(), version, definition.scope(),
-                definition.params(), definition.resultSchema(), Optional.empty(), definition.declarations(),
+                definition.params(), definition.resultSchema(), null, definition.declarations(),
                 definition.decisions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
                 definition.startState(), definition.entryBindings(), definition.migrations(), pruned.states(),
                 definition.location());
@@ -342,10 +342,11 @@ public final class PlanInstanceComposer {
                 new InstanceInputs(inputs.configHash(), unitRefs(inputs.templates()), unitRefs(inputs.subUnits()),
                         new InstanceInputs.CompositionRules(inputs.compositionRulesRevision(),
                                 inputs.compositionRulesDigest()), inputs.planFactsDigest(),
-                        inputs.realizedFootprintDigest(), inputs.changeType(), inputs.providersDigest()),
+                        inputs.realizedFootprintDigest().orElse(null), inputs.changeType().orElse(null),
+                        inputs.providersDigest().orElse(null)),
                 HeaderJson.write(header));
         return new WorkflowDefinition(instanceFrontmatter(template.frontmatter()), PLAN_UNIT, header.version(),
-                template.scope(), template.params(), template.resultSchema(), Optional.of(instance),
+                template.scope(), template.params(), template.resultSchema(), instance,
                 template.declarations(), template.decisions(), template.formatVersion(), template.origin(),
                 Map.<String, Integer>of(), template.startState(), template.entryBindings(), template.migrations(),
                 states, template.location());
@@ -359,8 +360,9 @@ public final class PlanInstanceComposer {
     }
 
     private static List<InstanceInputs.UnitRef> unitRefs(List<UnitReference> references) {
-        return references.stream().map(reference -> new InstanceInputs.UnitRef(reference.unit(), reference.file(),
-                reference.digest(), UnitReference.wireName(reference.origin()))).toList();
+        return references.stream().map(reference -> new InstanceInputs.UnitRef(reference.unit(),
+                reference.file().orElse(null), reference.digest(), UnitReference.wireName(reference.origin())))
+                .toList();
     }
 
     /**

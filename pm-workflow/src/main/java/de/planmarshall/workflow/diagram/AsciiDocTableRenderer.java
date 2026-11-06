@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.diagram;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -98,7 +100,7 @@ final class AsciiDocTableRenderer {
             for (var link : StateTransitions.links(state.behavior())) {
                 rows.add(new String[]{code(state.id()), code(StateTransitions.lower(link.rel())),
                         code(link.idPattern()), code(StateTransitions.lower(link.form())), freeParams(link),
-                        link.guard().map(guard -> code(StateTransitions.guard(guard.expr()))).orElse(NONE), "no"});
+                        guardCell(link), "no"});
             }
             for (var link : StateTransitions.implicitLinks(scope, state)) {
                 rows.add(new String[]{code(state.id()), code(StateTransitions.lower(link.rel())), code(link.id()),
@@ -124,12 +126,17 @@ final class AsciiDocTableRenderer {
         header(phase, "outcomes", "2,2,2,2", "State", "Outcome", "Guard", "Next state");
         for (var edge : edges) {
             var outcome = code(edge.outcome()) + edge.link().map(link -> " via " + code(link.idPattern())).orElse("");
+            var resultGuard = edge.transition().resultGuard();
             row(code(edge.source().id()), outcome,
-                    edge.transition().resultGuard().map(guard -> code(StateTransitions.resultGuard(guard)))
-                            .orElse(NONE),
+                    resultGuard != null ? code(StateTransitions.resultGuard(resultGuard)) : NONE,
                     code(edge.target()));
         }
         out.append(TABLE_DELIMITER).append('\n');
+    }
+
+    private static String guardCell(LinkSpec link) {
+        var guard = link.guard();
+        return guard != null ? code(StateTransitions.guard(guard.expr())) : NONE;
     }
 
     private void header(Optional<String> phase, String title, String cols, String... columns) {
@@ -153,7 +160,7 @@ final class AsciiDocTableRenderer {
 
     private static String enteredFrom(WorkflowDefinition definition, StateTransitions transitions, StateNode state) {
         var sources = new LinkedHashSet<String>();
-        if (definition.startState().filter(state.id()::equals).isPresent()) {
+        if (state.id().equals(definition.startState())) {
             sources.add("start");
         }
         definition.entryBindings().forEach((entry, binding) -> {
@@ -182,8 +189,11 @@ final class AsciiDocTableRenderer {
         if (!outcomes.isEmpty()) {
             parts.add("outcomes " + String.join(LIST_SEPARATOR, outcomes));
         }
-        state.terminalOutcome().ifPresent(outcome -> parts.add("reports %s (%s)".formatted(code(outcome.id()),
-                code(StateTransitions.lower(outcome.outcomeClass())))));
+        var outcome = state.terminalOutcome();
+        if (outcome != null) {
+            parts.add("reports %s (%s)".formatted(code(outcome.id()),
+                    code(StateTransitions.lower(outcome.outcomeClass()))));
+        }
         return parts.isEmpty() ? NONE : String.join("; ", parts);
     }
 
@@ -215,11 +225,11 @@ final class AsciiDocTableRenderer {
         };
     }
 
-    private static String range(Optional<Integer> low, Optional<Integer> high) {
-        if (low.isEmpty() || high.isEmpty()) {
+    private static String range(@Nullable Integer low, @Nullable Integer high) {
+        if (low == null || high == null) {
             return "";
         }
-        return "[" + low.orElseThrow() + ".." + high.orElseThrow() + "]";
+        return "[" + low + ".." + high + "]";
     }
 
     private static String joinedOrNone(LinkedHashSet<String> values) {

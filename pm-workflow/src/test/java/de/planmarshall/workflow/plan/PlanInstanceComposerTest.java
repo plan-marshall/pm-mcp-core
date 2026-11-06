@@ -29,12 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 
@@ -151,8 +153,9 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(PlanInstanceComposer.PLAN_UNIT, instance.unit().id()),
                     () -> assertEquals(1, instance.unit().version()),
                     () -> assertEquals(PlanFixtures.template().states().keySet(), instance.unit().states().keySet()),
-                    () -> assertEquals(Optional.of(HeaderJson.write(header)),
-                            instance.unit().instance().map(InstanceHeader::json)));
+                    () -> assertEquals(HeaderJson.write(header),
+                            Objects.requireNonNull(instance.unit().instance()).json(),
+                            "the instance line carries the written header"));
         }
 
         @Test
@@ -182,7 +185,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(UnitType.INSTANCE, reparsed.frontmatter().type()),
                     () -> assertEquals(instance.unit().frontmatter().name(), reparsed.frontmatter().name()),
                     () -> assertEquals(instance.header().planId(),
-                            reparsed.instance().orElseThrow().planId()));
+                            Objects.requireNonNull(reparsed.instance()).planId()));
         }
 
         @Test
@@ -232,7 +235,7 @@ class PlanInstanceComposerTest {
             var instance = composed(composer().compose(withAdjudication(start(facts().build()))));
             var subUnits = instance.header().inputs().subUnits();
             var adjudication = subUnits.getLast();
-            var line = instance.unit().instance().orElseThrow().inputs().subUnits().getLast();
+            var line = Objects.requireNonNull(instance.unit().instance()).inputs().subUnits().getLast();
 
             assertAll(
                     () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings",
@@ -893,7 +896,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(template.frontmatter().exits(), phase.definition().frontmatter().exits()),
                     () -> assertEquals(UnitType.SUBWORKFLOW, phase.definition().frontmatter().type()),
                     () -> assertEquals(1, phase.version()),
-                    () -> assertTrue(phase.definition().instance().isEmpty()),
+                    () -> assertNull(phase.definition().instance(), "a composed phase file has no instance line"),
                     () -> assertTrue(phase.text().startsWith("---\n")),
                     () -> assertTrue(phase.text().contains("version 1 format 1"), phase.text()));
         }

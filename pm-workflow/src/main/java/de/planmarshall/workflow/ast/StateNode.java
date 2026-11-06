@@ -9,24 +9,24 @@
  */
 package de.planmarshall.workflow.ast;
 
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A state of a workflow unit (PM-IMPL-5).
  *
  * @param id               the identifier of the state
- * @param terminalOutcome  the outcome the state reports; present if and only if the state is terminal
- * @param skillPath        the skill the state names in its {@code skill} clause
- * @param factsPrimitiveId the primitive of its {@code facts} clause
+ * @param terminalOutcome  the outcome the state reports; non-null if and only if the state is terminal
+ * @param skillPath        the skill the state names in its {@code skill} clause, {@code null} when it has none
+ * @param factsPrimitiveId the primitive of its {@code facts} clause, {@code null} when it has none
  * @param behavior         what the state does
  * @param location         where the state was read
  * @since 0.1
  */
 public record StateNode(
 String id,
-Optional<TerminalOutcome> terminalOutcome,
-Optional<String> skillPath,
-Optional<String> factsPrimitiveId,
+@Nullable TerminalOutcome terminalOutcome,
+@Nullable String skillPath,
+@Nullable String factsPrimitiveId,
 StateBehavior behavior,
 SourceLocation location) {
 }

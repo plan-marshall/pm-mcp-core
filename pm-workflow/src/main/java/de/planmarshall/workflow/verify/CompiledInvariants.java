@@ -557,8 +557,7 @@ public final class CompiledInvariants {
                 return false;
             }
             var terminals = callee.states().values().stream()
-                    .filter(state -> state.terminalOutcome()
-                            .map(outcome -> outcome.id().equals(transition.outcomeName())).orElse(false))
+                    .filter(state -> reports(state, transition.outcomeName()))
                     .toList();
             return !terminals.isEmpty() && terminals.stream()
                     .allMatch(state -> stateId.equals(state.id()) || dominates(stateId, state.id()));
@@ -692,8 +691,14 @@ public final class CompiledInvariants {
         }
 
         static boolean isTerminalOfClass(StateNode state, OutcomeClass outcomeClass) {
-            return isTerminal(state) && state.terminalOutcome().map(outcome -> outcome.outcomeClass() == outcomeClass)
-                    .orElse(false);
+            var outcome = state.terminalOutcome();
+            return isTerminal(state) && outcome != null && outcome.outcomeClass() == outcomeClass;
+        }
+
+        /** Whether the state is a terminal that reports the given outcome. */
+        static boolean reports(StateNode state, String outcomeName) {
+            var outcome = state.terminalOutcome();
+            return outcome != null && outcome.id().equals(outcomeName);
         }
 
         /**

@@ -131,7 +131,7 @@ public final class EntityAddressResolver {
                         modelJob.entityKind())));
         var entity = address.entity();
         Optional<TaskEntry> task;
-        if (modelJob.fanOutPrimitiveId().isPresent() || modelJob.rolesPrimitiveId().isPresent()) {
+        if (modelJob.fanOutPrimitiveId() != null || modelJob.rolesPrimitiveId() != null) {
             task = Optional.ofNullable(hostStatus.activeTasks().get(entity));
         } else {
             task = hostStatus.activeTasks().values().stream()

@@ -334,9 +334,10 @@ public final class PlanInstanceStore {
                 "version %d of the plan '%s' follows version %d, which is not recorded".formatted(version,
                         scope.scopeId(), version - 1)));
         var parseResult = WorkflowParser.parse(path, text, UnitOrigin.DEFAULT);
-        if (parseResult instanceof ParseResult.Parsed(var definition) && definition.instance().isPresent()) {
+        var instance = parseResult instanceof ParseResult.Parsed(var definition) ? definition.instance() : null;
+        if (instance != null) {
             try {
-                return Optional.of(HeaderJson.read(definition.instance().orElseThrow().json()));
+                return Optional.of(HeaderJson.read(instance.json()));
             } catch (IllegalArgumentException e) {
                 throw new IllegalStateException("the recorded version %d of the plan '%s' carries no readable header"
                         .formatted(version - 1, scope.scopeId()), e);

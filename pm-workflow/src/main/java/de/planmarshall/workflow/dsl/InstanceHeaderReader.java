@@ -123,9 +123,9 @@ final class InstanceHeaderReader {
         List<InstanceInputs.UnitRef> subUnits = List.of();
         InstanceInputs.@Nullable CompositionRules compositionRules = null;
         @Nullable String planFactsDigest = null;
-        Optional<String> realizedFootprintDigest = Optional.empty();
-        Optional<String> changeType = Optional.empty();
-        Optional<String> providersDigest = Optional.empty();
+        @Nullable String realizedFootprintDigest = null;
+        @Nullable String changeType = null;
+        @Nullable String providersDigest = null;
         var seen = new HashSet<String>();
         for (var field = nextMember(parser, path, seen); field.isPresent();
              field = nextMember(parser, path, seen)) {
@@ -136,9 +136,10 @@ final class InstanceHeaderReader {
                 case FIELD_SUB_UNITS -> subUnits = unitRefs(parser, member);
                 case FIELD_COMPOSITION_RULES -> compositionRules = compositionRules(parser, member);
                 case FIELD_PLAN_FACTS_DIGEST -> planFactsDigest = string(parser, member);
-                case FIELD_REALIZED_FOOTPRINT_DIGEST -> realizedFootprintDigest = optionalString(parser, member);
-                case FIELD_CHANGE_TYPE -> changeType = optionalString(parser, member);
-                case FIELD_PROVIDERS_DIGEST -> providersDigest = optionalString(parser, member);
+                case FIELD_REALIZED_FOOTPRINT_DIGEST ->
+                    realizedFootprintDigest = isNullValue(parser, member) ? null : parser.getText();
+                case FIELD_CHANGE_TYPE -> changeType = isNullValue(parser, member) ? null : parser.getText();
+                case FIELD_PROVIDERS_DIGEST -> providersDigest = isNullValue(parser, member) ? null : parser.getText();
                 default -> skipValue(parser, member);
             }
         }
@@ -160,7 +161,7 @@ final class InstanceHeaderReader {
     private static InstanceInputs.UnitRef unitRef(JsonParser parser, String path) throws IOException {
         requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
         @Nullable String unit = null;
-        Optional<String> file = Optional.empty();
+        @Nullable String file = null;
         @Nullable String digest = null;
         @Nullable String origin = null;
         var seen = new HashSet<String>();
@@ -169,7 +170,7 @@ final class InstanceHeaderReader {
             var member = qualify(path, field.get());
             switch (field.get()) {
                 case FIELD_UNIT -> unit = string(parser, member);
-                case FIELD_FILE -> file = optionalString(parser, member);
+                case FIELD_FILE -> file = isNullValue(parser, member) ? null : parser.getText();
                 case FIELD_DIGEST -> digest = string(parser, member);
                 case FIELD_ORIGIN -> origin = string(parser, member);
                 default -> skipValue(parser, member);
@@ -256,15 +257,21 @@ final class InstanceHeaderReader {
         return parser.getText();
     }
 
-    private static Optional<String> optionalString(JsonParser parser, String path) throws IOException {
+    /**
+     * Tests whether the value of a member that may be a string or {@code null} is {@code null}; the caller reads the
+     * string with {@link JsonParser#getText()} otherwise.
+     *
+     * @throws HeaderRefusal if the value is neither a string nor {@code null}
+     */
+    private static boolean isNullValue(JsonParser parser, String path) {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
-            return Optional.empty();
+            return true;
         }
         if (parser.currentToken() != JsonToken.VALUE_STRING) {
             throw new HeaderRefusal("member '%s' of the instance header must be a string or null".formatted(path),
                     tokenColumn(parser));
         }
-        return Optional.of(parser.getText());
+        return false;
     }
 
     private static int integer(JsonParser parser, String path) throws IOException {

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -811,14 +812,14 @@ class WorkflowParserRefusalTest {
                     () -> assertEquals("plan", header.event()),
                     () -> assertEquals("c", inputs.configHash()),
                     () -> assertEquals(
-                            List.of(new InstanceInputs.UnitRef("plan", Optional.empty(), "t", "project")),
+                            List.of(new InstanceInputs.UnitRef("plan", null, "t", "project")),
                             inputs.templates()),
                     () -> assertEquals(List.of(), inputs.subUnits()),
                     () -> assertEquals(new InstanceInputs.CompositionRules("r", "d"), inputs.compositionRules()),
                     () -> assertEquals("f", inputs.planFactsDigest()),
-                    () -> assertEquals(Optional.of("g"), inputs.realizedFootprintDigest()),
-                    () -> assertEquals(Optional.empty(), inputs.changeType()),
-                    () -> assertEquals(Optional.empty(), inputs.providersDigest()),
+                    () -> assertEquals("g", inputs.realizedFootprintDigest(), "a named footprint digest is read"),
+                    () -> assertNull(inputs.changeType(), "an absent change type is read as null"),
+                    () -> assertNull(inputs.providersDigest(), "an absent providers digest is read as null"),
                     () -> assertEquals(json, header.json(), "the read stops at the closing brace"));
         }
 

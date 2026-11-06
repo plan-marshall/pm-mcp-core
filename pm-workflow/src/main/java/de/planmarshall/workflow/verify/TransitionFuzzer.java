@@ -118,7 +118,7 @@ public final class TransitionFuzzer {
         }
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
             var guard = link.guard();
-            var holds = guard.isEmpty() || holds(guard.get().expr(), assignment);
+            var holds = guard == null || holds(guard.expr(), assignment);
             if (holds && !link.transitions().isEmpty()) {
                 exits.add(link.transitions());
             }
@@ -154,7 +154,10 @@ public final class TransitionFuzzer {
         var atoms = new LinkedHashSet<String>();
         for (var state : definition.states().values()) {
             for (var link : UnitGraph.declaredLinks(state.behavior())) {
-                link.guard().ifPresent(guard -> UnitGraph.atomsOf(guard.expr()).forEach(atoms::add));
+                var guard = link.guard();
+                if (guard != null) {
+                    UnitGraph.atomsOf(guard.expr()).forEach(atoms::add);
+                }
             }
         }
         return List.copyOf(atoms);

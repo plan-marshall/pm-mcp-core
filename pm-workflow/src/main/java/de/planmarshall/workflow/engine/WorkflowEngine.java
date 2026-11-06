@@ -56,6 +56,7 @@ import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.VerificationResult;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
@@ -247,9 +248,13 @@ public final class WorkflowEngine {
      *                                  started), or the scope does not fit the status store
      */
     public EngineStep start(JournalScopeType scopeType, @Nullable String scopeId) {
-        var startState = stateOf(unit, unit.startState().orElseThrow(() -> new IllegalArgumentException(
-                "the unit '%s' declares no start state; a unit with entries is called, never started"
-                        .formatted(unit.id()))));
+        var startStateId = unit.startState();
+        if (startStateId == null) {
+            throw new IllegalArgumentException(
+                    "the unit '%s' declares no start state; a unit with entries is called, never started"
+                            .formatted(unit.id()));
+        }
+        var startState = stateOf(unit, startStateId);
         var now = clock.now();
         var status = WorkflowStatus.builder()
                 .scopeType(scopeType)
@@ -538,11 +543,19 @@ public final class WorkflowEngine {
     }
 
     private EngineStep ended(WorkflowStatus status, StateNode terminal) {
-        var outcome = terminal.terminalOutcome().orElseThrow(
-                () -> fault(Reason.UNRESOLVED_NAME, "the terminal state '%s' declares no outcome", terminal.id()));
+        var outcome = terminalOutcomeOf(terminal);
         var phase = outcome.outcomeClass() == OutcomeClass.FAILURE ? ABORTED_PHASE : COMPLETED_PHASE;
         var endedStatus = phase.equals(status.phase()) ? status : status.toBuilder().phase(phase).build();
         return new EngineStep.Ended(endedStatus, outcome.id(), outcome.outcomeClass());
+    }
+
+    /** The outcome a terminal state reports; a terminal state without one is a fault of the unit. */
+    private static TerminalOutcome terminalOutcomeOf(StateNode terminal) {
+        var outcome = terminal.terminalOutcome();
+        if (outcome == null) {
+            throw fault(Reason.UNRESOLVED_NAME, "the terminal state '%s' declares no outcome", terminal.id());
+        }
+        return outcome;
     }
 
     private EngineStep resting(WorkflowStatus status, StateNode node) {
@@ -825,9 +838,7 @@ public final class WorkflowEngine {
                         if (stack.isEmpty()) {
                             return ended(finish(), node);
                         }
-                        stateId = returnFromFrame(node.terminalOutcome().orElseThrow(() -> fault(
-                                Reason.UNRESOLVED_NAME, "the terminal state '%s' declares no outcome", node.id()))
-                                .id());
+                        stateId = returnFromFrame(terminalOutcomeOf(node).id());
                     }
                     case StateBehavior.JobStep job -> {
                         var refused = parkJob(node, job, spawned);
@@ -884,11 +895,11 @@ public final class WorkflowEngine {
          *                               package that computes it parks
          */
         private void parkTasks(StateNode node, StateBehavior.ModelJob modelJob) {
-            if (modelJob.fanOutPrimitiveId().isPresent() || modelJob.roleName().isEmpty()) {
+            var role = modelJob.roleName();
+            if (modelJob.fanOutPrimitiveId() != null || role == null) {
                 throw new IllegalStateException("the fan-out task state '%s' is not parked by this engine"
                         .formatted(node.id()));
             }
-            var role = modelJob.roleName().get();
             var entity = modelJob.entityKind();
             var created = tasks.create(new QueueTaskCreator.CreateRequest(Optional.ofNullable(status.scopeId()),
                     node.id(), entity, role));
@@ -966,8 +977,8 @@ public final class WorkflowEngine {
          */
         private String entryOf(WorkflowDefinition callee, StateBehavior.SubWorkflowCall call) {
             var bindings = callee.entryBindings();
-            if (call.entry().isPresent()) {
-                var entry = call.entry().get();
+            var entry = call.entry();
+            if (entry != null) {
                 if (!bindings.containsKey(entry)) {
                     throw fault(Reason.UNRESOLVED_NAME, "the sub-workflow '%s' binds no entry '%s'", callee.id(),
                             entry);
@@ -1045,14 +1056,19 @@ public final class WorkflowEngine {
             Map<String, Object> result) {
         var matching = transitions.stream()
                 .filter(transition -> transition.outcomeName().equals(outcome))
-                .filter(transition -> transition.resultGuard().map(guard -> GuardEvaluator.holds(guard, result))
-                        .orElse(true))
+                .filter(transition -> resultGuardHolds(transition, result))
                 .toList();
         if (matching.size() != 1) {
             throw fault(Reason.UNDECLARED_OUTCOME, "the state '%s' has %d transitions for the outcome '%s', not one",
                     node.id(), matching.size(), outcome);
         }
         return matching.getFirst();
+    }
+
+    /** Whether a transition has no result guard, or its result guard holds over the result record. */
+    private static boolean resultGuardHolds(OutcomeTransition transition, Map<String, Object> result) {
+        var guard = transition.resultGuard();
+        return guard == null || GuardEvaluator.holds(guard, result);
     }
 
     /**

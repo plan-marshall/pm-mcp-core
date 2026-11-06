@@ -311,12 +311,12 @@ final class CallGraphExpansion {
     private static void routeTerminal(StateNode terminal, List<StateNode> callSites,
             Map<String, Set<String>> successors) {
         var outcome = terminal.terminalOutcome();
-        if (outcome.isEmpty()) {
+        if (outcome == null) {
             return;
         }
         for (var site : callSites) {
             for (var transition : UnitGraph.allTransitions(site.behavior())) {
-                if (outcome.get().id().equals(transition.outcomeName())) {
+                if (outcome.id().equals(transition.outcomeName())) {
                     successors.get(terminal.id()).add(transition.targetStateId());
                 }
             }
@@ -327,14 +327,15 @@ final class CallGraphExpansion {
      * @return the state a call enters: its named entry, the callee's sole entry, or its start state
      */
     private static Optional<String> entered(WorkflowDefinition callee, StateBehavior.SubWorkflowCall call) {
-        if (call.entry().isPresent()) {
-            var binding = callee.entryBindings().get(call.entry().get());
+        var entry = call.entry();
+        if (entry != null) {
+            var binding = callee.entryBindings().get(entry);
             return binding == null ? Optional.empty() : Optional.of(binding.stateId());
         }
         if (callee.entryBindings().size() == 1) {
             return Optional.of(callee.entryBindings().values().iterator().next().stateId());
         }
-        return callee.startState();
+        return Optional.ofNullable(callee.startState());
     }
 
     /**

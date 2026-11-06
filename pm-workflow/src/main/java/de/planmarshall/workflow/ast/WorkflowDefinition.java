@@ -9,11 +9,12 @@
  */
 package de.planmarshall.workflow.ast;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -33,14 +34,16 @@ import java.util.stream.Stream;
  * @param version       the revision of the unit, counted by its own header
  * @param scope         the scope the unit runs in
  * @param params        the parameter declarations; non-empty only for a {@link WorkflowScope#SUBWORKFLOW} unit
- * @param resultSchema  the named schema of the result record a sub-workflow returns with {@code done}
- * @param instance      the parsed {@code instance} header line of a plan instance version
+ * @param resultSchema  the named schema of the result record a sub-workflow returns with {@code done}; {@code null}
+ *                      when the unit declares none
+ * @param instance      the parsed {@code instance} header line of a plan instance version; {@code null} for any other
+ *                      unit
  * @param declarations  the {@code declare} lines by name, each with its value and the line it was read at
  * @param decisions     the {@code decide} lines by decision kind; only in the unit {@code adjudicate.decisions}
  * @param formatVersion the DSL format every file of the unit declares
  * @param origin        whether the unit is compiled into the binary or owned by the project
  * @param derivedFrom   the default revision per file a project unit derives from; empty for a default unit
- * @param startState    the identifier of the start state; empty for a unit that binds entries instead
+ * @param startState    the identifier of the start state; {@code null} for a unit that binds entries instead
  * @param entryBindings the {@code entry <name> -> <state>} lines by entry name, in source order
  * @param migrations    the {@code migrate} declarations
  * @param states        the states by identifier
@@ -53,14 +56,14 @@ String id,
 int version,
 WorkflowScope scope,
 List<ParamDecl> params,
-Optional<String> resultSchema,
-Optional<InstanceHeader> instance,
+@Nullable String resultSchema,
+@Nullable InstanceHeader instance,
 Map<String, ValueDeclaration> declarations,
 Map<String, DecisionDeclaration> decisions,
 int formatVersion,
 UnitOrigin origin,
 Map<String, Integer> derivedFrom,
-Optional<String> startState,
+@Nullable String startState,
 Map<String, EntryBinding> entryBindings,
 List<StateMigration> migrations,
 Map<String, StateNode> states,
@@ -74,14 +77,14 @@ SourceLocation location) {
      * @param version       the revision of the unit
      * @param scope         the scope the unit runs in
      * @param params        the parameter declarations
-     * @param resultSchema  the named schema of the result record
-     * @param instance      the parsed instance header line
+     * @param resultSchema  the named schema of the result record, or {@code null}
+     * @param instance      the parsed instance header line, or {@code null}
      * @param declarations  the {@code declare} lines by name, each with its value and line
      * @param decisions     the {@code decide} lines by decision kind
      * @param formatVersion the DSL format
      * @param origin        the origin of the unit
      * @param derivedFrom   the default revision per file
-     * @param startState    the identifier of the start state, or empty
+     * @param startState    the identifier of the start state, or {@code null}
      * @param entryBindings the entry bindings by entry name
      * @param migrations    the {@code migrate} declarations
      * @param states        the states by identifier
@@ -104,7 +107,7 @@ SourceLocation location) {
      * @return the identifiers of the starting states, without duplicates, in that order
      */
     public List<String> startingStates() {
-        return Stream.concat(startState.stream(), entryBindings.values().stream().map(EntryBinding::stateId))
+        return Stream.concat(Stream.ofNullable(startState), entryBindings.values().stream().map(EntryBinding::stateId))
                 .distinct()
                 .toList();
     }

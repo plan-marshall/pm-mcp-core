@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.dsl;
 
+import org.jspecify.annotations.Nullable;
+
 import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,7 +20,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -196,23 +197,25 @@ public final class WorkflowParser {
         var formatVersion = positiveInt(header);
         var derivedFrom = parseDerivedFrom(header, id, origin);
         header.expectEnd();
-        var instance = parseInstance();
+        @Nullable InstanceHeader instance = nextStatementIs("instance") ? parseInstance() : null;
         var scope = parseScope();
         var params = new ArrayList<ParamDecl>();
-        Optional<String> resultSchema = Optional.empty();
+        @Nullable String resultSchema = null;
         if (scope == WorkflowScope.SUBWORKFLOW) {
             params.addAll(parseParams());
-            resultSchema = parseResult();
+            if (nextStatementIs(KEYWORD_RESULT)) {
+                resultSchema = parseResult();
+            }
         }
         var declarations = new LinkedHashMap<String, ValueDeclaration>();
         var decisions = new LinkedHashMap<String, DecisionDeclaration>();
         parseDeclarations(declarations, decisions);
-        Optional<String> startState = Optional.empty();
+        @Nullable String startState = null;
         var entryBindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
         if (nextStatementIs(KEYWORD_START)) {
             var start = nextLine();
             start.next("the keyword 'start'");
-            startState = Optional.of(stateId(start));
+            startState = stateId(start);
             start.expectEnd();
             if (nextStatementIs(KEYWORD_ENTRY)) {
                 throw refuse(RefusalRule.STRUCTURE, firstOfNextLine(),
@@ -274,10 +277,8 @@ public final class WorkflowParser {
         return Map.of(id, revision);
     }
 
-    private Optional<InstanceHeader> parseInstance() {
-        if (!nextStatementIs("instance")) {
-            return Optional.empty();
-        }
+    /** Reads the {@code instance} line; the caller has seen that the next statement is one. */
+    private InstanceHeader parseInstance() {
         var line = nextLine();
         var keyword = line.next("the keyword 'instance'");
         if (!line.hasNext() || line.peek().kind() != Token.Kind.JSON) {
@@ -285,7 +286,7 @@ public final class WorkflowParser {
         }
         var json = line.next("the instance header");
         try {
-            return Optional.of(InstanceHeaderReader.read(json.text()));
+            return InstanceHeaderReader.read(json.text());
         } catch (InstanceHeaderReader.HeaderRefusal refusal) {
             var column = json.column() + refusal.column().orElse(1) - 1;
             throw refuse(RefusalRule.INSTANCE_HEADER, json.line(), column, refusal.getMessage());
@@ -325,16 +326,14 @@ public final class WorkflowParser {
         return params;
     }
 
-    private Optional<String> parseResult() {
-        if (!nextStatementIs(KEYWORD_RESULT)) {
-            return Optional.empty();
-        }
+    /** Reads the {@code result schema[...]} line; the caller has seen that the next statement is one. */
+    private String parseResult() {
         var line = nextLine();
         line.next("the keyword 'result'");
         line.expect(KEYWORD_SCHEMA);
         var schemaName = schemaName(line);
         line.expectEnd();
-        return Optional.of(schemaName);
+        return schemaName;
     }
 
     private void parseDeclarations(Map<String, ValueDeclaration> declarations,
@@ -404,23 +403,21 @@ public final class WorkflowParser {
         if (states.containsKey(id)) {
             throw refuse(RefusalRule.DUPLICATE_ID, idToken, "the state '%s' is declared twice", id);
         }
-        Optional<TerminalOutcome> terminal = Optional.empty();
+        @Nullable TerminalOutcome terminal = null;
         if (line.consumeIf("terminal")) {
             var outcome = outcomeName(line);
             var outcomeClass = keyword(line, OutcomeClass.class, "an outcome class");
-            terminal = Optional.of(new TerminalOutcome(outcome, outcomeClass));
+            terminal = new TerminalOutcome(outcome, outcomeClass);
         }
         line.expectEnd();
-        var skillPath = parseSkill();
-        var factsPrimitiveId = parseFacts();
-        StateBehavior behavior = terminal.isPresent() ? new StateBehavior.TerminalState() : parseBody();
+        @Nullable String skillPath = nextStatementIs("skill") ? parseSkill() : null;
+        @Nullable String factsPrimitiveId = nextStatementIs("facts") ? parseFacts() : null;
+        StateBehavior behavior = terminal != null ? new StateBehavior.TerminalState() : parseBody();
         states.put(id, new StateNode(id, terminal, skillPath, factsPrimitiveId, behavior, location(keyword)));
     }
 
-    private Optional<String> parseSkill() {
-        if (!nextStatementIs("skill")) {
-            return Optional.empty();
-        }
+    /** Reads the {@code skill} line; the caller has seen that the next statement is one. */
+    private String parseSkill() {
         var line = nextLine();
         line.next("the keyword 'skill'");
         line.expect("pm");
@@ -430,18 +427,16 @@ public final class WorkflowParser {
             path.append('/').append(identifier(line, "a segment of the skill path").text());
         } while (line.hasNext() && line.peek().is("/"));
         line.expectEnd();
-        return Optional.of(path.toString());
+        return path.toString();
     }
 
-    private Optional<String> parseFacts() {
-        if (!nextStatementIs("facts")) {
-            return Optional.empty();
-        }
+    /** Reads the {@code facts} line; the caller has seen that the next statement is one. */
+    private String parseFacts() {
         var line = nextLine();
         line.next("the keyword 'facts'");
         var primitive = primitiveId(line);
         line.expectEnd();
-        return Optional.of(primitive);
+        return primitive;
     }
 
     private StateBehavior parseBody() {
@@ -481,15 +476,15 @@ public final class WorkflowParser {
         line.expect("llm");
         var entityKind = checkedIdentifier(line, "an entity kind");
         line.expect("role");
-        Optional<String> roleName = Optional.empty();
-        Optional<String> fanOutPrimitiveId = Optional.empty();
-        Optional<String> rolesPrimitiveId = Optional.empty();
+        @Nullable String roleName = null;
+        @Nullable String fanOutPrimitiveId = null;
+        @Nullable String rolesPrimitiveId = null;
         if (line.consumeIf(KEYWORD_EACH)) {
-            rolesPrimitiveId = Optional.of(primitiveId(line));
+            rolesPrimitiveId = primitiveId(line);
         } else {
-            roleName = Optional.of(roleName(line));
+            roleName = roleName(line);
             if (line.consumeIf(KEYWORD_EACH)) {
-                fanOutPrimitiveId = Optional.of(primitiveId(line));
+                fanOutPrimitiveId = primitiveId(line);
             }
         }
         var askForm = parseAskForm(line);
@@ -525,9 +520,9 @@ public final class WorkflowParser {
         var line = nextLine();
         line.next("the keyword 'call'");
         var subWorkflowId = stateId(line);
-        Optional<String> entry = Optional.empty();
+        @Nullable String entry = null;
         if (line.consumeIf(KEYWORD_ENTRY)) {
-            entry = Optional.of(identifier(line, "the name of the callee's entry").text());
+            entry = identifier(line, "the name of the callee's entry").text();
         }
         var bindings = new LinkedHashMap<String, CallValue>();
         if (line.consumeIf(OPEN_PAREN) && !line.consumeIf(CLOSE_PAREN)) {
@@ -602,7 +597,7 @@ public final class WorkflowParser {
             line.expect(CLOSE_PAREN);
         }
         line.expectEnd();
-        var guard = parseGuard();
+        @Nullable GuardSpec guard = nextStatementIs(KEYWORD_GUARD) ? parseGuard() : null;
         var action = statement("do", "the 'do <primitive>' action of the link");
         var primitive = primitiveId(action);
         action.expectEnd();
@@ -618,10 +613,8 @@ public final class WorkflowParser {
         return new ParamSpec(name.text(), type, optional, location(name));
     }
 
-    private Optional<GuardSpec> parseGuard() {
-        if (!nextStatementIs(KEYWORD_GUARD)) {
-            return Optional.empty();
-        }
+    /** Reads the {@code guard} line of a link; the caller has seen that the next statement is one. */
+    private GuardSpec parseGuard() {
         var line = nextLine();
         line.next("the keyword 'guard'");
         var expr = guardExpr(line, 0);
@@ -637,7 +630,7 @@ public final class WorkflowParser {
             config.expect(CLOSE_BRACKET);
             config.expectEnd();
         }
-        return Optional.of(new GuardSpec(expr, keys));
+        return new GuardSpec(expr, keys);
     }
 
     private GuardExpr guardExpr(LineCursor line, int depth) {
@@ -706,7 +699,7 @@ public final class WorkflowParser {
         line.expect(ARROW);
         var target = stateId(line);
         line.expectEnd();
-        Optional<ResultGuard> resultGuard = Optional.empty();
+        @Nullable ResultGuard resultGuard = null;
         if (nextStatementIs(KEYWORD_GUARD)) {
             var guard = nextLine();
             guard.next("the keyword 'guard'");
@@ -715,7 +708,7 @@ public final class WorkflowParser {
             guard.expect(DOT);
             var field = paramName(guard);
             guard.expectEnd();
-            resultGuard = Optional.of(new ResultGuard(field.text(), negated));
+            resultGuard = new ResultGuard(field.text(), negated);
         }
         var completions = new ArrayList<StepCompletion>();
         while (nextStatementIs("completes")) {
@@ -750,8 +743,11 @@ public final class WorkflowParser {
         var type = line.next("a type (text, int, enum or schema)");
         return switch (type.kind() == Token.Kind.IDENT ? type.text() : "") {
             case "text" -> {
+                if (!line.hasNext() || !line.peek().is(OPEN_BRACKET)) {
+                    yield new ParamType.Text(null, null);
+                }
                 var range = intRange(line);
-                yield new ParamType.Text(range.map(Range::low), range.map(Range::high));
+                yield new ParamType.Text(range.low(), range.high());
             }
             case KEYWORD_INT -> intType(line);
             case KEYWORD_ENUM -> enumValues(line);
@@ -778,20 +774,22 @@ public final class WorkflowParser {
         };
     }
 
-    private Optional<Range> intRange(LineCursor line) {
-        if (!line.consumeIf(OPEN_BRACKET)) {
-            return Optional.empty();
-        }
+    /** Reads an {@code int_range} {@code [<low>..<high>]}; the caller has seen that the next token opens it. */
+    private Range intRange(LineCursor line) {
+        line.expect(OPEN_BRACKET);
         var low = intValue(line, true);
         line.expect("..");
         var high = intValue(line, false);
         line.expect(CLOSE_BRACKET);
-        return Optional.of(new Range(low, high));
+        return new Range(low, high);
     }
 
     private ParamType.Int intType(LineCursor line) {
+        if (!line.hasNext() || !line.peek().is(OPEN_BRACKET)) {
+            return new ParamType.Int(null, null);
+        }
         var range = intRange(line);
-        return new ParamType.Int(range.map(Range::low), range.map(Range::high));
+        return new ParamType.Int(range.low(), range.high());
     }
 
     private ParamType.EnumOf enumValues(LineCursor line) {

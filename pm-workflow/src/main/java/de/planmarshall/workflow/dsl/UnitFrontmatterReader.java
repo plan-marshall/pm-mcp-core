@@ -366,7 +366,7 @@ public final class UnitFrontmatterReader {
                     exits.stream().map(Element::toInterfaceElement).toList(),
                     Objects.requireNonNull(modificationDate, "modificationDate"),
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
-                    Optional.ofNullable(singles.get(KEY_SIGNATURE)), new SourceLocation(resourceName, 1, 1));
+                    singles.get(KEY_SIGNATURE), new SourceLocation(resourceName, 1, 1));
         }
 
         private static void checkVersion(String value, int number, int column) {
@@ -527,7 +527,7 @@ public final class UnitFrontmatterReader {
         }
 
         private InterfaceElement toInterfaceElement() {
-            return new InterfaceElement(name, Optional.ofNullable(description));
+            return new InterfaceElement(name, description);
         }
     }
 

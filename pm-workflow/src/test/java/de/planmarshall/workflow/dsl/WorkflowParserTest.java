@@ -14,6 +14,7 @@ import static de.planmarshall.workflow.dsl.AstWithoutLocations.strip;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,8 +24,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 
+import org.jspecify.annotations.Nullable;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -115,7 +117,7 @@ class WorkflowParserTest {
     /** The modification date every fixture of the parser tests declares. */
     private static final LocalDate FIXTURE_DATE = LocalDate.of(2026, 1, 15);
 
-    private static final Optional<Integer> UNBOUNDED = Optional.empty();
+    private static final @Nullable Integer UNBOUNDED = null;
     private static final GuardExpr IN_WORKTREE = new GuardExpr.InWorktree();
     private static final GuardExpr OPEN_FINDINGS = new GuardExpr.HasOpenFindings();
     private static final GuardExpr ALL_TASKS = new GuardExpr.AllTasksCompleted();
@@ -186,15 +188,15 @@ class WorkflowParserTest {
     private static UnitFrontmatter frontmatter(String name, String description, UnitType type, String icon,
             List<InterfaceElement> entries, List<InterfaceElement> exits) {
         return new UnitFrontmatter(name, description, type, icon, entries, exits, FIXTURE_DATE, "0.1.0",
-                "plan-marshall", Optional.empty(), NOWHERE);
+                "plan-marshall", null, NOWHERE);
     }
 
     private static InterfaceElement element(String name) {
-        return new InterfaceElement(name, Optional.empty());
+        return new InterfaceElement(name, null);
     }
 
     private static InterfaceElement element(String name, String description) {
-        return new InterfaceElement(name, Optional.of(description));
+        return new InterfaceElement(name, description);
     }
 
     private static ValueDeclaration declared(CallValue value) {
@@ -202,12 +204,11 @@ class WorkflowParserTest {
     }
 
     private static OutcomeTransition to(String outcome, String target, StepCompletion... completions) {
-        return new OutcomeTransition(outcome, target, Optional.empty(), List.of(completions), NOWHERE);
+        return new OutcomeTransition(outcome, target, null, List.of(completions), NOWHERE);
     }
 
     private static OutcomeTransition guarded(String outcome, String target, String field, boolean negated) {
-        return new OutcomeTransition(outcome, target, Optional.of(new ResultGuard(field, negated)), List.of(),
-                NOWHERE);
+        return new OutcomeTransition(outcome, target, new ResultGuard(field, negated), List.of(), NOWHERE);
     }
 
     private static StepCompletion completes(String stepId, StepCompletionStatus status) {
@@ -216,13 +217,13 @@ class WorkflowParserTest {
 
     private static StateNode state(String id, String phase, StateBehavior behavior) {
         assertPhaseName(phase);
-        return new StateNode(id, Optional.empty(), Optional.empty(), Optional.empty(), behavior, NOWHERE);
+        return new StateNode(id, null, null, null, behavior, NOWHERE);
     }
 
     private static StateNode terminal(String id, String phase, String outcome, OutcomeClass outcomeClass) {
         assertPhaseName(phase);
-        return new StateNode(id, Optional.of(new TerminalOutcome(outcome, outcomeClass)), Optional.empty(),
-                Optional.empty(), new StateBehavior.TerminalState(), NOWHERE);
+        return new StateNode(id, new TerminalOutcome(outcome, outcomeClass), null, null,
+                new StateBehavior.TerminalState(), NOWHERE);
     }
 
     /**
@@ -245,18 +246,18 @@ class WorkflowParserTest {
         return new ParamSpec(name, type, optional, NOWHERE);
     }
 
-    private static Optional<GuardSpec> guard(GuardExpr expr, String... configKeys) {
-        return Optional.of(new GuardSpec(expr, List.of(configKeys)));
+    private static GuardSpec guard(GuardExpr expr, String... configKeys) {
+        return new GuardSpec(expr, List.of(configKeys));
     }
 
     private static LinkSpec link(LinkRelation rel, String idPattern, LinkForm form, List<ParamSpec> params,
-            Optional<GuardSpec> guard, String primitive, OutcomeTransition... transitions) {
+            @Nullable GuardSpec guard, String primitive, OutcomeTransition... transitions) {
         return new LinkSpec(rel, idPattern, form, params, guard, new LinkAction.ExecutePrimitive(primitive),
                 List.of(transitions), NOWHERE);
     }
 
     private static ParamType.Int intRange(int min, int max) {
-        return new ParamType.Int(Optional.of(min), Optional.of(max));
+        return new ParamType.Int(min, max);
     }
 
     private static ParamType.EnumOf enumOf(String... values) {
@@ -304,8 +305,7 @@ class WorkflowParserTest {
             bindings.put("push", new CallValue.EnumValue("enabled"));
             bindings.put("attempts", new CallValue.IntValue(2));
             bindings.put("targets", new CallValue.EnumList(List.of("origin", "Mirror")));
-            var begin = new StateNode("init.begin", Optional.empty(), Optional.of("pm/plan/init"),
-                    Optional.of("plan.read-facts"),
+            var begin = new StateNode("init.begin", null, "pm/plan/init", "plan.read-facts",
                     new StateBehavior.AutoStep("plan.prepare", List.of(
                             to("done", "init.dispatch", completes("init:prepare", StepCompletionStatus.DONE)),
                             to("skipped", "init.dispatch", completes("init:prepare", StepCompletionStatus.SKIPPED),
@@ -315,8 +315,8 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(
                     frontmatter("Parser plan unit", "A plan unit written for the parser tests.", UnitType.WORKFLOW,
                             "unit.plan"),
-                    "plan", 3, WorkflowScope.PLAN, List.of(), Optional.empty(), Optional.empty(), declarations,
-                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("init.begin"), Map.of(),
+                    "plan", 3, WorkflowScope.PLAN, List.of(), null, null, declarations,
+                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "init.begin", Map.of(),
                     List.of(new StateMigration("init.old", "init.begin", NOWHERE),
                             new StateMigration("review.legacy", "review.check", NOWHERE)),
                     states(begin,
@@ -325,14 +325,14 @@ class WorkflowParserTest {
                             state("init.compose", "init", new StateBehavior.JobStep("build.compose-all", true,
                                     List.of(to("done", "review.check")))),
                             state("review.check", "review", new StateBehavior.SubWorkflowCall("git.commit_and_push",
-                                    Optional.empty(), bindings,
+                                    null, bindings,
                                     List.of(guarded("done", "review.cap-check", "pushed", false),
                                             guarded("done", "review.check", "pushed", true),
                                             to("stepped_out", "plan.aborted")))),
                             state("review.cap-check", "review", new StateBehavior.SubWorkflowCall("git.no_args",
-                                    Optional.empty(), Map.of(), List.of(to("done", "review.empty-args")))),
+                                    null, Map.of(), List.of(to("done", "review.empty-args")))),
                             state("review.empty-args", "review", new StateBehavior.SubWorkflowCall("git.no_args",
-                                    Optional.empty(), Map.of(), List.of(to("done", "completed")))),
+                                    null, Map.of(), List.of(to("done", "completed")))),
                             terminal("completed", "finalize", "merged", OutcomeClass.SUCCESS),
                             terminal("plan.aborted", "aborted", "aborted", OutcomeClass.FAILURE)),
                     NOWHERE);
@@ -351,17 +351,17 @@ class WorkflowParserTest {
                             new ParamDecl("attempts", intRange(1, 5), NOWHERE),
                             new ParamDecl("depth", new ParamType.Int(UNBOUNDED, UNBOUNDED), NOWHERE),
                             new ParamDecl("targets", new ParamType.ListOf(enumOf("origin", "Mirror")), NOWHERE)),
-                    Optional.of("commit-result"), Optional.empty(), Map.of(), Map.of(), 1,
-                    UnitOrigin.DEFAULT, Map.of(), Optional.empty(),
+                    "commit-result", null, Map.of(), Map.of(), 1,
+                    UnitOrigin.DEFAULT, Map.of(), null,
                     Map.of("stage", new WorkflowDefinition.EntryBinding("git.stage", NOWHERE)), List.of(),
                     states(
                             state("git.stage", "inherit", new StateBehavior.ModelJob("change",
-                                    Optional.of("implementer"), Optional.of("git.list-changes"), Optional.empty(),
+                                    "implementer", "git.list-changes", null,
                                     StateBehavior.AskForm.ASK, List.of("reviewer", "architect"),
                                     List.of(to("done", "git.review"), to("lost", "git.stepped-out")))),
-                            new StateNode("git.review", Optional.empty(), Optional.empty(),
-                                    Optional.of("git.read-diff"), new StateBehavior.ModelJob("change",
-                                            Optional.of("reviewer"), Optional.empty(), Optional.empty(),
+                            new StateNode("git.review", null, null,
+                                    "git.read-diff", new StateBehavior.ModelJob("change",
+                                            "reviewer", null, null,
                                             StateBehavior.AskForm.NONE,
                                             List.of(), List.of(to("approved", "git.done"),
                                                     to("rejected", "git.stage"))),
@@ -379,11 +379,11 @@ class WorkflowParserTest {
         void sessionUnit() {
             var text = new ParamType.Text(UNBOUNDED, UNBOUNDED);
             var choose = new StateBehavior.InteractiveLinks(List.of(
-                    link(LinkRelation.NEXT, "proceed", LinkForm.NOOP, List.of(), Optional.empty(), "setup.proceed",
+                    link(LinkRelation.NEXT, "proceed", LinkForm.NOOP, List.of(), null, "setup.proceed",
                             to("done", "setup.wait")),
                     link(LinkRelation.ALT, "detour:<entity>", LinkForm.SUBMIT,
                             List.of(param("note", text, false),
-                                    param("size", new ParamType.Text(Optional.of(1), Optional.of(80)), true)),
+                                    param("size", new ParamType.Text(1, 80), true)),
                             guard(new GuardExpr.Or(IN_WORKTREE,
                                     new GuardExpr.And(OPEN_FINDINGS, new GuardExpr.Not(ALL_TASKS)))),
                             "setup.detour", to("done", "setup.wait")),
@@ -404,13 +404,13 @@ class WorkflowParserTest {
                                     param("kinds", new ParamType.ListOf(enumOf("a", "B")), false),
                                     param("plans", new ParamType.ListOf(new ParamType.SchemaRef("plan-item")), false),
                                     param("sizes", new ParamType.ListOf(intRange(0, 9)), false)),
-                            Optional.empty(), "setup.back", to("done", "setup.choose")),
+                            null, "setup.back", to("done", "setup.choose")),
                     link(LinkRelation.SUBMIT, "hand_in", LinkForm.SUBMIT, List.of(param("summary", text, true)),
                             guard(new GuardExpr.Or(new GuardExpr.Or(IN_WORKTREE, OPEN_FINDINGS), ALL_TASKS)),
                             "setup.submit", to("submitted", "setup.wait")),
-                    link(LinkRelation.ESCALATE, "request_waiver", LinkForm.SUBMIT, List.of(), Optional.empty(),
+                    link(LinkRelation.ESCALATE, "request_waiver", LinkForm.SUBMIT, List.of(), null,
                             "setup.request-waiver", to("filed", "setup.choose")),
-                    link(LinkRelation.CONSULT, "ask_architect", LinkForm.SUBMIT, List.of(), Optional.empty(),
+                    link(LinkRelation.CONSULT, "ask_architect", LinkForm.SUBMIT, List.of(), null,
                             "setup.ask-architect", to("answered", "setup.choose")),
                     link(LinkRelation.ABORT, "leave", LinkForm.SUBMIT, List.of(),
                             guard(new GuardExpr.And(new GuardExpr.And(IN_WORKTREE, OPEN_FINDINGS), ALL_TASKS)),
@@ -418,8 +418,8 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(frontmatter("Parser session unit",
                     "A session-driven workspace unit written for the parser tests.", UnitType.SYSTEM, "unit.start"),
                     "setup.session",
-                    2, WorkflowScope.WORKSPACE, List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(),
-                    1, UnitOrigin.DEFAULT, Map.of(), Optional.of("setup.choose"), Map.of(), List.of(),
+                    2, WorkflowScope.WORKSPACE, List.of(), null, null, Map.of(), Map.of(),
+                    1, UnitOrigin.DEFAULT, Map.of(), "setup.choose", Map.of(), List.of(),
                     states(state("setup.choose", "setup", choose),
                             state("setup.wait", "setup", new StateBehavior.QuestionWait("clarification",
                                     List.of(to("answered", "setup.choose")))),
@@ -445,10 +445,10 @@ class WorkflowParserTest {
             var expected = new WorkflowDefinition(frontmatter("Parser adjudication unit",
                     "An adjudication unit written for the parser tests.", UnitType.SYSTEM, "flow.adjudicate"),
                     "adjudicate.decisions", 1,
-                    WorkflowScope.ENTITY, List.of(), Optional.empty(), Optional.empty(), declarations, decisions,
-                    1, UnitOrigin.DEFAULT, Map.of(), Optional.of("adjudicate.vote"), Map.of(), List.of(),
+                    WorkflowScope.ENTITY, List.of(), null, null, declarations, decisions,
+                    1, UnitOrigin.DEFAULT, Map.of(), "adjudicate.vote", Map.of(), List.of(),
                     states(state("adjudicate.vote", "inherit", new StateBehavior.ModelJob("decision",
-                            Optional.empty(), Optional.empty(), Optional.of("adjudicate.list-roles"),
+                            null, null, "adjudicate.list-roles",
                             StateBehavior.AskForm.NONE, List.of(),
                             List.of(to("decided", "adjudicate.settled"), to("lost", "adjudicate.settled")))),
                             terminal("adjudicate.settled", "inherit", "settled", OutcomeClass.SUCCESS)),
@@ -461,20 +461,20 @@ class WorkflowParserTest {
         @DisplayName("plan instance: the instance header line with its nested inputs and the JSON as read")
         void instanceUnit() {
             var inputs = new InstanceInputs(CONFIG_HASH,
-                    List.of(new InstanceInputs.UnitRef("plan", Optional.of(".marshall/config/plan.pmwf"),
+                    List.of(new InstanceInputs.UnitRef("plan", ".marshall/config/plan.pmwf",
                             TEMPLATE_DIGEST, "project")),
-                    List.of(new InstanceInputs.UnitRef("git.commit_and_push", Optional.empty(), COMMIT_DIGEST,
+                    List.of(new InstanceInputs.UnitRef("git.commit_and_push", null, COMMIT_DIGEST,
                                     "default"),
-                            new InstanceInputs.UnitRef("remediation.ci-failure", Optional.empty(), REMEDIATION_DIGEST,
+                            new InstanceInputs.UnitRef("remediation.ci-failure", null, REMEDIATION_DIGEST,
                                     "default")),
-                    new InstanceInputs.CompositionRules("r#3", RULES_DIGEST), PLAN_FACTS_DIGEST, Optional.empty(),
-                    Optional.of("feature"), Optional.empty());
+                    new InstanceInputs.CompositionRules("r#3", RULES_DIGEST), PLAN_FACTS_DIGEST, null,
+                    "feature", null);
             var expected = new WorkflowDefinition(frontmatter("Parser plan instance",
                     "A plan instance written for the parser tests.", UnitType.INSTANCE, "unit.plan"), "plan", 4,
                     WorkflowScope.PLAN,
-                    List.of(), Optional.empty(),
-                    Optional.of(new InstanceHeader("demo-plan", 4, "plan", inputs, INSTANCE_JSON)), Map.of(),
-                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), Optional.of("plan.run"), Map.of(), List.of(),
+                    List.of(), null,
+                    new InstanceHeader("demo-plan", 4, "plan", inputs, INSTANCE_JSON), Map.of(),
+                    Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "plan.run", Map.of(), List.of(),
                     states(state("plan.run", "execute",
                             new StateBehavior.AutoStep("plan.execute", List.of(to("done", "plan.end")))),
                             terminal("plan.end", "finalize", "done", OutcomeClass.SUCCESS)),
@@ -495,21 +495,21 @@ class WorkflowParserTest {
                                     + "\"open\"."),
                             element("recheck", "The repair is done and the change is reviewed again.")),
                     List.of(element("done", "The change is approved."), element("failed")), FIXTURE_DATE, "0.1.0",
-                    "plan-marshall", Optional.of("c2lnbmF0dXJlLW9mLXRoZS1maWxl"), NOWHERE);
+                    "plan-marshall", "c2lnbmF0dXJlLW9mLXRoZS1maWxl", NOWHERE);
             var entryBindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
             entryBindings.put("review", new WorkflowDefinition.EntryBinding("review.check", NOWHERE));
             entryBindings.put("repair", new WorkflowDefinition.EntryBinding("review.fix", NOWHERE));
             entryBindings.put("recheck", new WorkflowDefinition.EntryBinding("review.check", NOWHERE));
             var expected = new WorkflowDefinition(frontmatter, "review.repair", 1, WorkflowScope.SUBWORKFLOW,
-                    List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), 1,
-                    UnitOrigin.DEFAULT, Map.of(), Optional.empty(), entryBindings, List.of(),
+                    List.of(), null, null, Map.of(), Map.of(), 1,
+                    UnitOrigin.DEFAULT, Map.of(), null, entryBindings, List.of(),
                     states(state("review.check", "inherit", new StateBehavior.ModelJob("change",
-                            Optional.of("reviewer"), Optional.empty(), Optional.empty(),
+                            "reviewer", null, null,
                             StateBehavior.AskForm.NONE, List.of(),
                             List.of(to("approved", "review.done"), to("rejected", "review.fix"),
                                     to("lost", "review.failed")))),
                             state("review.fix", "inherit", new StateBehavior.SubWorkflowCall("git.commit_and_push",
-                                    Optional.of("stage"), Map.of("push", new CallValue.EnumValue("enabled")),
+                                    "stage", Map.of("push", new CallValue.EnumValue("enabled")),
                                     List.of(to("done", "review.check"), to("stepped_out", "review.stepped-out")))),
                             terminal("review.done", "inherit", "done", OutcomeClass.SUCCESS),
                             terminal("review.failed", "inherit", "failed", OutcomeClass.FAILURE),
@@ -556,7 +556,7 @@ class WorkflowParserTest {
         }
 
         @Test
-        @DisplayName("reads a call without an entry as empty and a call through a named entry with its name")
+        @DisplayName("reads a call without an entry as null and a call through a named entry with its name")
         void callEntry() {
             var plain = (StateBehavior.SubWorkflowCall) startBody(unitWithBody("plan", "call demo.sub",
                     "done -> demo.begin"));
@@ -564,8 +564,8 @@ class WorkflowParserTest {
                     "done -> demo.begin"));
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), plain.entry()),
-                    () -> assertEquals(Optional.of("review"), named.entry()),
+                    () -> assertNull(plain.entry(), "a call that names no entry reads null"),
+                    () -> assertEquals("review", named.entry(), "a call reads the entry it names"),
                     () -> assertEquals(Map.of(), named.paramBindings()));
         }
 
@@ -589,7 +589,7 @@ class WorkflowParserTest {
             var definition = parse(source);
 
             assertAll(
-                    () -> assertEquals(Optional.of("demo.end"), definition.startState()),
+                    () -> assertEquals("demo.end", definition.startState(), "the start line is read as is"),
                     () -> assertEquals(Map.of(), definition.entryBindings()),
                     () -> assertEquals(List.of("review"),
                             definition.frontmatter().entries().stream().map(InterfaceElement::name).toList()));
@@ -604,7 +604,7 @@ class WorkflowParserTest {
             var definition = parse(source);
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), definition.startState()),
+                    () -> assertNull(definition.startState(), "a unit with entry lines reads no start"),
                     () -> assertEquals(List.of("repair"), List.copyOf(definition.entryBindings().keySet())),
                     () -> assertEquals(List.of("demo.end"), definition.startingStates()));
         }
@@ -680,7 +680,7 @@ class WorkflowParserTest {
             var plan = DslFixtures.parseValid(PLAN_UNIT);
             var call = (StateBehavior.SubWorkflowCall) plan.states().get("review.check").behavior();
             var adjudicate = DslFixtures.parseValid(ADJUDICATE_UNIT);
-            var instance = DslFixtures.parseValid(INSTANCE_UNIT).instance().orElseThrow();
+            var instance = Objects.requireNonNull(DslFixtures.parseValid(INSTANCE_UNIT).instance());
 
             assertAll(
                     () -> assertEquals(List.of("init.begin", "init.dispatch", "init.compose", "review.check",
@@ -758,7 +758,7 @@ class WorkflowParserTest {
             var source = unit("workflow demo version 1 format 1", "scope plan", "start demo.end",
                     "state demo.end terminal done " + keyword(outcomeClass));
 
-            var terminal = parse(source).states().get("demo.end").terminalOutcome().orElseThrow();
+            var terminal = Objects.requireNonNull(parse(source).states().get("demo.end").terminalOutcome());
 
             assertEquals(outcomeClass, terminal.outcomeClass());
         }
@@ -939,7 +939,7 @@ class WorkflowParserTest {
 
             assertAll(
                     () -> assertEquals("task", job.entityKind()),
-                    () -> assertEquals(Optional.of("writer"), job.roleName()),
+                    () -> assertEquals("writer", job.roleName(), "the role of the task state is read"),
                     () -> assertEquals(List.of(), job.consultRoles()));
         }
 
@@ -951,7 +951,8 @@ class WorkflowParserTest {
 
             var links = (StateBehavior.InteractiveLinks) startBody(source);
 
-            assertEquals(IN_WORKTREE, links.links().getFirst().guard().orElseThrow().expr());
+            assertEquals(IN_WORKTREE, Objects.requireNonNull(links.links().getFirst().guard()).expr(),
+                    "the deepest admitted guard is read");
         }
 
         @Test
