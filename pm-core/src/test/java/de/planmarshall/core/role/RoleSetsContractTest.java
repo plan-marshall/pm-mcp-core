@@ -39,7 +39,7 @@ class RoleSetsContractTest implements ShouldHandleObjectContracts<RoleSets.Shipp
     @Test
     @DisplayName("the constructor and the accessor copy the document")
     void defensiveCopies() {
-        var bytes = Generators.letterStrings(1, 40).next().getBytes(UTF_8);
+        var bytes = Generators.letterStrings(2, 40).next().getBytes(UTF_8);
         var original = bytes.clone();
         var role = new RoleSets.ShippedRole(bytes);
         bytes[0] = (byte) (bytes[0] + 1);

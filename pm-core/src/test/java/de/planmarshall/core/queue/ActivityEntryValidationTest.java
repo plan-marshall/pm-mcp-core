@@ -16,7 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +70,10 @@ class ActivityEntryValidationTest {
                         .signal(new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.RESTART)).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).end("off_track")
                         .unmappedLines(unmappedLines).build());
+
+        assertEquals(EnumSet.allOf(ActivityEntry.Kind.class),
+                entries.stream().map(ActivityEntry::kind).collect(Collectors.toSet()),
+                "The fixture covers every kind");
 
         for (var entry : entries) {
             assertEquals(entry, ActivityEntryCodec.read(Path.of("entry.jsonl"), ActivityEntryCodec.write(entry)),
