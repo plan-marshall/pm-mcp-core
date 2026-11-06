@@ -25,5 +25,6 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 == Done When
 
+* The first migrated document is opened on GitHub and the include is seen to render as a link to the file (the paragraph above it names the file); the result is written into the pull request.
 * Every `[source,json]` block of the seven documents is an include of a schema file, each file the former block's text; the parity tests that passed against the blocks before the move pass against the files after it, unchanged.
 * Tests: the parity tests that switched to the files pass against them (`PendingEntrySchemaParityTest` stays disabled with its reason until `start-source-intake`, and is not part of this criterion); none of them names `SpecificationDocument` or `pm.specification.root`; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.
