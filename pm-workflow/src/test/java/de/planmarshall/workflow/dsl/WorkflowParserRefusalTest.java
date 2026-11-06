@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -282,8 +281,7 @@ class WorkflowParserRefusalTest {
                     refusal("instance config hash not a string", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs("\"config_hash\": \"c\"", "\"config_hash\": 1")),
                     refusal("instance optional input neither string nor null", RefusalRule.INSTANCE_HEADER, 2,
-                            withInputs(TEMPLATES, TEMPLATES + ", \"change_type\": 1")),
-                    refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, TEMPLATES + ", \"change_type\": 1")),                    refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs(TEMPLATES, "\"templates\": {}")),
                     refusal("instance unit reference not an object", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs(TEMPLATES, "\"templates\": [\"plan\"]")),
@@ -821,6 +819,29 @@ class WorkflowParserRefusalTest {
                     () -> assertNull(inputs.changeType(), "an absent change type is read as null"),
                     () -> assertNull(inputs.providersDigest(), "an absent providers digest is read as null"),
                     () -> assertEquals(json, header.json(), "the read stops at the closing brace"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("optionalMembers")
+        @DisplayName("names the optional member that is neither a string nor null, and points at its value")
+        void optionalMemberMistyped(String member, String path) {
+            var json = "{" + INSTANCE_MEMBERS.replace(TEMPLATES, TEMPLATES + ", \"" + member + "\": 1") + "}";
+
+            var refusal = assertThrows(InstanceHeaderReader.HeaderRefusal.class,
+                    () -> InstanceHeaderReader.read(json));
+
+            assertAll(
+                    () -> assertEquals("member '" + path + "' of the instance header must be a string or null",
+                            refusal.getMessage(), "the refusal names the mistyped member"),
+                    () -> assertEquals(json.indexOf("\"" + member + "\": 1") + member.length() + 5,
+                            refusal.column().orElseThrow(), "the refusal points at the mistyped value"));
+        }
+
+        static Stream<Arguments> optionalMembers() {
+            return Stream.of(
+                    Arguments.of("realized_footprint_digest", "inputs.realized_footprint_digest"),
+                    Arguments.of("change_type", "inputs.change_type"),
+                    Arguments.of("providers_digest", "inputs.providers_digest"));
         }
 
         @Test

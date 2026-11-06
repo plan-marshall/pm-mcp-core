@@ -525,8 +525,9 @@ class WorkflowPrinterTest {
 
             assertAll(
                     () -> assertTrue(printed.contains("    link next go [noop] (bounded: text[1..9], free: int?)\n"),
-                            printed),
-                    () -> assertEquals(strip(definition), strip(parse("range.pmwf", printed))));
+                            "an unbounded type prints without a range"),
+                    () -> assertEquals(strip(definition), strip(parse("range.pmwf", printed)),
+                            "the printed ranges read back equal"));
         }
 
         @Test

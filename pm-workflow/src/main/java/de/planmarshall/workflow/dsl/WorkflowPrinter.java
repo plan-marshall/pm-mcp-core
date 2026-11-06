@@ -43,15 +43,15 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
  * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
  * the {@code start} line or the {@code entry <name> -> <state>} bindings, the {@code migrate} lines, and the states in
- * declaration order, a {@code call} with the entry it names, each preceded by a blank line and followed by its clauses, indented by nesting. Every link names
- * its form explicitly, and a guard carries exactly the parentheses its precedence ({@code not} before {@code and}
- * before {@code or}, both operators left-associative) needs; a negated operand that is no single guard is always
- * parenthesised, because the grammar admits no {@code not not}.
+ * declaration order, a {@code call} with the entry it names, each preceded by a blank line and followed by its clauses,
+ * indented by nesting. Every link names its form explicitly, and a guard carries exactly the parentheses its precedence
+ * ({@code not} before {@code and} before {@code or}, both operators left-associative) needs; a negated operand that is
+ * no single guard is always parenthesised, because the grammar admits no {@code not not}.
  * <p>
  * The header carries {@code derived_from <n>} when {@link WorkflowDefinition#derivedFrom()} holds a revision for the
- * unit's own id, the entry the parser records for a single-file project unit. A range
- * of a {@code text} or {@code int} type is printed when both of its bounds are present, as the grammar writes one only
- * with both. The printer checks nothing: it prints the tree it is given.
+ * unit's own id, the entry the parser records for a single-file project unit. A range of a {@code text} or {@code int}
+ * type is printed when both of its bounds are present, as the grammar writes one only with both. An absent
+ * ({@code null}) member of the tree prints nothing. The printer checks nothing: it prints the tree it is given.
  *
  * @since 0.1
  */

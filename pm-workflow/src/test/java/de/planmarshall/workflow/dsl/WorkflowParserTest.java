@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.Nullable;
 
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -976,6 +979,79 @@ class WorkflowParserTest {
                     () -> assertThrows(NullPointerException.class,
                             () -> WorkflowParser.parse("x.pmwf", null, UnitOrigin.DEFAULT)),
                     () -> assertThrows(NullPointerException.class, () -> WorkflowParser.parse("x.pmwf", "", null)));
+        }
+    }
+
+    @Nested
+    @DisplayName("Absent members of the instance line")
+    class AbsentInstanceMembers {
+
+        /** A plan instance whose instance line carries the given JSON. */
+        private static String withInstance(String json) {
+            return frontmatter(UnitType.INSTANCE) + lines("workflow demo version 1 format 1", "instance " + json,
+                    "scope plan", "start demo.end", "state demo.end terminal done success");
+        }
+
+        /** The JSON of an instance header whose inputs end with the given text and hold the given unit reference. */
+        private static String headerJson(String unitRefTail, String inputsTail) {
+            return "{\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\", \"inputs\": {\"config_hash\": \"c\", "
+                    + "\"templates\": [{\"unit\": \"plan\", \"digest\": \"t\", \"origin\": \"project\"" + unitRefTail
+                    + "}], \"sub_units\": [], \"composition_rules\": {\"revision\": \"r\", \"digest\": \"d\"}, "
+                    + "\"plan_facts_digest\": \"f\"" + inputsTail + "}}";
+        }
+
+        private static InstanceHeader header(String json) {
+            return Objects.requireNonNull(parse(withInstance(json)).instance(), "the instance line is read");
+        }
+
+        // The member names are the wire format of the PlanInstanceHeader schema.
+        static Stream<Arguments> optionalInputMembers() {
+            return Stream.of(
+                    Arguments.of("realized_footprint_digest",
+                            (Function<InstanceInputs, @Nullable String>) InstanceInputs::realizedFootprintDigest),
+                    Arguments.of("change_type",
+                            (Function<InstanceInputs, @Nullable String>) InstanceInputs::changeType),
+                    Arguments.of("providers_digest",
+                            (Function<InstanceInputs, @Nullable String>) InstanceInputs::providersDigest));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("optionalInputMembers")
+        @DisplayName("reads an optional member of the inputs as null when absent or null, as its text otherwise, and "
+                + "prints the instance line byte-identical")
+        void optionalInputMember(String member, Function<InstanceInputs, @Nullable String> accessor) {
+            var value = Generators.letterStrings(1, 20).next();
+            var absentJson = headerJson("", "");
+            var nullJson = headerJson("", ", \"" + member + "\": null");
+            var namedJson = headerJson("", ", \"" + member + "\": \"" + value + "\"");
+
+            var absent = header(absentJson);
+            var nulled = header(nullJson);
+            var named = header(namedJson);
+
+            assertAll(
+                    () -> assertNull(accessor.apply(absent.inputs()), "an absent member reads as null"),
+                    () -> assertNull(accessor.apply(nulled.inputs()), "a member of JSON null reads as null"),
+                    () -> assertEquals(value, accessor.apply(named.inputs()), "a string member reads as its text"),
+                    () -> assertTrue(WorkflowPrinter.print(parse(withInstance(nullJson)))
+                            .contains("instance " + nullJson + "\n"), "the null member prints byte-identical"),
+                    () -> assertTrue(WorkflowPrinter.print(parse(withInstance(absentJson)))
+                            .contains("instance " + absentJson + "\n"), "the absent member prints byte-identical"));
+        }
+
+        @Test
+        @DisplayName("reads the file of a unit reference as null when absent or null, as its path otherwise")
+        void unitReferenceFile() {
+            var file = Generators.letterStrings(1, 20).next() + ".pmwf";
+
+            var absent = header(headerJson("", "")).inputs().templates().getFirst();
+            var nulled = header(headerJson(", \"file\": null", "")).inputs().templates().getFirst();
+            var named = header(headerJson(", \"file\": \"" + file + "\"", "")).inputs().templates().getFirst();
+
+            assertAll(
+                    () -> assertNull(absent.file(), "an absent file of the reference reads null"),
+                    () -> assertNull(nulled.file(), "a file of JSON null reads as null"),
+                    () -> assertEquals(file, named.file(), "a named file of the reference is read"));
         }
     }
 }
