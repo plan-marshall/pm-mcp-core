@@ -2,10 +2,10 @@
   "id": "PLAN-V2-62",
   "slug": "ci-contract-pull-request-view",
   "workstream": "WS-09",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#299",
+  "landing": "landings/PLAN-V2-62.md",
   "seq": 62
 }
