@@ -95,7 +95,7 @@ class ConstantBaselineTest {
                 .method(ImportedItem.GradingMethod.RUBRIC_ITEMS).build();
 
         assertEquals(BigDecimal.ZERO, ConstantBaseline.of(List.of(rubric),
-                List.of(result(rubric.id(), "f" + Generators.letterStrings(3, 10).next()))),
+                        List.of(result(rubric.id(), "f" + Generators.letterStrings(3, 10).next()))),
                 "Rubric-only topic has zero baseline");
     }
 
