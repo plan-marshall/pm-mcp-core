@@ -2,10 +2,10 @@
   "id": "PLAN-V2-16",
   "slug": "lesson-store-operations",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-16-lesson-store-operations",
+  "pr": "284",
+  "landing": "landings/PLAN-V2-16.md",
   "seq": 16
 }

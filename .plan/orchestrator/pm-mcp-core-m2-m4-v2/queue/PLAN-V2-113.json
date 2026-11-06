@@ -2,10 +2,10 @@
   "id": "PLAN-V2-113",
   "slug": "ci-contract-defects-and-hardening",
   "workstream": "WS-09",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-113-ci-contract-defects-and-hardening",
+  "pr": "#296",
+  "landing": "landings/PLAN-V2-113.md",
   "seq": 101
 }

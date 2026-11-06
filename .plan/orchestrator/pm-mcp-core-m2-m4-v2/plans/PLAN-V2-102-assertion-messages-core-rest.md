@@ -48,6 +48,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Test code only;** no assertion is changed except by adding the message argument (and reordering arguments where JUnit needs it).
 - **Messages say what is checked, not that it failed:** 'the refusal names the store file', not 'assertion failed'.
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
+- **Read the landing analysis of PLAN-V2-87 at the outline** (`landings/PLAN-V2-87.md`, owner-register Wa70): about 1830 of 2218 assertions in the scope carry no message; the five contract tests added by PLAN-V2-87 carry messages of 72 to 80 characters (`JsonNodeContractTest:45`, `LoadedProfileContractTest`, `ProfileSetsContractTest`, `RoleSetsContractTest:60`) and 18 literal messages sit outside 20 to 60 (`FindingSchemaParityTest:228`, `SchemaSubsetTest:189-190`, `ProfileLoaderTest:300`); count again at the head of `main`, the numbers are approximate.
 
 ## Claim Labels
 

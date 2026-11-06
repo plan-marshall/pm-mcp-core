@@ -2,10 +2,10 @@
   "id": "PLAN-V2-88",
   "slug": "workflow-tests",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-88-workflow-tests",
+  "pr": "#291",
+  "landing": "landings/PLAN-V2-88.md",
   "seq": -19
 }
