@@ -46,7 +46,8 @@ public final class RoleComposition {
         for (var use : uses) {
             var resolution = resolver.resolve(use.role());
             if (resolution instanceof RoleResolution.Undefined undefined) {
-                throw CompositionRefusal.roleUndefined(use.role(), use.stateId(), undefined.reason(),
+                // pm-core boundary: RoleResolution.Undefined.reason() returns Optional; it is unwrapped here, once
+                throw CompositionRefusal.roleUndefined(use.role(), use.stateId(), undefined.reason().orElse(null),
                         undefined.detail());
             }
             var role = ((RoleResolution.Defined) resolution).role();

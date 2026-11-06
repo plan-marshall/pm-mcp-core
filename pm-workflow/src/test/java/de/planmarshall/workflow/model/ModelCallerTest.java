@@ -13,12 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Optional;
 
-
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -112,7 +113,7 @@ class ModelCallerTest {
 
         assertAll(
                 () -> assertEquals("role_undefined", result.reason()),
-                () -> assertEquals(Optional.empty(), result.validationReason()),
+                () -> assertNull(result.validationReason(), "an absent role carries no validation reason"),
                 () -> assertTrue(fixtures.queue.enqueued().isEmpty()));
     }
 
@@ -128,7 +129,8 @@ class ModelCallerTest {
 
         assertAll(
                 () -> assertEquals("role_undefined", result.reason()),
-                () -> assertEquals(Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), result.validationReason()));
+                () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED, result.validationReason(),
+                        "the closed result names the validation reason"));
     }
 
     @Test
@@ -221,12 +223,94 @@ class ModelCallerTest {
         }
     }
 
+    @Nested
+    @DisplayName("carries the scope")
+    class CarriesTheScope {
+
+        @Test
+        @DisplayName("a plan task is queued with its plan as the scope")
+        void planTaskIsQueuedWithItsScope() {
+            var fixtures = new Fixtures(Map.of(IMPLEMENT,
+                    ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH)));
+            fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
+            var planId = planId();
+
+            var result = fixtures.caller.call(job(planId, "task", IMPLEMENT, false));
+
+            assertAll(
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result, "the plan task must be queued"),
+                    () -> assertEquals(planId, fixtures.queue.enqueued().getFirst().scopeId(),
+                            "the queued task carries the plan as its scope"));
+        }
+
+        @Test
+        @DisplayName("a task of the workspace scope is queued without a scope id")
+        void workspaceTaskIsQueued() {
+            var fixtures = new Fixtures(Map.of(IMPLEMENT,
+                    ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH)));
+            fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
+
+            var result = fixtures.caller.call(job(null, "task", IMPLEMENT, false));
+
+            assertAll(
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result,
+                            "the workspace task must be queued"),
+                    () -> assertEquals(1, fixtures.queue.enqueued().size(), "exactly one task is queued"),
+                    () -> assertNull(fixtures.queue.enqueued().getFirst().scopeId(),
+                            "the queued workspace task has no scope id"),
+                    () -> assertTrue(fixtures.queue.closed().isEmpty(), "a queued task is not also closed"));
+        }
+
+        @Test
+        @DisplayName("a task of the workspace scope closes without a scope id")
+        void workspaceTaskCloses() {
+            var fixtures = new Fixtures(Map.of());
+
+            var result = (ModelCallResult.Closed) fixtures.caller.call(job(null, "task", IMPLEMENT, false));
+
+            assertAll(
+                    () -> assertEquals("role_undefined", result.reason(), "the absent role closes role_undefined"),
+                    () -> assertNull(result.validationReason(), "an absent role carries no validation reason"),
+                    () -> assertEquals(1, fixtures.queue.closed().size(), "exactly one task is closed"),
+                    () -> assertNull(fixtures.queue.closed().getFirst().scopeId(),
+                            "the closed workspace task has no scope id"),
+                    () -> assertEquals("role_undefined", fixtures.queue.closed().getFirst().reason(),
+                            "the queue closes the task role_undefined"),
+                    () -> assertTrue(fixtures.queue.enqueued().isEmpty(), "a closed task is never queued"));
+        }
+
+        @Test
+        @DisplayName("a consultation of the workspace scope is queued without a scope id")
+        void workspaceConsultationIsQueued() {
+            var fixtures = new Fixtures(Map.of("architecture",
+                    ModelFixtures.role("architecture", RoleClass.READ_ONLY, RoleForm.FRESH)));
+            fixtures.qualifications.qualifies("architecture", RoleForm.FRESH);
+
+            var result = fixtures.caller.call(job(null, "decision", "architecture", true));
+
+            assertAll(
+                    () -> assertInstanceOf(ModelCallResult.Queued.class, result,
+                            "the workspace consultation is queued"),
+                    () -> assertNull(fixtures.queue.enqueued().getFirst().scopeId(),
+                            "the workspace consultation has no scope id"),
+                    () -> assertTrue(fixtures.queue.enqueued().getFirst().consultation(),
+                            "the queued task keeps its consultation flag"));
+        }
+    }
+
     private static ModelJob job(String entityKind, String role, boolean consultation) {
-        var planId = Optional.of("plan-" + Generators.letterStrings(3, 12).next());
+        return job(planId(), entityKind, role, consultation);
+    }
+
+    private static ModelJob job(@Nullable String scopeId, String entityKind, String role, boolean consultation) {
         var entity = "entity-" + Generators.letterStrings(3, 12).next();
         return consultation
-                ? ModelJob.consultation(planId, STATE, entity, role)
-                : ModelJob.forModelJob(planId, STATE, entity, entityKind, role);
+                ? ModelJob.consultation(scopeId, STATE, entity, role)
+                : ModelJob.forModelJob(scopeId, STATE, entity, entityKind, role);
+    }
+
+    private static String planId() {
+        return "plan-" + Generators.letterStrings(3, 12).next();
     }
 
     /** One caller with its recorders. */
