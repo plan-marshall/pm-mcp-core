@@ -45,14 +45,25 @@ projects below `src/guard-controls`. The commands for the whole repository are i
 The test scope is published as the `pm-core:tests` test JAR (the `tests` classifier, built by `verify` and deployed
 with the `SNAPSHOT`). It holds the package `de.planmarshall.core.testing.generators` with one
 `TypedGenerator<T>` per foundation type that another module builds by hand (`ProjectEnrolment`, `EndpointProfile`,
-`LeaseRecord`, `RoleSkill`) and the `CoreGenerators` factory that registers them. The `test-jar` goal includes only
-this package, so the tests and fixtures of `pm-core` itself are not published. `pm-workflow`, `pm-runtime` and
+`LeaseRecord`, `RoleSkill`) and the `CoreGenerators` factory that registers them, and beside it the class
+`de.planmarshall.core.SchemaResource`, the loader of the schema files. The `test-jar` goal includes only these two,
+so the tests and fixtures of `pm-core` itself are not published. `pm-workflow`, `pm-runtime` and
 every provider module may consume it as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`. A generator for a foundation type belongs here, never in a test class of another
 module.
 
-The schema tests read the specification of this repository (`doc/specification`), whose root the Maven property
-`pm.specification.root` names (default: the root of the build); a missing schema fails them. `ProductCorpusValidationTest`,
+A JSON schema of the specification is a file of the module that owns the codec of its record:
+`src/main/resources/<resource package of the codec>/<record>.schema.json`, one file per schema block, its text the
+text of the block byte for byte. The corpus schemas in `src/main/resources/de/planmarshall/core/role/corpus/` are the
+precedent. A test loads a schema file from the class path with `SchemaResource.load("<resource path>")`, the path
+absolute and without a leading slash (for example `de/planmarshall/core/role/corpus/<record>.schema.json`); an absent
+resource, a file that is not JSON or not a JSON object fails the test, it is never skipped. The decision is
+link:../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016].
+
+The schema tests not yet moved to their schema files read the specification of this repository
+(`doc/specification`), whose root the Maven property `pm.specification.root` names (default: the root of the build); a
+missing schema fails them. The work package `adoc-reading-retired` retires this property with the last of these
+readers. `ProductCorpusValidationTest`,
 which validates the corpus of plan-marshall-mcp, reads a sibling checkout named by `pm.product.root` (default
 `../plan-marshall-mcp`); both properties are passed to Surefire as system properties of the same name. A test whose
 checkout is absent is skipped with the path named. In a worktree whose defaults do not

@@ -27,7 +27,7 @@ only to correct a requirement or to change `cross-cutting.adoc` or a specificati
 implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
 the same names here only point to them. Links here are relative, also into the documentation (sibling paths); check
 them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
-(`BROKEN LINKS 0`); no workflow runs it, so it runs locally before every merge.
+(`BROKEN LINKS 0`, `INLINE SCHEMA BLOCKS 0`); no workflow runs it, so it runs locally before every merge.
 
 ## Project Setup
 
@@ -87,7 +87,8 @@ its own pull request.
 
 Six modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
 `SNAPSHOT` like every other artifact of the repository. The five generator artifacts carry only their generator
-package; `pm-runtime:tests` carries its whole test scope, because the assembly already consumes `TestBases` and the
+package, and `pm-core:tests` also the schema loader `SchemaResource` (ADR `doc/adr/016`); `pm-runtime:tests` carries
+its whole test scope, because the assembly already consumes `TestBases` and the
 fakes there:
 
 - `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
