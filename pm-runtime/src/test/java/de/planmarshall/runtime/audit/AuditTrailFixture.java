@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.audit;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -47,23 +48,32 @@ import de.planmarshall.runtime.lock.FileLockManager;
 /**
  * An audit trail on a test base: the hash-chained log written through the production sink, anchored by an
  * {@link AuditHead} under an enrolment integrity key held in an in-memory keyring, with the helpers that edit the
- * files into the tamper cases. The key does not exist until a test creates it.
+ * files into the tamper cases. The key does not exist until a test creates it. The start instant of the clock is drawn
+ * per fixture; the event name, the log and index file names and the rotated-file pattern are the contract of the audit
+ * trail's store schema.
  */
 final class AuditTrailFixture {
 
     /** The OS principal of the records. */
     static final String USER = System.getProperty("user.name");
 
-    /** The instant the clock starts at. */
-    static final Instant START = Instant.parse("2026-10-01T08:00:00Z");
-
-    /** The name of the event the fixture appends. */
+    /** The name of the event the fixture appends; the tests find the fixture's records by it. */
     static final String EVENT = "test_event";
+
+    /** The first epoch second the start is drawn from, 2000-01-01T00:00:00Z. */
+    private static final long EARLIEST_START = 946_684_800L;
+
+    /** The last epoch second the start is drawn from, 2100-01-01T00:00:00Z, which keeps time-ordered ids in range. */
+    private static final long LATEST_START = 4_102_444_800L;
 
     final Path base;
     final Keyring keyring = new Keyring();
     final EnrolmentKey integrityKey;
-    final MutableClock clock = new MutableClock(START);
+
+    /** The instant the clock starts at, drawn per fixture. */
+    final Instant start = Instant.ofEpochSecond(Generators.longs(EARLIEST_START, LATEST_START).next());
+
+    final MutableClock clock = new MutableClock(start);
     final FileLockManager locks = new FileLockManager(_ -> {
     });
     final AuditHead head;

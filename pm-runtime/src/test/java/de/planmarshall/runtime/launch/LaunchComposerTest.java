@@ -181,7 +181,7 @@ class LaunchComposerTest {
     @Test
     @DisplayName("a refusal block names the role's class and is marked a start failure")
     void refusalBlock() {
-        var block = LaunchComposer.refusalBlock(LaunchFixtures.writer(skills), GENERATION, LaunchFixtures.NOW);
+        var block = LaunchComposer.refusalBlock(LaunchFixtures.writer(skills), GENERATION, LaunchFixtures.now());
         assertAll(
                 () -> assertEquals("implementer", block.member("role").orElseThrow().text().orElseThrow()),
                 () -> assertEquals("writer", block.member("class").orElseThrow().text().orElseThrow()),
@@ -216,7 +216,7 @@ class LaunchComposerTest {
         var role = LaunchFixtures.roleWithHarness("acme-cli", skills);
         var jobPrivate = root.resolve("run/jobs").resolve(GENERATION);
         var request = new LaunchRequest(role, block, LaunchFixtures.enrolment(LaunchFixtures.enrolmentPath(root),
-                        LaunchFixtures.EXECUTABLE_DIGEST, "1.5.0"), GENERATION, root.resolve("runtime"), jobPrivate,
+                        LaunchFixtures.executableDigest(), "1.5.0"), GENERATION, root.resolve("runtime"), jobPrivate,
                 LaunchRequest.WorkdirKind.PROJECT_CHECKOUT, null, root.resolve("worktree"), root.resolve("daemon.sock"),
                 LaunchFixtures.SHIM, skills, true, false, List.of(), List.of(), null, 0, "", Optional.empty(),
                 LaunchFixtures.clock());
@@ -244,7 +244,7 @@ class LaunchComposerTest {
     private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,
             boolean freeText) {
         return request(role, fresh, kind, freeText, LaunchFixtures.enrolment(LaunchFixtures
-                .enrolmentPath(root), LaunchFixtures.EXECUTABLE_DIGEST, "1.5.0"));
+                .enrolmentPath(root), LaunchFixtures.executableDigest(), "1.5.0"));
     }
 
     private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,

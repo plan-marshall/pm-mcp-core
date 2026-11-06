@@ -68,9 +68,10 @@ class JobConfinementComposerTest {
         void writeSet() {
             var job = JobId.random(JobId.Kind.BUILD);
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var enrolment = enrolment(null, Map.of());
+            var confinement = composer().forJob(enrolment, job, List.of(), false);
 
-            var daemonStore = BuildDaemonStore.path(base, "job-project", List.of(project,
+            var daemonStore = BuildDaemonStore.path(base, enrolment.projectId(), List.of(project,
                     Path.of("/home/operator/.m2/repository"), Path.of("/tmp"), Path.of("/dev")));
             assertAll(
                     () -> assertTrue(confinement.writePaths().contains(project)),
@@ -89,12 +90,14 @@ class JobConfinementComposerTest {
         void baseNeverWritable() {
             var job = JobId.random(JobId.Kind.BUILD);
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var enrolment = enrolment(null, Map.of());
+            var confinement = composer().forJob(enrolment, job, List.of(), false);
 
             assertAll(
                     () -> assertTrue(confinement.writePaths().stream()
                             .filter(path -> under(base, path))
-                            .allMatch(path -> path.startsWith(base.resolve("projects/job-project/daemons")))),
+                            .allMatch(path -> path.startsWith(base.resolve("projects").resolve(enrolment.projectId())
+                                    .resolve("daemons")))),
                     () -> assertFalse(confinement.writePaths().stream()
                             .anyMatch(path -> path.equals(Path.of(System.getProperty("user.home"),
                                     ".plan-marshall")))),

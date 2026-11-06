@@ -28,6 +28,9 @@ import de.planmarshall.core.store.LockKey;
  * it goes to the file descriptor itself. Standard input ends when the starting process closes it, and also when that
  * process dies, so this process does not outlive it. It then releases the lock and ends with exit code 0; every
  * failure ends it with an exception and another exit code.
+ * <p>
+ * Every datum of this class is a contract: the line {@link #HELD} is the protocol with the starting process, and the
+ * project and plan ids arrive as arguments from the test that drew them.
  */
 final class LockHolderProcess {
 

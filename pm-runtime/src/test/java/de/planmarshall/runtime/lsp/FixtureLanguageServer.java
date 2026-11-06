@@ -50,6 +50,10 @@ import org.eclipse.lsp4j.services.WorkspaceService;
  * {@code location} (default), {@code links} (answers {@code LocationLink}s), {@code hang} (never
  * answers {@code definition}), {@code none} (answers {@code null}), {@code die} (exits before speaking) and {@code stubborn} (ignores
  * {@code exit}).
+ * <p>
+ * Every datum of this class is a contract: the mode names and the exit status are the protocol between the test and
+ * this second JVM, and the fixed range and diagnostic message are the answers the tests read back over LSP, which a
+ * separate process cannot share with a generator of the test process.
  */
 public final class FixtureLanguageServer implements LanguageServer, LanguageClientAware {
 

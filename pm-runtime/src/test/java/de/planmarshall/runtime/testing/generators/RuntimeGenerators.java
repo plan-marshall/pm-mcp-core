@@ -28,4 +28,9 @@ public class RuntimeGenerators {
     public static TypedGenerator<ResolvedSkill> resolvedSkills() {
         return new ResolvedSkillGenerator();
     }
+
+    /** @return a generator of SHA-256 digests as an enrolment records them, 64 lower-case hex characters */
+    public static TypedGenerator<String> sha256Digests() {
+        return new Sha256DigestGenerator();
+    }
 }

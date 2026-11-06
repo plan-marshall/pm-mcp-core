@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.launch;
 
+import de.cuioss.test.generator.Generators;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -27,18 +28,36 @@ import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
-/** The fixture profile, role and enrolment of the launch tests. */
+/**
+ * The fixture profile, role and enrolment of the launch tests. The instants of the enrolment and the clock and the
+ * executable digest are drawn per call from the generator artifacts; the profile document, the client id
+ * {@code claude}, the tier, effort and skill URIs and the shim text are the fixture profile's contract, which the
+ * composer renders and the tests read back.
+ */
 final class LaunchFixtures {
 
     static final String SHIM = "Skills of plan-marshall arrive in-band or are named by a skill://pm/ URI.";
 
-    static final Instant NOW = Instant.parse("2026-10-24T10:00:00Z");
-
-    static final String EXECUTABLE_DIGEST = "a".repeat(64);
-
     private LaunchFixtures() {
     }
+
+    /** @return a generated instant, for the enrolment and the clock of one launch */
+    static Instant now() {
+        return Instant.ofEpochSecond(Generators.longs(EARLIEST_EPOCH_SECOND, LATEST_EPOCH_SECOND).next());
+    }
+
+    /** @return a generated digest of the enrolled executable, which the composer records and never computes */
+    static String executableDigest() {
+        return RuntimeGenerators.sha256Digests().next();
+    }
+
+    /** The first epoch second drawn, 2000-01-01T00:00:00Z. */
+    private static final long EARLIEST_EPOCH_SECOND = 946_684_800L;
+
+    /** The last epoch second drawn, 2100-01-01T00:00:00Z. */
+    private static final long LATEST_EPOCH_SECOND = 4_102_444_800L;
 
     static LoadedProfile profile() {
         return profile(document());
@@ -146,14 +165,15 @@ final class LaunchFixtures {
     }
 
     static HarnessEnrolment enrolment(Path executable, String sha256, String version) {
-        return new HarnessEnrolment("claude", executable, sha256, version, NOW, NOW,
+        var enrolledAt = now();
+        return new HarnessEnrolment("claude", executable, sha256, version, enrolledAt, enrolledAt,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED,
                         Map.of("input", "reported", "output", "reported")),
                 Map.of("text", "reported", "turn", "reported"), Map.of());
     }
 
     static InstantSource clock() {
-        return InstantSource.fixed(NOW);
+        return InstantSource.fixed(now());
     }
 
     /**
