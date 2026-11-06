@@ -10,10 +10,10 @@
 package de.planmarshall.workflow.model;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.role.RoleClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The task a {@code job llm} state creates (PM-WF-5, PM-WORK-1): the state, the entity it works on, the role name, and the
@@ -23,7 +23,7 @@ import de.planmarshall.core.role.RoleClass;
  * for a kind a unit registers with a class set of its own, passed by the caller. Composition and task creation therefore
  * apply one set, never two rules.
  *
- * @param scopeId         the plan or epic the state belongs to; empty for the workspace scope
+ * @param scopeId         the plan or epic the state belongs to; {@code null} for the workspace scope
  * @param stateId         the state the task is created for
  * @param entityKey       the entity the task works on, the key of the task in {@code active_tasks}
  * @param role            the role the state names
@@ -31,15 +31,14 @@ import de.planmarshall.core.role.RoleClass;
  * @param acceptedClasses the classes the use admits
  * @since 0.1
  */
-public record ModelJob(Optional<String> scopeId, String stateId, String entityKey, String role, boolean consultation,
+public record ModelJob(@Nullable String scopeId, String stateId, String entityKey, String role, boolean consultation,
 Set<RoleClass> acceptedClasses) {
 
     /**
-     * @throws NullPointerException     if a component is {@code null}
+     * @throws NullPointerException     if a component other than {@code scopeId} is {@code null}
      * @throws IllegalArgumentException if a name is blank
      */
     public ModelJob {
-        Objects.requireNonNull(scopeId, "scopeId");
         requireNonBlank(stateId, "stateId");
         requireNonBlank(entityKey, "entityKey");
         requireNonBlank(role, "role");
@@ -47,26 +46,26 @@ Set<RoleClass> acceptedClasses) {
     }
 
     /**
-     * @param scopeId    the plan or epic; empty for the workspace scope
+     * @param scopeId    the plan or epic; {@code null} for the workspace scope
      * @param stateId    the model state
      * @param entityKey  the entity the task works on
      * @param entityKind the entity kind of the {@code job llm} clause
      * @param role       the role the state names
      * @return the job of a model state
      */
-    public static ModelJob forModelJob(Optional<String> scopeId, String stateId, String entityKey, String entityKind,
+    public static ModelJob forModelJob(@Nullable String scopeId, String stateId, String entityKey, String entityKind,
             String role) {
         return new ModelJob(scopeId, stateId, entityKey, role, false, RoleUse.classesOf(entityKind));
     }
 
     /**
-     * @param scopeId   the plan or epic; empty for the workspace scope
+     * @param scopeId   the plan or epic; {@code null} for the workspace scope
      * @param stateId   the state that consults
      * @param entityKey the entity the task works on
      * @param role      the consulted role
      * @return the job of a consultation
      */
-    public static ModelJob consultation(Optional<String> scopeId, String stateId, String entityKey, String role) {
+    public static ModelJob consultation(@Nullable String scopeId, String stateId, String entityKey, String role) {
         return new ModelJob(scopeId, stateId, entityKey, role, true, RoleUse.CONSULTATION_CLASSES);
     }
 

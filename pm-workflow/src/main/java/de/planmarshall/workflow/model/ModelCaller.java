@@ -10,13 +10,13 @@
 package de.planmarshall.workflow.model;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import de.planmarshall.core.role.RoleCatalog;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleResolution;
 import de.planmarshall.core.role.RoleResolver;
 import de.planmarshall.core.role.RoleValidationReason;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one model caller (PM-WORK-1, The Model Caller; PM-WF-5): every model step of every workflow goes through it, and no
@@ -70,25 +70,26 @@ public final class ModelCaller {
     public ModelCallResult call(ModelJob job) {
         var resolution = resolver(job.role()).resolve(job.role());
         if (resolution instanceof RoleResolution.Undefined undefined) {
-            return close(job, ModelCallResult.ROLE_UNDEFINED, undefined.reason(), undefined.detail());
+            // pm-core boundary: RoleResolution.Undefined.reason() returns Optional; it is unwrapped here, once
+            return close(job, ModelCallResult.ROLE_UNDEFINED, undefined.reason().orElse(null), undefined.detail());
         }
         var role = ((RoleResolution.Defined) resolution).role();
         if (!job.accepts(role.roleClass())) {
-            return close(job, ModelCallResult.CLASS_MISMATCH, Optional.empty(), job.requirement(role.roleClass()));
+            return close(job, ModelCallResult.CLASS_MISMATCH, null, job.requirement(role.roleClass()));
         }
         var form = role.form();
         var downgraded = false;
         if (!skipsQualification(job.role())) {
             var qualified = qualifications.qualifiedForm(job.role(), role.qualificationDigest(), role.form());
             if (qualified.isEmpty()) {
-                return close(job, ModelCallResult.ROLE_UNQUALIFIED, Optional.empty(),
+                return close(job, ModelCallResult.ROLE_UNQUALIFIED, null,
                         "no valid qualification record covers the role's qualification digest");
             }
-            form = qualified.get();
+            form = qualified.orElseThrow();
             downgraded = role.form() == RoleForm.WARM && form == RoleForm.FRESH;
         }
         if (availability.holds(job.role(), role.harness())) {
-            return close(job, ModelCallResult.ROLE_UNAVAILABLE, Optional.empty(),
+            return close(job, ModelCallResult.ROLE_UNAVAILABLE, null,
                     "the start-failure guard of the role on '%s' holds".formatted(role.harness()));
         }
         var queued = queue.enqueue(new ModelQueue.Enqueue(job.scopeId(), job.stateId(), job.entityKey(), job.role(),
@@ -105,7 +106,7 @@ public final class ModelCaller {
         return RoleCatalog.JUDGE.equals(role) || RoleCatalog.STEWARD.equals(role);
     }
 
-    private ModelCallResult close(ModelJob job, String reason, Optional<RoleValidationReason> validationReason,
+    private ModelCallResult close(ModelJob job, String reason, @Nullable RoleValidationReason validationReason,
             String detail) {
         queue.close(new ModelQueue.Close(job.scopeId(), job.stateId(), job.entityKey(), job.role(), reason));
         return new ModelCallResult.Closed(job.role(), reason, validationReason, detail);
