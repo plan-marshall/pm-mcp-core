@@ -186,8 +186,27 @@ hold on another. A decoy placed only in the redirected data home passes the stag
 Guard:: The isolation stage places its decoy user instruction file and decoy user skill in every user-level location
 the harness documents or is observed to read, at the real home directory, not only below the data home of the launch,
 and fails `extension_isolation` when the worker follows the instruction or knows the skill. Matched control: the same
-worker knows the project's instruction file and skill. Fixtures: a harness stub that reads skills from the home
+worker knows the project's instruction file. Fixtures: a harness stub that reads skills from the home
 directory whatever its data-home variable says (the stage fails), and one that reads them only below the data home
 (the stage passes).
 Source:: Article analysis `claude-code-killer-six-months-goose` of plan-marshall-documentation (goose resolves its global
 skill directories from the home directory, not from its data-home root).
+
+[#PM-WATCH-CLIENT-18]
+=== PM-WATCH-CLIENT-18: A worker loads no project skill and still knows the shim
+
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#project-skill-directories[Harness Profiles § No Skill Directory of the Project],
+link:../specification/model-work/04-worker-launch.adoc#shim-paragraph[Model Work § Shim Paragraph],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: The settings switch that keeps a harness from reading the project's skill directories may also drop the
+project's instruction files, or leave a directory loaded that another harness shares (`.claude/skills/` and
+`.agents/skills/` are read by OpenCode as well). A launch that drops the project's skills also drops the shim skill the
+bundle installs there, so a worker whose context the harness compacts unreported loses the rule that a `skill://pm/`
+skill is binding and is never reconstructed from memory.
+Guard:: The launch test of each class with `project_skill_isolation` places a decoy skill in every project skill
+directory of the harness integration table and asserts that the worker knows neither decoy and knows the shim skill
+from `{{shim_dir}}`. Matched control: the same worker knows the project's instruction file, so the switch has not
+dropped it. Fixtures: a harness stub that turns off project skills together with the instruction file (the test
+fails on the control), and one that reads `.agents/skills/` whatever its own switch says (the test fails on the
+decoy).
+Source:: Article analysis `obsidian-second-brain-skill-clash` of plan-marshall-documentation.
