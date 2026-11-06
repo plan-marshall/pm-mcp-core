@@ -1040,8 +1040,8 @@ class SubprocessJobRunnerTest {
 
             var settled = jobs.records().getFirst();
             assertAll(
-                    () -> assertEquals(Fate.KILLED, settled.fate()),
-                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals(Fate.KILLED, settled.fate(), "the destroyed job was killed"),
+                    () -> assertEquals(4, settled.outcomeRow(), "row 4 decided the killed job"),
                     () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
                     () -> assertEquals(List.of(settled.pid()), signalledGroups.stream().distinct().toList(),
                             "the group was signalled first"),
@@ -1077,11 +1077,11 @@ class SubprocessJobRunnerTest {
             var settled = jobs.records().getFirst();
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status(), "the job is not left running unsettled"),
-                    () -> assertEquals(Fate.KILLED, settled.fate()),
-                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals(Fate.KILLED, settled.fate(), "the destroyed job was killed"),
+                    () -> assertEquals(4, settled.outcomeRow(), "row 4 decided the killed job"),
                     () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
                     () -> assertFalse(alive(settled.pid()), "the process is not left running"),
-                    () -> assertTrue(runner.runningJobs().isEmpty()));
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"));
         }
 
         @Test
@@ -1093,7 +1093,7 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the written job succeeded by its exit"),
                     () -> assertTrue(signalledGroups.isEmpty(), "nothing was signalled"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.JOB_STARTED.resolveIdentifierString()));
@@ -1122,7 +1122,7 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a parser that throws: the job is settled without its finding, by row 8 for exit 0")
         void parserThrows() throws Exception {
-            var failure = new IllegalStateException("the parser failed");
+            var failure = new IllegalStateException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (job, output) -> {
                         throw failure;
@@ -1136,7 +1136,7 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a parser that fails with an error: the job is settled the same way")
         void parserFailsWithError() throws Exception {
-            var failure = new StackOverflowError("a regular expression recursed too deep");
+            var failure = new StackOverflowError(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (job, output) -> {
                         throw failure;
@@ -1156,10 +1156,11 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
                     () -> assertEquals(Fate.INDETERMINATE, settled.fate(), "exit 0 without the parser's marker"),
-                    () -> assertEquals(8, settled.outcomeRow()),
-                    () -> assertEquals(0L, settled.exitCode()),
+                    () -> assertEquals(8, settled.outcomeRow(), "row 8 decided the unparsed exit 0"),
+                    () -> assertEquals(0L, settled.exitCode(), "the record carries the exit 0 of the job"),
                     () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
-                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
+                            "the record of the job is the settled one"),
                     () -> assertFalse(alive(settled.pid()), "the process is not left running"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' settled with fate 'indeterminate' (outcome row 8)".formatted(jobId)),
@@ -1190,10 +1191,10 @@ class SubprocessJobRunnerTest {
             supervisionFailureLogged.await();
 
             assertAll(
-                    () -> assertTrue(cancelled),
+                    () -> assertTrue(cancelled, "the cancel decided the end of the job"),
                     () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
                     () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cancel's cause decides"),
-                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertEquals(2, settled.outcomeRow(), "row 2 decided the engine cancel"),
                     () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
                     () -> assertFalse(alive(settled.pid()), "the process is not left running"),
                     () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
@@ -1206,8 +1207,8 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a fallback that fails as well: the job is still settled, by the last-resort record")
         void fallbackFails() throws Exception {
-            var failure = new IllegalStateException("the parser failed");
-            var lockFailure = new IllegalStateException("the lock manager failed inside the settlement");
+            var failure = new IllegalStateException(Generators.nonEmptyStrings().next());
+            var lockFailure = new IllegalStateException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
                     (job, output) -> {
                         locks.failNextTransaction(lockFailure);
@@ -1221,17 +1222,18 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status(),
                             "a failing fallback does not leave the job unsettled"),
-                    () -> assertEquals(Fate.INDETERMINATE, settled.fate()),
+                    () -> assertEquals(Fate.INDETERMINATE, settled.fate(), "the unparsed job is indeterminate"),
                     () -> assertEquals(8, settled.outcomeRow(), "the fallback's record was written on the retry"),
-                    () -> assertFalse(runner.runningJobs().contains(jobId)),
-                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)));
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
+                            "the record of the job is the settled one"));
         }
 
         @Test
         @DisplayName("a thread that cannot be started terminates and settles the job before the failure is passed on")
         void threadCannotBeStarted() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
-            var failure = new IllegalStateException("no virtual thread");
+            var failure = new IllegalStateException(Generators.nonEmptyStrings().next());
             runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
@@ -1248,8 +1250,8 @@ class SubprocessJobRunnerTest {
             assertAll(
                     () -> assertEquals(failure, thrown, "the failure is passed on to the caller"),
                     () -> assertEquals(Status.ENDED, settled.status(), "the job does not stay running"),
-                    () -> assertEquals(Fate.KILLED, settled.fate()),
-                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals(Fate.KILLED, settled.fate(), "the unsupervised job was killed"),
+                    () -> assertEquals(4, settled.outcomeRow(), "row 4 decided the killed job"),
                     () -> assertEquals("SIGTERM", settled.signal(), "the started process was terminated"),
                     () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
                     () -> assertEquals(0, runner.storesHeld(), "the settled job's store is pruned"));
@@ -1263,7 +1265,7 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the supervised job succeeded"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR,
                             ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
