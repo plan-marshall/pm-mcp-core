@@ -332,8 +332,8 @@ public final class InvariantFixtures {
     public static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
                 .with(new EntityKind(TestPrimitives.CHANGE_KIND, "entity", TestPrimitives.EVALUATE_CHANGE))
-                .with(new EntityKind("vote", Optional.empty(), TestPrimitives.EVALUATE_JUDGEMENT))
-                .with(new EntityKind("remediation-decision", Optional.empty(), "test.evaluate-decision"));
+                .with(new EntityKind("vote", null, TestPrimitives.EVALUATE_JUDGEMENT))
+                .with(new EntityKind("remediation-decision", null, "test.evaluate-decision"));
     }
 
     /**
@@ -427,9 +427,8 @@ public final class InvariantFixtures {
     public static FinalizeStepDescriptor step(String name, int order, LaneClass laneClass, boolean postRunReview,
             List<String> reads, List<String> destroys) {
         return new FinalizeStepDescriptor(name, order, true, Set.of(), "a step written for the test", false, false,
-                Optional.empty(), List.of(), false, postRunReview, reads, destroys, List.of(),
-                Optional.of(new Lane(laneClass, Optional.empty(), Optional.empty(), "S")), List.of(), List.of(),
-                Optional.empty(), List.of(), Optional.empty(), List.of());
+                null, List.of(), false, postRunReview, reads, destroys, List.of(),
+                new Lane(laneClass, null, null, "S"), List.of(), List.of(), null, List.of(), null, List.of());
     }
 
     /**

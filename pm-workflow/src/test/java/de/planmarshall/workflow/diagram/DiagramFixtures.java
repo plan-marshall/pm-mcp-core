@@ -229,7 +229,7 @@ final class DiagramFixtures {
                 new Fixed<>("diagram.evaluate-change", NoParams.class, EvaluationOutcome.class),
                 new Fixed<>("diagram.list-changes", NoParams.class, DoneOutcome.class)));
         var entityKinds = new EntityKindRegistry(List.of(
-                new EntityKind("change", Optional.empty(), "diagram.evaluate-change")));
+                new EntityKind("change", null, "diagram.evaluate-change")));
         var callee = parse("diagram.callee.pmwf", """
                 ---
                 name: diagram.callee

@@ -11,16 +11,18 @@ package de.planmarshall.workflow.finalize;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The facts of one finalize step, a built-in, bundle or project-local one (PM-IMPL-5): where it is ordered in the
  * pipeline, what it changes, what its verdict depends on, what it reads and destroys, and which findings it may file.
  * {@link FinalizePipelineValidator} checks a roster of these descriptors.
  * <p>
- * The descriptor is immutable: the lists and sets are copied into immutable collections, and no component, element or
- * nested value may be {@code null}. This module holds no table of the default steps; the default roster lives in the
+ * The descriptor is immutable: the lists and sets are copied into immutable collections, and no element may be
+ * {@code null}; a component that may be absent ({@code inputScope}, {@code lane}, {@code persona},
+ * {@code cannotReach}) is {@code null} when absent, every other component is required. This module holds no table of the default steps; the default roster lives in the
  * assembly, and a project's roster is built from the default descriptors of the steps its finalize unit contains plus
  * its project step descriptors.
  *
@@ -31,7 +33,7 @@ import java.util.Set;
  * @param description           what the step does, for the operator
  * @param mutatesSource         whether the step may change tracked source files
  * @param headDependent         whether the step's verdict depends on the commit it ran at
- * @param inputScope            the scope of the verdict's inputs; present exactly when {@code headDependent}
+ * @param inputScope            the scope of the verdict's inputs; non-null exactly when {@code headDependent}
  * @param verdictInputs         the declared verdict inputs; non-empty exactly when {@code inputScope} is
  *                              {@link InputScope#DECLARED}
  * @param advancesMainViaRebase whether the step moves the branch onto a newer main by a rebase
@@ -39,12 +41,12 @@ import java.util.Set;
  * @param reads                 the artifact tokens the step reads, for example {@code worktree} or {@code metrics}
  * @param destroys              the artifact tokens the step destroys, for example {@code plan-directory}
  * @param recordsFacts          the facts the step records, for example {@code work_performed}
- * @param lane                  the lane data of a lane-participating step; absent for a step that is always kept
+ * @param lane                  the lane data of a lane-participating step; {@code null} for a step that is always kept
  * @param requires              the steps this step requires
  * @param configurable          the operator-configurable settings of the step
- * @param persona               the persona the step's work runs under
+ * @param persona               the persona the step's work runs under; {@code null} if it names none
  * @param requiresPromptFields  the prompt fields the step requires
- * @param cannotReach           the defect class a gate step cannot detect
+ * @param cannotReach           the defect class a gate step cannot detect; {@code null} if it names none
  * @param filesFindings         the finding sources the step may file; empty when it files none
  * @since 0.1
  */
@@ -56,19 +58,19 @@ Set<String> presets,
 String description,
 boolean mutatesSource,
 boolean headDependent,
-Optional<InputScope> inputScope,
+@Nullable InputScope inputScope,
 List<String> verdictInputs,
 boolean advancesMainViaRebase,
 boolean postRunReview,
 List<String> reads,
 List<String> destroys,
 List<String> recordsFacts,
-Optional<Lane> lane,
+@Nullable Lane lane,
 List<String> requires,
 List<ConfigurableKey> configurable,
-Optional<String> persona,
+@Nullable String persona,
 List<String> requiresPromptFields,
-Optional<String> cannotReach,
+@Nullable String cannotReach,
 List<String> filesFindings) {
 
     /** The order of {@code default:finalize-step-simplify}, in the Settle band before the security audit. */
@@ -90,7 +92,7 @@ List<String> filesFindings) {
     public static final int TERMINUS_ARCHIVE_ORDER = 1100;
 
     /**
-     * Copies the lists and sets into immutable collections and refuses a missing value.
+     * Copies the lists and sets into immutable collections and refuses a missing required value.
      *
      * @param name                  the step id
      * @param order                 the position of the step in the pipeline
@@ -99,29 +101,25 @@ List<String> filesFindings) {
      * @param description           what the step does
      * @param mutatesSource         whether the step may change tracked source files
      * @param headDependent         whether the step's verdict depends on the commit it ran at
-     * @param inputScope            the scope of the verdict's inputs
+     * @param inputScope            the scope of the verdict's inputs, {@code null} if not head-dependent
      * @param verdictInputs         the declared verdict inputs
      * @param advancesMainViaRebase whether the step rebases the branch onto main
      * @param postRunReview         whether the step reviews the run after the merge
      * @param reads                 the artifact tokens the step reads
      * @param destroys              the artifact tokens the step destroys
      * @param recordsFacts          the facts the step records
-     * @param lane                  the lane data
+     * @param lane                  the lane data, {@code null} for a step that is always kept
      * @param requires              the steps this step requires
      * @param configurable          the operator-configurable settings
-     * @param persona               the persona of the step's work
+     * @param persona               the persona of the step's work, {@code null} if none
      * @param requiresPromptFields  the prompt fields the step requires
-     * @param cannotReach           the defect class a gate step cannot detect
+     * @param cannotReach           the defect class a gate step cannot detect, {@code null} if none
      * @param filesFindings         the finding sources the step may file
-     * @throws NullPointerException if a component or an element is {@code null}
+     * @throws NullPointerException if a required component or an element is {@code null}
      */
     public FinalizeStepDescriptor {
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(description, "description");
-        Objects.requireNonNull(inputScope, "inputScope");
-        Objects.requireNonNull(lane, "lane");
-        Objects.requireNonNull(persona, "persona");
-        Objects.requireNonNull(cannotReach, "cannotReach");
         presets = Set.copyOf(presets);
         verdictInputs = List.copyOf(verdictInputs);
         reads = List.copyOf(reads);
@@ -138,25 +136,23 @@ List<String> filesFindings) {
      * lane is not lane-participating and always kept.
      *
      * @param laneClass    the class of the lane
-     * @param tier         the tier of the lane
-     * @param prunableWhen the condition under which a prunable step is pruned
+     * @param tier         the tier of the lane; {@code null} if the lane declares none
+     * @param prunableWhen the condition under which a prunable step is pruned; {@code null} if the lane declares none
      * @param costSize     the cost size of the step
      */
-    public record Lane(LaneClass laneClass, Optional<String> tier, Optional<String> prunableWhen, String costSize) {
+    public record Lane(LaneClass laneClass, @Nullable String tier, @Nullable String prunableWhen, String costSize) {
 
         /**
-         * Refuses a missing value.
+         * Refuses a missing lane class or cost size; an absent tier or condition is {@code null}.
          *
          * @param laneClass    the class of the lane
-         * @param tier         the tier of the lane
-         * @param prunableWhen the condition under which a prunable step is pruned
+         * @param tier         the tier of the lane, {@code null} if none
+         * @param prunableWhen the condition under which a prunable step is pruned, {@code null} if none
          * @param costSize     the cost size of the step
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if the lane class or the cost size is {@code null}
          */
         public Lane {
             Objects.requireNonNull(laneClass, "laneClass");
-            Objects.requireNonNull(tier, "tier");
-            Objects.requireNonNull(prunableWhen, "prunableWhen");
             Objects.requireNonNull(costSize, "costSize");
         }
     }

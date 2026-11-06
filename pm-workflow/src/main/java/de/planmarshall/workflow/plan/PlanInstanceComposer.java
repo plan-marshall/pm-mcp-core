@@ -386,8 +386,7 @@ public final class PlanInstanceComposer {
                 .filter(step -> keptSteps.contains(step.name())).toList());
         pipeline.forEach(violation -> found.add("pipeline step '%s' (%s): %s".formatted(violation.stepName(),
                 violation.rule(), violation.message())));
-        var laneName = lane == null ? Optional.<String>empty() : Optional.of(lane.wireName());
-        invariants.check(unit, catalog, result, pipeline, laneName).stream()
+        invariants.check(unit, catalog, result, pipeline, lane == null ? null : lane.wireName()).stream()
                 .filter(violation -> !CompiledInvariants.reReports(violation, unit, result))
                 .forEach(violation -> found.add("%s in '%s': %s".formatted(violation.id().wireId(),
                         violation.stateId(), violation.message())));

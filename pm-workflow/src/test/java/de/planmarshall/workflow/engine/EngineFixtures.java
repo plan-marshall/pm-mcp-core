@@ -385,8 +385,8 @@ final class EngineFixtures {
      */
     static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
-                .with(new EntityKind(CHANGE_KIND, Optional.empty(), "test.evaluate-change"))
-                .with(new EntityKind(ENRICH_KIND, Optional.empty(), "test.evaluate-change"));
+                .with(new EntityKind(CHANGE_KIND, null, "test.evaluate-change"))
+                .with(new EntityKind(ENRICH_KIND, null, "test.evaluate-change"));
     }
 
     /**

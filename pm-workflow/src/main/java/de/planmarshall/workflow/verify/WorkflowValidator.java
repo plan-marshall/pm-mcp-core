@@ -643,10 +643,12 @@ public final class WorkflowValidator {
                         "the state '%s' declares 'ask' on the entity kind '%s', which has no entity unit"
                                 .formatted(state.id(), entityKind.name())));
             }
-            entityKind.entityUnit().filter(unit -> !catalog.contains(unit)).ifPresent(unit -> violations.add(
-                    new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
-                            "the entity unit '%s' of the entity kind '%s' is not registered"
-                                    .formatted(unit, entityKind.name()))));
+            var unit = entityKind.entityUnit();
+            if (unit != null && !catalog.contains(unit)) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the entity unit '%s' of the entity kind '%s' is not registered"
+                                .formatted(unit, entityKind.name())));
+            }
         }
 
         var fanOutPrimitiveId = modelJob.fanOutPrimitiveId();
@@ -1275,9 +1277,10 @@ public final class WorkflowValidator {
         if (target == null) {
             return;
         }
-        var targetClass = Optional.ofNullable(target.terminalOutcome()).map(TerminalOutcome::outcomeClass);
+        var targetOutcome = target.terminalOutcome();
+        var targetClass = targetOutcome == null ? null : targetOutcome.outcomeClass();
         String detail;
-        if (targetClass.isPresent() && targetClass.get() == OutcomeClass.SUCCESS) {
+        if (targetClass == OutcomeClass.SUCCESS) {
             detail = "a terminal state of class SUCCESS";
         } else {
             detail = switch (definition.scope()) {
@@ -1295,14 +1298,14 @@ public final class WorkflowValidator {
     }
 
     /**
+     * @param targetClass the outcome class of the target when it is a terminal state; {@code null} otherwise
      * @return an empty value when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
      *         is not
      */
     private static Optional<String> subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
-            Optional<OutcomeClass> targetClass) {
+            @Nullable OutcomeClass targetClass) {
         var continuesStepOut = target.behavior() instanceof StateBehavior.InteractiveLinks
-                || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
-                || outcomeClass == OutcomeClass.FAILURE).isPresent();
+                || targetClass == OutcomeClass.STEPPED_OUT || targetClass == OutcomeClass.FAILURE;
         if (continuesStepOut) {
             return Optional.empty();
         }

@@ -11,7 +11,6 @@ package de.planmarshall.workflow.finalize;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
@@ -20,6 +19,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.ConfigurableKey;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.Lane;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Descriptors and rosters written for the finalize tests, never copied from the steps of the product: a builder of one
@@ -106,7 +106,7 @@ final class FinalizeFixtures {
         private int order;
         private boolean mutatesSource;
         private boolean headDependent;
-        private Optional<InputScope> inputScope = Optional.empty();
+        private @Nullable InputScope inputScope;
         private List<String> verdictInputs = List.of();
         private boolean postRunReview;
         private List<String> reads = List.of();
@@ -145,20 +145,20 @@ final class FinalizeFixtures {
 
         Step headDependent(InputScope scope, String... inputs) {
             headDependent = true;
-            inputScope = Optional.of(scope);
+            inputScope = scope;
             verdictInputs = List.of(inputs);
             return this;
         }
 
         Step headDependentWithoutScope() {
             headDependent = true;
-            inputScope = Optional.empty();
+            inputScope = null;
             verdictInputs = List.of();
             return this;
         }
 
         Step scope(InputScope scope, String... inputs) {
-            inputScope = Optional.of(scope);
+            inputScope = scope;
             verdictInputs = List.of(inputs);
             return this;
         }
@@ -192,8 +192,7 @@ final class FinalizeFixtures {
             return new FinalizeStepDescriptor(name, order, true, Set.of(), Generators.letterStrings(1, 40).next(),
                     mutatesSource,
                     headDependent, inputScope, verdictInputs, false, postRunReview, reads, destroys, recordsFacts,
-                    Optional.empty(), List.of(), List.of(), Optional.empty(), List.of(), Optional.empty(),
-                    filesFindings);
+                    null, List.of(), List.of(), null, List.of(), null, filesFindings);
         }
     }
 
@@ -204,12 +203,12 @@ final class FinalizeFixtures {
      */
     static FinalizeStepDescriptor full() {
         return new FinalizeStepDescriptor("default:automatic-review", 30, true, Set.of("standard"),
-                Generators.letterStrings(1, 40).next(), true, true, Optional.of(InputScope.DECLARED),
+                Generators.letterStrings(1, 40).next(), true, true, InputScope.DECLARED,
                 List.of(Generators.letterStrings(3, 12).next()),
                 false, false, List.of("worktree"), List.of(), List.of("work_performed"),
-                Optional.of(new Lane(LaneClass.ADVERSARIAL, Optional.of("standard"), Optional.empty(), "M")),
+                new Lane(LaneClass.ADVERSARIAL, "standard", null, "M"),
                 List.of("default:create-pr"), List.of(new ConfigurableKey("required_bots", "coderabbit", "the bots")),
-                Optional.of(Generators.letterStrings(3, 12).next()), List.of(Generators.letterStrings(3, 12).next()),
-                Optional.of("untested paths"), List.of(Generators.letterStrings(3, 12).next()));
+                Generators.letterStrings(3, 12).next(), List.of(Generators.letterStrings(3, 12).next()),
+                "untested paths", List.of(Generators.letterStrings(3, 12).next()));
     }
 }

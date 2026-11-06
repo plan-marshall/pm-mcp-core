@@ -10,7 +10,6 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
 
@@ -19,44 +18,32 @@ import org.jspecify.annotations.Nullable;
  * return-evaluation primitive that runs upon task completion.
  *
  * @param name the entity kind name
- * @param entityUnit the optional entity unit; empty for kinds with no entity unit (e.g., {@code screen})
+ * @param entityUnit the entity unit; {@code null} for kinds with no entity unit (e.g., {@code screen})
  * @param returnEvaluationPrimitiveId the identifier of the return-evaluation primitive
  * @since 0.1
  */
 public record EntityKind(
 String name,
-Optional<String> entityUnit,
+@Nullable String entityUnit,
 String returnEvaluationPrimitiveId) {
 
     /**
-     * Refuses {@code null} components.
+     * Refuses a missing name or return-evaluation primitive; a kind without an entity unit carries {@code null}.
      *
      * @param name the entity kind name
-     * @param entityUnit the optional entity unit
+     * @param entityUnit the entity unit, {@code null} if none
      * @param returnEvaluationPrimitiveId the return-evaluation primitive identifier
-     * @throws NullPointerException if any component is {@code null}
+     * @throws NullPointerException if the name or the return-evaluation primitive is {@code null}
      */
     public EntityKind {
         Objects.requireNonNull(name, "name");
-        Objects.requireNonNull(entityUnit, "entityUnit");
         Objects.requireNonNull(returnEvaluationPrimitiveId, "returnEvaluationPrimitiveId");
-    }
-
-    /**
-     * Convenience constructor wrapping a nullable entity unit string in an {@link Optional}.
-     *
-     * @param name the entity kind name
-     * @param entityUnit the entity unit string, or {@code null} if none
-     * @param returnEvaluationPrimitiveId the return-evaluation primitive identifier
-     */
-    public EntityKind(String name, @Nullable String entityUnit, String returnEvaluationPrimitiveId) {
-        this(name, Optional.ofNullable(entityUnit), returnEvaluationPrimitiveId);
     }
 
     /**
      * @return {@code true} if this entity kind has an entity unit
      */
     public boolean hasEntityUnit() {
-        return entityUnit.isPresent();
+        return entityUnit != null;
     }
 }

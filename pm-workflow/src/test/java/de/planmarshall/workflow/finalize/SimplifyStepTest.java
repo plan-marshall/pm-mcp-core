@@ -11,13 +11,13 @@ package de.planmarshall.workflow.finalize;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-
+import java.util.Objects;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -121,8 +121,11 @@ class SimplifyStepTest {
         assertEquals(FinalizeStepDescriptor.SIMPLIFY_ORDER, descriptor.order());
         assertEquals(5, descriptor.order());
         assertFalse(descriptor.mutatesSource());
-        assertEquals(Optional.of(SimplifyStep.REVIEW_ROLE), descriptor.persona());
-        assertEquals(Optional.of("land_lane"), descriptor.lane().orElseThrow().prunableWhen());
+        assertEquals(SimplifyStep.REVIEW_ROLE, descriptor.persona(), "the review runs under its own role");
+        var lane = Objects.requireNonNull(descriptor.lane(), "lane");
+        assertEquals("land_lane", lane.prunableWhen(), "the land lane prunes the step");
+        assertNull(lane.tier(), "the lane names no tier");
+        assertNull(descriptor.cannotReach(), "the step names no unreachable defect");
         assertTrue(descriptor.filesFindings().isEmpty());
         assertTrue(FinalizePipelineValidator.validate(List.of(descriptor)).isEmpty());
     }

@@ -82,7 +82,7 @@ public final class EntityAddressResolver {
         Objects.requireNonNull(hostStatus, "hostStatus");
         Objects.requireNonNull(hostUnit, "hostUnit");
         if (address.scopeType() != hostStatus.scopeType()
-                || !address.scopeId().equals(Optional.ofNullable(hostStatus.scopeId()))) {
+                || !Objects.equals(address.scopeId(), hostStatus.scopeId())) {
             throw new IllegalArgumentException("the status of the %s scope %s is not that of the addressed scope"
                     .formatted(hostStatus.scopeType().wireName(), hostStatus.scopeId()));
         }
@@ -104,9 +104,9 @@ public final class EntityAddressResolver {
         }
         return switch (entries.read(new PendingEntryReader.ReadRequest(entryId))) {
             case EntryRead.Live(var kind) when PLAN_KIND.equals(kind) ->
-                new Resolved(address, AddressResolution.BOOTSTRAP_PLAN, Optional.empty());
+                new Resolved(address, AddressResolution.BOOTSTRAP_PLAN, null);
             case EntryRead.Live(var kind) when EPIC_KIND.equals(kind) ->
-                new Resolved(address, AddressResolution.BOOTSTRAP_EPIC, Optional.empty());
+                new Resolved(address, AddressResolution.BOOTSTRAP_EPIC, null);
             case EntryRead.Live(var kind) -> new Refused(Reason.ENTRY_UNREADABLE,
                     "the entry %s names the kind '%s', neither plan nor epic".formatted(entryId, kind));
             case EntryRead.Deleted _ -> new Refused(Reason.SCOPE_NOT_FOUND,
@@ -138,14 +138,13 @@ public final class EntityAddressResolver {
                     .filter(entry -> entry.queueTaskId().equals(entity))
                     .findFirst();
         }
-        return task.<AddressResolution>map(entry -> new Resolved(address, kind.name(),
-                Optional.of(entry.queueTaskId())))
+        return task.<AddressResolution>map(entry -> new Resolved(address, kind.name(), entry.queueTaskId()))
                 .orElseGet(() -> notInScope(address, "the state '%s' holds no such task".formatted(node.id())));
     }
 
     private static Refused notInScope(EntityAddress address, String why) {
         var scope = address.isWorkspace() ? "the workspace scope"
-                : "the %s %s".formatted(address.scopeType().wireName(), address.scopeId().orElseThrow());
+                : "the %s %s".formatted(address.scopeType().wireName(), address.scopeId());
         return new Refused(Reason.SCOPE_NOT_FOUND, "%s names nothing in %s: %s".formatted(address.entity(), scope,
                 why));
     }

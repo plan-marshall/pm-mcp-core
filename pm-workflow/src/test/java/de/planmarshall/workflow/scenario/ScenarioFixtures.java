@@ -240,7 +240,7 @@ final class ScenarioFixtures {
     /** @return the default entity kinds plus {@link #CHANGE_KIND}, which needs no entity unit */
     static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
-                .with(new EntityKind(CHANGE_KIND, Optional.empty(), "scenario.evaluate"));
+                .with(new EntityKind(CHANGE_KIND, null, "scenario.evaluate"));
     }
 
     /**
