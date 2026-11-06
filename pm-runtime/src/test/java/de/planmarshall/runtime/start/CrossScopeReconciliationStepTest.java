@@ -148,7 +148,8 @@ class CrossScopeReconciliationStepTest {
         assertAll(
                 () -> assertEquals(new Outcome.Done(NOTHING_APPLIED), again,
                         "a second run must apply nothing"),
-                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(), "no second record"),
+                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(),
+                        "a second run must add no audit record"),
                 () -> assertEquals(new Outcome.Done(NOTHING_APPLIED), step().run(PROJECT_A),
                         "a run without reconcilers applies nothing"));
     }

@@ -91,14 +91,6 @@ class RuntimeLogMessagesTest {
                 "the runtime must not share the prefix of pm-core");
     }
 
-    /** Asserts one record of the catalogue by its specified identifier and template. */
-    private static void assertRecord(LogRecord logRecord, String identifier, String template) {
-        assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
-                        "the record must carry its specified identifier"),
-                () -> assertEquals(template, logRecord.getTemplate(), "the record must carry its specified template"));
-    }
-
     static Stream<Arguments> enrolmentPolicyRecords() {
         return Stream.of(
                 Arguments.of(RuntimeLogMessages.WARN.ENROLMENT_INVALID, "PM_RUNTIME-120",
@@ -111,7 +103,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("enrolmentPolicyRecords")
     @DisplayName("the records of the enrolment policy and the owed-audit replay")
     void enrolmentPolicy(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> verifyNotResolveRecords() {
@@ -124,7 +120,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("verifyNotResolveRecords")
     @DisplayName("the records of the verify-not-resolve pipeline")
     void verifyNotResolve(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> sweepRecords() {
@@ -137,7 +137,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("sweepRecords")
     @DisplayName("the record of the sweep's pending-entry step")
     void sweep(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> credentialStoreRecords() {
@@ -154,7 +158,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("credentialStoreRecords")
     @DisplayName("the records of the recorded credential store")
     void credentialStore(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> credentialStoreMoveRecords() {
@@ -173,7 +181,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("credentialStoreMoveRecords")
     @DisplayName("the records of the move between the credential stores")
     void credentialStoreMove(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> jobRunnerRecords() {
@@ -204,7 +216,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("jobRunnerRecords")
     @DisplayName("the records of the subprocess job runner")
     void jobRunner(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> serviceUnitRecords() {
@@ -223,7 +239,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("serviceUnitRecords")
     @DisplayName("the records of the service unit restore")
     void serviceUnit(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     static Stream<Arguments> workerSupervisorRecords() {
@@ -246,7 +266,11 @@ class RuntimeLogMessagesTest {
     @MethodSource("workerSupervisorRecords")
     @DisplayName("the records of the worker supervisor")
     void workerSupervisor(LogRecord logRecord, String identifier, String template) {
-        assertRecord(logRecord, identifier, template);
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
+                        "the record must carry its specified identifier"),
+                () -> assertEquals(template, logRecord.getTemplate(),
+                        "the record must carry its specified template"));
     }
 
     @Test

@@ -284,7 +284,8 @@ class JobRecoveryStepTest {
             assertAll(
                     () -> assertInstanceOf(Outcome.Done.class, outcome, "the step must be done"),
                     () -> assertEquals(List.of(), signals.calls, "rule (a) makes zero kill() calls"),
-                    () -> assertEquals(List.of(), audit.events(), "no orphan note"),
+                    () -> assertEquals(List.of(), audit.events(),
+                            "no orphan note may reach the audit sink"),
                     () -> assertKilled(read(job), null),
                     () -> assertEquals(JobRecoveryStep.Rule.IN_PROCESS, step().rule(job),
                             "the job must match rule (a)"));

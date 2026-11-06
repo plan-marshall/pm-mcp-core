@@ -344,7 +344,7 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(assertInstanceOf(Outcome.Failed.class, outcome, "a journal to recover fails the step")
                                 .reason().startsWith("pending entry records not swept: "),
                         "the report must say that nothing was swept"),
-                () -> assertTrue(store.read(oldEntry).isPresent(), "the record is kept"),
+                () -> assertTrue(store.read(oldEntry).isPresent(), "the old record must stay in the store"),
                 PendingEntryRecordsSweepTest::assertNothingSweptLogged);
     }
 

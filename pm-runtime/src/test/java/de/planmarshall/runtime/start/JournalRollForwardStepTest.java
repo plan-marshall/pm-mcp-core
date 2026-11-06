@@ -93,7 +93,8 @@ class JournalRollForwardStepTest {
         assertAll(
                 () -> assertArrayEquals(content, Files.readAllBytes(planA.resolve(STORE)),
                         "the store must hold the rolled-forward content"),
-                () -> assertFalse(Files.exists(planA.journalFile()), "journal deleted"),
+                () -> assertFalse(Files.exists(planA.journalFile()),
+                        "the journal must be deleted after recovery"),
                 () -> assertEquals("plan " + planAId + ": rolled forward " + transactionId + ", applied [" + STORE
                         + "]", report, "the report must name the rolled transaction"),
                 () -> assertEquals(List.of(ROLLED_FORWARD), auditSink.eventNames(),
@@ -135,7 +136,8 @@ class JournalRollForwardStepTest {
                         "the reason must name the violation"),
                 () -> assertTrue(reason.contains("plan " + planBId + ": rolled forward"),
                         "the reason must name the recovered scope"),
-                () -> assertArrayEquals(journalBefore, Files.readAllBytes(planA.journalFile()), "journal kept"),
+                () -> assertArrayEquals(journalBefore, Files.readAllBytes(planA.journalFile()),
+                        "the journal must stay for the violating scope"),
                 () -> assertFalse(Files.exists(planA.resolve(STORE)), "store of the violating scope untouched"),
                 () -> assertEquals(changed, Files.readString(staged), "the changed staged file must be kept"),
                 () -> assertArrayEquals(content, Files.readAllBytes(planB.resolve(STORE)),

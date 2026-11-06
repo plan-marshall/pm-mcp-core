@@ -130,7 +130,8 @@ class ProjectRecoveryTest {
 
     private Outcome blockOnGate() {
         try {
-            assertTrue(gate.await(BOUND.toMillis(), TimeUnit.MILLISECONDS), "gate not opened");
+            assertTrue(gate.await(BOUND.toMillis(), TimeUnit.MILLISECONDS),
+                    "the gate must open within the bound");
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
@@ -372,7 +373,7 @@ class ProjectRecoveryTest {
             var result = recovery.awaitRecovered(p1);
 
             assertAll(
-                    () -> assertTrue(Thread.interrupted(), "interrupt kept"),
+                    () -> assertTrue(Thread.interrupted(), "the interrupt flag must stay set"),
                     () -> assertInstanceOf(Result.Recovering.class, result,
                             "an interrupted wait must answer Recovering"));
         }
@@ -483,7 +484,7 @@ class ProjectRecoveryTest {
                             first.steps().getLast(), "the rejection must be recorded in the first step"),
                     () -> assertEquals(first, second, "a second call must get the same outcome"),
                     () -> assertFalse(recovery.isRecovered(p1), "the project must not count as recovered"),
-                    () -> assertEquals(List.of(), runs, "no step must run"));
+                    () -> assertEquals(List.of(), runs, "no recovery step must run at all"));
         }
 
         @Test

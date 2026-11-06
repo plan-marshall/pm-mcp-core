@@ -97,7 +97,7 @@ class RelayVersionCheckTest {
             check.observe(runtimeVersion);
 
             assertAll(
-                    () -> assertTrue(records.isEmpty(), "no audit record"),
+                    () -> assertTrue(records.isEmpty(), "no audit record must be written"),
                     () -> assertEquals(Optional.empty(), check.mismatch(), "an equal version sets no status data"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, RelayVersionCheck.class));
         }
@@ -110,7 +110,7 @@ class RelayVersionCheckTest {
             check.observe(header);
 
             assertAll(
-                    () -> assertTrue(records.isEmpty(), "no audit record"),
+                    () -> assertTrue(records.isEmpty(), "no audit record must be written"),
                     () -> assertEquals(Optional.empty(), check.mismatch(), "a blank header sets no status data"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, RelayVersionCheck.class));
         }
@@ -121,7 +121,7 @@ class RelayVersionCheckTest {
             check.observe(" " + runtimeVersion + " ");
 
             assertAll(
-                    () -> assertTrue(records.isEmpty(), "no audit record"),
+                    () -> assertTrue(records.isEmpty(), "no audit record must be written"),
                     () -> assertEquals(Optional.empty(), check.mismatch(),
                             "a stripped equal version sets no status data"));
         }
@@ -191,7 +191,8 @@ class RelayVersionCheckTest {
                     () -> assertEquals(List.of(expectedRecord(oldRelay), expectedRecord(otherRelay)), records,
                             "each distinct version must be recorded once"),
                     () -> assertEquals(Optional.of(new RelayVersionCheck.Mismatch(oldRelay, runtimeVersion,
-                            RelayVersionCheck.RECOMMENDED_COMMAND)), check.mismatch(), "the latest mismatch"));
+                            RelayVersionCheck.RECOMMENDED_COMMAND)), check.mismatch(),
+                            "the latest mismatch must be the status data"));
         }
 
         @Test
