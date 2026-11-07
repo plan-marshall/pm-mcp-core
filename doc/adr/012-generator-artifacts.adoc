@@ -7,7 +7,8 @@ Accepted.
 
 == Date
 
-2026-10-31.
+2026-10-31; amended 2026-11-06 by operator decision (PLAN-V2-92: the provider artifacts `pm-provider-ci:tests` and
+`pm-provider-git:tests`).
 
 == Context
 
@@ -26,8 +27,8 @@ The dependency rules of the repository decide who may consume which artifact: `p
 Each module that provides generators useful to another module publishes its test scope as a `tests`-classified test
 JAR, built by `verify` and deployed like every other artifact of the repository. The artifact holds the package
 `de.planmarshall.<module>.testing.generators` with one `TypedGenerator<T>` per domain type, named `<Type>Generator`,
-and one factory class per artifact (`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`) that
-registers the generators in one place. The framework's `@GeneratorsSource` selects only the built-in `GeneratorType`
+and one factory class per artifact (`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`,
+`CiGenerators`, `GitGenerators`) that registers the generators in one place. The framework's `@GeneratorsSource` selects only the built-in `GeneratorType`
 enum, so the factory is consumed through `@TypeGeneratorFactorySource(factoryClass = …, factoryMethod = …)`; the
 factory is still the one registration point of the artifact.
 
@@ -35,6 +36,8 @@ The consumption matrix:
 
 * `pm-core:tests` — `pm-workflow`, `pm-runtime` and every provider module.
 * `pm-provider-http:tests` — `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
+* `pm-provider-ci:tests` — `pm-provider-github` and `pm-provider-gitlab`, the adapters of the CI contract.
+* `pm-provider-git:tests` — no module of this repository; the assembly `plan-marshall-mcp` may consume it.
 * `pm-workflow:tests` and `pm-runtime:tests` — the assembly `plan-marshall-mcp` only.
 
 A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root POM's
@@ -72,9 +75,16 @@ artifact; a new generator for a type of this module goes into this module's arti
   the reverse) is still refused.
 * A later plan that needs a generator for a type of its own module adds it to that module's artifact; it does not
   introduce a second generator module.
+* The operator decided on 2026-11-06 (PLAN-V2-92) that a provider module that needs a generator for its own type in
+  two or more of its own test classes publishes it. `pm-provider-ci` (`RepositoryRef`, factory `CiGenerators`) and
+  `pm-provider-git` (`GitCredential`, factory `GitGenerators`) therefore publish `pm-provider-ci:tests` and
+  `pm-provider-git:tests`. Like the other new artifacts, the two carry only their generator package. In PLAN-V2-92
+  neither `pm-provider-github` nor `pm-provider-gitlab` declares `pm-provider-ci:tests`, and no module of this
+  repository consumes `pm-provider-git:tests`.
 
 == Source
 
 The decision is recorded in the operator's decision of 2026-10-30 (epic `pm-mcp-core-m2-m4-v2`, decision "generator
-artifacts") and implemented by the pull request of PLAN-V2-107. The dependency rules are those of `CLAUDE.md` §
+artifacts") and implemented by the pull request of PLAN-V2-107. The two provider artifacts `pm-provider-ci:tests` and
+`pm-provider-git:tests` are the operator's decision of 2026-11-06, implemented by the pull request of PLAN-V2-92. The dependency rules are those of `CLAUDE.md` §
 Dependency Rules and the Module Structure Specification; the generator framework is `cui-test-generator` (R20).
