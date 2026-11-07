@@ -128,8 +128,9 @@ public final class RoleGrader {
             return judgeRefusal.get();
         }
         var runs = GradingOffer.runs(plan);
+        // pm-core boundary: GradingPlan.previous() returns Optional; it is filtered and unwrapped here, once
         var previous = plan.previous().filter(entry -> entry.qualificationDigest().equals(role.qualificationDigest())
-                && entry.corpusRevision().equals(plan.corpusRevision()));
+                && entry.corpusRevision().equals(plan.corpusRevision())).orElse(null);
         var results = new ArrayList<QualificationRecord.ItemResult>();
         var forms = new EnumMap<RoleForm, QualificationRecord.FormResult>(RoleForm.class);
         for (var form : forms(plan)) {
@@ -176,25 +177,25 @@ public final class RoleGrader {
     }
 
     private List<QualificationRecord.ItemResult> gradeForm(GradingPlan plan, RoleTopics topics, RoleForm form,
-            Optional<QualificationRecord> previous, int runs) {
+            @Nullable QualificationRecord previous, int runs) {
         var results = new ArrayList<QualificationRecord.ItemResult>();
         for (var topic : topics.topics()) {
             for (var item : RoleTopics.items(plan.items(), topic, plan.role().artifact().name())) {
                 var checkout = checkout(plan, item);
-                var reused = previous.map(entry -> reuse(entry, item, form, checkout)).orElse(List.of());
-                if (!reused.isEmpty()) {
-                    results.addAll(reused);
-                    for (var run = reused.size() + 1; run <= runs; run++) {
-                        results.add(offer(item, form, checkout, run));
-                    }
-                    continue;
-                }
-                for (var run = 1; run <= runs; run++) {
+                var reused = reused(previous, item, form, checkout);
+                results.addAll(reused);
+                for (var run = reused.size() + 1; run <= runs; run++) {
                     results.add(offer(item, form, checkout, run));
                 }
             }
         }
         return results;
+    }
+
+    /** @return the results of the previous record that still stand for this item; empty without a previous record */
+    private List<QualificationRecord.ItemResult> reused(@Nullable QualificationRecord previous, ImportedItem item,
+            RoleForm form, Checkout checkout) {
+        return previous != null ? reuse(previous, item, form, checkout) : List.of();
     }
 
     private QualificationRecord.ItemResult offer(ImportedItem item, RoleForm form, Checkout checkout, int run) {
