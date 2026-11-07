@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 import de.planmarshall.runtime.job.JobLog.Complete;
 import de.planmarshall.runtime.job.JobLog.Lines;
@@ -60,7 +61,7 @@ class JobLogTest {
 
     @BeforeEach
     void createLog() {
-        path = directory.resolve("b-" + RuntimeGenerators.sha256Digests().next().substring(0, 16) + ".log");
+        path = directory.resolve(new JobId(RuntimeGenerators.jobIds(JobId.Kind.BUILD).next()).logFileName());
         log = new JobLog(path);
         pid = Generators.integers(2, 4_000_000).next();
         var startedAt = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());

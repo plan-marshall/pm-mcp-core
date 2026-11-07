@@ -111,7 +111,7 @@ class JobSettlementTest {
     void createStores() throws IOException {
         project = CoreGenerators.projectEnrolments().next().projectId();
         plan = new Scope(Scope.Type.PLAN, "plan-" + words().next());
-        job = new JobId("b-" + RuntimeGenerators.sha256Digests().next().substring(0, 16));
+        job = new JobId(RuntimeGenerators.jobIds(JobId.Kind.BUILD).next());
         createdAt = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
         budgetKey = "maven:" + words().next();
         budgetSeconds = Generators.integers(10, 3600).next();

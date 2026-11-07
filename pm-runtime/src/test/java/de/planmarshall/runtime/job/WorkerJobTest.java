@@ -98,7 +98,7 @@ class WorkerJobTest {
     @BeforeEach
     void setUp() throws IOException {
         fixture = new JobEnrolmentFixture();
-        generation = "l-" + RuntimeGenerators.sha256Digests().next().substring(0, 16);
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         token = Generators.letterStrings(16, 32).next();
         role = Generators.letterStrings(4, 16).next().toLowerCase(Locale.ROOT);
         budgetSeconds = Generators.integers(60, 3600).next();

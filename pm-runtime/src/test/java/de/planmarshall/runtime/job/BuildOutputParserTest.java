@@ -296,12 +296,12 @@ class BuildOutputParserTest {
     }
 
     private static JobRecord job(JobId.Kind kind, String budgetKey) {
-        var digest = RuntimeGenerators.sha256Digests();
-        return JobRecord.builder().jobId(new JobId(kind.prefix() + "-" + digest.next().substring(0, 16)))
+        return JobRecord.builder().jobId(new JobId(RuntimeGenerators.jobIds(kind).next()))
                 .execution(Execution.PROCESS).scope(new Scope(Scope.Type.PLAN, "plan-" + words().next()))
                 .budgetKey(budgetKey).budgetSeconds(Generators.integers(10, 3600).next())
                 .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
-                .argvDigest(digest.next()).status(Status.RUNNING).confinement(Confinement.CONFINED)
+                .argvDigest(RuntimeGenerators.sha256Digests().next()).status(Status.RUNNING)
+                .confinement(Confinement.CONFINED)
                 .createdAt(Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next()))
                 .clampedValues(List.of()).build();
     }

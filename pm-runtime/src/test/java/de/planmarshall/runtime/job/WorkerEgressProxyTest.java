@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -51,7 +52,7 @@ class WorkerEgressProxyTest {
 
     @BeforeEach
     void drawGeneration() {
-        generation = "l-" + RuntimeGenerators.sha256Digests().next().substring(0, 16);
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
     }
 
     /** @return a generated endpoint {@code host:port} in lower case below the reserved domain {@code test} */

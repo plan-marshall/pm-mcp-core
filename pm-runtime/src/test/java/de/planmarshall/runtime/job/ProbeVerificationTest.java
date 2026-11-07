@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.Scope;
 import de.planmarshall.runtime.job.JobRefusal.Reason;
@@ -81,7 +82,7 @@ class ProbeVerificationTest {
         checkout = Files.createDirectories(root.resolve("checkout"));
         Files.createDirectories(checkout.resolve(ProbeVerification.GIT));
         jobPrivate = Files.createDirectories(root.resolve("run/jobs")
-                .resolve("v-" + RuntimeGenerators.sha256Digests().next().substring(0, 16)).resolve("cwd"));
+                .resolve(RuntimeGenerators.jobIds(JobId.Kind.PROBE).next()).resolve("cwd"));
         outside = Files.createDirectories(root.resolve("outside"));
         arguments = List.of("--" + Generators.letterStrings(3, 10).next());
     }
