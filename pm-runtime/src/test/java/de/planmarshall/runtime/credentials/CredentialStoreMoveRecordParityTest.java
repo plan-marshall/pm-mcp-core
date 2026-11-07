@@ -86,6 +86,7 @@ class CredentialStoreMoveRecordParityTest {
         var schema = SchemaResource.load(SCHEMA);
         var declared = String.valueOf(SchemaResource.object(
                 SchemaResource.object(schema.get("properties")).get("transaction_id")).get("pattern"));
+        assertFalse("null".equals(declared), "the schema states the pattern of transaction_id");
         var pattern = Pattern.compile(declared);
         var generated = TransactionId.generate(Clock.fixed(STARTED, ZoneOffset.UTC)).value();
 

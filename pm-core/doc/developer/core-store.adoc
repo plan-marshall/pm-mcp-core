@@ -2410,9 +2410,11 @@ closes such a task `lost`.
 
 == Testing
 
-The tests run on the JVM over stores in a temporary base. The schema parity tests (`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`, `WorkflowStatusSchemaParityTest`, `JobRecordSchemaParityTest`)
-read the JSON schema from the specification of this repository (`doc/specification`, below the root the system
-property `pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
+The tests run on the JVM over stores in a temporary base. `AuditSchemaParityTest` reads the schema file
+beside its codec from the class path (`SchemaResource`, ADR 016). The parity tests not yet moved
+(`PendingEntrySchemaParityTest`, `WorkflowStatusSchemaParityTest`, `JobRecordSchemaParityTest`) read the JSON schema
+from the specification of this repository (`doc/specification`, below the root the system property
+`pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
 parity check over a schema the code does not implement is `@Disabled`, its reason naming what it waits for.
 
 == The Plan's History

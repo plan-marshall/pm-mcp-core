@@ -144,8 +144,10 @@ A credential file is written only by the runtime under `locks/credentials.lock`:
 
 The allowed origin for a credential is the origin of the `url` of its operator-owned entry (`PM-CRED-5`), plus, for `github` and `gitlab`, the API origin the provider module derives from it by its compiled rule (`https://github.com` -> `https://api.github.com`; every other host: the `url` origin; link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment Specification, Agent Credentials of the Native Variant]); the native git transport sends the credential only when the effective remote URL has that origin (`remote_origin_mismatch` otherwise). No team file names a credential or decides where a token is sent.
 
-The schema of the file is the file `credential-file.schema.json` in
-`pm-runtime/src/main/resources/de/planmarshall/runtime/credentials/`, beside `FileSecretStore` that holds it:
+The schema of the full credential file is the file `credential-file.schema.json` in
+`pm-runtime/src/main/resources/de/planmarshall/runtime/credentials/`, beside the store that holds the entries:
+`FileSecretStore` writes the `format_version` and `value` subset today, and the codec of the full record is the
+package's remaining work:
 
 [source,json]
 ----
@@ -229,7 +231,8 @@ The records of local trust and browser access (link:../../../../plan-marshall-do
 *`state/web-devices.json`*: the web device store, mode `0600`, written only by the runtime under `locks/web-devices.lock` (pairing, rename, revocation, idle expiry, and the `last_used_at` update at most once per write interval per device, link:../timeouts/02-runtime-leases-operator-web.adoc#device-last-used-granularity[Timeouts & Budgets Specification]). A device secret is never stored, only its SHA-256. A revocation ends the device's open event streams with its reason, which the web app shows (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]). An unreadable or invalid store authenticates no device and leaves every other function of the runtime unaffected; revoking every device rewrites it empty.
 
 The schema of the store is the file `web-devices.schema.json` in
-`pm-runtime/src/main/resources/de/planmarshall/runtime/security/`, beside `DeviceRegistry` that reads it:
+`pm-runtime/src/main/resources/de/planmarshall/runtime/security/`, beside `DeviceRegistry`, the device-secret resolver
+the web access records feed:
 
 [source,json]
 ----

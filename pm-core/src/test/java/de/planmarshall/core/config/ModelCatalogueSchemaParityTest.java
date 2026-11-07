@@ -11,7 +11,9 @@ package de.planmarshall.core.config;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchema;
@@ -72,8 +74,15 @@ class ModelCatalogueSchemaParityTest {
                 () -> assertEquals(Arrays.stream(ModelSource.values()).map(ModelSource::wireName).toList(),
                         names(SchemaResource.array(SchemaResource.object(properties.get("source")).get("enum"))),
                         "The source values are the schema's"),
-                () -> assertEquals(128, ((Number) SchemaResource.object(properties.get("model")).get("maxLength"))
-                        .intValue(), "The model id bound is the schema's"));
+                () -> {
+                    var bound = ((Number) SchemaResource.object(properties.get("model")).get("maxLength")).intValue();
+                    var recorded = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+                    assertDoesNotThrow(() -> new CatalogueModel("m".repeat(bound), ModelSource.OPERATOR, recorded),
+                            "The schema's bound is the codec's bound");
+                    assertThrows(IllegalArgumentException.class,
+                            () -> new CatalogueModel("m".repeat(bound + 1), ModelSource.OPERATOR, recorded),
+                            "One character above the bound is refused");
+                });
     }
 
     @Test
