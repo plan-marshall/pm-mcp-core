@@ -68,7 +68,7 @@ class DefaultPlanUnitTest {
                         .map(StateBehavior.SubWorkflowCall::subWorkflowId).toList()),
                 () -> assertEquals(List.of("start", "start", "start", "light", "rework", "start", "start", "land",
                         "reentry", "start", "hand_back"), calls.stream()
-                        .map(call -> call.entry().orElseThrow()).toList()));
+                        .map(StateBehavior.SubWorkflowCall::entry).toList()));
     }
 
     @Test
@@ -81,9 +81,9 @@ class DefaultPlanUnitTest {
 
         assertAll(
                 () -> assertEquals("phase-5-execute", landCall.subWorkflowId()),
-                () -> assertEquals("land", landCall.entry().orElseThrow()),
+                () -> assertEquals("land", landCall.entry(), "the land call enters the entry land"),
                 () -> assertEquals("land", landEntry.subWorkflowId()),
-                () -> assertEquals("start", landEntry.entry().orElseThrow()),
+                () -> assertEquals("start", landEntry.entry(), "the land entry calls land at start"),
                 () -> assertEquals(List.of("done", "rework", "returned", "stepped_out"),
                         landCall.transitions().stream().map(OutcomeTransition::outcomeName).toList()),
                 () -> assertEquals("phases.finalize", landCall.transitions().getFirst().targetStateId()),
@@ -105,8 +105,8 @@ class DefaultPlanUnitTest {
                         init.transitions().stream().filter(transition -> !"stepped_out".equals(
                                 transition.outcomeName())).collect(Collectors.toMap(
                                 OutcomeTransition::outcomeName, OutcomeTransition::targetStateId))),
-                () -> assertEquals("light", light.entry().orElseThrow()),
-                () -> assertEquals("start", refine.entry().orElseThrow()),
+                () -> assertEquals("light", light.entry(), "the light route enters the entry light"),
+                () -> assertEquals("start", refine.entry(), "the refine call enters the entry start"),
                 () -> assertEquals(Phase.unitIds(), defaults().keySet().stream()
                         .filter(id -> Phase.ofUnit(id).isPresent()).toList()),
                 () -> assertEquals(WorkflowStatus.PHASES, Set.of("phase-1-init", "phase-2-refine", "phase-3-outline", "phase-4-plan",

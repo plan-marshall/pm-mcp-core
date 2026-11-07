@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -23,7 +24,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -140,14 +140,14 @@ class UnitFrontmatterReaderTest {
                     () -> assertEquals(UnitType.SUBWORKFLOW, frontmatter.type()),
                     () -> assertEquals("git.commit", frontmatter.icon()),
                     () -> assertEquals(List.of(new InterfaceElement("commit",
-                                    Optional.of("The worktree holds the changes to commit, or is clean."))),
+                                    "The worktree holds the changes to commit, or is clean.")),
                             frontmatter.entries()),
                     () -> assertEquals(List.of(new InterfaceElement("done",
-                            Optional.of("Commit and push are settled."))), frontmatter.exits()),
+                            "Commit and push are settled.")), frontmatter.exits()),
                     () -> assertEquals(LocalDate.of(2026, 10, 14), frontmatter.modificationDate()),
                     () -> assertEquals("1.0.0", frontmatter.version()),
                     () -> assertEquals("plan-marshall", frontmatter.author()),
-                    () -> assertEquals(Optional.empty(), frontmatter.signature()),
+                    () -> assertNull(frontmatter.signature(), "an unsigned frontmatter reads a null signature"),
                     () -> assertEquals(new SourceLocation(RESOURCE, 1, 1), frontmatter.location()),
                     () -> assertEquals(APPENDED_LINE + 1, result.bodyLine()));
         }
@@ -164,9 +164,9 @@ class UnitFrontmatterReaderTest {
             var entries = read(source).frontmatter().entries();
 
             assertEquals(List.of(
-                    new InterfaceElement("post_run", Optional.of("The run is over.")),
-                    new InterfaceElement("hand_back", Optional.of("The branch holds commits beyond the base.")),
-                    new InterfaceElement("merge", Optional.of("The plan is ready to merge."))), entries);
+                    new InterfaceElement("post_run", "The run is over."),
+                    new InterfaceElement("hand_back", "The branch holds commits beyond the base."),
+                    new InterfaceElement("merge", "The plan is ready to merge.")), entries);
         }
 
         @Test
@@ -181,9 +181,11 @@ class UnitFrontmatterReaderTest {
             var bare = read(withoutInterface).frontmatter();
 
             assertAll(
-                    () -> assertEquals(List.of(new InterfaceElement("commit", Optional.empty())), described.entries()),
-                    () -> assertEquals(List.of(new InterfaceElement("done", Optional.empty()),
-                            new InterfaceElement("failed", Optional.empty())), described.exits()),
+                    () -> assertEquals(List.of(new InterfaceElement("commit", null)), described.entries(),
+                            "an entry without description reads null"),
+                    () -> assertEquals(List.of(new InterfaceElement("done", null),
+                                    new InterfaceElement("failed", null)), described.exits(),
+                            "an exit without description reads null"),
                     () -> assertEquals(UnitType.WORKFLOW, bare.type()),
                     () -> assertTrue(bare.entries().isEmpty()),
                     () -> assertTrue(bare.exits().isEmpty()));
@@ -196,7 +198,7 @@ class UnitFrontmatterReaderTest {
 
             var frontmatter = read(source).frontmatter();
 
-            assertEquals(Optional.of("not-a-verified-signature"), frontmatter.signature());
+            assertEquals("not-a-verified-signature", frontmatter.signature(), "the signature is carried as read");
         }
 
         @Test
@@ -541,8 +543,8 @@ class UnitFrontmatterReaderTest {
                 case "name" -> frontmatter.name();
                 case "description" -> frontmatter.description();
                 case "author" -> frontmatter.author();
-                case "entry_description" -> frontmatter.entries().getFirst().description().orElseThrow();
-                default -> frontmatter.exits().getFirst().description().orElseThrow();
+                case "entry_description" -> frontmatter.entries().getFirst().description();
+                default -> frontmatter.exits().getFirst().description();
             };
             assertEquals(value, actual);
         }

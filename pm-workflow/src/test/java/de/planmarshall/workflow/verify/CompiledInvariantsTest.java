@@ -15,6 +15,7 @@ import static de.planmarshall.workflow.verify.InvariantFixtures.PLAN_UNIT;
 import static de.planmarshall.workflow.verify.InvariantFixtures.REMEDIATION_FILE;
 import static de.planmarshall.workflow.verify.InvariantFixtures.REPLAN_FILE;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,6 +55,7 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.finalize.PipelineViolation;
 import de.planmarshall.workflow.verify.InvariantFixtures.Mutation;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The compiled invariants of the project-owned units (PM-IMPL-5, PM-WF-16), over the units of
@@ -79,7 +81,7 @@ class CompiledInvariantsTest {
     private static final String PLAN_HEADER = "workflow plan version 1 format 1";
 
     /** The lane of a template, unknown, which {@code ProjectUnitLoader} checks a project unit with. */
-    private static final Optional<String> UNKNOWN_LANE = Optional.empty();
+    private static final @Nullable String UNKNOWN_LANE = null;
 
     private static final Map<InvariantId, RefusingCase> CASES = refusingCases();
 
@@ -148,7 +150,7 @@ class CompiledInvariantsTest {
 
             assertAll(
                     () -> assertEquals(Phase.unitIds(), phases),
-                    () -> assertEquals(Optional.of("phases.init"), plan.startState()));
+                    () -> assertEquals("phases.init", plan.startState(), "the plan unit starts at phases.init"));
         }
 
         @Test
@@ -290,7 +292,7 @@ class CompiledInvariantsTest {
                 InvariantFixtures.lineOf(InvariantFixtures.read(PLAN_FILE), PLAN_HEADER));
 
         private static List<InvariantLocation> lightLane(Map<String, WorkflowDefinition> units,
-                Optional<String> lane) {
+                @Nullable String lane) {
             var unit = units.get(PLAN_UNIT);
             return InvariantFixtures.invariants()
                     .check(unit, units.values(), InvariantFixtures.validator().verify(unit),
@@ -303,18 +305,18 @@ class CompiledInvariantsTest {
             return InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, InvariantFixtures.WITHOUT_LIGHT_ROUTE);
         }
 
-        static Stream<Optional<String>> lanesWithoutRatchet() {
-            return Stream.of(Optional.of("deep"), Optional.of("land"), Optional.of("adopt"));
+        static Stream<String> lanesWithoutRatchet() {
+            return Stream.of("deep", "land", "adopt");
         }
 
-        static Stream<Optional<String>> lanesWithRatchet() {
-            return Stream.of(Optional.of(InitInvariants.LANE_LIGHT), UNKNOWN_LANE);
+        static Stream<@Nullable String> lanesWithRatchet() {
+            return Stream.of(InitInvariants.LANE_LIGHT, UNKNOWN_LANE);
         }
 
         @ParameterizedTest(name = "lane {0}")
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit without the light route passes for a lane that owes no ratchet")
-        void withoutLightRoutePasses(Optional<String> lane) {
+        void withoutLightRoutePasses(String lane) {
             var units = withoutLightRoute();
 
             assertAll(
@@ -327,7 +329,7 @@ class CompiledInvariantsTest {
         @MethodSource("lanesWithRatchet")
         @DisplayName("a unit without the light route fails for the lane light or an unknown lane, the ratchet of"
                 + " both gates missing")
-        void withoutLightRouteRefusedWhereRatchetOwed(Optional<String> lane) {
+        void withoutLightRouteRefusedWhereRatchetOwed(@Nullable String lane) {
             var found = lightLane(withoutLightRoute(), lane);
 
             assertEquals(List.of(AT_HEADER, AT_HEADER, AT_HEADER, AT_HEADER), found,
@@ -338,7 +340,7 @@ class CompiledInvariantsTest {
         @MethodSource("lanesWithRatchet")
         @DisplayName("a unit whose light gate lacks the ratchet fails for the lane light or an unknown lane, at the"
                 + " gate")
-        void withoutRatchetRefused(Optional<String> lane) {
+        void withoutRatchetRefused(@Nullable String lane) {
             var mutation = InvariantFixtures.WITHOUT_RATCHET;
 
             var found = lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
@@ -351,7 +353,7 @@ class CompiledInvariantsTest {
         @ParameterizedTest(name = "lane {0}")
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit whose light gate lacks the ratchet passes for a lane that owes no ratchet")
-        void withoutRatchetPassesWhereNoneOwed(Optional<String> lane) {
+        void withoutRatchetPassesWhereNoneOwed(String lane) {
             assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
                     List.of(InvariantFixtures.WITHOUT_RATCHET)), lane));
         }
@@ -381,7 +383,7 @@ class CompiledInvariantsTest {
         @ParameterizedTest(name = "lane {0}")
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("the path clauses hold for every lane wherever outline.light is a state of the unit")
-        void pathClausesForEveryLane(Optional<String> lane) {
+        void pathClausesForEveryLane(String lane) {
             var refusing = CASES.get(InvariantId.INV_INIT_2);
 
             var found = lightLane(refusing.units(), lane);
@@ -784,7 +786,7 @@ class CompiledInvariantsTest {
     }
 
     @Test
-    @DisplayName("refuses a null argument")
+    @DisplayName("refuses a null required argument; an absent lane is the unknown lane every passing unit is checked with")
     void nullArguments() {
         var invariants = InvariantFixtures.invariants();
         var unit = InvariantFixtures.defaultUnits().get(PLAN_UNIT);
@@ -801,7 +803,8 @@ class CompiledInvariantsTest {
                         () -> invariants.check(unit, null, List.of(), UNKNOWN_LANE)),
                 () -> assertThrows(NullPointerException.class,
                         () -> invariants.check(unit, rules, null, UNKNOWN_LANE)),
-                () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, rules, List.of(), null)),
+                () -> assertDoesNotThrow(() -> invariants.check(unit, rules, List.of(), null),
+                        "a null lane is accepted as the unknown lane"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new CompiledInvariants(registry, noUnits, null, subject)),
                 () -> assertThrows(NullPointerException.class,

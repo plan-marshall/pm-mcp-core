@@ -12,6 +12,8 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -23,7 +25,6 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 
@@ -58,10 +59,10 @@ class PlanProcessStatesTest {
 
     private static PlanInstance outline(PlanInstanceHeader.Lane lane) {
         var start = PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(CompositionEvent.START,
-                PlanFixtures.facts().lane(lane).build(), Optional.empty(), AT_INIT));
+                PlanFixtures.facts().lane(lane).build(), null, AT_INIT));
         var first = assertInstanceOf(CompositionResult.Composed.class, start, start::toString).instance();
         var outline = PlanFixtures.perLaneComposer().compose(PlanFixtures.perLaneRequest(
-                CompositionEvent.OUTLINE, PlanFixtures.facts().lane(lane).build(), Optional.of(first),
+                CompositionEvent.OUTLINE, PlanFixtures.facts().lane(lane).build(), first,
                 InstancePosition.at(lane == PlanInstanceHeader.Lane.DEEP ? "outline.deep" : "outline.light")));
         return assertInstanceOf(CompositionResult.Composed.class, outline, outline::toString).instance();
     }
@@ -86,11 +87,16 @@ class PlanProcessStatesTest {
 
         assertAll(
                 () -> assertEquals(State.DONE, node(states, "init.ready").state()),
-                () -> assertEquals(Optional.of("deep"), node(states, "init.ready").outcome()),
+                () -> assertEquals("deep", node(states, "init.ready").outcome(), "the left state names its outcome"),
+                () -> assertNull(node(states, "init.ready").reason(), "a kept state carries no prune reason"),
                 () -> assertEquals(State.RUNNING, node(states, "phases.plan").state()),
+                () -> assertNull(node(states, "phases.plan").outcome(), "a running state carries no outcome"),
                 () -> assertEquals(State.PLANNED, node(states, "phases.execute").state()),
+                () -> assertNull(node(states, "phases.execute").outcome(), "a planned state carries no outcome"),
                 () -> assertEquals(State.NOT_IN_THIS_PLAN, node(states, "phases.plan-light").state()),
-                () -> assertEquals(Optional.of("other_lane"), node(states, "phases.plan-light").reason()),
+                () -> assertEquals("other_lane", node(states, "phases.plan-light").reason(),
+                        "a pruned call names its prune reason"),
+                () -> assertNull(node(states, "phases.plan-light").outcome(), "a pruned call carries no outcome"),
                 () -> assertTrue(states.stream().anyMatch(state -> state.node().startsWith("phase-plan.")),
                         states::toString));
     }
@@ -113,10 +119,9 @@ class PlanProcessStatesTest {
         var planId = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         var inputs = new CompositionInputs(Generators.letterStrings(1, 8).next(), List.of(), List.of(),
                 Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
-                Generators.letterStrings(1, 8).next(), Optional.empty(), Optional.empty(), Optional.empty());
-        var header = new PlanInstanceHeader(planId, unit.version(), CompositionEvent.PLAN, T0, inputs,
-                Optional.empty(), Optional.empty(), new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(),
-                List.of(), List.of());
+                Generators.letterStrings(1, 8).next(), null, null, null);
+        var header = new PlanInstanceHeader(planId, unit.version(), CompositionEvent.PLAN, T0, inputs, null, null,
+                new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
         var instance = new PlanInstance(unit.version(), header, unit, text, List.of());
 
         var states = PlanProcessStates.derive(instance, List.of(
@@ -140,7 +145,8 @@ class PlanProcessStatesTest {
 
         assertAll(
                 () -> assertEquals(State.FAILED, node(states, "handed_back").state()),
-                () -> assertEquals(Optional.of("handed_back"), node(states, "handed_back").outcome()),
+                () -> assertEquals("handed_back", node(states, "handed_back").outcome(),
+                        "the failed terminal names its outcome"),
                 () -> assertEquals(State.DONE, node(states, "phases.plan").state()),
                 () -> assertEquals(State.NOT_TAKEN, node(states, "phases.execute").state()));
     }
@@ -165,6 +171,21 @@ class PlanProcessStatesTest {
         } finally {
             deleteRecursively(base);
         }
+    }
+
+    @Test
+    @DisplayName("a node state needs its node and state, and its outcome and reason may be absent")
+    void nodeStateComponents() {
+        var node = Generators.letterStrings(1, 12).next();
+        var absent = new NodeState(node, State.PLANNED, null, null);
+
+        assertAll(
+                () -> assertNull(absent.outcome(), "an absent outcome is null"),
+                () -> assertNull(absent.reason(), "an absent reason is null"),
+                () -> assertThrows(NullPointerException.class, () -> new NodeState(null, State.DONE, null, null),
+                        "a node state without its node is refused"),
+                () -> assertThrows(NullPointerException.class, () -> new NodeState(node, null, null, null),
+                        "a node state without its state is refused"));
     }
 
     private static void committed(JournalScope scope, Consumer<ScopeTransaction> writing) {

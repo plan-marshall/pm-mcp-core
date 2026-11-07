@@ -14,7 +14,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a state does: rest on links, run a primitive, run a job, run model tasks, call a sub-workflow, wait for a
@@ -135,24 +136,26 @@ public sealed interface StateBehavior
      * kind's return-evaluation primitive and the reserved {@code lost}.
      *
      * @param entityKind        the entity kind of the tasks
-     * @param roleName          the role of the tasks; empty for {@code role each}
-     * @param fanOutPrimitiveId the primitive of {@code each}, whose list fans the tasks out
-     * @param rolesPrimitiveId  the primitive of {@code role each}, which returns the roles
+     * @param roleName          the role of the tasks; {@code null} for {@code role each}
+     * @param fanOutPrimitiveId the primitive of {@code each}, whose list fans the tasks out; {@code null} when the state
+     *                          declares no {@code each}
+     * @param rolesPrimitiveId  the primitive of {@code role each}, which returns the roles; {@code null} when the state
+     *                          names its role
      * @param askForm           the asking axis the state declares
      * @param consultRoles      the roles of the {@code consult role} clauses in source order
      * @param transitions       the transitions of the evaluated outcomes
      */
-    record ModelJob(String entityKind, Optional<String> roleName, Optional<String> fanOutPrimitiveId,
-    Optional<String> rolesPrimitiveId, AskForm askForm, List<String> consultRoles,
+    record ModelJob(String entityKind, @Nullable String roleName, @Nullable String fanOutPrimitiveId,
+    @Nullable String rolesPrimitiveId, AskForm askForm, List<String> consultRoles,
     List<OutcomeTransition> transitions) implements StateBehavior {
 
         /**
          * Copies the consult roles and the transitions into immutable lists.
          *
          * @param entityKind        the entity kind of the tasks
-         * @param roleName          the role of the tasks
-         * @param fanOutPrimitiveId the primitive of {@code each}
-         * @param rolesPrimitiveId  the primitive of {@code role each}
+         * @param roleName          the role of the tasks, or {@code null}
+         * @param fanOutPrimitiveId the primitive of {@code each}, or {@code null}
+         * @param rolesPrimitiveId  the primitive of {@code role each}, or {@code null}
          * @param askForm           the asking axis the state declares
          * @param consultRoles      the roles of the {@code consult role} clauses
          * @param transitions       the transitions of the evaluated outcomes
@@ -174,12 +177,12 @@ public sealed interface StateBehavior
      * bound parameters and routes its exits.
      *
      * @param subWorkflowId the identifier of the called sub-workflow
-     * @param entry         the callee's entry the call names; empty when the call omits it, which only a callee with
-     *                      exactly one entry admits
+     * @param entry         the callee's entry the call names; {@code null} when the call omits it, which only a callee
+     *                      with exactly one entry admits
      * @param paramBindings the bound parameters by name, in source order
      * @param transitions   the transitions of the callee's exits
      */
-    record SubWorkflowCall(String subWorkflowId, Optional<String> entry, Map<String, CallValue> paramBindings,
+    record SubWorkflowCall(String subWorkflowId, @Nullable String entry, Map<String, CallValue> paramBindings,
     List<OutcomeTransition> transitions) implements StateBehavior {
 
         /**
@@ -187,7 +190,7 @@ public sealed interface StateBehavior
          * list.
          *
          * @param subWorkflowId the identifier of the called sub-workflow
-         * @param entry         the callee's entry the call names, or empty
+         * @param entry         the callee's entry the call names, or {@code null}
          * @param paramBindings the bound parameters by name
          * @param transitions   the transitions of the callee's exits
          */

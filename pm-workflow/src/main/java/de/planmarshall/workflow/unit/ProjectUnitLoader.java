@@ -179,7 +179,7 @@ public final class ProjectUnitLoader {
             pipeline.forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.PIPELINE,
                     violation.rule().name(), completingStateOrHeader(finalizeUnit, violation.stepName()),
                     "step '%s': %s".formatted(violation.stepName(), violation.message()))));
-            invariants.check(unit, subUnits, rules, pipeline, Optional.empty()).stream()
+            invariants.check(unit, subUnits, rules, pipeline, null).stream()
                     .filter(violation -> !CompiledInvariants.reReports(violation, unit, rules))
                     .forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.INVARIANT,
                             violation.id().wireId(), violation.location(), violation.message())));

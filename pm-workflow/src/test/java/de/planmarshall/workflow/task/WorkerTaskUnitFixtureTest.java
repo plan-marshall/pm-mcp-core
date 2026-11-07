@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -57,6 +58,11 @@ class WorkerTaskUnitFixtureTest {
         }
     }
 
+    /** The outcome class of a terminal state of the unit; a state without a terminal outcome fails the test. */
+    private static OutcomeClass outcomeClassOf(WorkflowDefinition unit, String stateId) {
+        return Objects.requireNonNull(unit.states().get(stateId).terminalOutcome(), stateId).outcomeClass();
+    }
+
     @Test
     @DisplayName("the fixture unit compiles with the protocol's states and terminals")
     void fixtureCompiles() throws Exception {
@@ -71,14 +77,10 @@ class WorkerTaskUnitFixtureTest {
                                 "task.consulting", "task.awaiting_answer", "task.suspended", "task.submitted",
                                 "task.asked", "task.infeasible", "task.lost"),
                         List.copyOf(unit.states().keySet())),
-                () -> assertEquals(OutcomeClass.SUCCESS,
-                        unit.states().get("task.submitted").terminalOutcome().orElseThrow().outcomeClass()),
-                () -> assertEquals(OutcomeClass.UNSETTLED,
-                        unit.states().get("task.asked").terminalOutcome().orElseThrow().outcomeClass()),
-                () -> assertEquals(OutcomeClass.FAILURE,
-                        unit.states().get("task.infeasible").terminalOutcome().orElseThrow().outcomeClass()),
-                () -> assertEquals(OutcomeClass.INDETERMINATE,
-                        unit.states().get("task.lost").terminalOutcome().orElseThrow().outcomeClass()),
+                () -> assertEquals(OutcomeClass.SUCCESS, outcomeClassOf(unit, "task.submitted")),
+                () -> assertEquals(OutcomeClass.UNSETTLED, outcomeClassOf(unit, "task.asked")),
+                () -> assertEquals(OutcomeClass.FAILURE, outcomeClassOf(unit, "task.infeasible")),
+                () -> assertEquals(OutcomeClass.INDETERMINATE, outcomeClassOf(unit, "task.lost")),
                 () -> assertInstanceOf(StateBehavior.TerminalState.class,
                         unit.states().get("task.lost").behavior()));
     }

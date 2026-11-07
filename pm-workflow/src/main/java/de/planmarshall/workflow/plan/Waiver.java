@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * One waiver in force for a plan, as the composition reads it (PM-IMPL-5, PM-EXT-7): the composer reads no waiver
  * store, the caller passes the waivers in force as values.
@@ -25,29 +27,28 @@ import java.util.Optional;
  * @param id    the waiver id, {@code W-<n>}
  * @param gate  the gate a met waiver declares met, or the budget {@code <argument>:<policy>} a raise sets
  * @param mode  whether the waiver declares the gate met or raises a ceiling
- * @param value the new ceiling of a raise; empty for a met waiver
+ * @param value the new ceiling of a raise; {@code null} for a met waiver
  * @since 0.1
  */
-public record Waiver(String id, String gate, Mode mode, Optional<Integer> value) {
+public record Waiver(String id, String gate, Mode mode, @Nullable Integer value) {
 
     /**
-     * Refuses a missing component, a raise without a ceiling and a met waiver with one.
+     * Refuses a missing id, gate or mode, a raise without a ceiling and a met waiver with one.
      *
      * @param id    the waiver id
      * @param gate  the gate or budget
      * @param mode  the mode
-     * @param value the ceiling of a raise
+     * @param value the ceiling of a raise, {@code null} for a met waiver
      * @throws IllegalArgumentException if a raise has no value or a met waiver has one
      */
     public Waiver {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(gate, "gate");
         Objects.requireNonNull(mode, "mode");
-        Objects.requireNonNull(value, "value");
-        if (mode == Mode.RAISE && value.isEmpty()) {
+        if (mode == Mode.RAISE && value == null) {
             throw new IllegalArgumentException("a raise waiver needs a value");
         }
-        if (mode == Mode.MET && value.isPresent()) {
+        if (mode == Mode.MET && value != null) {
             throw new IllegalArgumentException("a met waiver takes no value");
         }
     }
@@ -58,7 +59,7 @@ public record Waiver(String id, String gate, Mode mode, Optional<Integer> value)
      * @return the met waiver
      */
     public static Waiver met(String id, String gate) {
-        return new Waiver(id, gate, Mode.MET, Optional.empty());
+        return new Waiver(id, gate, Mode.MET, null);
     }
 
     /**
@@ -68,7 +69,7 @@ public record Waiver(String id, String gate, Mode mode, Optional<Integer> value)
      * @return the raise waiver
      */
     public static Waiver raise(String id, String budget, int value) {
-        return new Waiver(id, budget, Mode.RAISE, Optional.of(value));
+        return new Waiver(id, budget, Mode.RAISE, value);
     }
 
     /**

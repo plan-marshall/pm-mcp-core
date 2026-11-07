@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The header of one plan instance version (PM-IMPL-5, PM-EXT-7): which version it is, the event that composed it,
  * every input by digest, and the effect of the facts with provenance, the pruned elements, the policy calls with their
@@ -32,8 +34,8 @@ import java.util.Optional;
  * @param event       the composition event that produced the version
  * @param composedAt  when the version was composed
  * @param inputs      every input the version was composed from
- * @param lane        the lane of the plan; empty only in version 1 of a plan whose lane is not yet known
- * @param posture     the posture of the plan, if set
+ * @param lane        the lane of the plan; {@code null} only in version 1 of a plan whose lane is not yet known
+ * @param posture     the posture of the plan; {@code null} if not set
  * @param steps       the step lists of the version
  * @param pruned      every template element the composition left out
  * @param policyCalls every policy call with its effective arguments
@@ -41,22 +43,22 @@ import java.util.Optional;
  * @since 0.1
  */
 public record PlanInstanceHeader(String planId, int version, CompositionEvent event, Instant composedAt,
-CompositionInputs inputs, Optional<Lane> lane, Optional<Posture> posture, Steps steps, List<PrunedElement> pruned,
-List<PolicyCall> policyCalls, List<WaivedGate> waivedGates) {
+CompositionInputs inputs, @Nullable Lane lane, @Nullable Posture posture, Steps steps,
+List<PrunedElement> pruned, List<PolicyCall> policyCalls, List<WaivedGate> waivedGates) {
 
     /** The only format version of the header, the value of {@code format_version}. */
     public static final int FORMAT_VERSION = 1;
 
     /**
-     * Refuses a missing component and copies the lists into unmodifiable lists that keep their order.
+     * Refuses a missing required component and copies the lists into unmodifiable lists that keep their order.
      *
      * @param planId      the id of the plan
      * @param version     the instance version
      * @param event       the composition event
      * @param composedAt  when the version was composed
      * @param inputs      every input the version was composed from
-     * @param lane        the lane of the plan, if known
-     * @param posture     the posture of the plan, if set
+     * @param lane        the lane of the plan, {@code null} if unknown
+     * @param posture     the posture of the plan, {@code null} if not set
      * @param steps       the step lists of the version
      * @param pruned      every template element left out
      * @param policyCalls every policy call
@@ -67,8 +69,6 @@ List<PolicyCall> policyCalls, List<WaivedGate> waivedGates) {
         Objects.requireNonNull(event, "event");
         Objects.requireNonNull(composedAt, "composedAt");
         Objects.requireNonNull(inputs, "inputs");
-        Objects.requireNonNull(lane, "lane");
-        Objects.requireNonNull(posture, "posture");
         Objects.requireNonNull(steps, "steps");
         pruned = List.copyOf(pruned);
         policyCalls = List.copyOf(policyCalls);

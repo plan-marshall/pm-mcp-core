@@ -207,7 +207,7 @@ final class ExecuteInvariants {
         }
         for (var state : envelopeStates) {
             var modelJob = (StateBehavior.ModelJob) state.behavior();
-            if (modelJob.fanOutPrimitiveId().isPresent() || modelJob.rolesPrimitiveId().isPresent()) {
+            if (modelJob.fanOutPrimitiveId() != null || modelJob.rolesPrimitiveId() != null) {
                 context.reportState(id, state, "the envelope task state '%s' runs several tasks at a time"
                         .formatted(state.id()));
             }

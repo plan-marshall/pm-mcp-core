@@ -131,10 +131,10 @@ public final class GuardEvaluator {
         Objects.requireNonNull(facts, "facts");
         for (var link : links) {
             var guard = link.guard();
-            if (guard.isPresent()
-                    && evaluate(guard.get().expr(), facts) instanceof GuardResult.CouldNotEvaluate(var reason)) {
+            if (guard != null
+                    && evaluate(guard.expr(), facts) instanceof GuardResult.CouldNotEvaluate(var reason)) {
                 var conditionFacts = new LinkedHashMap<String, String>();
-                conditionFacts.put("guard", render(guard.get().expr()));
+                conditionFacts.put("guard", render(guard.expr()));
                 conditionFacts.put("link", link.idPattern());
                 conditionFacts.put("reason", reason);
                 return Optional.of(EngineStep.ConditionRaised.raise(status, EngineStep.GUARD_INDETERMINATE,

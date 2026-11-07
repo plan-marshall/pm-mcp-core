@@ -11,6 +11,8 @@ package de.planmarshall.workflow.ast;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +22,6 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -37,6 +38,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.workflow.testing.generators.WorkflowGenerators;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The node model of the immutable tree (PM-IMPL-5, PM-WF-16): records copy the collections they are given, maps keep
@@ -95,13 +97,13 @@ class AstNodeModelTest {
             var auto = new StateBehavior.AutoStep(Generators.letterStrings(1, 8).next(), transitions);
             var job = new StateBehavior.JobStep(Generators.letterStrings(1, 8).next(), true, transitions);
             var modelJob = new StateBehavior.ModelJob(Generators.letterStrings(1, 8).next(),
-                    Optional.of(Generators.letterStrings(1, 8).next()), Optional.empty(), Optional.empty(),
+                    Generators.letterStrings(1, 8).next(), null, null,
                     StateBehavior.AskForm.NONE, strings, transitions);
             var question = new StateBehavior.QuestionWait(Generators.letterStrings(1, 8).next(), transitions);
             var outcome = new OutcomeTransition(Generators.letterStrings(1, 8).next(),
-                    Generators.letterStrings(1, 8).next(), Optional.empty(), completions, LOCATION);
+                    Generators.letterStrings(1, 8).next(), null, completions, LOCATION);
             var link = new LinkSpec(LinkRelation.NEXT, Generators.letterStrings(1, 8).next(), LinkForm.NOOP, params,
-                    Optional.empty(), new LinkAction.ExecutePrimitive(Generators.letterStrings(1, 8).next()),
+                    null, new LinkAction.ExecutePrimitive(Generators.letterStrings(1, 8).next()),
                     transitions, LOCATION);
 
             strings.add(Generators.letterStrings(1, 8).next());
@@ -110,7 +112,7 @@ class AstNodeModelTest {
             links.add(link);
             completions.clear();
             params.add(new ParamSpec(Generators.letterStrings(1, 8).next(),
-                    new ParamType.Int(Optional.empty(), Optional.empty()), false, LOCATION));
+                    new ParamType.Int(null, null), false, LOCATION));
 
             assertAll(
                     () -> assertEquals(List.of(value), enumList.values()),
@@ -130,14 +132,14 @@ class AstNodeModelTest {
         @Test
         @DisplayName("the unit lists of the instance inputs are copied and cannot be changed through the accessor")
         void instanceInputsAreCopied() {
-            var unit = new InstanceInputs.UnitRef(Generators.letterStrings(1, 8).next(), Optional.empty(),
+            var unit = new InstanceInputs.UnitRef(Generators.letterStrings(1, 8).next(), null,
                     Generators.letterStrings(1, 8).next(), "default");
             var templates = new ArrayList<>(List.of(unit));
             var subUnits = new ArrayList<InstanceInputs.UnitRef>();
             var inputs = new InstanceInputs(Generators.letterStrings(1, 8).next(), templates, subUnits,
                     new InstanceInputs.CompositionRules(Generators.letterStrings(1, 8).next(),
                             Generators.letterStrings(1, 8).next()),
-                    Generators.letterStrings(1, 8).next(), Optional.empty(), Optional.empty(), Optional.empty());
+                    Generators.letterStrings(1, 8).next(), null, null, null);
             // "default" is the origin wire name, "plan" the composition event and "{}" the header JSON document
             var header = new InstanceHeader(Generators.letterStrings(1, 8).next(),
                     Generators.integers(1, 100_000).next(), "plan", inputs, "{}");
@@ -182,9 +184,9 @@ class AstNodeModelTest {
         @DisplayName("the entries and exits of the frontmatter are copied and keep their order")
         void frontmatterListsAreCopied() {
             var review = new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 8).next(),
-                    Optional.of(Generators.letterStrings(1, 40).next()));
-            var repair = new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 8).next(), Optional.empty());
-            var done = new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 8).next(), Optional.empty());
+                    Generators.letterStrings(1, 40).next());
+            var repair = new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 8).next(), null);
+            var done = new UnitFrontmatter.InterfaceElement(Generators.letterStrings(1, 8).next(), null);
             var entries = new ArrayList<>(List.of(review, repair));
             var exits = new ArrayList<>(List.of(done));
             var frontmatter = frontmatter(entries, exits);
@@ -222,7 +224,7 @@ class AstNodeModelTest {
 
             assertAll(
                     () -> assertEquals(List.of(second, first), List.copyOf(copied.keySet())),
-                    () -> assertEquals(Optional.empty(), definition.startState()),
+                    () -> assertNull(definition.startState(), "a unit with entries declares no start state"),
                     () -> assertThrows(UnsupportedOperationException.class, copied::clear));
         }
     }
@@ -266,9 +268,9 @@ class AstNodeModelTest {
     @DisplayName("Invariants")
     class Invariants {
 
-        private static final Optional<Integer> LOW = Optional.of(Generators.integers(0, 100).next());
-        private static final Optional<Integer> HIGH = Optional.of(Generators.integers(101, 200).next());
-        private static final Optional<Integer> NONE = Optional.empty();
+        private static final Integer LOW = Generators.integers(0, 100).next();
+        private static final Integer HIGH = Generators.integers(101, 200).next();
+        private static final @Nullable Integer NONE = null;
 
         static Stream<Arguments> singleBounds() {
             return Stream.of(
@@ -320,12 +322,97 @@ class AstNodeModelTest {
             assertAll(
                     () -> assertEquals(LOW, boundedText.minLength()),
                     () -> assertEquals(HIGH, boundedText.maxLength()),
-                    () -> assertEquals(Optional.empty(), freeText.minLength()),
-                    () -> assertEquals(Optional.empty(), freeText.maxLength()),
+                    () -> assertNull(freeText.minLength(), "a free text keeps no least length"),
+                    () -> assertNull(freeText.maxLength(), "a free text keeps no greatest length"),
                     () -> assertEquals(LOW, boundedInt.min()),
                     () -> assertEquals(HIGH, boundedInt.max()),
-                    () -> assertEquals(Optional.empty(), freeInt.min()),
-                    () -> assertEquals(Optional.empty(), freeInt.max()));
+                    () -> assertNull(freeInt.min(), "a free int keeps no least value"),
+                    () -> assertNull(freeInt.max(), "a free int keeps no greatest value"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Absent components")
+    class AbsentComponents {
+
+        @Test
+        @DisplayName("the instance inputs keep a null footprint digest, change type, providers digest and unit file")
+        void instanceInputsKeepNull() {
+            var unit = new InstanceInputs.UnitRef(text(), null, text(), "default");
+            var inputs = new InstanceInputs(text(), List.of(unit), List.of(),
+                    new InstanceInputs.CompositionRules(text(), text()), text(), null, null, null);
+
+            assertAll(
+                    () -> assertNull(unit.file(), "a unit reference without a file keeps null"),
+                    () -> assertNull(inputs.realizedFootprintDigest(), "an absent footprint digest stays null"),
+                    () -> assertNull(inputs.changeType(), "an absent change type stays null"),
+                    () -> assertNull(inputs.providersDigest(), "an absent providers digest stays null"));
+        }
+
+        @Test
+        @DisplayName("a link and a transition keep a null guard")
+        void linkAndTransitionKeepNullGuard() {
+            var transition = transition(text(), text());
+            var link = new LinkSpec(LinkRelation.NEXT, text(), LinkForm.NOOP, List.of(), null,
+                    new LinkAction.ExecutePrimitive(text()), List.of(transition), LOCATION);
+
+            assertAll(
+                    () -> assertNull(link.guard(), "a link without a guard keeps a null guard"),
+                    () -> assertNull(transition.resultGuard(), "a transition without a guard keeps null"));
+        }
+
+        @Test
+        @DisplayName("a task state and a call keep their null role, primitives and entry")
+        void behavioursKeepNull() {
+            var roleEach = new StateBehavior.ModelJob(text(), null, null, text(), StateBehavior.AskForm.NONE,
+                    List.of(), List.of());
+            var call = new StateBehavior.SubWorkflowCall(text(), null, Map.of(), List.of());
+
+            assertAll(
+                    () -> assertNull(roleEach.roleName(), "a role each state keeps a null role name"),
+                    () -> assertNull(roleEach.fanOutPrimitiveId(), "a state without each keeps null fan-out"),
+                    () -> assertNotNull(roleEach.rolesPrimitiveId(), "the role each primitive is kept present"),
+                    () -> assertNull(call.entry(), "a call that names no entry keeps a null entry"));
+        }
+
+        @Test
+        @DisplayName("a state keeps a null terminal outcome, skill and facts primitive")
+        void stateKeepsNull() {
+            var state = new StateNode(text(), null, null, null, new StateBehavior.InteractiveLinks(List.of()),
+                    LOCATION);
+
+            assertAll(
+                    () -> assertNull(state.terminalOutcome(), "a non-terminal state keeps a null outcome"),
+                    () -> assertNull(state.skillPath(), "a state without a skill keeps a null skill"),
+                    () -> assertNull(state.factsPrimitiveId(), "a state without facts keeps null facts"));
+        }
+
+        @Test
+        @DisplayName("a frontmatter keeps a null signature and a null element description")
+        void frontmatterKeepsNull() {
+            var element = new UnitFrontmatter.InterfaceElement(text(), null);
+            var frontmatter = frontmatter(List.of(element), List.of());
+
+            assertAll(
+                    () -> assertNull(element.description(), "an element without description keeps null"),
+                    () -> assertNull(frontmatter.signature(), "an unsigned frontmatter keeps a null signature"));
+        }
+
+        @Test
+        @DisplayName("a definition keeps a null result schema, instance and start state and starts at no state")
+        void definitionKeepsNull() {
+            var stateId = text();
+            var states = new LinkedHashMap<String, StateNode>();
+            states.put(stateId, terminalState(stateId));
+
+            var definition = definition(Map.of(), states);
+
+            assertAll(
+                    () -> assertNull(definition.resultSchema(), "a unit without result keeps a null schema"),
+                    () -> assertNull(definition.instance(), "a unit without instance line keeps null"),
+                    () -> assertNull(definition.startState(), "a unit without start keeps a null start state"),
+                    () -> assertEquals(List.of(), definition.startingStates(),
+                            "a null start state adds no starting state"));
         }
     }
 
@@ -360,7 +447,7 @@ class AstNodeModelTest {
             bindings.put(a, new CallValue.EnumValue(text()));
             bindings.put(m, new CallValue.EnumList(List.of(text(), text())));
 
-            var call = new StateBehavior.SubWorkflowCall(Generators.letterStrings(1, 8).next(), Optional.empty(),
+            var call = new StateBehavior.SubWorkflowCall(Generators.letterStrings(1, 8).next(), null,
                     bindings, List.of());
             var frame = new CallFrame(Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
                     Generators.letterStrings(1, 8).next(), entry, bindings, "2026-01-01T00:00:00Z");
@@ -385,11 +472,11 @@ class AstNodeModelTest {
                     new StateBehavior.InteractiveLinks(List.of()),
                     new StateBehavior.AutoStep(Generators.letterStrings(1, 8).next(), List.of()),
                     new StateBehavior.JobStep(Generators.letterStrings(1, 8).next(), false, List.of()),
-                    new StateBehavior.ModelJob(Generators.letterStrings(1, 8).next(), Optional.empty(),
-                            Optional.empty(), Optional.of(Generators.letterStrings(1, 8).next()),
+                    new StateBehavior.ModelJob(Generators.letterStrings(1, 8).next(), null,
+                            null, Generators.letterStrings(1, 8).next(),
                             StateBehavior.AskForm.NONE, List.of(), List.of()),
                     new StateBehavior.SubWorkflowCall(Generators.letterStrings(1, 8).next(),
-                            Optional.of(Generators.letterStrings(1, 8).next()), Map.of(), List.of()),
+                            Generators.letterStrings(1, 8).next(), Map.of(), List.of()),
                     new StateBehavior.QuestionWait(Generators.letterStrings(1, 8).next(), List.of()),
                     new StateBehavior.TerminalState());
 
@@ -417,10 +504,8 @@ class AstNodeModelTest {
         void paramTypeIsClosed() {
             var schemaName = Generators.letterStrings(1, 8).next();
             List<ParamType> types = List.of(
-                    new ParamType.Text(Optional.of(Generators.integers(0, 10).next()),
-                            Optional.of(Generators.integers(11, 100).next())),
-                    new ParamType.Int(Optional.of(Generators.integers(0, 10).next()),
-                            Optional.of(Generators.integers(11, 100).next())),
+                    new ParamType.Text(Generators.integers(0, 10).next(), Generators.integers(11, 100).next()),
+                    new ParamType.Int(Generators.integers(0, 10).next(), Generators.integers(11, 100).next()),
                     new ParamType.EnumOf(List.of(text(), text())),
                     new ParamType.SchemaRef(schemaName),
                     new ParamType.ListOf(new ParamType.EnumOf(List.of(Generators.letterStrings(1, 8).next()))));
@@ -533,12 +618,12 @@ class AstNodeModelTest {
     }
 
     private static OutcomeTransition transition(String outcome, String target) {
-        return new OutcomeTransition(outcome, target, Optional.empty(), List.of(), LOCATION);
+        return new OutcomeTransition(outcome, target, null, List.of(), LOCATION);
     }
 
     private static StateNode terminalState(String id) {
-        return new StateNode(id, Optional.of(new TerminalOutcome(id, OutcomeClass.SUCCESS)),
-                Optional.empty(), Optional.empty(), new StateBehavior.TerminalState(), LOCATION);
+        return new StateNode(id, new TerminalOutcome(id, OutcomeClass.SUCCESS), null, null,
+                new StateBehavior.TerminalState(), LOCATION);
     }
 
     private static UnitFrontmatter frontmatter(List<UnitFrontmatter.InterfaceElement> entries,
@@ -548,23 +633,23 @@ class AstNodeModelTest {
                 Generators.letterStrings(1, 100).next(), UnitType.WORKFLOW, "workflow.default", entries, exits,
                 LocalDate.of(Generators.integers(2000, 2030).next(), Generators.integers(1, 12).next(),
                         Generators.integers(1, 28).next()),
-                "0.1.0", "plan-marshall", Optional.empty(), LOCATION);
+                "0.1.0", "plan-marshall", null, LOCATION);
     }
 
     private static WorkflowDefinition definition(List<ParamDecl> params, List<StateMigration> migrations,
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()),
                 Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.PLAN, params,
-                Optional.empty(), Optional.empty(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
-                Optional.of(states.keySet().iterator().next()), Map.of(), migrations, states, LOCATION);
+                null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
+                states.keySet().iterator().next(), Map.of(), migrations, states, LOCATION);
     }
 
     private static WorkflowDefinition definition(Map<String, WorkflowDefinition.EntryBinding> entryBindings,
             Map<String, StateNode> states) {
         return new WorkflowDefinition(frontmatter(List.of(), List.of()),
                 Generators.letterStrings(1, 8).next(), Generators.integers(1, 100).next(), WorkflowScope.SUBWORKFLOW,
-                List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
-                Map.of(), Optional.empty(), entryBindings, List.of(), states, LOCATION);
+                List.of(), null, null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
+                Map.of(), null, entryBindings, List.of(), states, LOCATION);
     }
 
     private static String kind(StateBehavior behavior) {

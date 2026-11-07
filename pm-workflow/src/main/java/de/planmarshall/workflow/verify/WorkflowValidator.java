@@ -47,7 +47,6 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
-import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
@@ -295,17 +294,17 @@ public final class WorkflowValidator {
 
     /** Names where control enters the unit, for a message: its start state, or the states its entries bind. */
     private static String startingPoint(WorkflowDefinition definition) {
-        return definition.startState().map("the start state '%s'"::formatted)
-                .orElseGet(() -> "the entry-bound states %s".formatted(definition.startingStates()));
+        var startState = definition.startState();
+        return startState != null ? "the start state '%s'".formatted(startState)
+                : "the entry-bound states %s".formatted(definition.startingStates());
     }
 
     private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
-        definition.resultSchema().ifPresent(schemaName -> {
-            if (!schemas.contains(schemaName)) {
-                violations.add(new Violation(VerificationRule.SCHEMA_BINDING, unitStateId(definition),
-                        definition.location(), "the result schema '%s' is not registered".formatted(schemaName)));
-            }
-        });
+        var schemaName = definition.resultSchema();
+        if (schemaName != null && !schemas.contains(schemaName)) {
+            violations.add(new Violation(VerificationRule.SCHEMA_BINDING, unitStateId(definition),
+                    definition.location(), "the result schema '%s' is not registered".formatted(schemaName)));
+        }
         for (var param : definition.params()) {
             checkParamSchema(param.name(), param.type(), param.location(), unitStateId(definition), violations);
         }
@@ -332,9 +331,11 @@ public final class WorkflowValidator {
     }
 
     private static void checkStateExists(WorkflowDefinition definition, List<Violation> violations) {
-        definition.startState().filter(start -> !definition.states().containsKey(start)).ifPresent(start ->
-                violations.add(new Violation(VerificationRule.STATE_EXISTS, start, definition.location(),
-                        "the start state '%s' does not exist in the unit".formatted(start))));
+        var start = definition.startState();
+        if (start != null && !definition.states().containsKey(start)) {
+            violations.add(new Violation(VerificationRule.STATE_EXISTS, start, definition.location(),
+                    "the start state '%s' does not exist in the unit".formatted(start)));
+        }
         definition.entryBindings().forEach((entry, binding) -> {
             if (!definition.states().containsKey(binding.stateId())) {
                 violations.add(new Violation(VerificationRule.STATE_EXISTS, binding.stateId(), binding.location(),
@@ -383,10 +384,12 @@ public final class WorkflowValidator {
         var entries = declaredEntries(definition);
         var unitStateId = unitStateId(definition);
         if (!entries.isEmpty()) {
-            definition.startState().ifPresent(start -> violations.add(new Violation(
-                    VerificationRule.INTERFACE_START_OR_ENTRIES, unitStateId, definition.location(),
-                    "the unit declares the entries %s and the start state '%s'; a unit with entries binds them instead"
-                            .formatted(entries, start))));
+            var start = definition.startState();
+            if (start != null) {
+                violations.add(new Violation(VerificationRule.INTERFACE_START_OR_ENTRIES, unitStateId,
+                        definition.location(), ("the unit declares the entries %s and the start state '%s'; a unit "
+                        + "with entries binds them instead").formatted(entries, start)));
+            }
             entries.stream().filter(entry -> !definition.entryBindings().containsKey(entry))
                     .forEach(entry -> violations.add(new Violation(VerificationRule.INTERFACE_START_OR_ENTRIES,
                             unitStateId, definition.frontmatter().location(),
@@ -440,13 +443,17 @@ public final class WorkflowValidator {
         }
         var reported = new HashSet<String>();
         for (var terminal : terminals) {
-            terminal.terminalOutcome().map(TerminalOutcome::id)
-                    .filter(outcome -> !exits.contains(outcome) && !STEPPED_OUT.equals(outcome))
-                    .ifPresent(outcome -> violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS,
-                            terminal.id(), terminal.location(),
-                            "the terminal '%s' reports the outcome '%s', which is none of the exits %s"
-                                    .formatted(terminal.id(), outcome, exits))));
-            terminal.terminalOutcome().ifPresent(outcome -> reported.add(outcome.id()));
+            var terminalOutcome = terminal.terminalOutcome();
+            if (terminalOutcome == null) {
+                continue;
+            }
+            var outcome = terminalOutcome.id();
+            if (!exits.contains(outcome) && !STEPPED_OUT.equals(outcome)) {
+                violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, terminal.id(),
+                        terminal.location(), "the terminal '%s' reports the outcome '%s', which is none of the exits %s"
+                        .formatted(terminal.id(), outcome, exits)));
+            }
+            reported.add(outcome);
         }
         exits.stream().filter(exit -> !reported.contains(exit))
                 .forEach(exit -> violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS,
@@ -464,8 +471,12 @@ public final class WorkflowValidator {
             return;
         }
         var reportedByTerminals = new HashSet<String>();
-        definition.states().values().forEach(state -> state.terminalOutcome()
-                .ifPresent(outcome -> reportedByTerminals.add(outcome.id())));
+        for (var state : definition.states().values()) {
+            var outcome = state.terminalOutcome();
+            if (outcome != null) {
+                reportedByTerminals.add(outcome.id());
+            }
+        }
         var reached = graph.outcomesReachedFromEntries(definition);
         declaredExits(definition).stream()
                 .filter(exit -> reportedByTerminals.contains(exit) && !reached.contains(exit))
@@ -555,8 +566,8 @@ public final class WorkflowValidator {
                             .formatted(callee.id())));
             return;
         }
-        if (call.entry().isPresent()) {
-            var entry = call.entry().get();
+        var entry = call.entry();
+        if (entry != null) {
             if (!entries.contains(entry)) {
                 violations.add(new Violation(VerificationRule.INTERFACE_CALL_ENTRY, state.id(), state.location(),
                         "the call names the entry '%s', which '%s' does not declare; it declares %s"
@@ -586,7 +597,10 @@ public final class WorkflowValidator {
     }
 
     private void checkPrimitiveBinding(WorkflowDefinition definition, StateNode state, List<Violation> violations) {
-        state.factsPrimitiveId().ifPresent(id -> requireRegistered(state, id, "facts", state.location(), violations));
+        var factsPrimitiveId = state.factsPrimitiveId();
+        if (factsPrimitiveId != null) {
+            requireRegistered(state, factsPrimitiveId, "facts", state.location(), violations);
+        }
         switch (state.behavior()) {
             case StateBehavior.AutoStep auto ->
                 requireRegistered(state, auto.primitiveId(), "auto", state.location(), violations);
@@ -601,8 +615,11 @@ public final class WorkflowValidator {
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
             requireRegistered(state, primitiveOf(link), "do of the link '%s'".formatted(link.idPattern()),
                     link.location(), violations);
-            link.guard().ifPresent(guard -> UnitGraph.predicatesOf(guard.expr()).forEach(id -> requireRegistered(state, id,
-                    "predicate of the link '%s'".formatted(link.idPattern()), link.location(), violations)));
+            var guard = link.guard();
+            if (guard != null) {
+                UnitGraph.predicatesOf(guard.expr()).forEach(id -> requireRegistered(state, id,
+                        "predicate of the link '%s'".formatted(link.idPattern()), link.location(), violations));
+            }
         }
     }
 
@@ -625,42 +642,43 @@ public final class WorkflowValidator {
                         "the state '%s' declares 'ask' on the entity kind '%s', which has no entity unit"
                                 .formatted(state.id(), entityKind.name())));
             }
-            entityKind.entityUnit().filter(unit -> !catalog.contains(unit)).ifPresent(unit -> violations.add(
-                    new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
-                            "the entity unit '%s' of the entity kind '%s' is not registered"
-                                    .formatted(unit, entityKind.name()))));
+            var unit = entityKind.entityUnit();
+            if (unit != null && !catalog.contains(unit)) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the entity unit '%s' of the entity kind '%s' is not registered"
+                                .formatted(unit, entityKind.name())));
+            }
         }
 
-        modelJob.fanOutPrimitiveId().ifPresent(primitiveId -> {
-            if (registry.find(primitiveId).isEmpty()) {
-                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
-                        "the primitive '%s' of the each clause is not registered".formatted(primitiveId)));
-            }
-        });
+        var fanOutPrimitiveId = modelJob.fanOutPrimitiveId();
+        if (fanOutPrimitiveId != null && registry.find(fanOutPrimitiveId).isEmpty()) {
+            violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                    "the primitive '%s' of the each clause is not registered".formatted(fanOutPrimitiveId)));
+        }
 
-        modelJob.rolesPrimitiveId().ifPresent(primitiveId -> {
+        var rolesPrimitiveId = modelJob.rolesPrimitiveId();
+        if (rolesPrimitiveId != null) {
             if (!"adjudicate.decisions".equals(definition.id())) {
                 violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
                         "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in '%s'"
                                 .formatted(definition.id())));
             }
-            if (registry.find(primitiveId).isEmpty()) {
+            if (registry.find(rolesPrimitiveId).isEmpty()) {
                 violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
-                        "the primitive '%s' of the role each clause is not registered".formatted(primitiveId)));
+                        "the primitive '%s' of the role each clause is not registered".formatted(rolesPrimitiveId)));
             }
             if (modelJob.ask()) {
                 violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
                         "the state '%s' declares 'ask' on a 'role each' state".formatted(state.id())));
             }
-        });
+        }
 
-        modelJob.roleName().ifPresent(role -> {
-            if (!isValidRoleName(role)) {
-                violations.add(new Violation(VerificationRule.ROLE_NAME_GRAMMAR, state.id(), state.location(),
-                        "the role '%s' of the state '%s' does not match the role-name grammar"
-                                .formatted(role, state.id())));
-            }
-        });
+        var role = modelJob.roleName();
+        if (role != null && !isValidRoleName(role)) {
+            violations.add(new Violation(VerificationRule.ROLE_NAME_GRAMMAR, state.id(), state.location(),
+                    "the role '%s' of the state '%s' does not match the role-name grammar"
+                            .formatted(role, state.id())));
+        }
 
         for (var consultRole : modelJob.consultRoles()) {
             if (!isValidRoleName(consultRole)) {
@@ -788,8 +806,8 @@ public final class WorkflowValidator {
                             .formatted(param.name(), param.type())));
             return;
         }
-        var min = minLength.orElse(0);
-        var max = maxLength.orElse(Integer.MAX_VALUE);
+        var min = minLength != null ? minLength : 0;
+        var max = maxLength != null ? maxLength : Integer.MAX_VALUE;
         if (min != freeParam.minLength() || max != freeParam.maxLength()) {
             violations.add(parameterViolation(state, param.location(), link, primitive,
                     "declares the free parameter '%s' with the length %d..%d, but the parameter record declares %d..%d"
@@ -1089,17 +1107,17 @@ public final class WorkflowValidator {
 
     private void checkSubWorkflowCallContract(WorkflowDefinition definition, List<Violation> violations) {
         for (var state : definition.states().values()) {
-            state.terminalOutcome()
-                    .filter(outcome -> STEPPED_OUT.equals(outcome.id())
-                            && outcome.outcomeClass() != OutcomeClass.STEPPED_OUT)
-                    .ifPresent(outcome -> violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
-                            state.id(), state.location(),
-                            "the terminal '%s' declares the outcome 'stepped_out' with the class %s; only a terminal of class STEPPED_OUT declares it"
-                                    .formatted(state.id(), outcome.outcomeClass()))));
+            var terminalOutcome = state.terminalOutcome();
+            if (terminalOutcome != null && STEPPED_OUT.equals(terminalOutcome.id())
+                    && terminalOutcome.outcomeClass() != OutcomeClass.STEPPED_OUT) {
+                violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
+                        "the terminal '%s' declares the outcome 'stepped_out' with the class %s; only a terminal of class STEPPED_OUT declares it"
+                                .formatted(state.id(), terminalOutcome.outcomeClass())));
+            }
 
             if (definition.scope() == WorkflowScope.SUBWORKFLOW
                     && state.behavior() instanceof StateBehavior.InteractiveLinks links && !links.links().isEmpty()
-                    && state.skillPath().isEmpty()) {
+                    && state.skillPath() == null) {
                 violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
                         "the resting link state '%s' of a sub-workflow must declare a skill".formatted(state.id())));
             }
@@ -1134,8 +1152,8 @@ public final class WorkflowValidator {
 
                 // Rule 6: a result guard reads a field of the callee's result, so the callee declares a result
                 // schema. Whether the field is a boolean or optional field of it is not checked (ADR 010).
-                if (callee.resultSchema().isEmpty()) {
-                    call.transitions().stream().filter(transition -> transition.resultGuard().isPresent())
+                if (callee.resultSchema() == null) {
+                    call.transitions().stream().filter(transition -> transition.resultGuard() != null)
                             .findFirst().ifPresent(transition -> violations.add(new Violation(
                             VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
                             "the call guards the outcome '%s' on the result of '%s', which declares no result schema"
@@ -1150,14 +1168,15 @@ public final class WorkflowValidator {
                     if (STEPPED_OUT.equals(outcome)) {
                         checkSteppedOutTarget(definition, state, transition, violations);
                     }
-                    if (transition.resultGuard().isPresent()) {
+                    var resultGuard = transition.resultGuard();
+                    if (resultGuard != null) {
                         if (!"done".equals(outcome)) {
                             violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
                                     transition.location(),
                                     "a result guard is admitted only on the outcome 'done', but found on '%s'"
                                             .formatted(outcome)));
                         } else {
-                            resultGuardsOnDone.add(transition.resultGuard().get());
+                            resultGuardsOnDone.add(resultGuard);
                         }
                     }
                     if (!contractOutcomes.contains(outcome)) {
@@ -1231,7 +1250,7 @@ public final class WorkflowValidator {
      */
     private static void checkResultGuardOutsideCall(StateNode state, List<Violation> violations) {
         for (var transition : UnitGraph.allTransitions(state.behavior())) {
-            if (transition.resultGuard().isPresent()) {
+            if (transition.resultGuard() != null) {
                 violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
                         transition.location(),
                         "a result guard is admitted only on the outcome 'done' of a call, but found on the outcome '%s' of the state '%s', which is no call"
@@ -1257,9 +1276,10 @@ public final class WorkflowValidator {
         if (target == null) {
             return;
         }
-        var targetClass = target.terminalOutcome().map(TerminalOutcome::outcomeClass);
+        var targetOutcome = target.terminalOutcome();
+        var targetClass = targetOutcome == null ? null : targetOutcome.outcomeClass();
         String detail;
-        if (targetClass.isPresent() && targetClass.get() == OutcomeClass.SUCCESS) {
+        if (targetClass == OutcomeClass.SUCCESS) {
             detail = "a terminal state of class SUCCESS";
         } else {
             detail = switch (definition.scope()) {
@@ -1277,14 +1297,14 @@ public final class WorkflowValidator {
     }
 
     /**
+     * @param targetClass the outcome class of the target when it is a terminal state; {@code null} otherwise
      * @return an empty value when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
      *         is not
      */
     private static Optional<String> subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
-            Optional<OutcomeClass> targetClass) {
+            @Nullable OutcomeClass targetClass) {
         var continuesStepOut = target.behavior() instanceof StateBehavior.InteractiveLinks
-                || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
-                || outcomeClass == OutcomeClass.FAILURE).isPresent();
+                || targetClass == OutcomeClass.STEPPED_OUT || targetClass == OutcomeClass.FAILURE;
         if (continuesStepOut) {
             return Optional.empty();
         }
@@ -1341,8 +1361,8 @@ public final class WorkflowValidator {
             }
             case ParamType.Int(var min, var max) -> {
                 if (value instanceof CallValue.IntValue(var intVal)) {
-                    var minVal = min.orElse(Integer.MIN_VALUE);
-                    var maxVal = max.orElse(Integer.MAX_VALUE);
+                    var minVal = min != null ? min : Integer.MIN_VALUE;
+                    var maxVal = max != null ? max : Integer.MAX_VALUE;
                     if (intVal < minVal || intVal > maxVal) {
                         violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
                                 state.location(),
@@ -1466,8 +1486,10 @@ public final class WorkflowValidator {
             default -> {
             }
         }
-        state.factsPrimitiveId().ifPresent(factsId ->
-                registry.find(factsId).ifPresent(p -> produced.addAll(p.producedArtifacts())));
+        var factsId = state.factsPrimitiveId();
+        if (factsId != null) {
+            registry.find(factsId).ifPresent(p -> produced.addAll(p.producedArtifacts()));
+        }
         return produced;
     }
 
@@ -1481,16 +1503,20 @@ public final class WorkflowValidator {
             default -> {
             }
         }
-        state.factsPrimitiveId().ifPresent(factsId ->
-                registry.find(factsId).ifPresent(p -> required.addAll(p.requiredArtifacts())));
+        var factsId = state.factsPrimitiveId();
+        if (factsId != null) {
+            registry.find(factsId).ifPresent(p -> required.addAll(p.requiredArtifacts()));
+        }
         return required;
     }
 
     private Set<String> requiredArtifactsOf(LinkSpec link) {
         var required = new LinkedHashSet<String>();
-        link.guard().ifPresent(guard ->
-                UnitGraph.predicatesOf(guard.expr()).forEach(predId ->
-                        registry.find(predId).ifPresent(p -> required.addAll(p.requiredArtifacts()))));
+        var guard = link.guard();
+        if (guard != null) {
+            UnitGraph.predicatesOf(guard.expr()).forEach(predId ->
+                    registry.find(predId).ifPresent(p -> required.addAll(p.requiredArtifacts())));
+        }
         if (link.action() instanceof LinkAction.ExecutePrimitive(var primitiveId)) {
             registry.find(primitiveId).ifPresent(p -> required.addAll(p.requiredArtifacts()));
         }
@@ -2026,9 +2052,9 @@ public final class WorkflowValidator {
                 var callee = catalog.find(call.subWorkflowId());
                 if (callee.isPresent()) {
                     for (var calleeState : callee.get().states().values()) {
-                        if (calleeState.terminalOutcome().isPresent()
-                                && calleeState.terminalOutcome().get().id().equals(outcomeName)) {
-                            return Optional.of(calleeState.terminalOutcome().get().outcomeClass());
+                        var calleeOutcome = calleeState.terminalOutcome();
+                        if (calleeOutcome != null && calleeOutcome.id().equals(outcomeName)) {
+                            return Optional.of(calleeOutcome.outcomeClass());
                         }
                     }
                 }

@@ -9,8 +9,6 @@
  */
 package de.planmarshall.workflow.testing.generators;
 
-import java.util.Optional;
-
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.TypedGenerator;
 import de.planmarshall.workflow.ast.UnitOrigin;
@@ -29,7 +27,7 @@ public final class UnitReferenceGenerator implements TypedGenerator<UnitReferenc
     public UnitReference next() {
         var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         var unit = "unit-" + suffix;
-        return new UnitReference(unit, Optional.of("units/" + unit + ".md"), "%064x".formatted(Generators.longs().next()),
+        return new UnitReference(unit, "units/" + unit + ".md", "%064x".formatted(Generators.longs().next()),
                 UnitOrigin.PROJECT);
     }
 

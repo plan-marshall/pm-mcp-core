@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 
@@ -123,7 +122,7 @@ class AdditionalRulesTest {
     @Test
     @DisplayName("ENTITY_KIND_BINDING: return evaluation primitive missing")
     void entityKindMissingReturnEvalPrimitive() {
-        var customKinds = TestPrimitives.entityKinds().with(new EntityKind("custom", Optional.empty(), "missing.eval"));
+        var customKinds = TestPrimitives.entityKinds().with(new EntityKind("custom", null, "missing.eval"));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 customKinds, QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 
@@ -143,7 +142,7 @@ class AdditionalRulesTest {
     @DisplayName("ENTITY_KIND_BINDING: ask on entity kind without entity unit")
     void entityKindAskWithoutEntityUnit() {
         var customKinds = TestPrimitives.entityKinds()
-                .with(new EntityKind("screen", Optional.empty(), "test.evaluate-change"));
+                .with(new EntityKind("screen", null, "test.evaluate-change"));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 customKinds, QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 

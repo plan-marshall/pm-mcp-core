@@ -107,9 +107,10 @@ The `scope` keyword admits `plan`, `epic`, `workspace`, `machine`, `entity` and 
 The `instance` line of a plan instance version is one line of JSON. `InstanceHeaderReader` reads it with the streaming
 `JsonParser` of `jackson-core` into `InstanceHeader` (`planId`, `version`, `event`, `inputs`, and the JSON exactly as
 read) with its `InstanceInputs`: the configuration hash, the template and sub-unit references (`UnitRef`: unit, optional
-file, digest, origin), the composition rule reference (`CompositionRules`: revision, digest), the plan facts digest, the
-realized-footprint digest, the change type, the providers digest and the three optional digests, empty when the member
-is absent or `null`.
+file, digest, origin), the composition rule reference (`CompositionRules`: revision, digest), the plan facts digest, and
+the three optional members, the realized-footprint digest, the change type and the providers digest. An optional member,
+the file of a `UnitRef` among them, is a `@Nullable String` that is `null` when the member is absent or `null`; the reader
+assigns the read text to the component directly, without wrapping it in an `Optional`.
 
 The reader checks the structure of the plan instance header: the required members and their JSON types, and no member
 named twice in any object. It ignores members it does not model, which stay in the JSON. A defect is a refusal
@@ -314,8 +315,8 @@ declare, and a binding to a state the unit does not have all parse, and the veri
 (link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface Rules], rule 1). One owner per check keeps
 every verifier fixture parseable.
 
-A `call` clause may name the callee's entry: `call <unit> entry <name> (…)`. The entry is kept as `Optional<String>`
-on `StateBehavior.SubWorkflowCall`; whether the callee declares it, and whether the call may omit it, is the verifier's
+A `call` clause may name the callee's entry: `call <unit> entry <name> (…)`. The entry is kept as a `@Nullable String`
+on `StateBehavior.SubWorkflowCall`, `null` when the call names none; whether the callee declares it, and whether the call may omit it, is the verifier's
 (rule 5).
 
 The keyword `entry` is positional, not reserved: it is read only at the start of a header line and after the callee of a

@@ -38,7 +38,7 @@ class UnitReferenceGeneratorTest {
         assertAll("generated unit references",
                 () -> assertNotNull(first, "The generator yields a value"),
                 () -> assertNotEquals(first, second, "Two calls yield distinct values"),
-                () -> assertTrue(first.file().isPresent(), "The reference names the unit file"),
+                () -> assertNotNull(first.file(), "The reference names the unit file"),
                 () -> assertTrue(first.digest().matches("[0-9a-f]{64}"), "The digest is a lower-case SHA-256"),
                 () -> assertEquals(UnitOrigin.PROJECT, first.origin(), "The unit is a project unit"));
     }

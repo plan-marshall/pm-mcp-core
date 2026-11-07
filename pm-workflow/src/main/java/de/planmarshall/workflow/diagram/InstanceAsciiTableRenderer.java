@@ -43,12 +43,13 @@ final class InstanceAsciiTableRenderer {
      */
     static String render(WorkflowDefinition unit, InstanceAnnotations annotations) {
         var out = new StringBuilder();
+        var activeState = annotations.activeState();
         table(out, List.of("Property", "Value"), List.of(
                 List.of("Instance", annotations.title()),
                 List.of("Lane", annotations.lane()),
                 List.of("Posture", annotations.posture()),
-                List.of("Active state", annotations.activeState().orElse(InstanceAnnotations.NONE))));
-        out.append('\n').append(AsciiTableRenderer.render(unit, annotations.activeState()));
+                List.of("Active state", activeState != null ? activeState : InstanceAnnotations.NONE)));
+        out.append('\n').append(AsciiTableRenderer.render(unit, activeState));
         if (!annotations.composed().isEmpty()) {
             out.append('\n');
             table(out, List.of("Unit", "File", "Digest"), annotations.composed().stream()

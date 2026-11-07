@@ -10,7 +10,8 @@
 package de.planmarshall.workflow.engine;
 
 import java.util.Objects;
-import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * What resolving an {@link EntityAddress} yields (PM-ARCH-4, PM-WF-1): the entity it names with its entity kind, or a
@@ -33,20 +34,19 @@ public sealed interface AddressResolution permits AddressResolution.Resolved, Ad
      * @param address     the resolved address
      * @param entityKind  {@value #BOOTSTRAP_PLAN} or {@value #BOOTSTRAP_EPIC} for a pending bootstrap, else the
      *                    registered entity kind of the task state that hosts the task
-     * @param queueTaskId the queue task of a task entity; empty for a pending bootstrap
+     * @param queueTaskId the queue task of a task entity; {@code null} for a pending bootstrap
      * @since 0.1
      */
-    record Resolved(EntityAddress address, String entityKind, Optional<String> queueTaskId)
+    record Resolved(EntityAddress address, String entityKind, @Nullable String queueTaskId)
             implements AddressResolution {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if the address or the entity kind is {@code null}
          * @throws IllegalArgumentException if the entity kind is blank
          */
         public Resolved {
             Objects.requireNonNull(address, "address");
             Objects.requireNonNull(entityKind, "entityKind");
-            Objects.requireNonNull(queueTaskId, "queueTaskId");
             if (entityKind.isBlank()) {
                 throw new IllegalArgumentException("entityKind must not be blank");
             }

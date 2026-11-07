@@ -11,7 +11,8 @@ package de.planmarshall.workflow.ast;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The frontmatter a unit opens with (PM-IMPL-5): what the unit is for a person (its display name and description),
@@ -34,7 +35,8 @@ import java.util.Optional;
  *                         version grammar; not the unit's revision, which the {@code workflow} header counts
  * @param author           who made the unit: {@code plan-marshall} for a unit compiled into the binary, the name of a
  *                         person otherwise
- * @param signature        the signature over the file's content, carried with the unit and never verified
+ * @param signature        the signature over the file's content, carried with the unit and never verified;
+ *                         {@code null} when the frontmatter carries none
  * @param location         where the opening {@code ---} of the frontmatter was read
  * @since 0.1
  */
@@ -48,7 +50,7 @@ List<InterfaceElement> exits,
 LocalDate modificationDate,
 String version,
 String author,
-Optional<String> signature,
+@Nullable String signature,
 SourceLocation location) {
 
     /**
@@ -63,7 +65,7 @@ SourceLocation location) {
      * @param modificationDate the date of the last change of the file
      * @param version          the release the unit was created with or delivered by
      * @param author           who made the unit
-     * @param signature        the signature over the file's content
+     * @param signature        the signature over the file's content, or {@code null}
      * @param location         where the opening {@code ---} was read
      */
     public UnitFrontmatter {
@@ -76,8 +78,8 @@ SourceLocation location) {
      *
      * @param name        the name of the entry (an identifier) or of the exit (an outcome id)
      * @param description what a caller hands over or may assume (an entry), or what it can rely on (an exit), 1 to 500
-     *                    characters; empty when the frontmatter declares none
+     *                    characters; {@code null} when the frontmatter declares none
      */
-    public record InterfaceElement(String name, Optional<String> description) {
+    public record InterfaceElement(String name, @Nullable String description) {
     }
 }

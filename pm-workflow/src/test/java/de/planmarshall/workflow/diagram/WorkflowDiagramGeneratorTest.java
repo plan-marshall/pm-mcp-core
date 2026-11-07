@@ -13,12 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -38,6 +38,7 @@ import de.planmarshall.workflow.plan.PlanInstanceHeader;
 import de.planmarshall.workflow.plan.PruneReason;
 import de.planmarshall.workflow.plan.PrunedElement;
 import de.planmarshall.workflow.plan.WaivedGate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The generator of the documentation of a unit (PM-IMPL-5): each of the three forms of the dedicated fixture unit
@@ -57,12 +58,12 @@ class WorkflowDiagramGeneratorTest {
         return Stream.of(
                 Arguments.of("Mermaid", DiagramFixtures.MERMAID_GOLDEN,
                         (Function<WorkflowDefinition, String>) unit -> WorkflowDiagramGenerator.renderMermaid(unit,
-                                Optional.empty())),
+                                null)),
                 Arguments.of("AsciiDoc", DiagramFixtures.ASCIIDOC_GOLDEN,
                         (Function<WorkflowDefinition, String>) WorkflowDiagramGenerator::renderAsciiDocTables),
                 Arguments.of("terminal", DiagramFixtures.ASCII_GOLDEN,
                         (Function<WorkflowDefinition, String>) unit -> WorkflowDiagramGenerator.renderAscii(unit,
-                                Optional.empty())));
+                                null)));
     }
 
     @Nested
@@ -110,7 +111,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should style the active state in the Mermaid diagram")
         void shouldStyleActiveStateInMermaid() {
-            var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, Optional.of("build.judge"));
+            var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, "build.judge");
 
             assertTrue(rendered.endsWith("""
                         classDef active fill:#90ee90
@@ -121,7 +122,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should define no style without an active state")
         void shouldDefineNoStyleWithoutActiveState() {
-            var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, null);
 
             assertFalse(rendered.contains("classDef"), rendered);
         }
@@ -129,7 +130,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should mark the active state in the terminal table")
         void shouldMarkActiveStateInTerminalTable() {
-            var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, Optional.of("build.judge"));
+            var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, "build.judge");
 
             assertAll(() -> assertTrue(rendered.contains("│ *build.judge "), rendered),
                     () -> assertTrue(rendered.contains("│  (ACTIVE) "), rendered),
@@ -139,7 +140,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should mark no state without an active state")
         void shouldMarkNoStateWithoutActiveState() {
-            var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, null);
 
             assertAll(() -> assertFalse(rendered.contains("(ACTIVE)"), rendered),
                     () -> assertFalse(rendered.contains("│ *"), rendered));
@@ -148,7 +149,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should refuse an active state the unit does not have")
         void shouldRefuseUnknownActiveState() {
-            var unknown = Optional.of("build.unknown-" + Generators.longs(1, Long.MAX_VALUE).next());
+            var unknown = "build.unknown-" + Generators.longs(1, Long.MAX_VALUE).next();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
@@ -158,15 +159,41 @@ class WorkflowDiagramGeneratorTest {
         }
 
         @Test
-        @DisplayName("Should refuse a missing unit or active state")
-        void shouldRefuseMissingArguments() {
+        @DisplayName("Should refuse a missing unit")
+        void shouldRefuseMissingUnit() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> WorkflowDiagramGenerator.renderMermaid(null, Optional.empty())),
+                            () -> WorkflowDiagramGenerator.renderMermaid(null, null), "Mermaid refuses no unit"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> WorkflowDiagramGenerator.renderAscii(FIXTURE, null)),
+                            () -> WorkflowDiagramGenerator.renderAscii(null, null), "the terminal table refuses no unit"),
                     () -> assertThrows(NullPointerException.class,
-                            () -> WorkflowDiagramGenerator.renderAsciiDocTables(null)));
+                            () -> WorkflowDiagramGenerator.renderAsciiDocTables(null), "AsciiDoc refuses no unit"));
+        }
+
+        @Test
+        @DisplayName("Should add exactly the two style lines to the Mermaid bytes of the absent active state")
+        void shouldAddOnlyStyleLinesForPresentState() {
+            var absent = WorkflowDiagramGenerator.renderMermaid(FIXTURE, null);
+
+            var present = WorkflowDiagramGenerator.renderMermaid(FIXTURE, "build.judge");
+
+            assertEquals(absent + "    classDef active fill:#90ee90\n    class build_judge active\n", present,
+                    "the present state adds only the style lines");
+        }
+
+        @Test
+        @DisplayName("Should differ from the terminal bytes of the absent active state only by the mark")
+        void shouldAddOnlyMarkForPresentState() {
+            var absent = WorkflowDiagramGenerator.renderAscii(FIXTURE, null);
+
+            var present = WorkflowDiagramGenerator.renderAscii(FIXTURE, "build.judge");
+
+            assertAll(
+                    () -> assertEquals(absent.lines().count() + 1, present.lines().count(),
+                            "the mark adds one line to the table"),
+                    () -> assertEquals(1, present.lines().filter(line -> line.contains("(ACTIVE)")).count(),
+                            "the present state is marked once"),
+                    () -> assertFalse(absent.contains("*build.judge"), "the absent state marks no state"));
         }
     }
 
@@ -177,7 +204,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should show the role and the outcomes of a task state in the terminal table")
         void shouldShowRoleAndOutcomesInTerminalTable() {
-            var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderAscii(FIXTURE, null);
 
             var block = rendered.lines().dropWhile(line -> !line.startsWith("│ build.judge "))
                     .takeWhile(line -> !line.startsWith("├") && !line.startsWith("└")).toList();
@@ -191,7 +218,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should label the transitions of a task state with its role in the Mermaid diagram")
         void shouldLabelTaskTransitionsWithRole() {
-            var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderMermaid(FIXTURE, null);
 
             assertAll(() -> assertTrue(rendered.contains("build_judge --> build_commit : task reviewer / approved"),
                             rendered),
@@ -224,7 +251,7 @@ class WorkflowDiagramGeneratorTest {
                     state decide.done terminal done success
                     """);
 
-            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, null);
 
             assertTrue(rendered.contains("decide_vote --> decide_done : task role each diagram.list-roles / approved"),
                     rendered);
@@ -271,7 +298,7 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should draw an arrow from the start into every entry-bound state, labelled with its entry, and "
                 + "no unlabelled start arrow")
         void shouldDrawEveryEntryAsStartingPoint() {
-            var rendered = WorkflowDiagramGenerator.renderMermaid(ENTRIES, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderMermaid(ENTRIES, null);
 
             assertAll(() -> assertTrue(rendered.contains("[*] --> build_review : entry review\n"), rendered),
                     () -> assertTrue(rendered.contains("[*] --> build_repair : entry repair\n"), rendered),
@@ -325,7 +352,7 @@ class WorkflowDiagramGeneratorTest {
                             done -> build.judge
                     """);
 
-            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("build_judge"));
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, "build_judge");
 
             assertAll(() -> assertTrue(rendered.contains("state \"build.judge\" as build_judge\n"), rendered),
                     () -> assertTrue(rendered.contains("state \"build-judge\" as build_judge_2\n"), rendered),
@@ -361,7 +388,7 @@ class WorkflowDiagramGeneratorTest {
                     state execute.end terminal done success
                     """);
 
-            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("execute.end"));
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, "execute.end");
 
             assertAll(() -> assertTrue(rendered.contains("state \"phase.phase-5-execute\" as phase_phase_5_execute\n"),
                             rendered),
@@ -394,7 +421,7 @@ class WorkflowDiagramGeneratorTest {
                             done -> build.missing
                     """);
 
-            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, null);
 
             assertAll(() -> assertTrue(rendered.contains("state \"build_missing\" as build_missing\n"), rendered),
                     () -> assertTrue(rendered.contains("build_missing --> build_missing_2 : "), rendered));
@@ -413,7 +440,7 @@ class WorkflowDiagramGeneratorTest {
         void shouldEqualGoldenFile(String form, String golden, InstanceForm render) {
             var expected = DiagramFixtures.read(golden).getBytes(StandardCharsets.UTF_8);
 
-            var rendered = render.apply(instance, Optional.empty()).getBytes(StandardCharsets.UTF_8);
+            var rendered = render.apply(instance, null).getBytes(StandardCharsets.UTF_8);
 
             assertArrayEquals(expected, rendered, () -> form + " differs from " + golden + ":\n"
                     + new String(rendered, StandardCharsets.UTF_8));
@@ -423,9 +450,9 @@ class WorkflowDiagramGeneratorTest {
         @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
         @DisplayName("Should give identical bytes on a second rendering and end every line with a line feed alone")
         void shouldRenderIdenticalBytesTwice(String form, String golden, InstanceForm render) {
-            var first = render.apply(instance, Optional.empty());
+            var first = render.apply(instance, null);
 
-            var second = render.apply(DiagramFixtures.instance(), Optional.empty());
+            var second = render.apply(DiagramFixtures.instance(), null);
 
             assertAll(form, () -> assertArrayEquals(first.getBytes(StandardCharsets.UTF_8),
                             second.getBytes(StandardCharsets.UTF_8)),
@@ -438,10 +465,10 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should name every composed file of the version beside the pruned elements and the waived gates")
         void shouldNameTheComposedSet(String form, String golden, InstanceForm render) {
             var composed = DiagramFixtures.instanceWithComposedFile();
-            var entry = InstanceAnnotations.of(composed, Optional.empty()).composed().stream()
+            var entry = InstanceAnnotations.of(composed, null).composed().stream()
                     .filter(file -> "phase-x".equals(file.unit())).findFirst().orElseThrow();
 
-            var rendered = render.apply(composed, Optional.empty());
+            var rendered = render.apply(composed, null);
 
             assertAll(form,
                     () -> assertTrue(rendered.contains("instance/phase-x.v3.pmwf"), rendered),
@@ -453,7 +480,7 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should name every pruned element with its reason and source fact and every waived gate with its "
                 + "waiver id")
         void shouldNameSameAnnotations(String form, String golden, InstanceForm render) {
-            var rendered = render.apply(instance, Optional.empty());
+            var rendered = render.apply(instance, null);
 
             assertAll(form, Stream.concat(
                     DiagramFixtures.PRUNED.stream().flatMap(pruned -> Stream.of(pruned.element().wireName(),
@@ -467,13 +494,13 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should style the active state in the instance Mermaid diagram")
         void shouldStyleActiveStateInMermaid() {
             var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(instance,
-                    Optional.of(DiagramFixtures.WAIVED_GATE));
+                    DiagramFixtures.WAIVED_GATE);
 
             assertAll(() -> assertTrue(rendered.contains("""
                                 classDef active fill:#90ee90
                                 class finalize_merge_gate active
                             """), rendered),
-                    () -> assertFalse(WorkflowDiagramGenerator.renderInstanceMermaid(instance, Optional.empty())
+                    () -> assertFalse(WorkflowDiagramGenerator.renderInstanceMermaid(instance, null)
                             .contains("classDef"), "no style without an active state"));
         }
 
@@ -481,10 +508,10 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should name the active state in the instance AsciiDoc tables")
         void shouldNameActiveStateInAsciiDoc() {
             var rendered = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance,
-                    Optional.of(DiagramFixtures.WAIVED_GATE));
+                    DiagramFixtures.WAIVED_GATE);
 
             assertAll(() -> assertTrue(rendered.contains("|Active state\n|`finalize.merge-gate`\n"), rendered),
-                    () -> assertTrue(WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, Optional.empty())
+                    () -> assertTrue(WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, null)
                             .contains("|Active state\n|-\n"), "no active state"));
         }
 
@@ -492,11 +519,11 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should mark the active state in the instance terminal tables")
         void shouldMarkActiveStateInTerminalTable() {
             var rendered = WorkflowDiagramGenerator.renderInstanceAscii(instance,
-                    Optional.of(DiagramFixtures.WAIVED_GATE));
+                    DiagramFixtures.WAIVED_GATE);
 
             assertAll(() -> assertTrue(rendered.contains("│ *finalize.merge-gate "), rendered),
                     () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count()),
-                    () -> assertFalse(WorkflowDiagramGenerator.renderInstanceAscii(instance, Optional.empty())
+                    () -> assertFalse(WorkflowDiagramGenerator.renderInstanceAscii(instance, null)
                             .contains("(ACTIVE)"), "no mark without an active state"));
         }
 
@@ -508,18 +535,55 @@ class WorkflowDiagramGeneratorTest {
             assertAll(form,
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> render.apply(instance,
-                                    Optional.of("finalize.unknown-" + Generators.longs(1, Long.MAX_VALUE).next()))),
+                                    "finalize.unknown-" + Generators.longs(1, Long.MAX_VALUE).next())),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> render.apply(instance, Optional.of("finalize.merge-dispatch"))));
+                            () -> render.apply(instance, "finalize.merge-dispatch")));
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
-        @DisplayName("Should refuse a missing instance or active state")
-        void shouldRefuseMissingArguments(String form, String golden, InstanceForm render) {
+        @DisplayName("Should refuse a missing instance")
+        void shouldRefuseMissingInstance(String form, String golden, InstanceForm render) {
+            assertThrows(NullPointerException.class, () -> render.apply(null, null), form + " refuses no instance");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should render identical bytes for the present active state on a second rendering")
+        void shouldRenderPresentStateStably(String form, String golden, InstanceForm render) {
+            var first = render.apply(instance, DiagramFixtures.WAIVED_GATE);
+
+            var second = render.apply(DiagramFixtures.instance(), DiagramFixtures.WAIVED_GATE);
+
             assertAll(form,
-                    () -> assertThrows(NullPointerException.class, () -> render.apply(null, Optional.empty())),
-                    () -> assertThrows(NullPointerException.class, () -> render.apply(instance, null)));
+                    () -> assertEquals(first, second, "the present state renders stable bytes"),
+                    () -> assertNotEquals(first, render.apply(instance, null), "the present state differs from the absent one"));
+        }
+
+        @Test
+        @DisplayName("Should add exactly the two style lines to the instance Mermaid bytes of the absent active state")
+        void shouldAddOnlyStyleLinesForPresentState() {
+            var absent = WorkflowDiagramGenerator.renderInstanceMermaid(instance, null);
+
+            var present = WorkflowDiagramGenerator.renderInstanceMermaid(instance, DiagramFixtures.WAIVED_GATE);
+
+            var styleLines = "    classDef active fill:#90ee90\n    class finalize_merge_gate active\n";
+
+            assertAll(
+                    () -> assertTrue(present.contains(styleLines), "the present state adds the style lines"),
+                    () -> assertEquals(absent, present.replace(styleLines, ""),
+                            "the present state adds only the style lines"));
+        }
+
+        @Test
+        @DisplayName("Should name the present active state in the instance AsciiDoc bytes where the absent one shows -")
+        void shouldNameOnlyThePresentStateInAsciiDoc() {
+            var absent = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, null);
+
+            var present = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, DiagramFixtures.WAIVED_GATE);
+
+            assertEquals(absent.replace("|Active state\n|-\n", "|Active state\n|`finalize.merge-gate`\n"), present,
+                    "only the active state cell differs");
         }
 
         @Test
@@ -527,9 +591,9 @@ class WorkflowDiagramGeneratorTest {
         void shouldOmitEmptyAnnotations() {
             var bare = bareInstance();
 
-            var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(bare, Optional.empty());
-            var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(bare, Optional.empty());
-            var terminal = WorkflowDiagramGenerator.renderInstanceAscii(bare, Optional.empty());
+            var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(bare, null);
+            var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(bare, null);
+            var terminal = WorkflowDiagramGenerator.renderInstanceAscii(bare, null);
 
             assertAll(() -> assertFalse(mermaid.contains("instance_pruned"), mermaid),
                     () -> assertFalse(mermaid.contains("instance_waived"), mermaid),
@@ -569,7 +633,7 @@ class WorkflowDiagramGeneratorTest {
             var unit = DiagramFixtures.parse("annotation-collision.pmwf", source);
 
             var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(
-                    DiagramFixtures.instance(unit, source), Optional.empty());
+                    DiagramFixtures.instance(unit, source), null);
 
             assertAll(() -> assertTrue(rendered.contains("state \"instance-pruned\" as instance_pruned_2\n"), rendered),
                     () -> assertTrue(rendered.contains("instance_pruned --> instance_pruned_2 : "), rendered),
@@ -592,7 +656,7 @@ class WorkflowDiagramGeneratorTest {
                     List.of(), List.of(new WaivedGate("gate \"x\"\nnext", "W-1")));
             var hostileLabels = new PlanInstance(fixture.version(), hostile, fixture.unit(), fixture.text());
 
-            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(hostileLabels, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(hostileLabels, null);
 
             assertAll(
                     () -> assertTrue(rendered.contains("state \"step default:#quot;quoted#quot; step: local_only "
@@ -609,7 +673,7 @@ class WorkflowDiagramGeneratorTest {
                 + "and a double quote escaped")
         void shouldQuoteFrontMatterTitle() {
             var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId("a: \"b\" \\c"),
-                    Optional.empty());
+                    null);
 
             assertEquals("---\ntitle: \"plan a: \\\"b\\\" \\\\c v3 (plan)\"\n---\n", frontMatter(rendered),
                     rendered);
@@ -619,7 +683,7 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should quote a plain title without escaping anything in it")
         void shouldQuotePlainTitle() {
             var planId = Generators.letterStrings(1, 8).next();
-            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId(planId), Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId(planId), null);
 
             assertEquals("---\ntitle: \"plan " + planId + " v3 (plan)\"\n---\n", frontMatter(rendered), rendered);
         }
@@ -640,8 +704,8 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should keep the AsciiDoc tables well-formed for a cell with a pipe, a line feed or a CRLF")
         void shouldEscapeAsciiDocCellText() {
             var rendered = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(hostileInstance(),
-                    Optional.empty());
-            var expectedDelimiters = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, Optional.empty())
+                    null);
+            var expectedDelimiters = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, null)
                     .lines().filter("|==="::equals).count();
 
             assertAll(
@@ -655,7 +719,7 @@ class WorkflowDiagramGeneratorTest {
         @Test
         @DisplayName("Should keep the box of the terminal tables for a cell with a pipe, a line feed or a CRLF")
         void shouldKeepTerminalBoxForCellText() {
-            var rendered = WorkflowDiagramGenerator.renderInstanceAscii(hostileInstance(), Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderInstanceAscii(hostileInstance(), null);
 
             var misaligned = Stream.of(rendered.split("\n\n")).filter(block -> block.lines()
                     .mapToInt(line -> line.codePointCount(0, line.length())).distinct().count() != 1).toList();
@@ -678,9 +742,9 @@ class WorkflowDiagramGeneratorTest {
                     List.of(), List.of());
             var c1Instance = new PlanInstance(instance.version(), hostile, instance.unit(), instance.text());
 
-            var terminal = WorkflowDiagramGenerator.renderInstanceAscii(c1Instance, Optional.empty());
-            var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(c1Instance, Optional.empty());
-            var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(c1Instance, Optional.empty());
+            var terminal = WorkflowDiagramGenerator.renderInstanceAscii(c1Instance, null);
+            var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(c1Instance, null);
+            var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(c1Instance, null);
 
             assertAll(
                     () -> assertTrue(terminal.contains("│ fact [31m end │"), terminal),
@@ -705,8 +769,7 @@ class WorkflowDiagramGeneratorTest {
             var fixture = DiagramFixtures.instance();
             var header = fixture.header();
             var bare = new PlanInstanceHeader(header.planId(), header.version(), header.event(), header.composedAt(),
-                    header.inputs(), Optional.empty(), Optional.empty(), header.steps(), List.of(), List.of(),
-                    List.of());
+                    header.inputs(), null, null, header.steps(), List.of(), List.of(), List.of());
             return new PlanInstance(fixture.version(), bare, fixture.unit(), fixture.text());
         }
     }
@@ -725,7 +788,7 @@ class WorkflowDiagramGeneratorTest {
     @FunctionalInterface
     interface InstanceForm {
 
-        String apply(PlanInstance instance, Optional<String> activeState);
+        String apply(PlanInstance instance, @Nullable String activeState);
     }
 
     @Nested

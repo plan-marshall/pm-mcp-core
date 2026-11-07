@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,12 +49,12 @@ class StateKindTest {
                         new StateBehavior.JobStep(Generators.letterStrings(1, 8).next(), true, List.of()),
                         "composite_job"),
                 Arguments.of("task state", new StateBehavior.ModelJob(Generators.letterStrings(1, 8).next(),
-                        Optional.of(Generators.letterStrings(1, 8).next()), Optional.empty(), Optional.empty(),
+                        Generators.letterStrings(1, 8).next(), null, null,
                         StateBehavior.AskForm.NONE, List.of(), List.of()), "job"),
                 Arguments.of("call state", new StateBehavior.SubWorkflowCall(
-                        Generators.letterStrings(1, 8).next(), Optional.empty(), Map.of(), List.of()), "call"),
+                        Generators.letterStrings(1, 8).next(), null, Map.of(), List.of()), "call"),
                 Arguments.of("call state through a named entry", new StateBehavior.SubWorkflowCall(
-                        Generators.letterStrings(1, 8).next(), Optional.of(Generators.letterStrings(1, 8).next()),
+                        Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
                         Map.of(), List.of()), "call"),
                 Arguments.of("question state",
                         new StateBehavior.QuestionWait(Generators.letterStrings(1, 8).next(), List.of()),

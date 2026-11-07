@@ -11,7 +11,8 @@ package de.planmarshall.workflow.ast;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * The type of a parameter: of a free parameter of a link, of a sub-workflow parameter, or of the result of a
@@ -24,43 +25,43 @@ public sealed interface ParamType
 
     /**
      * {@code text}: a string with optional length bounds. The source form of the bounds is the range
-     * {@code [<low>..<high>]}, so the two bounds are both present or both absent.
+     * {@code [<low>..<high>]}, so the two bounds are both present or both {@code null}.
      *
-     * @param minLength the least length, present exactly when {@code maxLength} is
-     * @param maxLength the greatest length, present exactly when {@code minLength} is
+     * @param minLength the least length, {@code null} exactly when {@code maxLength} is
+     * @param maxLength the greatest length, {@code null} exactly when {@code minLength} is
      */
-    record Text(Optional<Integer> minLength, Optional<Integer> maxLength) implements ParamType {
+    record Text(@Nullable Integer minLength, @Nullable Integer maxLength) implements ParamType {
 
         /**
          * Refuses a single bound.
          *
-         * @param minLength the least length, present exactly when {@code maxLength} is
-         * @param maxLength the greatest length, present exactly when {@code minLength} is
+         * @param minLength the least length, {@code null} exactly when {@code maxLength} is
+         * @param maxLength the greatest length, {@code null} exactly when {@code minLength} is
          * @throws IllegalArgumentException if exactly one of the two bounds is present
          */
         public Text {
-            requirePairedBounds(minLength.isPresent(), maxLength.isPresent());
+            requirePairedBounds(minLength != null, maxLength != null);
         }
     }
 
     /**
      * {@code int}: an integer with optional bounds. The source form of the bounds is the range
-     * {@code [<low>..<high>]}, so the two bounds are both present or both absent.
+     * {@code [<low>..<high>]}, so the two bounds are both present or both {@code null}.
      *
-     * @param min the least value, present exactly when {@code max} is
-     * @param max the greatest value, present exactly when {@code min} is
+     * @param min the least value, {@code null} exactly when {@code max} is
+     * @param max the greatest value, {@code null} exactly when {@code min} is
      */
-    record Int(Optional<Integer> min, Optional<Integer> max) implements ParamType {
+    record Int(@Nullable Integer min, @Nullable Integer max) implements ParamType {
 
         /**
          * Refuses a single bound.
          *
-         * @param min the least value, present exactly when {@code max} is
-         * @param max the greatest value, present exactly when {@code min} is
+         * @param min the least value, {@code null} exactly when {@code max} is
+         * @param max the greatest value, {@code null} exactly when {@code min} is
          * @throws IllegalArgumentException if exactly one of the two bounds is present
          */
         public Int {
-            requirePairedBounds(min.isPresent(), max.isPresent());
+            requirePairedBounds(min != null, max != null);
         }
     }
 

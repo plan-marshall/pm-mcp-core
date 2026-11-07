@@ -37,6 +37,7 @@ import de.planmarshall.workflow.unit.VerificationContext;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The inputs of the composer tests: the plan template {@code plan/plan-template-fixture.pmwf}, written for these
@@ -173,8 +174,8 @@ final class PlanFixtures {
 
     private static CompositionRequest.SubUnit subUnit(String file, String text) {
         var definition = parse(file, text, UnitOrigin.DEFAULT);
-        return new CompositionRequest.SubUnit(new UnitReference(definition.id(), Optional.of(file),
-                PlanFacts.sha256(text), UnitOrigin.DEFAULT), definition);
+        return new CompositionRequest.SubUnit(new UnitReference(definition.id(), file, PlanFacts.sha256(text),
+                UnitOrigin.DEFAULT), definition);
     }
 
     private static Map<String, String> variantTexts() {
@@ -309,12 +310,12 @@ final class PlanFixtures {
     /**
      * @param event    the composition event
      * @param facts    the facts of the plan
-     * @param previous the version in force
+     * @param previous the version in force, {@code null} for the start event
      * @param waivers  the waivers in force
      * @param position the position of the plan
      * @return the request over the template and its sub-units
      */
-    static CompositionRequest request(CompositionEvent event, PlanFacts facts, Optional<PlanInstance> previous,
+    static CompositionRequest request(CompositionEvent event, PlanFacts facts, @Nullable PlanInstance previous,
             List<Waiver> waivers, InstancePosition position) {
         return request(PLAN_ID, event, facts, previous, waivers, position);
     }
@@ -323,18 +324,18 @@ final class PlanFixtures {
      * @param planId   the plan
      * @param event    the composition event
      * @param facts    the facts of the plan
-     * @param previous the version in force
+     * @param previous the version in force, {@code null} for the start event
      * @param waivers  the waivers in force
      * @param position the position of the plan
      * @return the request over the template and its sub-units
      */
     static CompositionRequest request(String planId, CompositionEvent event, PlanFacts facts,
-            Optional<PlanInstance> previous, List<Waiver> waivers, InstancePosition position) {
+            @Nullable PlanInstance previous, List<Waiver> waivers, InstancePosition position) {
         var text = read(TEMPLATE_FILE);
-        return new CompositionRequest(planId, event, template(), List.of(new UnitReference("plan",
-                        Optional.of(TEMPLATE_FILE), PlanFacts.sha256(text), UnitOrigin.PROJECT)), subUnits(), facts,
-                PlanFacts.sha256("effective configuration"), Optional.empty(), Optional.empty(), waivers, position,
-                previous, VERIFICATION_STEPS, FINALIZE_STEPS);
+        return new CompositionRequest(planId, event, template(), List.of(new UnitReference("plan", TEMPLATE_FILE,
+                        PlanFacts.sha256(text), UnitOrigin.PROJECT)), subUnits(), facts,
+                PlanFacts.sha256("effective configuration"), null, null, waivers, position, previous,
+                VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 
     /**
@@ -342,7 +343,7 @@ final class PlanFixtures {
      * @return the request of version 1 at the start state
      */
     static CompositionRequest start(PlanFacts facts) {
-        return request(CompositionEvent.START, facts, Optional.empty(), List.of(),
+        return request(CompositionEvent.START, facts, null, List.of(),
                 InstancePosition.at("finalize.push-barrier"));
     }
 
@@ -370,24 +371,24 @@ final class PlanFixtures {
      *
      * @param event     the composition event
      * @param facts     the facts of the plan
-     * @param previous  the version in force
+     * @param previous  the version in force, {@code null} for the start event
      * @param position  the position of the plan
      * @param mutations the changes of the fixture files the project's units carry; empty for the passing units
      * @return the request; its template is the plan unit's own file
      */
-    static CompositionRequest mergedRequest(CompositionEvent event, PlanFacts facts, Optional<PlanInstance> previous,
+    static CompositionRequest mergedRequest(CompositionEvent event, PlanFacts facts, @Nullable PlanInstance previous,
             InstancePosition position, List<InvariantFixtures.Mutation> mutations) {
         var units = InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, mutations);
         var plan = units.get("plan");
-        var templates = List.of(new UnitReference("plan", Optional.of(InvariantFixtures.PLAN_FILE),
+        var templates = List.of(new UnitReference("plan", InvariantFixtures.PLAN_FILE,
                 PlanFacts.sha256(WorkflowPrinter.print(plan)), UnitOrigin.PROJECT));
         var subUnits = Stream.concat(InvariantFixtures.PLAN_FILES.stream(), InvariantFixtures.SUB_UNIT_FILES.stream())
                 .map(file -> subUnitOf(file, units.get(parse(file, InvariantFixtures.read(file),
                         UnitOrigin.DEFAULT).id())))
                 .toList();
         return new CompositionRequest(PLAN_ID, event, plan, templates, subUnits, facts,
-                PlanFacts.sha256("effective configuration"), Optional.empty(), Optional.empty(), List.of(), position,
-                previous, VERIFICATION_STEPS, FINALIZE_STEPS);
+                PlanFacts.sha256("effective configuration"), null, null, List.of(), position, previous,
+                VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 
     /**
@@ -396,7 +397,7 @@ final class PlanFixtures {
      * @return the sub-unit with its reference, its digest taken from its printed form
      */
     private static CompositionRequest.SubUnit subUnitOf(String file, WorkflowDefinition definition) {
-        return new CompositionRequest.SubUnit(new UnitReference(definition.id(), Optional.of(file),
+        return new CompositionRequest.SubUnit(new UnitReference(definition.id(), file,
                 PlanFacts.sha256(WorkflowPrinter.print(definition)), UnitOrigin.DEFAULT), definition);
     }
 
@@ -423,18 +424,17 @@ final class PlanFixtures {
     /**
      * @param event    the composition event
      * @param facts    the facts of the plan
-     * @param previous the version in force
+     * @param previous the version in force, {@code null} for the start event
      * @param position the position of the plan
      * @return the request over the per-lane plan unit, the project's unit, and the phase units it calls
      */
-    static CompositionRequest perLaneRequest(CompositionEvent event, PlanFacts facts, Optional<PlanInstance> previous,
+    static CompositionRequest perLaneRequest(CompositionEvent event, PlanFacts facts, @Nullable PlanInstance previous,
             InstancePosition position) {
         var text = read(PER_LANE_FILE);
         return new CompositionRequest(PLAN_ID, event, parse(PER_LANE_FILE, text, UnitOrigin.PROJECT),
-                List.of(new UnitReference("plan", Optional.of(PER_LANE_FILE), PlanFacts.sha256(text),
-                        UnitOrigin.PROJECT)), phaseUnits(), facts, PlanFacts.sha256("effective configuration"),
-                Optional.empty(), Optional.empty(), List.of(), position, previous, VERIFICATION_STEPS,
-                FINALIZE_STEPS);
+                List.of(new UnitReference("plan", PER_LANE_FILE, PlanFacts.sha256(text), UnitOrigin.PROJECT)),
+                phaseUnits(), facts, PlanFacts.sha256("effective configuration"), null, null, List.of(), position,
+                previous, VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 
     /**

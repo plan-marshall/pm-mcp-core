@@ -195,7 +195,7 @@ final class TestPrimitives {
                 .with(new EntityKind(REPAIR_KIND, "entity", EVALUATE_REPAIR))
                 .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE))
                 .with(new EntityKind(UNEVALUATED_KIND, "entity", MISSING))
-                .with(new EntityKind(UNIT_LESS_KIND, Optional.empty(), EVALUATE_CHANGE));
+                .with(new EntityKind(UNIT_LESS_KIND, null, EVALUATE_CHANGE));
     }
 
     /**

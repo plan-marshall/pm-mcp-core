@@ -11,9 +11,9 @@ package de.planmarshall.workflow.engine;
 
 import java.time.Duration;
 import java.util.Objects;
-import java.util.Optional;
 
 import de.planmarshall.core.spi.WorkflowClock;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Selects the wait the server holds open for a model (PM-WF-8, PM-IMPL-4): with no model involvement, from the
@@ -37,22 +37,21 @@ public final class WaitSelection {
      * Selects the wait of one call and starts it at the clock's instant.
      *
      * @param connection    the effective connection block of the calling connection's client profile
-     * @param progressToken the request's {@code _meta.progressToken}; empty when the request carries none, and a blank
-     *                      token counts as none
+     * @param progressToken the request's {@code _meta.progressToken}; {@code null} when the request carries none, and a
+     *                      blank token counts as none
      * @param call          the call held open
      * @param settings      the machine-wide progress values
      * @param clock         the clock the wait starts at
      * @return the wait
-     * @throws NullPointerException if an argument is {@code null}
+     * @throws NullPointerException if the connection, the call, the settings or the clock is {@code null}
      */
-    public static ModelWait select(ConnectionSettings connection, Optional<String> progressToken, ModelCall call,
+    public static ModelWait select(ConnectionSettings connection, @Nullable String progressToken, ModelCall call,
             WaitSettings settings, WorkflowClock clock) {
         Objects.requireNonNull(connection, "connection");
-        Objects.requireNonNull(progressToken, "progressToken");
         Objects.requireNonNull(call, "call");
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(clock, "clock");
-        var qualifies = connection.progressResetsTimeout() && progressToken.filter(token -> !token.isBlank()).isPresent();
+        var qualifies = connection.progressResetsTimeout() && progressToken != null && !progressToken.isBlank();
         if (!qualifies) {
             return new ModelWait.Bounded(call, clock.now(), connection.boundedWait());
         }

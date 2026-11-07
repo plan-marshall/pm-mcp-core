@@ -39,6 +39,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Composes one version of a plan instance and verifies it before anyone may write it (PM-IMPL-5, PM-WF-1, PM-EXT-7,
@@ -132,8 +133,7 @@ public final class PlanInstanceComposer {
         var facts = withVariantDeclarations(request.facts(), request.subUnits());
         var effects = CompositionRuleEvaluator.evaluate(rules, facts);
         var bound = Arrays.stream(PlanFacts.Axis.values()).map(facts::bound).toList();
-        var lanePruned = request.event() == CompositionEvent.START ? Optional.<PlanInstanceHeader.Lane>empty()
-                : facts.lane();
+        PlanInstanceHeader.@Nullable Lane lanePruned = request.event() == CompositionEvent.START ? null : facts.lane();
         var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
                 request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
@@ -184,7 +184,7 @@ public final class PlanInstanceComposer {
      *         digest-bound units
      */
     private static Composed composedUnits(CompositionRequest request, Map<String, StateNode> keptStates,
-            RuleEffects effects, List<PlanFacts.BoundVariant> boundVariants, Optional<PlanInstanceHeader.Lane> lane,
+            RuleEffects effects, List<PlanFacts.BoundVariant> boundVariants, PlanInstanceHeader.@Nullable Lane lane,
             int version) {
         var byId = new LinkedHashMap<String, CompositionRequest.SubUnit>();
         request.subUnits().forEach(subUnit -> byId.put(subUnit.definition().id(), subUnit));
@@ -274,11 +274,12 @@ public final class PlanInstanceComposer {
      * exits of its template kept and no {@code instance} line added.
      */
     private static UnitComposition composeUnit(WorkflowDefinition definition, CompositionRequest request,
-            RuleEffects effects, List<PlanFacts.BoundVariant> bound, Optional<PlanInstanceHeader.Lane> lane, int version) {
+            RuleEffects effects, List<PlanFacts.BoundVariant> bound, PlanInstanceHeader.@Nullable Lane lane,
+            int version) {
         var pruned = InstancePruner.prune(definition, effects, bound, request.waivers(), request.verificationSteps(),
                 request.finalizeSteps(), lane);
         var composed = new WorkflowDefinition(definition.frontmatter(), definition.id(), version, definition.scope(),
-                definition.params(), definition.resultSchema(), Optional.empty(), definition.declarations(),
+                definition.params(), definition.resultSchema(), null, definition.declarations(),
                 definition.decisions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
                 definition.startState(), definition.entryBindings(), definition.migrations(), pruned.states(),
                 definition.location());
@@ -311,13 +312,13 @@ public final class PlanInstanceComposer {
         composed.units().forEach(unit -> composedIds.add(unit.unit()));
         var templates = new ArrayList<UnitReference>();
         for (var reference : request.templates()) {
-            templates.add(new UnitReference(reference.unit(), Optional.of(PlanInstanceStore.versionPath(version)),
+            templates.add(new UnitReference(reference.unit(), PlanInstanceStore.versionPath(version),
                     reference.digest(), reference.origin()));
         }
         for (var unit : composed.units()) {
             var source = request.subUnits().stream()
                     .filter(subUnit -> subUnit.definition().id().equals(unit.unit())).findFirst().orElseThrow();
-            templates.add(new UnitReference(unit.unit(), Optional.of(unit.file()), unit.digest(),
+            templates.add(new UnitReference(unit.unit(), unit.file(), unit.digest(),
                     source.reference().origin()));
         }
         var subUnits = request.subUnits().stream().map(CompositionRequest.SubUnit::reference)
@@ -345,7 +346,7 @@ public final class PlanInstanceComposer {
                         inputs.realizedFootprintDigest(), inputs.changeType(), inputs.providersDigest()),
                 HeaderJson.write(header));
         return new WorkflowDefinition(instanceFrontmatter(template.frontmatter()), PLAN_UNIT, header.version(),
-                template.scope(), template.params(), template.resultSchema(), Optional.of(instance),
+                template.scope(), template.params(), template.resultSchema(), instance,
                 template.declarations(), template.decisions(), template.formatVersion(), template.origin(),
                 Map.<String, Integer>of(), template.startState(), template.entryBindings(), template.migrations(),
                 states, template.location());
@@ -359,8 +360,9 @@ public final class PlanInstanceComposer {
     }
 
     private static List<InstanceInputs.UnitRef> unitRefs(List<UnitReference> references) {
-        return references.stream().map(reference -> new InstanceInputs.UnitRef(reference.unit(), reference.file(),
-                reference.digest(), UnitReference.wireName(reference.origin()))).toList();
+        return references.stream().map(reference -> new InstanceInputs.UnitRef(reference.unit(),
+                reference.file(), reference.digest(), UnitReference.wireName(reference.origin())))
+                .toList();
     }
 
     /**
@@ -368,7 +370,7 @@ public final class PlanInstanceComposer {
      *         invariants, each listed once
      */
     private List<String> verify(CompositionRequest request, PlanInstanceHeader header, WorkflowDefinition unit,
-            Optional<PlanInstanceHeader.Lane> lane, Map<String, Set<String>> settled) {
+            PlanInstanceHeader.@Nullable Lane lane, Map<String, Set<String>> settled) {
         var found = new ArrayList<String>();
         HeaderSchemaCheck.check(header).forEach(violation -> found.add("header '%s': %s"
                 .formatted(violation.pointer(), violation.reason())));
@@ -384,7 +386,7 @@ public final class PlanInstanceComposer {
                 .filter(step -> keptSteps.contains(step.name())).toList());
         pipeline.forEach(violation -> found.add("pipeline step '%s' (%s): %s".formatted(violation.stepName(),
                 violation.rule(), violation.message())));
-        invariants.check(unit, catalog, result, pipeline, lane.map(PlanInstanceHeader.Lane::wireName)).stream()
+        invariants.check(unit, catalog, result, pipeline, lane == null ? null : lane.wireName()).stream()
                 .filter(violation -> !CompiledInvariants.reReports(violation, unit, result))
                 .forEach(violation -> found.add("%s in '%s': %s".formatted(violation.id().wireId(),
                         violation.stateId(), violation.message())));

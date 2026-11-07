@@ -115,7 +115,7 @@ class DefaultUnitLoaderTest {
             assertAll(
                     () -> units.values().forEach(unit -> assertEquals(UnitOrigin.DEFAULT, unit.origin(), unit::id)),
                     () -> assertEquals(InvariantFixtures.ROOT + "plan.pmwf", plan.location().resourceName()),
-                    () -> assertEquals(Optional.of("phases.init"), plan.startState()),
+                    () -> assertEquals("phases.init", plan.startState(), "the plan unit starts at phases.init"),
                     () -> assertEquals(InvariantFixtures.ROOT + "init.pmwf",
                             units.get("phase-1-init").location().resourceName()),
                     () -> assertEquals(Map.of(), plan.derivedFrom()));

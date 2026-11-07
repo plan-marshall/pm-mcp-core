@@ -14,7 +14,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.CycleMeasure;
@@ -136,7 +135,7 @@ final class SubWorkflowInvariants {
             case StateBehavior.JobStep job -> new StateBehavior.JobStep(job.primitiveId(), job.composite(),
                     shape(job.transitions()));
             case StateBehavior.ModelJob job -> new StateBehavior.ModelJob(job.entityKind(),
-                    ignoreRole ? Optional.empty() : job.roleName(), job.fanOutPrimitiveId(), job.rolesPrimitiveId(),
+                    ignoreRole ? null : job.roleName(), job.fanOutPrimitiveId(), job.rolesPrimitiveId(),
                     job.askForm(), job.consultRoles(), shape(job.transitions()));
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
                     call.entry(), call.paramBindings(), shape(call.transitions()));
@@ -227,11 +226,10 @@ final class SubWorkflowInvariants {
                 continue;
             }
             var outcome = state.terminalOutcome();
-            var inContract = outcome.filter(terminal -> contract.contains(terminal.id())).isPresent();
-            var isDone = inContract && outcome.filter(terminal -> DONE.equals(terminal.id())
-                    && terminal.outcomeClass() == OutcomeClass.SUCCESS).isPresent();
-            var isSteppedOut = inContract && outcome.filter(terminal -> CompiledInvariants.STEPPED_OUT
-                    .equals(terminal.id()) && terminal.outcomeClass() == OutcomeClass.STEPPED_OUT).isPresent();
+            var inContract = outcome != null && contract.contains(outcome.id());
+            var isDone = inContract && DONE.equals(outcome.id()) && outcome.outcomeClass() == OutcomeClass.SUCCESS;
+            var isSteppedOut = inContract && CompiledInvariants.STEPPED_OUT.equals(outcome.id())
+                    && outcome.outcomeClass() == OutcomeClass.STEPPED_OUT;
             hasDone |= isDone;
             if (!isDone && !isSteppedOut) {
                 context.reportState(id, state, "the terminal '%s' is outside the exit contract %s"
@@ -241,9 +239,12 @@ final class SubWorkflowInvariants {
         if (!hasDone) {
             context.reportUnit(id, "the unit has no terminal 'done' of class SUCCESS");
         }
-        if (!unit.resultSchema().equals(context.reference().resultSchema())) {
+        var resultSchema = unit.resultSchema();
+        var referenceSchema = context.reference().resultSchema();
+        if (!Objects.equals(resultSchema, referenceSchema)) {
             context.reportUnit(id, "the result schema %s differs from the default unit's %s".formatted(
-                    unit.resultSchema().orElse("none"), context.reference().resultSchema().orElse("none")));
+                    Objects.requireNonNullElse(resultSchema, "none"),
+                    Objects.requireNonNullElse(referenceSchema, "none")));
         }
         for (var edge : Context.edges(unit)) {
             if (!PUSH_STATE_UNKNOWN.equals(edge.transition().outcomeName())) {

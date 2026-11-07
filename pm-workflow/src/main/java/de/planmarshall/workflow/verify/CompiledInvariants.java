@@ -39,6 +39,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.finalize.PipelineViolation;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Checks a project-owned unit against the compiled invariants of {@link InvariantId} (PM-IMPL-5, PM-WF-16).
@@ -167,14 +168,15 @@ public final class CompiledInvariants {
      * @param pipeline the violations of the finalize pipeline validator over the project's roster; empty for every
      *                 unit but the plan unit
      * @param lane     the wire name of the plan's lane ({@code light}, {@code deep}, {@code land}, {@code adopt});
-     *                 empty where the lane is unknown, as for a template. {@link InvariantId#INV_INIT_2} holds per lane:
-     *                 it requires the {@code light -> deep} ratchet only for the lane {@code light} or an unknown lane
+     *                 {@code null} where the lane is unknown, as for a template. {@link InvariantId#INV_INIT_2} holds
+     *                 per lane: it requires the {@code light -> deep} ratchet only for the lane {@code light} or an
+     *                 unknown lane
      * @return every violation, ordered by the declaration order of its state, violations of the unit as a whole after
      *         every state, and within a state by invariant; empty when the unit satisfies every invariant
-     * @throws NullPointerException if an argument is {@code null}
+     * @throws NullPointerException if the unit, the rules or the pipeline is {@code null}
      */
     public List<InvariantViolation> check(WorkflowDefinition unit, VerificationResult rules,
-            List<PipelineViolation> pipeline, Optional<String> lane) {
+            List<PipelineViolation> pipeline, @Nullable String lane) {
         return check(unit, List.of(), rules, pipeline, lane);
     }
 
@@ -190,19 +192,19 @@ public final class CompiledInvariants {
      * @param pipeline the violations of the finalize pipeline validator over the project's roster; empty for every
      *                 unit but the plan unit
      * @param lane     the wire name of the plan's lane ({@code light}, {@code deep}, {@code land}, {@code adopt});
-     *                 empty where the lane is unknown, as for a template. {@link InvariantId#INV_INIT_2} holds per lane:
-     *                 it requires the {@code light -> deep} ratchet only for the lane {@code light} or an unknown lane
+     *                 {@code null} where the lane is unknown, as for a template. {@link InvariantId#INV_INIT_2} holds
+     *                 per lane: it requires the {@code light -> deep} ratchet only for the lane {@code light} or an
+     *                 unknown lane
      * @return every violation, ordered by the declaration order of its state, violations of the unit as a whole after
      *         every state, and within a state by invariant; empty when the unit satisfies every invariant
-     * @throws NullPointerException if an argument is {@code null}
+     * @throws NullPointerException if the unit, the callable units, the rules or the pipeline is {@code null}
      */
     public List<InvariantViolation> check(WorkflowDefinition unit, Collection<WorkflowDefinition> callable,
-            VerificationResult rules, List<PipelineViolation> pipeline, Optional<String> lane) {
+            VerificationResult rules, List<PipelineViolation> pipeline, @Nullable String lane) {
         Objects.requireNonNull(unit, "unit");
         Objects.requireNonNull(callable, "callable");
         Objects.requireNonNull(rules, "rules");
         Objects.requireNonNull(pipeline, "pipeline");
-        Objects.requireNonNull(lane, "lane");
         var reference = defaultUnits.get(unit.id());
         if (reference == null) {
             var found = new ArrayList<>(ruleViolations(unit, rules));
@@ -378,14 +380,15 @@ public final class CompiledInvariants {
 
         private final Subject subject;
 
-        private final Optional<String> lane;
+        /** The wire name of the plan's lane; {@code null} where the lane is unknown. */
+        private final @Nullable String lane;
 
         private final List<InvariantViolation> found = new ArrayList<>();
 
         Context(WorkflowDefinition unit, WorkflowDefinition reference, Map<String, WorkflowDefinition> defaults,
                 Collection<WorkflowDefinition> callable, VerificationResult rules, List<PipelineViolation> pipeline,
                 PrimitiveRegistry registry, List<FinalizeStepDescriptor> defaultRoster, Subject subject,
-                Optional<String> lane) {
+                @Nullable String lane) {
             this.unit = unit;
             this.reference = reference;
             var unitCatalog = new LinkedHashMap<String, WorkflowDefinition>();
@@ -423,7 +426,7 @@ public final class CompiledInvariants {
          * @return the wire name of the plan's lane; empty where the lane is unknown
          */
         Optional<String> lane() {
-            return lane;
+            return Optional.ofNullable(lane);
         }
 
         WorkflowDefinition unit() {
@@ -557,8 +560,7 @@ public final class CompiledInvariants {
                 return false;
             }
             var terminals = callee.states().values().stream()
-                    .filter(state -> state.terminalOutcome()
-                            .map(outcome -> outcome.id().equals(transition.outcomeName())).orElse(false))
+                    .filter(state -> reports(state, transition.outcomeName()))
                     .toList();
             return !terminals.isEmpty() && terminals.stream()
                     .allMatch(state -> stateId.equals(state.id()) || dominates(stateId, state.id()));
@@ -692,8 +694,14 @@ public final class CompiledInvariants {
         }
 
         static boolean isTerminalOfClass(StateNode state, OutcomeClass outcomeClass) {
-            return isTerminal(state) && state.terminalOutcome().map(outcome -> outcome.outcomeClass() == outcomeClass)
-                    .orElse(false);
+            var outcome = state.terminalOutcome();
+            return isTerminal(state) && outcome != null && outcome.outcomeClass() == outcomeClass;
+        }
+
+        /** Whether the state is a terminal that reports the given outcome. */
+        static boolean reports(StateNode state, String outcomeName) {
+            var outcome = state.terminalOutcome();
+            return outcome != null && outcome.id().equals(outcomeName);
         }
 
         /**

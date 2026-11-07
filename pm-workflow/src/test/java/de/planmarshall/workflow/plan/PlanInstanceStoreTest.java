@@ -29,6 +29,7 @@ import java.nio.file.attribute.FileTime;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -58,6 +59,7 @@ import de.planmarshall.workflow.dsl.WorkflowPrinter;
 import de.planmarshall.workflow.log.WorkflowLogMessages;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.InvariantFixtures;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The store of the plan instance (PM-IMPL-5, PM-WF-1): in a temporary machine store, every version file is written
@@ -119,7 +121,7 @@ class PlanInstanceStoreTest {
 
     private static List<SubUnitText> texts() {
         return PlanFixtures.subUnits().stream().map(subUnit -> new SubUnitText(subUnit.reference(),
-                PlanFixtures.subUnitText(subUnit.reference().file().orElseThrow()))).toList();
+                PlanFixtures.subUnitText(Objects.requireNonNull(subUnit.reference().file(), "file")))).toList();
     }
 
     private static PlanInstance version1() {
@@ -128,8 +130,8 @@ class PlanInstanceStoreTest {
     }
 
     private static PlanInstance nextVersion(PlanInstance previous, List<CompositionRequest.SubUnit> subUnits) {
-        var template = PlanFixtures.request(CompositionEvent.WAIVER, facts().build(), Optional.of(previous),
-                List.of(), InstancePosition.at("finalize.push-barrier"));
+        var template = PlanFixtures.request(CompositionEvent.WAIVER, facts().build(), previous, List.of(),
+                InstancePosition.at("finalize.push-barrier"));
         var request = new CompositionRequest(template.planId(), template.event(), template.template(),
                 template.templates(), subUnits, template.facts(), template.configHash(),
                 template.realizedFootprintDigest(), template.providersDigest(), template.waivers(),
@@ -141,25 +143,25 @@ class PlanInstanceStoreTest {
     /** Composes the waiver version after the previous one, under the waivers in force. */
     private static PlanInstance waiverVersion(PlanInstance previous, List<Waiver> waivers) {
         var result = composer().compose(PlanFixtures.request(CompositionEvent.WAIVER, facts().build(),
-                Optional.of(previous), waivers, InstancePosition.at("finalize.push-barrier")));
+                previous, waivers, InstancePosition.at("finalize.push-barrier")));
         return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
     }
 
     /** Records version 1. */
     private void recordComposed(PlanInstance instance, List<SubUnitText> texts) {
         committed(transaction -> store.recordComposed(transaction, instance, texts,
-                CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT)));
+                CompositionRecord.composed(instance, null, COMPOSED_AT)));
     }
 
     /** Records the version after the previous one. */
     private void recordComposed(PlanInstance previous, PlanInstance instance, List<SubUnitText> texts) {
         committed(transaction -> store.recordComposed(transaction, instance, texts,
-                CompositionRecord.composed(instance, Optional.of(previous), COMPOSED_AT)));
+                CompositionRecord.composed(instance, previous, COMPOSED_AT)));
     }
 
-    private static CompositionRecord attempt(CompositionRecord.Result result, Optional<CompositionCause> cause) {
-        return new CompositionRecord(CompositionEvent.CONFIG_ADOPTED, result, Optional.empty(),
-                CompositionEvent.Trigger.OPERATOR, cause, new TreeMap<>(), Optional.empty(), COMPOSED_AT);
+    private static CompositionRecord attempt(CompositionRecord.Result result, @Nullable CompositionCause cause) {
+        return new CompositionRecord(CompositionEvent.CONFIG_ADOPTED, result, null,
+                CompositionEvent.Trigger.OPERATOR, cause, new TreeMap<>(), null, COMPOSED_AT);
     }
 
     private List<String> logLines() throws IOException {
@@ -200,7 +202,7 @@ class PlanInstanceStoreTest {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
-                var compositionRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
+                var compositionRecord = CompositionRecord.composed(instance, null, COMPOSED_AT);
                 var texts = texts();
                 assertThrows(IllegalStateException.class, () -> store.recordComposed(transaction, instance, texts,
                         compositionRecord));
@@ -233,9 +235,10 @@ class PlanInstanceStoreTest {
                 var secondTransaction = ScopeTransaction.open(lock, scope, event -> {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
-                store.recordComposed(firstTransaction, first, texts, CompositionRecord.composed(first, Optional.empty(), COMPOSED_AT));
-                store.recordComposed(secondTransaction, second, texts,
-                        CompositionRecord.composed(second, Optional.empty(), COMPOSED_AT));
+                store.recordComposed(firstTransaction, first, texts, CompositionRecord.composed(first, null,
+                        COMPOSED_AT));
+                store.recordComposed(secondTransaction, second, texts, CompositionRecord.composed(second, null,
+                        COMPOSED_AT));
 
                 firstTransaction.commit();
 
@@ -251,8 +254,8 @@ class PlanInstanceStoreTest {
         @DisplayName("a record that does not record the version, or a composed attempt without its text, is refused")
         void mismatchedRecord() {
             var instance = version1();
-            var refusedRecord = attempt(CompositionRecord.Result.REFUSED, Optional.empty());
-            var composedRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
+            var refusedRecord = attempt(CompositionRecord.Result.REFUSED, null);
+            var composedRecord = CompositionRecord.composed(instance, null, COMPOSED_AT);
             var texts = texts();
 
             try (var lock = new HoldingEverything()) {
@@ -274,8 +277,8 @@ class PlanInstanceStoreTest {
 
         private CompositionRecord composedWith(CompositionEvent event, CompositionEvent.Trigger trigger,
                 SortedMap<String, String> digests) {
-            return new CompositionRecord(event, CompositionRecord.Result.COMPOSED, Optional.of(1), trigger,
-                    Optional.empty(), digests, Optional.empty(), COMPOSED_AT);
+            return new CompositionRecord(event, CompositionRecord.Result.COMPOSED, 1, trigger, null, digests, null,
+                    COMPOSED_AT);
         }
 
         private void assertRefused(CompositionRecord compositionRecord) {
@@ -331,9 +334,9 @@ class PlanInstanceStoreTest {
         void lineperAttempt() throws Exception {
             recordComposed(version1(), texts());
             committed(transaction -> store.recordAttempt(transaction, attempt(CompositionRecord.Result.REFUSED,
-                    Optional.of(CompositionCause.refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED)))));
+                    CompositionCause.refused(CompositionResult.Refusal.POSITION_NOT_CONTAINED))));
             committed(transaction -> store.recordAttempt(transaction, attempt(CompositionRecord.Result.KEPT,
-                    Optional.empty())));
+                    null)));
 
             var lines = logLines();
             assertAll(
@@ -350,7 +353,7 @@ class PlanInstanceStoreTest {
         @DisplayName("a refused composition writes its line and no version or sub-unit file, and is logged")
         void refusedWritesOnlyItsLine() {
             committed(transaction -> store.recordAttempt(transaction, attempt(CompositionRecord.Result.REFUSED,
-                    Optional.of(CompositionCause.refused(CompositionResult.Refusal.INVARIANT_FAILED)))));
+                    CompositionCause.refused(CompositionResult.Refusal.INVARIANT_FAILED))));
 
             assertAll(
                     () -> assertEquals(1, logLines().size()),
@@ -368,7 +371,7 @@ class PlanInstanceStoreTest {
             var instance = version1();
             var inputs = instance.header().inputs();
 
-            var digests = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT).inputDigests();
+            var digests = CompositionRecord.composed(instance, null, COMPOSED_AT).inputDigests();
 
             assertAll(
                     () -> assertEquals(inputs.configHash(), digests.get("config_hash")),
@@ -385,34 +388,69 @@ class PlanInstanceStoreTest {
         void versionFitsResult() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, Optional.empty(),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), Optional.empty(),
-                            COMPOSED_AT)),
+                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, null,
+                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.KEPT, Optional.of(2),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), Optional.empty(),
-                            COMPOSED_AT)));
+                            CompositionEvent.PLAN, CompositionRecord.Result.KEPT, 2,
+                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT)));
+        }
+
+        @Test
+        @DisplayName("an attempt with every optional member absent is one line with a null version and no cause")
+        void absentMembersLine() {
+            var line = attempt(CompositionRecord.Result.KEPT, null).toJson();
+
+            // the expected text is the wire format of the composition log
+            assertEquals("{\"event\":\"config_adopted\",\"format_version\":1,\"input_digests\":{},"
+                    + "\"recorded_at\":\"2026-10-14T08:00:00Z\",\"result\":\"kept\",\"trigger\":\"operator\","
+                    + "\"version\":null}", line, "absent members are null or left out");
+        }
+
+        @Test
+        @DisplayName("a refused attempt writes its cause with every absent member as null")
+        void absentCauseMembersLine() {
+            var line = attempt(CompositionRecord.Result.REFUSED,
+                    CompositionCause.refused(CompositionResult.Refusal.INVARIANT_FAILED)).toJson();
+
+            // the expected text is the wire format of the composition log
+            assertEquals("{\"cause\":{\"deliverable_id\":null,\"fallback_cause\":null,\"from_config_hash\":null,"
+                    + "\"gate\":null,\"refusal\":\"invariant_failed\",\"replan_id\":null,\"to_config_hash\":null,"
+                    + "\"waiver_id\":null},\"event\":\"config_adopted\",\"format_version\":1,\"input_digests\":{},"
+                    + "\"recorded_at\":\"2026-10-14T08:00:00Z\",\"result\":\"refused\",\"trigger\":\"operator\","
+                    + "\"version\":null}", line, "absent cause members are written as null");
+        }
+
+        @Test
+        @DisplayName("a cause with every member present writes each member as its value")
+        void presentCauseMembersLine() {
+            var cause = new CompositionCause("ci_check:build", CompositionCause.FallbackCause.EXHAUSTED, "W-3",
+                    "D-1", "R-1", "a".repeat(64), "b".repeat(64), CompositionResult.Refusal.INVARIANT_FAILED);
+
+            var json = HeaderJson.canonical(cause.toNode());
+
+            // the expected text is the wire format of the composition log
+            assertEquals("{\"deliverable_id\":\"D-1\",\"fallback_cause\":\"exhausted\",\"from_config_hash\":\""
+                    + "a".repeat(64) + "\",\"gate\":\"ci_check:build\",\"refusal\":\"invariant_failed\","
+                    + "\"replan_id\":\"R-1\",\"to_config_hash\":\"" + "b".repeat(64) + "\",\"waiver_id\":\"W-3\"}",
+                    json, "present cause members are written as values");
         }
 
         @Test
         @DisplayName("a diff summary belongs to a composed version after the first, and to nothing else")
         @SuppressWarnings("java:S5778") // each lambda is one constructor call; its arguments are the case table
         void diffSummaryFitsVersion() {
-            var summary = Optional.of(new DiffSummary(List.of(), List.of(), List.of(), List.of(), List.of()));
+            var summary = new DiffSummary(List.of(), List.of(), List.of(), List.of(), List.of());
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, Optional.of(2),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), Optional.empty(),
-                            COMPOSED_AT)),
+                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, 2,
+                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), null, COMPOSED_AT)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.START, CompositionRecord.Result.COMPOSED, Optional.of(1),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), summary,
-                            COMPOSED_AT)),
+                            CompositionEvent.START, CompositionRecord.Result.COMPOSED, 1,
+                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), summary, COMPOSED_AT)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
-                            CompositionEvent.PLAN, CompositionRecord.Result.REFUSED, Optional.empty(),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), summary,
-                            COMPOSED_AT)));
+                            CompositionEvent.PLAN, CompositionRecord.Result.REFUSED, null,
+                            CompositionEvent.Trigger.SERVER, null, new TreeMap<>(), summary, COMPOSED_AT)));
         }
 
         @Test
@@ -424,7 +462,7 @@ class PlanInstanceStoreTest {
             recordComposed(first, texts());
             recordComposed(first, second, texts());
             committed(transaction -> store.recordAttempt(transaction, attempt(CompositionRecord.Result.KEPT,
-                    Optional.empty())));
+                    null)));
 
             var lines = logLines();
             assertAll(
@@ -444,9 +482,9 @@ class PlanInstanceStoreTest {
             recordComposed(first, texts());
             var raised = waiverVersion(first, List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", 4)));
             var plain = waiverVersion(first, List.of());
-            var foreign = CompositionRecord.composed(raised, Optional.of(first), COMPOSED_AT);
+            var foreign = CompositionRecord.composed(raised, first, COMPOSED_AT);
             var mismatched = new CompositionRecord(plain.header().event(), CompositionRecord.Result.COMPOSED,
-                    Optional.of(2), plain.header().event().trigger(), Optional.empty(),
+                    2, plain.header().event().trigger(), null,
                     CompositionRecord.inputDigests(plain.header().inputs()), foreign.diffSummary(), COMPOSED_AT);
             var texts = texts();
 
@@ -467,10 +505,10 @@ class PlanInstanceStoreTest {
         void previousVersionRequired() {
             var first = version1();
             var second = waiverVersion(first, List.of());
-            var previous = Optional.of(first);
+            var previous = first;
             var compositionRecord = CompositionRecord.composed(second, previous, COMPOSED_AT);
             var texts = texts();
-            Optional<PlanInstance> noPrevious = Optional.empty();
+            @Nullable PlanInstance noPrevious = null;
 
             try (var lock = new HoldingEverything()) {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
@@ -494,7 +532,7 @@ class PlanInstanceStoreTest {
             var first = version1();
             recordComposed(first, texts());
             var second = waiverVersion(first, List.of());
-            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(second, first, COMPOSED_AT);
             var texts = texts();
             var corrupted = first.text().replace("\"format_version\":1,", "\"format_version\":2,");
             Files.writeString(scope.resolve(PlanInstanceStore.versionPath(1)), corrupted, StandardCharsets.UTF_8);
@@ -522,7 +560,7 @@ class PlanInstanceStoreTest {
             var first = version1();
             recordComposed(first, texts());
             var second = waiverVersion(first, List.of());
-            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(second, first, COMPOSED_AT);
             var texts = texts();
             var corrupted = first.text().replace("\nscope plan\n", "\nscope team\n");
             Files.writeString(scope.resolve(PlanInstanceStore.versionPath(1)), corrupted, StandardCharsets.UTF_8);
@@ -551,7 +589,7 @@ class PlanInstanceStoreTest {
             var first = version1();
             recordComposed(first, texts());
             var second = waiverVersion(first, List.of());
-            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(second, first, COMPOSED_AT);
             var texts = texts();
             var headerless = first.text().lines()
                     .filter(line -> !line.startsWith("instance "))
@@ -624,7 +662,7 @@ class PlanInstanceStoreTest {
                 + "write")
         void adjudicationUnitTextMissing() {
             var instance = withAdjudication();
-            var compositionRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(instance, null, COMPOSED_AT);
             var texts = texts();
 
             try (var lock = new HoldingEverything()) {
@@ -648,7 +686,7 @@ class PlanInstanceStoreTest {
         private static List<SubUnitText> textsWithAdjudication() {
             var request = PlanFixtures.withAdjudication(PlanFixtures.start(facts().build()));
             return request.subUnits().stream().map(subUnit -> new SubUnitText(subUnit.reference(),
-                    PlanFixtures.subUnitText(subUnit.reference().file().orElseThrow()))).toList();
+                    PlanFixtures.subUnitText(Objects.requireNonNull(subUnit.reference().file(), "file")))).toList();
         }
 
         @Test
@@ -693,7 +731,7 @@ class PlanInstanceStoreTest {
         @DisplayName("a text that does not match its digest, or a missing text, is refused before any write")
         void refusedBeforeWrite() {
             var instance = version1();
-            var compositionRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(instance, null, COMPOSED_AT);
             var reference = texts().getFirst().reference();
             var otherText = InvariantFixtures.read(InvariantFixtures.GIT_FILE)
                     .replace("workflow git.commit_and_push version", "workflow other version");
@@ -727,7 +765,7 @@ class PlanInstanceStoreTest {
 
         private static PlanInstance merged() {
             var result = PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
-                    facts().build(), Optional.empty(), AT_INIT, List.of()));
+                    facts().build(), null, AT_INIT, List.of()));
             return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
         }
 
@@ -774,7 +812,7 @@ class PlanInstanceStoreTest {
             var withoutUnits = new PlanInstance(instance.version(), instance.header(), instance.unit(),
                     instance.text());
             var texts = textsOf(withoutUnits);
-            var compositionRecord = CompositionRecord.composed(withoutUnits, Optional.empty(), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(withoutUnits, null, COMPOSED_AT);
 
             try (var lock = new HoldingEverything()) {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
@@ -797,7 +835,7 @@ class PlanInstanceStoreTest {
             var mixed = new PlanInstance(instance.version(), instance.header(), instance.unit(), instance.text(),
                     Stream.concat(instance.units().stream(), Stream.of(extra)).toList());
             var texts = textsOf(mixed);
-            var compositionRecord = CompositionRecord.composed(mixed, Optional.empty(), COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(mixed, null, COMPOSED_AT);
 
             try (var lock = new HoldingEverything()) {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {

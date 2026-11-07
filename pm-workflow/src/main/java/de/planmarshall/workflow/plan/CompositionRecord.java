@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -23,6 +22,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One line of the composition log {@code instance/composition.jsonl} of a plan (PM-IMPL-5, PM-EXT-7): one composition
@@ -33,18 +33,18 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  *
  * @param event        the composition event
  * @param result       what became of the attempt
- * @param version      the composed version; present exactly when the result is {@link Result#COMPOSED}
+ * @param version      the composed version; non-null exactly when the result is {@link Result#COMPOSED}
  * @param trigger      who triggered the event
- * @param cause        why the composition was attempted or refused, if the event names a cause
+ * @param cause        why the composition was attempted or refused; {@code null} if the event names no cause
  * @param inputDigests the digests of the inputs the attempt read, by name
- * @param diffSummary  the composed version relative to the version before it; present exactly when a version after
+ * @param diffSummary  the composed version relative to the version before it; non-null exactly when a version after
  *                     the first was composed
  * @param recordedAt   when the attempt was recorded
  * @since 0.1
  */
-public record CompositionRecord(CompositionEvent event, Result result, Optional<Integer> version,
-CompositionEvent.Trigger trigger, Optional<CompositionCause> cause, SortedMap<String, String> inputDigests,
-Optional<DiffSummary> diffSummary, Instant recordedAt) {
+public record CompositionRecord(CompositionEvent event, Result result, @Nullable Integer version,
+CompositionEvent.Trigger trigger, @Nullable CompositionCause cause, SortedMap<String, String> inputDigests,
+@Nullable DiffSummary diffSummary, Instant recordedAt) {
 
     /** The only format version of a line of the composition log. */
     public static final int FORMAT_VERSION = 1;
@@ -55,11 +55,11 @@ Optional<DiffSummary> diffSummary, Instant recordedAt) {
      *
      * @param event        the composition event
      * @param result       what became of the attempt
-     * @param version      the composed version
+     * @param version      the composed version, {@code null} for an attempt that composed none
      * @param trigger      who triggered the event
-     * @param cause        why the composition was attempted or refused
+     * @param cause        why the composition was attempted or refused, {@code null} if no cause is named
      * @param inputDigests the digests of the inputs
-     * @param diffSummary  the composed version relative to the version before it
+     * @param diffSummary  the composed version relative to the version before it, {@code null} where none applies
      * @param recordedAt   when the attempt was recorded
      * @throws IllegalArgumentException if a composed attempt has no version, or another attempt has one; if a
      *                                  composed version after the first has no diff summary, or version 1 or an
@@ -68,44 +68,40 @@ Optional<DiffSummary> diffSummary, Instant recordedAt) {
     public CompositionRecord {
         Objects.requireNonNull(event, "event");
         Objects.requireNonNull(result, "result");
-        Objects.requireNonNull(version, "version");
         Objects.requireNonNull(trigger, "trigger");
-        Objects.requireNonNull(cause, "cause");
         inputDigests = Collections.unmodifiableSortedMap(new TreeMap<>(Objects.requireNonNull(inputDigests,
                 "inputDigests")));
-        Objects.requireNonNull(diffSummary, "diffSummary");
         Objects.requireNonNull(recordedAt, "recordedAt");
-        if ((result == Result.COMPOSED) != version.isPresent()) {
+        if ((result == Result.COMPOSED) != (version != null)) {
             throw new IllegalArgumentException("a %s attempt %s a version".formatted(result.wireName(),
                     result == Result.COMPOSED ? "needs" : "has no"));
         }
-        if (version.filter(composed -> composed > 1).isPresent() != diffSummary.isPresent()) {
+        if ((version != null && version > 1) != (diffSummary != null)) {
             throw new IllegalArgumentException("a %s attempt%s %s".formatted(result.wireName(),
-                    version.map(composed -> " of version " + composed).orElse(""),
-                    diffSummary.isPresent() ? "takes no diff summary" : "needs a diff summary"));
+                    version == null ? "" : " of version " + version,
+                    diffSummary != null ? "takes no diff summary" : "needs a diff summary"));
         }
     }
 
     /**
      * @param instance   the composed version
-     * @param previous   the version in force before it; empty exactly for version 1
+     * @param previous   the version in force before it; {@code null} exactly for version 1
      * @param recordedAt when the attempt was recorded
      * @return the record of the composed version, its trigger the event's, its digests the header's inputs and its
      *         diff summary the version relative to the previous one
      * @throws IllegalArgumentException if the previous version is not the version before the composed one
      */
-    public static CompositionRecord composed(PlanInstance instance, Optional<PlanInstance> previous,
+    public static CompositionRecord composed(PlanInstance instance, @Nullable PlanInstance previous,
             Instant recordedAt) {
         var header = instance.header();
         var before = instance.version() - 1;
-        if (previous.map(PlanInstance::version).orElse(0) != before) {
+        if ((previous == null ? 0 : previous.version()) != before) {
             throw new IllegalArgumentException("version %d is composed after version %d, not after %s".formatted(
-                    instance.version(), before, previous.map(value -> "version " + value.version())
-                            .orElse("no version")));
+                    instance.version(), before, previous == null ? "no version" : "version " + previous.version()));
         }
-        return new CompositionRecord(header.event(), Result.COMPOSED, Optional.of(instance.version()),
-                header.event().trigger(), Optional.empty(), inputDigests(header.inputs()),
-                previous.map(value -> DiffSummary.between(value.header(), header)), recordedAt);
+        return new CompositionRecord(header.event(), Result.COMPOSED, instance.version(), header.event().trigger(),
+                null, inputDigests(header.inputs()),
+                previous == null ? null : DiffSummary.between(previous.header(), header), recordedAt);
     }
 
     /**
@@ -118,8 +114,14 @@ Optional<DiffSummary> diffSummary, Instant recordedAt) {
         digests.put("config_hash", inputs.configHash());
         digests.put("composition_rules", inputs.compositionRulesDigest());
         digests.put("plan_facts", inputs.planFactsDigest());
-        inputs.realizedFootprintDigest().ifPresent(digest -> digests.put("realized_footprint", digest));
-        inputs.providersDigest().ifPresent(digest -> digests.put("providers", digest));
+        var realizedFootprint = inputs.realizedFootprintDigest();
+        if (realizedFootprint != null) {
+            digests.put("realized_footprint", realizedFootprint);
+        }
+        var providers = inputs.providersDigest();
+        if (providers != null) {
+            digests.put("providers", providers);
+        }
         inputs.templates().forEach(unit -> digests.put("template:" + unit.unit(), unit.digest()));
         inputs.subUnits().forEach(unit -> digests.put("sub_unit:" + unit.unit(), unit.digest()));
         return digests;
@@ -133,15 +135,16 @@ Optional<DiffSummary> diffSummary, Instant recordedAt) {
         members.put("format_version", new NumberNode(BigDecimal.valueOf(FORMAT_VERSION)));
         members.put("event", new StringNode(event.wireName()));
         members.put("result", new StringNode(result.wireName()));
-        members.put("version", version.<Node>map(value -> new NumberNode(BigDecimal.valueOf(value)))
-                .orElse(NullNode.INSTANCE));
+        members.put("version", version == null ? NullNode.INSTANCE : new NumberNode(BigDecimal.valueOf(version)));
         members.put("trigger", new StringNode(trigger.wireName()));
-        cause.ifPresent(value -> members.put("cause", value.toNode()));
+        if (cause != null) {
+            members.put("cause", cause.toNode());
+        }
         var digests = new LinkedHashMap<String, Node>();
         inputDigests.forEach((name, digest) -> digests.put(name, new StringNode(digest)));
         members.put("input_digests", new ObjectNode(digests));
         if (result == Result.COMPOSED) {
-            members.put("diff_summary", diffSummary.map(DiffSummary::toNode).orElse(NullNode.INSTANCE));
+            members.put("diff_summary", diffSummary == null ? NullNode.INSTANCE : diffSummary.toNode());
         }
         members.put("recorded_at", new StringNode(recordedAt.toString()));
         return HeaderJson.canonical(new ObjectNode(members));

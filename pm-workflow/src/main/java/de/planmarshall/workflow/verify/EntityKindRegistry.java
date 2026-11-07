@@ -72,7 +72,7 @@ public final class EntityKindRegistry {
      * @return the identifiers of the entity units the registered kinds run; the zero-tool kinds have none
      */
     public Set<String> entityUnits() {
-        return kinds.values().stream().map(EntityKind::entityUnit).flatMap(Optional::stream)
+        return kinds.values().stream().map(EntityKind::entityUnit).filter(Objects::nonNull)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -88,11 +88,11 @@ public final class EntityKindRegistry {
      */
     public static EntityKindRegistry defaults() {
         return new EntityKindRegistry(List.of(
-                new EntityKind("screen", Optional.empty(), "screen.evaluate"),
-                new EntityKind("task", Optional.of("worker-task"), "task.evaluate"),
-                new EntityKind("decision", Optional.of(ENTITY_UNIT), "adjudicate.evaluate"),
-                new EntityKind("triage", Optional.of(ENTITY_UNIT), "triage.evaluate"),
-                new EntityKind("simplify", Optional.of(ENTITY_UNIT), "simplify.evaluate"),
-                new EntityKind("lessons-review", Optional.of("entity-multi"), "lessons-review.evaluate")));
+                new EntityKind("screen", null, "screen.evaluate"),
+                new EntityKind("task", "worker-task", "task.evaluate"),
+                new EntityKind("decision", ENTITY_UNIT, "adjudicate.evaluate"),
+                new EntityKind("triage", ENTITY_UNIT, "triage.evaluate"),
+                new EntityKind("simplify", ENTITY_UNIT, "simplify.evaluate"),
+                new EntityKind("lessons-review", "entity-multi", "lessons-review.evaluate")));
     }
 }

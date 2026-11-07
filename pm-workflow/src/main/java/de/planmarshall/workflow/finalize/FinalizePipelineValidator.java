@@ -158,22 +158,23 @@ public final class FinalizePipelineValidator {
     }
 
     private static void anchorAndFactContract(FinalizeStepDescriptor step, List<Found> found) {
-        if (step.headDependent() && step.inputScope().isEmpty()) {
+        var inputScope = step.inputScope();
+        if (step.headDependent() && inputScope == null) {
             report(found, step, PipelineRule.ANCHOR_AND_FACT_CONTRACT,
                     "a head-dependent step declares no input scope");
         }
-        if (!step.headDependent() && (step.inputScope().isPresent() || !step.verdictInputs().isEmpty())) {
+        if (!step.headDependent() && (inputScope != null || !step.verdictInputs().isEmpty())) {
             report(found, step, PipelineRule.ANCHOR_AND_FACT_CONTRACT,
                     "a step that is not head-dependent declares an input scope or verdict inputs");
         }
-        var declared = step.inputScope().filter(scope -> scope == InputScope.DECLARED).isPresent();
+        var declared = inputScope == InputScope.DECLARED;
         if (declared && step.verdictInputs().isEmpty()) {
             report(found, step, PipelineRule.ANCHOR_AND_FACT_CONTRACT,
                     "the input scope 'declared' goes with no verdict inputs");
         }
-        if (step.inputScope().isPresent() && !declared && !step.verdictInputs().isEmpty()) {
+        if (inputScope != null && !declared && !step.verdictInputs().isEmpty()) {
             report(found, step, PipelineRule.ANCHOR_AND_FACT_CONTRACT,
-                    "the input scope '%s' goes with verdict inputs".formatted(step.inputScope().orElseThrow()));
+                    "the input scope '%s' goes with verdict inputs".formatted(inputScope));
         }
     }
 

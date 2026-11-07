@@ -113,7 +113,8 @@ final class FinalizeInvariants {
     }
 
     private static boolean isMandatory(FinalizeStepDescriptor step) {
-        return step.lane().map(lane -> MANDATORY_LANE_CLASSES.contains(lane.laneClass())).orElse(false);
+        var lane = step.lane();
+        return lane != null && MANDATORY_LANE_CLASSES.contains(lane.laneClass());
     }
 
     private static Set<String> completedSteps(List<CompiledInvariants.Edge> edges) {

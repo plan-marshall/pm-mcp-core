@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -558,6 +559,45 @@ class CompositionRuleEvaluatorTest {
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.DEEP)
                             .steps(List.of("default:push")).tasks(List.of(task))
                             .configuration("derived.push_remote", "").build().digest()));
+        }
+
+        @Test
+        @DisplayName("the digest of facts with every optional member absent is taken over null members")
+        void digestOfAbsentMembers() {
+            var facts = PlanFacts.builder().build();
+
+            // the expected text is the canonical JSON the digest is specified over
+            assertEquals(PlanFacts.sha256("{\"axes\":{},\"change_type\":null,\"configuration\":{},"
+                            + "\"footprint\":null,\"lane\":null,\"overrides\":null,\"post_run\":null,"
+                            + "\"posture\":null,\"steps\":[],\"tasks\":[]}"), facts.digest(),
+                    "absent members are digested as JSON null");
+        }
+
+        @Test
+        @DisplayName("the digest of facts with every optional member present is taken over their values")
+        void digestOfPresentMembers() {
+            var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
+                    .postRun("returned").footprint(List.of("README.md")).overrides("{}").build();
+
+            // the expected text is the canonical JSON the digest is specified over
+            assertEquals(PlanFacts.sha256("{\"axes\":{},\"change_type\":\"feature\",\"configuration\":{},"
+                            + "\"footprint\":[\"README.md\"],\"lane\":\"deep\",\"overrides\":\""
+                            + PlanFacts.sha256("{}") + "\",\"post_run\":\"returned\",\"posture\":\"full\","
+                            + "\"steps\":[],\"tasks\":[]}"), facts.digest(),
+                    "present members are digested by their values");
+        }
+
+        @Test
+        @DisplayName("absent members are read as unknown, never as an empty value")
+        void absentMembersAreUnknown() {
+            var facts = PlanFacts.builder().build();
+
+            assertAll(
+                    () -> assertNull(facts.lane(), "an absent lane is null"),
+                    () -> assertNull(facts.footprint(), "an absent footprint is null"),
+                    () -> assertNull(facts.overrides(), "absent overrides are null"),
+                    () -> assertEquals(Optional.empty(), facts.text("lane"), "an absent lane has no text"),
+                    () -> assertEquals(Optional.empty(), facts.list("footprint"), "an absent footprint has no list"));
         }
     }
 }

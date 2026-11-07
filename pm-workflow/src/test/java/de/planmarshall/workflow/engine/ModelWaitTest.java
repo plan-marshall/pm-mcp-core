@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +52,7 @@ class ModelWaitTest {
 
     @Test
     void shouldAnswerABoundedWaitAtItsWindow() {
-        var wait = WaitSelection.select(connection(false), Optional.empty(), ModelCall.PM_WAIT, WaitSettings.defaults(),
+        var wait = WaitSelection.select(connection(false), null, ModelCall.PM_WAIT, WaitSettings.defaults(),
                 clock);
 
         var bounded = assertInstanceOf(ModelWait.Bounded.class, wait);
@@ -68,7 +67,7 @@ class ModelWaitTest {
     @Test
     void shouldEmitProgressFramesWithoutAGapLongerThanTheInterval() {
         var settings = WaitSettings.defaults();
-        var wait = WaitSelection.select(connection(true), Optional.of(TOKEN), ModelCall.PM_BUILD, settings, clock);
+        var wait = WaitSelection.select(connection(true), TOKEN, ModelCall.PM_BUILD, settings, clock);
 
         var progress = assertInstanceOf(ModelWait.Progress.class, wait);
         assertEquals(T0.plus(settings.progressWaitMax()), progress.answerAt());
@@ -85,7 +84,7 @@ class ModelWaitTest {
     @ParameterizedTest(name = "progress_resets_timeout={0}, token={1} selects {2}")
     @CsvSource({"true, true, PROGRESS", "true, false, BOUNDED", "false, true, BOUNDED", "false, false, BOUNDED"})
     void shouldSelectTheWaitFromTheProfileAndTheToken(boolean progressResetsTimeout, boolean token, String expected) {
-        Optional<String> tokenValue = token ? Optional.of("p-1") : Optional.empty();
+        var tokenValue = token ? "p-1" : null;
         var wait = WaitSelection.select(connection(progressResetsTimeout), tokenValue, ModelCall.PM_BUILD,
                 WaitSettings.defaults(), clock);
 
@@ -100,7 +99,7 @@ class ModelWaitTest {
     @Test
     void shouldKeepTheBoundedWindowOfAPmWaitThatQualifiesForProgress() {
         var settings = WaitSettings.defaults();
-        var wait = WaitSelection.select(connection(true), Optional.of(TOKEN), ModelCall.PM_WAIT, settings, clock);
+        var wait = WaitSelection.select(connection(true), TOKEN, ModelCall.PM_WAIT, settings, clock);
 
         var progress = assertInstanceOf(ModelWait.Progress.class, wait);
         assertEquals(BOUNDED, progress.window());
@@ -113,14 +112,14 @@ class ModelWaitTest {
     void shouldSelectTheSameWaitsForAPmWaitInAllFourCombinations() {
         var settings = WaitSettings.defaults();
         var progress = assertInstanceOf(ModelWait.Progress.class,
-                WaitSelection.select(connection(true), Optional.of(TOKEN), ModelCall.PM_WAIT, settings, clock));
+                WaitSelection.select(connection(true), TOKEN, ModelCall.PM_WAIT, settings, clock));
         assertEquals(BOUNDED, progress.window());
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(true), Optional.empty(), ModelCall.PM_WAIT, settings, clock)).window());
+                WaitSelection.select(connection(true), null, ModelCall.PM_WAIT, settings, clock)).window());
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(false), Optional.of(TOKEN), ModelCall.PM_WAIT, settings, clock)).window());
+                WaitSelection.select(connection(false), TOKEN, ModelCall.PM_WAIT, settings, clock)).window());
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(connection(false), Optional.empty(), ModelCall.PM_WAIT, settings, clock)).window());
+                WaitSelection.select(connection(false), null, ModelCall.PM_WAIT, settings, clock)).window());
     }
 
     @Test
@@ -129,14 +128,14 @@ class ModelWaitTest {
         var longInterval = new WaitSettings(Duration.ofSeconds(1800), Duration.ofSeconds(60));
 
         var pmWait = assertInstanceOf(ModelWait.Progress.class,
-                WaitSelection.select(shortConnection, Optional.of(TOKEN), ModelCall.PM_WAIT, longInterval, clock));
+                WaitSelection.select(shortConnection, TOKEN, ModelCall.PM_WAIT, longInterval, clock));
         assertEquals(Duration.ofSeconds(15), pmWait.window());
         assertEquals(Duration.ofMillis(7_500), pmWait.interval());
         assertFalse(pmWait.progressFrames().isEmpty());
         assertGapsAtMost(pointsOf(pmWait), pmWait.interval());
 
         var pmBuild = assertInstanceOf(ModelWait.Progress.class, WaitSelection.select(connection(true),
-                Optional.of(TOKEN), ModelCall.PM_BUILD,
+                TOKEN, ModelCall.PM_BUILD,
                 new WaitSettings(Duration.ofSeconds(60), Duration.ofSeconds(60)), clock));
         assertEquals(Duration.ofSeconds(60), pmBuild.window());
         assertEquals(Duration.ofSeconds(30), pmBuild.interval());
@@ -146,10 +145,16 @@ class ModelWaitTest {
 
     @Test
     void shouldTreatABlankTokenAsNoToken() {
-        var wait = WaitSelection.select(connection(true), Optional.of(" "), ModelCall.PM_BUILD, WaitSettings.defaults(),
-                clock);
+        var wait = WaitSelection.select(connection(true), " ", ModelCall.PM_BUILD, WaitSettings.defaults(), clock);
 
-        assertInstanceOf(ModelWait.Bounded.class, wait);
+        assertInstanceOf(ModelWait.Bounded.class, wait, "a blank token selects the bounded wait");
+    }
+
+    @Test
+    void shouldTreatAnAbsentTokenAsNoToken() {
+        var wait = WaitSelection.select(connection(true), null, ModelCall.PM_BUILD, WaitSettings.defaults(), clock);
+
+        assertInstanceOf(ModelWait.Bounded.class, wait, "an absent token selects the bounded wait");
     }
 
     @Test
@@ -160,15 +165,22 @@ class ModelWaitTest {
         var marginExact = BOUNDED.plusSeconds(30);
         var shortest = Duration.ofSeconds(15);
         var longest = Duration.ofSeconds(3600);
-        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooShort, IDLE, true));
-        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooLong, IDLE, true));
+        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooShort, IDLE, true),
+                "a window below the shortest bound is refused");
+        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooLong, IDLE, true),
+                "a window above the longest bound is refused");
         assertThrows(IllegalArgumentException.class,
-                () -> new ConnectionSettings(BOUNDED, marginTooSmall, false));
+                () -> new ConnectionSettings(BOUNDED, marginTooSmall, false),
+                "an idle margin below the minimum is refused");
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(new ConnectionSettings(BOUNDED, marginExact, false), Optional.empty(),
-                        ModelCall.PM_WAIT, WaitSettings.defaults(), clock)).window());
-        assertDoesNotThrow(() -> new ConnectionSettings(shortest, IDLE, true));
-        assertDoesNotThrow(() -> new ConnectionSettings(longest, IDLE, true));
+                        WaitSelection.select(new ConnectionSettings(BOUNDED, marginExact, false), null,
+                                ModelCall.PM_WAIT, WaitSettings.defaults(), clock),
+                        "an exact margin selects a bounded wait").window(),
+                "an exact margin keeps the bounded window");
+        assertDoesNotThrow(() -> new ConnectionSettings(shortest, IDLE, true),
+                "the shortest window is accepted");
+        assertDoesNotThrow(() -> new ConnectionSettings(longest, IDLE, true),
+                "the longest window is accepted");
     }
 
     @Test

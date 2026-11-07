@@ -14,13 +14,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renders a unit as a Mermaid {@code stateDiagram-v2} (PM-IMPL-5).
@@ -64,41 +64,45 @@ final class MermaidRenderer {
      * Renders a unit.
      *
      * @param definition  the unit
-     * @param activeState the state to highlight; empty for none
+     * @param activeState the state to highlight; {@code null} for none
      * @return the diagram, every line ended by a line feed
      */
-    static String render(WorkflowDefinition definition, Optional<String> activeState) {
+    static String render(WorkflowDefinition definition, @Nullable String activeState) {
         var renderer = new MermaidRenderer();
         renderer.renderUnit(definition, activeState);
         return renderer.out.toString();
     }
 
-    private void renderUnit(WorkflowDefinition definition, Optional<String> activeState) {
+    private void renderUnit(WorkflowDefinition definition, @Nullable String activeState) {
         var transitions = StateTransitions.of(definition);
         var phase = Phase.ofUnit(definition.id()).map(Phase::wireName);
+        var phased = phase.isPresent();
         var states = List.copyOf(definition.states().values());
         var aliases = Aliases.of(definition, phase.map(Set::of).orElse(Set.of()), transitions);
         line(0, "stateDiagram-v2");
-        if (phase.isPresent()) {
-            line(1, "state " + aliases.phase(phase.get()) + " {");
+        if (phased) {
+            line(1, "state " + aliases.phase(phase.orElseThrow()) + " {");
             declare(2, states, aliases);
             states.stream().flatMap(state -> transitions.outgoing(state.id()).stream())
-                    .filter(edge -> isInsideComposite(definition, phase, edge))
+                    .filter(edge -> isInsideComposite(definition, phased, edge))
                     .forEach(edge -> line(2, transition(edge, aliases)));
             line(1, "}");
         } else {
             declare(1, states, aliases);
         }
-        definition.startState().ifPresent(start -> line(1, "[*] --> " + aliases.state(start)));
+        var startState = definition.startState();
+        if (startState != null) {
+            line(1, "[*] --> " + aliases.state(startState));
+        }
         definition.entryBindings().forEach((entry, binding) -> line(1, "[*] --> %s : entry %s"
                 .formatted(aliases.state(binding.stateId()), entry)));
         definition.states().values().stream().flatMap(state -> transitions.outgoing(state.id()).stream())
-                .filter(edge -> !isInsideComposite(definition, phase, edge))
+                .filter(edge -> !isInsideComposite(definition, phased, edge))
                 .forEach(edge -> line(1, transition(edge, aliases)));
-        activeState.ifPresent(state -> {
+        if (activeState != null) {
             line(1, ACTIVE_STYLE);
-            line(1, "class " + aliases.state(state) + " active");
-        });
+            line(1, "class " + aliases.state(activeState) + " active");
+        }
     }
 
     private void declare(int depth, List<StateNode> states, Aliases aliases) {
@@ -114,17 +118,20 @@ final class MermaidRenderer {
      * Tells whether a transition is emitted inside the composite of its source state's phase: the unit carries a phase
      * and the target is a state of that same unit.
      */
-    private static boolean isInsideComposite(WorkflowDefinition definition, Optional<String> phase,
+    private static boolean isInsideComposite(WorkflowDefinition definition, boolean phased,
             StateTransitions.Edge edge) {
-        return phase.isPresent() && definition.states().containsKey(edge.target());
+        return phased && definition.states().containsKey(edge.target());
     }
 
     private static String transition(StateTransitions.Edge edge, Aliases aliases) {
         var label = new StringBuilder();
-        edge.link().ifPresentOrElse(
-                link -> label.append(StateTransitions.lower(link.rel())).append(' ').append(link.idPattern())
-                        .append(" [").append(StateTransitions.lower(link.form())).append(']'),
-                () -> label.append(StateTransitions.engineTrigger(edge.source().behavior())));
+        var link = edge.link();
+        if (link != null) {
+            label.append(StateTransitions.lower(link.rel())).append(' ').append(link.idPattern())
+                    .append(" [").append(StateTransitions.lower(link.form())).append(']');
+        } else {
+            label.append(StateTransitions.engineTrigger(edge.source().behavior()));
+        }
         edge.guard().ifPresent(guard -> label.append(" [").append(guard).append(']'));
         label.append(" / ").append(edge.outcome());
         return "%s --> %s : %s".formatted(aliases.state(edge.source().id()), aliases.state(edge.target()), label);

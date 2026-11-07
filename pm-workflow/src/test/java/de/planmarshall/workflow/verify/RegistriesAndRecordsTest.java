@@ -13,11 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -33,29 +33,28 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 class RegistriesAndRecordsTest {
 
     @Test
-    @DisplayName("EntityKind should support constructors, accessors and null validation")
+    @DisplayName("EntityKind should support its components, an absent entity unit and null validation")
     void entityKind() {
-        var withUnit = new EntityKind("task", Optional.of("worker-task"), "task.evaluate");
+        var withUnit = new EntityKind("task", "worker-task", "task.evaluate");
         assertAll(
-                () -> assertEquals("task", withUnit.name()),
-                () -> assertEquals(Optional.of("worker-task"), withUnit.entityUnit()),
-                () -> assertEquals("task.evaluate", withUnit.returnEvaluationPrimitiveId()),
-                () -> assertTrue(withUnit.hasEntityUnit())
+                () -> assertEquals("task", withUnit.name(), "the kind keeps its name"),
+                () -> assertEquals("worker-task", withUnit.entityUnit(), "the kind keeps its entity unit"),
+                () -> assertEquals("task.evaluate", withUnit.returnEvaluationPrimitiveId(),
+                        "the kind keeps its evaluation primitive"),
+                () -> assertTrue(withUnit.hasEntityUnit(), "a kind with a unit reports it")
         );
 
-        var convWithUnit = new EntityKind("task", "worker-task", "task.evaluate");
-        assertTrue(convWithUnit.hasEntityUnit());
-
-        var convWithoutUnit = new EntityKind("screen", (String) null, "screen.evaluate");
-        assertFalse(convWithoutUnit.hasEntityUnit());
-        assertEquals(Optional.empty(), convWithoutUnit.entityUnit());
+        var withoutUnit = new EntityKind("screen", null, "screen.evaluate");
+        assertAll(
+                () -> assertFalse(withoutUnit.hasEntityUnit(), "a kind without a unit reports none"),
+                () -> assertNull(withoutUnit.entityUnit(), "an absent entity unit is null")
+        );
 
         var name = Generators.letterStrings(1, 8).next();
         var evaluation = Generators.letterStrings(1, 8).next();
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind(null, Optional.empty(), evaluation)),
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, (Optional<String>) null, evaluation)),
-                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, Optional.empty(), null))
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(null, null, evaluation)),
+                () -> assertThrows(NullPointerException.class, () -> new EntityKind(name, null, null))
         );
     }
 
@@ -78,13 +77,19 @@ class RegistriesAndRecordsTest {
         );
 
         assertAll(
-                () -> assertEquals(Optional.empty(), defaults.find("screen").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("worker-task"), defaults.find("task").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("entity"), defaults.find("decision").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("entity"), defaults.find("triage").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("entity"), defaults.find("simplify").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("entity-multi"),
-                        defaults.find("lessons-review").orElseThrow().entityUnit()),
+                () -> assertNull(defaults.find("screen").orElseThrow().entityUnit(), "screen runs no entity unit"),
+                () -> assertEquals("worker-task", defaults.find("task").orElseThrow().entityUnit(),
+                        "task runs the task protocol unit"),
+                () -> assertEquals("entity", defaults.find("decision").orElseThrow().entityUnit(),
+                        "decision runs the entity unit"),
+                () -> assertEquals("entity", defaults.find("triage").orElseThrow().entityUnit(),
+                        "triage runs the entity unit"),
+                () -> assertEquals("entity", defaults.find("simplify").orElseThrow().entityUnit(),
+                        "simplify runs the entity unit"),
+                () -> assertEquals("entity-multi", defaults.find("lessons-review").orElseThrow().entityUnit(),
+                        "lessons-review runs the multi-submit unit"),
+                () -> assertEquals(Set.of("worker-task", "entity", "entity-multi"), defaults.entityUnits(),
+                        "the units name no unit for screen"),
                 () -> assertEquals("lessons-review.evaluate",
                         defaults.find("lessons-review").orElseThrow().returnEvaluationPrimitiveId())
         );
@@ -92,14 +97,14 @@ class RegistriesAndRecordsTest {
         var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "lessons-review").stream()
                 .map(name -> defaults.find(name).orElseThrow())
                 .flatMap(kind -> Stream.concat(Stream.of(kind.name(), kind.returnEvaluationPrimitiveId()),
-                        kind.entityUnit().stream()))
+                        Stream.ofNullable(kind.entityUnit())))
                 .toList();
         assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
                 () -> "the defaults name a test identifier: " + defaultIdentifiers);
 
         var customName = "custom-" + Generators.letterStrings(1, 8).next();
         var customEvaluation = "eval-" + Generators.letterStrings(1, 8).next();
-        var custom = new EntityKind(customName, Optional.empty(), customEvaluation);
+        var custom = new EntityKind(customName, null, customEvaluation);
         var updated = defaults.with(custom);
         assertTrue(updated.find(customName).isPresent());
         assertFalse(defaults.find(customName).isPresent());

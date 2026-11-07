@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.LinkSpec;
@@ -24,6 +23,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renders a unit as AsciiDoc tables (PM-IMPL-5): for the phase the unit carries, if it is a phase sub-workflow, a
@@ -31,8 +31,9 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * <ul>
  * <li><b>States</b>: exactly the columns of the State Catalogue: <em>State id</em>, <em>Phase value</em>,
  * <em>Kind</em> ({@link StateKind}), <em>Entered from</em> ({@code start} for the start state, {@code entry <name>} for
- * each entry that binds the state, then the source of every incoming transition once), <em>Offered links / outcomes</em> (the task label of a task state, the declared
- * and implicit links, the distinct outcomes of the engine transitions, or the outcome a terminal state reports),
+ * each entry that binds the state, then the source of every incoming transition once), <em>Offered links /
+ * outcomes</em> (the task label of a task state, the declared and implicit links, the distinct outcomes of the engine
+ * transitions, or the outcome a terminal state reports),
  * <em>Exits to</em> (every target once) and <em>Defined in</em>, which is emitted empty because it is maintained by
  * hand in the catalogue. The <em>Phase value</em> of a unit that is no phase sub-workflow is empty: no unit and no
  * state declares a phase of its own, so the tables of such a unit carry no phase title and show {@code -} in that
@@ -72,19 +73,19 @@ final class AsciiDocTableRenderer {
 
     private void renderUnit(WorkflowDefinition definition) {
         var transitions = StateTransitions.of(definition);
-        var phase = Phase.ofUnit(definition.id()).map(Phase::wireName);
+        var phase = PhaseGroup.of(definition);
         var states = List.copyOf(definition.states().values());
         stateTable(definition, transitions, phase, states);
         linkTable(definition.scope(), phase, states);
         outcomeTable(transitions, phase, states);
     }
 
-    private void stateTable(WorkflowDefinition definition, StateTransitions transitions, Optional<String> phase,
+    private void stateTable(WorkflowDefinition definition, StateTransitions transitions, PhaseGroup phase,
             List<StateNode> states) {
         header(phase, "states", "2,1,1,2,3,2,2", "State id", "Phase value", "Kind", "Entered from",
                 "Offered links / outcomes", "Exits to", "Defined in");
         for (var state : states) {
-            row(code(state.id()), phase.map(AsciiDocTableRenderer::code).orElse(NONE),
+            row(code(state.id()), phase.cell(),
                     code(StateKind.of(state.behavior()).label()),
                     enteredFrom(definition, transitions, state), offered(definition.scope(), state),
                     exitsTo(transitions, state), "");
@@ -92,13 +93,13 @@ final class AsciiDocTableRenderer {
         out.append(TABLE_DELIMITER).append('\n');
     }
 
-    private void linkTable(WorkflowScope scope, Optional<String> phase, List<StateNode> states) {
+    private void linkTable(WorkflowScope scope, PhaseGroup phase, List<StateNode> states) {
         var rows = new ArrayList<String[]>();
         for (var state : states) {
             for (var link : StateTransitions.links(state.behavior())) {
                 rows.add(new String[]{code(state.id()), code(StateTransitions.lower(link.rel())),
                         code(link.idPattern()), code(StateTransitions.lower(link.form())), freeParams(link),
-                        link.guard().map(guard -> code(StateTransitions.guard(guard.expr()))).orElse(NONE), "no"});
+                        guardCell(link), "no"});
             }
             for (var link : StateTransitions.implicitLinks(scope, state)) {
                 rows.add(new String[]{code(state.id()), code(StateTransitions.lower(link.rel())), code(link.id()),
@@ -115,7 +116,7 @@ final class AsciiDocTableRenderer {
         out.append(TABLE_DELIMITER).append('\n');
     }
 
-    private void outcomeTable(StateTransitions transitions, Optional<String> phase, List<StateNode> states) {
+    private void outcomeTable(StateTransitions transitions, PhaseGroup phase, List<StateNode> states) {
         var edges = states.stream().flatMap(state -> transitions.outgoing(state.id()).stream()).toList();
         if (edges.isEmpty()) {
             return;
@@ -123,25 +124,26 @@ final class AsciiDocTableRenderer {
         out.append('\n');
         header(phase, "outcomes", "2,2,2,2", "State", "Outcome", "Guard", "Next state");
         for (var edge : edges) {
-            var outcome = code(edge.outcome()) + edge.link().map(link -> " via " + code(link.idPattern())).orElse("");
+            var link = edge.link();
+            var outcome = code(edge.outcome()) + (link != null ? " via " + code(link.idPattern()) : "");
+            var resultGuard = edge.transition().resultGuard();
             row(code(edge.source().id()), outcome,
-                    edge.transition().resultGuard().map(guard -> code(StateTransitions.resultGuard(guard)))
-                            .orElse(NONE),
+                    resultGuard != null ? code(StateTransitions.resultGuard(resultGuard)) : NONE,
                     code(edge.target()));
         }
         out.append(TABLE_DELIMITER).append('\n');
     }
 
-    private void header(Optional<String> phase, String title, String cols, String... columns) {
-        out.append(phase.map(value -> ".Phase " + code(value) + ": ").orElse("." + capitalize(title)))
-                .append(phase.isPresent() ? title : "").append('\n');
+    private static String guardCell(LinkSpec link) {
+        var guard = link.guard();
+        return guard != null ? code(StateTransitions.guard(guard.expr())) : NONE;
+    }
+
+    private void header(PhaseGroup phase, String title, String cols, String... columns) {
+        out.append(phase.title(title)).append('\n');
         out.append("[cols=\"").append(cols).append("\"]\n");
         out.append(TABLE_DELIMITER).append('\n');
         out.append(Arrays.stream(columns).map(column -> "|" + column).collect(Collectors.joining(" "))).append('\n');
-    }
-
-    private static String capitalize(String text) {
-        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private void row(String... cells) {
@@ -153,7 +155,7 @@ final class AsciiDocTableRenderer {
 
     private static String enteredFrom(WorkflowDefinition definition, StateTransitions transitions, StateNode state) {
         var sources = new LinkedHashSet<String>();
-        if (definition.startState().filter(state.id()::equals).isPresent()) {
+        if (state.id().equals(definition.startState())) {
             sources.add("start");
         }
         definition.entryBindings().forEach((entry, binding) -> {
@@ -182,8 +184,11 @@ final class AsciiDocTableRenderer {
         if (!outcomes.isEmpty()) {
             parts.add("outcomes " + String.join(LIST_SEPARATOR, outcomes));
         }
-        state.terminalOutcome().ifPresent(outcome -> parts.add("reports %s (%s)".formatted(code(outcome.id()),
-                code(StateTransitions.lower(outcome.outcomeClass())))));
+        var outcome = state.terminalOutcome();
+        if (outcome != null) {
+            parts.add("reports %s (%s)".formatted(code(outcome.id()),
+                    code(StateTransitions.lower(outcome.outcomeClass()))));
+        }
         return parts.isEmpty() ? NONE : String.join("; ", parts);
     }
 
@@ -215,11 +220,11 @@ final class AsciiDocTableRenderer {
         };
     }
 
-    private static String range(Optional<Integer> low, Optional<Integer> high) {
-        if (low.isEmpty() || high.isEmpty()) {
+    private static String range(@Nullable Integer low, @Nullable Integer high) {
+        if (low == null || high == null) {
             return "";
         }
-        return "[" + low.orElseThrow() + ".." + high.orElseThrow() + "]";
+        return "[" + low + ".." + high + "]";
     }
 
     private static String joinedOrNone(LinkedHashSet<String> values) {
@@ -232,5 +237,30 @@ final class AsciiDocTableRenderer {
 
     private static String escape(String cell) {
         return cell.replace("|", "\\|");
+    }
+
+    /**
+     * The phase group the tables of a unit form: titled with the phase value of a phase sub-workflow, untitled by
+     * phase for every other unit, whose <em>Phase value</em> cell shows {@code -}.
+     *
+     * @param cell        the <em>Phase value</em> cell of every state row
+     * @param titlePrefix the title before the table name, {@code .Phase `<value>`: }; empty for a unit without a phase
+     */
+    private record PhaseGroup(String cell, String titlePrefix) {
+
+        static PhaseGroup of(WorkflowDefinition definition) {
+            return Phase.ofUnit(definition.id()).map(Phase::wireName)
+                    .map(value -> new PhaseGroup(code(value), ".Phase " + code(value) + ": "))
+                    .orElseGet(() -> new PhaseGroup(NONE, ""));
+        }
+
+        /** The title line of a table: the phase prefix and the table name, or the capitalised name alone. */
+        String title(String name) {
+            return titlePrefix.isEmpty() ? "." + capitalize(name) : titlePrefix + name;
+        }
+
+        private static String capitalize(String text) {
+            return Character.toUpperCase(text.charAt(0)) + text.substring(1);
+        }
     }
 }

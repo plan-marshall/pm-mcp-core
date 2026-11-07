@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 
@@ -53,6 +54,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The printer of the workflow language (PM-IMPL-5): every valid fixture survives the round trip parse, print, parse
@@ -167,6 +169,45 @@ class WorkflowPrinterTest {
             state git.end terminal done success
             """;
 
+    /**
+     * Canonical source in which every optional member of the tree is absent: no signature and no element description in
+     * the frontmatter, no instance line, no result schema and no start line, no skill and no facts clause, a task state
+     * without {@code each}, a call without an entry, a link without a guard and a transition without a result guard,
+     * and a text parameter without bounds.
+     */
+    private static final String ABSENT_MEMBERS = """
+            ---
+            name: demo.absent
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            icon: workflow.default
+            entry: run
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow demo.absent version 1 format 1
+            scope subworkflow
+            entry run -> demo.work
+
+            state demo.work
+                job llm change role writer
+                    done -> demo.invoke
+                    lost -> demo.end
+
+            state demo.invoke
+                call demo.sub
+                    done -> demo.links
+
+            state demo.links
+                link next go [noop] (note: text)
+                    do demo.go
+                        done -> demo.end
+
+            state demo.end terminal done success
+            """;
+
     private static WorkflowDefinition parse(String resource, String source) {
         return parse(resource, source, UnitOrigin.DEFAULT);
     }
@@ -185,18 +226,17 @@ class WorkflowPrinterTest {
     private static WorkflowDefinition unitWithLinks(LinkSpec... links) {
         var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 20).next(),
                 Generators.letterStrings(1, 40).next(), UnitType.SYSTEM,
-                "workflow.default", List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(),
-                NOWHERE);
+                "workflow.default", List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", null, NOWHERE);
         return unitWith(frontmatter, links);
     }
 
     /** A workspace unit with the given frontmatter whose only state rests on the given links. */
     private static WorkflowDefinition unitWith(UnitFrontmatter frontmatter, LinkSpec... links) {
-        var state = new StateNode("demo.begin", Optional.empty(), Optional.empty(), Optional.empty(),
+        var state = new StateNode("demo.begin", null, null, null,
                 new StateBehavior.InteractiveLinks(List.of(links)), NOWHERE);
-        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, List.of(), Optional.empty(),
-                Optional.empty(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
-                Optional.of("demo.begin"), Map.of(), List.of(), Map.of("demo.begin", state), NOWHERE);
+        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, List.of(), null,
+                null, Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
+                "demo.begin", Map.of(), List.of(), Map.of("demo.begin", state), NOWHERE);
     }
 
     /** The line of the printed source that opens with the given text. */
@@ -204,9 +244,9 @@ class WorkflowPrinterTest {
         return printed.lines().filter(line -> line.startsWith(prefix)).findFirst().orElseThrow();
     }
 
-    private static LinkSpec link(LinkRelation rel, LinkForm form, Optional<GuardSpec> guard, ParamSpec... params) {
+    private static LinkSpec link(LinkRelation rel, LinkForm form, @Nullable GuardSpec guard, ParamSpec... params) {
         return new LinkSpec(rel, "go", form, List.of(params), guard, new LinkAction.ExecutePrimitive("demo.go"),
-                List.of(new OutcomeTransition("done", "demo.begin", Optional.empty(), List.of(), NOWHERE)), NOWHERE);
+                List.of(new OutcomeTransition("done", "demo.begin", null, List.of(), NOWHERE)), NOWHERE);
     }
 
     /** The printed line of the first link's guard, without its indentation. */
@@ -275,6 +315,41 @@ class WorkflowPrinterTest {
 
             assertEquals(CANONICAL, WorkflowPrinter.print(definition));
         }
+
+        @Test
+        @DisplayName("reads every absent member as null and prints the source of absent members byte-identical")
+        void absentMembers() {
+            var definition = parse("absent.pmwf", ABSENT_MEMBERS);
+            var work = definition.states().get("demo.work");
+            var job = (StateBehavior.ModelJob) work.behavior();
+            var call = (StateBehavior.SubWorkflowCall) definition.states().get("demo.invoke").behavior();
+            var link = ((StateBehavior.InteractiveLinks) definition.states().get("demo.links").behavior()).links()
+                    .getFirst();
+
+            var printed = WorkflowPrinter.print(definition);
+
+            assertAll(
+                    () -> assertNull(definition.frontmatter().signature(), "the unsigned unit reads no signature"),
+                    () -> assertNull(definition.frontmatter().entries().getFirst().description(),
+                            "the undescribed entry reads no description"),
+                    () -> assertNull(definition.instance(), "the unit without instance line reads null"),
+                    () -> assertNull(definition.resultSchema(), "the unit without result reads no schema"),
+                    () -> assertNull(definition.startState(), "the unit with entry lines reads no start"),
+                    () -> assertNull(work.terminalOutcome(), "the task state reads no terminal outcome"),
+                    () -> assertNull(work.skillPath(), "the state without skill clause reads null"),
+                    () -> assertNull(work.factsPrimitiveId(), "the state without facts clause reads null"),
+                    () -> assertNull(job.fanOutPrimitiveId(), "the task state without each reads null"),
+                    () -> assertNull(job.rolesPrimitiveId(), "the named-role task reads no role primitive"),
+                    () -> assertNull(call.entry(), "the call without entry reads a null entry"),
+                    () -> assertNull(link.guard(), "the link without guard reads a null guard"),
+                    () -> assertNull(link.transitions().getFirst().resultGuard(),
+                            "the transition without guard reads null"),
+                    () -> assertEquals(new ParamType.Text(null, null), link.freeParams().getFirst().type(),
+                            "the text without range reads null bounds"),
+                    () -> assertEquals(ABSENT_MEMBERS, printed, "absent members print byte-identical"),
+                    () -> assertEquals(strip(definition), strip(parse("printed-absent.pmwf", printed)),
+                            "the printed absent members read back equal"));
+        }
     }
 
     @Nested
@@ -319,8 +394,8 @@ class WorkflowPrinterTest {
         void quotedValues() {
             var frontmatter = new UnitFrontmatter("-leading dash", "Says: \"quoted\" and a \\ backslash.",
                     UnitType.SYSTEM, "workflow.default", List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall",
-                    Optional.of("sig-1"), NOWHERE);
-            var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
+                    "sig-1", NOWHERE);
+            var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, null));
 
             var printed = WorkflowPrinter.print(definition);
 
@@ -345,8 +420,8 @@ class WorkflowPrinterTest {
         void quotesEveryValuePlainRefuses(String value) {
             var frontmatter = new UnitFrontmatter(Generators.letterStrings(3, 20).next(), value, UnitType.SYSTEM,
                     "workflow.default", List.of(),
-                    List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
-            var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
+                    List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", null, NOWHERE);
+            var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, null));
 
             var printed = WorkflowPrinter.print(definition);
             var reparsed = parse("quoted-value.pmwf", printed);
@@ -393,7 +468,7 @@ class WorkflowPrinterTest {
         @MethodSource("guards")
         @DisplayName("prints a guard with exactly the parentheses its precedence needs, and reads it back")
         void precedence(GuardExpr expr, String expected) {
-            var guard = Optional.of(new GuardSpec(expr, List.of()));
+            var guard = new GuardSpec(expr, List.of());
             var definition = unitWithLinks(link(LinkRelation.NEXT, LinkForm.NOOP, guard));
 
             var printed = WorkflowPrinter.print(definition);
@@ -412,7 +487,7 @@ class WorkflowPrinterTest {
         @EnumSource(LinkRelation.class)
         @DisplayName("names the form of every link, the default form included")
         void explicitLinkForm(LinkRelation relation) {
-            var definition = unitWithLinks(link(relation, relation.defaultForm(), Optional.empty()));
+            var definition = unitWithLinks(link(relation, relation.defaultForm(), null));
             var expected = "    link %s go [%s] ()".formatted(relation.name().toLowerCase(Locale.ROOT),
                     relation.defaultForm().name().toLowerCase(Locale.ROOT));
 
@@ -427,7 +502,7 @@ class WorkflowPrinterTest {
         @DisplayName("prints the instance line second, with the header JSON exactly as it was read")
         void instanceLine() {
             var definition = DslFixtures.parseValid("dsl/valid/instance-unit.pmwf");
-            var header = definition.instance().orElseThrow();
+            var header = Objects.requireNonNull(definition.instance());
 
             var lines = WorkflowPrinter.print(definition).lines().toList();
 
@@ -436,22 +511,23 @@ class WorkflowPrinterTest {
                     () -> assertEquals("instance " + header.json(), lines.get(FRONTMATTER_LINES + 1)),
                     () -> assertTrue(header.json().contains("\"inputs\":{"), header::json),
                     () -> assertEquals(header, parse("printed-instance.pmwf", String.join("\n", lines))
-                            .instance().orElseThrow()));
+                            .instance(), "the printed instance line reads back equal"));
         }
 
         @Test
         @DisplayName("prints a range with both of its bounds, and no range for an unbounded type")
         void ranges() {
-            var definition = unitWithLinks(link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty(),
-                    new ParamSpec("bounded", new ParamType.Text(Optional.of(1), Optional.of(9)), false, NOWHERE),
-                    new ParamSpec("free", new ParamType.Int(Optional.empty(), Optional.empty()), true, NOWHERE)));
+            var definition = unitWithLinks(link(LinkRelation.NEXT, LinkForm.NOOP, null,
+                    new ParamSpec("bounded", new ParamType.Text(1, 9), false, NOWHERE),
+                    new ParamSpec("free", new ParamType.Int(null, null), true, NOWHERE)));
 
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
                     () -> assertTrue(printed.contains("    link next go [noop] (bounded: text[1..9], free: int?)\n"),
-                            printed),
-                    () -> assertEquals(strip(definition), strip(parse("range.pmwf", printed))));
+                            "an unbounded type prints without a range"),
+                    () -> assertEquals(strip(definition), strip(parse("range.pmwf", printed)),
+                            "the printed ranges read back equal"));
         }
 
         @Test

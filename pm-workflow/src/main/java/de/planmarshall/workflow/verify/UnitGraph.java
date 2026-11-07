@@ -141,8 +141,9 @@ final class UnitGraph {
         var reached = forwardClosure(entryStates);
         var outcomes = new LinkedHashSet<String>();
         for (var state : definition.states().values()) {
-            if (reached.contains(state.id())) {
-                state.terminalOutcome().ifPresent(outcome -> outcomes.add(outcome.id()));
+            var outcome = state.terminalOutcome();
+            if (outcome != null && reached.contains(state.id())) {
+                outcomes.add(outcome.id());
             }
         }
         return Collections.unmodifiableSet(outcomes);

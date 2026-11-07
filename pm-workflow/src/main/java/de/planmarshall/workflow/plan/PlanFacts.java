@@ -63,23 +63,24 @@ import org.jspecify.annotations.Nullable;
  * declarations of the bound variant are not: they are the content of the variant's unit, which the header names by
  * its own digest.
  *
- * @param lane          the lane of the plan, if known
- * @param posture       the posture of the plan, if set
- * @param changeType    the change type of the plan, if known
- * @param postRun       the post-run-only form being composed, if any
- * @param footprint     the declared footprint, if it could be read
+ * @param lane          the lane of the plan; {@code null} if unknown
+ * @param posture       the posture of the plan; {@code null} if not set
+ * @param changeType    the change type of the plan; {@code null} if unknown
+ * @param postRun       the post-run-only form being composed; {@code null} if none
+ * @param footprint     the declared footprint; {@code null} if it could not be read
  * @param configuration the effective configuration values by key, derived facts included
  * @param steps         the step ids known to the plan
  * @param tasks         the task ids known to the plan
  * @param axes          per plan behaviour axis the variant each level sets, {@link Level#SHIPPED} never among them
- * @param overrides     the text of the plan's {@code overrides.json}, if the plan has one
+ * @param overrides     the text of the plan's {@code overrides.json}; {@code null} if the plan has none
  * @param declarations  per axis variant whose tree was read its declarations by name
  * @since 0.1
  */
-public record PlanFacts(Optional<PlanInstanceHeader.Lane> lane, Optional<PlanInstanceHeader.Posture> posture,
-Optional<String> changeType, Optional<String> postRun, Optional<List<String>> footprint,
-SortedMap<String, String> configuration, List<String> steps, List<String> tasks, Map<Axis, Map<Level, String>> axes,
-Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
+public record PlanFacts(PlanInstanceHeader.@Nullable Lane lane, PlanInstanceHeader.@Nullable Posture posture,
+@Nullable String changeType, @Nullable String postRun, @Nullable List<String> footprint,
+SortedMap<String, String> configuration, List<String> steps, List<String> tasks,
+Map<Axis, Map<Level, String>> axes, @Nullable String overrides,
+Map<String, Map<String, CallValue>> declarations) {
 
     /** The fact name of the lane. */
     public static final String LANE_FACT = "lane";
@@ -103,36 +104,33 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
     static final Set<String> AXIS_FACT_NAMES = axisFactNames();
 
     /**
-     * Refuses a missing component, an axis value that is no variant of its axis or that names the shipped level, and
-     * declarations of a unit that is no axis variant, and copies the collections into unmodifiable ones; the
+     * Refuses a missing required component, an axis value that is no variant of its axis or that names the shipped
+     * level, and declarations of a unit that is no axis variant, and copies the collections into unmodifiable ones; the
      * configuration is ordered by key.
      *
-     * @param lane          the lane of the plan, if known
-     * @param posture       the posture of the plan, if set
-     * @param changeType    the change type of the plan, if known
-     * @param postRun       the post-run-only form being composed, if any
-     * @param footprint     the declared footprint, if it could be read
+     * @param lane          the lane of the plan, {@code null} if unknown
+     * @param posture       the posture of the plan, {@code null} if not set
+     * @param changeType    the change type of the plan, {@code null} if unknown
+     * @param postRun       the post-run-only form being composed, {@code null} if none
+     * @param footprint     the declared footprint, {@code null} if it could not be read
      * @param configuration the effective configuration values by key
      * @param steps         the step ids known to the plan
      * @param tasks         the task ids known to the plan
      * @param axes          per axis the variant each level sets
-     * @param overrides     the text of the plan's {@code overrides.json}, if any
+     * @param overrides     the text of the plan's {@code overrides.json}, {@code null} if none
      * @param declarations  per axis variant its declarations by name
      * @throws IllegalArgumentException if a level sets a value that is no variant of its axis, a level is
      *                                  {@link Level#SHIPPED}, or declarations name a unit that is no axis variant
      */
     public PlanFacts {
-        Objects.requireNonNull(lane, "lane");
-        Objects.requireNonNull(posture, POSTURE_FACT);
-        Objects.requireNonNull(changeType, "changeType");
-        Objects.requireNonNull(postRun, "postRun");
-        footprint = Objects.requireNonNull(footprint, FOOTPRINT_FACT).map(List::copyOf);
+        if (footprint != null) {
+            footprint = List.copyOf(footprint);
+        }
         configuration = Collections.unmodifiableSortedMap(new TreeMap<>(Objects.requireNonNull(configuration,
                 "configuration")));
         steps = List.copyOf(steps);
         tasks = List.copyOf(tasks);
         axes = copyAxes(Objects.requireNonNull(axes, "axes"));
-        Objects.requireNonNull(overrides, "overrides");
         declarations = copyDeclarations(Objects.requireNonNull(declarations, "declarations"));
     }
 
@@ -194,10 +192,10 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
      */
     public Optional<String> text(String fact) {
         return switch (fact) {
-            case LANE_FACT -> lane.map(PlanInstanceHeader.Lane::wireName);
-            case POSTURE_FACT -> posture.map(PlanInstanceHeader.Posture::wireName);
-            case CHANGE_TYPE_FACT -> changeType;
-            case POST_RUN_FACT -> postRun;
+            case LANE_FACT -> lane == null ? Optional.empty() : Optional.of(lane.wireName());
+            case POSTURE_FACT -> posture == null ? Optional.empty() : Optional.of(posture.wireName());
+            case CHANGE_TYPE_FACT -> Optional.ofNullable(changeType);
+            case POST_RUN_FACT -> Optional.ofNullable(postRun);
             case FOOTPRINT_FACT -> Optional.empty();
             default -> fact.startsWith(AXES_PREFIX) ? axisValue(fact).flatMap(PlanFacts::textOf)
                     : Optional.ofNullable(configuration.get(fact));
@@ -212,7 +210,7 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
      */
     public Optional<List<String>> list(String fact) {
         if (FOOTPRINT_FACT.equals(fact)) {
-            return footprint;
+            return Optional.ofNullable(footprint);
         }
         return axisValue(fact).flatMap(value -> value instanceof CallValue.EnumList(var values)
                 ? Optional.of(values) : Optional.empty());
@@ -270,11 +268,11 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
      */
     public String digest() {
         var members = new LinkedHashMap<String, Node>();
-        members.put(LANE_FACT, optional(text(LANE_FACT)));
-        members.put(POSTURE_FACT, optional(text(POSTURE_FACT)));
+        members.put(LANE_FACT, optional(lane == null ? null : lane.wireName()));
+        members.put(POSTURE_FACT, optional(posture == null ? null : posture.wireName()));
         members.put(CHANGE_TYPE_FACT, optional(changeType));
         members.put(POST_RUN_FACT, optional(postRun));
-        members.put(FOOTPRINT_FACT, footprint.<Node>map(PlanFacts::strings).orElse(NullNode.INSTANCE));
+        members.put(FOOTPRINT_FACT, footprint == null ? NullNode.INSTANCE : strings(footprint));
         var config = new LinkedHashMap<String, Node>();
         configuration.forEach((key, value) -> config.put(key, new StringNode(value)));
         members.put("configuration", new ObjectNode(config));
@@ -287,7 +285,7 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
             axisLevels.put(axis.wireName(), new ObjectNode(values));
         });
         members.put("axes", new ObjectNode(axisLevels));
-        members.put("overrides", optional(overrides.map(PlanFacts::sha256)));
+        members.put("overrides", optional(overrides == null ? null : sha256(overrides)));
         return sha256(HeaderJson.canonical(new ObjectNode(members)));
     }
 
@@ -337,8 +335,8 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
         }
     }
 
-    private static Node optional(Optional<String> value) {
-        return value.<Node>map(StringNode::new).orElse(NullNode.INSTANCE);
+    private static Node optional(@Nullable String value) {
+        return value == null ? NullNode.INSTANCE : new StringNode(value);
     }
 
     private static ArrayNode strings(List<String> values) {
@@ -475,10 +473,8 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
          * @throws IllegalArgumentException if an axis value or a declared variant is refused
          */
         public PlanFacts build() {
-            return new PlanFacts(Optional.ofNullable(lane), Optional.ofNullable(posture),
-                    Optional.ofNullable(changeType), Optional.ofNullable(postRun),
-                    Optional.ofNullable(footprint), new TreeMap<>(configuration), steps, tasks, axes,
-                    Optional.ofNullable(overrides), declarations);
+            return new PlanFacts(lane, posture, changeType, postRun, footprint, new TreeMap<>(configuration), steps,
+                    tasks, axes, overrides, declarations);
         }
     }
 

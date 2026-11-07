@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,10 +73,8 @@ class PlanInstanceHeaderTest {
     /** A header with every list empty and every optional member absent. */
     static PlanInstanceHeader minimalHeader() {
         return new PlanInstanceHeader("plan-24", 1, CompositionEvent.START, COMPOSED_AT,
-                new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, Optional.empty(),
-                        Optional.empty(), Optional.empty()),
-                Optional.empty(), Optional.empty(), new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(),
-                List.of(), List.of());
+                new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, null, null, null),
+                null, null, new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
     }
 
     /** A header with one element in every list, every optional member present and every argument value kind. */
@@ -87,12 +86,11 @@ class PlanInstanceHeaderTest {
                 "mode", BoundArgument.fromTemplate(new CallValue.EnumValue("strict"), "finalize.pmwf"));
         return new PlanInstanceHeader(planId, version, CompositionEvent.WAIVER, COMPOSED_AT,
                 new CompositionInputs(DIGEST_A,
-                        List.of(new UnitReference("plan", Optional.of(".marshall/config/plan.pmwf"), DIGEST_B,
+                        List.of(new UnitReference("plan", ".marshall/config/plan.pmwf", DIGEST_B,
                                 UnitOrigin.PROJECT)),
-                        List.of(new UnitReference("remediation.ci-failure", Optional.empty(), DIGEST_C,
-                                UnitOrigin.DEFAULT)),
-                        "r7", DIGEST_D, DIGEST_A, Optional.of(DIGEST_B), Optional.of("feature"), Optional.of(DIGEST_C)),
-                Optional.of(PlanInstanceHeader.Lane.DEEP), Optional.of(PlanInstanceHeader.Posture.STANDARD),
+                        List.of(new UnitReference("remediation.ci-failure", null, DIGEST_C, UnitOrigin.DEFAULT)),
+                        "r7", DIGEST_D, DIGEST_A, DIGEST_B, "feature", DIGEST_C),
+                PlanInstanceHeader.Lane.DEEP, PlanInstanceHeader.Posture.STANDARD,
                 new PlanInstanceHeader.Steps(List.of("verify:quality-gate"),
                         List.of("default:push", "project:lint-docs")),
                 List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:create-pr", PruneReason.ADOPT,
@@ -202,7 +200,29 @@ class PlanInstanceHeaderTest {
         void minimalHeaderSurvives() {
             var header = PlanInstanceHeaderTest.minimalHeader();
 
-            assertEquals(header, HeaderJson.read(HeaderJson.write(header)));
+            assertEquals(header, HeaderJson.read(HeaderJson.write(header)), "the minimal header reads back equal");
+        }
+
+        @Test
+        @DisplayName("an absent member reads back absent and a present member reads back as its value")
+        void absentAndPresentMembersSurvive() {
+            var read = HeaderJson.read(HeaderJson.write(fullHeader("plan-24", 1, "lane")));
+            var inputs = read.inputs();
+            var args = read.policyCalls().getFirst().args();
+
+            assertAll(
+                    () -> assertEquals(PlanInstanceHeader.Lane.DEEP, read.lane(), "the lane reads back as DEEP"),
+                    () -> assertEquals(PlanInstanceHeader.Posture.STANDARD, read.posture(), "the posture reads back"),
+                    () -> assertEquals(".marshall/config/plan.pmwf", inputs.templates().getFirst().file(),
+                            "a present unit file reads back"),
+                    () -> assertNull(inputs.subUnits().getFirst().file(), "an absent unit file reads back null"),
+                    () -> assertEquals("feature", inputs.changeType(), "the change type reads back"),
+                    () -> assertEquals(DIGEST_B, inputs.realizedFootprintDigest(), "the footprint digest reads back"),
+                    () -> assertEquals(DIGEST_C, inputs.providersDigest(), "the providers digest reads back"),
+                    () -> assertNull(args.get("actions").file(), "an absent argument file reads back null"),
+                    () -> assertNull(args.get("actions").waiverId(), "an absent waiver id reads back null"),
+                    () -> assertEquals("W-1", args.get("fix_budget").waiverId(), "a present waiver id reads back"),
+                    () -> assertEquals("finalize.pmwf", args.get("mode").file(), "a present argument file reads back"));
         }
 
         @Test
@@ -477,13 +497,30 @@ class PlanInstanceHeaderTest {
             var value = new CallValue.IntValue(3);
 
             assertAll(
-                    () -> assertEquals(new BoundArgument(value, BoundArgument.Source.TEMPLATE,
-                                    Optional.of("finalize.pmwf"), Optional.empty()),
-                            BoundArgument.fromTemplate(value, "finalize.pmwf")),
-                    () -> assertEquals(new BoundArgument(value, BoundArgument.Source.COMPOSITION_RULE,
-                            Optional.empty(), Optional.empty()), BoundArgument.fromCompositionRule(value)),
-                    () -> assertEquals(new BoundArgument(value, BoundArgument.Source.WAIVER, Optional.empty(),
-                            Optional.of("W-9")), BoundArgument.fromWaiver(value, "W-9")));
+                    () -> assertEquals(new BoundArgument(value, BoundArgument.Source.TEMPLATE, "finalize.pmwf", null),
+                            BoundArgument.fromTemplate(value, "finalize.pmwf"), "a template value names its file"),
+                    () -> assertEquals(new BoundArgument(value, BoundArgument.Source.COMPOSITION_RULE, null, null),
+                            BoundArgument.fromCompositionRule(value), "a rule value names neither file nor waiver"),
+                    () -> assertEquals(new BoundArgument(value, BoundArgument.Source.WAIVER, null, "W-9"),
+                            BoundArgument.fromWaiver(value, "W-9"), "a waiver value names its waiver"));
+        }
+
+        @Test
+        @DisplayName("every optional component may be absent, and the absent components are null")
+        void absentComponentsAccepted() {
+            var header = minimalHeader();
+            var reference = new UnitReference("unit", null, DIGEST_A, UnitOrigin.DEFAULT);
+            var argument = BoundArgument.fromCompositionRule(new CallValue.IntValue(1));
+
+            assertAll(
+                    () -> assertNull(header.lane(), "the lane of the minimal header is absent"),
+                    () -> assertNull(header.posture(), "the posture of the minimal header is absent"),
+                    () -> assertNull(header.inputs().realizedFootprintDigest(), "the footprint digest is absent"),
+                    () -> assertNull(header.inputs().changeType(), "the change type is absent"),
+                    () -> assertNull(header.inputs().providersDigest(), "the providers digest is absent"),
+                    () -> assertNull(reference.file(), "the file of the reference is absent"),
+                    () -> assertNull(argument.file(), "the file of a rule argument is absent"),
+                    () -> assertNull(argument.waiverId(), "the waiver of a rule argument is absent"));
         }
 
         @Test
@@ -508,23 +545,22 @@ class PlanInstanceHeaderTest {
         @DisplayName("a missing component is refused")
         @SuppressWarnings("java:S5778") // each lambda is one constructor call; its arguments are the case table
         void nullRefused() {
-            var empty = Optional.<String>empty();
             assertAll(
                     () -> assertThrows(NullPointerException.class, () -> new PrunedElement(null, "id",
                             PruneReason.ADOPT, "lane")),
                     () -> assertThrows(NullPointerException.class, () -> new WaivedGate("gate", null)),
-                    () -> assertThrows(NullPointerException.class, () -> new UnitReference("unit", empty, null,
+                    () -> assertThrows(NullPointerException.class, () -> new UnitReference("unit", null, null,
                             UnitOrigin.DEFAULT)),
                     () -> assertThrows(NullPointerException.class, () -> new BoundArgument(null,
-                            BoundArgument.Source.WAIVER, empty, empty)),
+                            BoundArgument.Source.WAIVER, null, null)),
                     () -> assertThrows(NullPointerException.class, () -> new PolicyCall("site", null,
                             new TreeMap<>())),
                     () -> assertThrows(NullPointerException.class, () -> new HeaderViolation(null, "reason")),
                     () -> assertThrows(NullPointerException.class, () -> new PlanInstanceHeader("plan-24", 1,
-                            null, COMPOSED_AT, minimalHeader().inputs(), Optional.empty(), Optional.empty(),
+                            null, COMPOSED_AT, minimalHeader().inputs(), null, null,
                             minimalHeader().steps(), List.of(), List.of(), List.of())),
                     () -> assertThrows(NullPointerException.class, () -> new CompositionInputs(null, List.of(),
-                            List.of(), "r", DIGEST_A, DIGEST_B, empty, empty, empty)));
+                            List.of(), "r", DIGEST_A, DIGEST_B, null, null, null)));
         }
     }
 }

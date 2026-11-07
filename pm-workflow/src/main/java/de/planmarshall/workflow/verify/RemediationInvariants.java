@@ -23,7 +23,6 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamType;
-import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -139,8 +138,8 @@ final class RemediationInvariants {
     /** The outcome of the terminal a phase sub-workflow leaves on when the plan unit hands the plan back. */
     private static final String HAND_BACK_OUTCOME = "handed_back";
 
-    private static final ParamType BUDGET_TYPE = new ParamType.Int(Optional.of(0), Optional.of(BUDGET_CAP));
-    private static final ParamType WAIT_TYPE = new ParamType.Int(Optional.of(0), Optional.of(WAIVER_WAIT_CAP));
+    private static final ParamType BUDGET_TYPE = new ParamType.Int(0, BUDGET_CAP);
+    private static final ParamType WAIT_TYPE = new ParamType.Int(0, WAIVER_WAIT_CAP);
 
     private static final Map<String, OutcomeClass> TERMINALS = Map.of("resolved", OutcomeClass.SUCCESS,
             GeneralInvariants.WAIVED, OutcomeClass.SUCCESS, EXHAUSTED, OutcomeClass.FAILURE, FIX_REQUESTED_OUTCOME,
@@ -232,11 +231,11 @@ final class RemediationInvariants {
         var id = InvariantId.INV_REM_1;
         var unitId = context.unit().id();
         var outcome = state.terminalOutcome();
-        var expectedClass = outcome.map(terminal -> TERMINALS.get(terminal.id()));
-        if (expectedClass.isEmpty() || expectedClass.get() != outcome.get().outcomeClass()) {
+        var expectedClass = outcome != null ? TERMINALS.get(outcome.id()) : null;
+        if (outcome == null || expectedClass == null || expectedClass != outcome.outcomeClass()) {
             context.reportState(id, state, "the terminal '%s' is none of resolved, waived, exhausted and"
                     .formatted(state.id()) + " fix_requested with its class");
-        } else if (GeneralInvariants.WAIVED.equals(outcome.get().id()) && !WAIVABLE_UNITS.contains(unitId)) {
+        } else if (GeneralInvariants.WAIVED.equals(outcome.id()) && !WAIVABLE_UNITS.contains(unitId)) {
             context.reportState(id, state, "the class of '%s' has no waivable gate, so it ends nothing waived"
                     .formatted(unitId));
         }
@@ -277,8 +276,8 @@ final class RemediationInvariants {
     }
 
     private static String describe(ParamType type) {
-        return type instanceof ParamType.Int(var min, var max) && min.isPresent() && max.isPresent()
-                ? "int[%d..%d]".formatted(min.get(), max.get()) : type.toString();
+        return type instanceof ParamType.Int(var min, var max) && min != null && max != null
+                ? "int[%d..%d]".formatted(min, max) : type.toString();
     }
 
     // ----- INV-REM-2
@@ -302,8 +301,7 @@ final class RemediationInvariants {
             for (var transition : Context.transitions(conservative)) {
                 var target = context.state(transition.targetStateId());
                 var admitted = hasSuffix(transition.targetStateId(), RERUN) || target
-                        .filter(state -> state.terminalOutcome().filter(outcome -> EXHAUSTED.equals(outcome.id()))
-                                .isPresent()).isPresent();
+                        .filter(state -> Context.reports(state, EXHAUSTED)).isPresent();
                 if (!admitted) {
                     context.reportTransition(id, conservative, transition, "'%s' routes '%s' to '%s', neither the"
                             .formatted(conservative.id(), transition.outcomeName(), transition.targetStateId())
@@ -358,8 +356,7 @@ final class RemediationInvariants {
      */
     private static void checkWaivedEntry(Context context, StateNode source, OutcomeTransition transition) {
         var entersWaived = context.state(transition.targetStateId())
-                .flatMap(StateNode::terminalOutcome)
-                .filter(outcome -> GeneralInvariants.WAIVED.equals(outcome.id())).isPresent();
+                .filter(state -> Context.reports(state, GeneralInvariants.WAIVED)).isPresent();
         var admitted = hasSuffix(source.id(), GATHER) && GeneralInvariants.ALL_WAIVED.equals(transition.outcomeName())
                 || hasSuffix(source.id(), WAIVER_WAIT_STATE)
                 && GeneralInvariants.WAIVED.equals(transition.outcomeName());
@@ -412,7 +409,7 @@ final class RemediationInvariants {
             for (var transition : Context.transitions(state)) {
                 var commitLess = CompiledInvariants.STEPPED_OUT.equals(transition.outcomeName())
                         || SubWorkflowInvariants.DONE.equals(transition.outcomeName())
-                        && transition.resultGuard().map(ResultGuard::negated).orElse(true);
+                        && isUnguardedOrNegated(transition);
                 if (commitLess && !hasSuffix(transition.targetStateId(), BUDGET_CHECK)) {
                     context.reportTransition(id, state, transition,
                             "the nested commit '%s' routes '%s' without a commit to '%s', not to '%s'".formatted(
@@ -420,6 +417,12 @@ final class RemediationInvariants {
                 }
             }
         }
+    }
+
+    /** Whether the transition carries no result guard, or a negated one. */
+    private static boolean isUnguardedOrNegated(OutcomeTransition transition) {
+        var guard = transition.resultGuard();
+        return guard == null || guard.negated();
     }
 
     // ----- INV-REM-5
@@ -500,14 +503,17 @@ final class RemediationInvariants {
             return false;
         }
         if (Context.isTerminal(state)) {
-            return state.terminalOutcome().map(outcome -> accepted.contains(outcome.id())).orElse(false);
+            return reportsOneOf(state, accepted);
         }
         var terminals = context.graph().forwardClosure(Set.of(target)).stream()
                 .map(context::state).flatMap(Optional::stream)
                 .filter(Context::isTerminal).toList();
-        return !terminals.isEmpty() && terminals.stream()
-                .allMatch(terminal -> terminal.terminalOutcome()
-                        .map(outcome -> accepted.contains(outcome.id())).orElse(false));
+        return !terminals.isEmpty() && terminals.stream().allMatch(terminal -> reportsOneOf(terminal, accepted));
+    }
+
+    private static boolean reportsOneOf(StateNode state, Set<String> outcomes) {
+        var outcome = state.terminalOutcome();
+        return outcome != null && outcomes.contains(outcome.id());
     }
 
     /**

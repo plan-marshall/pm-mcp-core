@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -30,6 +31,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.LaneEntryIds;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Applies the effects of the composition rules, the bound axis variants and the waivers to the plan template
@@ -96,13 +98,13 @@ final class InstancePruner {
      * @param waivers           the waivers in force
      * @param verificationSteps the Phase 5 verification step ids
      * @param finalizeSteps     the Phase 6 steps with their order
-     * @param lane              the lane whose other lane is pruned; empty where nothing is pruned by lane (the
+     * @param lane              the lane whose other lane is pruned; {@code null} where nothing is pruned by lane (the
      *                          {@code start} event)
      * @return the kept states, the effects with their provenance and the kept step lists
      */
     static Pruned prune(WorkflowDefinition template, RuleEffects effects, List<PlanFacts.BoundVariant> bound,
             List<Waiver> waivers, List<String> verificationSteps, List<CompositionRequest.Step> finalizeSteps,
-            Optional<PlanInstanceHeader.Lane> lane) {
+            PlanInstanceHeader.@Nullable Lane lane) {
         var selection = new Selection(template, verificationSteps, finalizeSteps);
         selection.keepEntries();
         effects.prunes().forEach(selection::resolve);
@@ -156,14 +158,13 @@ final class InstancePruner {
      *
      * @return the states to prune with the reason {@code other_lane}, in declaration order
      */
-    private static List<String> otherLane(WorkflowDefinition template, Optional<PlanInstanceHeader.Lane> lane) {
-        var chosen = lane.filter(value -> value == PlanInstanceHeader.Lane.LIGHT
-                || value == PlanInstanceHeader.Lane.DEEP);
-        if (chosen.isEmpty() || !template.states().containsKey(LaneEntryIds.DEEP_ENTRY)
+    private static List<String> otherLane(WorkflowDefinition template, PlanInstanceHeader.@Nullable Lane lane) {
+        if (lane != PlanInstanceHeader.Lane.LIGHT && lane != PlanInstanceHeader.Lane.DEEP
+                || !template.states().containsKey(LaneEntryIds.DEEP_ENTRY)
                 || !template.states().containsKey(LaneEntryIds.LIGHT_ENTRY)) {
             return List.of();
         }
-        var deep = chosen.get() == PlanInstanceHeader.Lane.DEEP;
+        var deep = lane == PlanInstanceHeader.Lane.DEEP;
         var kept = reachable(template, List.of(deep ? LaneEntryIds.DEEP_ENTRY : LaneEntryIds.LIGHT_ENTRY), false);
         var shared = reachable(template, template.startingStates(), true);
         var other = reachable(template, List.of(deep ? LaneEntryIds.LIGHT_ENTRY : LaneEntryIds.DEEP_ENTRY), false);
@@ -323,7 +324,7 @@ final class InstancePruner {
             if (argument.isPresent() && waiver.raisedUnit().filter(call.subWorkflowId()::equals).isPresent()
                     && arguments.containsKey(argument.get())) {
                 arguments.put(argument.get(), BoundArgument.fromWaiver(
-                        new CallValue.IntValue(waiver.value().orElseThrow()), waiver.id()));
+                        new CallValue.IntValue(Objects.requireNonNull(waiver.value(), "value")), waiver.id()));
             }
         }
         return arguments;

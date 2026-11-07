@@ -20,6 +20,7 @@ import static de.planmarshall.workflow.engine.EngineFixtures.workspaceStatus;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,7 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 
@@ -142,8 +142,8 @@ class EntityAddressingTest {
             var resolution = resolver.resolve(address, reviewing(), workspace);
 
             assertAll(
-                    () -> assertEquals(new Resolved(address, AddressResolution.BOOTSTRAP_PLAN, Optional.empty()),
-                            resolution),
+                    () -> assertEquals(new Resolved(address, AddressResolution.BOOTSTRAP_PLAN, null), resolution,
+                            "a bootstrap resolves without a queue task"),
                     () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReader.reads()));
         }
 
@@ -155,7 +155,8 @@ class EntityAddressingTest {
 
             var resolution = resolver.resolve(address, enriching(CORE_ENRICHMENT), workspace);
 
-            assertEquals(new Resolved(address, AddressResolution.BOOTSTRAP_EPIC, Optional.empty()), resolution);
+            assertEquals(new Resolved(address, AddressResolution.BOOTSTRAP_EPIC, null), resolution,
+                    "an epic bootstrap resolves without a queue task");
         }
 
         @Test
@@ -166,8 +167,8 @@ class EntityAddressingTest {
             var resolution = resolver.resolve(address, enriching(CORE_ENRICHMENT, WORKFLOW_ENRICHMENT), workspace);
 
             assertAll(
-                    () -> assertEquals(new Resolved(address, ENRICH_KIND, Optional.of("qt-0000000000000002")),
-                            resolution),
+                    () -> assertEquals(new Resolved(address, ENRICH_KIND, "qt-0000000000000002"), resolution,
+                            "the enrichment resolves to its queue task"),
                     () -> assertTrue(fixtures.entryReader.reads().isEmpty()));
         }
 
@@ -178,7 +179,8 @@ class EntityAddressingTest {
 
             var resolution = resolver.resolve(address, reviewing(), workspace);
 
-            assertEquals(new Resolved(address, "lessons-review", Optional.of(LESSON_TASK)), resolution);
+            assertEquals(new Resolved(address, "lessons-review", LESSON_TASK), resolution,
+                    "the lesson review resolves to its queue task");
         }
     }
 
@@ -209,8 +211,8 @@ class EntityAddressingTest {
         void acceptedTaskEntity(String bound, String entity) {
             var resolution = inWorkspace(entity, enriching(entity));
 
-            assertEquals(new Resolved(EntityAddress.workspace(entity), ENRICH_KIND,
-                    Optional.of("qt-0000000000000001")), resolution, bound);
+            assertEquals(new Resolved(EntityAddress.workspace(entity), ENRICH_KIND, "qt-0000000000000001"),
+                    resolution, bound);
         }
 
         @ParameterizedTest
@@ -275,16 +277,15 @@ class EntityAddressingTest {
         @Test
         @DisplayName("A plan task under NO_PLAN, while the plan resolves it")
         void planTaskUnderNoPlan() {
-            var address = EntityAddress.fromArguments(Optional.of(EntityAddress.NO_PLAN), Optional.empty(),
-                    PLAN_TASK);
+            var address = EntityAddress.fromArguments(EntityAddress.NO_PLAN, null, PLAN_TASK);
 
             assertAll(
                     () -> refused(Reason.SCOPE_NOT_FOUND, resolver.resolve(address, reviewing(), workspace)),
                     () -> refused(Reason.SCOPE_NOT_FOUND,
                             resolver.resolve(address, enriching(CORE_ENRICHMENT), workspace)),
-                    () -> assertEquals(new Resolved(EntityAddress.plan(PLAN_ID, PLAN_TASK), "change",
-                                    Optional.of(PLAN_TASK)),
-                            resolver.resolve(EntityAddress.plan(PLAN_ID, PLAN_TASK), planReviewing(), planUnit())));
+                    () -> assertEquals(new Resolved(EntityAddress.plan(PLAN_ID, PLAN_TASK), "change", PLAN_TASK),
+                            resolver.resolve(EntityAddress.plan(PLAN_ID, PLAN_TASK), planReviewing(), planUnit()),
+                            "the plan resolves its own task"));
         }
 
         @Test
@@ -363,23 +364,34 @@ class EntityAddressingTest {
         @Test
         @DisplayName("An address with a scope id where none belongs or none where one does")
         void malformedAddress() {
-            var none = Optional.<String>empty();
-            var planId = Optional.of(PLAN_ID);
-            var epicId = Optional.of(EPIC_ID);
-
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.LESSONS, none, LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.LESSONS, null, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.PLAN, none, LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.PLAN, null, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.WORKSPACE, planId, LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.WORKSPACE, PLAN_ID, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> EntityAddress.plan(EntityAddress.NO_PLAN, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> EntityAddress.fromArguments(none, none, LESSON_TASK)),
+                            () -> EntityAddress.fromArguments(null, null, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> EntityAddress.fromArguments(planId, epicId, LESSON_TASK)));
+                            () -> EntityAddress.fromArguments(PLAN_ID, EPIC_ID, LESSON_TASK)));
+        }
+
+        @Test
+        @DisplayName("The workspace address carries no scope id, a plan or epic address its id")
+        void scopeIdAbsentOnlyForTheWorkspace() {
+            assertAll(
+                    () -> assertNull(EntityAddress.workspace(LESSON_TASK).scopeId(),
+                            "the workspace address carries no scope id"),
+                    () -> assertEquals(PLAN_ID, EntityAddress.plan(PLAN_ID, LESSON_TASK).scopeId(),
+                            "the plan address carries the plan id"),
+                    () -> assertEquals(EPIC_ID, EntityAddress.epic(EPIC_ID, LESSON_TASK).scopeId(),
+                            "the epic address carries the epic id"),
+                    () -> assertNull(new Resolved(EntityAddress.workspace(LESSON_TASK),
+                            AddressResolution.BOOTSTRAP_PLAN, null).queueTaskId(),
+                            "a bootstrap resolution has no queue task"));
         }
 
         @Test
@@ -389,7 +401,7 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Resolved(address, " ", Optional.empty())),
+                            () -> new Resolved(address, " ", null)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Refused(Reason.SCOPE_NOT_FOUND, " ")));
         }
@@ -400,11 +412,11 @@ class EntityAddressingTest {
     void addressFromArguments() {
         assertAll(
                 () -> assertEquals(EntityAddress.plan(PLAN_ID, PLAN_TASK),
-                        EntityAddress.fromArguments(Optional.of(PLAN_ID), Optional.empty(), PLAN_TASK)),
+                        EntityAddress.fromArguments(PLAN_ID, null, PLAN_TASK), "plan_id names the plan scope"),
                 () -> assertEquals(EntityAddress.epic(EPIC_ID, PLAN_TASK),
-                        EntityAddress.fromArguments(Optional.empty(), Optional.of(EPIC_ID), PLAN_TASK)),
-                () -> assertTrue(EntityAddress.fromArguments(Optional.of(EntityAddress.NO_PLAN), Optional.empty(),
-                        PLAN_TASK).isWorkspace()));
+                        EntityAddress.fromArguments(null, EPIC_ID, PLAN_TASK), "epic_id names the epic scope"),
+                () -> assertTrue(EntityAddress.fromArguments(EntityAddress.NO_PLAN, null, PLAN_TASK).isWorkspace(),
+                        "NO_PLAN names the workspace scope"));
     }
 
     @Test

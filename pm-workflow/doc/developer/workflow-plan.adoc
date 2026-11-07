@@ -60,7 +60,7 @@ A header or a log line with a value outside them, such as the former `recipe_ove
 `PlanInstance`:: One version: number, header, composed unit and its printed text, the content of `instance/plan.v<N>.pmwf`.
 `PlanInstanceStore`:: Writes the versions, the sub-unit texts and the composition log through a `ScopeTransaction` of the plan, and reads versions and sub-unit texts back.
 `SubUnitText`:: The verified text of a sub-unit a version names, handed to the store with the version.
-`CompositionRecord`:: One line of the composition log: event, `Result` (`composed`, `identical_adopted`, `kept`, `refused`), version, trigger, cause, input digests, `diff_summary`, time. `composed(instance, previous, recordedAt)` builds the record of a composed version from the version before it, empty exactly for version 1.
+`CompositionRecord`:: One line of the composition log: event, `Result` (`composed`, `identical_adopted`, `kept`, `refused`), version, trigger, cause, input digests, `diff_summary`, time. `composed(instance, previous, recordedAt)` builds the record of a composed version from the version before it, which is `null` exactly for version 1.
 `DiffSummary`:: The `diff_summary` of a composed version after the first: five flat arrays relative to the version before it (<<_the_diff_summary>>).
 `CompositionCause`:: The `cause` object of a log line: gate, `FallbackCause`, waiver id, deliverable id, replan id, configuration hashes, refusal.
 
@@ -337,6 +337,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 . *Write-once.* A version file and a sub-unit file are never rewritten; for a version file the commit checks it under the plan lock, a sub-unit file is content-addressed and is only ever written with the bytes it already holds.
 . *Reproducible header.* The same header always gives the same bytes and the same digest; the schema is checked in code in full (link:../adr/workflow-plan/006-header-schema-checked-in-code.adoc[ADR 006]).
 . *Ordered, not sorted.* Pruned elements follow rule order, then the other lane's states and the axis variants' calls; policy calls the declaration order of the states, waived gates the order of the waivers.
+. *Null for an absent member.* A member that may be absent is a `@Nullable` parameter or record component, `null` when absent (the lane, posture and optional digests of a header, the file of a `UnitReference`, the version, diff summary and cause of a `CompositionRecord`, the members of a `CompositionCause`, the facts of `PlanFacts`); absence a method returns stays `Optional` (`PlanFacts.text(…)`, `PlanFacts.list(…)`), except for the accessor of a record component, which returns the member as held and so `null` when it is absent (`PlanInstanceHeader.lane()`), and a codec writes a `null` member exactly as an absent value (`null` in the header and the log line, but an absent `cause`, and the `diff_summary` of an attempt that composed no version, not written), so the stored bytes and the digests do not depend on how the absence is held.
 
 == Failure Modes
 

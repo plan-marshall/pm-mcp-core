@@ -14,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
@@ -68,14 +67,14 @@ public final class SimplifyStep {
     public static FinalizeStepDescriptor descriptor() {
         return new FinalizeStepDescriptor(NAME, FinalizeStepDescriptor.SIMPLIFY_ORDER, true, Set.of(),
                 "Reviews the touched code for simplifications and proposes them, read-only",
-                false, true, Optional.of(InputScope.PLAN_FOOTPRINT), List.of(),
+                false, true, InputScope.PLAN_FOOTPRINT, List.of(),
                 false, false,
                 List.of("worktree", "outline", "intent"),
                 List.of(),
                 List.of("work_performed", CLONE_CANDIDATES, PROPOSALS),
-                Optional.of(new Lane(LaneClass.PRUNABLE, Optional.empty(), Optional.of("land_lane"), "M")),
-                List.of(), List.of(), Optional.of(REVIEW_ROLE), List.of(),
-                Optional.empty(), List.of());
+                new Lane(LaneClass.PRUNABLE, null, "land_lane", "M"),
+                List.of(), List.of(), REVIEW_ROLE, List.of(),
+                null, List.of());
     }
 
     /**
