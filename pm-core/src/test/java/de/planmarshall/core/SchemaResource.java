@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Loads a JSON schema file from the class path of a test (test helper, published in the {@code tests} artifact of
