@@ -269,9 +269,10 @@ class JGitCacheRepositoryTest {
         void missingPath() {
             assertTrue(fetch(url(), commit, RemotePolicy.localOnly()).isOk(), "the pinned commit is fetched");
 
+            // the extension of no fixture file, so a generated name never matches data/test.csv
             assertAll(
                     () -> assertEquals(GitOutcome.PATH_NOT_FOUND,
-                            read(commit, "data/" + Generators.letterStrings(3, 12).next() + ".csv").outcome(),
+                            read(commit, "data/" + Generators.letterStrings(3, 12).next() + ".absent").outcome(),
                             "a path absent at the commit is not found"),
                     () -> assertEquals(GitOutcome.PATH_NOT_FOUND, read(commit, "data").outcome(),
                             "a directory is no file and is not found"));

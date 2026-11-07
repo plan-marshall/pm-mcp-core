@@ -23,6 +23,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -105,7 +106,10 @@ class WorktreeShaDigestTest {
         Files.writeString(root.resolve(nested), nestedContent);
         Files.createSymbolicLink(root.resolve(link), Path.of(nested));
 
-        String digest = WorktreeShaDigest.digest(head, root, List.of(top, link, gone, nested));
+        // descending order, so every run hands the digest paths that need sorting
+        var descending = Stream.of(top, link, gone, nested).sorted(Comparator.reverseOrder()).toList();
+
+        String digest = WorktreeShaDigest.digest(head, root, descending);
 
         assertEquals(independentDigest(head, List.of(file(top, topContent), link(link, nested), deleted(gone),
                 file(nested, nestedContent))), digest, "the digest matches the independent framing");

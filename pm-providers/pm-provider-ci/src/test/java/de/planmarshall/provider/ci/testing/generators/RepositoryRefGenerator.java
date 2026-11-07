@@ -15,12 +15,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import de.planmarshall.provider.ci.ForgeUrl;
 import de.planmarshall.provider.ci.RepositoryRef;
 
 /**
- * Generates a valid {@link RepositoryRef}: a forge and its web origin from the built-in provider table, a generated
- * owner (on GitLab a generated group path of one to three plain segments) and a generated repository name of one
- * plain segment. Every call draws fresh values.
+ * Generates a valid {@link RepositoryRef}: a forge and its web origin from the built-in host table
+ * ({@link ForgeUrl#BUILT_IN_HOSTS}), a generated owner (on GitLab a generated group path of one to three plain
+ * segments) and a generated repository name of one plain segment. Every call draws fresh values.
  *
  * @since 0.1
  */
@@ -29,11 +30,10 @@ public final class RepositoryRefGenerator implements TypedGenerator<RepositoryRe
     /** The provider id of GitLab, the one forge whose owner is a group path (contract: provider id). */
     private static final String GITLAB = "gitlab";
 
-    /** The built-in provider table: provider id and web origin (contract: provider ids and forge origins). */
-    private static final List<Forge> FORGES = List.of(
-            new Forge("github", "https://github.com"),
-            new Forge(GITLAB, "https://gitlab.com"),
-            new Forge("forgejo", "https://codeberg.org"));
+    /** The built-in forges, derived from the host table of {@link ForgeUrl}: provider id and https web origin. */
+    private static final List<Forge> FORGES = ForgeUrl.BUILT_IN_HOSTS.entrySet().stream()
+            .map(entry -> new Forge(entry.getValue(), "https://" + entry.getKey()))
+            .toList();
 
     @Override
     public RepositoryRef next() {

@@ -295,7 +295,8 @@ class JGitSourceRepositoryTest {
         assertTrue(repository.prepare(cache, manifest).isFetched(), "the source's cache is prepared");
         assertTrue(repository.fetchCommit(cache, manifest).isFetched(), "the pinned commit is fetched");
 
-        var fetch = repository.readFile(cache, manifest, "data/" + text() + ".csv");
+        // the extension of no fixture file, so a generated name never matches data/test.csv
+        var fetch = repository.readFile(cache, manifest, "data/" + text() + ".absent");
 
         assertAll(
                 () -> assertEquals(SourceFetch.Outcome.PIN_MISSING, fetch.outcome(),

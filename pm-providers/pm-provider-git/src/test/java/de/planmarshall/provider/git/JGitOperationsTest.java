@@ -125,7 +125,7 @@ class JGitOperationsTest {
 
         @Test
         @DisplayName("opens a repository and reports its facts")
-        void opens() throws Exception {
+        void opens() {
             var info = git.open(repo).value().orElseThrow();
 
             assertAll(
@@ -279,7 +279,7 @@ class JGitOperationsTest {
 
         @Test
         @DisplayName("lists the main worktree first, then the linked ones")
-        void lists() throws Exception {
+        void lists() {
             var onBranch = names.next();
             var newBranch = names.next();
             var detachedName = names.next();

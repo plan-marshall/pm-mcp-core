@@ -16,8 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.util.Map;
+import java.net.URI;
+import java.util.stream.Stream;
 
+import de.planmarshall.provider.ci.ForgeUrl;
 import de.planmarshall.provider.ci.RepositoryRef;
 
 import org.junit.jupiter.api.DisplayName;
@@ -28,11 +30,8 @@ import org.junit.jupiter.api.Test;
 @EnableGeneratorController
 class RepositoryRefGeneratorTest {
 
-    /** The built-in provider table: provider id to web origin (contract: provider ids and forge origins). */
-    private static final Map<String, String> FORGES = Map.of(
-            "github", "https://github.com",
-            "gitlab", "https://gitlab.com",
-            "forgejo", "https://codeberg.org");
+    /** How many references are drawn to find a nested GitLab group path: a miss is below one in 10^50. */
+    private static final int DRAWS = 500;
 
     private final RepositoryRefGenerator generator = new RepositoryRefGenerator();
 
@@ -53,11 +52,22 @@ class RepositoryRefGeneratorTest {
     @DisplayName("Should take forge and origin from the built-in table")
     void shouldTakeForgeAndOriginFromTheBuiltInTable() {
         var generated = generator.next();
+        var host = URI.create(generated.origin()).getHost();
 
         assertAll("forge and origin",
-                () -> assertTrue(FORGES.containsKey(generated.forge()), "The forge is a built-in provider id"),
-                () -> assertEquals(FORGES.get(generated.forge()), generated.origin(),
-                        "The origin is the web origin of the forge"));
+                () -> assertEquals(generated.forge(), ForgeUrl.BUILT_IN_HOSTS.get(host),
+                        "The origin host names the forge in the table"),
+                () -> assertEquals("https://" + host, generated.origin(),
+                        "The origin is the https origin of the host"));
+    }
+
+    @Test
+    @DisplayName("Should generate a nested group path on GitLab")
+    void shouldGenerateANestedGroupPathOnGitLab() {
+        var nested = Stream.generate(generator::next).limit(DRAWS)
+                .anyMatch(ref -> "gitlab".equals(ref.forge()) && ref.ownerOrPath().contains("/"));
+
+        assertTrue(nested, "A nested GitLab group path is generated");
     }
 
     @RepeatedTest(20)

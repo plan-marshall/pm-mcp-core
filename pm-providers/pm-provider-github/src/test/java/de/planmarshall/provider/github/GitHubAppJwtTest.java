@@ -109,7 +109,7 @@ class GitHubAppJwtTest {
 
     @Test
     @DisplayName("wraps a PKCS#1 key in exactly the PKCS#8 structure of the JDK")
-    void wrapsPkcs1() throws Exception {
+    void wrapsPkcs1() {
         assertAll(
                 () -> assertArrayEquals(TestKeys.PAIR.getPrivate().getEncoded(),
                         GitHubAppJwt.wrapPkcs1(TestKeys.pkcs1()), "the wrapped key is the JDK's PKCS#8 form"),
