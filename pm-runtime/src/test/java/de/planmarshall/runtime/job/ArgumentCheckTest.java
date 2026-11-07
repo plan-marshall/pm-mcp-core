@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
+import static de.planmarshall.runtime.test.HostToolCalls.git;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -133,10 +134,6 @@ class ArgumentCheckTest {
 
     private static WrapperBuild maven(String verb, String module) {
         return new WrapperBuild(WrapperName.MVNW, verb, Optional.ofNullable(module));
-    }
-
-    private static HostToolCall git(String... arguments) {
-        return new HostToolCall(HostToolName.GIT, List.of(arguments));
     }
 
     /** Checks a job whose discovered modules are these, so that any module name can reach the flag rule. */

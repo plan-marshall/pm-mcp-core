@@ -14,6 +14,7 @@ import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.WRAPPER_PROPERTIES;
+import static de.planmarshall.runtime.test.HostToolCalls.git;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -109,10 +110,6 @@ class VerifyNotResolveAdversarialTest {
 
     private static WrapperBuild maven(String module) {
         return new WrapperBuild(WrapperName.MVNW, "verify", Optional.ofNullable(module));
-    }
-
-    private static HostToolCall git(String... arguments) {
-        return new HostToolCall(HostToolName.GIT, List.of(arguments));
     }
 
     @Nested
