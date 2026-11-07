@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent.json",
+  "title": "IntentStore",
+  "type": "object",
+  "required": ["format_version", "current", "history"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "current": { "$ref": "#/$defs/revision" },
+    "history": { "type": "array", "items": { "$ref": "#/$defs/revision" } }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "required": ["revision", "submitted_at", "task_id", "record"],
+      "additionalProperties": false,
+      "properties": {
+        "revision": { "type": "integer", "minimum": 1 },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "task_id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The task whose submission carried the record." },
+        "record": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json" }
+      }
+    }
+  }
+}

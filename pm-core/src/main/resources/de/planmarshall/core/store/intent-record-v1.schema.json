@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json",
+  "title": "IntentRecord",
+  "type": "object",
+  "required": ["why", "goal", "criteria", "current_behaviour", "repairs", "non_goals", "constraints", "choices", "assumptions", "open_questions", "deferred", "source_claims"],
+  "additionalProperties": false,
+  "properties": {
+    "why": { "type": "string", "minLength": 20, "maxLength": 1000 },
+    "goal": { "type": "string", "minLength": 10, "maxLength": 300 },
+    "criteria": {
+      "type": "array", "minItems": 1, "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^AC-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 10, "maxLength": 500 },
+          "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] }
+        }
+      }
+    },
+    "current_behaviour": { "type": ["string", "null"], "minLength": 10, "maxLength": 500 },
+    "repairs": { "type": ["string", "null"], "description": "plan_id of the landed plan whose work this plan repairs; only on a record with a fix criterion (Phase Workflows, The Intent Record)." },
+    "non_goals": {
+      "type": "array", "minItems": 0, "maxItems": 20,
+      "description": "At least one item on the deep lane (Phase Workflows, The Intent Record); none required on the light lane.",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^NG-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "source", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^CN-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "source": { "type": "string", "enum": ["code", "operator", "external"] },
+          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI; required for source code." }
+        }
+      }
+    },
+    "choices": {
+      "type": "array", "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "options_weighed", "decider", "question_id", "evidence", "adr"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "options_weighed": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
+          "decider": { "type": "string", "enum": ["operator", "quorum", "role", "fact"], "description": "A decider kind (store-schemas/18, Decider Kind): role is the role's own call." },
+          "question_id": { "type": ["string", "null"], "description": "The answered part, for decider operator or quorum; null otherwise." },
+          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." },
+          "adr": {
+            "type": ["object", "null"],
+            "required": ["adr_id", "relation"],
+            "additionalProperties": false,
+            "properties": {
+              "adr_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "relation": { "type": "string", "enum": ["follows", "contradicts"] }
+            },
+            "description": "The architecture decision record the decision follows or contradicts; a contradicts decision must have decider operator."
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "status", "riskiest", "test"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^AN-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "status": { "type": "string", "enum": ["verified", "unverified"] },
+          "riskiest": { "type": "boolean" },
+          "test": { "type": ["string", "null"], "maxLength": 500, "description": "Required for the riskiest assumption." }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["text", "resolver"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string", "minLength": 10, "maxLength": 500 },
+          "resolver": { "type": "string", "enum": ["exploration", "external"] }
+        }
+      }
+    },
+    "deferred": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DF-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "reason": { "type": "string", "minLength": 5, "maxLength": 500 }
+        }
+      }
+    },
+    "source_claims": {
+      "type": "array", "minItems": 1, "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": ["claim", "landed_in", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "claim": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "landed_in": { "type": "string", "pattern": "^((AC|NG|CN|DC|AN|DF)-[0-9]{1,4}|goal|why|dropped)$" },
+          "reason": { "type": ["string", "null"], "maxLength": 500, "description": "Required when landed_in is dropped." }
+        }
+      }
+    }
+  }
+}

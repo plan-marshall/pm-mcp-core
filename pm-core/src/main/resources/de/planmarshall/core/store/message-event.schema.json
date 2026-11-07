@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/message-event.json",
+  "title": "MessageEvent",
+  "type": "object",
+  "required": ["format_version", "event", "message_id", "at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event": { "type": "string", "enum": ["message", "claimed", "processed", "consumed", "annotation"] },
+    "message_id": { "type": "string", "pattern": "^msg-[0-9]{4,}$", "description": "Store-assigned on the message event, monotonic per store file, never reused; later events reference it." },
+    "at": { "type": "string", "format": "date-time" },
+    "sender": {
+      "type": "object",
+      "description": "message events only; derived by the store from the calling scope, never supplied by the caller.",
+      "required": ["scope", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "scope": { "type": "string", "enum": ["plan", "epic"] },
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }
+      }
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["blocker_report", "process_finding", "landing_notification", "transfer_offer", "intake_confirmed", "hypothesis_refuted", "paused", "started", "cancelled", "abandoned", "revised", "settings_changed", "overlap_found", "advisory", "spec_amendment", "coordination"],
+      "description": "message events only. Inbox kinds: the first three and hypothesis_refuted (claim, evidence, plan; appended by refine.hypothesis-refuted, phase-workflows.adoc, Open Hypotheses of Epic Plans) from plans; transfer_offer and intake_confirmed from epics; the operator's acts on a plan of the epic, appended by the server with the act (paused, started, cancelled, abandoned, revised by a chat, settings_changed by a change of the plan's settings; payload: reason, channel, device_id); overlap_found, appended by the server when a running plan's realized changes come to overlap another running plan of the epic beyond the epic's overlap_max_files (payload: plan_id, other_plan_id, files). An overlap of a plan's unplanned changes with a sibling's declared surface found at its landing is noted in the plan's landing record. Mailbox kinds: advisory, spec_amendment, coordination."
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "body": { "type": "string", "maxLength": 16384 },
+    "payload": { "type": "object", "description": "Kind-specific structured payload (the landing envelope for landing_notification; source_epic, source_plan_id, source_location for transfer_offer; reason, channel (cli or web), and device_id for an operator's act; plan_id, other_plan_id, and files for overlap_found)." },
+    "by": { "type": "string", "description": "claimed, processed, consumed, annotation: the scope id that appended the event." },
+    "outcome": { "type": "string", "description": "processed only: what the consumer did (for example the landing record id or the queue row changed)." },
+    "note": { "type": "string", "maxLength": 2000, "description": "annotation only: a correction referencing the original message, which is never rewritten." }
+  }
+}

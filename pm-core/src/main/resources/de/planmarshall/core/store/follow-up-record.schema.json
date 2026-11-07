@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/follow-up-record.json",
+  "title": "FollowUpRecord",
+  "type": "object",
+  "required": ["follow_up_id", "replan_id", "kind", "title", "scope", "deliverables", "recorded_at"],
+  "additionalProperties": false,
+  "properties": {
+    "follow_up_id": { "type": "string", "pattern": "^FU-[0-9]+$" },
+    "replan_id": { "type": "string", "pattern": "^RP-[0-9]+$" },
+    "kind": { "type": "string", "enum": ["split", "deferred", "prerequisite"], "description": "split: the second pull request of a split change, started from split_ref after this plan; deferred: dropped work for a later plan; prerequisite: a row this plan waits for (epic plans only)." },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "scope": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "deliverables": { "type": "array", "items": { "type": "object", "required": ["deliverable_id", "title"], "additionalProperties": false, "properties": { "deliverable_id": { "type": "string", "pattern": "^D[0-9]+$" }, "title": { "type": "string" } } } },
+    "split_ref": { "type": ["string", "null"] },
+    "epic_row": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "The plan id of the queue row staged for it in the plan's epic; null for a plan without an epic, whose follow-up is a recorded proposal." },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  }
+}

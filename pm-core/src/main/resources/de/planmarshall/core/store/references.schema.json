@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/references.json",
+  "title": "ReferencesRecord",
+  "type": "object",
+  "required": [
+    "format_version",
+    "declared_files",
+    "derived_files",
+    "realized_files",
+    "realized_state"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "declared_files": { "type": "array", "items": { "type": "string" } },
+    "derived_files": {
+      "type": "object",
+      "required": ["expected_modifications", "read_only_references"],
+      "additionalProperties": false,
+      "properties": {
+        "expected_modifications": { "type": "array", "items": { "type": "string" } },
+        "conditional_modifications": { "type": "array", "items": { "type": "string" }, "description": "Paths declared (write-conditional): edited only if a named gate fires. Outside the coverage denominator, inside the scope-creep allow set." },
+        "read_only_references": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "unplanned_changes": {
+      "type": "array",
+      "description": "Paths of realized_files \\ declared_files, recorded by the server with provenance when a task submit or a loop-back commit changed them; accepted and recorded, never reviewed and never blocking. Listed in the PR body and the landing record; for an epic plan an overlap with a sibling plan's declared surface is noted in the landing record only. Boundary breaches (outside the worktree, the main checkout, protected paths) are refused by the non-waivable guards and never recorded here.",
+      "items": {
+        "type": "object",
+        "required": ["path", "provenance", "phase", "recorded_at"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "provenance": { "type": "string", "enum": ["task", "loop_back", "finalize"] },
+          "task_id": { "type": ["string", "null"], "pattern": "^TASK-[0-9]{3,}$", "description": "provenance task: the task whose verified submit changed the path." },
+          "loop_back_iteration": { "type": ["integer", "null"], "minimum": 1 },
+          "phase": { "type": "string", "enum": ["phase-5-execute", "phase-6-finalize"], "description": "The phase value of the phase sub-workflow on the call stack of the recording transition (store-schemas/03, Phases as Sub-Workflows)." },
+          "recorded_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "realized_files": { "type": "array", "items": { "type": "string" } },
+    "realized_renames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "additionalProperties": false,
+        "properties": { "from": { "type": "string" }, "to": { "type": "string" } }
+      }
+    },
+    "realized_state": {
+      "type": "object",
+      "required": ["state"],
+      "additionalProperties": false,
+      "properties": {
+        "state": { "type": "string", "enum": ["measured", "unresolved", "not_captured"], "description": "measured: realized_files was captured from the plan's own worktree; unresolved: no worktree to measure (see cause); not_captured: no capture has been persisted (initial value, or the worktree is gone without a capture). Every consumer treats a state other than measured as indeterminate, never as clean." },
+        "cause": { "type": ["string", "null"], "enum": ["pending", null], "description": "Set when state == unresolved: pending (worktree not yet materialised). Plans always execute in a worktree; there is no disabled cause." },
+        "base_ref": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+        "base_commits_behind": { "type": ["integer", "null"], "minimum": 0 },
+        "captured_at": { "type": ["string", "null"], "format": "date-time" },
+        "files_total": { "type": ["integer", "null"], "minimum": 0, "description": "The size of the plan's change at this capture (store-schemas/13, The Size of a Plan's Change); null unless state == measured." },
+        "insertions_total": { "type": ["integer", "null"], "minimum": 0 },
+        "deletions_total": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "captured_changes": {
+      "type": ["object", "null"],
+      "description": "Plans with a local_changes source only (land lane, phase-workflows.adoc): the change set of the main checkout captured once when the source was stored and kept as local-changes.json of the plan's source directory, copied here by the plan's creation transaction (the start.create-scope transaction of the plan bootstrap) and never re-captured; declared_files is the union of its paths and the paths changed by its commits_ahead. Null for every other plan.",
+      "required": ["captured_at", "snapshot_sha", "base_ref", "paths", "commits_ahead"],
+      "additionalProperties": false,
+      "properties": {
+        "captured_at": { "type": "string", "format": "date-time" },
+        "snapshot_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The capture's snapshot commit: parent the main checkout's HEAD, tree its staged, unstaged, and untracked (not ignored) state; pinned by refs/pm-mcp/captures/<plan_id>, which is removed only after a merged landing and otherwise retained (owed item capture_ref_retained, removed by the operator's drop of the capture); the plan's branch starts at it (phase-workflows.adoc, Plan Source Contracts, local_changes)." },
+        "base_ref": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "Base-branch commit the commits ahead were counted against." },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "porcelain", "digest"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "porcelain": { "type": "string", "description": "Two-character git status --porcelain code (dirty or staged)." },
+              "digest": { "type": "string", "description": "Blob SHA of the working-tree content, or 'deleted'." }
+            }
+          }
+        },
+        "commits_ahead": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "description": "Commits of the main checkout's branch ahead of base_ref, oldest first." }
+      }
+    }
+  }
+}
