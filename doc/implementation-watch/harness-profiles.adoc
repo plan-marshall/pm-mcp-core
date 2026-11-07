@@ -118,7 +118,7 @@ opposite fault stops every role of a harness: plugins built into a new harness v
 expectation is empty, and the start-failure guard ends every start.
 Guard:: Fixture-harness scenarios: a line without the `plugins` member, a line with one plugin more than
 `expected_plugins`, a line with a second MCP server, a line with a tool outside an enforced tool set, and a first call
-before the line each end the worker `isolation_breach` with the extra names in `harness_error`; matched control: a
+before the line each end the worker as a start failure with the extra names in `harness_error`; matched control: a
 line with exactly `expected_plugins`, the job relay, and the role's tool set passes. The stage `isolation` takes
 `expected_plugins` from a launch without decoys and fails unless a control launch that loads the decoy plugin and
 MCP server reports both in the line.
