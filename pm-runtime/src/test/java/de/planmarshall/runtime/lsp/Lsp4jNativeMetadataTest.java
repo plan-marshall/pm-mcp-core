@@ -73,7 +73,8 @@ class Lsp4jNativeMetadataTest {
         for (String type : List.of("org.eclipse.lsp4j.InitializeParams", "org.eclipse.lsp4j.ServerCapabilities",
                 "org.eclipse.lsp4j.jsonrpc.messages.ResponseMessage", "org.eclipse.lsp4j.services.TextDocumentService",
                 PoolLanguageClient.class.getName())) {
-            assertTrue(reflect.contains("\"name\":\"" + type + "\""), "the reflect metadata covers the known type");
+            var simpleName = type.substring(type.lastIndexOf('.') + 1);
+            assertTrue(reflect.contains("\"name\":\"" + type + "\""), "the reflect metadata covers " + simpleName);
         }
     }
 

@@ -2040,7 +2040,8 @@ class SubprocessJobRunnerTest {
         void failedUnparsedKeepsTheRawLogAndYieldsTheEvidence() throws Exception {
             var wrapper = fixture.root.resolve(JobEnrolmentFixture.MVNW);
             var failureLine = Generators.letterStrings(8, 24).next();
-            Files.writeString(wrapper, "#!/bin/sh\necho '%s'\nexit 3\n".formatted(failureLine));
+            // a POSIX shell script ends its lines with LF: the platform line separator %n would break the shebang
+            Files.writeString(wrapper, "#!/bin/sh\necho '" + failureLine + "'\nexit 3\n");
             Files.setPosixFilePermissions(wrapper, PosixFilePermissions.fromString("rwx------"));
             fixture.enrol();
             FakePmExec.install(home, FakePmExec.Mode.REPORT);

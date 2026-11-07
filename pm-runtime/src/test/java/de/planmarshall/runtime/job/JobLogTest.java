@@ -214,6 +214,7 @@ class JobLogTest {
 
             var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a directory log is unavailable");
             var lines = assertInstanceOf(Unavailable.class, log.readLines(0), "a directory log has no lines");
+            var detail = line();
 
             assertAll(
                     () -> assertEquals(LogState.UNREADABLE, whole.state(), "the whole read is unreadable"),
@@ -221,7 +222,7 @@ class JobLogTest {
                     () -> assertThrows(IllegalArgumentException.class, () -> log.readWhole(-1),
                             "a negative offset is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Unavailable(LogState.READABLE, line()),
+                            () -> new Unavailable(LogState.READABLE, detail),
                             "a readable state is no unavailability"));
         }
     }

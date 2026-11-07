@@ -131,7 +131,7 @@ class LspClientTest {
     @DisplayName("reports a server that cannot start or dies before initialize")
     void startFailures() throws Exception {
         var noServer = workspace.resolve("no-" + Generators.letterStrings(3, 12).next()).toString();
-        var missingSource = workspace.resolve(Generators.letterStrings(3, 12).next() + ".java");
+        var missingSource = workspace.resolve("missing-" + Generators.letterStrings(3, 12).next() + ".java");
         var missing = assertThrows(LspException.class,
                 () -> LspClient.start(List.of(noServer), workspace, TIMEOUT), "a missing server does not start");
         var dies = assertThrows(LspException.class,
