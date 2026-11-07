@@ -9,6 +9,8 @@
  */
 package de.planmarshall.provider.git.ported;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.domain.EmailGenerator;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -49,6 +51,10 @@ import de.planmarshall.provider.git.ported.PortedFixtures.Shape;
  * {@code str | Path} argument is a {@link Path}. The {@code initial} repository of a fixture is the original suite's
  * {@code _init_repo}: one commit holding {@code tracked.txt} with the content {@code original\n}.
  * <p>
+ * Everything a fixture does not state is generated per run: the repository directory, the initial branch, the author
+ * and committer identity and the message of the {@code initial} commit. A fixture states relations between results
+ * of one run only, so no expectation depends on these values.
+ * <p>
  * The directives, one per line, arguments separated by one space ({@code <content>} takes the rest of the line, with
  * the escapes {@code \n}, {@code \t}, {@code \0} and {@code \\}):
  *
@@ -71,31 +77,40 @@ import de.planmarshall.provider.git.ported.PortedFixtures.Shape;
  */
 final class WorktreeShaScenario {
 
-    /** The class-path directory of the fixtures. */
+    /** The class-path directory of the fixtures. Contract: the fixture path of the corpus. */
     static final String DIRECTORY = "ported/worktree-sha";
 
-    /** The capability of a fixture that needs POSIX permissions enforced on the running user. */
+    /**
+     * The capability of a fixture that needs POSIX permissions enforced on the running user. Contract: the
+     * capability name a fixture's {@code requires:} line carries.
+     */
     static final String POSIX_PERMISSIONS = "posix-permissions";
 
-    /** The directives of a {@code git.worktree-sha} fixture. */
+    /**
+     * The directives of a {@code git.worktree-sha} fixture. Contract: each keyword and its argument count is the
+     * fixture grammar of the class Javadoc; the {@code switch} of {@link #run} dispatches on these keywords.
+     */
     static final Map<String, Shape> GRAMMAR = Map.ofEntries(
-            Map.entry("repository", new Shape(1, false)),
-            Map.entry("write", new Shape(2, true)),
-            Map.entry("stage", new Shape(1, false)),
-            Map.entry("commit", new Shape(1, true)),
-            Map.entry("delete", new Shape(1, false)),
-            Map.entry("config", new Shape(2, false)),
-            Map.entry("detach", new Shape(0, false)),
-            Map.entry("symlink", new Shape(2, false)),
-            Map.entry("unreadable", new Shape(1, false)),
-            Map.entry("result", new Shape(1, false)),
-            Map.entry("same", new Shape(2, false)),
-            Map.entry("different", new Shape(2, false)),
-            Map.entry("unavailable", new Shape(2, false)));
+            Map.entry("repository", new Shape(1, false)), // contract: repository <kind>
+            Map.entry("write", new Shape(2, true)), // contract: write <path> <content>
+            Map.entry("stage", new Shape(1, false)), // contract: stage <path>
+            Map.entry("commit", new Shape(1, true)), // contract: commit <message>
+            Map.entry("delete", new Shape(1, false)), // contract: delete <path>
+            Map.entry("config", new Shape(2, false)), // contract: config <section.key> <value>
+            Map.entry("detach", new Shape(0, false)), // contract: detach
+            Map.entry("symlink", new Shape(2, false)), // contract: symlink <path> <target>
+            Map.entry("unreadable", new Shape(1, false)), // contract: unreadable <path>
+            Map.entry("result", new Shape(1, false)), // contract: result <label>
+            Map.entry("same", new Shape(2, false)), // contract: same <label> <label>
+            Map.entry("different", new Shape(2, false)), // contract: different <label> <label>
+            Map.entry("unavailable", new Shape(2, false))); // contract: unavailable <label> <step>
 
-    private static final Identity AUTHOR = new Identity("Ported Test", "ported@example.com");
+    // Contract: the tracked file of the original suite's _init_repo.
     private static final String TRACKED = "tracked.txt";
+    // Contract: the content of the tracked file of the original suite's _init_repo.
     private static final String TRACKED_CONTENT = "original\n";
+    // Contract: the POSIX permission string that removes every permission (directive unreadable).
+    private static final String NO_PERMISSIONS = "---------";
 
     private WorktreeShaScenario() {
     }
@@ -128,17 +143,20 @@ final class WorktreeShaScenario {
      */
     static Run run(Fixture fixture, Path temp) throws IOException, GitAPIException {
         var git = new JGitOperations(RemotePolicy.localOnly());
-        Path root = temp.resolve("repo");
+        Path root = temp.resolve(Generators.letterStrings(3, 12).next());
+        var author = new Identity(Generators.letterStrings(3, 12).next(), new EmailGenerator().next());
         var results = new LinkedHashMap<String, GitResult<WorktreeSha>>();
         var expectations = new ArrayList<Directive>();
         List<Directive> directives = fixture.directives();
         Directive first = directives.getFirst();
+        // Contract: a fixture starts with the repository directive of GRAMMAR.
         if (!"repository".equals(first.keyword())) {
             throw new IllegalArgumentException("fixture " + fixture + " does not start with a repository directive");
         }
-        repository(git, root, first.arguments().getFirst(), fixture);
+        repository(git, root, first.arguments().getFirst(), author, fixture);
         for (Directive directive : directives.subList(1, directives.size())) {
             List<String> args = directive.arguments();
+            // Contract: the case labels are the directive keywords of GRAMMAR.
             switch (directive.keyword()) {
                 case "write" -> write(root.resolve(args.get(0)), unescape(args.get(1)));
                 case "stage" -> {
@@ -146,7 +164,7 @@ final class WorktreeShaScenario {
                         jgit.add().addFilepattern(args.getFirst()).call();
                     }
                 }
-                case "commit" -> commit(git, root, args.getFirst(), fixture);
+                case "commit" -> commit(git, root, args.getFirst(), author, fixture);
                 case "delete" -> Files.delete(root.resolve(args.getFirst()));
                 case "config" -> config(root, args.get(0), args.get(1));
                 case "detach" -> {
@@ -157,7 +175,7 @@ final class WorktreeShaScenario {
                 }
                 case "symlink" -> Files.createSymbolicLink(root.resolve(args.get(0)), Path.of(args.get(1)));
                 case "unreadable" -> Files.setPosixFilePermissions(root.resolve(args.getFirst()),
-                        PosixFilePermissions.fromString("---------"));
+                        PosixFilePermissions.fromString(NO_PERMISSIONS));
                 case "result" -> {
                     if (results.put(args.getFirst(), git.worktreeSha(root)) != null) {
                         throw new IllegalArgumentException("fixture " + fixture + " line " + directive.line()
@@ -174,21 +192,23 @@ final class WorktreeShaScenario {
         return new Run(fixture, results, List.copyOf(expectations));
     }
 
-    private static void repository(JGitOperations git, Path root, String kind, Fixture fixture) throws IOException {
+    private static void repository(JGitOperations git, Path root, String kind, Identity author, Fixture fixture)
+            throws IOException {
+        // Contract: none, unborn and initial are the repository kinds of the fixture grammar.
         switch (kind) {
             case "none" -> Files.createDirectories(root);
-            case "unborn" -> require(git.init(root, "main"), fixture, "init");
+            case "unborn" -> require(git.init(root, Generators.letterStrings(3, 12).next()), fixture, "init");
             case "initial" -> {
-                require(git.init(root, "main"), fixture, "init");
+                require(git.init(root, Generators.letterStrings(3, 12).next()), fixture, "init");
                 write(root.resolve(TRACKED), TRACKED_CONTENT);
-                commit(git, root, "init", fixture);
+                commit(git, root, Generators.letterStrings(3, 20).next(), author, fixture);
             }
             default -> throw new IllegalArgumentException("fixture " + fixture + " names an unknown repository " + kind);
         }
     }
 
-    private static void commit(JGitOperations git, Path root, String message, Fixture fixture) {
-        require(git.commit(new CommitInput(root, message, AUTHOR, AUTHOR)), fixture, "commit");
+    private static void commit(JGitOperations git, Path root, String message, Identity author, Fixture fixture) {
+        require(git.commit(new CommitInput(root, message, author, author)), fixture, "commit");
     }
 
     private static void require(GitResult<?> result, Fixture fixture, String step) {
