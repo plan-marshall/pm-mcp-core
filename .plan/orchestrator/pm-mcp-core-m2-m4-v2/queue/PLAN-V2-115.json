@@ -2,10 +2,10 @@
   "id": "PLAN-V2-115",
   "slug": "schema-files-foundation",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "landed",
   "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#311",
+  "landing": "landings/PLAN-V2-115.md",
   "seq": 103
 }
