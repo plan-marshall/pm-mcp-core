@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.security.JobTokens;
 import de.planmarshall.runtime.security.Secrets;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
@@ -28,8 +29,8 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * {@code revoked} reports.
  *
  * <p>
- * The generations and the tokens are generated. The literal that stays is the contract: the generation shape
- * {@code l-} followed by sixteen lower-case hex digits.
+ * The generations and the tokens are generated; a generation is a job id of the worker kind, {@code l-} followed by
+ * sixteen lower-case hex digits.
  */
 @EnableGeneratorController
 @DisplayName("Job token store")
@@ -40,7 +41,7 @@ class JobTokenStoreTest {
 
     @BeforeEach
     void setUp() {
-        generation = generation();
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         token = Generators.letterStrings(8, 32).next();
     }
 
@@ -59,7 +60,7 @@ class JobTokenStoreTest {
     @DisplayName("a revoked token still resolves so the handler answers the ended job")
     void revoke() {
         var other = token + "-" + Generators.letterStrings(1, 8).next();
-        var otherGeneration = generation();
+        var otherGeneration = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         var store = new JobTokenStore();
         store.register(generation, JobTokens.sha256Hex(token));
         store.register(otherGeneration, JobTokens.sha256Hex(other));
@@ -70,10 +71,5 @@ class JobTokenStoreTest {
         assertEquals(otherGeneration, store.resolve(Secrets.sha256(other)).orElseThrow().jobId(),
                 "the other token resolves to its own generation");
         assertFalse(store.revoked(otherGeneration), "the other generation is not revoked");
-    }
-
-    /** @return a generation id: {@code l-} and sixteen lower-case hex digits */
-    private static String generation() {
-        return "l-" + RuntimeGenerators.sha256Digests().next().substring(0, 16);
     }
 }

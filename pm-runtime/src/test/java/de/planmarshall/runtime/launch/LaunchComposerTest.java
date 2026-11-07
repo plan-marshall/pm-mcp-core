@@ -40,6 +40,7 @@ import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleSkill;
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.security.JobTokens;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
@@ -70,7 +71,7 @@ class LaunchComposerTest {
 
     @BeforeEach
     void setUp() {
-        generation = "l-" + RuntimeGenerators.sha256Digests().next().substring(0, 16);
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         harnessVersion = "1." + Generators.integers(0, 99).next() + "." + Generators.integers(0, 99).next();
     }
 
