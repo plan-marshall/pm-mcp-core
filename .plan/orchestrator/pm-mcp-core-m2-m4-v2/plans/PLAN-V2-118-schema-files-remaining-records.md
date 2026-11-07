@@ -2,9 +2,9 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again).
 > Lives at `plans/PLAN-V2-118-schema-files-remaining-records.md` and is queued as one row file, `queue/PLAN-V2-118.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names and the package file
@@ -42,9 +42,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 - **A move plus new tests:** no schema text changes except a correction with evidence; a drift the new parity tests reveal is reported in the landing message and fixed only where the specification is the side that is wrong.
 - **`pm-workflow` rule:** R15 applies where a schema's codec lies in `pm-workflow`.
-- **Sonar:** where the plan lifecycle's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
+- **Sonar:** where the lane's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
 - **No dependency or plugin is added.**
-- **The landing message:** this plan is started with a spec path, so no `emit-landing` runs; write the landing message to the epic inbox by hand as the last step (`inbox write --kind landing`), with the `landing-facts` block, the standing-rule revision and rule ids, and the open items.
+- **The landing message:** the lane files it (`landing-check`); it carries the standing-rule revision and rule ids and the open items, and names `spec_source` and `spec_differ`.
 
 ## Claim Labels
 
@@ -80,7 +80,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-118-schema-files-remaining-records.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-118-schema-files-remaining-records.md
 ```
 
 ## Write-Boundary

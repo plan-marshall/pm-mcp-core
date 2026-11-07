@@ -2,10 +2,10 @@
   "id": "PLAN-V2-90",
   "slug": "runtime-tests-jobs",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "landed",
   "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#314",
+  "landing": "landings/PLAN-V2-90.md",
   "seq": -17
 }

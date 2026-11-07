@@ -45,6 +45,7 @@ The `junit-core` skill wants a message of 20 to 60 characters on every assertion
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
+- **Read `landings/PLAN-V2-90.md` (Wa77) at the outline:** PLAN-V2-90 converted the `job`, `launch`, `lsp`, `lock` and `audit` tests and gave every assertion a 20 to 60 character message (none missing in its 69 files), so those packages are largely met; the verify-first clause shrinks this plan to what is still open. Where an assertion used the result's detail as its message, do not replace it by a static text that drops the diagnostic (nine sites are named in the landing analysis).
 - **Test code only;** no assertion is changed except by adding the message argument (and reordering arguments where JUnit needs it).
 - **Messages say what is checked, not that it failed:** 'the refusal names the store file', not 'assertion failed'.
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
