@@ -69,7 +69,7 @@ class ConsentSchemaParityTest {
         var kind = SchemaResource.object(SchemaResource.object(items.get("properties")).get("kind"));
 
         assertEquals(Arrays.stream(ConsentKind.values()).filter(ConsentKind::rememberable)
-                .map(ConsentKind::wireName).toList(), names(SchemaResource.array(kind.get("enum"))),
+                        .map(ConsentKind::wireName).toList(), names(SchemaResource.array(kind.get("enum"))),
                 "The stored kinds are the rememberable ones");
     }
 

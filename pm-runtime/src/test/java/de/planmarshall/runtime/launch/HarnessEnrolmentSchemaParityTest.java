@@ -105,7 +105,7 @@ class HarnessEnrolmentSchemaParityTest {
         var weightsEntry = SchemaResource.object(SchemaResource.object(defs.get("weights")).get("additionalProperties"));
         var eventResults = SchemaResource.object(SchemaResource.object(defs.get("events")).get("additionalProperties"));
         var written = writtenEntry(Map.of("deepseek-v4.1", new HarnessEnrolment.Weights("weights-" + SHA256,
-                Instant.ofEpochSecond(Generators.longs(0, 2_000_000_000L).next()))),
+                        Instant.ofEpochSecond(Generators.longs(0, 2_000_000_000L).next()))),
                 Map.of("turn", "reported", "budget", "missing"));
         var writtenWeights = SchemaResource.object(SchemaResource.object(written.get("weights"))
                 .get("deepseek-v4.1"));
@@ -114,7 +114,7 @@ class HarnessEnrolmentSchemaParityTest {
                 () -> assertEquals(Set.copyOf(names(SchemaResource.array(weightsEntry.get("required")))),
                         Set.copyOf(names(writtenWeights.keySet())), "The weights members are the schema's"),
                 () -> assertTrue(names(SchemaResource.array(eventResults.get("enum")))
-                        .containsAll(names(SchemaResource.object(written.get("events")).values())),
+                                .containsAll(names(SchemaResource.object(written.get("events")).values())),
                         "Every written event result is a schema value"),
                 () -> assertEquals(HarnessEnrolmentStore.FORMAT_VERSION, formatVersion(),
                         "The format version is the schema const"));

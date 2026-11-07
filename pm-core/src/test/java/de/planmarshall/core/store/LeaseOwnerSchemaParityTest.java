@@ -61,7 +61,7 @@ class LeaseOwnerSchemaParityTest {
                 SchemaResource.object(SchemaResource.load(SCHEMA).get("properties")).get("scope_type"));
 
         assertTrue(names(SchemaResource.array(scopeType.get("enum"))).containsAll(
-                Arrays.stream(ScopeType.values()).map(ScopeType::wireName).toList()),
+                        Arrays.stream(ScopeType.values()).map(ScopeType::wireName).toList()),
                 "Every written scope type is a schema value");
     }
 
