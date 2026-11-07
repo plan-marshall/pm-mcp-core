@@ -245,7 +245,7 @@ class EndpointHarnessTest {
     @DisplayName("a profile whose result schema is none still has its answer validated by the server")
     void noneStillValidated() {
         on("POST", EndpointClient.CHAT_PATH, 200, chatAnswer());
-        var schema = JsonDocument.parse(("{\"type\":\"object\",\"required\":[\"" + word() + "\"]}")
+        var schema = JsonDocument.parse(("{\"type\":\"object\",\"required\":[\"missing_" + word() + "\"]}")
                 .getBytes(StandardCharsets.UTF_8), "schema");
 
         var outcome = enrolledHarness().task(EndpointFixtures.profile(base, "none"), EndpointFixtures.enrolment(),

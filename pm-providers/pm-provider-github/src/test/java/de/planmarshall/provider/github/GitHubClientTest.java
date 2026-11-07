@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
+import lombok.Builder;
 import mockwebserver3.MockResponse;
 import mockwebserver3.RecordedRequest;
 
@@ -177,6 +178,7 @@ class GitHubClientTest {
     }
 
     /** The generated values of one review thread. */
+    @Builder
     private record ThreadData(String id, boolean resolved, String path, int line, String author, String firstLine,
     String secondLine) {
 

@@ -71,8 +71,10 @@ the shared base. It pages by the `paging` object of each answer (`pageIndex`, `p
 * *Outcomes.* A failed answer maps through `Result.failed` of the shared base: `401` is `AUTH_FAILED`, `403`
   `PERMISSION_DENIED`, `404` `NOT_FOUND`, `429` (and a `403` that names a rate limit) `RATE_LIMITED` with `resetAt`, a
   `5xx` `FAILED`. A further `4xx` whose body carries the error messages of Sonar (`errors[].msg`) is `REJECTED` with
-  those messages, read by the client itself because the shared mapping reads only `message` and `error`; without such a
-  message it is `FAILED`. A failed later page fails the whole read.
+  those messages, read by the client itself because the shared mapping reads only `message` and `error`. Without such a
+  message the shared mapping decides: `405`, `406`, `409` and `422` are `REJECTED`, another `4xx` (such as `400`) is
+  `REJECTED` when its body carries a top-level `message` or `error`, and every other one is `FAILED`. A failed later page
+  fails the whole read.
 * *Unreadable answers.* A body that is no JSON, a missing or unusable `paging`, a missing `issues` array, an issue that
   is no object or misses a field, a line that is no whole number, and an issue key `SonarIssueKey` refuses are `FAILED`
   with a detail that names the page and never quotes the body.
