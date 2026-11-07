@@ -163,11 +163,15 @@ anchor, alias or merge key is ever resolved
   or a paragraph separator (Zp). A frontmatter with one is refused with its category, its code point and its line, so a
   display value cannot reorder or hide what the operator sees
   (link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]).
-* *Bounds*: a project unit file holds at most 1048576 bytes (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`), a frontmatter holds at
-  most 200 lines including its two `---` delimiters (`UnitFrontmatterReader.MAX_FRONTMATTER_LINES`), and a refusal
-  echoes at most 80 characters of the source, marked with `...` where it cuts
-  (`UnitFrontmatterReader.MAX_ECHO_LENGTH`). The reader reads the frontmatter from the head of the source and never
-  the body.
+* *Bounds*: a project unit file holds at most the value of `pm.workflow.unit.max-file-bytes`
+  (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`), a frontmatter holds at most the value of
+  `pm.workflow.unit.max-frontmatter-lines` including its two `---` delimiters
+  (`UnitFrontmatterReader.MAX_FRONTMATTER_LINES`), and a refusal echoes at most the value of
+  `pm.workflow.unit.max-echo-length` characters of the source, marked with `...` where it cuts
+  (`UnitFrontmatterReader.MAX_ECHO_LENGTH`). The three keys lie in
+  `pm-workflow/src/main/resources/de/planmarshall/workflow/dsl/unit-limits.properties`, which each class reads when it
+  loads; a missing resource or key fails the load, never defaults. The reader reads the frontmatter from the head of
+  the source and never the body.
 * *Line endings*: a line ends with a line feed (LF) or with a carriage return and a line feed (CRLF). The line ending is
   not part of the line, so a CRLF unit reads to the same frontmatter, with the same line and column numbers, as its LF
   twin. A carriage return anywhere else is a control character and refused.

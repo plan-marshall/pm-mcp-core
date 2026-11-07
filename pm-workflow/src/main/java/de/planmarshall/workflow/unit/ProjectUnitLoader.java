@@ -43,6 +43,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.dsl.LimitProperties;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.UnitFrontmatterReader;
 import de.planmarshall.workflow.dsl.WorkflowParser;
@@ -108,8 +109,12 @@ public final class ProjectUnitLoader {
     /** The author only a unit compiled into the binary names; a project unit that names it is refused. */
     public static final String RESERVED_AUTHOR = "plan-marshall";
 
-    /** The most bytes a project unit file may hold; a larger file is refused before it is read whole. */
-    public static final int MAX_UNIT_FILE_BYTES = 1_048_576;
+    /**
+     * The most bytes a project unit file may hold; a larger file is refused before it is read whole. Read from the
+     * module's limits resource when the class loads.
+     */
+    public static final int MAX_UNIT_FILE_BYTES = Math.toIntExact(
+            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_UNIT_FILE_BYTES));
 
     /** The line that opens and closes the frontmatter of a unit. */
     private static final String FRONTMATTER_DELIMITER = "---";

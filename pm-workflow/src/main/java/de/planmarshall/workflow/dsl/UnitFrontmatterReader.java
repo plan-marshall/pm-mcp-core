@@ -73,14 +73,19 @@ public final class UnitFrontmatterReader {
     /** The line that opens and closes the frontmatter. */
     static final String DELIMITER = "---";
 
-    /** The most lines a frontmatter holds, its two {@code ---} delimiters included. */
-    public static final int MAX_FRONTMATTER_LINES = 200;
+    /**
+     * The most lines a frontmatter holds, its two {@code ---} delimiters included, read from the module's limits
+     * resource when the class loads.
+     */
+    public static final int MAX_FRONTMATTER_LINES = Math.toIntExact(
+            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_FRONTMATTER_LINES));
 
     /**
      * The most characters of the source a refusal echoes; a longer text is cut at this bound and marked with
-     * {@code ...}.
+     * {@code ...}, read from the module's limits resource when the class loads.
      */
-    public static final int MAX_ECHO_LENGTH = 80;
+    public static final int MAX_ECHO_LENGTH = Math.toIntExact(
+            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_ECHO_LENGTH));
 
     private static final String KEY_NAME = "name";
     private static final String KEY_DESCRIPTION = "description";
