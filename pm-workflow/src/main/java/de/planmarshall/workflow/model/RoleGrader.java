@@ -182,22 +182,20 @@ public final class RoleGrader {
         for (var topic : topics.topics()) {
             for (var item : RoleTopics.items(plan.items(), topic, plan.role().artifact().name())) {
                 var checkout = checkout(plan, item);
-                var reused = previous != null
-                        ? reuse(previous, item, form, checkout)
-                        : List.<QualificationRecord.ItemResult>of();
-                if (!reused.isEmpty()) {
-                    results.addAll(reused);
-                    for (var run = reused.size() + 1; run <= runs; run++) {
-                        results.add(offer(item, form, checkout, run));
-                    }
-                    continue;
-                }
-                for (var run = 1; run <= runs; run++) {
+                var reused = reused(previous, item, form, checkout);
+                results.addAll(reused);
+                for (var run = reused.size() + 1; run <= runs; run++) {
                     results.add(offer(item, form, checkout, run));
                 }
             }
         }
         return results;
+    }
+
+    /** @return the results of the previous record that still stand for this item; empty without a previous record */
+    private List<QualificationRecord.ItemResult> reused(@Nullable QualificationRecord previous, ImportedItem item,
+            RoleForm form, Checkout checkout) {
+        return previous != null ? reuse(previous, item, form, checkout) : List.of();
     }
 
     private QualificationRecord.ItemResult offer(ImportedItem item, RoleForm form, Checkout checkout, int run) {
