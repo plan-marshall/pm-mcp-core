@@ -211,7 +211,7 @@ class PlanInstanceHeaderTest {
             var args = read.policyCalls().getFirst().args();
 
             assertAll(
-                    () -> assertEquals(PlanInstanceHeader.Lane.DEEP, read.lane(), "the lane reads back"),
+                    () -> assertEquals(PlanInstanceHeader.Lane.DEEP, read.lane(), "the lane reads back as DEEP"),
                     () -> assertEquals(PlanInstanceHeader.Posture.STANDARD, read.posture(), "the posture reads back"),
                     () -> assertEquals(".marshall/config/plan.pmwf", inputs.templates().getFirst().file(),
                             "a present unit file reads back"),

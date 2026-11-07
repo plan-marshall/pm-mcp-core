@@ -165,15 +165,22 @@ class ModelWaitTest {
         var marginExact = BOUNDED.plusSeconds(30);
         var shortest = Duration.ofSeconds(15);
         var longest = Duration.ofSeconds(3600);
-        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooShort, IDLE, true));
-        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooLong, IDLE, true));
+        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooShort, IDLE, true),
+                "a window below the shortest bound is refused");
+        assertThrows(IllegalArgumentException.class, () -> new ConnectionSettings(tooLong, IDLE, true),
+                "a window above the longest bound is refused");
         assertThrows(IllegalArgumentException.class,
-                () -> new ConnectionSettings(BOUNDED, marginTooSmall, false));
+                () -> new ConnectionSettings(BOUNDED, marginTooSmall, false),
+                "an idle margin below the minimum is refused");
         assertEquals(BOUNDED, assertInstanceOf(ModelWait.Bounded.class,
-                WaitSelection.select(new ConnectionSettings(BOUNDED, marginExact, false), null,
-                        ModelCall.PM_WAIT, WaitSettings.defaults(), clock)).window());
-        assertDoesNotThrow(() -> new ConnectionSettings(shortest, IDLE, true));
-        assertDoesNotThrow(() -> new ConnectionSettings(longest, IDLE, true));
+                        WaitSelection.select(new ConnectionSettings(BOUNDED, marginExact, false), null,
+                                ModelCall.PM_WAIT, WaitSettings.defaults(), clock),
+                        "an exact margin selects a bounded wait").window(),
+                "an exact margin keeps the bounded window");
+        assertDoesNotThrow(() -> new ConnectionSettings(shortest, IDLE, true),
+                "the shortest window is accepted");
+        assertDoesNotThrow(() -> new ConnectionSettings(longest, IDLE, true),
+                "the longest window is accepted");
     }
 
     @Test
