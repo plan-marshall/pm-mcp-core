@@ -56,6 +56,9 @@ public final class SonarClient implements AutoCloseable {
     /** The path of the issue search, relative to the base of the endpoint. */
     static final String ISSUE_SEARCH = "api/issues/search";
 
+    /** The object of an answer that carries its paging. */
+    private static final String PAGING = "paging";
+
     private final HttpClient http;
 
     /**
@@ -142,9 +145,9 @@ public final class SonarClient implements AutoCloseable {
      */
     private static Page page(String body) {
         var tree = Json.parse(body).orElseThrow(() -> new IllegalArgumentException("the answer is null"));
-        var pageIndex = whole(Json.at(tree, "paging", "pageIndex").orElse(null), "paging.pageIndex");
-        var pageSize = whole(Json.at(tree, "paging", "pageSize").orElse(null), "paging.pageSize");
-        var total = whole(Json.at(tree, "paging", "total").orElse(null), "paging.total");
+        var pageIndex = paging(tree, "pageIndex");
+        var pageSize = paging(tree, "pageSize");
+        var total = paging(tree, "total");
         if (pageIndex < 1 || pageSize < 1 || total < 0) {
             throw new IllegalArgumentException("the paging of the answer is out of range");
         }
@@ -163,16 +166,31 @@ public final class SonarClient implements AutoCloseable {
         if (!(issue instanceof Map<?, ?>)) {
             throw new IllegalArgumentException("an issue is no object");
         }
-        var line = Json.at(issue, "line").orElse(null);
+        var line = Json.at(issue, "line").map(value -> whole(value, "line")).orElse(null);
         return SonarIssue.builder()
                 .key(new SonarIssueKey(text(issue, "key")))
                 .rule(text(issue, "rule"))
                 .severity(text(issue, "severity"))
                 .type(text(issue, "type"))
                 .component(text(issue, "component"))
-                .line(line == null ? null : whole(line, "line"))
+                .line(line)
                 .message(text(issue, "message"))
                 .build();
+    }
+
+    /**
+     * Reads one field of the {@code paging} object of an answer; the absent case is decided where the value is read.
+     *
+     * @param tree  the tree of the answer
+     * @param field the field below {@code paging}
+     * @return the whole number the field holds
+     * @throws IllegalArgumentException for a field that is missing, no number or no whole number
+     */
+    private static int paging(Object tree, String field) {
+        var name = PAGING + "." + field;
+        return Json.at(tree, PAGING, field)
+                .map(value -> whole(value, name))
+                .orElseThrow(() -> new IllegalArgumentException(name + " is no number"));
     }
 
     private static String text(Object issue, String field) {
@@ -182,7 +200,10 @@ public final class SonarClient implements AutoCloseable {
         return value;
     }
 
-    private static int whole(@Nullable Object value, String field) {
+    /**
+     * @throws IllegalArgumentException for a value that is no number or no whole number
+     */
+    private static int whole(Object value, String field) {
         if (!(value instanceof BigDecimal number)) {
             throw new IllegalArgumentException(field + " is no number");
         }
