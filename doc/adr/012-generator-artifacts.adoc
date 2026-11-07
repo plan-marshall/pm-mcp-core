@@ -63,7 +63,7 @@ artifact; a new generator for a type of this module goes into this module's arti
 
 * A module that adds a generator publishes it with its own artifact; the artifact must be built by `verify` and
   deployed with the `SNAPSHOT`, so a consumer needs no local build of the producer.
-* The three new artifacts package only their generator package: the `test-jar` goal's `includes` narrows the artifact
+* The five generator artifacts package only their generator package: the `test-jar` goal's `includes` narrows the artifact
   to it, so a module's own test classes, fixtures and fakes are not published. `pm-runtime:tests` keeps its whole test
   scope, because the assembly already consumes `TestBases` and the fakes there; the generator package joins it, and
   PLAN-V2-106 replaces the fakes with EasyMock doubles.

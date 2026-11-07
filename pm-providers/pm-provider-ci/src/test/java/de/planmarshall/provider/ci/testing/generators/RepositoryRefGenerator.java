@@ -12,6 +12,7 @@ package de.planmarshall.provider.ci.testing.generators;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.TypedGenerator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -30,8 +31,13 @@ public final class RepositoryRefGenerator implements TypedGenerator<RepositoryRe
     /** The provider id of GitLab, the one forge whose owner is a group path (contract: provider id). */
     private static final String GITLAB = "gitlab";
 
-    /** The built-in forges, derived from the host table of {@link ForgeUrl}: provider id and https web origin. */
+    /**
+     * The built-in forges, derived from the host table of {@link ForgeUrl}: provider id and https web origin. The
+     * entries are sorted by host because the table's own iteration order changes with every JVM start, and a fixed
+     * generator seed must pick the same forge again.
+     */
     private static final List<Forge> FORGES = ForgeUrl.BUILT_IN_HOSTS.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
             .map(entry -> new Forge(entry.getValue(), "https://" + entry.getKey()))
             .toList();
 
