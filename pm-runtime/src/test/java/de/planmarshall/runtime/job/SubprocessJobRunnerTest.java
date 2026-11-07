@@ -453,8 +453,8 @@ class SubprocessJobRunnerTest {
             var settled = settled(jobId);
 
             assertAll(
-                    () -> assertEquals(Status.ENDED, settled.status(), "the job has ended"),
-                    () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the job succeeded"),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the job record has ended"),
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the job settles as succeeded"),
                     () -> assertEquals(7, settled.outcomeRow(), "row 7 decided the success"),
                     () -> assertEquals(0L, settled.exitCode(), "the exit code 0 is recorded"),
                     () -> assertNotNull(settled.childWallMs(), "an observed exit records the child's wall time"),
@@ -619,7 +619,8 @@ class SubprocessJobRunnerTest {
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
                     request, Optional.empty()));
 
-            var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result, "the job is refused");
+            var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result,
+                    "the start of the job is refused");
             var records = jobs.records();
             assertAll(
                     () -> assertEquals("path_traversal_rejected", refused.reason(),
@@ -633,7 +634,8 @@ class SubprocessJobRunnerTest {
                             "the record names the refusal reason"),
                     () -> assertNull(records.getFirst().childWallMs(), "a refused job has no child wall time"),
                     () -> assertNull(records.getFirst().pid(), "a refused job has no PID"),
-                    () -> assertFalse(Files.exists(jobs.logPath(records.getFirst().jobId())), "no job log"),
+                    () -> assertFalse(Files.exists(jobs.logPath(records.getFirst().jobId())),
+                            "a refused job leaves no job log"),
                     () -> assertEquals(Optional.of(records.getFirst()), runner.recordOf(records.getFirst().jobId()),
                             "the refused record is answered"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
@@ -748,7 +750,7 @@ class SubprocessJobRunnerTest {
                     (job, output) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
 
             var result = assertTimeoutPreemptively(Duration.ofSeconds(5),
-                    () -> runner.start(git(3600, "sleep", "3600")));
+                    () -> runner.start(git(3600, "sleep", "3600")), "the start returns before the bound");
             var jobId = started(result);
             var waiting = runner.recordOf(jobId).orElseThrow();
             var runningAfterStart = runner.runningJobs().contains(jobId);
@@ -801,7 +803,8 @@ class SubprocessJobRunnerTest {
                     });
             var request = git(30, "ok");
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request),
+                    "the composing failure reaches the caller");
 
             assertComposedFailureSettled(thrown, failure);
         }
@@ -813,7 +816,8 @@ class SubprocessJobRunnerTest {
                     (job, ignoredJobId) -> Map.of("NAME=VALUE", "x"));
             var request = git(30, "ok");
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request),
+                    "the refused environment name reaches the caller");
 
             assertComposedFailureSettled(thrown, thrown);
         }
@@ -845,7 +849,8 @@ class SubprocessJobRunnerTest {
                     });
             var request = git(30, "ok");
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request),
+                    "the composing failure reaches the caller");
 
             assertEquals(failure, thrown, "the failure is passed on to the caller");
             assertCancelledWithoutProcess(jobs.records().getFirst().jobId(), cancelled);
@@ -989,7 +994,8 @@ class SubprocessJobRunnerTest {
             runner = recordingSignals(true);
             var request = git(60, "sleep", "60");
 
-            assertThrows(UncheckedIOException.class, () -> runner.start(request));
+            assertThrows(UncheckedIOException.class, () -> runner.start(request),
+                    "the I/O failure of the start reaches the caller");
 
             var records = jobs.records();
             assertEquals(1, records.size(), "one job was recorded");
@@ -1023,7 +1029,8 @@ class SubprocessJobRunnerTest {
             }, false);
             var request = git(60, "sleep", "60");
 
-            assertThrows(UncheckedIOException.class, () -> runner.start(request));
+            assertThrows(UncheckedIOException.class, () -> runner.start(request),
+                    "the I/O failure of the start reaches the caller");
 
             var settled = jobs.records().getFirst();
             assertAll(
@@ -1044,7 +1051,8 @@ class SubprocessJobRunnerTest {
             var request = git(600, "sleep", "600");
 
             assertTimeoutPreemptively(SETTLE_TIMEOUT, () -> assertThrows(UncheckedIOException.class,
-                    () -> runner.start(request)), "the wait for the process has an end");
+                    () -> runner.start(request), "the I/O failure of the start reaches the caller"),
+                    "the wait for the process has an end");
 
             var settled = jobs.records().getFirst();
             assertAll(
@@ -1080,7 +1088,8 @@ class SubprocessJobRunnerTest {
             });
             var request = git(600, "sleep", "600");
 
-            assertThrows(UncheckedIOException.class, () -> runner.start(request));
+            assertThrows(UncheckedIOException.class, () -> runner.start(request),
+                    "the I/O failure of the start reaches the caller");
 
             var settled = jobs.records().getFirst();
             assertAll(
@@ -1282,7 +1291,8 @@ class SubprocessJobRunnerTest {
                     }).build();
             var request = git(600, "sleep", "600");
 
-            var thrown = assertThrows(IllegalStateException.class, () -> runner.start(request));
+            var thrown = assertThrows(IllegalStateException.class, () -> runner.start(request),
+                    "the supervision failure reaches the caller");
 
             var settled = jobs.records().getFirst();
             assertAll(
@@ -1504,7 +1514,7 @@ class SubprocessJobRunnerTest {
                         () -> assertTrue(SubprocessJobRunner.pidReused(reused),
                                 "the first's PID is not owned by the second's handle"),
                         () -> assertFalse(cancelBeforeGroup, "a reused PID is not terminated by its handle"),
-                        () -> assertTrue(recorded.isEmpty(), "a reused PID is never signalled: " + recorded),
+                        () -> assertTrue(recorded.isEmpty(), "a reused PID is never signalled"),
                         () -> assertFalse(SubprocessJobRunner.pidReused(
                                         new PmExecLauncher.Launched(first, first.pid())),
                                 "the process the runner started is not a reused PID"),
@@ -1559,7 +1569,8 @@ class SubprocessJobRunnerTest {
                             events.get(0).details().get(SubprocessJobRunner.DETAIL_EXECUTABLE),
                             "the record names the survivor's executable"),
                     () -> assertFalse(events.get(1).details()
-                            .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE), "no executable known"));
+                            .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE),
+                            "no executable is known for the survivor"));
         }
 
         @Test
@@ -1735,7 +1746,8 @@ class SubprocessJobRunnerTest {
                 // itself, and is reaped before the waiting thread looks at it for the first time.
                 locks.beforeNextTransaction(() -> {
                     cancelled.set(runner.cancel(jobId, CancelCause.ENGINE_CANCEL));
-                    var lines = assertInstanceOf(JobLog.Lines.class, new JobLog(jobs.logPath(jobId)).readLines(0));
+                    var lines = assertInstanceOf(JobLog.Lines.class, new JobLog(jobs.logPath(jobId)).readLines(0),
+                            "the job log answers lines");
                     try {
                         Files.createFile(release);
                     } catch (IOException e) {
@@ -1807,7 +1819,7 @@ class SubprocessJobRunnerTest {
             var job = job();
             job.launched(process);
             var cancel = CompletableFuture.supplyAsync(() -> job.cancel(Termination.ENGINE_CANCEL));
-            assertTrue(await(inside), "the cancel checks the liveness of the process, holding the job");
+            assertTrue(await(inside), "the cancel checks liveness while holding the job");
             var waiting = CompletableFuture.supplyAsync(() -> runner.awaitEndOrCause(job, process,
                     Instant.now().plusSeconds(30)));
 
@@ -1946,15 +1958,20 @@ class SubprocessJobRunnerTest {
             return (job, ignoredJobId) -> ENVIRONMENT;
         }
 
-        /** The plan whose scope the build jobs of these tests run in. */
-        private final String planId = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        /** The plan whose scope the build jobs of these tests run in, drawn per test. */
+        private String planId;
+
+        @BeforeEach
+        void drawPlan() {
+            planId = "plan-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+        }
 
         private JobId startedBuild(String budgetKey, JobRequest.Target target) {
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.BUILD,
                     new Scope(Scope.Type.PLAN, planId), budgetKey, 30, FLOOR,
                     fixture.request(fixture.root.toString(), target), Optional.empty()));
             return assertInstanceOf(JobRunner.StartResult.Started.class, result,
-                    () -> "the build job of key %s should start: %s".formatted(budgetKey, result)).jobId();
+                    "the build job of the budget key starts").jobId();
         }
 
         @ParameterizedTest(name = "{0}")
