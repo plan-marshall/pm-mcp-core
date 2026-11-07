@@ -13,6 +13,7 @@ import de.cuioss.test.generator.TypedGenerator;
 import javax.crypto.SecretKey;
 import lombok.experimental.UtilityClass;
 
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.launch.ResolvedSkill;
 
 /**
@@ -43,6 +44,14 @@ public class RuntimeGenerators {
     /** @return a generator of lower-case words of two to ten letters, for short names and keys */
     public static TypedGenerator<String> shortWords() {
         return new WordGenerator(2, 10);
+    }
+
+    /**
+     * @param kind the kind whose prefix every generated id carries
+     * @return a generator of job ids of that kind in their written form, the prefix, {@code -} and 16 hex digits
+     */
+    public static TypedGenerator<String> jobIds(JobId.Kind kind) {
+        return new JobIdGenerator(kind);
     }
 
     /** @return a generator of plan ids, a number and a short word joined by a hyphen */
