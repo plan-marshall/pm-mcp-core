@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -72,6 +73,21 @@ class ChangeLedgerSchemaParityTest {
                 () -> assertEquals(Set.copyOf(SchemaParity.required(schema)),
                         SchemaParity.requiredByCodec(written(), ChangeLedgerCodec::read),
                         "the required record members should match"));
+    }
+
+    @Test
+    @DisplayName("the record refuses a duration below the file's minimum")
+    void recordLimits() {
+        var schema = SchemaParity.load(RESOURCE);
+        var minimum = SchemaParity.bound(SchemaParity.member(schema, "duration_ms"), "minimum");
+
+        assertAll(
+                () -> assertEquals(0, minimum, "the file's duration minimum stays 0"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> ChangeLedgerRecord.builder().kind(Kind.BUILD).worktreeSha(DIGEST)
+                                .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).durationMs(-1L)
+                                .recordedAt(Instant.parse("2026-11-07T10:00:00Z")).build(),
+                        "the record should refuse a negative duration"));
     }
 
     @Test

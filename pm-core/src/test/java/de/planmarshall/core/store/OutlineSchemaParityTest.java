@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -83,6 +84,22 @@ class OutlineSchemaParityTest {
                         "the record members should equal the schema"),
                 () -> assertTrue(Set.copyOf(members).containsAll(SchemaParity.required(schema)),
                         "the record should carry every required member"));
+    }
+
+    @Test
+    @DisplayName("the record refuses a summary below the file's minimum length")
+    void recordLimits() {
+        var schema = SchemaParity.load(RECORD);
+        var minimum = SchemaParity.bound(SchemaParity.member(schema, "summary"), "minLength");
+        var fixture = OutlineFixtures.valid();
+        var tooShort = "x".repeat(minimum - 1);
+
+        assertAll(
+                () -> assertEquals(20, minimum, "the file's summary minimum stays 20"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new OutlineRecord(tooShort, fixture.overview(), fixture.scopeEstimate(),
+                                fixture.deliverables()),
+                        "the record should refuse a summary below its minimum"));
     }
 
     @Test

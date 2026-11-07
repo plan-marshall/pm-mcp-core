@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -109,6 +110,24 @@ class IntentSchemaParityTest {
         required.removeAll(Set.of("choices", "repairs"));
 
         assertTrue(present.containsAll(required), "the record should carry its shared required members");
+    }
+
+    @Test
+    @DisplayName("the record refuses a why below the file's minimum length")
+    void recordLimits() {
+        var schema = SchemaParity.load(RECORD);
+        var minimum = SchemaParity.bound(SchemaParity.member(schema, "why"), "minLength");
+        var fixture = IntentFixtures.valid();
+        var tooShort = "x".repeat(minimum - 1);
+
+        assertAll(
+                () -> assertEquals(20, minimum, "the file's why minimum stays 20"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new IntentRecord(tooShort, fixture.goal(), fixture.criteria(),
+                                fixture.currentBehaviour(), fixture.nonGoals(), fixture.constraints(),
+                                fixture.decisions(), fixture.assumptions(), fixture.openQuestions(),
+                                fixture.deferred(), fixture.sourceClaims()),
+                        "the record should refuse a why below its minimum"));
     }
 
     @Test

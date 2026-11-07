@@ -25,10 +25,12 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.SchemaResource;
@@ -155,7 +157,7 @@ class SchemaParity {
      * @param recorded the member names of the written record
      * @param schema   a schema object with an {@code enum} on the named member
      * @param name     the member that carries the enumeration
-     * @return the values of that member's {@code enum}, in file order
+     * @return the values of that member's {@code enum}, as a set
      */
     static Set<String> enumOf(Map<?, ?> schema, String name) {
         return values(member(schema, name));
@@ -170,13 +172,22 @@ class SchemaParity {
     }
 
     /**
+     * @param declaration a schema declaration that carries a numeric bound
+     * @param name        the bound's member, such as {@code minimum}
+     * @return the bound
+     */
+    static int bound(Object declaration, String name) {
+        return ((Number) object(declaration).get(name)).intValue();
+    }
+
+    /**
      * @param values    the values of an enumeration
      * @param wireName  the value's name in the record
      * @param <E>       the enumeration
      * @return the wire names
      */
     static <E extends Enum<E>> Set<String> wireNames(E[] values, Function<E, String> wireName) {
-        return Arrays.stream(values).map(wireName).collect(java.util.stream.Collectors.toUnmodifiableSet());
+        return Arrays.stream(values).map(wireName).collect(Collectors.toUnmodifiableSet());
     }
 
     /**
@@ -184,7 +195,7 @@ class SchemaParity {
      *
      * @param written the written document
      * @param reader  the codec's read method, which refuses a document it cannot read
-     * @return the members whose absence the codec refuses, in document order
+     * @return the members whose absence the codec refuses, sorted by name
      */
     static Set<String> requiredByCodec(byte[] written, BiFunction<Path, byte[], ?> reader) {
         var document = document(written);
@@ -198,7 +209,7 @@ class SchemaParity {
             });
             try {
                 reader.apply(FILE, write(without));
-            } catch (RuntimeException _) {
+            } catch (StoreRefusal _) {
                 required.add(String.valueOf(name));
             }
         }
@@ -239,7 +250,7 @@ class SchemaParity {
     }
 
     private static List<String> strings(Object value) {
-        return array(value).stream().filter(java.util.Objects::nonNull).map(String::valueOf).toList();
+        return array(value).stream().filter(Objects::nonNull).map(String::valueOf).toList();
     }
 
     private static Set<String> minus(List<String> values, List<String> without) {

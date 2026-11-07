@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -103,6 +104,23 @@ class MetricsSchemaParityTest {
                 () -> assertTrue(Set.copyOf(SchemaParity.members(taskRow()))
                                 .containsAll(SchemaParity.required(schema)),
                         "the task row should carry every required member"));
+    }
+
+    @Test
+    @DisplayName("the row refuses an attempt below the file's minimum and requires its undeclared attempt_end")
+    void taskRowLimits() {
+        var schema = SchemaParity.object(SchemaParity.object(SchemaParity.load(RESOURCE).get("$defs"))
+                .get(TASK_ROW));
+
+        assertAll(
+                () -> assertEquals(1, SchemaParity.bound(SchemaParity.member(schema, "attempt"), "minimum"),
+                        "the file's attempt minimum stays 1"),
+                () -> assertThrows(IllegalArgumentException.class, () -> row().withAttempt(0),
+                        "the row should refuse an attempt below its minimum"),
+                () -> assertFalse(SchemaParity.required(schema).contains("attempt_end"),
+                        "the file does not declare attempt_end"),
+                () -> assertThrows(IllegalArgumentException.class, () -> row().withAttemptEnd(null),
+                        "the row requires attempt_end when it carries an attempt"));
     }
 
     @Test
