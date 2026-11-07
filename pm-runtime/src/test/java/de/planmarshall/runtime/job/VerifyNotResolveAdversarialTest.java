@@ -11,11 +11,11 @@ package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MAVEN_CONFIG;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_ID;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.WRAPPER_PROPERTIES;
+import static de.planmarshall.runtime.test.HostToolCalls.git;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -59,13 +59,17 @@ import de.planmarshall.runtime.job.VerifiedJob.TemplateSource;
  * unapproved arguments, an out-of-tree working directory), plus a tampered enrolment file. A refused case asserts the
  * outcome {@code Refused} and the exact reason code, for {@code build_config_changed} also the named file; each group
  * carries its matched positive control, verified in the same configuration.
+ * <p>
+ * Contract literals that stay: the attack payloads of PM-TEST-5 (the steered distribution URL, the
+ * {@code maven.config} executable, the forbidden flag, the metacharacter argument, the catastrophic-backtracking
+ * pattern and its hostile input), the tampered enrolment body, the Maven verb with its module-argument group, the
+ * fixture directory {@code beside} and the reason details. Member names, values, modules and ordinary arguments are
+ * generated.
  */
 @EnableTestLogger
 @EnableGeneratorController
 @DisplayName("VerifyNotResolvePipeline, adversarial confinement")
 class VerifyNotResolveAdversarialTest {
-
-    private static final String MODULE = "core";
 
     /** The caller's defaults: Maven {@code verify} with a module-argument group; nothing else. */
     private static final DefaultTemplates DEFAULTS = (buildSystem, verb) -> switch (buildSystem) {
@@ -108,10 +112,6 @@ class VerifyNotResolveAdversarialTest {
         return new WrapperBuild(WrapperName.MVNW, "verify", Optional.ofNullable(module));
     }
 
-    private static HostToolCall git(String... arguments) {
-        return new HostToolCall(HostToolName.GIT, List.of(arguments));
-    }
-
     @Nested
     @DisplayName("a tampered wrapper is refused as build_config_changed, naming the changed file")
     class TamperedWrapper {
@@ -122,11 +122,13 @@ class VerifyNotResolveAdversarialTest {
         }
 
         private void assertChanged(String changed) {
-            var refusal = refused(verify(maven(MODULE)));
+            var refusal = refused(verify(maven(fixture.module)));
 
             assertAll(
-                    () -> assertEquals(Reason.BUILD_CONFIG_CHANGED, refusal.reason()),
-                    () -> assertEquals(List.of(changed), refusal.changedPaths()));
+                    () -> assertEquals(Reason.BUILD_CONFIG_CHANGED, refusal.reason(),
+                            "a tampered wrapper is build_config_changed"),
+                    () -> assertEquals(List.of(changed), refusal.changedPaths(),
+                            "the refusal names exactly the changed file"));
         }
 
         @Test
@@ -138,7 +140,7 @@ class VerifyNotResolveAdversarialTest {
         }
 
         @Test
-        @DisplayName("a pinned file changed")
+        @DisplayName("a pinned file changed to a steered distribution URL (attack payload)")
         void pinnedFileChanged() throws Exception {
             Files.writeString(fixture.root.resolve(WRAPPER_PROPERTIES), "distributionUrl=https://evil.invalid/\n");
 
@@ -146,7 +148,7 @@ class VerifyNotResolveAdversarialTest {
         }
 
         @Test
-        @DisplayName("a pinned file that must stay absent appeared")
+        @DisplayName("a pinned file that must stay absent appeared with an executable (attack payload)")
         void pinnedFileAppeared() throws Exception {
             Files.writeString(fixture.root.resolve(MAVEN_CONFIG), "-Dexec.executable=/bin/sh\n");
 
@@ -156,12 +158,13 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("positive control: the unchanged wrapper is verified and runs the template after itself")
         void unchanged() {
-            var job = verified(verify(maven(MODULE)));
+            var job = verified(verify(maven(fixture.module)));
 
             assertAll(
-                    () -> assertEquals(List.of(fixture.root.resolve(MVNW).toString(), "verify", "-pl", MODULE),
-                            job.argv()),
-                    () -> assertEquals(Optional.of(TemplateSource.COMPILED_DEFAULT), job.templateSource()));
+                    () -> assertEquals(List.of(fixture.root.resolve(MVNW).toString(), "verify", "-pl",
+                            fixture.module), job.argv(), "the argv is the wrapper and the template"),
+                    () -> assertEquals(Optional.of(TemplateSource.COMPILED_DEFAULT), job.templateSource(),
+                            "the template source is compiled_default"));
         }
     }
 
@@ -177,9 +180,9 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("a host tool missing from the enrolment is refused as executable_not_enrolled")
         void notEnrolled() {
-            var refusal = refused(verify(new HostToolCall(HostToolName.GH, List.of("auth", "status"))));
+            var refusal = refused(verify(new HostToolCall(HostToolName.GH, List.of(words().next(), words().next()))));
 
-            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason());
+            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(), "a missing host tool is not enrolled");
         }
 
         @Test
@@ -187,15 +190,19 @@ class VerifyNotResolveAdversarialTest {
         void replacedBinary() throws Exception {
             Files.write(fixture.tools.get(HostToolName.GIT), JobEnrolmentFixture.randomContent());
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(verify(git("status"))).reason());
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(verify(git(words().next()))).reason(),
+                    "a replaced binary is a digest mismatch");
         }
 
         @Test
         @DisplayName("positive control: an enrolled, unchanged host tool of the same enrolment is verified")
         void enrolledTool() {
-            var job = verified(verify(git("status")));
+            var argument = words().next();
 
-            assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), "status"), job.argv());
+            var job = verified(verify(git(argument)));
+
+            assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), argument), job.argv(),
+                    "the argv is the enrolled git and its argument");
         }
     }
 
@@ -203,32 +210,39 @@ class VerifyNotResolveAdversarialTest {
     @DisplayName("unapproved arguments are refused as argument_rejected")
     class UnapprovedArguments {
 
+        private String required;
+        private String unbounded;
+
         @BeforeEach
         void enrol() {
+            required = "required-" + words().next();
+            unbounded = "unbounded-" + words().next();
             var properties = new TreeMap<String, ArgumentSchema>();
-            properties.put("goal", new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z-]+$", null,
-                    null, 32L));
+            properties.put(required, new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z-]+$",
+                    null, null, 32L));
             // An optional property whose pattern has no maxLength: never matched, so any string for it is refused.
-            properties.put("label", new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^(a+)+$", null,
-                    null, null));
+            properties.put(unbounded, new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^(a+)+$",
+                    null, null, null));
             fixture.enrol(JobEnrolmentFixture.withScriptSchema(fixture.enrolment(), new ArgumentSchema(
-                    SchemaType.OBJECT, properties, List.of("goal"), true, null, null, null, null, null)));
+                    SchemaType.OBJECT, properties, List.of(required), true, null, null, null, null, null)));
         }
 
         private ProjectScriptCall script(JobRequest.Value arguments) {
-            return new ProjectScriptCall(SCRIPT_ID, SCRIPT_BINDING, arguments);
+            return new ProjectScriptCall(fixture.scriptId, SCRIPT_BINDING, arguments);
         }
 
         @Test
-        @DisplayName("a forbidden free flag in a build job")
+        @DisplayName("a forbidden free flag (attack payload) in a build job")
         void forbiddenFlag() {
-            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(maven("-Dexec.executable=/bin/sh"))).reason());
+            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(maven("-Dexec.executable=/bin/sh"))).reason(),
+                    "a forbidden flag is argument_rejected");
         }
 
         @Test
-        @DisplayName("a shell metacharacter in a host tool call")
+        @DisplayName("a shell metacharacter (attack payload) in a host tool call")
         void metacharacter() {
-            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(git("log", "a;id"))).reason());
+            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(git(words().next(), "a;id"))).reason(),
+                    "a metacharacter is argument_rejected");
         }
 
         @Test
@@ -236,18 +250,22 @@ class VerifyNotResolveAdversarialTest {
         void unknownModule() {
             var module = "absent-" + Generators.letterStrings(3, 10).next();
 
-            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(maven(module))).reason());
+            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(maven(module))).reason(),
+                    "an undiscovered module is argument_rejected");
         }
 
         @Test
         @DisplayName("project script arguments that violate the enrolled schema")
         void schemaViolation() {
-            var refusal = refused(verify(script(Fields.of(Map.of("goal", new Text("Not Allowed"))))));
+            var violating = Generators.letterStrings(1, 8).next().toUpperCase(Locale.ROOT) + " " + words().next();
+
+            var refusal = refused(verify(script(Fields.of(Map.of(required, new Text(violating))))));
 
             assertAll(
-                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
-                    () -> assertEquals("the arguments violate the argument schema: pattern at $.goal",
-                            refusal.detail()));
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
+                            "a pattern violation is argument_rejected"),
+                    () -> assertEquals("the arguments violate the argument schema: pattern at $." + required,
+                            refusal.detail(), "the detail names the pattern and the path"));
         }
 
         @Test
@@ -255,13 +273,14 @@ class VerifyNotResolveAdversarialTest {
         void unboundedPatternConstraint() {
             var hostile = "a".repeat(64) + "!";
 
-            var refusal = refused(verify(script(Fields.of(Map.of("goal", new Text("module-tests"), "label",
+            var refusal = refused(verify(script(Fields.of(Map.of(required, new Text(words().next()), unbounded,
                     new Text(hostile))))));
 
             assertAll(
-                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
-                    () -> assertEquals("the arguments violate the argument schema: pattern without maxLength at $.label",
-                            refusal.detail()));
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
+                            "a hostile string is argument_rejected"),
+                    () -> assertEquals("the arguments violate the argument schema: pattern without maxLength at $."
+                            + unbounded, refusal.detail(), "the detail names the unbounded pattern"));
         }
 
         @Test
@@ -271,7 +290,8 @@ class VerifyNotResolveAdversarialTest {
 
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
                             fixture.root.resolve(SCRIPT_PATH).toString()),
-                    verified(verify(script(Fields.of(Map.of("goal", new Text(goal)))))).argv());
+                    verified(verify(script(Fields.of(Map.of(required, new Text(goal)))))).argv(),
+                    "the script runs without the unbounded value");
         }
 
         @Test
@@ -282,9 +302,11 @@ class VerifyNotResolveAdversarialTest {
             var refusal = refused(verify(new HostToolCall(HostToolName.PYTHON3, List.of("-c", code))));
 
             assertAll(
-                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
+                            "an interpreter call is argument_rejected"),
                     () -> assertEquals("the host tool python3 is an enrolled interpreter and runs only through a"
-                            + " project script, a script host tool or a wrapper", refusal.detail()));
+                            + " project script, a script host tool or a wrapper", refusal.detail(),
+                            "the detail names the interpreter rule"));
         }
 
         @Test
@@ -292,30 +314,35 @@ class VerifyNotResolveAdversarialTest {
         void interpreterThroughProjectScript() {
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
                             fixture.root.resolve(SCRIPT_PATH).toString()),
-                    verified(verify(script(Fields.of(Map.of("goal", new Text("module-tests")))))).argv());
+                    verified(verify(script(Fields.of(Map.of(required, new Text(words().next())))))).argv(),
+                    "python3 runs the enrolled project script");
         }
 
         @Test
         @DisplayName("positive control: a discovered module in a build job is verified")
         void discoveredModule() {
-            assertEquals(List.of(fixture.root.resolve(MVNW).toString(), "verify", "-pl", MODULE),
-                    verified(verify(maven(MODULE))).argv());
+            assertEquals(List.of(fixture.root.resolve(MVNW).toString(), "verify", "-pl", fixture.module),
+                    verified(verify(maven(fixture.module))).argv(), "the discovered module enters the argv");
         }
 
         @Test
         @DisplayName("positive control: a host tool call with ordinary flags is verified")
         void ordinaryHostToolArguments() {
-            assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), "status", "-sb"),
-                    verified(verify(git("status", "-sb"))).argv());
+            var subcommand = words().next();
+            var flag = "-" + words().next();
+
+            assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), subcommand, flag),
+                    verified(verify(git(subcommand, flag))).argv(), "ordinary flags pass into the argv");
         }
 
         @Test
         @DisplayName("positive control: project script arguments that conform to the schema are verified")
         void conformingScriptArguments() {
-            var job = verified(verify(script(Fields.of(Map.of("goal", new Text("module-tests"))))));
+            var job = verified(verify(script(Fields.of(Map.of(required, new Text(words().next()))))));
 
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
-                    fixture.root.resolve(SCRIPT_PATH).toString()), job.argv());
+                            fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
+                    "conforming arguments are verified");
         }
     }
 
@@ -329,7 +356,8 @@ class VerifyNotResolveAdversarialTest {
         }
 
         private void assertTraversalRejected(String workingDirectory) {
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refused(verify(workingDirectory, git("status"))).reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED,
+                    refused(verify(workingDirectory, git(words().next()))).reason(), "the directory is path_traversal_rejected");
         }
 
         @Test
@@ -341,13 +369,14 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("a symbolic link from the tree to a directory outside it")
         void symlinkEscape() throws Exception {
-            Files.createSymbolicLink(fixture.root.resolve("escape"), fixture.beside);
+            var link = "escape-" + words().next();
+            Files.createSymbolicLink(fixture.root.resolve(link), fixture.beside);
 
-            assertTraversalRejected("escape");
+            assertTraversalRejected(link);
         }
 
         @Test
-        @DisplayName("a .. traversal out of the tree")
+        @DisplayName("a .. traversal out of the tree to the fixture directory beside it")
         void parentTraversal() {
             assertTraversalRejected("../beside");
         }
@@ -355,14 +384,16 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("positive control: the enrolled root is verified as the working directory")
         void enrolledRoot() {
-            assertEquals(fixture.root, verified(verify(git("status"))).workingDirectory());
+            assertEquals(fixture.root, verified(verify(git(words().next()))).workingDirectory(),
+                    "the enrolled root is the working directory");
         }
 
         @Test
         @DisplayName("positive control: a live linked worktree of the project is verified as the working directory")
         void liveWorktree() {
             assertEquals(fixture.worktree,
-                    verified(verify(fixture.worktree.toString(), git("status"))).workingDirectory());
+                    verified(verify(fixture.worktree.toString(), git(words().next()))).workingDirectory(),
+                    "the live worktree is the working directory");
         }
     }
 
@@ -376,19 +407,21 @@ class VerifyNotResolveAdversarialTest {
         }
 
         @Test
-        @DisplayName("the enrolment file was rewritten outside the operator path")
+        @DisplayName("the enrolment file was rewritten outside the operator path (contract body)")
         void rewritten() throws Exception {
-            Files.write(fixture.store.file(PROJECT), "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
+            Files.write(fixture.store.file(fixture.project),
+                    "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
 
-            var refusal = refused(verify(git("status")));
+            var refusal = refused(verify(git(words().next())));
 
-            assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason());
+            assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason(), "a rewritten file is enrolment_tampered");
         }
 
         @Test
         @DisplayName("positive control: the untouched enrolment file verifies the same job")
         void untouched() {
-            assertEquals(fixture.root, verified(verify(git("status"))).workingDirectory());
+            assertEquals(fixture.root, verified(verify(git(words().next()))).workingDirectory(),
+                    "the untouched enrolment verifies the job");
         }
     }
 }

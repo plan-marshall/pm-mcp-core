@@ -10,10 +10,9 @@
 package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_ID;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,6 +45,7 @@ import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.SecretStore;
 import de.planmarshall.runtime.credentials.SecretStoreException;
@@ -67,6 +67,11 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * is looked at, and a working directory outside the workspace is refused as {@code path_traversal_rejected}. Each
  * refusal has its matched positive control in the same configuration, and a fault of the key source is no refusal.
  * The verified job carries the validated arguments of a project script job, and no such arguments for any other job.
+ * <p>
+ * Contract literals that stay: the tampered enrolment body (a well-formed enrolment file that lacks its fields), the
+ * file modes, the log texts of the refusal record, the fixture directories {@code beside} and {@code scripts}, the
+ * Maven verb of the defaults and the {@code git status} argument of the fixture. Project ids, link names, member
+ * names, values and the unreadable sidecar are generated.
  */
 @EnableTestLogger
 @EnableGeneratorController
@@ -113,16 +118,19 @@ class VerifyNotResolvePipelineTest {
         }
 
         @Test
-        @DisplayName("a tampered enrolment is refused as enrolment_tampered, with its reason and no changed path")
+        @DisplayName("a tampered enrolment (contract body) is refused as enrolment_tampered, with no changed path")
         void tampered() throws Exception {
-            Files.write(fixture.store.file(PROJECT), "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
+            Files.write(fixture.store.file(fixture.project),
+                    "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
 
             var refusal = refusedBeforeStageOne();
 
             assertAll(
-                    () -> assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason()),
-                    () -> assertTrue(refusal.changedPaths().isEmpty()),
-                    () -> assertFalse(refusal.detail().contains("pm-operator"), refusal.detail()),
+                    () -> assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason(),
+                            "a tampered enrolment is enrolment_tampered"),
+                    () -> assertTrue(refusal.changedPaths().isEmpty(), "a tampered refusal names no changed path"),
+                    () -> assertFalse(refusal.detail().contains("pm-operator"),
+                            "the detail does not name the operator verb"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_TAMPERED.resolveIdentifierString()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
@@ -132,12 +140,14 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("an insecure enrolment is refused as enrolment_insecure and logged once by the check")
         void insecure() throws Exception {
-            Files.setPosixFilePermissions(fixture.store.file(PROJECT), PosixFilePermissions.fromString("rw-r--r--"));
+            Files.setPosixFilePermissions(fixture.store.file(fixture.project),
+                    PosixFilePermissions.fromString("rw-r--r--"));
 
             var refusal = refusedBeforeStageOne();
 
             assertAll(
-                    () -> assertEquals(Reason.ENROLMENT_INSECURE, refusal.reason()),
+                    () -> assertEquals(Reason.ENROLMENT_INSECURE, refusal.reason(),
+                            "a world-readable enrolment is insecure"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
@@ -147,13 +157,16 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("an unreadable sidecar is refused as enrolment_invalid and logged once by the check")
         void unreadable() throws Exception {
-            Files.write(fixture.store.sidecar(PROJECT), "not a record".getBytes(StandardCharsets.UTF_8));
+            Files.write(fixture.store.sidecar(fixture.project),
+                    Generators.letterStrings(4, 32).next().getBytes(StandardCharsets.UTF_8));
 
             var refusal = refusedBeforeStageOne();
 
             assertAll(
-                    () -> assertEquals(Reason.ENROLMENT_INVALID, refusal.reason()),
-                    () -> assertTrue(refusal.detail().contains("unreadable"), refusal.detail()),
+                    () -> assertEquals(Reason.ENROLMENT_INVALID, refusal.reason(),
+                            "an unreadable sidecar is enrolment_invalid"),
+                    () -> assertTrue(refusal.detail().contains("unreadable"),
+                            "the detail names the sidecar as unreadable"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
@@ -163,16 +176,19 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("a missing enrolment is refused as not_enrolled and logged with PM_RUNTIME-122")
         void missing() {
-            var request = new JobRequest("other-project", fixture.beside.toString(), Set.of(), Set.of(), new JobRequest.HostToolCall(ProjectEnrolment.HostToolName.GIT, List.of()));
+            var other = CoreGenerators.projectEnrolments().next().projectId();
+            var request = new JobRequest(other, fixture.beside.toString(), Set.of(), Set.of(),
+                    new JobRequest.HostToolCall(ProjectEnrolment.HostToolName.GIT, List.of()));
 
             var refusal = refused(request);
 
             assertAll(
-                    () -> assertEquals(Reason.NOT_ENROLLED, refusal.reason()),
+                    () -> assertEquals(Reason.NOT_ENROLLED, refusal.reason(),
+                            "a project without enrolment is not_enrolled"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, WorkspaceConfinement.class),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN, JOB_REFUSED),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                            "'other-project' refused with reason 'not_enrolled'"));
+                            "'" + other + "' refused with reason 'not_enrolled'"));
         }
 
         @Test
@@ -181,7 +197,8 @@ class VerifyNotResolvePipelineTest {
             var refusal = refused(fixture.gitStatus(fixture.beside.toString()));
 
             assertAll(
-                    () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason()),
+                    () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(),
+                            "the untouched enrolment reaches stage 1"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, EnrolmentCheck.class));
         }
 
@@ -194,10 +211,12 @@ class VerifyNotResolvePipelineTest {
                     new EnrolmentFileCheck(JobEnrolmentFixture.USER), fixture.sink), JobEnrolmentFixture.NO_DEFAULTS);
             var request = fixture.gitStatus(fixture.root.toString());
 
-            var fault = assertThrows(SecretStoreException.class, () -> fixture.verify(pipeline, request));
+            var fault = assertThrows(SecretStoreException.class, () -> fixture.verify(pipeline, request),
+                    "a locked keyring passes through as an exception");
 
             assertAll(
-                    () -> assertEquals(SecretStoreException.Reason.LOCKED, fault.reason()),
+                    () -> assertEquals(SecretStoreException.Reason.LOCKED, fault.reason(),
+                            "the fault carries the locked reason"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
                             VerifyNotResolvePipeline.class));
         }
@@ -211,8 +230,9 @@ class VerifyNotResolvePipelineTest {
             var refusal = refused(fixture.gitStatus(workingDirectory));
 
             assertAll(
-                    () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason()),
-                    () -> assertTrue(refusal.changedPaths().isEmpty()),
+                    () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(),
+                            "the directory is path_traversal_rejected"),
+                    () -> assertTrue(refusal.changedPaths().isEmpty(), "a traversal refusal names no changed path"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN, JOB_REFUSED),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             "refused with reason 'path_traversal_rejected'"));
@@ -227,13 +247,14 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("a symbolic link from the tree to a directory outside it is refused")
         void symlinkEscape() throws Exception {
-            Files.createSymbolicLink(fixture.root.resolve("escape"), fixture.beside);
+            var link = "escape-" + words().next();
+            Files.createSymbolicLink(fixture.root.resolve(link), fixture.beside);
 
-            assertTraversalRejected("escape");
+            assertTraversalRejected(link);
         }
 
         @Test
-        @DisplayName("a .. traversal out of the tree is refused")
+        @DisplayName("a .. traversal out of the tree to the fixture directory beside it is refused")
         void parentTraversal() {
             assertTraversalRejected("../beside");
         }
@@ -244,27 +265,32 @@ class VerifyNotResolvePipelineTest {
             var job = verified(fixture.gitStatus(fixture.root.toString()));
 
             assertAll(
-                    () -> assertEquals(fixture.root, job.workingDirectory()),
-                    () -> assertEquals(PROJECT, job.enrolment().projectId()),
+                    () -> assertEquals(fixture.root, job.workingDirectory(),
+                            "the working directory is the enrolled root"),
+                    () -> assertEquals(fixture.project, job.enrolment().projectId(),
+                            "the job carries the enrolled project"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, VerifyNotResolvePipeline.class));
         }
 
         @Test
-        @DisplayName("positive control: a directory of the tree given relative to the enrolled root passes")
+        @DisplayName("positive control: the fixture directory scripts given relative to the enrolled root passes")
         void relativeInsideTree() {
             var job = verified(fixture.gitStatus("scripts"));
 
-            assertEquals(fixture.root.resolve("scripts"), job.workingDirectory());
+            assertEquals(fixture.root.resolve("scripts"), job.workingDirectory(),
+                    "the relative directory resolves in the tree");
         }
 
         @Test
         @DisplayName("positive control: a symbolic link that stays inside the tree passes as its target")
         void symlinkInsideTree() throws Exception {
-            Files.createSymbolicLink(fixture.root.resolve("alias"), fixture.root.resolve("scripts"));
+            var link = "alias-" + words().next();
+            Files.createSymbolicLink(fixture.root.resolve(link), fixture.root.resolve("scripts"));
 
-            var job = verified(fixture.gitStatus("alias"));
+            var job = verified(fixture.gitStatus(link));
 
-            assertEquals(fixture.root.resolve("scripts"), job.workingDirectory());
+            assertEquals(fixture.root.resolve("scripts"), job.workingDirectory(),
+                    "the inner link resolves to its target");
         }
 
         @Test
@@ -272,17 +298,19 @@ class VerifyNotResolvePipelineTest {
         void liveWorktree() {
             var job = verified(fixture.gitStatus(fixture.worktree.toString()));
 
-            assertEquals(fixture.worktree, job.workingDirectory());
+            assertEquals(fixture.worktree, job.workingDirectory(), "the live worktree is the working directory");
         }
 
         @Test
         @DisplayName("a linked worktree the caller did not name as live is refused")
         void worktreeNotLive() {
-            var request = new JobRequest(PROJECT, fixture.worktree.toString(), Set.of(), Set.of(), new JobRequest.HostToolCall(ProjectEnrolment.HostToolName.GIT, List.of()));
+            var request = new JobRequest(fixture.project, fixture.worktree.toString(), Set.of(), Set.of(),
+                    new JobRequest.HostToolCall(ProjectEnrolment.HostToolName.GIT, List.of()));
 
             var refusal = refused(request);
 
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(),
+                    "a worktree not named as live is refused");
         }
     }
 
@@ -303,18 +331,22 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("a project script job carries exactly the validated arguments, and an argv without them")
         void projectScript() {
-            var goal = Generators.letterStrings(3, 10).next();
-            var arguments = Fields.of(Map.of("goal", new Text(goal),
-                    "modules", new Items(List.of(new Text("core")))));
+            var single = "single-" + words().next();
+            var list = "list-" + words().next();
+            var arguments = Fields.of(Map.of(single, new Text(Generators.letterStrings(3, 10).next()),
+                    list, new Items(List.of(new Text(fixture.module)))));
 
             var job = verified(fixture.request(fixture.root.toString(),
-                    new ProjectScriptCall(SCRIPT_ID, SCRIPT_BINDING, arguments)));
+                    new ProjectScriptCall(fixture.scriptId, SCRIPT_BINDING, arguments)));
 
             assertAll(
-                    () -> assertEquals(Optional.of(arguments), job.projectScriptArguments()),
+                    () -> assertEquals(Optional.of(arguments), job.projectScriptArguments(),
+                            "the job carries the validated arguments"),
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
-                            fixture.root.resolve(SCRIPT_PATH).toString()), job.argv()),
-                    () -> assertEquals(Optional.empty(), job.templateSource()));
+                                    fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
+                            "the argv holds no script argument"),
+                    () -> assertEquals(Optional.empty(), job.templateSource(),
+                            "a project script has no template source"));
         }
 
         @Test
@@ -323,8 +355,10 @@ class VerifyNotResolvePipelineTest {
             var job = verifiedWithDefaults(new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), job.projectScriptArguments()),
-                    () -> assertEquals(fixture.root.resolve(MVNW).toString(), job.argv().getFirst()));
+                    () -> assertEquals(Optional.empty(), job.projectScriptArguments(),
+                            "a wrapper build carries no script arguments"),
+                    () -> assertEquals(fixture.root.resolve(MVNW).toString(), job.argv().getFirst(),
+                            "the argv starts with the wrapper"));
         }
 
         @Test
@@ -333,9 +367,10 @@ class VerifyNotResolvePipelineTest {
             var job = verified(fixture.gitStatus(fixture.root.toString()));
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), job.projectScriptArguments()),
+                    () -> assertEquals(Optional.empty(), job.projectScriptArguments(),
+                            "a host tool call carries no script arguments"),
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), "status"),
-                            job.argv()));
+                            job.argv(), "the argv is git and the status argument"));
         }
     }
 

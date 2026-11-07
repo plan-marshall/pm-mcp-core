@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.audit;
 
+import de.cuioss.test.generator.Generators;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +24,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -47,23 +49,32 @@ import de.planmarshall.runtime.lock.FileLockManager;
 /**
  * An audit trail on a test base: the hash-chained log written through the production sink, anchored by an
  * {@link AuditHead} under an enrolment integrity key held in an in-memory keyring, with the helpers that edit the
- * files into the tamper cases. The key does not exist until a test creates it.
+ * files into the tamper cases. The key does not exist until a test creates it. The start instant of the clock and the
+ * name of the appended event are drawn per fixture; the log and index file names and the rotated-file pattern are the
+ * contract of the audit trail's store schema.
  */
 final class AuditTrailFixture {
 
     /** The OS principal of the records. */
     static final String USER = System.getProperty("user.name");
 
-    /** The instant the clock starts at. */
-    static final Instant START = Instant.parse("2026-10-01T08:00:00Z");
+    /** The first epoch second the start is drawn from, 2000-01-01T00:00:00Z. */
+    private static final long EARLIEST_START = 946_684_800L;
 
-    /** The name of the event the fixture appends. */
-    static final String EVENT = "test_event";
+    /** The last epoch second the start is drawn from, 2100-01-01T00:00:00Z, which keeps time-ordered ids in range. */
+    private static final long LATEST_START = 4_102_444_800L;
 
     final Path base;
     final Keyring keyring = new Keyring();
     final EnrolmentKey integrityKey;
-    final MutableClock clock = new MutableClock(START);
+
+    /** The name of the event the fixture appends, drawn per fixture; the tests find the fixture's records by it. */
+    final String event;
+
+    /** The instant the clock starts at, drawn per fixture. */
+    final Instant start;
+
+    final MutableClock clock;
     final FileLockManager locks = new FileLockManager(_ -> {
     });
     final AuditHead head;
@@ -78,6 +89,9 @@ final class AuditTrailFixture {
      */
     AuditTrailFixture(Path base, AuditRotation.Limits limits) {
         this.base = base;
+        event = Generators.letterStrings(8, 16).next().toLowerCase(Locale.ROOT);
+        start = Instant.ofEpochSecond(Generators.longs(EARLIEST_START, LATEST_START).next());
+        clock = new MutableClock(start);
         try {
             Files.createDirectories(base.resolve("state"));
             Files.createDirectories(LockKey.auditLog(base).lockFile().getParent());
@@ -95,6 +109,11 @@ final class AuditTrailFixture {
         this(base, AuditRotation.Limits.DEFAULTS);
     }
 
+    /** @return a generated text of two words, for a message, a damaged file or a blocker */
+    static String words() {
+        return Generators.letterStrings(3, 12).next() + " " + Generators.letterStrings(3, 12).next();
+    }
+
     /** @return the integrity key, created now if it does not exist yet */
     SecretKey createKey() {
         return integrityKey.readOrCreate();
@@ -103,7 +122,7 @@ final class AuditTrailFixture {
     /** Appends records through the production sink, one per call of the sink. */
     void append(int records) {
         for (var i = 0; i < records; i++) {
-            sink.append(new AuditEvent(EVENT, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
+            sink.append(new AuditEvent(event, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
                     Map.of("n", appended++)));
         }
     }

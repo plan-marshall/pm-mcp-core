@@ -10,14 +10,15 @@
 package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
-import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_ID;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,6 +48,10 @@ import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
  * an interpreter or a project script that is not enrolled or does not match its enrolled digest is refused, and a
  * verified argument vector starts with the enrolled absolute path, the interpreter's first where one runs the target.
  * Each refusal has its matched positive control over the same enrolment.
+ * <p>
+ * Contract literals that stay: the reason details of the refusals and the shadowing shell script. The verbs, the
+ * arguments, the relative path, the other script id, the other build system and the drifted script content are
+ * generated; stage 2 reads none of them beyond identity.
  */
 @EnableGeneratorController
 @DisplayName("ExecutableCheck")
@@ -76,14 +81,14 @@ class ExecutableCheckTest {
         if (check(checked, target) instanceof VerifyNotResolvePipeline.Stage.Passed<List<String>> passed) {
             return passed.value();
         }
-        return fail("the executable should pass");
+        return fail("the executable should pass the check");
     }
 
     private JobRefusal refused(ProjectEnrolment checked, JobRequest.Target target) {
         if (check(checked, target) instanceof VerifyNotResolvePipeline.Stage.Failed<List<String>> failed) {
             return failed.refusal();
         }
-        return fail("the executable should be refused");
+        return fail("the executable should be refused by the check");
     }
 
     private String tool(HostToolName name) {
@@ -95,7 +100,7 @@ class ExecutableCheckTest {
     }
 
     private static HostToolCall call(HostToolName name) {
-        return new HostToolCall(name, List.of("--version"));
+        return new HostToolCall(name, List.of("--" + words().next()));
     }
 
     @Nested
@@ -109,13 +114,15 @@ class ExecutableCheckTest {
                     call(HostToolName.GH));
 
             assertAll(
-                    () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason()));
+                    () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
+                            "a tool missing from the enrolment is refused"));
         }
 
         @Test
         @DisplayName("positive control: enrolled and unchanged, it starts as its enrolled absolute path")
         void enrolled() {
-            assertEquals(List.of(tool(HostToolName.GH)), passed(enrolment, call(HostToolName.GH)));
+            assertEquals(List.of(tool(HostToolName.GH)), passed(enrolment, call(HostToolName.GH)),
+                    "the argv starts with the enrolled path of gh");
         }
 
         @Test
@@ -123,13 +130,14 @@ class ExecutableCheckTest {
         void digestDrift() throws Exception {
             drift(HostToolName.GIT);
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(enrolment, call(HostToolName.GIT)).reason());
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(enrolment, call(HostToolName.GIT)).reason(),
+                    "a drifted git binary is a digest mismatch");
         }
 
         @Test
         @DisplayName("whose enrolled path is not absolute is refused as executable_not_enrolled")
         void notAbsolute() {
-            var relative = JobEnrolmentFixture.withHostToolPath(enrolment, HostToolName.GH, "gh");
+            var relative = JobEnrolmentFixture.withHostToolPath(enrolment, HostToolName.GH, words().next());
 
             assertAll(
                     () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED,
@@ -144,11 +152,12 @@ class ExecutableCheckTest {
         @DisplayName("replaced by a symbolic link to its unchanged content is refused as executable_digest_mismatch")
         void replacedBySymlink() throws Exception {
             var git = fixture.tools.get(HostToolName.GIT);
-            var copy = Files.copy(git, fixture.base.resolve("git-copy"));
+            var copy = Files.copy(git, fixture.base.resolve("copy-" + words().next()));
             Files.delete(git);
             Files.createSymbolicLink(git, copy);
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(enrolment, call(HostToolName.GIT)).reason());
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(enrolment, call(HostToolName.GIT)).reason(),
+                    "a git replaced by a link is a digest mismatch");
         }
 
         @Test
@@ -163,8 +172,10 @@ class ExecutableCheckTest {
             var argv = passed(enrolment, call(HostToolName.GIT));
 
             assertAll(
-                    () -> assertEquals(List.of(tool(HostToolName.GIT)), argv),
-                    () -> assertNotEquals(shadow.toString(), argv.getFirst()),
+                    () -> assertEquals(List.of(tool(HostToolName.GIT)), argv,
+                            "the argv starts with the enrolled git path"),
+                    () -> assertNotEquals(shadow.toString(), argv.getFirst(),
+                            "the shadowing executable is never named"),
                     () -> assertFalse(Files.exists(marker), "the shadowing executable must never be started"));
         }
 
@@ -176,8 +187,10 @@ class ExecutableCheckTest {
             var refusal = refused(enrolment, call(HostToolName.ASCIIDOCTOR));
 
             assertAll(
-                    () -> assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason()),
-                    () -> assertEquals("the host tool ruby differs from its enrolled digest", refusal.detail()));
+                    () -> assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason(),
+                            "a drifted interpreter is a digest mismatch"),
+                    () -> assertEquals("the host tool ruby differs from its enrolled digest", refusal.detail(),
+                            "the detail names the drifted interpreter"));
         }
 
         @Test
@@ -186,14 +199,16 @@ class ExecutableCheckTest {
             var refusal = refused(JobEnrolmentFixture.withoutHostTool(enrolment, HostToolName.RUBY),
                     call(HostToolName.ASCIIDOCTOR));
 
-            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason());
+            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
+                    "a script tool without interpreter is refused");
         }
 
         @Test
         @DisplayName("positive control: a script host tool starts as its interpreter followed by the script")
         void scriptHostTool() {
             assertEquals(List.of(tool(HostToolName.RUBY), tool(HostToolName.ASCIIDOCTOR)),
-                    passed(enrolment, call(HostToolName.ASCIIDOCTOR)));
+                    passed(enrolment, call(HostToolName.ASCIIDOCTOR)),
+                    "asciidoctor starts as ruby and its script");
         }
 
         @Test
@@ -201,15 +216,17 @@ class ExecutableCheckTest {
         void interpreterVerifiedHere() {
             assertAll(
                     () -> assertEquals(List.of(tool(HostToolName.PYTHON3)),
-                            passed(enrolment, call(HostToolName.PYTHON3))),
-                    () -> assertEquals(List.of(tool(HostToolName.RUBY)), passed(enrolment, call(HostToolName.RUBY))));
+                            passed(enrolment, call(HostToolName.PYTHON3)), "python3 passes the executable check"),
+                    () -> assertEquals(List.of(tool(HostToolName.RUBY)), passed(enrolment, call(HostToolName.RUBY)),
+                            "ruby passes the executable check"));
         }
 
         @Test
         @DisplayName("positive control: a build job of npm runs the enrolled npm")
         void npmBuild() {
             assertEquals(List.of(tool(HostToolName.NPM)),
-                    passed(enrolment, new HostToolBuild("verify", Optional.empty())));
+                    passed(enrolment, new HostToolBuild(words().next(), Optional.empty())),
+                    "an npm build job runs the enrolled npm");
         }
     }
 
@@ -225,16 +242,18 @@ class ExecutableCheckTest {
         @DisplayName("positive control: enrolled and unchanged, it starts as python3 followed by the script")
         void enrolled() {
             assertEquals(List.of(tool(HostToolName.PYTHON3), fixture.root.resolve(SCRIPT_PATH).toString()),
-                    passed(enrolment, call(SCRIPT_ID, SCRIPT_BINDING)));
+                    passed(enrolment, call(fixture.scriptId, SCRIPT_BINDING)),
+                    "the script starts as python3 and the script");
         }
 
         @Test
         @DisplayName("that drifted from its digest is refused as executable_digest_mismatch")
         void scriptDrift() throws Exception {
-            Files.writeString(fixture.root.resolve(SCRIPT_PATH), "import os\nos.system('id')\n");
+            Files.writeString(fixture.root.resolve(SCRIPT_PATH), Generators.letterStrings(8, 64).next());
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(enrolment, call(SCRIPT_ID, SCRIPT_BINDING))
-                    .reason());
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
+                    refused(enrolment, call(fixture.scriptId, SCRIPT_BINDING)).reason(),
+                    "a drifted script is a digest mismatch");
         }
 
         @Test
@@ -242,34 +261,41 @@ class ExecutableCheckTest {
         void interpreterDrift() throws Exception {
             drift(HostToolName.PYTHON3);
 
-            var refusal = refused(enrolment, call(SCRIPT_ID, SCRIPT_BINDING));
+            var refusal = refused(enrolment, call(fixture.scriptId, SCRIPT_BINDING));
 
             assertAll(
-                    () -> assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason()),
-                    () -> assertEquals("the host tool python3 differs from its enrolled digest", refusal.detail()));
+                    () -> assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refusal.reason(),
+                            "a drifted python3 is a digest mismatch"),
+                    () -> assertEquals("the host tool python3 differs from its enrolled digest", refusal.detail(),
+                            "the detail names the drifted python3"));
         }
 
         @Test
         @DisplayName("used for another binding than its enrolled one is refused as executable_not_enrolled")
         void bindingMismatch() {
-            var refusal = refused(enrolment, call(SCRIPT_ID, new Binding(WorkerKind.LOG_PARSER, "gradle")));
+            var refusal = refused(enrolment, call(fixture.scriptId, new Binding(WorkerKind.LOG_PARSER,
+                    "other-" + words().next())));
 
-            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason());
+            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
+                    "a script for another build system is refused");
         }
 
         @Test
         @DisplayName("used for another worker kind than its enrolled one is refused as executable_not_enrolled")
         void workerKindMismatch() {
-            var refusal = refused(enrolment, call(SCRIPT_ID, new Binding(WorkerKind.FINALIZE_STEP, "maven")));
+            var refusal = refused(enrolment, call(fixture.scriptId,
+                    new Binding(WorkerKind.FINALIZE_STEP, JobEnrolmentFixture.SCRIPT_BUILD_SYSTEM)));
 
-            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason());
+            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
+                    "a script for another worker kind is refused");
         }
 
         @Test
         @DisplayName("that is not enrolled is refused as executable_not_enrolled")
         void notEnrolled() {
             assertEquals(Reason.EXECUTABLE_NOT_ENROLLED,
-                    refused(enrolment, call("other-script", SCRIPT_BINDING)).reason());
+                    refused(enrolment, call("other-" + words().next(), SCRIPT_BINDING)).reason(),
+                    "a script id not enrolled is refused");
         }
     }
 
@@ -281,14 +307,16 @@ class ExecutableCheckTest {
         @DisplayName("positive control: mvnw starts as the verified wrapper at the root of the tree")
         void mvnw() {
             assertEquals(List.of(fixture.root.resolve(JobEnrolmentFixture.MVNW).toString()),
-                    passed(enrolment, new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty())));
+                    passed(enrolment, new WrapperBuild(WrapperName.MVNW, words().next(), Optional.empty())),
+                    "mvnw starts as the wrapper at the root");
         }
 
         @Test
         @DisplayName("positive control: pw runs through the enrolled python3 with the wrapper as first argument")
         void pw() {
             assertEquals(List.of(tool(HostToolName.PYTHON3), fixture.root.resolve(JobEnrolmentFixture.PW).toString()),
-                    passed(enrolment, new WrapperBuild(WrapperName.PW, "verify", Optional.empty())));
+                    passed(enrolment, new WrapperBuild(WrapperName.PW, words().next(), Optional.empty())),
+                    "pw runs through the enrolled python3");
         }
 
         @Test
@@ -297,7 +325,8 @@ class ExecutableCheckTest {
             drift(HostToolName.PYTHON3);
 
             assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
-                    refused(enrolment, new WrapperBuild(WrapperName.PW, "verify", Optional.empty())).reason());
+                    refused(enrolment, new WrapperBuild(WrapperName.PW, words().next(), Optional.empty())).reason(),
+                    "pw with a drifted python3 is refused");
         }
     }
 }

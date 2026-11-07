@@ -30,6 +30,10 @@ import java.util.concurrent.TimeUnit;
  * instant and the confinement {@code unavailable}, and replaces itself with the target by {@code exec}. It applies no
  * confinement and verifies nothing. {@link Mode} selects the launcher failures: no report, or exit {@code 64},
  * {@code 126} or {@code 127} without starting the target.
+ * <p>
+ * Every datum of this class is a contract: the script text, the option names and the exit codes are the launcher's
+ * command-line and exit-code contract, the launch report line is its wire format, and the tool directories are the
+ * fixture paths of the base system.
  *
  * @since 0.1
  */

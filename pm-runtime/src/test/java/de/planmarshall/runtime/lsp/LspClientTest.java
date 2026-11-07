@@ -14,6 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,8 +29,20 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.runtime.log.RuntimeLogMessages;
 import de.planmarshall.runtime.lsp.LspClient.LspLocation;
 
+/**
+ * The LSP client against the fixture language server.
+ *
+ * <p>
+ * The names of the missing server executable and the missing source file are generated. The literals that stay are
+ * the contract: the fixture server's modes, the fixture source {@code Main.java} with the positions the server
+ * answers for it, the LSP language id {@code java}, the negotiated encoding {@code utf-32}, the fixture diagnostic's
+ * message and the request bounds.
+ */
+@EnableTestLogger
+@EnableGeneratorController
 @DisplayName("LspClient against a fixture language server")
 class LspClientTest {
 
@@ -51,10 +68,15 @@ class LspClientTest {
 
             List<LspLocation> locations = client.definition(file, 2, 13);
 
-            assertEquals("utf-32", client.positionEncoding());
-            assertEquals(List.of(new LspLocation(file.toUri().toString(), 3, 4, 3, 9)), locations);
+            assertEquals("utf-32", client.positionEncoding(), "the client negotiates the utf-32 encoding");
+            assertEquals(List.of(new LspLocation(file.toUri().toString(), 3, 4, 3, 9)), locations,
+                    "the definition is the fixture's location");
         }
         assertFalse(client.isAlive(), "the server process ended after shutdown and exit");
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                RuntimeLogMessages.INFO.LSP_STARTED.resolveIdentifierString());
+        LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.LSP_SHUTDOWN_FAILED.resolveIdentifierString());
     }
 
     @Test
@@ -65,10 +87,12 @@ class LspClientTest {
 
             List<LspLocation> locations = client.definition(file, 0, 0);
 
-            assertEquals(List.of(new LspLocation(file.toUri().toString(), 3, 4, 3, 9)), locations);
+            assertEquals(List.of(new LspLocation(file.toUri().toString(), 3, 4, 3, 9)), locations,
+                    "a location link is read as the fixture location");
             var diagnostics = client.awaitPublishedDiagnostics(file, TIMEOUT);
-            assertEquals("fixture diagnostic", diagnostics.getFirst().getMessage().getLeft());
-            assertTrue(client.isAlive());
+            assertEquals("fixture diagnostic", diagnostics.getFirst().getMessage().getLeft(),
+                    "the published diagnostic is cached");
+            assertTrue(client.isAlive(), "the server runs until the client is closed");
         }
     }
 
@@ -76,7 +100,7 @@ class LspClientTest {
     @DisplayName("reads a null definition answer as no location")
     void noDefinition() throws Exception {
         try (LspClient client = LspClient.start(FixtureLanguageServer.command("none"), workspace, TIMEOUT)) {
-            assertTrue(client.definition(file, 0, 0).isEmpty());
+            assertTrue(client.definition(file, 0, 0).isEmpty(), "a null definition answer is no location");
         }
     }
 
@@ -84,9 +108,10 @@ class LspClientTest {
     @DisplayName("bounds a request that never answers")
     void timeout() throws Exception {
         try (LspClient client = LspClient.start(FixtureLanguageServer.command("hang"), workspace, Duration.ofSeconds(5))) {
-            var refusal = assertThrows(LspException.class, () -> client.definition(file, 0, 0));
+            var refusal = assertThrows(LspException.class, () -> client.definition(file, 0, 0),
+                    "a request that never answers is refused");
 
-            assertEquals(LspException.Kind.TIMEOUT, refusal.getKind());
+            assertEquals(LspException.Kind.TIMEOUT, refusal.getKind(), "the refusal is a timeout");
         }
     }
 
@@ -97,23 +122,30 @@ class LspClientTest {
 
         client.close();
 
-        assertFalse(client.isAlive());
+        assertFalse(client.isAlive(), "a server that ignores exit is terminated");
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.LSP_SHUTDOWN_FAILED.resolveIdentifierString());
     }
 
     @Test
     @DisplayName("reports a server that cannot start or dies before initialize")
     void startFailures() throws Exception {
+        var noServer = workspace.resolve("no-" + Generators.letterStrings(3, 12).next()).toString();
+        var missingSource = workspace.resolve("missing-" + Generators.letterStrings(3, 12).next() + ".java");
         var missing = assertThrows(LspException.class,
-                () -> LspClient.start(List.of(workspace.resolve("no-such-server").toString()), workspace, TIMEOUT));
+                () -> LspClient.start(List.of(noServer), workspace, TIMEOUT), "a missing server does not start");
         var dies = assertThrows(LspException.class,
-                () -> LspClient.start(FixtureLanguageServer.command("die"), workspace, Duration.ofSeconds(5)));
+                () -> LspClient.start(FixtureLanguageServer.command("die"), workspace, Duration.ofSeconds(5)),
+                "a server dying before initialize fails");
         LspException unreadable;
         try (LspClient client = LspClient.start(FixtureLanguageServer.command("location"), workspace, TIMEOUT)) {
-            unreadable = assertThrows(LspException.class, () -> client.open(workspace.resolve("missing.java"), "java"));
+            unreadable = assertThrows(LspException.class, () -> client.open(missingSource, "java"),
+                    "opening a missing source file fails");
         }
 
-        assertEquals(LspException.Kind.START_FAILED, missing.getKind());
-        assertEquals(LspException.Kind.START_FAILED, dies.getKind());
-        assertEquals(LspException.Kind.REQUEST_FAILED, unreadable.getKind());
+        assertEquals(LspException.Kind.START_FAILED, missing.getKind(), "a missing server is a start failure");
+        assertEquals(LspException.Kind.START_FAILED, dies.getKind(), "a dying server is a start failure");
+        assertEquals(LspException.Kind.REQUEST_FAILED, unreadable.getKind(),
+                "an unreadable source is a request failure");
     }
 }

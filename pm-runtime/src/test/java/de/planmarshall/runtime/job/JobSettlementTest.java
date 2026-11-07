@@ -9,6 +9,12 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArgument;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -27,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,27 +63,31 @@ import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeType;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.runtime.job.JobSettlement.Report;
 import de.planmarshall.runtime.job.SettlementStep.Name;
 import de.planmarshall.runtime.job.SettlementStep.Outcome;
 import de.planmarshall.runtime.job.SettlementStep.Settled;
 import de.planmarshall.runtime.job.SettlementStep.Slot;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The settlement of a job at its end (PM-EXEC-4, PM-ARCH-7): the steps run in the fixed write order whatever order
  * they are given in, a failure injected at any step stops the later ones and leaves the stores consistent, so a released
  * slot never precedes the recorded fate, and the steps whose stores do not exist report themselves as not implemented.
  * The settlement runs over a real job record store and a real build-slot lease store on the lock manager of the
- * runtime.
+ * runtime; a replacement or failing step is an EasyMock double.
+ * <p>
+ * Contract literals that stay: the order of the step names, the outcome texts of the fate and slot steps, the key of
+ * the build slot, the malformed store content {@code {} and the not-implemented marker. The project, the plans, the
+ * job id, the instants, the PID, the budget, the digest and the details of the doubled steps are generated.
  */
+@EnableGeneratorController
 @DisplayName("Job settlement")
 class JobSettlementTest {
 
-    private static final String PROJECT = "project-a";
-    private static final Scope PLAN = new Scope(Scope.Type.PLAN, "plan-one");
-    private static final JobId JOB = new JobId("b-0123456789abcdef");
-    private static final Instant CREATED_AT = Instant.parse("2026-10-17T10:00:00Z");
+    /** The key of the build slot: the fixture's one slot. */
     private static final String SLOT_KEY = "build-slot-1";
 
     @TempDir
@@ -84,30 +97,49 @@ class JobSettlementTest {
     private JobRecordStore records;
     private LeaseStore slots;
     private LeaseOwner owner;
+    private String project;
+    private Scope plan;
+    private JobId job;
+    private Instant createdAt;
+    private String budgetKey;
+    private int budgetSeconds;
+    private String argvDigest;
+    private long pid;
+    private String doneDetail;
 
     @BeforeEach
     void createStores() throws IOException {
+        project = CoreGenerators.projectEnrolments().next().projectId();
+        plan = new Scope(Scope.Type.PLAN, "plan-" + words().next());
+        job = new JobId(RuntimeGenerators.jobIds(JobId.Kind.BUILD).next());
+        createdAt = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
+        budgetKey = "maven:" + words().next();
+        budgetSeconds = Generators.integers(10, 3600).next();
+        argvDigest = RuntimeGenerators.sha256Digests().next();
+        pid = Generators.longs(2, 4_000_000).next();
+        doneDetail = Generators.letterStrings(1, 32).next();
         lockManager = new FileLockManager(_ -> {
         });
-        records = JobRecordStore.ofProject(base, PROJECT);
+        records = JobRecordStore.ofProject(base, project);
         var slotFile = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
         slots = new LeaseStore(new AtomicStoreFile(slotFile, LockKey.buildSlots(base)), lockManager);
         var self = ProcessHandle.current();
-        owner = new LeaseOwner(PROJECT, ScopeType.PLAN, PLAN.id(),
+        owner = new LeaseOwner(project, ScopeType.PLAN, plan.id(),
                 new HolderInstance(self.pid(), self.info().startInstant().orElseThrow()), null);
     }
 
-    private static JobRecord postSpawn() {
-        return JobRecord.builder().jobId(JOB).execution(Execution.PROCESS).scope(PLAN).budgetKey("maven:verify")
-                .budgetSeconds(600).budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
-                .argvDigest("ab".repeat(32)).status(Status.RUNNING).confinement(Confinement.UNAVAILABLE)
-                .createdAt(CREATED_AT).clampedValues(List.of()).pid(4242L).processStartedAt(CREATED_AT.plusMillis(20))
-                .spawnedAt(CREATED_AT).build();
+    private JobRecord postSpawn() {
+        return JobRecord.builder().jobId(job).execution(Execution.PROCESS).scope(plan).budgetKey(budgetKey)
+                .budgetSeconds(budgetSeconds)
+                .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                .argvDigest(argvDigest).status(Status.RUNNING).confinement(Confinement.UNAVAILABLE)
+                .createdAt(createdAt).clampedValues(List.of()).pid(pid).processStartedAt(createdAt.plusMillis(20))
+                .spawnedAt(createdAt).build();
     }
 
-    private static JobRecord ended() {
+    private JobRecord ended() {
         return postSpawn().toBuilder().status(Status.ENDED).fate(Fate.SUCCEEDED).outcomeRow(7)
-                .endedAt(CREATED_AT.plusSeconds(60)).childWallMs(59_000L).exitCode(0L).build();
+                .endedAt(createdAt.plusSeconds(60)).childWallMs(59_000L).exitCode(0L).build();
     }
 
     /** Runs the job to its post-spawn record and claims its build slot. */
@@ -119,55 +151,46 @@ class JobSettlementTest {
         try (var transaction = lockManager.openTransaction()) {
             records.writePostSpawn(transaction, postSpawn());
         }
-        assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, owner, CREATED_AT, null)).granted());
+        assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, owner, createdAt, null)).granted(),
+                "the job's build slot is granted");
         return new Settled(ended(), Optional.of(new Slot(slots, SLOT_KEY, owner)));
     }
 
     private boolean fateRecorded() {
-        return records.read(JOB).orElseThrow().status() == Status.ENDED;
+        return records.read(job).orElseThrow().status() == Status.ENDED;
     }
 
     private boolean slotHeld() {
         return slots.snapshot().stream().anyMatch(lease -> SLOT_KEY.equals(lease.key()));
     }
 
+    /** @return an EasyMock double of a step of that name whose run does what the behaviour does */
+    private static SettlementStep step(Name name, Function<Settled, Outcome> behaviour) {
+        SettlementStep step = createMock(SettlementStep.class);
+        expect(step.name()).andStubReturn(name);
+        expect(step.run(anyObject(Settled.class))).andStubAnswer(() -> behaviour.apply(getCurrentArgument(0)));
+        replay(step);
+        return step;
+    }
+
     /** A step that records its name when it runs and is done. */
-    private static SettlementStep recording(Name name, List<Name> ran) {
-        return new SettlementStep() {
-
-            @Override
-            public Name name() {
-                return name;
-            }
-
-            @Override
-            public Outcome run(Settled settled) {
-                ran.add(name);
-                return new Outcome.Done("ran");
-            }
-        };
+    private SettlementStep recording(Name name, List<Name> ran) {
+        return step(name, settled -> {
+            ran.add(name);
+            return new Outcome.Done(doneDetail);
+        });
     }
 
     /** A step that fails: the crash injected at its place. */
     private static SettlementStep failing(Name name) {
-        return new SettlementStep() {
-
-            @Override
-            public Name name() {
-                return name;
-            }
-
-            @Override
-            public Outcome run(Settled settled) {
-                return new Outcome.Failed("crash injected at " + name);
-            }
-        };
+        return step(name, settled -> new Outcome.Failed("crash injected at " + name));
     }
 
     @Nested
     @DisplayName("the order")
     class Order {
 
+        /** The orders the steps are given in, each a deliberate permutation of the fixed order. */
         static Stream<Arguments> givenOrders() {
             var natural = List.of(Name.values());
             var reversed = new ArrayList<>(natural);
@@ -190,12 +213,14 @@ class JobSettlementTest {
 
             var order = List.of(Name.values());
             assertAll(
-                    () -> assertEquals(order, ran),
-                    () -> assertEquals(order, settlement.order()),
-                    () -> assertEquals(order, report.steps().stream().map(JobSettlement.StepReport::name).toList()),
-                    () -> assertTrue(report.complete()),
-                    () -> assertEquals(Name.FATE, order.getFirst()),
-                    () -> assertTrue(order.indexOf(Name.FATE) < order.indexOf(Name.SLOT_RELEASE)));
+                    () -> assertEquals(order, ran, "the steps ran in the fixed order"),
+                    () -> assertEquals(order, settlement.order(), "the settlement holds the fixed order"),
+                    () -> assertEquals(order, report.steps().stream().map(JobSettlement.StepReport::name).toList(),
+                            "the report lists the fixed order"),
+                    () -> assertTrue(report.complete(), "the settlement completed"),
+                    () -> assertEquals(Name.FATE, order.getFirst(), "the fate is written first"),
+                    () -> assertTrue(order.indexOf(Name.FATE) < order.indexOf(Name.SLOT_RELEASE),
+                            "the fate precedes the slot release"));
         }
 
         @Test
@@ -210,9 +235,12 @@ class JobSettlementTest {
             Optional<Slot> noSlot = Optional.empty();
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(missing)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(duplicate)),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Settled(running, noSlot)));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(missing),
+                            "a missing step is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(duplicate),
+                            "a duplicate step is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Settled(running, noSlot),
+                            "a running job is not settled"));
         }
     }
 
@@ -229,14 +257,15 @@ class JobSettlementTest {
 
             var releases = report.steps().stream().filter(step -> step.name() == Name.SLOT_RELEASE).toList();
             assertAll(
-                    () -> assertTrue(report.complete()),
-                    () -> assertTrue(report.stoppedAt().isEmpty()),
-                    () -> assertEquals(ended(), records.read(JOB).orElseThrow()),
-                    () -> assertFalse(slotHeld()),
-                    () -> assertEquals(1, releases.size()),
-                    () -> assertEquals(new Outcome.Done("slot build-slot-1 released"), releases.getFirst().outcome()),
+                    () -> assertTrue(report.complete(), "the full settlement completed"),
+                    () -> assertTrue(report.stoppedAt().isEmpty(), "the full settlement did not stop"),
+                    () -> assertEquals(ended(), records.read(job).orElseThrow(), "the ended record was written"),
+                    () -> assertFalse(slotHeld(), "the slot was released"),
+                    () -> assertEquals(1, releases.size(), "the slot was released once"),
+                    () -> assertEquals(new Outcome.Done("slot " + SLOT_KEY + " released"),
+                            releases.getFirst().outcome(), "the release reports the slot"),
                     () -> assertEquals(new Outcome.Done("fate succeeded recorded"),
-                            report.steps().getFirst().outcome()));
+                            report.steps().getFirst().outcome(), "the fate step reports the fate"));
         }
 
         @Test
@@ -249,9 +278,11 @@ class JobSettlementTest {
             assertAll(
                     () -> assertEquals(List.of(Name.WORKER_QUEUE_TASK, Name.METRICS_ROW, Name.CHANGE_LEDGER_ROW,
                                     Name.TIMING_OBSERVATION, Name.JOB_PRIVATE_DIRECTORY),
-                            seams.stream().map(JobSettlement.StepReport::name).toList()),
+                            seams.stream().map(JobSettlement.StepReport::name).toList(),
+                            "the seams are the steps without a store"),
                     () -> assertTrue(seams.stream().allMatch(step -> step.outcome()
-                            .equals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED)))));
+                                    .equals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED))),
+                            "every seam reports not implemented"));
         }
 
         @ParameterizedTest(name = "crash at {0}")
@@ -273,11 +304,14 @@ class JobSettlementTest {
             var fateRecorded = fateRecorded();
             var slotReleased = !slotHeld();
             assertAll(
-                    () -> assertEquals(Optional.of(crash), report.stoppedAt()),
-                    () -> assertFalse(report.complete()),
-                    () -> assertEquals(crash.ordinal() + 1, report.steps().size()),
-                    () -> assertEquals(crash.compareTo(Name.FATE) > 0, fateRecorded),
-                    () -> assertEquals(crash.compareTo(Name.SLOT_RELEASE) > 0, slotReleased),
+                    () -> assertEquals(Optional.of(crash), report.stoppedAt(), "the settlement stopped at the crash"),
+                    () -> assertFalse(report.complete(), "the crashed settlement did not complete"),
+                    () -> assertEquals(crash.ordinal() + 1, report.steps().size(),
+                            "no step after the crash ran"),
+                    () -> assertEquals(crash.compareTo(Name.FATE) > 0, fateRecorded,
+                            "the fate is recorded only before the crash"),
+                    () -> assertEquals(crash.compareTo(Name.SLOT_RELEASE) > 0, slotReleased,
+                            "the slot is released only before the crash"),
                     () -> assertTrue(fateRecorded || !slotReleased, "a released slot precedes the recorded fate"));
         }
 
@@ -285,14 +319,15 @@ class JobSettlementTest {
         @DisplayName("an unreadable job record fails the fate step, and the slot stays held")
         void fateStoreFailure() throws Exception {
             var settled = runningJobWithSlot();
-            Files.writeString(records.recordPath(JOB), "{");
+            Files.writeString(records.recordPath(job), "{");
 
             var report = JobSettlement.of(records, lockManager).settle(settled);
 
             assertAll(
-                    () -> assertEquals(Optional.of(Name.FATE), report.stoppedAt()),
-                    () -> assertInstanceOf(Outcome.Failed.class, report.steps().getFirst().outcome()),
-                    () -> assertTrue(slotHeld()));
+                    () -> assertEquals(Optional.of(Name.FATE), report.stoppedAt(), "the settlement stopped at fate"),
+                    () -> assertInstanceOf(Outcome.Failed.class, report.steps().getFirst().outcome(),
+                            "the fate step failed"),
+                    () -> assertTrue(slotHeld(), "the slot of the job stays held"));
         }
 
         @Test
@@ -304,9 +339,11 @@ class JobSettlementTest {
             var report = JobSettlement.of(records, lockManager).settle(settled);
 
             assertAll(
-                    () -> assertEquals(Optional.of(Name.SLOT_RELEASE), report.stoppedAt()),
-                    () -> assertInstanceOf(Outcome.Failed.class, report.steps().getLast().outcome()),
-                    () -> assertTrue(fateRecorded()));
+                    () -> assertEquals(Optional.of(Name.SLOT_RELEASE), report.stoppedAt(),
+                            "the settlement stopped at the release"),
+                    () -> assertInstanceOf(Outcome.Failed.class, report.steps().getLast().outcome(),
+                            "the release step failed"),
+                    () -> assertTrue(fateRecorded(), "the fate was recorded before"));
         }
     }
 
@@ -319,21 +356,24 @@ class JobSettlementTest {
         void noSlot() {
             var outcome = SettlementStep.slotRelease().run(new Settled(ended(), Optional.empty()));
 
-            assertEquals(new Outcome.Done("no slot held"), outcome);
+            assertEquals(new Outcome.Done("no slot held"), outcome, "a job without a slot releases nothing");
         }
 
         @Test
         @DisplayName("leaves a lease in place that another owner holds by now")
         void foreignOwner() {
-            var other = new LeaseOwner(PROJECT, ScopeType.PLAN, "plan-two", owner.holderInstance(), null);
-            assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, other, CREATED_AT, null)).granted());
+            var other = new LeaseOwner(project, ScopeType.PLAN, "plan-other-" + words().next(), owner.holderInstance(),
+                    null);
+            assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, other, createdAt, null)).granted(),
+                    "the other owner's slot is granted");
 
             var outcome = SettlementStep.slotRelease().run(new Settled(ended(),
                     Optional.of(new Slot(slots, SLOT_KEY, owner))));
 
             assertAll(
-                    () -> assertEquals(new Outcome.Done("slot build-slot-1 not held by the job"), outcome),
-                    () -> assertTrue(slotHeld()));
+                    () -> assertEquals(new Outcome.Done("slot " + SLOT_KEY + " not held by the job"), outcome,
+                            "the release reports the foreign holder"),
+                    () -> assertTrue(slotHeld(), "the foreign lease stays in place"));
         }
     }
 
@@ -354,7 +394,7 @@ class JobSettlementTest {
                             .map(JobSettlement.StepReport::name).toList(), "the fixed order is unchanged"),
                     () -> assertEquals(List.of(Name.CHANGE_LEDGER_ROW), ran, "the replacement ran once"),
                     () -> assertFalse(slotHeld(), "the slot was released after the settlement"),
-                    () -> assertEquals(new Outcome.Done("ran"), report.steps().stream()
+                    () -> assertEquals(new Outcome.Done(doneDetail), report.steps().stream()
                             .filter(step -> step.name() == Name.CHANGE_LEDGER_ROW).findFirst().orElseThrow()
                             .outcome(), "the replacement reports what it did"),
                     () -> assertEquals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED), report.steps().stream()
@@ -383,18 +423,10 @@ class JobSettlementTest {
         @Test
         @DisplayName("a replacement step that throws a store exception stops the settlement")
         void throwingReplacementStopsTheSettlement() {
-            var throwing = new SettlementStep() {
-
-                @Override
-                public Name name() {
-                    return Name.TIMING_OBSERVATION;
-                }
-
-                @Override
-                public Outcome run(Settled settled) {
-                    throw new UncheckedIOException(new IOException("the store failed"));
-                }
-            };
+            var message = Generators.letterStrings(1, 32).next();
+            var throwing = step(Name.TIMING_OBSERVATION, settled -> {
+                throw new UncheckedIOException(new IOException(message));
+            });
 
             var report = JobSettlement.of(records, lockManager, Map.of(Name.TIMING_OBSERVATION, throwing))
                     .settle(runningJobWithSlot());
@@ -409,18 +441,10 @@ class JobSettlementTest {
         @Test
         @DisplayName("a replacement step that throws a runtime fault is a failed step")
         void runtimeFaultReplacementStopsTheSettlement() {
-            var throwing = new SettlementStep() {
-
-                @Override
-                public Name name() {
-                    return Name.TIMING_OBSERVATION;
-                }
-
-                @Override
-                public Outcome run(Settled settled) {
-                    throw new IllegalStateException("the step faulted");
-                }
-            };
+            var message = Generators.letterStrings(1, 32).next();
+            var throwing = step(Name.TIMING_OBSERVATION, settled -> {
+                throw new IllegalStateException(message);
+            });
 
             var report = JobSettlement.of(records, lockManager, Map.of(Name.TIMING_OBSERVATION, throwing))
                     .settle(runningJobWithSlot());
@@ -438,7 +462,8 @@ class JobSettlementTest {
             var mismatched = Map.of(Name.METRICS_ROW, recording(Name.TIMING_OBSERVATION, new ArrayList<>()));
 
             assertThrows(IllegalArgumentException.class,
-                    () -> JobSettlement.of(records, lockManager, mismatched));
+                    () -> JobSettlement.of(records, lockManager, mismatched),
+                    "a replacement under another name is refused");
         }
 
         @Test
@@ -449,9 +474,11 @@ class JobSettlementTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> JobSettlement.of(records, lockManager, fate)),
+                            () -> JobSettlement.of(records, lockManager, fate),
+                            "the fate step cannot be replaced"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> JobSettlement.of(records, lockManager, slotRelease)));
+                            () -> JobSettlement.of(records, lockManager, slotRelease),
+                            "the slot release cannot be replaced"));
         }
     }
 
@@ -461,7 +488,7 @@ class JobSettlementTest {
         var report = new Report(List.of());
 
         assertAll(
-                () -> assertTrue(report.stoppedAt().isEmpty()),
-                () -> assertFalse(report.complete()));
+                () -> assertTrue(report.stoppedAt().isEmpty(), "an empty report has not stopped"),
+                () -> assertFalse(report.complete(), "an empty report is not complete"));
     }
 }
