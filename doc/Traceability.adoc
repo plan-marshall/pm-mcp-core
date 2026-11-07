@@ -1745,6 +1745,18 @@ link:../pm-core/src/test/java/de/planmarshall/core/guard/AnalysisBoundaryArchTes
 
 Documentation: link:../../plan-marshall-documentation/doc/developer/assembly-boundary.adoc[Developer Guide § The Assembly Boundary], link:../../plan-marshall-documentation/doc/developer/registry-setup.adoc[Developer Guide § Registry Setup], link:../pm-core/doc/developer/core-analysis.adoc[Developer Guide § Code Analysis], link:../pm-core/doc/developer/core-findings.adoc[Developer Guide § Findings]
 
+Implementation (the issue read of the Sonar provider: the open issues of one pull request through `GET api/issues/search`
+over the shared HTTP base, paged by the `paging` object of Sonar to at most 20 pages, the token as `Authorization:
+Bearer` to the endpoint's origin, and the refused reasons of Sonar read from `errors[].msg`; the adapter of the
+code-analysis and findings contracts that builds on it is not implemented yet): module link:../pm-providers/pm-provider-sonar/pom.xml[pm-provider-sonar] with
+link:../pm-providers/pm-provider-sonar/src/main/java/de/planmarshall/provider/sonar/SonarClient.java[SonarClient],
+link:../pm-providers/pm-provider-sonar/src/main/java/de/planmarshall/provider/sonar/SonarIssue.java[SonarIssue]
+
+Verified by (the Sonar issue read): link:../pm-providers/pm-provider-sonar/src/test/java/de/planmarshall/provider/sonar/SonarClientTest.java[SonarClientTest]
+
+Documentation (the Sonar issue read): link:../pm-providers/pm-provider-sonar/doc/developer/provider-sonar.adoc[Developer Guide § Sonar as a Code Analysis Provider (`provider.sonar`)],
+link:../pm-providers/pm-provider-sonar/doc/adr/provider-sonar/001-the-issue-client-is-the-transport-slice-below-the-adapter.adoc[ADR provider-sonar/001]
+
 [#PM-IMPL-2]
 === PM-IMPL-2: Versioned JSON/JSONL Storage & TOON Wire Output
 

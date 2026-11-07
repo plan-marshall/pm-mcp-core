@@ -59,6 +59,10 @@ The repository:
 
 * link:../../pm-providers/pm-provider-http/doc/adr/provider-http/[`pm-providers/pm-provider-http/doc/adr/provider-http/`]: the neutral class names of the shared HTTP base.
 
+`pm-provider-sonar`:
+
+* link:../../pm-providers/pm-provider-sonar/doc/adr/provider-sonar/[`pm-providers/pm-provider-sonar/doc/adr/provider-sonar/`]: the issue client as the transport slice below the adapter, its paging by the `paging` object of Sonar, the bearer token through the shared base and the refused reasons read from `errors[].msg`.
+
 `pm-runtime`:
 
 * link:../../pm-runtime/doc/adr/runtime-audit/[`pm-runtime/doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
