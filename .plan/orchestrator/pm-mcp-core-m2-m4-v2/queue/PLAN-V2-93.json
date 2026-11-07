@@ -2,10 +2,10 @@
   "id": "PLAN-V2-93",
   "slug": "http-tests-annotations",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "landed",
   "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#316",
+  "landing": "landings/PLAN-V2-93.md",
   "seq": -13
 }

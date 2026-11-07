@@ -2,9 +2,9 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again).
 > Lives at `plans/PLAN-V2-120-limits-in-data-files.md` and is queued as one row file, `queue/PLAN-V2-120.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names and the package file
@@ -44,9 +44,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **No default on a missing value:** a missing resource, key or non-numeric value fails fast; the behaviour of the limit does not change.
 - **The other values of the `timeouts` registry** have no test that reads them and are left as they are.
 - **A durable protocol is touched** (the stalled-scope detector): R14 and R16 apply.
-- **Sonar:** where the plan lifecycle's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
+- **Sonar:** where the lane's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
 - **No dependency or plugin is added.**
-- **The landing message:** this plan is started with a spec path, so no `emit-landing` runs; write the landing message to the epic inbox by hand as the last step (`inbox write --kind landing`), with the `landing-facts` block, the standing-rule revision and rule ids, and the open items.
+- **The landing message:** the lane files it (`landing-check`); it carries the standing-rule revision and rule ids and the open items, and names `spec_source` and `spec_differ`.
 
 ## Claim Labels
 
@@ -70,7 +70,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-115 (`schema-files-foundation`, on `main`). Its surface lies in `StalledScopeDetectorTest` (PLAN-V2-89, running) and `UnitFrontmatterReaderTest` (PLAN-V2-98, running): emit it only after those two have landed.
+- Depends on: PLAN-V2-115 (`schema-files-foundation`, on `main`). Its surface lies in `StalledScopeDetectorTest` (PLAN-V2-89, landed) and `UnitFrontmatterReaderTest` (PLAN-V2-98, landed), so it can be emitted.
 - The packages of the transition: PLAN-V2-115 `schema-files-foundation` (first); PLAN-V2-116 to 119 (the four move packages, disjoint by document, parallel once the foundation is on `main`); PLAN-V2-120 `limits-in-data-files`; PLAN-V2-121 `generated-listings` (parked); PLAN-V2-122 `adoc-reading-retired` (last).
 - Overlaps: by file with every plan that edits a test or document named in the Expected Surface; the orchestrator pairs them by the cross-check before emitting.
 
@@ -82,7 +82,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-120-limits-in-data-files.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-120-limits-in-data-files.md
 ```
 
 ## Write-Boundary
