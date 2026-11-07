@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.jobIds;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +33,6 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.ContainerEngine;
-import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The composition of a job's confinement (PM-SEC-5): the write set holds the project root, the enrolled caches, the
@@ -75,11 +75,6 @@ class JobConfinementComposerTest {
         return Path.of("/home", words().next(), "." + words().next(), words().next());
     }
 
-    /** @return a generated job id of that kind */
-    private static JobId jobId(JobId.Kind kind) {
-        return new JobId(kind.prefix() + "-" + RuntimeGenerators.sha256Digests().next().substring(0, 16));
-    }
-
     private JobConfinementComposer composer() {
         return new JobConfinementComposer(base, TMP, DEV, Optional.of(bus));
     }
@@ -99,7 +94,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("writes its project root, its caches, /tmp, /dev and its daemon store, and denies the base")
         void writeSet() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
             var enrolment = enrolment(null, Map.of());
             var confinement = composer().forJob(enrolment, job, List.of(), false);
@@ -120,7 +115,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("the base directory appears only as the daemon store, never as the root or a cache")
         void baseNeverWritable() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
             var enrolment = enrolment(null, Map.of());
             var confinement = composer().forJob(enrolment, job, List.of(), false);
@@ -139,7 +134,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a probe of a checkout's script writes its checkout and reads its job-private directory")
         void probeOfScript() {
-            var job = jobId(JobId.Kind.PROBE);
+            var job = new JobId(jobIds(JobId.Kind.PROBE).next());
 
             var confinement = composer().forProbe(job, Optional.of(project), List.of(cache), false, List.of());
 
@@ -153,7 +148,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a harness probe gets a data directory that exists and is writable")
         void harnessProbeData() {
-            var job = jobId(JobId.Kind.PROBE);
+            var job = new JobId(jobIds(JobId.Kind.PROBE).next());
 
             var confinement = composer().forProbe(job, Optional.empty(), List.of(), true, List.of());
 
@@ -171,7 +166,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a ci job writes its CLI configuration directory and no daemon store")
         void ciJob() {
-            var job = jobId(JobId.Kind.CI);
+            var job = new JobId(jobIds(JobId.Kind.CI).next());
             var configDirectory = absolute();
 
             var confinement = composer().forJob(
@@ -188,7 +183,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a git job writes the daemon store only when it runs repository hooks")
         void gitJob() {
-            var job = jobId(JobId.Kind.GIT);
+            var job = new JobId(jobIds(JobId.Kind.GIT).next());
             var enrolment = enrolment(null, Map.of());
 
             var withoutHooks = composer().forJob(enrolment, job, List.of(), false);
@@ -206,7 +201,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a worker reads its job-private directory and the runtime socket and writes its data directory")
         void worker() {
-            var job = jobId(JobId.Kind.LLM);
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var harnessPath = absolute();
 
             var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(harnessPath), false);
@@ -231,7 +226,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("without the opt-in its sockets are denied, the captured unix DOCKER_HOST included")
         void withoutOptIn() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
             var rootless = Path.of("/run/user/" + uid + "/docker.sock");
 
             var confinement = composer().forJob(
@@ -249,7 +244,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("with the opt-in its sockets stay in the read set")
         void withOptIn() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
             var confinement = composer().forJob(enrolment(ContainerEngine.DOCKER, Map.of()), job, List.of(), false);
 
@@ -270,7 +265,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a write path under the runtime base is refused")
         void writePathUnderBase() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
             var enrolment = ConfinementFixture.enrolment(project, null,
                     List.of(base.resolve(words().next()).toString()), Map.of(), List.of());
             var confinementComposer = composer();
@@ -283,7 +278,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a write path under ~/.plan-marshall is refused")
         void writePathUnderPlanMarshall() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
             var protectedPath = Path.of(System.getProperty("user.home"), ".plan-marshall", words().next()).toString();
             var enrolment = ConfinementFixture.enrolment(project, null, List.of(protectedPath), Map.of(), List.of());
             var confinementComposer = composer();
@@ -298,7 +293,7 @@ class JobConfinementComposerTest {
         void traversedBase() {
             var traversed = base.resolve("..").resolve(base.getFileName());
             var confinementComposer = new JobConfinementComposer(traversed, TMP, DEV, Optional.empty());
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
             var enrolment = ConfinementFixture.enrolment(project, null,
                     List.of(base.resolve(words().next()).toString()), Map.of(), List.of());
 
@@ -310,7 +305,7 @@ class JobConfinementComposerTest {
         @Test
         @DisplayName("a project_root that contains the runtime base is refused")
         void projectRootContainingBase() {
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
             var containingRoot = base.getParent();
             var enrolment = ConfinementFixture.enrolment(containingRoot, null, List.of(), Map.of(), List.of());
             var confinementComposer = composer();

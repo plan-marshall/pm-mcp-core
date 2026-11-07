@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.jobIds;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +33,6 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.ContainerEngine;
-import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The job environment (PM-SEC-5, PM-EXEC-1, PM-EXEC-5): built from scratch, one provenance per variable, no session bus
@@ -65,11 +65,6 @@ class JobEnvironmentComposerTest {
         return Path.of("/" + words().next(), words().next(), words().next());
     }
 
-    /** @return a generated job id of that kind */
-    private static JobId jobId(JobId.Kind kind) {
-        return new JobId(kind.prefix() + "-" + RuntimeGenerators.sha256Digests().next().substring(0, 16));
-    }
-
     private JobEnvironmentComposer composer() {
         return new JobEnvironmentComposer(base, TMP);
     }
@@ -80,8 +75,8 @@ class JobEnvironmentComposerTest {
     }
 
     private Map<String, String> buildJob(ProjectEnrolment enrolment) {
-        return composer().forJob(enrolment, jobId(JobId.Kind.BUILD), Map.of(), Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
+        return composer().forJob(enrolment, new JobId(jobIds(JobId.Kind.BUILD).next()), Map.of(), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 
     @Nested
@@ -112,7 +107,7 @@ class JobEnvironmentComposerTest {
         @DisplayName("the MVND daemon store is a write path of the job's confinement")
         void daemonStoreIsWritable() {
             var enrolment = enrolment(null, Map.of());
-            var job = jobId(JobId.Kind.BUILD);
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
             var environment = composer().forJob(enrolment, job, Map.of(), Optional.empty(), Optional.empty(),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
@@ -194,7 +189,7 @@ class JobEnvironmentComposerTest {
         @Test
         @DisplayName("receives its token, id, data home and egress proxy, with NO_PROXY empty")
         void worker() {
-            var job = jobId(JobId.Kind.LLM);
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var harnessVariable = "HARNESS_SETTING_" + Generators.integers(0, 9999).next();
             var harnessValue = words().next();
             var token = Generators.letterStrings(16, 32).next();
@@ -231,8 +226,8 @@ class JobEnvironmentComposerTest {
 
             var environment = composer().forJob(
                     enrolment(null, Map.of("GH_CONFIG_DIR", gh, "GLAB_CONFIG_DIR", glab, "XDG_CONFIG_HOME", xdg)),
-                    jobId(JobId.Kind.CI), Map.of(), Optional.empty(), Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty(), false);
+                    new JobId(jobIds(JobId.Kind.CI).next()), Map.of(), Optional.empty(), Optional.empty(),
+                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
 
             assertAll(
                     () -> assertEquals(gh, environment.get("GH_CONFIG_DIR"), "GH_CONFIG_DIR is the captured one"),
@@ -250,8 +245,8 @@ class JobEnvironmentComposerTest {
             var committer = words().next();
             var email = words().next() + "@" + words().next() + ".test";
 
-            var environment = composer().forJob(enrolment(null, Map.of()), jobId(JobId.Kind.GIT), Map.of(),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(agent),
+            var environment = composer().forJob(enrolment(null, Map.of()), new JobId(jobIds(JobId.Kind.GIT).next()),
+                    Map.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(agent),
                     Optional.of(committer), Optional.of(email), false);
 
             assertAll(
