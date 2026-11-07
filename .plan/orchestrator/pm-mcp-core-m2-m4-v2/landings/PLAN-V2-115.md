@@ -47,3 +47,7 @@ Everything in `pm-mcp-core` is met and stricter than the spec; main is green. Th
 
 - PLAN-V2-116 to 119: the helper API and the strictness (verify a block has no trailing content or duplicate member before moving it; each consumer already declares `pm-core:tests` as a `test-jar`: `pm-runtime/pom.xml:37`, `pm-workflow/pom.xml:33`; a moved schema ships in the main JAR, a production reader would need a native-image `resource-config` entry; move `$id`, `$defs` and member order byte for byte and compare `text()` with the block). PLAN-V2-122 owns the later retirement of `SpecificationDocument`.
 - No owner: S3 (documentation PR #160 rebase on #158, which `trace.py` wins), I9 (`CLAUDE.md:30` wording), ADR 012 line 66, C4/C5 (test gaps), S4 (API contract). The operator decides (Wa76). Lessons the plan lists about plan-marshall tooling are not filed here (operator preference).
+
+## Update 2026-11-07
+
+The documentation half is delivered. #160 was merged with origin/main (trace.py conflict with #158 resolved: #158's `tag=` selection check kept inside #160's include check; #160's failing/pending/unimplemented split and `test_trace.py` kept), squash-merged as `82f8adc6`. On the merged documentation `main` against `pm-mcp-core` origin/main: `BROKEN LINKS 0`, `INLINE SCHEMA BLOCKS 0` (88 PENDING, 3 UNIMPLEMENTED), 8 tests green. `CLAUDE.md:30` of this repository still names an `INLINE SCHEMA BLOCKS 0` that holds only for blocks not yet pending; it becomes unconditional once 116 to 119 have moved the blocks.
