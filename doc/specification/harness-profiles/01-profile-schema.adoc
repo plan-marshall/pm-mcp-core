@@ -347,6 +347,22 @@ A harness profile is the one configuration document of a harness: `classpath:/pr
           "required": ["kind_pointer", "kinds"],
           "additionalProperties": false
         },
+        "loaded": {
+          "type": ["object", "null"],
+          "description": "The line of the output stream in which the harness reports what a worker loaded at its start, checked at every start of a writer or read_only worker (What a Worker Loaded below); null: the harness gives no such line, and only the stage isolation measures what its workers load.",
+          "properties": {
+            "match_pointer": { "type": "string", "description": "JSON Pointer to the field that identifies the line." },
+            "match": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "The values of match_pointer that identify the line." },
+            "plugins": { "type": "string", "description": "Pointer to the array of the loaded plugins." },
+            "plugin_name": { "type": "string", "description": "Pointer, relative to an element of plugins, to its name." },
+            "mcp_servers": { "type": "string", "description": "Pointer to the array of the MCP servers of the run." },
+            "mcp_server_name": { "type": "string", "description": "Pointer, relative to an element of mcp_servers, to its name." },
+            "tools": { "type": "string", "description": "Pointer to the array of the names of the tools offered to the model." },
+            "expected_plugins": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 }, "description": "The plugins the stage isolation found in a launch of the class without decoys: those built into the harness version." }
+          },
+          "required": ["match_pointer", "match", "plugins", "plugin_name", "mcp_servers", "mcp_server_name", "tools", "expected_plugins"],
+          "additionalProperties": false
+        },
         "endpoints": {
           "type": "array",
           "minItems": 1,
@@ -422,7 +438,7 @@ A harness profile is the one configuration document of a harness: `classpath:/pr
           "additionalProperties": { "type": "integer", "minimum": 10000 }
         }
       },
-      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "weights_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "inline_settings", "capabilities", "output", "usage", "events", "endpoints", "writable_paths", "readable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
+      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "weights_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "inline_settings", "capabilities", "output", "usage", "events", "loaded", "endpoints", "writable_paths", "readable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
       "additionalProperties": false
     },
     "connection": {
@@ -706,7 +722,7 @@ harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisi
 |The harness ends a model request without response headers after 300 s and one without a streamed chunk for 900 s by default, retries a timed-out request up to three times, and then ends the run. The values are set so that the harness ends a hung request, retries included, and the worker's process exits before the silence limit (<<worker-block>>); the verification measures them against a reasoning model, which may stream nothing for minutes.
 |===
 
-A setting the harness does not apply is not a setting: the verification checks the effect of every key, not its acceptance (_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]_). `claude`, `antigravity`, and `codex` declare `null`.
+A harness without an inline configuration document sets such a mechanism through a harness switch of `headless.env`, held to the same rule. `claude` declares `DISABLE_COMPACT=1` _(provisional until its stage `settings` has run)_: without it the harness compacts a worker's context at a threshold of its own, which may lie below the role's token budget, so the worker would continue on a summary instead of being recycled, and the switch also refuses a compaction the worker asks for. A setting the harness does not apply is not a setting: the verification checks the effect of every key and every such switch, not its acceptance (_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-17[PM-WATCH-CLIENT-17]_). `claude`, `antigravity`, and `codex` declare `inline_settings: null`.
 
 [[headless-resumability]]*Resumability*: `headless.resumability` says whether a worker of the harness can continue after it asked a question, in which form, and how long (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). `hold` is the worker holding its task in `pm_wait` until the answer and continuing in the same context, up to `max_hold_seconds`; `resume` is the worker ending with its harness session stored and a later generation resuming that session with the answer, through `argv` (with the session id read from the structured result at `session_id`), for sessions up to `max_age_seconds` old. A role uses a form only where its harness declares it and the role artifact asks for it; the harness capability alone never makes a worker wait. Every value comes from the stage `resumability` of the profile verification (<<profile-verification>>), and a form it did not measure is `false` or `null`. Profile validation refuses a `resume` whose `argv` holds `{{session_id}}` not exactly once, and a `resume` on a profile with `session_residue: ephemeral` and no way to launch without the flag. A resumable worker keeps its session files like `session_residue: persisted`, reported in both clients. The shipped values are below; the candidates the question-loop measurement found for a harness whose stage `resumability` has not run, with the measured figures per harness, are rows of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#harness-values[Evaluation Reference, Harnesses as Relay Starters and Workers] (R1 for the hold, R2 for the resume), which only the stage can settle.
 
@@ -858,6 +874,18 @@ The runtime starts every worker itself and receives its output as a structured s
 
 The shipped declarations: `claude` maps its `stream-json` events (`assistant` text and `tool_use` blocks, `user` `tool_result` blocks, the `result` and per-message usage as `turn`); `opencode` (2.x) maps the lines of `run --format json` _(provisional until its stage `events` has run)_: `text` from `text`; `tool_call` and `tool_result` both from `tool_use`, which the harness writes only when the call has ended (its failure from `state.status` `error`, a cut result from the tool's metadata `truncated`); `file_changed` from the files the tool metadata of `edit`, `write`, and `patch` names; `turn` from `step_finish`, which the harness writes once per model request, with its tokens and its `reason` (`stop` as `end_turn`, `tool-calls` as `tool_use`, `length` as `max_tokens`, `content-filter` as `refusal`, any other as `other`). A permission the agent's rules do not grant is rejected by the harness and arrives as a failed `tool_use`. The lines carry no version and the run no final line: the end of the run is the exit of the process; `antigravity` and `codex` declare `null` until measured.
 
+[#loaded-at-start]
+=== What a Worker Loaded
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
+
+_Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-19[PM-WATCH-CLIENT-19]_
+
+The stage `isolation` measures extension isolation once per harness version (<<profile-verification>>). What one launch loads can still differ on a machine: a settings file of the harness that the operator's organisation manages adds plugins, hooks, and MCP servers that no launch argument removes, and it can refuse the launch's own arguments; a harness update can change what a headless run loads by default. A harness that reports what a worker loaded lets the server check every start (link:../model-work/04-worker-launch.adoc#loaded-check[Model Work Specification, Loaded at Start]).
+
+* *The line*: `headless.loaded` names the line of the output stream in which the harness reports what the worker loaded (`match_pointer` with its values `match`), and the pointers to the loaded plugins, to the MCP servers of the run, each with its name, and to the names of the tools offered to the model. `expected_plugins` are the plugins built into the harness version, as the stage `isolation` found them. `null`: the harness gives no such line, its workers rely on the stage alone, and the harness lists say so.
+* *`claude`*: the line whose `/subtype` is `init`; `plugins` `/plugins` with `plugin_name` `/name`, `mcp_servers` `/mcp_servers` with `mcp_server_name` `/name`, `tools` `/tools`; `expected_plugins` empty _(provisional until its stage `isolation` has run)_. `opencode`, `antigravity`, and `codex` declare `null`.
+* *What it does not see*: hooks are not listed in the line, and a loaded plugin may have run its code before the line arrives. The check stops a worker that loaded more than its launch before it takes a task; what bounds a worker remains its confinement and the server's per-request binding (link:../model-work/04-worker-launch.adoc#job-token[Model Work Specification, Job Token, Generation & Connection Binding]).
+
 [#profile-sets]
 === Profile Sets
 
@@ -872,7 +900,7 @@ _Implementation watch: link:../../implementation-watch/harness-profiles.adoc#PM-
 
 `pm-operator profile verify <harness_id>` tests a harness on this machine and emits its profile. It is the only way a profile comes into being: the shipped profiles are its output on the release's reference machines, and the values of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference] are its measurements.
 
-*What the operator gives and what the tool finds out.* A harness's command line cannot be discovered, so the operator supplies a *draft*: a profile document in which only the statements about the harness's interface are filled in (`headless.executable`, `argv`, `env`, `mcp_config`, the `args` of each class to be tested, `inline_settings`, `output`, `usage`, `events`, `auth_probe`, `models_probe`, `model_tiers`, `install_locations`, `identity.version_probe`, `tools`, `skill_loading`). In the onboarding the draft is entered as a form (<<unknown-harness>>). Without `--draft` the effective profile of the `harness_id` is the draft, which is how a profile is verified again after a harness update. Everything else the tool measures, and every statement of the draft it can test, it tests.
+*What the operator gives and what the tool finds out.* A harness's command line cannot be discovered, so the operator supplies a *draft*: a profile document in which only the statements about the harness's interface are filled in (`headless.executable`, `argv`, `env`, `mcp_config`, the `args` of each class to be tested, `inline_settings`, `output`, `usage`, `events`, `loaded`, `auth_probe`, `models_probe`, `model_tiers`, `install_locations`, `identity.version_probe`, `tools`, `skill_loading`). In the onboarding the draft is entered as a form (<<unknown-harness>>). Without `--draft` the effective profile of the `harness_id` is the draft, which is how a profile is verified again after a harness update. Everything else the tool measures, and every statement of the draft it can test, it tests.
 
 [source,text]
 ----
@@ -912,16 +940,16 @@ pm-operator profile remove <harness_id> [--project]                             
 |`headless.usage`, recorded per token figure as `reported`, `not_applicable`, or `missing`; the harness's usage report with its `start_context`
 
 |`settings`
-|Only for a draft whose `headless.inline_settings` is not `null`. Checks the effect of every key, never its acceptance: per key a probe task that reaches the mechanism the key bounds (a call of a server tool, a context past the harness's compaction point, a result above the harness's default cut, a model request that sends no headers or no chunk), with a matched control without the setting that shows the harness's default. A key whose effect does not appear fails the stage and names the key (<<headless-inline-settings>>).
-|`headless.inline_settings`, the timeout values measured
+|Only for a draft whose `headless.inline_settings` is not `null` or whose `headless.env` holds a harness switch that sets a mechanism of <<headless-inline-settings>>. Checks the effect of every key and every such switch, never its acceptance: per key a probe task that reaches the mechanism the key bounds (a call of a server tool, a context past the harness's compaction point, a result above the harness's default cut, a model request that sends no headers or no chunk), with a matched control without the setting that shows the harness's default. A key whose effect does not appear fails the stage and names the key (<<headless-inline-settings>>).
+|`headless.inline_settings` and the switches of `headless.env`, the timeout values measured
 
 |`egress`
 |Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell, once through the configured proxy and once directly (proxy variables unset). Checks that the base task passes through the proxy without a name lookup of its own (link:../job-runtime/02-confinement-and-environment.adoc#worker-name-resolution[Job Runtime Specification, Name Resolution]), that the proxied decoy request reached the proxy and was refused, and that the direct request found no route (on a platform with enforced egress; with unenforced egress the stage records `unenforced` and the direct request is not scored).
 |`headless.endpoints`
 
 |`isolation`
-|Starts a worker beside a decoy MCP server entered in a harness configuration file of the probe workspace, and a decoy instruction file of the project; for each of `writer` and `read_only`, with the class's launch, also beside a decoy hook and a decoy plugin enabled in the project's and in the user's harness settings, each of which writes a canary file when it runs, a decoy `env` block that sets a model endpoint, a proxy, and a canary variable, a decoy user instruction file and a decoy user skill in every user-level location the harness reads (its home directory and the user-scope locations of the harness integration table, independent of the data home of the launch, <<user-level-files>>), and a project instruction file the task asks about. Records whether the worker listed or called a decoy tool, whether it followed a decoy instruction, whether it knew the decoy user skill, whether a canary file exists, and whether the worker knew the project instruction.
-|`mcp_config.exclusive`, `capabilities` (`project_settings_control`, `extension_isolation`: no decoy tool, no canary file, no request to the decoy endpoint or proxy, the canary variable absent, no decoy user instruction followed and no decoy user skill known, and the project instruction loaded)
+|Starts a worker beside a decoy MCP server entered in a harness configuration file of the probe workspace, and a decoy instruction file of the project; for each of `writer` and `read_only`, with the class's launch, also beside a decoy hook and a decoy plugin enabled in the project's and in the user's harness settings, each of which writes a canary file when it runs, a decoy `env` block that sets a model endpoint, a proxy, and a canary variable, a decoy user instruction file and a decoy user skill in every user-level location the harness reads (its home directory and the user-scope locations of the harness integration table, independent of the data home of the launch, <<user-level-files>>), and a project instruction file the task asks about. Records whether the worker listed or called a decoy tool, whether it followed a decoy instruction, whether it knew the decoy user skill, whether a canary file exists, and whether the worker knew the project instruction. For a draft whose `headless.loaded` is not `null`, it also reads that line of every launch of the stage: each pointer must resolve, a launch of the class without decoys gives the plugins it reports as `expected_plugins`, and a control launch that loads the decoy plugin and the decoy MCP server (without the class's isolation) must report both, or the stage fails naming the pointer (<<loaded-at-start>>).
+|`mcp_config.exclusive`, `capabilities` (`project_settings_control`, `extension_isolation`: no decoy tool, no canary file, no request to the decoy endpoint or proxy, the canary variable absent, no decoy user instruction followed and no decoy user skill known, and the project instruction loaded), `headless.loaded` with its `expected_plugins`
 
 |`classes`
 |For each class with `args` in the draft. `writer` and `read_only`: the task asks for one tool inside the role's tool set and one outside it; the tool set is `enforced` when the outside call is refused or the tool is absent, `advisory` when it succeeds. `zero_tool`: the task text asks the worker to read a canary file, to run a command, and to call a tool of the probe server; the class is runnable only when the output shows no tool call, the probe server saw no connection, the decoy instruction was not followed, and the answer does not contain the canary.

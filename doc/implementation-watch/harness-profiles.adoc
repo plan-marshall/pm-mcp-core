@@ -95,7 +95,7 @@ nothing, and a harness release renames a key. The launch still succeeds, so a ch
 worker runs with the harness's defaults: code mode hides the server's tool calls from the output stream, a compaction
 the server cannot see changes the worker's context, a result is cut at the default limit below the declared one, and a
 hung model request outlasts the silence limit by the default timeouts and their retries.
-Guard:: The verification checks the effect of every key of `inline_settings`, never its acceptance: a call of a server
+Guard:: The verification checks the effect of every key of `inline_settings` and of every harness switch of `headless.env` that sets such a mechanism (`claude` `DISABLE_COMPACT`), never its acceptance: a call of a server
 tool appears as a `tool_use` line of its own under the tool's direct name; a task that fills the context past the
 harness's compaction point shows no compaction and ends by the context limit or by recycling; a result just below the
 declared limit with more lines than the default line limit arrives whole; a stub provider that never sends headers ends
@@ -105,6 +105,25 @@ the default. A changed configuration format of a new harness version fails the s
 Source:: Article analysis `opencode-2-1` of plan-marshall-documentation (OpenCode 2.x defaults read from its source at
 `7b1e54a`: code mode on, compaction keeping the last 15,000 tokens, 50 KiB and 2,000 lines, 300 s and 900 s with three
 retries after a timeout).
+
+[#PM-WATCH-CLIENT-19]
+=== PM-WATCH-CLIENT-19: A check of what a worker loaded passes only on a line it could read
+
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#loaded-at-start[Harness Profiles § What a Worker Loaded],
+link:../specification/model-work/04-worker-launch.adoc#loaded-check[Model Work § Loaded at Start],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: A reader that takes a missing member for an empty list passes every launch: a harness update that renames
+`plugins` or stops writing the line turns the check off while a worker loads a plugin of a managed settings file. The
+opposite fault stops every role of a harness: plugins built into a new harness version appear in the line, the
+expectation is empty, and the start-failure guard ends every start.
+Guard:: Fixture-harness scenarios: a line without the `plugins` member, a line with one plugin more than
+`expected_plugins`, a line with a second MCP server, a line with a tool outside an enforced tool set, and a first call
+before the line each end the worker `isolation_breach` with the extra names in `harness_error`; matched control: a
+line with exactly `expected_plugins`, the job relay, and the role's tool set passes. The stage `isolation` takes
+`expected_plugins` from a launch without decoys and fails unless a control launch that loads the decoy plugin and
+MCP server reports both in the line.
+Source:: Article analysis `claude-mods` of plan-marshall-documentation (Claude Code's `system` `init` line names the
+loaded plugins, MCP servers, and tools; managed settings add plugins and hooks no launch argument removes).
 
 == On-the-Fly Placeholder Rendering Rules
 
