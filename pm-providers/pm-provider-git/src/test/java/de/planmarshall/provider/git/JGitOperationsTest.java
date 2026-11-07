@@ -113,8 +113,9 @@ class JGitOperationsTest {
     private String sha(Path root) {
         GitResult<GitOperations.WorktreeSha> result = git.worktreeSha(root);
         assertEquals(GitOutcome.OK, result.outcome(), "the working-tree digest is computed");
-        assertEquals(GitOperations.WorktreeSha.CURRENT_VERSION, result.value().orElseThrow().version(),
-                "the digest carries the current hash version");
+        // contract literal: the worktree-sha hash version pinned by the specification is 1
+        assertEquals(1, result.value().orElseThrow().version(),
+                "the digest carries hash version 1");
         return result.value().orElseThrow().digest();
     }
 
