@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -27,7 +29,6 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.util.FileUtils;
@@ -39,7 +40,6 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.log.CoreLogMessages;
 import de.planmarshall.core.role.corpus.CorpusImport;
 import de.planmarshall.core.role.corpus.CorpusValidator;
-import de.planmarshall.core.role.corpus.CorpusViolation;
 import de.planmarshall.core.role.corpus.ImportResult;
 import de.planmarshall.core.role.corpus.ImportResult.CoveredSource;
 import de.planmarshall.core.role.corpus.ImportResult.MissedSource;
@@ -70,15 +70,22 @@ import de.planmarshall.provider.git.JGitSourceRepository.Remote;
  * test writes, {@link CorpusImport} with this adapter and an in-test {@link LfsObjectSource} serving the object. The
  * pinned sources are fetched, verified and generated into items the {@link CorpusValidator} accepts; a changed file
  * fails its hash; a removed fixture repository is missed by name while the other source's items remain.
+ * <p>
+ * The source names, the row keys, the categories and the item paths are fixture identifiers the expected item files
+ * are named by; the CSV header, the overlay templates, the licence and the repository URLs are the contract of the
+ * source manifest and overlay; the cell texts, the LFS object and the dates are generated.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("JGitSourceRepository with the corpus import")
 class JGitSourceRepositoryTest {
 
-    private static final String CSV = "question_id,question,option_a,option_b\nq-1,Is the sky blue?,yes,no\n";
-    private static final String CHANGED_CSV = "question_id,question,option_a,option_b\nq-1,Is the sky green?,no,yes\n";
-    private static final byte[] JSONL = "{\"diff\":\"drop the null check\"}\n".getBytes(UTF_8);
-    private static final LocalDate CREATED = LocalDate.of(2026, 10, 14);
+    /** The CSV header whose columns the overlay templates name. */
+    private static final String CSV_HEADER = "question_id,question,option_a,option_b\n";
+    /** The licence of both fixture sources, an SPDX identifier. */
+    private static final String LICENCE = "MIT";
+    private static final String ALPHA = "alpha";
+    private static final String BETA = "beta";
 
     @TempDir
     Path temp;
@@ -88,48 +95,73 @@ class JGitSourceRepositoryTest {
     private Path cache;
     private final Map<String, Path> fixtures = new HashMap<>();
     private final Map<String, byte[]> objects = new HashMap<>();
+    private String csv;
+    private String changedCsv;
+    private byte[] jsonl;
+    private LocalDate created;
     private String alphaCommit;
     private String betaCommit;
 
-    @BeforeEach
-    void fixtureRepositories() throws IOException {
-        git = new JGitOperations(RemotePolicy.localOnly());
-        corpus = temp.resolve("corpus");
-        cache = temp.resolve("cache");
-        var pointer = new String(new LfsPointer(Sha256.hex(JSONL), JSONL.length).toBytes(), UTF_8);
-        fixtures.put("alpha", temp.resolve("fixtures/alpha"));
-        fixtures.put("beta", temp.resolve("fixtures/beta"));
-        alphaCommit = JGitCacheRepositoryTest.sourceRepository(git, fixtures.get("alpha"), CSV, pointer);
-        objects.put(Sha256.hex(JSONL), JSONL);
+    private static String text() {
+        return Generators.letterStrings(3, 30).next();
     }
 
-    private void betaRepository(String csv) throws IOException {
-        betaCommit = JGitCacheRepositoryTest.sourceRepository(git, fixtures.get("beta"), csv, "no pointer\n");
+    private static String csvRow(String question, String optionA, String optionB) {
+        return CSV_HEADER + "q-1," + question + "," + optionA + "," + optionB + "\n";
+    }
+
+    @BeforeEach
+    void fixtureRepositories() throws IOException {
+        var question = text();
+        csv = csvRow(question, text(), text());
+        changedCsv = csvRow(question + text(), text(), text());
+        jsonl = ("{\"diff\":\"" + text() + "\"}\n").getBytes(UTF_8);
+        created = LocalDate.of(Generators.integers(2000, 2100).next(), Generators.integers(1, 12).next(),
+                Generators.integers(1, 28).next());
+        git = new JGitOperations(RemotePolicy.localOnly());
+        // fixture paths of the corpus, the cache and the two source repositories
+        corpus = temp.resolve("corpus");
+        cache = temp.resolve("cache");
+        var pointer = new String(new LfsPointer(Sha256.hex(jsonl), jsonl.length).toBytes(), UTF_8);
+        fixtures.put(ALPHA, temp.resolve("fixtures/alpha"));
+        fixtures.put(BETA, temp.resolve("fixtures/beta"));
+        alphaCommit = JGitCacheRepositoryTest.sourceRepository(git, fixtures.get(ALPHA), csv, pointer);
+        objects.put(Sha256.hex(jsonl), jsonl);
+    }
+
+    private void betaRepository(String content) throws IOException {
+        betaCommit = JGitCacheRepositoryTest.sourceRepository(git, fixtures.get(BETA), content,
+                JGitCacheRepositoryTest.line());
+    }
+
+    private SourceFile csvFile() {
+        return new SourceFile(JGitCacheRepositoryTest.CSV_PATH, Sha256.hex(csv.getBytes(UTF_8)), false);
     }
 
     private void writeCorpus() throws IOException {
-        writeSource(new SourceManifest("alpha", URI.create("https://github.com/example/alpha"), alphaCommit, "MIT",
-                        FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false),
-                                new SourceFile("data/big.jsonl", Sha256.hex(JSONL), true))),
-                new SourceOverlay("alpha", "data/big.jsonl", null, CREATED, List.of(new Row("1", "d-1", "review/alpha",
-                        "review", "missing null check", List.of(), null, "Review: {diff}", "", null, null,
-                        new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
-                                false),
+        writeSource(new SourceManifest(ALPHA, URI.create("https://github.com/example/alpha"), alphaCommit, LICENCE,
+                        FetchKind.GIT, List.of(csvFile(),
+                                new SourceFile(JGitCacheRepositoryTest.POINTER_PATH, Sha256.hex(jsonl), true))),
+                new SourceOverlay(ALPHA, JGitCacheRepositoryTest.POINTER_PATH, null, created, List.of(new Row("1",
+                        "d-1", "review/alpha", "review", text(), List.of(), null, "Review: {diff}", "", null, null,
+                        new Target(null, text(), List.of(), List.of(new RubricItem("d1", text())), false),
                         new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
                         new Review(ReviewStatus.DRAFT, null, null, null), null))));
-        writeSource(new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
-                        FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false))),
-                new SourceOverlay("beta", "data/test.csv", "question_id", CREATED, List.of(new Row("q-1", "q-1",
-                        "screening/beta", "screening", "sky question", List.of("imported"), null, "{question}", "",
-                        List.of("{option_a}", "{option_b}"), null, new Target("{option_a}", "the first holds",
+        writeSource(new SourceManifest(BETA, URI.create("https://github.com/example/beta"), betaCommit, LICENCE,
+                        FetchKind.GIT, List.of(csvFile())),
+                new SourceOverlay(BETA, JGitCacheRepositoryTest.CSV_PATH, "question_id", created, List.of(new Row("q-1",
+                        "q-1", "screening/beta", "screening", text(), List.of("imported"), null, "{question}", "",
+                        List.of("{option_a}", "{option_b}"), null, new Target("{option_a}", text(),
                                 List.of(), List.of(), false),
                         new Grading(GradingMethod.EXACT_CHOICE, null, null),
                         new Review(ReviewStatus.DRAFT, null, null, null), null))));
-        Files.writeString(corpus.resolve(CorpusValidator.ATTRIBUTION), "## alpha\n\nMIT\n\n## beta\n\nMIT\n");
+        // the attribution format: one heading per source, followed by its licence
+        Files.writeString(corpus.resolve(CorpusValidator.ATTRIBUTION),
+                "## " + ALPHA + "\n\n" + LICENCE + "\n\n## " + BETA + "\n\n" + LICENCE + "\n");
         var schema = corpus.resolve(CorpusValidator.ITEM_SCHEMA);
         Files.createDirectories(schema.getParent());
         try (var in = CorpusValidator.class.getResourceAsStream("imported-item.schema.json")) {
-            assertNotNull(in, "the imported item schema of pm-core");
+            assertNotNull(in, "the imported item schema of pm-core is found");
             Files.write(schema, in.readAllBytes());
         }
     }
@@ -163,43 +195,48 @@ class JGitSourceRepositoryTest {
         }
     }
 
-    private static String report(List<CorpusViolation> violations) {
-        return violations.stream().map(CorpusViolation::toString).collect(Collectors.joining("\n"));
+    private static SourceManifest gitManifest(String name, String url, SourceFile file) {
+        return new SourceManifest(name, URI.create(url), JGitCacheRepositoryTest.commitId(), LICENCE, FetchKind.GIT,
+                List.of(file));
     }
 
     @Test
     @DisplayName("fetches the pinned sources, verifies them and generates items the validator accepts")
     void complete() throws Exception {
-        betaRepository(CSV);
+        betaRepository(csv);
         writeCorpus();
 
         var result = run();
 
         var violations = new CorpusValidator(corpus).validate(cache);
         assertAll(
-                () -> assertEquals(Verdict.COMPLETE, result.verdict(), result::toString),
-                () -> assertEquals(List.of(new CoveredSource("alpha", 1), new CoveredSource("beta", 1)),
-                        result.covered()),
-                () -> assertEquals(List.of("review/alpha/d-1.json", "screening/beta/q-1.json"), itemFiles()),
-                () -> assertEquals(List.of(), violations, () -> report(violations)),
+                () -> assertEquals(Verdict.COMPLETE, result.verdict(), "the import of both sources is complete"),
+                () -> assertEquals(List.of(new CoveredSource(ALPHA, 1), new CoveredSource(BETA, 1)),
+                        result.covered(), "both sources are covered with one item"),
+                () -> assertEquals(List.of("review/alpha/d-1.json", "screening/beta/q-1.json"), itemFiles(),
+                        "one item file is generated per source"),
+                () -> assertEquals(List.of(), violations, "the validator accepts the generated items"),
                 () -> assertTrue(Files.isDirectory(cache.resolve(JGitSourceRepository.REPOSITORIES)
-                        .resolve("alpha.git").resolve("objects"))));
+                        .resolve("alpha.git").resolve("objects")), "the source's cache repository is created"));
     }
 
     @Test
     @DisplayName("a changed file fails its hash and the import, the other source's items are still generated")
     void changedFile() throws Exception {
-        betaRepository(CHANGED_CSV);
+        betaRepository(changedCsv);
         writeCorpus();
 
         var result = run();
 
         assertAll(
-                () -> assertEquals(Verdict.FAILED, result.verdict(), result::toString),
-                () -> assertEquals("beta", result.missed().getFirst().name()),
-                () -> assertEquals(Reason.HASH_MISMATCH, result.missed().getFirst().reason()),
-                () -> assertEquals("data/test.csv", result.missed().getFirst().file()),
-                () -> assertEquals(List.of("review/alpha/d-1.json"), itemFiles()));
+                () -> assertEquals(Verdict.FAILED, result.verdict(), "a hash mismatch fails the import"),
+                () -> assertEquals(BETA, result.missed().getFirst().name(), "the changed source is the one missed"),
+                () -> assertEquals(Reason.HASH_MISMATCH, result.missed().getFirst().reason(),
+                        "the changed source is missed for its hash"),
+                () -> assertEquals(JGitCacheRepositoryTest.CSV_PATH, result.missed().getFirst().file(),
+                        "the miss names the changed file"),
+                () -> assertEquals(List.of("review/alpha/d-1.json"), itemFiles(),
+                        "the other source's item is still generated"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                 CoreLogMessages.ERROR.CORPUS_SOURCE_HASH_MISMATCH.resolveIdentifierString());
     }
@@ -207,17 +244,20 @@ class JGitSourceRepositoryTest {
     @Test
     @DisplayName("a removed fixture repository is missed by name, the other source's items remain")
     void removedRepository() throws Exception {
-        betaRepository(CSV);
+        betaRepository(csv);
         writeCorpus();
-        FileUtils.delete(fixtures.get("alpha").toFile(), FileUtils.RECURSIVE);
+        FileUtils.delete(fixtures.get(ALPHA).toFile(), FileUtils.RECURSIVE);
 
         var result = run();
 
         assertAll(
-                () -> assertEquals(Verdict.PARTIAL, result.verdict(), result::toString),
-                () -> assertEquals(List.of("alpha"), result.missed().stream().map(MissedSource::name).toList()),
-                () -> assertEquals(Reason.UNREACHABLE, result.missed().getFirst().reason()),
-                () -> assertEquals(List.of("screening/beta/q-1.json"), itemFiles()));
+                () -> assertEquals(Verdict.PARTIAL, result.verdict(), "a missed source makes the import partial"),
+                () -> assertEquals(List.of(ALPHA), result.missed().stream().map(MissedSource::name).toList(),
+                        "the removed source is missed by name"),
+                () -> assertEquals(Reason.UNREACHABLE, result.missed().getFirst().reason(),
+                        "the removed source is unreachable"),
+                () -> assertEquals(List.of("screening/beta/q-1.json"), itemFiles(),
+                        "the other source's item remains"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                 CoreLogMessages.WARN.CORPUS_SOURCE_MISSED.resolveIdentifierString());
     }
@@ -225,78 +265,92 @@ class JGitSourceRepositoryTest {
     @Test
     @DisplayName("a pinned commit the repository does not serve is missed as pin_missing, not unreachable")
     void unservedCommit() throws Exception {
-        betaRepository(CSV);
-        alphaCommit = "a".repeat(40);
+        betaRepository(csv);
+        alphaCommit = JGitCacheRepositoryTest.commitId();
         writeCorpus();
 
         var result = run();
 
         assertAll(
-                () -> assertEquals(Verdict.PARTIAL, result.verdict(), result::toString),
-                () -> assertEquals(List.of("alpha"), result.missed().stream().map(MissedSource::name).toList()),
-                () -> assertEquals(Reason.PIN_MISSING, result.missed().getFirst().reason()),
+                () -> assertEquals(Verdict.PARTIAL, result.verdict(), "an unserved pin makes the import partial"),
+                () -> assertEquals(List.of(ALPHA), result.missed().stream().map(MissedSource::name).toList(),
+                        "the source of the unserved pin is missed"),
+                () -> assertEquals(Reason.PIN_MISSING, result.missed().getFirst().reason(),
+                        "an unserved pin is missing, not unreachable"),
+                // the detail prefix is the outcome of the git contract
                 () -> assertTrue(result.missed().getFirst().detail().startsWith("unknown_revision of "),
-                        result.missed().getFirst()::detail),
-                () -> assertEquals(List.of("screening/beta/q-1.json"), itemFiles()));
+                        "the detail names the unknown revision"),
+                () -> assertEquals(List.of("screening/beta/q-1.json"), itemFiles(),
+                        "the other source's item remains"));
     }
 
     @Test
     @DisplayName("a path that is no file at the pinned commit is pin_missing")
     void absentPath() throws Exception {
-        betaRepository(CSV);
-        var manifest = new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
-                FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+        betaRepository(csv);
+        var manifest = new SourceManifest(BETA, URI.create("https://github.com/example/beta"), betaCommit, LICENCE,
+                FetchKind.GIT, List.of(csvFile()));
         var repository = new JGitSourceRepository(git,
                 source -> new Remote(fixtures.get(source.name()).toUri().toString(), RemotePolicy.localOnly()));
-        assertTrue(repository.prepare(cache, manifest).isFetched());
-        assertTrue(repository.fetchCommit(cache, manifest).isFetched());
+        assertTrue(repository.prepare(cache, manifest).isFetched(), "the source's cache is prepared");
+        assertTrue(repository.fetchCommit(cache, manifest).isFetched(), "the pinned commit is fetched");
 
-        var fetch = repository.readFile(cache, manifest, "data/absent.csv");
+        var fetch = repository.readFile(cache, manifest, "data/" + text() + ".csv");
 
         assertAll(
-                () -> assertEquals(SourceFetch.Outcome.PIN_MISSING, fetch.outcome(), fetch::detail),
+                () -> assertEquals(SourceFetch.Outcome.PIN_MISSING, fetch.outcome(),
+                        "a path absent at the pin is a missing pin"),
+                // the detail is the git outcome and the manifest's repository URL
                 () -> assertTrue(fetch.detail().startsWith("path_not_found of https://github.com/example/beta"),
-                        fetch::detail));
+                        "the detail names the outcome and repository"));
     }
 
     @Test
     @DisplayName("the default remote fetches from the manifest's repository, admitted by its https origin alone")
     void defaultRemote() {
-        var manifest = new SourceManifest("gamma", URI.create("https://127.0.0.1:1/example/gamma"), "a".repeat(40),
-                "MIT", FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+        // port 1 of the loopback address: an https origin that never answers
+        var manifest = gitManifest("gamma", "https://127.0.0.1:1/example/gamma", csvFile());
         var repository = new JGitSourceRepository(git);
-        assertTrue(repository.prepare(cache, manifest).isFetched());
+        assertTrue(repository.prepare(cache, manifest).isFetched(), "the source's cache is prepared");
 
         var fetch = repository.fetchCommit(cache, manifest);
 
         assertAll(
-                () -> assertEquals(SourceFetch.Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
+                () -> assertEquals(SourceFetch.Outcome.UNREACHABLE, fetch.outcome(),
+                        "an origin that never answers is unreachable"),
                 () -> assertTrue(fetch.detail().startsWith("failed of https://127.0.0.1:1/example/gamma"),
-                        fetch::detail));
+                        "the detail names the failed repository URL"));
     }
 
     @Test
     @DisplayName("Remote.of names the manifest's repository and admits its origin with its port, nothing else")
     void remoteOf() {
-        var manifest = new SourceManifest("gamma", URI.create("https://git.example.org:8443/group/gamma"),
-                "a".repeat(40), "MIT", FetchKind.GIT,
-                List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
-        var standard = new SourceManifest("delta", URI.create("https://github.com/example/delta/"), "a".repeat(40),
-                "MIT", FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+        // the URLs, schemes and ports are the contract of the origin admission
+        var manifest = gitManifest("gamma", "https://git.example.org:8443/group/gamma", csvFile());
+        var standard = gitManifest("delta", "https://github.com/example/delta/", csvFile());
 
         var remote = Remote.of(manifest);
         var standardRemote = Remote.of(standard);
 
         var policy = remote.policy();
         assertAll(
-                () -> assertEquals("https://git.example.org:8443/group/gamma", remote.url()),
-                () -> assertTrue(policy.permits(new URIish("https://git.example.org:8443/group/gamma"))),
-                () -> assertFalse(policy.permits(new URIish("https://git.example.org/group/gamma"))),
-                () -> assertFalse(policy.permits(new URIish("https://other.example.org:8443/group/gamma"))),
-                () -> assertFalse(policy.permits(new URIish("http://git.example.org:8443/group/gamma"))),
-                () -> assertFalse(policy.permits(new URIish("file:///tmp/gamma"))),
-                () -> assertEquals("https://github.com/example/delta/", standardRemote.url()),
-                () -> assertTrue(standardRemote.policy().permits(new URIish("https://github.com:443/example/delta"))),
-                () -> assertFalse(standardRemote.policy().permits(new URIish("https://gitlab.com/example/delta"))));
+                () -> assertEquals("https://git.example.org:8443/group/gamma", remote.url(),
+                        "the remote is the manifest's repository"),
+                () -> assertTrue(policy.permits(new URIish("https://git.example.org:8443/group/gamma")),
+                        "the origin with its port is admitted"),
+                () -> assertFalse(policy.permits(new URIish("https://git.example.org/group/gamma")),
+                        "the origin without its port is refused"),
+                () -> assertFalse(policy.permits(new URIish("https://other.example.org:8443/group/gamma")),
+                        "another host on the same port is refused"),
+                () -> assertFalse(policy.permits(new URIish("http://git.example.org:8443/group/gamma")),
+                        "plain http on the same origin is refused"),
+                () -> assertFalse(policy.permits(new URIish("file:///tmp/gamma")),
+                        "a local repository is refused"),
+                () -> assertEquals("https://github.com/example/delta/", standardRemote.url(),
+                        "the standard remote keeps the manifest URL"),
+                () -> assertTrue(standardRemote.policy().permits(new URIish("https://github.com:443/example/delta")),
+                        "the default https port is the same origin"),
+                () -> assertFalse(standardRemote.policy().permits(new URIish("https://gitlab.com/example/delta")),
+                        "a foreign host is refused by the standard"));
     }
 }

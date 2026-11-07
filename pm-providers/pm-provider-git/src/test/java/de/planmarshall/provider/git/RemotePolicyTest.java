@@ -12,6 +12,7 @@ package de.planmarshall.provider.git;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.net.URI;
 import org.eclipse.jgit.transport.URIish;
 import org.junit.jupiter.api.DisplayName;
@@ -19,8 +20,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+/**
+ * The remote policy of the git transport. Every remote URL below is a literal by design: the scheme, host, port and
+ * spelling of each is the remote-policy grammar under test, and each row states the verdict that grammar assigns it.
+ */
+@EnableGeneratorController
 @DisplayName("RemotePolicy")
 class RemotePolicyTest {
+
+    /** The https origin of the credential entry: the contract the policy admits. */
+    private static final URI ORIGIN = URI.create("https://github.com");
 
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource({
@@ -33,11 +42,11 @@ class RemotePolicyTest {
             "ssh://git@github.com/cuioss/x.git, false",
             "file:///tmp/x.git, false"
     })
-    @DisplayName("admits only the https origin of the credential entry")
+    @DisplayName("admits only the https origin of the credential entry (URLs are the policy grammar)")
     void httpsOrigin(String remote, boolean permitted) throws Exception {
-        var policy = RemotePolicy.httpsOrigin(URI.create("https://github.com"));
+        var policy = RemotePolicy.httpsOrigin(ORIGIN);
 
-        assertEquals(permitted, policy.permits(new URIish(remote)));
+        assertEquals(permitted, policy.permits(new URIish(remote)), "the https policy decides the remote's URL");
     }
 
     @ParameterizedTest(name = "{0} -> {1}")
@@ -47,16 +56,18 @@ class RemotePolicyTest {
             "https://github.com/cuioss/x.git, false",
             "git@github.com:cuioss/x.git, false"
     })
-    @DisplayName("admits local repositories only")
+    @DisplayName("admits local repositories only (URLs are the policy grammar)")
     void localOnly(String remote, boolean permitted) throws Exception {
-        assertEquals(permitted, RemotePolicy.localOnly().permits(new URIish(remote)));
+        assertEquals(permitted, RemotePolicy.localOnly().permits(new URIish(remote)),
+                "the local policy decides the remote's URL");
     }
 
     @Test
-    @DisplayName("rejects a non-https origin")
+    @DisplayName("rejects a non-https origin (the http scheme is the contract)")
     void rejectsOrigin() {
         var origin = URI.create("http://github.com");
 
-        assertThrows(IllegalArgumentException.class, () -> RemotePolicy.httpsOrigin(origin));
+        assertThrows(IllegalArgumentException.class, () -> RemotePolicy.httpsOrigin(origin),
+                "an origin without https is refused");
     }
 }
