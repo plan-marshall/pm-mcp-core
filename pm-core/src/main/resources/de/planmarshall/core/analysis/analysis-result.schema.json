@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnalysisResult",
+  "type": "object",
+  "required": ["format_version", "provider", "target", "status", "gate", "count_status", "new_code_issue_count", "issues_fetched", "work_performed", "analysis_ref", "observed_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "provider": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Id of the code analysis provider in the registry of pm-core (for example sonar)."
+    },
+    "target": {
+      "type": "object",
+      "required": ["kind", "commit_sha", "pr_number"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["commit", "pull_request"] },
+        "commit_sha": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$", "description": "The commit the provider analysed; for a pull request its head commit at the observation." },
+        "pr_number": { "type": ["integer", "null"], "minimum": 1, "description": "Non-null iff kind == pull_request." }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["running", "passed", "gate_failed", "findings", "undecidable", "not_run"],
+      "description": "The provider's result mapped to the closed wait dimension analysis_status (Hypermedia Format, Composite Wait)."
+    },
+    "gate": {
+      "type": ["object", "null"],
+      "description": "The quality gate of the provider for the target; null when the provider has no gate or has not evaluated one (status running or not_run).",
+      "required": ["result", "conditions"],
+      "additionalProperties": false,
+      "properties": {
+        "result": { "type": "string", "enum": ["passed", "failed"] },
+        "conditions": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": ["metric", "comparator", "threshold", "actual", "result"],
+            "additionalProperties": false,
+            "properties": {
+              "metric": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The provider's name of what the condition measures." },
+              "comparator": { "type": "string", "enum": ["lt", "le", "gt", "ge", "eq", "ne"], "description": "The condition fails when actual <comparator> threshold holds." },
+              "threshold": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "actual": { "type": ["string", "null"], "maxLength": 64, "description": "null when the provider reports no value." },
+              "result": { "type": "string", "enum": ["passed", "failed"] }
+            }
+          }
+        }
+      }
+    },
+    "count_status": {
+      "type": "string",
+      "enum": ["measured", "indeterminate"],
+      "description": "Whether the count of new issues was established. indeterminate (an unverified scan, an unreadable or paged-off count) makes status undecidable; it never passes."
+    },
+    "new_code_issue_count": { "type": ["integer", "null"], "minimum": 0, "description": "Open issues on new code; null iff count_status == indeterminate." },
+    "issues_fetched": { "type": "integer", "minimum": 0, "description": "Issues of this observation read from the provider and filed or matched in the findings ledger." },
+    "work_performed": { "type": "boolean", "description": "Whether this observation changed the findings ledger." },
+    "analysis_ref": { "type": ["string", "null"], "maxLength": 256, "description": "The provider's own identifier of the analysis, for the audit record; never a URL with a credential." },
+    "observed_at": { "type": "string", "format": "date-time" }
+  }
+}

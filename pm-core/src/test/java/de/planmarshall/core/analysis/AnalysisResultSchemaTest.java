@@ -31,7 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.analysis.AnalysisResult.Comparator;
 import de.planmarshall.core.analysis.AnalysisResult.Condition;
 import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
@@ -40,15 +40,16 @@ import de.planmarshall.core.analysis.AnalysisResult.GateResult;
 import de.planmarshall.core.findings.FindingScope;
 
 /**
- * Every line {@link AnalysisResultCodec} writes is valid against the schema {@code AnalysisResult} of the
- * specification (PM-IMPL-2), read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY}.
+ * Every line {@link AnalysisResultCodec} writes is valid against the schema {@code AnalysisResult} of Store Schemas
+ * § Analysis Result (PM-IMPL-2). The schema is the file {@code de/planmarshall/core/analysis/analysis-result.schema.json}
+ * beside the codec, read from the class path.
  */
 @EnableGeneratorController
 @DisplayName("Analysis result schema")
 class AnalysisResultSchemaTest {
 
-    private static final String DOCUMENT = "store-schemas/03-findings-and-review-records.adoc";
-    private static final String ANCHOR = "[#analysis-result]";
+    // The class-path location of the schema file is a contract.
+    private static final String SCHEMA = "de/planmarshall/core/analysis/analysis-result.schema.json";
     private static final String SHA_1 = "%040x".formatted(Generators.longs().next());
     private static final String SHA_256 = "%064x".formatted(Generators.longs().next());
     private static final Instant AT = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
@@ -61,8 +62,8 @@ class AnalysisResultSchemaTest {
 
     @BeforeAll
     static void readSchema() {
-        var text = SpecificationDocument.jsonBlockAfter(DOCUMENT, ANCHOR);
-        schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(text);
+        schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(SchemaResource.text(SCHEMA));
     }
 
     static Stream<Arguments> fixtures() {

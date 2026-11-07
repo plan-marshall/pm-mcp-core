@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/review-participation.json",
+  "title": "ReviewParticipationRecord",
+  "type": "object",
+  "required": ["format_version", "pr_number", "round", "bot_kind", "state", "roster_class", "roster_provenance", "head_at_observation", "observed_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "pr_number": { "type": "integer", "minimum": 1 },
+    "round": { "type": "integer", "minimum": 1 },
+    "bot_kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" },
+    "state": {
+      "type": "string",
+      "enum": ["participated", "participated_but_empty", "participated_stale", "refused", "declined", "absent", "not_triggered", "not_wired",
+               "rereview_silent_failure", "run_stuck", "in_progress", "unproven", "unreadable", "silent", "unsatisfiable", "unregistered_kind"],
+      "description": "Per-bot state; the closed enumeration is defined in hypermedia-format.adoc, Closed Status Enumerations."
+    },
+    "roster_class": { "type": "string", "enum": ["required", "optional", "unclassified"] },
+    "roster_provenance": { "type": "string", "enum": ["never_asked", "answered"], "description": "answered iff review.required_bots is present in project.json (also as []); never_asked iff the key is absent." },
+    "head_at_observation": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "covered_commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+    "sha_source": { "type": ["string", "null"], "enum": ["structured", "body", null] },
+    "reviewer_login": { "type": ["string", "null"] },
+    "evidence": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["review_object", "declared_clean_verdict", "check_run", "inline_comment"] },
+        "object_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "refusal": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["rate", "weekly_quota", "size", "no_unreviewed_commit", "unknown"], "description": "refusal_mode of hypermedia-format.adoc, Closed Status Enumerations." },
+        "body": { "type": "string" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "eta": { "type": ["string", "null"], "format": "date-time" },
+        "eta_state": { "type": "string", "enum": ["parsed", "eta_unparsed", "none_published"] },
+        "cap": { "type": ["string", "null"] },
+        "tier": { "type": ["string", "null"], "description": "Plan tier named by the notice, extracted per notice." },
+        "answers_trigger_id": { "type": ["string", "null"] }
+      }
+    },
+    "observed_at": { "type": "string", "format": "date-time" }
+  }
+}
