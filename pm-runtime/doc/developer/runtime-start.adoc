@@ -115,6 +115,8 @@ scope rests in, the instant of the last transition or task progress and the idle
 without), which a `needs_operator` summary counts on read.
 `OperatorPort`:: Where the hold is announced: `holdOpened` when an episode begins, `holdReleased` when it clears by
 itself, with the report `plan.hold_released`.
+`LimitProperties`:: Reads the threshold from the module's properties resource when the detector loads; an absent
+resource, an absent key or a value that is not a number fails the load, never defaults.
 
 A scope is stalled when it has no pending condition, no active job, no active task, and has been idle at least the
 threshold. The detector keeps the open episodes in memory, keyed by project, scope type and scope id: the first
@@ -576,7 +578,7 @@ link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skip
 with recording steps.
 link:{test}/StalledScopeDetectorTest.java[`StalledScopeDetectorTest`]:: The threshold from one second below to past it,
 every awaited event, a pause, an operator wait and another hold, one record per episode, the release by itself, the
-`needs_operator` count, the untouched status document, and the threshold read from the timeouts specification.
+`needs_operator` count, the untouched status document, and the threshold read from the module's limits resource.
 link:{test}/ServiceUnitInstallerTest.java[`ServiceUnitInstallerTest`]:: Install, uninstall and the restore of a failed
 load over the recording fake of the service manager: a failed load after replacing a unit leaves the previous bytes in
 place and loaded, at the first and at the second command of the load, a failed load on a machine without a unit leaves

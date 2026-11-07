@@ -66,7 +66,7 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * an enrolled script. A load runs these stages and collects every finding:
  * <ol>
  * <li>Read {@code .marshall/config/<file>} for every project-ownable file; every path is confined to the workspace
- * ({@link PathConfinement}), a file above {@value #MAX_UNIT_FILE_BYTES} bytes is refused before it is read whole, a
+ * ({@link PathConfinement}), a file above the value of {@link #MAX_UNIT_FILE_BYTES} bytes is refused before it is read whole, a
  * refused path is a {@link UnitFinding.Kind#CONFINEMENT} finding and a missing file a
  * {@link UnitFinding.Kind#MISSING} finding.</li>
  * <li>Parse as a {@link UnitOrigin#PROJECT} unit and refuse a DSL format other than {@value #COMPILED_FORMAT_VERSION}

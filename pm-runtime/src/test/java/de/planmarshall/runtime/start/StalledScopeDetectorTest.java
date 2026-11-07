@@ -52,7 +52,7 @@ import de.planmarshall.runtime.start.StalledScopeDetector.View;
 
 /**
  * The stalled-scope detection (PM-ARCH-8; Runtime Lifecycle Specification, Stalled Plans; Timeouts Specification,
- * Stalled Threshold): a plan or epic with no transition and no task progress for the compiled threshold, awaiting no
+ * Stalled Threshold): a plan or epic with no transition and no task progress for the stalled threshold, awaiting no
  * event, is held {@code stalled} with the cause {@code no_progress} and the idle span.
  * <p>
  * The detection is derived on read and kept nowhere: the stored status gains no member, the one

@@ -25,6 +25,9 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 `UnitFrontmatterReader`:: Reads the frontmatter of a unit, and nothing else: `read(resourceName, source)` returns the
 sealed `UnitFrontmatterReader.Result`, either `Read` with the `UnitFrontmatter` and the line the body starts at, or
 `Refused` with a `Diagnostic` of the rule `FRONTMATTER`. It stops at the closing `---`, so the body need not parse.
+`LimitProperties`:: Reads the three limits of a project unit file and a unit frontmatter from
+`unit-limits.properties` when the classes load; an absent resource, an absent key or a value that is not a number
+fails the load, never defaults.
 `WorkflowParser`:: `parse(resourceName, source, origin)` reads a whole unit and returns the sealed `ParseResult`:
 `Parsed` with the `WorkflowDefinition`, or `Refused` with the first `Diagnostic`.
 `WorkflowPrinter`:: Prints a `WorkflowDefinition` as canonical source, so that parsing the printed text yields the same
@@ -291,7 +294,7 @@ content after the closing quote, an unclosed double-quoted value
 |A control character, a format character (Cf), a line separator (Zl) or a paragraph separator (Zp)
 |the line, its column
 
-|A frontmatter of more than 200 lines, the two delimiters included
+|A frontmatter of more lines than `pm.workflow.unit.max-frontmatter-lines`, the two delimiters included
 |the first line past the cap, column 1
 
 |A field outside its bounds: a length, an unknown type, an icon outside the icon-id grammar, an entry or exit that is
@@ -410,7 +413,7 @@ frontmatter of a text whose body does not parse, a CRLF unit read like its LF tw
 each refused character category (control, Cf, Zl, Zp) in `name`, `description`, `author` and both descriptions with its
 code point and its CRLF twin, a plain ASCII and a non-ASCII letter accepted in every field, the line cap at and one past
 it, a frontmatter never closed within the cap, the echo bound at and one past it, the body never read, and the three
-numbers read from the specification part.
+numbers read from the module's limits resource.
 
 |`WorkflowParserTest`
 |The frontmatter read into the tree, entry bindings and `call … entry` parsed, a unit with three entries, and a unit with
@@ -473,7 +476,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 * link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]: the grammar admits the empty list `[]`
   as a call value, and nothing else of the grammar changes.
 * link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]: the frontmatter refuses format,
-  line and paragraph separators, is bounded at 200 lines, and a refusal echoes at most 80 characters.
+  line and paragraph separators, is bounded at the value of `pm.workflow.unit.max-frontmatter-lines` lines, and a
+  refusal echoes at most the value of `pm.workflow.unit.max-echo-length` characters.
 * link:../adr/workflow-dsl/008-required-icon-field.adoc[ADR 008]: every unit declares the required `icon` key.
 * link:../adr/workflow-dsl/009-question-states-declare-no-links.adoc[ADR 009]: a question state declares no `link`
   clause, and the parser refuses one.

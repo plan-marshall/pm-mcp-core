@@ -51,8 +51,8 @@ import org.jspecify.annotations.Nullable;
  * directly below its {@code entry} or {@code exit} line, or is the second description of one element.
  * <p>
  * The reader reads the frontmatter from the head of the source alone and never the body. A frontmatter holds at most
- * {@value #MAX_FRONTMATTER_LINES} lines, its two delimiters included; the text a refusal echoes from the source is
- * cut at {@value #MAX_ECHO_LENGTH} characters and marked with {@code ...}.
+ * the value of {@link #MAX_FRONTMATTER_LINES} lines, its two delimiters included; the text a refusal echoes from the
+ * source is cut at the value of {@link #MAX_ECHO_LENGTH} characters and marked with {@code ...}.
  * <p>
  * It checks every field: {@code name} 3 to 100 characters, {@code description} 1 to 1000, each entry and exit
  * description 1 to 500, {@code type} one of the {@link UnitType} wire names, {@code icon} an icon id
@@ -497,7 +497,8 @@ public final class UnitFrontmatterReader {
 
         /**
          * @param text a text of the source a refusal echoes
-         * @return the text, cut at {@value #MAX_ECHO_LENGTH} characters and marked with {@code ...} when it is longer
+         * @return the text, cut at the value of {@link UnitFrontmatterReader#MAX_ECHO_LENGTH} characters and marked with
+         *         {@code ...} when it is longer
          */
         private static String echo(String text) {
             if (text.codePointCount(0, text.length()) <= MAX_ECHO_LENGTH) {

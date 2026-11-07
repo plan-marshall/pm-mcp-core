@@ -22,7 +22,7 @@ import lombok.experimental.UtilityClass;
  * <p>
  * A limit is read when the constant that names it is initialized. A resource that is absent, a key that is absent and
  * a value that is not a non-negative integer are faults of the build and are never defaulted: the load fails with an
- * {@link IllegalStateException} that names the resource and the key.
+ * {@link IllegalStateException} naming the resource and, where it applies, the key.
  *
  * @since 0.1
  */
@@ -49,6 +49,7 @@ public class LimitProperties {
      * @return the value
      * @throws IllegalStateException if the resource is absent, the key is absent or the value is not a non-negative
      *                               integer
+     * @throws UncheckedIOException  if the resource cannot be read
      */
     public static long read(String resource, String key) {
         Objects.requireNonNull(resource, "resource");
