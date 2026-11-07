@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.test.ProcessLiveness.alive;
+import static de.planmarshall.runtime.test.ProcessLiveness.awaitDead;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -210,20 +212,6 @@ class WorkerJobTest {
                 new EffortValue("high"), List.of(), Generators.integers(0, 99).next() + "."
                 + Generators.integers(0, 99).next(), Optional.empty(),
                 new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
-    }
-
-    private static void awaitDead(long pid) {
-        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
-        while (alive(pid)) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("the descendant %d is still alive".formatted(pid));
-            }
-            Thread.onSpinWait();
-        }
-    }
-
-    private static boolean alive(long pid) {
-        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
     }
 
     /** The environment of the test worker: the allowlist of the fixture. */

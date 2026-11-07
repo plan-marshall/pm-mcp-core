@@ -10,6 +10,8 @@
 package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.sha256;
+import static de.planmarshall.runtime.test.ProcessLiveness.alive;
+import static de.planmarshall.runtime.test.ProcessLiveness.awaitDead;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -233,21 +235,6 @@ class ProbeJobTest {
                 () -> assertTrue(settled.jobWallTime().orElseThrow().toMillis() >= 1000,
                         "the probe ran long enough to be refreshed"),
                 () -> assertFalse(alive(descendant), "the descendant is not left running"));
-    }
-
-    /** Waits until a PID is no longer alive, so a killed process is not seen as a zombie for one instant. */
-    private static void awaitDead(long pid) {
-        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
-        while (alive(pid)) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError("the descendant %d is still alive".formatted(pid));
-            }
-            Thread.onSpinWait();
-        }
-    }
-
-    private static boolean alive(long pid) {
-        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
     }
 
     @Test
