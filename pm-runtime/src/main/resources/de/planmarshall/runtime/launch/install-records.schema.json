@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/install-records.json",
+  "title": "InstallRecords",
+  "type": "object",
+  "required": ["format_version", "installs"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "installs": {
+      "type": "array",
+      "description": "At most one entry per (harness_id, scope, target_root).",
+      "items": {
+        "type": "object",
+        "required": ["harness_id", "scope", "target_root", "bundle_version", "installed_at", "files", "shared_configs"],
+        "additionalProperties": false,
+        "properties": {
+          "harness_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "A client whose profile ships a bundle manifest." },
+          "scope": { "type": "string", "enum": ["user", "project"], "description": "The manifest section applied (client install --scope)." },
+          "target_root": { "type": "string", "minLength": 1, "description": "Absolute path of the user home or project root the bundle was installed into." },
+          "bundle_version": { "type": "string", "minLength": 1, "description": "Bundle version applied (the release version of the runtime that applied it); compared with the release version of pm-operator (bundle_outdated)." },
+          "installed_at": { "type": "string", "format": "date-time" },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256", "rendered"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "description": "Relative to target_root." },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "rendered": { "type": "boolean", "description": "Rendered from a template (true) or copied verbatim." }
+              }
+            }
+          },
+          "shared_configs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "owned_keys", "sha256", "owned_elements"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "description": "Relative to target_root." },
+                "owned_keys": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                "sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "Digest of the canonical serialization of the owned keys' values as written; null when the file carries no owned key." },
+                "owned_elements": {
+                  "type": "array",
+                  "description": "Array elements owned by exact normalized value; an element already present before install is never recorded here.",
+                  "items": {
+                    "type": "object",
+                    "required": ["kind", "array_path", "value", "sha256"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["permission_rule"] },
+                      "array_path": { "type": "string", "minLength": 1, "description": "Dotted key path of the shared array, e.g. permissions.deny." },
+                      "list": { "type": "string", "enum": ["deny", "ask", "allow"], "description": "permission_rule only." },
+                      "class": { "type": "string", "enum": ["enforcement", "convenience"], "description": "permission_rule only." },
+                      "value": { "type": "string", "minLength": 1, "description": "Normalized value as written: the rendered rule text." },
+                      "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the UTF-8 bytes of value." }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

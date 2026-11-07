@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/audit-record.json",
+  "title": "AuditRecord",
+  "type": "object",
+  "required": ["format_version", "event_id", "prev_hash", "timestamp", "category", "event", "actor", "outcome"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event_id": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 (lowercase hex) of the previous record's canonical line; 64 '0' characters for the first record of the log."
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "category": { "type": "string", "enum": ["transition", "job", "operator", "security", "credential", "store"] },
+    "event": { "type": "string" },
+    "scope_type": { "type": ["string", "null"], "enum": ["plan", "epic", "workspace", "entry", "project", "machine", null] },
+    "scope_id": { "type": ["string", "null"] },
+    "actor": { "type": "string", "description": "The operator's OS principal for an operator act, the role of a worker for a record its call caused, or the runtime for its own act." },
+    "outcome": { "type": "string", "enum": ["allowed", "refused", "succeeded", "failed", "warning"] },
+    "details": { "type": "object", "description": "Event-specific fields. A record of an operator act carries channel (cli or web) and, for web, device_id, and os_principal; a record caused by a worker's call carries job_id, role, harness, and generation_id; a machine-level record carries os_principal only; a checkpoint record carries the checkpoint fields." }
+  }
+}

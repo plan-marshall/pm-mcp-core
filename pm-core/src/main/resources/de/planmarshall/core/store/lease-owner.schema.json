@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/lease-owner.json",
+  "title": "LeaseOwner",
+  "type": "object",
+  "required": ["project_id", "scope_type", "scope_id", "holder_instance"],
+  "additionalProperties": false,
+  "properties": {
+    "project_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Enrolment identifier of the owning project (identifiers.adoc, project_id); recovery selects a project's leases by it. null only for scope_type machine." },
+    "scope_type": { "type": "string", "enum": ["plan", "epic", "workspace", "project", "machine", "entry"], "description": "project: the owner of a model slot, a worker of the project's task queue; machine: a job or worker of the machine scope; entry: a probe job of a project's onboarding before its enrolment (build slot only)." },
+    "scope_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "plan_id, epic_id, or entry_id; null for the workspace scope, for project, and for machine (identifiers.adoc, scope_id)." },
+    "holder_instance": {
+      "type": "object",
+      "description": "Runtime instance currently serving the lease; liveness only, never ownership",
+      "required": ["runtime_pid", "runtime_started_at"],
+      "additionalProperties": false,
+      "properties": {
+        "runtime_pid": { "type": "integer", "minimum": 1 },
+        "runtime_started_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "orphaned_at": { "type": ["string", "null"], "format": "date-time", "description": "Set at runtime start when holder_instance is no longer alive; cleared on adoption" }
+  }
+}

@@ -16,32 +16,12 @@ The four lease stores in `<PM_MCP_BASE>/state/` are updated only in short transa
 
 *Ownership vs Liveness*: A lease is owned by its scope (`project_id`, `scope_type`, `scope_id`; a model slot by the project whose worker holds it, `scope_type: project`, or by the machine scope for a worker of the machine scope, `scope_type: machine` without a project), never by the runtime instance; the project's recovery after a runtime start selects the project's leases by `project_id`; `holder_instance` records only which runtime currently serves it. At runtime start, a lease whose `holder_instance` is no longer alive (PID plus start instant) is not released but marked `orphaned_at`; the next call addressing the owning scope adopts it (sets `holder_instance` to the new runtime, clears `orphaned_at`) under the machine store lock. An orphaned lease is released only on positive evidence of abandonment: the owning scope is terminal, archived, or no longer resolvable; its `lease_expires_at` passed without adoption; or, for a build or model slot, its job was recorded as `killed` at the restart (such a slot is therefore released at once). For the merge holder, provider-side evidence also counts: when the provider observation of the holder's pull request (`ci.pr-observe`) reports it merged or closed, the next admission transaction releases the holder lease, with an audit record naming the observation, whether or not the lease is orphaned or expired. An unobservable or failed provider observation is no evidence and releases nothing.
 
+The schema of a lease's owner is the file `lease-owner.schema.json` in
+`pm-core/src/main/resources/de/planmarshall/core/store/`, beside its codec `LeaseCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/lease-owner.json",
-  "title": "LeaseOwner",
-  "type": "object",
-  "required": ["project_id", "scope_type", "scope_id", "holder_instance"],
-  "additionalProperties": false,
-  "properties": {
-    "project_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Enrolment identifier of the owning project (identifiers.adoc, project_id); recovery selects a project's leases by it. null only for scope_type machine." },
-    "scope_type": { "type": "string", "enum": ["plan", "epic", "workspace", "project", "machine", "entry"], "description": "project: the owner of a model slot, a worker of the project's task queue; machine: a job or worker of the machine scope; entry: a probe job of a project's onboarding before its enrolment (build slot only)." },
-    "scope_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "plan_id, epic_id, or entry_id; null for the workspace scope, for project, and for machine (identifiers.adoc, scope_id)." },
-    "holder_instance": {
-      "type": "object",
-      "description": "Runtime instance currently serving the lease; liveness only, never ownership",
-      "required": ["runtime_pid", "runtime_started_at"],
-      "additionalProperties": false,
-      "properties": {
-        "runtime_pid": { "type": "integer", "minimum": 1 },
-        "runtime_started_at": { "type": "string", "format": "date-time" }
-      }
-    },
-    "orphaned_at": { "type": ["string", "null"], "format": "date-time", "description": "Set at runtime start when holder_instance is no longer alive; cleared on adoption" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/store/lease-owner.schema.json[]
 ----
 
 * *`merge-queue.json`*: `{"format_version": 1, "repositories": {"<repository key>": {"holder": <lease> | null, "waiting": [<entry>]}}}`. A `holder` lease carries `owner`, `acquired_at`, `heartbeat_at`, and `lease_expires_at` (heartbeat and expiry rule in link:../timeouts/02-runtime-leases-operator-web.adoc#merge-lease[Timeouts & Budgets Specification, Merge Holder Lease]); a `waiting` entry carries `owner` and `enqueued_at`, in FIFO order.

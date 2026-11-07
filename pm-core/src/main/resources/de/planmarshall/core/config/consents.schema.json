@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/consents.json",
+  "title": "ConsentStore",
+  "type": "object",
+  "required": ["format_version", "revision", "consents"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "consents": {
+      "type": "array",
+      "description": "At most one entry per (kind, project_id).",
+      "items": {
+        "type": "object",
+        "required": ["kind", "granted_at", "channel"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["scan_harnesses", "fetch_icons", "probe_harness_login", "probe_harness_models", "model_advice", "check_credential_store", "scan_providers", "verify_providers", "inspect_checkout", "run_checkout_scripts", "model_cost", "check_updates"], "description": "The rememberable kinds; verify_harness_profile and auto_run are never stored." },
+          "project_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Required for inspect_checkout, run_checkout_scripts, and model_cost; absent for every other kind." },
+          "scripts": {
+            "type": "array",
+            "description": "run_checkout_scripts only: each covered script.",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "description": "Relative to the project root." },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              }
+            }
+          },
+          "granted_at": { "type": "string", "format": "date-time" },
+          "channel": { "type": "string", "enum": ["cli", "web"] },
+          "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "The paired device for channel web; null for cli." }
+        },
+        "allOf": [
+          { "if": { "properties": { "kind": { "enum": ["inspect_checkout", "run_checkout_scripts", "model_cost"] } } }, "then": { "required": ["project_id"] }, "else": { "not": { "required": ["project_id"] } } },
+          { "if": { "properties": { "kind": { "const": "run_checkout_scripts" } } }, "then": { "required": ["scripts"] }, "else": { "not": { "required": ["scripts"] } } }
+        ]
+      }
+    }
+  }
+}

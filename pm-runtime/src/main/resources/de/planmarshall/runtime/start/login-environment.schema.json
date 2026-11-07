@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/login-environment.json",
+  "title": "LoginEnvironment",
+  "type": "object",
+  "required": ["format_version", "captured_at", "path", "variables"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "captured_at": { "type": "string", "format": "date-time", "description": "When the terminal client captured the environment it sent." },
+    "path": { "type": "array", "items": { "type": "string", "pattern": "^/" }, "description": "The absolute directories of the login PATH, in order." },
+    "variables": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The variables of the job environment with provenance enrolment, by name." }
+  }
+}

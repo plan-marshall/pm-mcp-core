@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/runtime.json",
+  "title": "RuntimeRecord",
+  "type": "object",
+  "required": ["format_version", "pid", "start_instant", "version", "listener", "socket_path", "started_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "pid": { "type": "integer", "minimum": 1 },
+    "start_instant": { "type": "string", "format": "date-time", "description": "OS process start instant (ProcessHandle.info().startInstant()); with pid the liveness identity." },
+    "version": { "type": "string", "minLength": 1, "description": "Release version of the running binary." },
+    "listener": { "type": "string", "enum": ["domain_socket", "loopback_tcp", "jdk_socket"], "description": "Listener in use: the Quarkus domain socket, fallback (1) loopback TCP, or fallback (2) the own JDK socket listener (Runtime Model, Transport Endpoint); reported in the runtime status." },
+    "socket_path": { "type": "string", "minLength": 1, "description": "The socket path <PM_MCP_BASE>/run/runtime.sock, which has no alternative location (a path over the sun_path limit refuses the start); for listener loopback_tcp the address 127.0.0.1:<port>." },
+    "started_at": { "type": "string", "format": "date-time", "description": "Instant the socket was bound." }
+  }
+}
