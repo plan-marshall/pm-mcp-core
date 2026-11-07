@@ -2,9 +2,9 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
 > Lives at `plans/PLAN-V2-93-http-tests-annotations.md` and is queued as one row file, `queue/PLAN-V2-93.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -50,6 +50,8 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Test code only.** No production class changes (a production change this plan finds necessary is recorded in the landing message and left to the owning plan); no assertion is weakened or removed to make a conversion pass, and the number of test methods per class is the same or higher.
 - **Generated data, with the exemption of the rule R20:** a literal stays where it is the contract (a wire format or JSON document under test, an error or reason code, a schema or specification string, a golden file, a path of a fixture). Every class of the plan ends with `@EnableGeneratorController` and at least one `Generators.*` call, or with a one-line comment above the class saying that every datum is a contract; the pull request body lists per class the number of generator calls, the number of literals kept and the category of each kept literal.
 - **Seeds:** a failing generated test must be reproducible: the lane uses the seed reporting of `cui-test-generator` (`@GeneratorSeed` only on a test that needs a fixed value), and never `Random` or `UUID.randomUUID()` for test data.
+- **Read the landing analyses of PLAN-V2-86, 87 and 89 at the outline** (`landings/PLAN-V2-86.md` Wa72, `PLAN-V2-87.md` Wa70, `PLAN-V2-89.md` Wa73): the same conversion shipped there with four weaknesses this plan must not repeat. (1) A BOUNDARY test keeps its boundary: a test that pins the value just beyond a limit (a status code, a retry count, a timeout, a page size) keeps that literal or a generated value pinned to `limit + 1`; do not draw it from a wide range. (2) A helper that two or more classes need goes into the module's generator artifact, not into a private method per class. (3) A `static final` or instance field filled by `Generators` runs outside the per-test seed (the controller seeds in `beforeEach`), so a failure cannot be replayed; draw inside the test or a per-test supplier. (4) The pull request body carries the per-class table the spec asks for (generator calls, literals kept, category) and the literal counts before and after. A canned response that is the contract (status line, header, JSON body) stays a literal and is labelled per datum; a test that passes with the wrong request (a dispatcher that answers every path) does not discriminate: give each canned response its path and method.
+- **Read the landing analysis of PLAN-V2-92 at the outline** (`landings/PLAN-V2-92.md`, owner-register Wa75): the provider tests shipped there with three weaknesses this plan must not repeat. (1) A failure message must keep the diagnostic: an assertion that used the result's detail (`result.detail()`, the response body or status) as its message keeps reporting it, within the 20 to 60 characters, for example through `assertAll` or a helper. (2) The "every datum is a contract" statement is made per datum: a repository or owner name that only happens to appear in a static `@MockResponseConfig` path is a convenience, not a contract; generate it or say why it is fixed. (3) A static `@MethodSource` or `@GeneratorsSource` supplier that draws data runs outside the per-test seed: draw in the test. `pm-provider-ci:tests` (`CiGenerators.repositoryRefs()`) and `pm-provider-git:tests` now exist; `pm-provider-github` and `pm-provider-gitlab` may consume the CI one (CLAUDE.md, Generator Artifacts), and the `Fixture` helper copied between `GitHubCiProviderTest` and `GitLabCiProviderTest` is not yours to move unless you touch it.
 - **No production change:** the HTTP clients are not touched; a client defect the conversion shows is reported through the inbox message.
 - **Adversarial tests** of the skill (path, header and query attack databases) are out of scope unless a client reads untrusted HTTP input; the plan states in the landing whether any does.
 
@@ -90,7 +92,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-93-http-tests-annotations.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-93-http-tests-annotations.md"
 ```
 
 ## Write-Boundary

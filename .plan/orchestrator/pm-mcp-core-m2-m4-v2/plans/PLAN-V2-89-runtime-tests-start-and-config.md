@@ -79,7 +79,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMes
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/local/worktrees/_orchestrator/.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-89-runtime-tests-start-and-config.md"
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-89-runtime-tests-start-and-config.md"
 ```
 
 ## Write-Boundary

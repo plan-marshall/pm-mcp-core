@@ -48,6 +48,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Test code only;** no assertion is changed except by adding the message argument (and reordering arguments where JUnit needs it).
 - **Messages say what is checked, not that it failed:** 'the refusal names the store file', not 'assertion failed'.
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
+- **Read `landings/PLAN-V2-92.md` (Wa75) at the outline:** PLAN-V2-92 converted the provider module tests and kept every assertion message within 20 to 60 characters (none outside in its 35 files), so the provider part of this plan is largely met; the verify-first clause shrinks it to what is still open. Where an assertion used the result's detail as its message (`result.detail()` in `JGitOperationsTest`, `GitIdentityTest`), do not replace it by a static text that drops the diagnostic.
 
 ## Claim Labels
 

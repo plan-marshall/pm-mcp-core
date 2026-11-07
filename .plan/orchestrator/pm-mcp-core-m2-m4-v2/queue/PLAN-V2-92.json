@@ -2,10 +2,10 @@
   "id": "PLAN-V2-92",
   "slug": "providers-tests",
   "workstream": "WS-11",
-  "status": "staged",
+  "status": "landed",
   "lane": "plan-marshall",
   "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "pr": "#312",
+  "landing": "landings/PLAN-V2-92.md",
   "seq": -14
 }
