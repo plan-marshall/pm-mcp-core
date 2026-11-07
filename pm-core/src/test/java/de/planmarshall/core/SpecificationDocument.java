@@ -11,16 +11,11 @@ package de.planmarshall.core;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,7 +36,6 @@ public final class SpecificationDocument {
     private static final String SPECIFICATION_DIRECTORY = "doc/specification";
     private static final String JSON_SOURCE_BLOCK = "[source,json]";
     private static final String BLOCK_DELIMITER = "----";
-    private static final JsonFactory JSON = new JsonFactory();
 
     private SpecificationDocument() {
     }
@@ -103,47 +97,14 @@ public final class SpecificationDocument {
     }
 
     /**
-     * Parses a JSON document into maps (in member order), lists, strings, numbers, booleans and {@code null} for a
-     * JSON {@code null}.
+     * Parses a JSON document; delegates to {@link SchemaResource#parse(String)}, so the parser exists once.
      *
      * @param json the JSON document
-     * @return the parsed value
+     * @return the parsed value: maps (in member order), lists, strings, numbers, booleans and {@code null} for a JSON
+     *         {@code null}
      */
     public static Object parse(String json) {
-        try (var parser = JSON.createParser(json)) {
-            parser.nextToken();
-            return read(parser);
-        } catch (IOException e) {
-            throw new UncheckedIOException("specification schema is not JSON", e);
-        }
-    }
-
-    private static Object read(JsonParser parser) throws IOException {
-        var token = parser.currentToken();
-        return switch (token) {
-            case START_OBJECT -> {
-                var object = new LinkedHashMap<String, Object>();
-                while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                    var name = parser.currentName();
-                    parser.nextToken();
-                    object.put(name, read(parser));
-                }
-                yield object;
-            }
-            case START_ARRAY -> {
-                var array = new ArrayList<>();
-                while (parser.nextToken() != JsonToken.END_ARRAY) {
-                    array.add(read(parser));
-                }
-                yield array;
-            }
-            case VALUE_STRING -> parser.getText();
-            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> parser.getNumberValue();
-            case VALUE_TRUE -> Boolean.TRUE;
-            case VALUE_FALSE -> Boolean.FALSE;
-            case VALUE_NULL -> null;
-            default -> throw new IOException("unexpected token " + token);
-        };
+        return SchemaResource.parse(json);
     }
 
     /**

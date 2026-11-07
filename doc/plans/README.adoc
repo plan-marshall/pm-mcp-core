@@ -369,6 +369,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |
 |
 
+|`schema-files-foundation`
+|Schemas as files: the ADR, the layout beside the codec, the include convention, the test helper `SchemaResource`, the rule in project setup and the checks of `trace.py`
+|`done`
+|
+|
+
 |`service-unit`
 |Per-user service unit
 |`done`
@@ -386,12 +392,6 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`done`
 |
 |
-
-|link:schema-files-foundation.adoc[`schema-files-foundation`]
-|Schemas as files: the ADR, the layout beside the codec, the include convention, the test helper `SchemaResource`, the rule in project setup and the checks of `trace.py`
-|`open`
-|nothing
-|none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |link:schema-files-tested-records.adoc[`schema-files-tested-records`]
 |The 27 schema blocks of `store-schemas` 01, 02, 03, 09, 10, 14 and 16 as files; eight parity tests read the files

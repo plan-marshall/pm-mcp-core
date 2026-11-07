@@ -20,7 +20,7 @@ The code is the source of these lists, so the direction of the check turns: the 
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Requirements: none; see `schema-files-foundation`
 * Specification: none; the documents are the developer documents named above
 * Watch: none
 

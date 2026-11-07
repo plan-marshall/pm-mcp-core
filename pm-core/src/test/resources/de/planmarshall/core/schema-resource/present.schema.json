@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plan-marshall.de/schema/test/present.schema.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

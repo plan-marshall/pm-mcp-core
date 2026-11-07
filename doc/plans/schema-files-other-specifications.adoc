@@ -22,7 +22,7 @@ A move as in link:schema-files-tested-records.adoc[`schema-files-tested-records`
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Requirements: none; see `schema-files-foundation`
 * Specification: link:../specification/domain-extensions/01-four-axis-architecture.adoc[Domain Extensions 01], link:../specification/domain-extensions/05-recipes-and-extension-points.adoc[05], link:../specification/harness-profiles/01-profile-schema.adoc[Harness Profiles 01], link:../specification/harness-profiles/03-endpoint-harness.adoc[03], link:../specification/model-work/01-roles-and-configuration.adoc[Model Work 01], link:../specification/model-work/06-envelopes-questions-deadlines.adoc[06], link:../specification/model-work/07-untrusted-text-screening.adoc[07], link:../specification/model-work/09-completion-usage-and-spend.adoc[09]
 * Watch: link:../implementation-watch/model-work.adoc[Model Work]
 

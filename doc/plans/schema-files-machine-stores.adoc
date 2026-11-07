@@ -20,7 +20,7 @@ A move only, as in link:schema-files-tested-records.adoc[`schema-files-tested-re
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Requirements: none; see `schema-files-foundation`
 * Specification: link:../specification/store-schemas/11-enrolment-store.adoc[Store Schemas 11], link:../specification/store-schemas/12-machine-stores.adoc[12], link:../specification/store-schemas/13-leases-integrity-testing.adoc[13], link:../specification/store-schemas/15-screening-and-grants.adoc[15]
 * Watch: none
 

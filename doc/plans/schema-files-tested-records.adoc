@@ -10,7 +10,7 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 == Tasks
 
-A move only: no schema changes and no behaviour changes. 27 blocks in seven documents become files (link:schema-files-foundation.adoc[`schema-files-foundation`] states the layout and the include convention); eight parity tests read the file instead of the block.
+A move only: no schema changes and no behaviour changes. 27 blocks in seven documents become files (`schema-files-foundation` states the layout and the include convention); eight parity tests read the file instead of the block.
 
 . *Move the blocks* of `store-schemas/01-format-and-session-log.adoc` (1), `02-workflow-state-store.adoc` (2), `03-findings-and-review-records.adoc` (6), `09-derived-facts-and-build-timings.adoc` (4), `10-job-and-lesson-records.adoc` (2), `14-plan-instance-waivers-questions.adoc` (7) and `16-task-queue.adoc` (5): each block to its file, each block in the document replaced by the include.
 . *Tests read the file*: `PendingEntrySchemaParityTest` (disabled with its reason, until `start-source-intake`), `WorkflowStatusSchemaParityTest`, `FindingSchemaParityTest`, `AnalysisResultSchemaTest`, `DerivedFactsSchemaParityTest`, `JobRecordSchemaParityTest`, `LessonFrontMatterSchemaParityTest` and `TaskQueueSchemaParityTest` replace `SpecificationDocument.jsonBlockAfter(document, heading)` by `SchemaResource`; their assertions stay as they are. The plan's history (`02-workflow-state-store.adoc`) has a round-trip test only (`PlanHistoryTest`), which cannot catch a codec change made together with its own reader: add a parity test of the history line against its schema file.
@@ -19,7 +19,7 @@ A move only: no schema changes and no behaviour changes. 27 blocks in seven docu
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
-* Requirements: none; see link:schema-files-foundation.adoc[`schema-files-foundation`]
+* Requirements: none; see `schema-files-foundation`
 * Specification: link:../specification/store-schemas/01-format-and-session-log.adoc[Store Schemas 01], link:../specification/store-schemas/02-workflow-state-store.adoc[02], link:../specification/store-schemas/03-findings-and-review-records.adoc[03], link:../specification/store-schemas/09-derived-facts-and-build-timings.adoc[09], link:../specification/store-schemas/10-job-and-lesson-records.adoc[10], link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc[14], link:../specification/store-schemas/16-task-queue.adoc[16]
 * Watch: none
 
