@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.Properties;
+
 import lombok.experimental.UtilityClass;
 
 /**
@@ -21,7 +22,8 @@ import lombok.experimental.UtilityClass;
  * <p>
  * A limit is read when the constant that names it is initialized. A resource that is absent, a key that is absent and
  * a value that is not a non-negative integer are faults of the build and are never defaulted: the load fails with an
- * {@link IllegalStateException} naming the resource and, where it applies, the key.
+ * {@link IllegalStateException} naming the resource and, where it applies, the key, or with an
+ * {@link UncheckedIOException} when the resource cannot be read.
  *
  * @since 0.1
  */
