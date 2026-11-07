@@ -281,7 +281,7 @@ class JobSettlementTest {
                             seams.stream().map(JobSettlement.StepReport::name).toList(),
                             "the seams are the steps without a store"),
                     () -> assertTrue(seams.stream().allMatch(step -> step.outcome()
-                            .equals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED))),
+                                    .equals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED))),
                             "every seam reports not implemented"));
         }
 

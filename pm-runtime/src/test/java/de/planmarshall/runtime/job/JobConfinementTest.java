@@ -43,10 +43,10 @@ class JobConfinementTest {
                 List.of(Path.of(denied)));
 
         assertEquals(List.of(
-                "--write", first,
-                "--write", second,
-                "--read", read,
-                "--deny-read", denied), confinement.launcherArguments(),
+                        "--write", first,
+                        "--write", second,
+                        "--read", read,
+                        "--deny-read", denied), confinement.launcherArguments(),
                 "the options carry sorted, normalized, distinct paths");
     }
 

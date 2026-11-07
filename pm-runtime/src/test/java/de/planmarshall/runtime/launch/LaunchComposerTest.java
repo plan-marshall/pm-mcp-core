@@ -332,8 +332,8 @@ class LaunchComposerTest {
 
     private static ContractEnvelope envelope(String planId) {
         return ContractEnvelope.of("plan", planId, "envelope-" + Generators.integers(1, 99).next(), List.of(
-                new LinkSchema(shortWords().next() + ":" + shortWords().next(),
-                        List.of(new LinkParameter(shortWords().next(), "text", null)))),
+                        new LinkSchema(shortWords().next() + ":" + shortWords().next(),
+                                List.of(new LinkParameter(shortWords().next(), "text", null)))),
                 JsonDocument.parse("{\"type\":\"object\"}".getBytes(StandardCharsets.UTF_8), "schema"));
     }
 }

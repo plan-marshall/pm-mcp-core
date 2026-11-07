@@ -217,8 +217,8 @@ class AuditHeadTest {
                     () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail),
                             "the damaged head is a head mismatch"),
                     () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, assertInstanceOf(
-                            AuditChainVerification.Outcome.Broken.class, trail.verification().full(),
-                            "the full verification is broken").reason(),
+                                    AuditChainVerification.Outcome.Broken.class, trail.verification().full(),
+                                    "the full verification is broken").reason(),
                             "the full verification names the mismatch"));
         }
 

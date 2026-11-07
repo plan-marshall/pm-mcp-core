@@ -181,7 +181,7 @@ class JobConfinementComposerTest {
                     () -> assertTrue(confinement.writePaths().contains(configDirectory),
                             "the CLI configuration directory is writable"),
                     () -> assertTrue(confinement.writePaths().stream()
-                            .noneMatch(path -> path.startsWith(base.resolve("projects"))),
+                                    .noneMatch(path -> path.startsWith(base.resolve("projects"))),
                             "a ci job writes no daemon store"));
         }
 
@@ -196,10 +196,10 @@ class JobConfinementComposerTest {
 
             assertAll(
                     () -> assertFalse(withoutHooks.writePaths().stream()
-                            .anyMatch(path -> path.startsWith(base.resolve("projects"))),
+                                    .anyMatch(path -> path.startsWith(base.resolve("projects"))),
                             "without hooks no daemon store is writable"),
                     () -> assertTrue(withHooks.writePaths().stream()
-                            .anyMatch(path -> path.startsWith(base.resolve("projects"))),
+                                    .anyMatch(path -> path.startsWith(base.resolve("projects"))),
                             "with hooks the daemon store is writable"));
         }
 

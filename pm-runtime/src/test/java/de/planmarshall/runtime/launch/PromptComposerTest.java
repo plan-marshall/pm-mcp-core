@@ -138,7 +138,7 @@ class PromptComposerTest {
 
     private static ContractEnvelope envelope(String planId, String entity) {
         return ContractEnvelope.of("plan", planId, entity, List.of(new LinkSchema(shortWords().next() + ":"
-                + shortWords().next(), List.of(new LinkParameter(shortWords().next(), "text", null)))),
+                        + shortWords().next(), List.of(new LinkParameter(shortWords().next(), "text", null)))),
                 schema("{\"type\":\"object\"}"));
     }
 

@@ -86,7 +86,7 @@ class BuildDaemonStoreTest {
 
         assertAll(
                 () -> assertEquals(base.resolve("projects").resolve(project).resolve("daemons")
-                        .resolve(BuildDaemonStore.digest(writeSet())), store,
+                                .resolve(BuildDaemonStore.digest(writeSet())), store,
                         "the store sits below the project's daemons"),
                 () -> assertEquals(store.resolve("mvnd"), BuildDaemonStore.mvndDirectory(store),
                         "the mvnd directory sits in the store"),

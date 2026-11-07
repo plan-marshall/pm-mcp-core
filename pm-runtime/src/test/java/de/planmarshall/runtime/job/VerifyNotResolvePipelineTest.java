@@ -343,7 +343,7 @@ class VerifyNotResolvePipelineTest {
                     () -> assertEquals(Optional.of(arguments), job.projectScriptArguments(),
                             "the job carries the validated arguments"),
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
-                            fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
+                                    fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
                             "the argv holds no script argument"),
                     () -> assertEquals(Optional.empty(), job.templateSource(),
                             "a project script has no template source"));

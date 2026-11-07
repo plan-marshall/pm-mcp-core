@@ -112,7 +112,7 @@ class WorkerEgressProxyTest {
     void url() throws Exception {
         var admitted = endpoint();
         try (var proxy = WorkerEgressProxy.start(generation, List.of(admitted.toUpperCase(Locale.ROOT)),
-                activity::add, audit::add)) {
+                     activity::add, audit::add)) {
             assertAll(
                     () -> assertTrue(proxy.port() > 0, "the proxy listens on a port"),
                     () -> assertEquals("http://127.0.0.1:" + proxy.port(), proxy.proxyUrl(),

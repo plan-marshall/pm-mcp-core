@@ -316,7 +316,7 @@ class ArgumentCheckTest {
                     () -> assertEquals(Set.of(HostToolName.RUBY), ArgumentCheck.enrolledInterpreters(withoutPython),
                             "ruby is the only interpreter left"),
                     () -> assertEquals(List.of("--version"), passed(withoutPython,
-                            new HostToolCall(HostToolName.PYTHON3, List.of("--version"))).arguments(),
+                                    new HostToolCall(HostToolName.PYTHON3, List.of("--version"))).arguments(),
                             "python3 passes as a plain host tool"));
         }
 

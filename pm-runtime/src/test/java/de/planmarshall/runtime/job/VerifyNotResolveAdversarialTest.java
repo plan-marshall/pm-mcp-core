@@ -344,7 +344,7 @@ class VerifyNotResolveAdversarialTest {
             var job = verified(verify(script(Fields.of(Map.of(required, new Text(words().next()))))));
 
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
-                    fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
+                            fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
                     "conforming arguments are verified");
         }
     }

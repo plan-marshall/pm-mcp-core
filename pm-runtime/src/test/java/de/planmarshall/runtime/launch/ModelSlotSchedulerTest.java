@@ -203,7 +203,7 @@ class ModelSlotSchedulerTest {
                     () -> assertEquals(Form.WARM, reader.lease().form(), "the reader's lease keeps its warm form"),
                     () -> assertEquals(List.of(), store.snapshot().waiting(), "a deferred writer does not wait"),
                     () -> assertEquals(1, store.snapshot().slots().stream()
-                            .filter(lease -> lease.workerClass() == WorkerClass.WRITER).count(),
+                                    .filter(lease -> lease.workerClass() == WorkerClass.WRITER).count(),
                             "only one writer of the plan holds a slot"));
         }
 
@@ -317,7 +317,7 @@ class ModelSlotSchedulerTest {
                     () -> assertThrows(NullPointerException.class, () -> new Request(null,
                             job, "writer", WorkerClass.READ_ONLY, Form.FRESH, plan), "a request without owner is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new Request(owner,
-                            null, "writer", WorkerClass.READ_ONLY, Form.FRESH, plan),
+                                    null, "writer", WorkerClass.READ_ONLY, Form.FRESH, plan),
                             "a request without a job id is refused"));
         }
     }

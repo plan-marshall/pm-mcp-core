@@ -1051,7 +1051,7 @@ class SubprocessJobRunnerTest {
             var request = git(600, "sleep", "600");
 
             assertTimeoutPreemptively(SETTLE_TIMEOUT, () -> assertThrows(UncheckedIOException.class,
-                    () -> runner.start(request), "the I/O failure of the start reaches the caller"),
+                            () -> runner.start(request), "the I/O failure of the start reaches the caller"),
                     "the wait for the process has an end");
 
             var settled = jobs.records().getFirst();
@@ -1569,7 +1569,7 @@ class SubprocessJobRunnerTest {
                             events.get(0).details().get(SubprocessJobRunner.DETAIL_EXECUTABLE),
                             "the record names the survivor's executable"),
                     () -> assertFalse(events.get(1).details()
-                            .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE),
+                                    .containsKey(SubprocessJobRunner.DETAIL_EXECUTABLE),
                             "no executable is known for the survivor"));
         }
 
@@ -1625,7 +1625,7 @@ class SubprocessJobRunnerTest {
             };
             int root = Generators.integers(2, 4_000_000).next();
             var tracker = new ProcessTreeTracker(root, ignoredRoot -> Set.of(new ProcessTreeTracker.Member(root + 1,
-                    start)),
+                            start)),
                     pid -> Optional.of(start), throwing, InstantSource.system(), duration -> {
                     });
             tracker.refresh();
@@ -2009,7 +2009,7 @@ class SubprocessJobRunnerTest {
                 return new SettlementStep.Outcome.Done(Generators.letterStrings(1, 32).next());
             });
             replay(replacement);
-            runner =runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
                     (job, output) -> SUCCESS, request -> Optional.empty(), null,
                     Map.of(Name.CHANGE_LEDGER_ROW, replacement));
 
@@ -2031,7 +2031,7 @@ class SubprocessJobRunnerTest {
             Map<Name, SettlementStep> steps = Map.of(Name.METRICS_ROW, misnamed);
 
             assertThrows(IllegalArgumentException.class, () -> runner(termination, env,
-                    (job, output) -> SUCCESS, request -> Optional.empty(), null, steps),
+                            (job, output) -> SUCCESS, request -> Optional.empty(), null, steps),
                     "a step filed under another name is refused");
         }
 

@@ -140,7 +140,7 @@ class OutcomeDerivationTest {
                     () -> assertEquals(expected, OutcomeDerivation.derive(process(Kind.GIT, termination,
                             new Exited(0), LogState.READABLE, SUCCESS)), "a terminated process decides by its row"),
                     () -> assertEquals(expected, OutcomeDerivation.derive(
-                            new InProcessEnded(Optional.of(termination), InProcessResult.DOMAIN)),
+                                    new InProcessEnded(Optional.of(termination), InProcessResult.DOMAIN)),
                             "a terminated operation decides by its row"));
         }
 
@@ -296,10 +296,10 @@ class OutcomeDerivationTest {
                     () -> assertThrows(NullPointerException.class, () -> OutcomeDerivation.derive(null),
                             "null evidence is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProcessEnded(Kind.BUILD,
-                            noTermination, exitedZero, LogState.READABLE, SUCCESS, declaredZero, true),
+                                    noTermination, exitedZero, LogState.READABLE, SUCCESS, declaredZero, true),
                             "declared codes outside a probe are refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProcessEnded(Kind.BUILD,
-                            noTermination, exitedZero, LogState.READABLE, SUCCESS, noDeclaredCodes, false),
+                                    noTermination, exitedZero, LogState.READABLE, SUCCESS, noDeclaredCodes, false),
                             "an unreliable exit outside a worker is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new ParseResult(false, negative, false, noContradiction),

@@ -353,9 +353,9 @@ class StaleLeaseSweepTest {
             var orphaned = withoutEvidence.withOwner(withoutEvidence.owner().orphaned(now));
             assertAll(
                     () -> assertEquals(List.of(
-                            new Decision(live, Action.KEPT, Rule.HOLDER_ALIVE),
-                            new Decision(withEvidence, Action.REMOVED, Rule.ABANDONED),
-                            new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)), result.decisions(),
+                                    new Decision(live, Action.KEPT, Rule.HOLDER_ALIVE),
+                                    new Decision(withEvidence, Action.REMOVED, Rule.ABANDONED),
+                                    new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)), result.decisions(),
                             "each lease is decided in the store's order"),
                     () -> assertEquals(1, result.count(Action.KEPT), "exactly one lease is kept"),
                     () -> assertEquals(1, result.count(Action.ORPHANED), "one lease is orphaned"),

@@ -208,7 +208,7 @@ class WorkerJobTest {
                         .Questions(0, 0), Map.of());
         return new EffectiveRole(artifact, "claude", "frontier",
                 new EffortValue("high"), List.of(), Generators.integers(0, 99).next() + "."
-                        + Generators.integers(0, 99).next(), Optional.empty(),
+                + Generators.integers(0, 99).next(), Optional.empty(),
                 new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
     }
 

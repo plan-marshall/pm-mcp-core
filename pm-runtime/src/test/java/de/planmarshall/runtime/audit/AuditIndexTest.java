@@ -107,7 +107,7 @@ class AuditIndexTest {
         var lines = lines(index.file());
         assertAll(
                 () -> assertEquals(List.of(first, second.withPrevHash(AuditCodec.sha256Hex(
-                        lines.getFirst().getBytes(StandardCharsets.UTF_8)))), snapshot.entries(),
+                                lines.getFirst().getBytes(StandardCharsets.UTF_8)))), snapshot.entries(),
                         "each entry chains to the line before it"),
                 () -> assertEquals(hashes.getLast(), snapshot.headHash(), "the head is the hash of the last line"),
                 () -> assertEquals(OptionalLong.empty(), snapshot.firstBrokenLine(),
