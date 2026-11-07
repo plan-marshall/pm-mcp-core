@@ -104,9 +104,11 @@ whether the scope is paused, rests in an operator wait, or is held for another k
 scope never stall.
 
 [horizontal]
-`THRESHOLD`:: The compiled `600` seconds of
+`THRESHOLD`:: The stalled threshold of
 link:../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts & Budgets
-Specification, Stalled Threshold]; the test reads the value from the specification.
+Specification, Stalled Threshold], read from `pm.runtime.stalled-threshold-seconds` in
+`pm-runtime/src/main/resources/de/planmarshall/runtime/start/stalled-scope.properties` when the class loads; a missing
+resource or key fails the load, never defaults.
 `StalledHold`:: The hold: its kind `stalled`, the closed cause `NO_PROGRESS` (`no_progress`), the scope, the state the
 scope rests in, the instant of the last transition or task progress and the idle seconds.
 `Activity`:: What the detection found: the hold, or nothing, and its `needs_operator()` count (1 with a hold, 0
