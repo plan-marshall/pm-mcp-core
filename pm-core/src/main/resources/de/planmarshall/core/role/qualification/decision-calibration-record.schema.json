@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decision-calibration-record.json",
+  "title": "DecisionCalibrationRecord",
+  "type": "object",
+  "required": ["format_version", "decision_kind", "declaration_digest", "declaration", "roles", "corpus_revision", "items_graded", "auto_share", "false_auto_share", "constant_baseline", "graded_at", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "The calibrated decision kind, covered by declaration_digest." },
+    "declaration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the decision kind, the listed roles in their declared order with their qualification digests and forms, and the score; equals the file name, and the record is valid only while they are unchanged." },
+    "declaration": {
+      "type": "object",
+      "required": ["roles", "score"],
+      "additionalProperties": false,
+      "description": "The calibrated declaration decide <kind> -> quorum(<roles>, <score>).",
+      "properties": {
+        "roles": { "type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" } },
+        "score": { "type": "integer", "minimum": 50, "maximum": 100 }
+      }
+    },
+    "roles": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/roleConfig" }, "description": "The configuration of every listed role at the calibration, in declared order." },
+    "corpus_revision": { "type": "string", "minLength": 1 },
+    "items_graded": { "type": "integer", "minimum": 0, "description": "The corpus items tagged decision-kind:<kind> that were graded." },
+    "auto_share": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items the declaration would decide automatically." },
+    "false_auto_share": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the automatically decided items that disagree with the reference; 0 when none was decided automatically." },
+    "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items whose target is the most frequent target option (model-work/10, Quorum Calibration)." },
+    "graded_at": { "type": "string", "format": "date-time" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_id", "votes", "decided", "agreed_option", "false_auto", "total_tokens", "tokens_in", "tokens_out", "duration_ms"],
+        "additionalProperties": false,
+        "properties": {
+          "item_id": { "type": "string", "minLength": 1 },
+          "votes": { "type": "array", "items": { "type": "object", "required": ["role", "branch_key", "confidence"], "additionalProperties": false, "properties": { "role": { "type": "string" }, "branch_key": { "type": ["string", "null"] }, "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 } } } },
+          "decided": { "type": "boolean" },
+          "agreed_option": { "type": ["string", "null"] },
+          "false_auto": { "type": "boolean", "description": "decided and the agreed option is neither the item's target answer nor an accepted alternative." },
+          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the item used (store-schemas/05, Metrics Store)." },
+          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: input, cache read and cache creation; measured as a pair with tokens_out summing to total_tokens, or unmeasured when the item's split is." },
+          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: output and reasoning; measured as a pair with tokens_in summing to total_tokens, or unmeasured when the item's split is." },
+          "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "roleConfig": {
+      "type": "object",
+      "required": ["role", "form", "qualification_digest", "harness", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "form": { "type": "string", "enum": ["warm", "fresh"], "description": "The form the role's vote tasks ran in at the calibration." },
+        "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The role's qualification digest at the calibration (Role Qualification Record)." },
+        "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The harness of the qualification record the digest names." },
+        "model": { "type": "string" }
+      }
+    }
+  }
+}

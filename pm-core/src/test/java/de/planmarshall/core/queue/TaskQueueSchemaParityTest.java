@@ -31,7 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.queue.ActivityEntry.LinkRelation;
 import de.planmarshall.core.queue.ActivityEntry.Source;
 import de.planmarshall.core.queue.ActivityEntry.StopReason;
@@ -51,8 +51,9 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
 /**
  * The codecs keep parity with Store Schemas § Queue Task Record and § Activity Journal: the fields they read and write
  * in schema order, the fields they require, the values of every enum, the format version 1, and every document they
- * write is valid against its schema. The schemas are read from the specification of this repository below
- * {@value SpecificationDocument#ROOT_PROPERTY}.
+ * write is valid against its schema. The schemas are the files
+ * {@code de/planmarshall/core/queue/queue-task.schema.json} and
+ * {@code de/planmarshall/core/queue/activity-entry.schema.json} beside the codecs, read from the class path.
  */
 @EnableGeneratorController
 @SuppressWarnings("java:S5778")
@@ -60,31 +61,28 @@ import de.planmarshall.core.queue.QueueTaskRecord.TaskClass;
 @DisplayName("Task queue schema parity")
 class TaskQueueSchemaParityTest {
 
-    private static final String DOCUMENT = "store-schemas/16-task-queue.adoc";
-
     private static String taskId() {
         return "qt-" + "%016x".formatted(Generators.longs().next());
     }
 
-    private static Map<?, ?> schema(String anchor) {
-        return SpecificationDocument.object(
-                SpecificationDocument.parse(SpecificationDocument.jsonBlockAfter(DOCUMENT, anchor)));
+    private static Map<?, ?> schema(String resourcePath) {
+        return SchemaResource.load(resourcePath);
     }
 
     private static List<String> members(Map<?, ?> schema) {
-        return SpecificationDocument.object(schema.get("properties")).keySet().stream().map(String::valueOf).toList();
+        return SchemaResource.object(schema.get("properties")).keySet().stream().map(String::valueOf).toList();
     }
 
     private static List<String> required(Map<?, ?> schema) {
-        return SpecificationDocument.array(schema.get("required")).stream().map(String::valueOf).toList();
+        return SchemaResource.array(schema.get("required")).stream().map(String::valueOf).toList();
     }
 
     private static Map<?, ?> member(Map<?, ?> schema, String name) {
-        return SpecificationDocument.object(SpecificationDocument.object(schema.get("properties")).get(name));
+        return SchemaResource.object(SchemaResource.object(schema.get("properties")).get(name));
     }
 
     private static Set<String> enumOf(Map<?, ?> schema, String name) {
-        return SpecificationDocument.array(member(schema, name).get("enum")).stream().filter(Objects::nonNull)
+        return SchemaResource.array(member(schema, name).get("enum")).stream().filter(Objects::nonNull)
                 .map(String::valueOf).collect(Collectors.toUnmodifiableSet());
     }
 
@@ -95,7 +93,7 @@ class TaskQueueSchemaParityTest {
 
     /** The enum of a member of the items of an array member, such as {@code signals[].signal}. */
     private static Set<String> itemEnum(Map<?, ?> schema, String array, String name) {
-        var items = SpecificationDocument.object(member(schema, array).get("items"));
+        var items = SchemaResource.object(member(schema, array).get("items"));
         return enumOf(items, name);
     }
 
@@ -103,9 +101,9 @@ class TaskQueueSchemaParityTest {
         return Arrays.stream(values).map(wireName).collect(Collectors.toUnmodifiableSet());
     }
 
-    private static JsonSchema validator(String anchor) {
+    private static JsonSchema validator(String resourcePath) {
         return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
-                .getSchema(SpecificationDocument.jsonBlockAfter(DOCUMENT, anchor));
+                .getSchema(SchemaResource.text(resourcePath));
     }
 
     private static void assertValid(JsonSchema validator, byte[] document) {
@@ -118,12 +116,13 @@ class TaskQueueSchemaParityTest {
     @DisplayName("queue task record")
     class Records {
 
-        private static final String ANCHOR = "[#queue-task-record]";
+        // The class-path location of the schema file is a contract.
+        private static final String SCHEMA = "de/planmarshall/core/queue/queue-task.schema.json";
 
         @Test
         @DisplayName("the fields of the codec are the members of the schema in schema order, the required ones too")
         void members() {
-            var schema = schema(ANCHOR);
+            var schema = schema(SCHEMA);
 
             assertAll(
                     () -> assertFalse(TaskQueueSchemaParityTest.members(schema).isEmpty()),
@@ -134,11 +133,11 @@ class TaskQueueSchemaParityTest {
         @Test
         @DisplayName("the enums of the record are the closed sets of the schema")
         void enums() {
-            var schema = schema(ANCHOR);
+            var schema = schema(SCHEMA);
 
             assertAll(
                     () -> assertEquals(Set.of("work", "consultation"),
-                            SpecificationDocument.array(member(schema, "kind").get("enum")).stream()
+                            SchemaResource.array(member(schema, "kind").get("enum")).stream()
                                     .map(String::valueOf).collect(Collectors.toUnmodifiableSet())),
                     () -> assertEquals(wireNames(QueueTaskRecord.Kind.values(), QueueTaskRecord.Kind::wireName),
                             enumOf(schema, "kind")),
@@ -169,7 +168,7 @@ class TaskQueueSchemaParityTest {
         @Test
         @DisplayName("the format version stays 1, and every written record is valid against the schema")
         void documents() {
-            var validator = validator(ANCHOR);
+            var validator = validator(SCHEMA);
             var askingId = taskId();
             var asking = QueueFixtures.queued(askingId)
                     .consultations(List.of(QueueFixtures.answeredConsultation(taskId())))
@@ -183,7 +182,7 @@ class TaskQueueSchemaParityTest {
                     QueueFixtures.consultation(taskId(), askingId),
                     asking);
 
-            assertAll(() -> assertEquals(1, ((Number) member(schema(ANCHOR), "format_version").get("const"))
+            assertAll(() -> assertEquals(1, ((Number) member(schema(SCHEMA), "format_version").get("const"))
                     .intValue()), () -> records.forEach(task -> assertValid(validator,
                     QueueTaskRecordCodec.write(task))));
         }
@@ -193,12 +192,13 @@ class TaskQueueSchemaParityTest {
     @DisplayName("activity entry")
     class Activity {
 
-        private static final String ANCHOR = "[#activity-journal]";
+        // The class-path location of the schema file is a contract.
+        private static final String SCHEMA = "de/planmarshall/core/queue/activity-entry.schema.json";
 
         @Test
         @DisplayName("the fields of the codec are the members of the schema in schema order, the required ones too")
         void members() {
-            var schema = schema(ANCHOR);
+            var schema = schema(SCHEMA);
 
             assertAll(
                     () -> assertEquals(ActivityEntryCodec.FIELDS, TaskQueueSchemaParityTest.members(schema)),
@@ -208,7 +208,7 @@ class TaskQueueSchemaParityTest {
         @Test
         @DisplayName("the enums of the entry are the closed sets of the schema")
         void enums() {
-            var schema = schema(ANCHOR);
+            var schema = schema(SCHEMA);
 
             assertAll(
                     () -> assertEquals(wireNames(Source.values(), Source::wireName), enumOf(schema, "source")),
@@ -227,7 +227,7 @@ class TaskQueueSchemaParityTest {
         @Test
         @DisplayName("an agent_started signal entry is valid against the schema")
         void agentStarted() {
-            var validator = validator(ANCHOR);
+            var validator = validator(SCHEMA);
             var entry = ActivityEntry.builder()
                     .seq(1)
                     .attempt(1)

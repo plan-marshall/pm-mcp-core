@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/activity-entry.json",
+  "title": "ActivityEntry",
+  "type": "object",
+  "required": ["format_version", "seq", "attempt", "source", "kind", "at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "seq": { "type": "integer", "minimum": 1, "description": "Position in the task's journal, one above the last ever written; never reused." },
+    "attempt": { "type": "integer", "minimum": 1, "description": "The attempt of the queue task (Queue Task Record, attempts[])." },
+    "source": { "type": "string", "enum": ["harness", "server"] },
+    "kind": { "type": "string", "enum": ["text", "tool_call", "tool_result", "file_changed", "turn", "link", "question", "answer_ack", "signal", "attempt_end"], "description": "harness: text, tool_call, tool_result, file_changed, turn; server: the others." },
+    "text": { "type": ["string", "null"], "maxLength": 2000, "description": "text only: what the model wrote, masked and cut; untrusted." },
+    "truncated": { "type": "boolean", "description": "text only: the text was cut to the bound." },
+    "tool": { "type": ["object", "null"], "required": ["name", "target"], "additionalProperties": false, "description": "tool_call only.", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 128 }, "target": { "type": ["string", "null"], "maxLength": 1000, "description": "A path, a command line, or a server link with its id; masked; untrusted." } } },
+    "result": { "type": ["object", "null"], "required": ["bytes", "failed"], "additionalProperties": false, "description": "tool_result only.", "properties": { "bytes": { "type": "integer", "minimum": 0 }, "failed": { "type": "boolean" } } },
+    "path": { "type": ["string", "null"], "maxLength": 1000, "description": "file_changed only: a path relative to the worktree." },
+    "stop_reason": { "type": ["string", "null"], "enum": ["end_turn", "tool_use", "max_tokens", "refusal", "other", null], "description": "turn only: the turn's stop reason as the profile maps it (harness-profiles/01, What a Worker Does); null where the profile maps none. Recorded only; no rule reads it." },
+    "usage": { "type": ["object", "null"], "description": "turn only: the turn's usage figures read through the profile's pointers — the five token components and tool_uses as measured integers, unmeasured or not_applicable, and cost_usd as the number the harness reports or unmeasured (store-schemas/05, Metrics Store)." },
+    "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
+    "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
+    "signal": { "type": ["object", "null"], "required": ["signal", "action"], "additionalProperties": false, "description": "signal only: the same entry as the queue task record's signals[].", "properties": { "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] }, "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] } }, "if": { "properties": { "signal": { "const": "agent_started" } } }, "then": { "properties": { "action": { "const": "restart" } } } },
+    "end": { "type": ["string", "null"], "description": "attempt_end only: the attempt's end (Queue Task Record, attempts[].end)." },
+    "unmapped_lines": { "type": ["integer", "null"], "minimum": 0, "description": "attempt_end only: output lines of the attempt that matched no mapping." },
+    "at": { "type": "string", "format": "date-time" }
+  }
+}
