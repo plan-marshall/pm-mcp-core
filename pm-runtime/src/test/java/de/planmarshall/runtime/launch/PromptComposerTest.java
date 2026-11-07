@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.test.JsonDocuments.schema;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.planIds;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,13 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.profile.JsonDocument;
-import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleSkill;
 
 /**
@@ -144,9 +142,5 @@ class PromptComposerTest {
 
     private static String entity() {
         return "task-" + Generators.letterStrings(8, 16).next();
-    }
-
-    private static JsonNode schema(String document) {
-        return JsonDocument.parse(document.getBytes(StandardCharsets.UTF_8), "schema");
     }
 }

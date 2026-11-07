@@ -9,18 +9,15 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.test.JsonDocuments.schema;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import de.planmarshall.core.profile.JsonDocument;
-import de.planmarshall.core.profile.JsonNode;
 
 /**
  * The writing skill's need derived from the link schemas.
@@ -76,9 +73,5 @@ class FreeTextDerivationTest {
 
     private static LinkSchema link(LinkParameter parameter) {
         return new LinkSchema(name() + ":" + name(), List.of(parameter));
-    }
-
-    private static JsonNode schema(String document) {
-        return JsonDocument.parse(document.getBytes(StandardCharsets.UTF_8), "schema");
     }
 }
