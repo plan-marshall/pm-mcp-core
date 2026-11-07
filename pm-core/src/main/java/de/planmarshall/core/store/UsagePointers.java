@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.JsonPointer;

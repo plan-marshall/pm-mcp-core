@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.role.qualification;
 
-import org.jspecify.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The grade an item received (Store Schemas § Role Qualification Record, {@code score}): a number from {@code 0} to

@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.build;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of the OpenRewrite log parse: a fail-closed verdict, the findings of an observed run and the reason of a

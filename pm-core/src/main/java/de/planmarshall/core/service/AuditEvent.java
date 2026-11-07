@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.service;
 
-import org.jspecify.annotations.Nullable;
-
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.HashMap;
@@ -18,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.LockKey;
 

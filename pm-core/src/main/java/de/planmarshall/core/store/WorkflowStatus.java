@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
@@ -26,6 +24,7 @@ import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The status document {@code mcp/status.json} of one plan, epic, workspace or machine scope (PM-ARCH-6: the persisted

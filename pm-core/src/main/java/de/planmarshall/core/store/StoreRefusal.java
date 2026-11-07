@@ -9,13 +9,12 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A store document or record that a reader refused (PM-IMPL-2): it is absent where it must exist, it does not parse

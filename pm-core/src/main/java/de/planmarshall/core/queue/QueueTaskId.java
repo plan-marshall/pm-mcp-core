@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.queue;
 
-import org.jspecify.annotations.Nullable;
-
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code queue_task_id} of a queue task record (Store Schemas § Queue Task Record): {@code qt-} and 16 random
