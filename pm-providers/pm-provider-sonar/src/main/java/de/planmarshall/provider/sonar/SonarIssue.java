@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Builder
 public record SonarIssue(SonarIssueKey key, String rule, String severity, String type, String component,
-@Nullable Integer line, String message) {
+                         @Nullable Integer line, String message) {
 
     /**
      * @throws NullPointerException for a missing value other than the line

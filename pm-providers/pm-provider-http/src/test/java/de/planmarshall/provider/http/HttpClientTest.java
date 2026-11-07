@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.http.client.handler.RedirectPolicy.RedirectRefusal;
 import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -40,6 +39,7 @@ import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
 import de.planmarshall.provider.http.Response.Outcome;
+import de.cuioss.http.client.handler.RedirectPolicy.RedirectRefusal;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
@@ -340,7 +340,7 @@ class HttpClientTest {
             String to = segment("t");
             String content = body();
             try (var redirecting = new HttpClient(new Endpoint(base(), Set.of(other.toLowerCase(Locale.ROOT))),
-                    () -> Optional.of(token), Map.of())) {
+                         () -> Optional.of(token), Map.of())) {
                 on("GET", "/" + to, json(200, content));
                 on("GET", "/" + from, response(302, "", Map.of("Location", base(other) + to)));
 

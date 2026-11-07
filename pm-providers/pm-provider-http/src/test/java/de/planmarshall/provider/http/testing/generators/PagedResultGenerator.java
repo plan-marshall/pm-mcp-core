@@ -9,11 +9,11 @@
  */
 package de.planmarshall.provider.http.testing.generators;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.TypedGenerator;
 import java.util.List;
 
 import de.planmarshall.provider.http.PagedResult;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.TypedGenerator;
 
 /**
  * Generates a valid, complete {@link PagedResult} of one page whose last response is a generated successful

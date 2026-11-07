@@ -9,13 +9,13 @@
  */
 package de.planmarshall.provider.http.testing.generators;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.TypedGenerator;
 import java.net.URI;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.Endpoint;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.TypedGenerator;
 
 /**
  * Generates a valid {@link Endpoint}. With no argument it yields a generated {@code https} API base ending with

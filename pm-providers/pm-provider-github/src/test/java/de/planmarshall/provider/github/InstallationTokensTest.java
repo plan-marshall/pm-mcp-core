@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
 import mockwebserver3.MockResponse;
-import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
 import de.planmarshall.provider.http.Endpoint;
@@ -220,7 +219,7 @@ class InstallationTokensTest {
     void mintsForOperationClass() throws Exception {
         on(installation, minted(installationToken(), now.plusSeconds(3600)));
         try (var pkcs1 = new InstallationTokens(endpoint, clientId, () -> TestKeys.PKCS1_PEM, redacted::add,
-                Clock.fixed(now, ZoneOffset.UTC))) {
+                     Clock.fixed(now, ZoneOffset.UTC))) {
 
             var result = pkcs1.token(installation, repository, GitHubOperation.PULL_REQUEST_COMMENT);
 

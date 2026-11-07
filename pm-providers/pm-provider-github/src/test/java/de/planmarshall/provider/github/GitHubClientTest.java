@@ -178,7 +178,7 @@ class GitHubClientTest {
 
     /** The generated values of one review thread. */
     private record ThreadData(String id, boolean resolved, String path, int line, String author, String firstLine,
-            String secondLine) {
+    String secondLine) {
 
         static ThreadData generated(boolean resolved) {
             return new ThreadData(word(), resolved, word() + "/" + word() + ".java", number(), word() + "[bot]",
