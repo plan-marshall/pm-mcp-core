@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/composition-record.json",
+  "title": "CompositionRecord",
+  "type": "object",
+  "required": ["format_version", "event", "result", "version", "trigger", "input_digests", "recorded_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/$defs/composition_event" },
+    "result": { "type": "string", "enum": ["composed", "identical_adopted", "kept", "refused"], "description": "identical_adopted: a configuration candidate equal in effect to the version in force (no new version); kept: the config_drift condition resolved keep (no new version); refused: the position rule or an invariant refused the version (reason in cause)." },
+    "version": { "type": ["integer", "null"], "minimum": 1, "description": "The composed version; null unless result == composed." },
+    "trigger": { "type": "string", "enum": ["server", "operator"] },
+    "cause": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gate": { "type": ["string", "null"], "description": "fallback: the gate or condition whose exhaustion took the fallback." },
+        "fallback_cause": { "type": ["string", "null"], "enum": ["exhausted", "stepped_out", "decided", "infeasible", "condition", "provider_refused", "merge_by_operator", "operator_path", "local_only", "files_not_applicable", null], "description": "fallback: the gap cause of the fallback (Gap Record, cause); deliverable_removed is no fallback, its re-planning composes a replan version." },
+        "waiver_id": { "type": ["string", "null"], "pattern": "^W-[0-9]+$" },
+        "deliverable_id": { "type": ["string", "null"], "pattern": "^D[0-9]+$" },
+        "replan_id": { "type": ["string", "null"], "pattern": "^RP-[0-9]+$", "description": "replan: the re-planning whose revision composed the version." },
+        "from_config_hash": { "type": ["string", "null"] },
+        "to_config_hash": { "type": ["string", "null"] },
+        "refusal": { "type": ["string", "null"], "enum": ["position_not_contained", "invariant_failed", null] }
+      }
+    },
+    "input_digests": { "type": "object", "additionalProperties": { "type": "string" } },
+    "diff_summary": {
+      "type": ["object", "null"],
+      "description": "The composed version relative to the previous version: pruned elements added and removed, ceilings changed, gates waived and unwaived. The member is present only on a line with result == composed: null for version 1, the summary for a later version; every other line omits it.",
+      "required": ["pruned_added", "pruned_removed", "ceilings_changed", "gates_waived", "gates_unwaived"],
+      "additionalProperties": false,
+      "properties": {
+        "pruned_added": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/pruned/items" }, "description": "Pruned in this version, not in the previous one (element, id, reason, source_fact)." },
+        "pruned_removed": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/pruned/items" }, "description": "Pruned in the previous version, not in this one (element, id, reason, source_fact)." },
+        "ceilings_changed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["call_site", "argument", "previous", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "call_site": { "type": "string", "description": "state_id of the calling state of the policy call." },
+              "argument": { "type": "string", "description": "The bound argument whose value changed (retry_budget, fix_budget, actions)." },
+              "previous": { "description": "The value in the previous version; null where the previous version did not bind the argument." },
+              "value": { "description": "The value in this version; null where this version does not bind the argument." }
+            }
+          }
+        },
+        "gates_waived": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/waived_gates/items" }, "description": "Waived in this version, not in the previous one (gate, waiver_id)." },
+        "gates_unwaived": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/waived_gates/items" }, "description": "Waived in the previous version, not in this one (gate, waiver_id)." }
+      }
+    },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  }
+}
