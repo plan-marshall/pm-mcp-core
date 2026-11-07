@@ -12,6 +12,7 @@ package de.planmarshall.runtime.job;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MAVEN_CONFIG;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.WRAPPER_PROPERTIES;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,10 +62,6 @@ class WrapperVerificationTest {
     @AfterEach
     void delete() {
         fixture.close();
-    }
-
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
     }
 
     private VerifyNotResolvePipeline.Stage<Path> verify(ProjectEnrolment checked, Path tree, WrapperName name) {
@@ -147,7 +143,8 @@ class WrapperVerificationTest {
         @Test
         @DisplayName("a pinned file reached through a symbolically linked directory")
         void pinnedFileThroughLinkedDirectory() throws Exception {
-            var moved = Files.move(fixture.root.resolve(".mvn/wrapper"), fixture.base.resolve("moved-" + word()));
+            var moved = Files.move(fixture.root.resolve(".mvn/wrapper"),
+                    fixture.base.resolve("moved-" + words().next()));
             Files.createSymbolicLink(fixture.root.resolve(".mvn/wrapper"), moved);
 
             assertChanged(List.of(WRAPPER_PROPERTIES), refused(enrolment, WrapperName.MVNW));
@@ -168,7 +165,7 @@ class WrapperVerificationTest {
         @Test
         @DisplayName("a wrapper replaced by a symbolic link to its unchanged content")
         void replacedBySymlink() throws Exception {
-            var copy = Files.copy(fixture.root.resolve(MVNW), fixture.base.resolve("copy-" + word()));
+            var copy = Files.copy(fixture.root.resolve(MVNW), fixture.base.resolve("copy-" + words().next()));
             Files.delete(fixture.root.resolve(MVNW));
             Files.createSymbolicLink(fixture.root.resolve(MVNW), copy);
 
@@ -178,7 +175,7 @@ class WrapperVerificationTest {
         @Test
         @DisplayName("a wrapper enrolled outside the root of the tree, even with a matching digest")
         void outsideTreeRoot() throws Exception {
-            var directory = "nested-" + word();
+            var directory = "nested-" + words().next();
             var nested = directory + "/" + MVNW;
             Files.createDirectories(fixture.root.resolve(directory));
             Files.copy(fixture.root.resolve(MVNW), fixture.root.resolve(nested));
@@ -238,7 +235,7 @@ class WrapperVerificationTest {
     @Test
     @DisplayName("positive control: a wrapper not tracked by git, in a tree without git, passes when it matches")
     void notTrackedByGit() throws Exception {
-        var plain = Files.createDirectories(fixture.base.resolve("plain-" + word()));
+        var plain = Files.createDirectories(fixture.base.resolve("plain-" + words().next()));
         Files.copy(fixture.root.resolve(MVNW), plain.resolve(MVNW));
         Files.createDirectories(plain.resolve(".mvn/wrapper"));
         Files.copy(fixture.root.resolve(WRAPPER_PROPERTIES), plain.resolve(WRAPPER_PROPERTIES));

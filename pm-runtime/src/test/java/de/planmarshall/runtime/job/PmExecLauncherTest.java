@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,13 +59,9 @@ class PmExecLauncherTest {
     @TempDir
     Path work;
 
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     /** @return a generated absolute path */
     private static String absolute() {
-        return "/" + word() + "/" + word();
+        return "/" + words().next() + "/" + words().next();
     }
 
     @Nested
@@ -75,7 +72,7 @@ class PmExecLauncherTest {
         @DisplayName("is the launcher's absolute path below PM_MCP_HOME, the separator and the verified vector")
         void argvShape() {
             var launcher = new PmExecLauncher(home);
-            var argv = List.of(absolute(), "-C", absolute(), word(), "-F", "-");
+            var argv = List.of(absolute(), "-C", absolute(), words().next(), "-F", "-");
 
             var command = launcher.command(argv);
 
@@ -92,8 +89,8 @@ class PmExecLauncherTest {
         @DisplayName("an in-memory payload never enters the argument vector")
         void payloadNotInArgv() {
             var marker = Generators.letterStrings(8, 32).next();
-            var payload = word() + ": " + marker + "\n\n" + Generators.letterStrings(1, 64).next();
-            var launch = new Launch(work, List.of(absolute(), word(), "-F", "-"), Map.of(),
+            var payload = words().next() + ": " + marker + "\n\n" + Generators.letterStrings(1, 64).next();
+            var launch = new Launch(work, List.of(absolute(), words().next(), "-F", "-"), Map.of(),
                     Optional.of(payload), work.resolve("job.log"));
 
             var launcher = new PmExecLauncher(home);
@@ -145,9 +142,9 @@ class PmExecLauncherTest {
         @DisplayName("a relative home, an empty vector and a relative executable are refused")
         void refusals() {
             var log = work.resolve("job.log");
-            var relativeHome = Path.of(word());
+            var relativeHome = Path.of(words().next());
             List<String> emptyVector = List.of();
-            List<String> relativeVector = List.of(word(), word());
+            List<String> relativeVector = List.of(words().next(), words().next());
             List<String> absoluteVector = List.of(absolute());
             Map<String, String> noEnvironment = Map.of();
             Optional<String> noInput = Optional.empty();
@@ -216,7 +213,7 @@ class PmExecLauncherTest {
         @DisplayName("runs with exactly the supplied environment and writes its output to the log")
         void environmentAndOutput() throws Exception {
             var name = "PM_JOB_" + Generators.letterStrings(1, 16).next().toUpperCase(Locale.ROOT);
-            var value = word();
+            var value = words().next();
             var launched = start(List.of(FakePmExec.tool("env").toString()), Map.of(name, value), Optional.empty());
 
             var log = awaitEnd(launched);

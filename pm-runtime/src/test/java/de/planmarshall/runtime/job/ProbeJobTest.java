@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.sha256;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,7 +27,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -104,10 +104,6 @@ class ProbeJobTest {
         installProbe(fixture.base.resolve("detached.pid"));
         home = FakePmExec.install(fixture.base.resolve("home"), FakePmExec.Mode.REPORT);
         runner = runner(fixture.base);
-    }
-
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
     }
 
     private void installProbe(Path pidFile) throws IOException {
@@ -303,7 +299,7 @@ class ProbeJobTest {
     @Test
     @DisplayName("a base reached through a symbolic link runs the probe in the job-private cwd below the real base")
     void symlinkedBase() throws Exception {
-        var linkedBase = Files.createSymbolicLink(fixture.base.resolve("linked-" + word()), fixture.base);
+        var linkedBase = Files.createSymbolicLink(fixture.base.resolve("linked-" + words().next()), fixture.base);
         runner = runner(linkedBase);
         var jobId = started(onMachine(Set.of(0), "pwd"));
 
@@ -323,7 +319,7 @@ class ProbeJobTest {
     @Test
     @DisplayName("matched control: a symbolic link below the base, out of the job-private directory, is refused")
     void symlinkBelowBaseRefused() throws Exception {
-        var elsewhere = Files.createDirectories(fixture.base.resolve("elsewhere-" + word()));
+        var elsewhere = Files.createDirectories(fixture.base.resolve("elsewhere-" + words().next()));
         Files.createSymbolicLink(fixture.base.resolve("run"), elsewhere);
 
         var result = runner.startProbe(new JobRunner.ProbeRequest<>(onMachine(Set.of(0), "pwd"), true));
@@ -341,7 +337,7 @@ class ProbeJobTest {
     @Test
     @DisplayName("a probe of an onboarding entry runs in its checkout, its record and log in the entry's store")
     void entryStore() throws Exception {
-        var entryId = "entry-" + word();
+        var entryId = "entry-" + words().next();
         var checkout = Files.createDirectories(fixture.base.resolve("checkout"));
         Files.createDirectories(checkout.resolve(ProbeVerification.GIT));
         var entry = new Scope(Scope.Type.ENTRY, entryId);

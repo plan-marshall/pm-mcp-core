@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -99,13 +99,8 @@ class ExecutableCheckTest {
         Files.write(fixture.tools.get(name), JobEnrolmentFixture.randomContent());
     }
 
-    /** @return a generated word of lower-case letters */
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     private static HostToolCall call(HostToolName name) {
-        return new HostToolCall(name, List.of("--" + word()));
+        return new HostToolCall(name, List.of("--" + words().next()));
     }
 
     @Nested
@@ -141,7 +136,7 @@ class ExecutableCheckTest {
         @Test
         @DisplayName("whose enrolled path is not absolute is refused as executable_not_enrolled")
         void notAbsolute() {
-            var relative = JobEnrolmentFixture.withHostToolPath(enrolment, HostToolName.GH, word());
+            var relative = JobEnrolmentFixture.withHostToolPath(enrolment, HostToolName.GH, words().next());
 
             assertAll(
                     () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED,
@@ -156,7 +151,7 @@ class ExecutableCheckTest {
         @DisplayName("replaced by a symbolic link to its unchanged content is refused as executable_digest_mismatch")
         void replacedBySymlink() throws Exception {
             var git = fixture.tools.get(HostToolName.GIT);
-            var copy = Files.copy(git, fixture.base.resolve("copy-" + word()));
+            var copy = Files.copy(git, fixture.base.resolve("copy-" + words().next()));
             Files.delete(git);
             Files.createSymbolicLink(git, copy);
 
@@ -229,7 +224,7 @@ class ExecutableCheckTest {
         @DisplayName("positive control: a build job of npm runs the enrolled npm")
         void npmBuild() {
             assertEquals(List.of(tool(HostToolName.NPM)),
-                    passed(enrolment, new HostToolBuild(word(), Optional.empty())),
+                    passed(enrolment, new HostToolBuild(words().next(), Optional.empty())),
                     "an npm build job runs the enrolled npm");
         }
     }
@@ -278,7 +273,7 @@ class ExecutableCheckTest {
         @DisplayName("used for another binding than its enrolled one is refused as executable_not_enrolled")
         void bindingMismatch() {
             var refusal = refused(enrolment, call(fixture.scriptId, new Binding(WorkerKind.LOG_PARSER,
-                    "other-" + word())));
+                    "other-" + words().next())));
 
             assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
                     "a script for another build system is refused");
@@ -298,7 +293,7 @@ class ExecutableCheckTest {
         @DisplayName("that is not enrolled is refused as executable_not_enrolled")
         void notEnrolled() {
             assertEquals(Reason.EXECUTABLE_NOT_ENROLLED,
-                    refused(enrolment, call("other-" + word(), SCRIPT_BINDING)).reason(),
+                    refused(enrolment, call("other-" + words().next(), SCRIPT_BINDING)).reason(),
                     "a script id not enrolled is refused");
         }
     }
@@ -311,7 +306,7 @@ class ExecutableCheckTest {
         @DisplayName("positive control: mvnw starts as the verified wrapper at the root of the tree")
         void mvnw() {
             assertEquals(List.of(fixture.root.resolve(JobEnrolmentFixture.MVNW).toString()),
-                    passed(enrolment, new WrapperBuild(WrapperName.MVNW, word(), Optional.empty())),
+                    passed(enrolment, new WrapperBuild(WrapperName.MVNW, words().next(), Optional.empty())),
                     "mvnw starts as the wrapper at the root");
         }
 
@@ -319,7 +314,7 @@ class ExecutableCheckTest {
         @DisplayName("positive control: pw runs through the enrolled python3 with the wrapper as first argument")
         void pw() {
             assertEquals(List.of(tool(HostToolName.PYTHON3), fixture.root.resolve(JobEnrolmentFixture.PW).toString()),
-                    passed(enrolment, new WrapperBuild(WrapperName.PW, word(), Optional.empty())),
+                    passed(enrolment, new WrapperBuild(WrapperName.PW, words().next(), Optional.empty())),
                     "pw runs through the enrolled python3");
         }
 
@@ -329,7 +324,7 @@ class ExecutableCheckTest {
             drift(HostToolName.PYTHON3);
 
             assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
-                    refused(enrolment, new WrapperBuild(WrapperName.PW, word(), Optional.empty())).reason(),
+                    refused(enrolment, new WrapperBuild(WrapperName.PW, words().next(), Optional.empty())).reason(),
                     "pw with a drifted python3 is refused");
         }
     }

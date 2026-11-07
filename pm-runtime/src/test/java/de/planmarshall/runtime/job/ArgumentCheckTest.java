@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,7 +23,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -139,11 +139,6 @@ class ArgumentCheckTest {
         return new HostToolCall(HostToolName.GIT, List.of(arguments));
     }
 
-    /** @return a generated word of lower-case letters, which holds no shell metacharacter */
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     /** Checks a job whose discovered modules are these, so that any module name can reach the flag rule. */
     private VerifyNotResolvePipeline.Stage<ArgumentCheck.Arguments> checkWithModules(JobRequest.Target target,
             String... modules) {
@@ -219,7 +214,7 @@ class ArgumentCheckTest {
         @ValueSource(strings = {"a|b", "a;b", "a&b", "$HOME", "`id`", "a>out", "a<in"})
         @DisplayName("an argument with a shell metacharacter is refused as argument_rejected, without the argument")
         void metacharacter(String argument) {
-            var refusal = refused(git(word(), argument));
+            var refusal = refused(git(words().next(), argument));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
@@ -231,7 +226,7 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("a shell metacharacter attached to a short flag is still refused")
         void metacharacterAfterShortFlag() {
-            var refusal = refused(git(word(), "-" + word() + ";" + word()));
+            var refusal = refused(git(words().next(), "-" + words().next() + ";" + words().next()));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
@@ -243,8 +238,8 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("positive control: ordinary flags and values pass in order, with no template source")
         void ordinaryArguments() {
-            var expected = List.of(word(), "--" + word(), "-" + word(),
-                    String.valueOf(Generators.integers(1, 999).next()), "--" + word() + "=" + word());
+            var expected = List.of(words().next(), "--" + words().next(), "-" + words().next(),
+                    String.valueOf(Generators.integers(1, 999).next()), "--" + words().next() + "=" + words().next());
 
             var arguments = passed(git(expected.toArray(String[]::new)));
 
@@ -259,7 +254,7 @@ class ArgumentCheckTest {
         @ValueSource(strings = {"-sb", "-f", "-D", "--file=notes.txt", "--settings"})
         @DisplayName("positive control: a flag forbidden only in build jobs passes in a host tool call")
         void buildOnlyFlagPasses(String flag) {
-            var subcommand = word();
+            var subcommand = words().next();
 
             assertEquals(List.of(subcommand, flag), passed(git(subcommand, flag)).arguments(),
                     "a build-only flag passes in a host tool call");
@@ -354,7 +349,7 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("positive control: a host tool call of a tool that interprets nothing, git, still passes")
         void gitPasses() {
-            var subcommand = word();
+            var subcommand = words().next();
 
             assertEquals(List.of(subcommand), passed(git(subcommand)).arguments(),
                     "a git call passes the interpreter rule");
@@ -452,7 +447,7 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("a module that is not a discovered module of the project is refused as argument_rejected")
         void unknownModule() {
-            var unknown = "unknown-" + word();
+            var unknown = "unknown-" + words().next();
 
             var refusal = refused(maven("verify", unknown));
 
@@ -500,7 +495,7 @@ class ArgumentCheckTest {
 
         @BeforeEach
         void schema() {
-            member = word();
+            member = words().next();
             var properties = new TreeMap<String, ArgumentSchema>();
             properties.put(member, new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z-]+$", null,
                     null, 32L));
@@ -515,7 +510,7 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("positive control: conforming arguments pass and add nothing to the argument vector")
         void conforming() {
-            var arguments = passed(schemaEnrolment, call(Fields.of(Map.of(member, new Text(word())))));
+            var arguments = passed(schemaEnrolment, call(Fields.of(Map.of(member, new Text(words().next())))));
 
             assertAll(
                     () -> assertEquals(List.of(), arguments.arguments(), "script arguments add nothing to the argv"),
@@ -539,7 +534,7 @@ class ArgumentCheckTest {
         @DisplayName("a string with a shell metacharacter is refused before the schema is looked at")
         void metacharacterInValue() {
             var refusal = refused(enrolment, call(Fields.of(Map.of(member,
-                    new Items(List.of(new Text(word() + ";" + word())))))));
+                    new Items(List.of(new Text(words().next() + ";" + words().next())))))));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
@@ -551,7 +546,7 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("a member name with a shell metacharacter is refused")
         void metacharacterInMemberName() {
-            var refusal = refused(enrolment, call(Fields.of(Map.of(word() + "|" + word(),
+            var refusal = refused(enrolment, call(Fields.of(Map.of(words().next() + "|" + words().next(),
                     new Text(Generators.letterStrings(1, 16).next())))));
 
             assertAll(
@@ -565,7 +560,7 @@ class ArgumentCheckTest {
         @DisplayName("positive control: a flag forbidden only in build jobs (contract) passes as a member and a value")
         void buildOnlyFlagPasses() {
             var arguments = passed(enrolment, call(Fields.of(Map.of("--settings",
-                    new Text("-D" + word() + "=" + word())))));
+                    new Text("-D" + words().next() + "=" + words().next())))));
 
             assertEquals(List.of(), arguments.arguments(), "build-only flags pass in a project script");
         }
@@ -576,7 +571,7 @@ class ArgumentCheckTest {
     class StageOrder {
 
         private String metacharacterArgument() {
-            return word() + ";" + word();
+            return words().next() + ";" + words().next();
         }
 
         @Test
@@ -585,7 +580,7 @@ class ArgumentCheckTest {
             Files.write(fixture.tools.get(HostToolName.GIT), JobEnrolmentFixture.randomContent());
 
             var outcome = fixture.verify(fixture.request(fixture.root.toString(),
-                    git(word(), metacharacterArgument())));
+                    git(words().next(), metacharacterArgument())));
 
             assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
                     assertInstanceOf(JobVerification.Refused.class, outcome,
@@ -597,7 +592,7 @@ class ArgumentCheckTest {
         @DisplayName("positive control: with the executable verified, the same arguments reach and fail the check")
         void reachedAfterStageTwo() {
             var outcome = fixture.verify(fixture.request(fixture.root.toString(),
-                    git(word(), metacharacterArgument())));
+                    git(words().next(), metacharacterArgument())));
 
             assertEquals(Reason.ARGUMENT_REJECTED,
                     assertInstanceOf(JobVerification.Refused.class, outcome,

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,13 +60,9 @@ class JobEnvironmentComposerTest {
         toolDirectory = absolute();
     }
 
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     /** @return a generated absolute path */
     private static Path absolute() {
-        return Path.of("/" + word(), word(), word());
+        return Path.of("/" + words().next(), words().next(), words().next());
     }
 
     /** @return a generated job id of that kind */
@@ -100,12 +97,12 @@ class JobEnvironmentComposerTest {
         void capture() {
             javaHome = absolute().toString();
             gradleHome = absolute().toString();
-            lang = word() + ".UTF-8";
+            lang = words().next() + ".UTF-8";
             captured = Map.of(
                     "JAVA_HOME", javaHome,
                     "GRADLE_USER_HOME", gradleHome,
-                    "MAVEN_OPTS", "-X" + word(),
-                    "GRADLE_OPTS", "-D" + word() + "=" + word(),
+                    "MAVEN_OPTS", "-X" + words().next(),
+                    "GRADLE_OPTS", "-D" + words().next() + "=" + words().next(),
                     "GITHUB_TOKEN", Generators.letterStrings(8, 32).next(),
                     "LANG", lang,
                     "LC_ALL", "");
@@ -199,7 +196,7 @@ class JobEnvironmentComposerTest {
         void worker() {
             var job = jobId(JobId.Kind.LLM);
             var harnessVariable = "HARNESS_SETTING_" + Generators.integers(0, 9999).next();
-            var harnessValue = word();
+            var harnessValue = words().next();
             var token = Generators.letterStrings(16, 32).next();
             var proxy = "http://127.0.0.1:" + Generators.integers(1024, 65535).next();
 
@@ -250,8 +247,8 @@ class JobEnvironmentComposerTest {
         @DisplayName("a git job never prompts, keeps the index unlocked and names its committer")
         void git() {
             var agent = absolute().toString();
-            var committer = word();
-            var email = word() + "@" + word() + ".test";
+            var committer = words().next();
+            var email = words().next() + "@" + words().next() + ".test";
 
             var environment = composer().forJob(enrolment(null, Map.of()), jobId(JobId.Kind.GIT), Map.of(),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(agent),
@@ -280,7 +277,7 @@ class JobEnvironmentComposerTest {
             var executableDirectory = absolute();
             var interpreterDirectory = absolute();
 
-            var environment = composer().forProbe(executableDirectory.resolve(word()),
+            var environment = composer().forProbe(executableDirectory.resolve(words().next()),
                     Optional.of(interpreterDirectory.resolve("python3")), false, new TreeMap<>());
 
             assertAll(

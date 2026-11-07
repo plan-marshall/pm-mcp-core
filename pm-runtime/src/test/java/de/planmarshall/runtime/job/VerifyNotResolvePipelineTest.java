@@ -12,6 +12,7 @@ package de.planmarshall.runtime.job;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,7 +31,6 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -101,11 +101,6 @@ class VerifyNotResolvePipelineTest {
     private VerifiedJob verified(JobRequest request) {
         var outcome = fixture.verify(request);
         return assertInstanceOf(JobVerification.Verified.class, outcome, "the job should be verified").job();
-    }
-
-    /** @return a generated word of lower-case letters */
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -252,7 +247,7 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("a symbolic link from the tree to a directory outside it is refused")
         void symlinkEscape() throws Exception {
-            var link = "escape-" + word();
+            var link = "escape-" + words().next();
             Files.createSymbolicLink(fixture.root.resolve(link), fixture.beside);
 
             assertTraversalRejected(link);
@@ -289,7 +284,7 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("positive control: a symbolic link that stays inside the tree passes as its target")
         void symlinkInsideTree() throws Exception {
-            var link = "alias-" + word();
+            var link = "alias-" + words().next();
             Files.createSymbolicLink(fixture.root.resolve(link), fixture.root.resolve("scripts"));
 
             var job = verified(fixture.gitStatus(link));
@@ -336,8 +331,8 @@ class VerifyNotResolvePipelineTest {
         @Test
         @DisplayName("a project script job carries exactly the validated arguments, and an argv without them")
         void projectScript() {
-            var single = "single-" + word();
-            var list = "list-" + word();
+            var single = "single-" + words().next();
+            var list = "list-" + words().next();
             var arguments = Fields.of(Map.of(single, new Text(Generators.letterStrings(3, 10).next()),
                     list, new Items(List.of(new Text(fixture.module)))));
 

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
@@ -32,7 +33,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -110,10 +110,10 @@ class JobSettlementTest {
     @BeforeEach
     void createStores() throws IOException {
         project = CoreGenerators.projectEnrolments().next().projectId();
-        plan = new Scope(Scope.Type.PLAN, "plan-" + word());
+        plan = new Scope(Scope.Type.PLAN, "plan-" + words().next());
         job = new JobId("b-" + RuntimeGenerators.sha256Digests().next().substring(0, 16));
         createdAt = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
-        budgetKey = "maven:" + word();
+        budgetKey = "maven:" + words().next();
         budgetSeconds = Generators.integers(10, 3600).next();
         argvDigest = RuntimeGenerators.sha256Digests().next();
         pid = Generators.longs(2, 4_000_000).next();
@@ -126,10 +126,6 @@ class JobSettlementTest {
         var self = ProcessHandle.current();
         owner = new LeaseOwner(project, ScopeType.PLAN, plan.id(),
                 new HolderInstance(self.pid(), self.info().startInstant().orElseThrow()), null);
-    }
-
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
     }
 
     private JobRecord postSpawn() {
@@ -366,7 +362,7 @@ class JobSettlementTest {
         @Test
         @DisplayName("leaves a lease in place that another owner holds by now")
         void foreignOwner() {
-            var other = new LeaseOwner(project, ScopeType.PLAN, "plan-other-" + word(), owner.holderInstance(),
+            var other = new LeaseOwner(project, ScopeType.PLAN, "plan-other-" + words().next(), owner.holderInstance(),
                     null);
             assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, other, createdAt, null)).granted(),
                     "the other owner's slot is granted");

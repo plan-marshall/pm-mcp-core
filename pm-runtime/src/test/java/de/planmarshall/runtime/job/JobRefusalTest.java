@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,7 +20,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.lang.reflect.RecordComponent;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,12 +52,8 @@ class JobRefusalTest {
     @BeforeEach
     void draw() {
         detail = Generators.letterStrings(1, 64).next();
-        first = "a-" + word() + "/" + word();
-        second = "b-" + word();
-    }
-
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
+        first = "a-" + words().next() + "/" + words().next();
+        second = "b-" + words().next();
     }
 
     /** @return a refusal of the reason, with the detail and the changed paths its reason carries */

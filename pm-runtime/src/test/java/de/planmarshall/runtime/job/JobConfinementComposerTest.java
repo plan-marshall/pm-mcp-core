@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -20,7 +21,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,13 +70,9 @@ class JobConfinementComposerTest {
         cache = absolute();
     }
 
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     /** @return a generated absolute path outside the runtime base and the project */
     private static Path absolute() {
-        return Path.of("/home", word(), "." + word(), word());
+        return Path.of("/home", words().next(), "." + words().next(), words().next());
     }
 
     /** @return a generated job id of that kind */
@@ -276,7 +272,7 @@ class JobConfinementComposerTest {
         void writePathUnderBase() {
             var job = jobId(JobId.Kind.BUILD);
             var enrolment = ConfinementFixture.enrolment(project, null,
-                    List.of(base.resolve(word()).toString()), Map.of(), List.of());
+                    List.of(base.resolve(words().next()).toString()), Map.of(), List.of());
             var confinementComposer = composer();
 
             assertThrows(IllegalArgumentException.class,
@@ -288,7 +284,7 @@ class JobConfinementComposerTest {
         @DisplayName("a write path under ~/.plan-marshall is refused")
         void writePathUnderPlanMarshall() {
             var job = jobId(JobId.Kind.BUILD);
-            var protectedPath = Path.of(System.getProperty("user.home"), ".plan-marshall", word()).toString();
+            var protectedPath = Path.of(System.getProperty("user.home"), ".plan-marshall", words().next()).toString();
             var enrolment = ConfinementFixture.enrolment(project, null, List.of(protectedPath), Map.of(), List.of());
             var confinementComposer = composer();
 
@@ -304,7 +300,7 @@ class JobConfinementComposerTest {
             var confinementComposer = new JobConfinementComposer(traversed, TMP, DEV, Optional.empty());
             var job = jobId(JobId.Kind.BUILD);
             var enrolment = ConfinementFixture.enrolment(project, null,
-                    List.of(base.resolve(word()).toString()), Map.of(), List.of());
+                    List.of(base.resolve(words().next()).toString()), Map.of(), List.of());
 
             assertThrows(IllegalArgumentException.class,
                     () -> confinementComposer.forJob(enrolment, job, List.of(), false),

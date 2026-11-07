@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.failures;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,7 +20,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -65,21 +66,12 @@ class BuildOutputParserTest {
     private static final Outcome FAILED = new Outcome(Fate.FAILED, 9);
     private static final Outcome FAILED_UNPARSED = new Outcome(Fate.FAILED_UNPARSED, 10);
 
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     private static String maven() {
-        return "maven:" + word();
+        return "maven:" + words().next();
     }
 
     private static String npm() {
-        return "npm:" + word() + "@" + word();
-    }
-
-    /** @return a generated non-zero exit code */
-    private static int failing() {
-        return Generators.integers(1, 255).next();
+        return "npm:" + words().next() + "@" + words().next();
     }
 
     /** @return a Maven compiler error line over a generated Java file and position */
@@ -125,13 +117,13 @@ class BuildOutputParserTest {
         assertAll(
                 () -> assertEquals(1, parse.diagnostics(), "the compiler error was located"),
                 () -> assertTrue(parse.contradictingEvidence(), "the error contradicts a success"),
-                () -> assertEquals(FAILED, outcome(parse, failing()), "a parsed Maven error decides failed"));
+                () -> assertEquals(FAILED, outcome(parse, failures().next()), "a parsed Maven error decides failed"));
     }
 
     @Test
     @DisplayName("a Gradle BUILD SUCCESSFUL log decides succeeded")
     void gradleSuccess() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, "gradle:" + word()),
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, "gradle:" + words().next()),
                 "BUILD SUCCESSFUL in " + Generators.integers(1, 999).next() + "s\n");
 
         assertEquals(SUCCEEDED, outcome(parse, 0), "a Gradle success log decides succeeded");
@@ -147,7 +139,7 @@ class BuildOutputParserTest {
 
         assertAll(
                 () -> assertEquals(1, parse.diagnostics(), "the npm error block was filed once"),
-                () -> assertEquals(FAILED, outcome(parse, failing()), "an npm error log decides failed"));
+                () -> assertEquals(FAILED, outcome(parse, failures().next()), "an npm error log decides failed"));
     }
 
     @Test
@@ -159,7 +151,7 @@ class BuildOutputParserTest {
 
         assertAll(
                 () -> assertEquals(1, parse.diagnostics(), "the tsc error was located"),
-                () -> assertEquals(FAILED, outcome(parse, failing()), "a TypeScript error decides failed"));
+                () -> assertEquals(FAILED, outcome(parse, failures().next()), "a TypeScript error decides failed"));
     }
 
     @Test
@@ -174,7 +166,7 @@ class BuildOutputParserTest {
 
         assertAll(
                 () -> assertEquals(1, parse.diagnostics(), "the ESLint row was located"),
-                () -> assertEquals(FAILED, outcome(parse, failing()), "an ESLint error decides failed"));
+                () -> assertEquals(FAILED, outcome(parse, failures().next()), "an ESLint error decides failed"));
     }
 
     @Test
@@ -206,7 +198,7 @@ class BuildOutputParserTest {
 
         assertAll(
                 () -> assertTrue(parse.diagnostics() > 0, "the failed test was located"),
-                () -> assertEquals(FAILED, outcome(parse, failing()), "a failed Jest test decides failed"));
+                () -> assertEquals(FAILED, outcome(parse, failures().next()), "a failed Jest test decides failed"));
     }
 
     @Test
@@ -225,13 +217,13 @@ class BuildOutputParserTest {
 
         assertAll(
                 () -> assertTrue(parse.diagnostics() > 0, "the failed test was located"),
-                () -> assertEquals(FAILED, outcome(parse, failing()), "a failed TAP test decides failed"));
+                () -> assertEquals(FAILED, outcome(parse, failures().next()), "a failed TAP test decides failed"));
     }
 
     @Test
     @DisplayName("a pyproject failure decides failed and a passed summary decides succeeded")
     void pyproject() {
-        var budgetKey = "pyproject:" + word();
+        var budgetKey = "pyproject:" + words().next();
         var failure = PARSER.parse(job(JobId.Kind.BUILD, budgetKey), """
                 FAILED tests/test_a.py::test_x - AssertionError: x
                 1 failed in 0.10s
@@ -239,7 +231,7 @@ class BuildOutputParserTest {
         var success = PARSER.parse(job(JobId.Kind.BUILD, budgetKey), "===== 1 passed in 0.10s =====\n");
 
         assertAll(
-                () -> assertEquals(FAILED, outcome(failure, failing()), "a pytest failure decides failed"),
+                () -> assertEquals(FAILED, outcome(failure, failures().next()), "a pytest failure decides failed"),
                 () -> assertTrue(success.successMarker(), "the pytest passed summary is the positive marker"),
                 () -> assertEquals(SUCCEEDED, outcome(success, 0), "a pytest passed summary succeeds"));
     }
@@ -276,7 +268,7 @@ class BuildOutputParserTest {
         assertAll(
                 () -> assertEquals(ParseResult.NOTHING, parse, "an unrecognised log parses to nothing"),
                 () -> assertEquals(INDETERMINATE, outcome(parse, 0), "nothing with exit 0 is indeterminate"),
-                () -> assertEquals(FAILED_UNPARSED, outcome(parse, failing()),
+                () -> assertEquals(FAILED_UNPARSED, outcome(parse, failures().next()),
                         "nothing with a failing exit is unparsed"));
     }
 
@@ -285,7 +277,7 @@ class BuildOutputParserTest {
     @ValueSource(strings = {"cargo", "make"})
     @DisplayName("a key of an unknown build system yields nothing")
     void unknownBuildSystem(String buildSystem) {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, buildSystem + ":" + word()), mavenError() + "\n");
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, buildSystem + ":" + words().next()), mavenError() + "\n");
 
         assertEquals(ParseResult.NOTHING, parse, "an unknown build system parses to nothing");
     }
@@ -306,7 +298,7 @@ class BuildOutputParserTest {
     private static JobRecord job(JobId.Kind kind, String budgetKey) {
         var digest = RuntimeGenerators.sha256Digests();
         return JobRecord.builder().jobId(new JobId(kind.prefix() + "-" + digest.next().substring(0, 16)))
-                .execution(Execution.PROCESS).scope(new Scope(Scope.Type.PLAN, "plan-" + word()))
+                .execution(Execution.PROCESS).scope(new Scope(Scope.Type.PLAN, "plan-" + words().next()))
                 .budgetKey(budgetKey).budgetSeconds(Generators.integers(10, 3600).next())
                 .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
                 .argvDigest(digest.next()).status(Status.RUNNING).confinement(Confinement.CONFINED)
@@ -342,7 +334,7 @@ class BuildOutputParserTest {
 
             assertAll(
                     () -> assertEquals(1, parse.diagnostics(), "the stripped npm error block is filed"),
-                    () -> assertEquals(FAILED, outcome(parse, failing()), "a colour-coded npm error fails"));
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "a colour-coded npm error fails"));
         }
     }
 }

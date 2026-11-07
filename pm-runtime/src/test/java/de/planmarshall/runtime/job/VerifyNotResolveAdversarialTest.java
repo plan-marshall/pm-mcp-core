@@ -14,6 +14,7 @@ import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.WRAPPER_PROPERTIES;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -114,11 +115,6 @@ class VerifyNotResolveAdversarialTest {
         return new HostToolCall(HostToolName.GIT, List.of(arguments));
     }
 
-    /** @return a generated word of lower-case letters, which holds no shell metacharacter */
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     @Nested
     @DisplayName("a tampered wrapper is refused as build_config_changed, naming the changed file")
     class TamperedWrapper {
@@ -187,7 +183,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("a host tool missing from the enrolment is refused as executable_not_enrolled")
         void notEnrolled() {
-            var refusal = refused(verify(new HostToolCall(HostToolName.GH, List.of(word(), word()))));
+            var refusal = refused(verify(new HostToolCall(HostToolName.GH, List.of(words().next(), words().next()))));
 
             assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(), "a missing host tool is not enrolled");
         }
@@ -197,14 +193,14 @@ class VerifyNotResolveAdversarialTest {
         void replacedBinary() throws Exception {
             Files.write(fixture.tools.get(HostToolName.GIT), JobEnrolmentFixture.randomContent());
 
-            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(verify(git(word()))).reason(),
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(verify(git(words().next()))).reason(),
                     "a replaced binary is a digest mismatch");
         }
 
         @Test
         @DisplayName("positive control: an enrolled, unchanged host tool of the same enrolment is verified")
         void enrolledTool() {
-            var argument = word();
+            var argument = words().next();
 
             var job = verified(verify(git(argument)));
 
@@ -222,8 +218,8 @@ class VerifyNotResolveAdversarialTest {
 
         @BeforeEach
         void enrol() {
-            required = "required-" + word();
-            unbounded = "unbounded-" + word();
+            required = "required-" + words().next();
+            unbounded = "unbounded-" + words().next();
             var properties = new TreeMap<String, ArgumentSchema>();
             properties.put(required, new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z-]+$",
                     null, null, 32L));
@@ -248,7 +244,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("a shell metacharacter (attack payload) in a host tool call")
         void metacharacter() {
-            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(git(word(), "a;id"))).reason(),
+            assertEquals(Reason.ARGUMENT_REJECTED, refused(verify(git(words().next(), "a;id"))).reason(),
                     "a metacharacter is argument_rejected");
         }
 
@@ -264,7 +260,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("project script arguments that violate the enrolled schema")
         void schemaViolation() {
-            var violating = Generators.letterStrings(1, 8).next().toUpperCase(Locale.ROOT) + " " + word();
+            var violating = Generators.letterStrings(1, 8).next().toUpperCase(Locale.ROOT) + " " + words().next();
 
             var refusal = refused(verify(script(Fields.of(Map.of(required, new Text(violating))))));
 
@@ -280,7 +276,7 @@ class VerifyNotResolveAdversarialTest {
         void unboundedPatternConstraint() {
             var hostile = "a".repeat(64) + "!";
 
-            var refusal = refused(verify(script(Fields.of(Map.of(required, new Text(word()), unbounded,
+            var refusal = refused(verify(script(Fields.of(Map.of(required, new Text(words().next()), unbounded,
                     new Text(hostile))))));
 
             assertAll(
@@ -321,7 +317,7 @@ class VerifyNotResolveAdversarialTest {
         void interpreterThroughProjectScript() {
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
                             fixture.root.resolve(SCRIPT_PATH).toString()),
-                    verified(verify(script(Fields.of(Map.of(required, new Text(word())))))).argv(),
+                    verified(verify(script(Fields.of(Map.of(required, new Text(words().next())))))).argv(),
                     "python3 runs the enrolled project script");
         }
 
@@ -335,8 +331,8 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("positive control: a host tool call with ordinary flags is verified")
         void ordinaryHostToolArguments() {
-            var subcommand = word();
-            var flag = "-" + word();
+            var subcommand = words().next();
+            var flag = "-" + words().next();
 
             assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), subcommand, flag),
                     verified(verify(git(subcommand, flag))).argv(), "ordinary flags pass into the argv");
@@ -345,7 +341,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("positive control: project script arguments that conform to the schema are verified")
         void conformingScriptArguments() {
-            var job = verified(verify(script(Fields.of(Map.of(required, new Text(word()))))));
+            var job = verified(verify(script(Fields.of(Map.of(required, new Text(words().next()))))));
 
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
                     fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
@@ -363,8 +359,8 @@ class VerifyNotResolveAdversarialTest {
         }
 
         private void assertTraversalRejected(String workingDirectory) {
-            assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refused(verify(workingDirectory, git(word()))).reason(),
-                    "the directory is path_traversal_rejected");
+            assertEquals(Reason.PATH_TRAVERSAL_REJECTED,
+                    refused(verify(workingDirectory, git(words().next()))).reason(), "the directory is path_traversal_rejected");
         }
 
         @Test
@@ -376,7 +372,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("a symbolic link from the tree to a directory outside it")
         void symlinkEscape() throws Exception {
-            var link = "escape-" + word();
+            var link = "escape-" + words().next();
             Files.createSymbolicLink(fixture.root.resolve(link), fixture.beside);
 
             assertTraversalRejected(link);
@@ -391,7 +387,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("positive control: the enrolled root is verified as the working directory")
         void enrolledRoot() {
-            assertEquals(fixture.root, verified(verify(git(word()))).workingDirectory(),
+            assertEquals(fixture.root, verified(verify(git(words().next()))).workingDirectory(),
                     "the enrolled root is the working directory");
         }
 
@@ -399,7 +395,7 @@ class VerifyNotResolveAdversarialTest {
         @DisplayName("positive control: a live linked worktree of the project is verified as the working directory")
         void liveWorktree() {
             assertEquals(fixture.worktree,
-                    verified(verify(fixture.worktree.toString(), git(word()))).workingDirectory(),
+                    verified(verify(fixture.worktree.toString(), git(words().next()))).workingDirectory(),
                     "the live worktree is the working directory");
         }
     }
@@ -419,7 +415,7 @@ class VerifyNotResolveAdversarialTest {
             Files.write(fixture.store.file(fixture.project),
                     "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
 
-            var refusal = refused(verify(git(word())));
+            var refusal = refused(verify(git(words().next())));
 
             assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason(), "a rewritten file is enrolment_tampered");
         }
@@ -427,7 +423,7 @@ class VerifyNotResolveAdversarialTest {
         @Test
         @DisplayName("positive control: the untouched enrolment file verifies the same job")
         void untouched() {
-            assertEquals(fixture.root, verified(verify(git(word()))).workingDirectory(),
+            assertEquals(fixture.root, verified(verify(git(words().next()))).workingDirectory(),
                     "the untouched enrolment verifies the job");
         }
     }

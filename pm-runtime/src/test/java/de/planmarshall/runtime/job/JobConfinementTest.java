@@ -9,13 +9,12 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -31,17 +30,13 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Job confinement")
 class JobConfinementTest {
 
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
-    }
-
     @Test
     @DisplayName("the launcher arguments are the options with their sorted, normalized paths")
     void launcherArguments() {
-        var first = "/a-" + word();
-        var second = "/b-" + word() + "/" + word();
-        var read = "/" + word() + "/" + word();
-        var denied = "/" + word();
+        var first = "/a-" + words().next();
+        var second = "/b-" + words().next() + "/" + words().next();
+        var read = "/" + words().next() + "/" + words().next();
+        var denied = "/" + words().next();
         var confinement = new JobConfinement(
                 List.of(Path.of(second + "/../" + Path.of(second).getFileName()), Path.of(first), Path.of(first)),
                 List.of(Path.of(read)),

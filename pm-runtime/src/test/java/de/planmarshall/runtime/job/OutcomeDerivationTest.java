@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.failures;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -73,11 +74,6 @@ class OutcomeDerivationTest {
 
     private static ProcessEnded exited(Kind kind, int code, ParseResult parse) {
         return process(kind, null, new Exited(code), LogState.READABLE, parse);
-    }
-
-    /** @return a generated non-zero exit code */
-    private static int failing() {
-        return Generators.integers(1, 255).next();
     }
 
     /** @return a parse result with a generated, positive number of diagnostics and contradicting evidence */
@@ -173,8 +169,8 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("a cancel decides over a non-zero exit with diagnostics")
         void cancelOverFailure() {
-            var evidence = process(Kind.BUILD, Termination.ENGINE_CANCEL, new Exited(failing()), LogState.READABLE,
-                    diagnostics());
+            var evidence = process(Kind.BUILD, Termination.ENGINE_CANCEL, new Exited(failures().next()),
+                    LogState.READABLE, diagnostics());
 
             assertEquals(new Outcome(Fate.CANCELLED, 2), OutcomeDerivation.derive(evidence),
                     "the cancel decides over the failure");
@@ -247,8 +243,8 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("a worker with an unreliable exit code is decided by its final result event")
         void unreliableWorker() {
-            var withResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(failing()), LogState.READABLE,
-                    SUCCESS, Set.of(), false);
+            var withResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(failures().next()),
+                    LogState.READABLE, SUCCESS, Set.of(), false);
             var withoutResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(0), LogState.READABLE,
                     NO_MARKER, Set.of(), false);
 
@@ -270,7 +266,7 @@ class OutcomeDerivationTest {
                 "PROBE, FAILED"})
         @DisplayName("a non-zero exit without a diagnostic is failed_unparsed for a build job only")
         void failedUnparsed(Kind kind, Fate fate) {
-            assertEquals(new Outcome(fate, 10), OutcomeDerivation.derive(exited(kind, failing(), NO_MARKER)),
+            assertEquals(new Outcome(fate, 10), OutcomeDerivation.derive(exited(kind, failures().next(), NO_MARKER)),
                     "a bare non-zero exit decides row 10");
         }
 

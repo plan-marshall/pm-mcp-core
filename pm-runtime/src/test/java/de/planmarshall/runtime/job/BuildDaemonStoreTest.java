@@ -9,17 +9,16 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,11 +57,7 @@ class BuildDaemonStoreTest {
 
     /** @return a generated absolute path whose first segment starts with the prefix */
     private static Path absolute(String prefix) {
-        return Path.of("/", prefix + word(), word());
-    }
-
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
+        return Path.of("/", prefix + words().next(), words().next());
     }
 
     private List<Path> writeSet() {
@@ -113,7 +108,7 @@ class BuildDaemonStoreTest {
     @DisplayName("a relative base is refused")
     void relativeBase() {
         var paths = writeSet();
-        var relativeBase = Path.of(word());
+        var relativeBase = Path.of(words().next());
         var project = CoreGenerators.projectEnrolments().next().projectId();
 
         assertThrows(IllegalArgumentException.class, () -> BuildDaemonStore.path(relativeBase, project, paths),

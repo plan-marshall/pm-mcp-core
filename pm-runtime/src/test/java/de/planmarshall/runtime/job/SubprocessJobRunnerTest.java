@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.sha256Digests;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
@@ -1532,7 +1533,7 @@ class SubprocessJobRunnerTest {
             var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
                     .scope(new Scope(Scope.Type.MACHINE, null))
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
-                    .argvDigest("ab".repeat(32)).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of());
@@ -1577,7 +1578,7 @@ class SubprocessJobRunnerTest {
             var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
                     .scope(new Scope(Scope.Type.MACHINE, null))
                     .status(Status.RUNNING).budgetKey(BUDGET_KEY).budgetSeconds(30).budgetDerivation(FLOOR)
-                    .argvDigest("ab".repeat(32)).confinement(JobRecord.Confinement.UNAVAILABLE)
+                    .argvDigest(sha256Digests().next()).confinement(JobRecord.Confinement.UNAVAILABLE)
                     .createdAt(Instant.now()).clampedValues(List.of()).build();
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
                     Set.of());
@@ -1620,7 +1621,7 @@ class SubprocessJobRunnerTest {
             var jobId = JobId.random(JobId.Kind.PROBE);
             var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
                     .scope(new Scope(Scope.Type.MACHINE, null)).status(Status.RUNNING).budgetKey(BUDGET_KEY)
-                    .budgetSeconds(30).budgetDerivation(FLOOR).argvDigest("ab".repeat(32))
+                    .budgetSeconds(30).budgetDerivation(FLOOR).argvDigest(sha256Digests().next())
                     .confinement(JobRecord.Confinement.UNAVAILABLE).createdAt(Instant.now())
                     .clampedValues(List.of()).build();
             var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),

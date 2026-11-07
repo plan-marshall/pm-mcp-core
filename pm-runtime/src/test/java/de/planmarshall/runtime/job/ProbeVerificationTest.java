@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.randomContent;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.sha256;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -74,7 +75,7 @@ class ProbeVerificationTest {
     @BeforeEach
     void setUp() throws IOException {
         var root = temporary.toRealPath();
-        entry = new Scope(Scope.Type.ENTRY, "entry-" + word());
+        entry = new Scope(Scope.Type.ENTRY, "entry-" + words().next());
         executable = Files.write(root.resolve("probe"), randomContent());
         interpreter = Files.write(root.resolve("interpreter"), randomContent());
         checkout = Files.createDirectories(root.resolve("checkout"));
@@ -83,10 +84,6 @@ class ProbeVerificationTest {
                 .resolve("v-" + RuntimeGenerators.sha256Digests().next().substring(0, 16)).resolve("cwd"));
         outside = Files.createDirectories(root.resolve("outside"));
         arguments = List.of("--" + Generators.letterStrings(3, 10).next());
-    }
-
-    private static String word() {
-        return Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT);
     }
 
     private ProbeCandidate candidate(Scope scope, ProbeCandidate.WorkingDirectory workingDirectory) {
@@ -190,7 +187,7 @@ class ProbeVerificationTest {
         @Test
         @DisplayName("a symbolic link in the checkout that escapes it")
         void symlinkEscape() throws Exception {
-            var link = Files.createSymbolicLink(checkout.resolve(word()), outside);
+            var link = Files.createSymbolicLink(checkout.resolve(words().next()), outside);
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, link, jobPrivate));
 
@@ -200,7 +197,7 @@ class ProbeVerificationTest {
         @Test
         @DisplayName("a symbolic link that resolves to the checkout root itself")
         void symlinkToRoot() throws Exception {
-            var link = Files.createSymbolicLink(outside.resolve(word()), checkout);
+            var link = Files.createSymbolicLink(outside.resolve(words().next()), checkout);
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, link, jobPrivate));
 
@@ -234,7 +231,7 @@ class ProbeVerificationTest {
         @Test
         @DisplayName("a working directory that does not exist")
         void missing() {
-            var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, checkout.resolve(word()),
+            var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, checkout.resolve(words().next()),
                     jobPrivate));
 
             assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason(), "a missing directory is refused");
@@ -290,9 +287,9 @@ class ProbeVerificationTest {
         @DisplayName("names its files by absolute path and lower-case SHA-256")
         void digestedFile() {
             var digest = sha256(executable);
-            var relativeProbe = Path.of(word());
+            var relativeProbe = Path.of(words().next());
             var upperCaseDigest = digest.toUpperCase(Locale.ROOT);
-            var relativeCheckout = Path.of(word());
+            var relativeCheckout = Path.of(words().next());
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new DigestedFile(relativeProbe, digest),
