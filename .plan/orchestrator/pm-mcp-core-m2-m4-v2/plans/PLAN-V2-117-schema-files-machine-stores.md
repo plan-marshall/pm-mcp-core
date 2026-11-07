@@ -2,9 +2,9 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again).
 > Lives at `plans/PLAN-V2-117-schema-files-machine-stores.md` and is queued as one row file, `queue/PLAN-V2-117.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names and the package file
@@ -43,9 +43,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **A move only:** each file is the former block's text byte for byte; no member added or removed.
 - **`pm-runtime` rules apply:** R14 and R16 for any durable protocol or fact the new tests touch; the plan changes test sources and resources only in `pm-runtime`.
 - **Overlap with the family:** `CredentialStoreMoveRecordParityTest` lies in `pm-runtime/.../credentials/`, which PLAN-V2-91 (`runtime-tests-workers-and-endpoints`) converts; this plan runs before PLAN-V2-91 (operator decision 2026-11-06: the transition goes ahead of the family wherever the surfaces allow).
-- **Sonar:** where the plan lifecycle's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
+- **Sonar:** where the lane's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
 - **No dependency or plugin is added.**
-- **The landing message:** this plan is started with a spec path, so no `emit-landing` runs; write the landing message to the epic inbox by hand as the last step (`inbox write --kind landing`), with the `landing-facts` block, the standing-rule revision and rule ids, and the open items.
+- **The landing message:** the lane files it (`landing-check`); it carries the standing-rule revision and rule ids and the open items, and names `spec_source` and `spec_differ`.
 
 ## Claim Labels
 
@@ -81,7 +81,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-117-schema-files-machine-stores.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-117-schema-files-machine-stores.md
 ```
 
 ## Write-Boundary
