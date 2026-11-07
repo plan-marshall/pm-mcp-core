@@ -49,7 +49,7 @@ class ForgeUrlTest {
 
         var resolution = ForgeUrl.resolve("https://github.com/%s/%s/issues/%d".formatted(owner, name, number));
 
-        assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the pull request URL is resolved");
+        assertEquals(ForgeUrl.Outcome.RESOLVED, resolution.outcome(), "the issue URL is resolved");
         var url = resolution.url().orElseThrow();
         assertAll("the resolved source",
                 () -> assertEquals("github", url.forge(), "the resolved forge is github"),

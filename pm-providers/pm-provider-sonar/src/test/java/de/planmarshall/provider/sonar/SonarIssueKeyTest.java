@@ -53,7 +53,7 @@ class SonarIssueKeyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {" ", "\t", "\n", "\u0000", " ", " ", " "})
+    @ValueSource(strings = {" ", "\t", "\n", "\u0000", "\u00A0", "\u2007", "\u202F"})
     @DisplayName("refuses a key that holds white space or a control character (the characters are the grammar)")
     void refuses(String separator) {
         var value = segment() + separator + segment();

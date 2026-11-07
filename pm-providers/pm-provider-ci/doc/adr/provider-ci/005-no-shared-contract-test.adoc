@@ -18,8 +18,8 @@ Two adapters implement `CiProvider`, and a shared abstract test class published 
 same contract in one place: the registry, the value invariants and the origin check, each asserted once.
 
 The repository publishes six `tests`-classified test JARs — `pm-core`, `pm-provider-http`, `pm-workflow`,
-`pm-runtime`, `pm-provider-ci` and `pm-provider-git` — because a consumer's tests reuse their generators or fixtures
-(CLAUDE.md § Generator Artifacts). When this decision was first taken a test JAR of `pm-provider-ci` would have been
+`pm-runtime`, `pm-provider-ci` and `pm-provider-git` — because the generators or fixtures they carry are reused by tests —
+a consumer's, or the module's own (CLAUDE.md § Generator Artifacts). When this decision was first taken a test JAR of `pm-provider-ci` would have been
 the fifth, and the standing constraint of the plan said a test JAR of this module is a dependency change that needs
 the operator's word. The operator gave it on 2026-11-06 (PLAN-V2-92) for a generator-only artifact: a provider module
 that needs a generator for its own type in two or more of its own test classes publishes it.

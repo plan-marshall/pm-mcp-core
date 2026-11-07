@@ -24,8 +24,9 @@ The dependency rules of the repository decide who may consume which artifact: `p
 
 == Decision
 
-Each module that provides generators useful to another module publishes its test scope as a `tests`-classified test
-JAR, built by `verify` and deployed like every other artifact of the repository. The artifact holds the package
+Each module that provides generators useful to another module, or that needs a generator for one of its own types in two
+or more of its own test classes (the amendment of 2026-11-06 under Consequences), publishes its test scope as a
+`tests`-classified test JAR, built by `verify` and deployed like every other artifact of the repository. The artifact holds the package
 `de.planmarshall.<module>.testing.generators` with one `TypedGenerator<T>` per domain type, named `<Type>Generator`,
 and one factory class per artifact (`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`,
 `CiGenerators`, `GitGenerators`) that registers the generators in one place. The framework's `@GeneratorsSource` selects only the built-in `GeneratorType`

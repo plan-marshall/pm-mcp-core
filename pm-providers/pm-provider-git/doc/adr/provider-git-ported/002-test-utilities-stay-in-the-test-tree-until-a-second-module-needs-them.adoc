@@ -20,7 +20,8 @@ every module that uses it, and no dependency or plugin is added without the user
 
 The fixture loader `PortedFixtures`, the scenario runner `WorktreeShaScenario` and the comparison helper
 `DigestRelations` are package-private classes of the test package `de.planmarshall.provider.git.ported` in the test
-tree of `pm-provider-git`. The module builds no test JAR, and no `pom.xml` changes. `PortedFixtures` takes the fixture
+tree of `pm-provider-git`. The utilities are not part of any test JAR: the module publishes `pm-provider-git:tests` since 2026-11-06 (PLAN-V2-92,
+ADR 012), but that artifact carries only the generator package `de.planmarshall.provider.git.testing.generators`. `PortedFixtures` takes the fixture
 directory and the grammar of a primitive as arguments, so a further primitive of this module reuses it.
 
 The utilities move into a shared test JAR when a primitive of another module needs them; the location and the build
