@@ -19,13 +19,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
+import de.cuioss.test.mockwebserver.URIBuilder;
+import de.cuioss.test.mockwebserver.dispatcher.HttpMethodMapper;
+import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcher;
+import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcherElement;
 import java.io.IOException;
-import java.net.Inet6Address;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,11 +39,12 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import mockwebserver3.Dispatcher;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
@@ -50,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -77,49 +84,102 @@ import de.planmarshall.core.role.corpus.SourceRepository;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
- * The Git LFS object download (PM-WORK-6, PM-EXEC-5) against a mock web server with its own dispatcher: the batch
- * request and the download of its action, the outcomes of an endpoint that lacks the object or does not answer, and
- * delivered bytes that are not the pointer's object, which the import's hash check refuses so the run fails.
+ * The Git LFS object download (PM-WORK-6, PM-EXEC-5) against a mock web server: the batch request and the download
+ * of its action, the outcomes of an endpoint that lacks the object or does not answer, and delivered bytes that are
+ * not the pointer's object, which the import's hash check refuses so the run fails.
+ * <p>
+ * Every request is answered by one response primed per test into the {@link ModuleDispatcherElement} of
+ * {@link #dispatcher()}, keyed by method and request target, so a request for a wrong path gets no answer; each
+ * nested group returns that one element from its own {@code getModuleDispatcher()}. Contract literals, kept by
+ * design: the Git LFS batch API ({@code .git/info/lfs/objects/batch}, {@code application/vnd.git-lfs+json}, the
+ * field names, {@code basic}, {@code download}, {@code sha256}); the {@code /objects/{oid}} download path of the
+ * test; the status codes; the header-injection values and the refused URL shapes; the user information of a refused
+ * URL; the {@code RemoteAuth} scheme and the {@code s3cret} marker every secret of the test carries, so no detail and
+ * no log line may hold it; the wording of the details; the Persian locale; the fixed fields of the overlay row. The
+ * object and its pointer, the repository and the commit are generated.
  */
 @EnableMockWebServer
+@EnableGeneratorController
 @EnableTestLogger
+@ModuleDispatcher
 @DisplayName("LfsBatchClient")
 class LfsBatchClientTest {
 
-    private static final byte[] OBJECT = """
-            {"diff":"rename the field"}
-            {"diff":"drop the null check"}
-            """.getBytes(UTF_8);
-    private static final LfsPointer POINTER = new LfsPointer(Sha256.hex(OBJECT), OBJECT.length);
-    private static final String REPOSITORY_PATH = "/example/beta";
-    private static final String BATCH = REPOSITORY_PATH + ".git" + LfsBatchClient.BATCH_PATH;
-    private static final String OBJECT_PATH = "/objects/" + POINTER.oid();
-    private static final String ACTION_SECRET = "RemoteAuth action-s3cret";
-    private static final MockResponse NOT_FOUND = new MockResponse.Builder().code(404).build();
-    /** Stands for the batch answer naming the download, which carries the port of the mock web server. */
-    private static final String ANSWER = "ANSWER";
+    /** The marker every secret of the test carries (contract: no detail and no log line may hold it). */
+    private static final String SECRET_MARKER = "s3cret";
 
-    /** Canned responses by {@code METHOD target}, each answering one request; anything else is answered 404. */
-    private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
+    /** Canned responses by {@code METHOD target}; each answers one request, in the order they were primed. */
+    private final Map<String, Deque<MockResponse>> routes = new ConcurrentHashMap<>();
     private MockWebServer server;
+    private String base;
+    private String repositoryPath;
+    private byte[] object;
+    private LfsPointer pointer;
+    private String actionSecret;
     private LfsBatchClient client;
 
-    @BeforeEach
-    void start(MockWebServer mockWebServer) {
-        server = mockWebServer;
-        server.setDispatcher(new Dispatcher() {
+    /** Answers a GET or POST with the next response primed for its method and target; anything else gets none. */
+    ModuleDispatcherElement dispatcher() {
+        return new ModuleDispatcherElement() {
             @Override
-            public MockResponse dispatch(RecordedRequest request) {
-                Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
-                MockResponse next = queue == null ? null : queue.poll();
-                return next == null ? NOT_FOUND : next;
+            public String getBaseUrl() {
+                return "/";
             }
-        });
+
+            @Override
+            public Optional<MockResponse> handleGet(RecordedRequest request) {
+                return next(request);
+            }
+
+            @Override
+            public Optional<MockResponse> handlePost(RecordedRequest request) {
+                return next(request);
+            }
+
+            @Override
+            public Set<HttpMethodMapper> supportedMethods() {
+                return Set.of(HttpMethodMapper.GET, HttpMethodMapper.POST);
+            }
+        };
+    }
+
+    private Optional<MockResponse> next(RecordedRequest request) {
+        Deque<MockResponse> queue = routes.get(request.getMethod() + " " + request.getTarget());
+        return Optional.ofNullable(queue == null ? null : queue.poll());
+    }
+
+    ModuleDispatcherElement getModuleDispatcher() {
+        return dispatcher();
+    }
+
+    @BeforeEach
+    void start(MockWebServer mockWebServer, URIBuilder uriBuilder) {
+        server = mockWebServer;
+        URI root = uriBuilder.build();
+        base = root.getScheme() + "://" + root.getHost() + ":" + root.getPort();
+        repositoryPath = "/" + word() + "/" + word();
+        object = ("{\"diff\":\"" + word() + " " + word() + "\"}\n{\"diff\":\"" + word() + " " + word() + "\"}\n")
+                .getBytes(UTF_8);
+        pointer = new LfsPointer(Sha256.hex(object), object.length);
+        actionSecret = "RemoteAuth " + word() + "-" + SECRET_MARKER;
         client = new LfsBatchClient(true, 2, 1);
     }
 
+    /** @return a generated lower-case word, safe in a URL path and a JSON string */
+    private static String word() {
+        return Generators.letterStrings(4, 12).next().toLowerCase(Locale.ROOT);
+    }
+
     private void on(String method, String target, MockResponse response) {
-        responses.computeIfAbsent(method + " " + target, k -> new ConcurrentLinkedDeque<>()).add(response);
+        routes.computeIfAbsent(method + " " + target, k -> new ConcurrentLinkedDeque<>()).add(response);
+    }
+
+    private String batch() {
+        return repositoryPath + ".git" + LfsBatchClient.BATCH_PATH;
+    }
+
+    private String objectPath() {
+        return "/objects/" + pointer.oid();
     }
 
     private static MockResponse lfsJson(int status, String body) {
@@ -135,22 +195,17 @@ class LfsBatchClientTest {
     private String batchAnswer() {
         return String.format(Locale.ROOT, """
                 {"transfer":"basic","objects":[{"oid":"%s","size":%d,"actions":{"download":{"href":"%s",\
-                "header":{"Authorization":"%s"}}}}]}""", POINTER.oid(), POINTER.size(), base() + OBJECT_PATH,
-                ACTION_SECRET);
+                "header":{"Authorization":"%s"}}}}]}""", pointer.oid(), pointer.size(), base + objectPath(),
+                actionSecret);
     }
 
-    private void serves(byte[] object) {
-        on("POST", BATCH, lfsJson(200, batchAnswer()));
-        on("GET", OBJECT_PATH, bytes(object));
-    }
-
-    private String base() {
-        var host = server.getSocketAddress().getAddress() instanceof Inet6Address ? "[::1]" : "127.0.0.1";
-        return "http://" + host + ":" + server.getPort();
+    private void serves(byte[] delivered) {
+        on("POST", batch(), lfsJson(200, batchAnswer()));
+        on("GET", objectPath(), bytes(delivered));
     }
 
     private URI repository() {
-        return URI.create(base() + REPOSITORY_PATH);
+        return URI.create(base + repositoryPath);
     }
 
     private RecordedRequest nextRequest() throws InterruptedException {
@@ -164,6 +219,13 @@ class LfsBatchClientTest {
                 WARN.CORPUS_LFS_OBJECT_UNAVAILABLE.resolveIdentifierString());
     }
 
+    private static void assertNoLogLineHolds(String value) {
+        for (var level : TestLogLevel.values()) {
+            assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, value).isEmpty(),
+                    "no " + level + " line holds the value");
+        }
+    }
+
     @Nested
     @DisplayName("under a default locale with non-Latin digits")
     class NonLatinDigits {
@@ -171,6 +233,10 @@ class LfsBatchClientTest {
         private static final Locale PERSIAN = Locale.forLanguageTag("fa-IR");
 
         private Locale previous;
+
+        ModuleDispatcherElement getModuleDispatcher() {
+            return dispatcher();
+        }
 
         @BeforeEach
         void persianDigits() {
@@ -187,27 +253,27 @@ class LfsBatchClientTest {
         @Test
         @DisplayName("the batch request writes the size in ASCII digits, so the body stays JSON")
         void batchBody() throws Exception {
-            serves(OBJECT);
+            serves(object);
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
             assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail);
-            var batch = nextRequest();
-            assertNotNull(batch.getBody(), "the batch request carries a body");
-            assertEquals("{\"operation\":\"download\",\"transfers\":[\"basic\"],\"objects\":[{\"oid\":\"" + POINTER.oid()
-                    + "\",\"size\":" + Long.toString(POINTER.size()) + "}],\"hash_algo\":\"sha256\"}",
-                    batch.getBody().utf8());
+            var request = nextRequest();
+            assertNotNull(request.getBody(), "the batch request carries a body");
+            assertEquals("{\"operation\":\"download\",\"transfers\":[\"basic\"],\"objects\":[{\"oid\":\"" + pointer.oid()
+                    + "\",\"size\":" + Long.toString(pointer.size()) + "}],\"hash_algo\":\"sha256\"}",
+                    request.getBody().utf8(), "the batch body is JSON with ASCII digits");
         }
 
         @Test
         @DisplayName("a status in a detail is written in ASCII digits")
         void statusDetail() {
-            on("POST", BATCH, lfsJson(503, "{}"));
+            on("POST", batch(), lfsJson(503, "{}"));
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
-            assertAll(
-                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
+            assertAll("the ASCII status",
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                     () -> assertTrue(fetch.detail().endsWith("answered 503"), fetch::detail));
         }
     }
@@ -216,99 +282,124 @@ class LfsBatchClientTest {
     @DisplayName("a delivered object")
     class Delivered {
 
+        ModuleDispatcherElement getModuleDispatcher() {
+            return dispatcher();
+        }
+
         @Test
         @DisplayName("is fetched through the batch request and the download of its action")
         void downloads() throws Exception {
-            serves(OBJECT);
+            serves(object);
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
-            assertAll(
+            assertAll("the fetched object",
                     () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
-                    () -> assertArrayEquals(OBJECT, fetch.content()),
-                    () -> assertEquals(2, server.getRequestCount()));
-            var batch = nextRequest();
+                    () -> assertArrayEquals(object, fetch.content(), "the object bytes are delivered"),
+                    () -> assertEquals(2, server.getRequestCount(), "a batch and a download are sent"));
+            var batchRequest = nextRequest();
             var download = nextRequest();
-            assertNotNull(batch.getBody(), "the batch request carries a body");
-            var batchBody = batch.getBody().utf8();
-            assertAll(
-                    () -> assertEquals("POST", batch.getMethod()),
-                    () -> assertEquals(BATCH, batch.getTarget()),
-                    () -> assertEquals(LfsBatchClient.MEDIA_TYPE, batch.getHeaders().get("Accept")),
-                    () -> assertTrue(batch.getHeaders().get("Content-Type").startsWith(LfsBatchClient.MEDIA_TYPE),
-                            batch.getHeaders()::toString),
+            assertNotNull(batchRequest.getBody(), "the batch request carries a body");
+            var batchBody = batchRequest.getBody().utf8();
+            assertAll("the batch request and the download",
+                    () -> assertEquals("POST", batchRequest.getMethod(), "the batch is a POST"),
+                    () -> assertEquals(batch(), batchRequest.getTarget(), "the batch API of the repository"),
+                    () -> assertEquals(LfsBatchClient.MEDIA_TYPE, batchRequest.getHeaders().get("Accept"),
+                            "the batch accepts the LFS media type"),
+                    () -> assertTrue(batchRequest.getHeaders().get("Content-Type")
+                            .startsWith(LfsBatchClient.MEDIA_TYPE), batchRequest.getHeaders()::toString),
                     () -> assertTrue(batchBody.contains("\"operation\":\"download\""), batchBody),
-                    () -> assertTrue(batchBody.contains("\"oid\":\"" + POINTER.oid() + "\""), batchBody),
-                    () -> assertEquals("GET", download.getMethod()),
-                    () -> assertEquals(OBJECT_PATH, download.getTarget()),
-                    () -> assertEquals(ACTION_SECRET, download.getHeaders().get("Authorization")));
+                    () -> assertTrue(batchBody.contains("\"oid\":\"" + pointer.oid() + "\""), batchBody),
+                    () -> assertEquals("GET", download.getMethod(), "the download is a GET"),
+                    () -> assertEquals(objectPath(), download.getTarget(), "the action's href is downloaded"),
+                    () -> assertEquals(actionSecret, download.getHeaders().get("Authorization"),
+                            "the action's header is sent with the download"));
             LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, LfsBatchClient.class);
         }
 
         @Test
         @DisplayName("hands over bytes that differ from the pointer's SHA-256 for the import's hash check")
         void mismatchingBytes() {
-            var other = OBJECT.clone();
-            other[2] = (byte) 'X';
+            var other = Tamper.CHANGED.apply(object);
             serves(other);
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
-            assertAll(
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome()),
-                    () -> assertArrayEquals(other, fetch.content()),
-                    () -> assertTrue(fetch.detail().contains("not the object " + POINTER.oid()), fetch::detail),
-                    () -> assertFalse(Sha256.matches(fetch.content(), POINTER.oid())));
+            assertAll("the mismatching bytes",
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertArrayEquals(other, fetch.content(), "the delivered bytes are handed over"),
+                    () -> assertTrue(fetch.detail().contains("not the object " + pointer.oid()), fetch::detail),
+                    () -> assertFalse(Sha256.matches(fetch.content(), pointer.oid()),
+                            "the bytes do not match the pointer"));
         }
 
         @Test
         @DisplayName("stops reading one byte beyond the pointer's size")
         void boundedBySize() {
-            var longer = (new String(OBJECT, UTF_8) + "x".repeat(4096)).getBytes(UTF_8);
+            var longer = (new String(object, UTF_8) + "x".repeat(4096)).getBytes(UTF_8);
             serves(longer);
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
-            assertAll(
-                    () -> assertEquals(Outcome.FETCHED, fetch.outcome()),
-                    () -> assertEquals(POINTER.size() + 1, fetch.content().length),
+            assertAll("the bounded read",
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(pointer.size() + 1, fetch.content().length,
+                            "reading stops one byte beyond the size"),
                     () -> assertTrue(fetch.detail().contains("served more bytes"), fetch::detail));
         }
     }
 
+    /** The batch answers of an object the endpoint does not deliver. */
+    enum BatchBody {
+        EMPTY, BRACES, OBJECT_ERROR, OTHER_OBJECT, NO_JSON, NO_ACTION, ANSWER
+    }
+
+    private String batchBody(BatchBody kind) {
+        var noAction = "{\"objects\":[{\"oid\":\"%s\",\"size\":%d}]}".formatted(pointer.oid(), pointer.size());
+        return switch (kind) {
+            case EMPTY -> "";
+            case BRACES -> "{}";
+            case OBJECT_ERROR -> "{\"objects\":[{\"oid\":\"%s\",\"size\":%d,\"error\":{\"code\":404,\"message\":\"gone\"}}]}"
+                    .formatted(pointer.oid(), pointer.size());
+            case OTHER_OBJECT -> noAction.replace(pointer.oid(), "f".repeat(64));
+            case NO_JSON -> "<html>";
+            case NO_ACTION -> noAction;
+            case ANSWER -> batchAnswer();
+        };
+    }
+
     static Stream<Arguments> unavailable() {
-        var objectError = "{\"objects\":[{\"oid\":\"%s\",\"size\":%d,\"error\":{\"code\":404,\"message\":\"gone\"}}]}"
-                .formatted(POINTER.oid(), POINTER.size());
-        var noAction = "{\"objects\":[{\"oid\":\"%s\",\"size\":%d}]}".formatted(POINTER.oid(), POINTER.size());
         return Stream.of(
-                Arguments.of("a repository without LFS endpoint (404)", 404, "", 0, Outcome.PIN_MISSING, 1),
-                Arguments.of("an endpoint that answers 503", 503, "{}", 0, Outcome.UNREACHABLE, 1),
-                Arguments.of("an object error in the batch answer", 200, objectError, 0, Outcome.PIN_MISSING, 1),
-                Arguments.of("a batch answer naming another object", 200, noAction.replace(POINTER.oid(),
-                        "f".repeat(64)), 0, Outcome.PIN_MISSING, 1),
-                Arguments.of("a batch answer that is no JSON", 200, "<html>", 0, Outcome.UNREACHABLE, 1),
-                Arguments.of("a batch answer without download action", 200, noAction, 0, Outcome.PIN_MISSING, 1),
-                Arguments.of("a download that answers 404", 200, ANSWER, 404, Outcome.PIN_MISSING, 2),
-                Arguments.of("a download that answers 500", 200, ANSWER, 500, Outcome.UNREACHABLE, 2));
+                Arguments.of("a repository without LFS endpoint (404)", 404, BatchBody.EMPTY, 0, Outcome.PIN_MISSING, 1),
+                Arguments.of("an endpoint that answers 503", 503, BatchBody.BRACES, 0, Outcome.UNREACHABLE, 1),
+                Arguments.of("an object error in the batch answer", 200, BatchBody.OBJECT_ERROR, 0, Outcome.PIN_MISSING,
+                        1),
+                Arguments.of("a batch answer naming another object", 200, BatchBody.OTHER_OBJECT, 0,
+                        Outcome.PIN_MISSING, 1),
+                Arguments.of("a batch answer that is no JSON", 200, BatchBody.NO_JSON, 0, Outcome.UNREACHABLE, 1),
+                Arguments.of("a batch answer without download action", 200, BatchBody.NO_ACTION, 0,
+                        Outcome.PIN_MISSING, 1),
+                Arguments.of("a download that answers 404", 200, BatchBody.ANSWER, 404, Outcome.PIN_MISSING, 2),
+                Arguments.of("a download that answers 500", 200, BatchBody.ANSWER, 500, Outcome.UNREACHABLE, 2));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("unavailable")
     @DisplayName("an object the endpoint does not deliver is not fetched, and the WARN is logged")
-    void notDelivered(String name, int batchStatus, String batchBody, int downloadStatus, Outcome expected,
+    void notDelivered(String name, int batchStatus, BatchBody body, int downloadStatus, Outcome expected,
             int requests) {
-        on("POST", BATCH, lfsJson(batchStatus, ANSWER.equals(batchBody) ? batchAnswer() : batchBody));
+        on("POST", batch(), lfsJson(batchStatus, batchBody(body)));
         if (downloadStatus != 0) {
-            on("GET", OBJECT_PATH, new MockResponse.Builder().code(downloadStatus).build());
+            on("GET", objectPath(), new MockResponse.Builder().code(downloadStatus).build());
         }
 
-        var fetch = client.object(repository(), POINTER);
+        var fetch = client.object(repository(), pointer);
 
-        assertAll(
+        assertAll("the undelivered object",
                 () -> assertEquals(expected, fetch.outcome(), fetch::detail),
-                () -> assertEquals(0, fetch.content().length),
-                () -> assertEquals(requests, server.getRequestCount()),
-                () -> assertFalse(fetch.detail().contains("action-s3cret"), fetch::detail));
+                () -> assertEquals(0, fetch.content().length, "no content is delivered"),
+                () -> assertEquals(requests, server.getRequestCount(), "the expected requests are sent"),
+                () -> assertFalse(fetch.detail().contains(SECRET_MARKER), fetch::detail));
         assertUnavailableLogged();
     }
 
@@ -329,23 +420,20 @@ class LfsBatchClientTest {
     void refusedHeader(String name, String headerName, String headerValue, String expectedDetail) {
         var answer = """
                 {"objects":[{"oid":"%s","size":%d,"actions":{"download":{"href":"%s","header":{"%s":"%s"}}}}]}"""
-                .formatted(POINTER.oid(), POINTER.size(), base() + OBJECT_PATH, headerName, headerValue);
-        on("POST", BATCH, lfsJson(200, answer));
-        on("GET", OBJECT_PATH, bytes(OBJECT));
+                .formatted(pointer.oid(), pointer.size(), base + objectPath(), headerName, headerValue);
+        on("POST", batch(), lfsJson(200, answer));
+        on("GET", objectPath(), bytes(object));
 
-        var fetch = client.object(repository(), POINTER);
+        var fetch = client.object(repository(), pointer);
 
-        assertAll(
+        assertAll("the refused header",
                 () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"),
                 () -> assertTrue(fetch.detail().contains(expectedDetail), fetch::detail),
-                () -> assertFalse(fetch.detail().contains("s3cret"), fetch::detail),
+                () -> assertFalse(fetch.detail().contains(SECRET_MARKER), fetch::detail),
                 () -> assertFalse(fetch.detail().contains("RemoteAuth"), fetch::detail));
         assertUnavailableLogged();
-        for (var level : TestLogLevel.values()) {
-            assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "s3cret").isEmpty(),
-                    "no " + level + " line holds the header value");
-        }
+        assertNoLogLineHolds(SECRET_MARKER);
     }
 
     /**
@@ -359,43 +447,44 @@ class LfsBatchClientTest {
     @DisplayName("a refused download action")
     class RefusedDownload {
 
+        ModuleDispatcherElement getModuleDispatcher() {
+            return dispatcher();
+        }
+
         private void answers(String href, long size) {
-            on("POST", BATCH, lfsJson(200, String.format(Locale.ROOT, """
+            on("POST", batch(), lfsJson(200, String.format(Locale.ROOT, """
                     {"objects":[{"oid":"%s","size":%d,"actions":{"download":{"href":"%s",\
-                    "header":{"Authorization":"%s"}}}}]}""", POINTER.oid(), size, href, ACTION_SECRET)));
-            on("GET", OBJECT_PATH, bytes(OBJECT));
+                    "header":{"Authorization":"%s"}}}}]}""", pointer.oid(), size, href, actionSecret)));
+            on("GET", objectPath(), bytes(object));
         }
 
         private void assertNothingDownloaded(SourceFetch fetch, Outcome expected, String detail)
                 throws InterruptedException {
-            assertAll(
+            assertAll("nothing downloaded",
                     () -> assertEquals(expected, fetch.outcome(), fetch::detail),
-                    () -> assertEquals(0, fetch.content().length),
+                    () -> assertEquals(0, fetch.content().length, "no content is delivered"),
                     () -> assertTrue(fetch.detail().contains(detail), fetch::detail),
-                    () -> assertFalse(fetch.detail().contains("s3cret"), fetch::detail),
+                    () -> assertFalse(fetch.detail().contains(SECRET_MARKER), fetch::detail),
                     () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"));
-            var batch = nextRequest();
-            assertAll(
-                    () -> assertEquals("POST", batch.getMethod()),
-                    () -> assertEquals(BATCH, batch.getTarget()),
-                    () -> assertNull(batch.getHeaders().get("Authorization"),
+            var batchRequest = nextRequest();
+            assertAll("the batch request",
+                    () -> assertEquals("POST", batchRequest.getMethod(), "the batch is a POST"),
+                    () -> assertEquals(batch(), batchRequest.getTarget(), "the batch API of the repository"),
+                    () -> assertNull(batchRequest.getHeaders().get("Authorization"),
                             "the action's header is never sent"));
             assertUnavailableLogged();
-            for (var level : TestLogLevel.values()) {
-                assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "s3cret").isEmpty(),
-                        "no " + level + " line holds the header value");
-            }
+            assertNoLogLineHolds(SECRET_MARKER);
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"http://example.org", "http://example.org:80", "HTTP://lfs.example.org"})
         @DisplayName("a download URL that is http to a host other than loopback is UNREACHABLE")
         void cleartextDownload(String origin) throws Exception {
-            answers(origin + OBJECT_PATH, POINTER.size());
+            answers(origin + objectPath(), pointer.size());
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
-            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + POINTER.oid()
+            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + pointer.oid()
                     + " is not https");
         }
 
@@ -403,25 +492,22 @@ class LfsBatchClientTest {
         @ValueSource(strings = {"http", "https"})
         @DisplayName("a download URL with user information is UNREACHABLE, even to the loopback test server")
         void userInfoDownload(String scheme) throws Exception {
-            var href = base().replace("http://", scheme + "://user:pa55word@") + OBJECT_PATH;
-            answers(href, POINTER.size());
+            var href = base.replace("http://", scheme + "://user:pa55word@") + objectPath();
+            answers(href, pointer.size());
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
-            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + POINTER.oid()
+            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + pointer.oid()
                     + " is not https");
             assertFalse(fetch.detail().contains("pa55word"), fetch::detail);
-            for (var level : TestLogLevel.values()) {
-                assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "pa55word")
-                        .isEmpty(), "no " + level + " line holds the user information");
-            }
+            assertNoLogLineHolds("pa55word");
         }
 
         @Test
         @DisplayName("a pointer larger than a byte array holds is UNREACHABLE before the download")
         void tooLarge() throws Exception {
-            var huge = new LfsPointer(POINTER.oid(), Integer.MAX_VALUE);
-            answers(base() + OBJECT_PATH, huge.size());
+            var huge = new LfsPointer(pointer.oid(), Integer.MAX_VALUE);
+            answers(base + objectPath(), huge.size());
 
             var fetch = client.object(repository(), huge);
 
@@ -434,9 +520,9 @@ class LfsBatchClientTest {
                 "https://[lfs.example.org/objects"})
         @DisplayName("a download href that is no URL is UNREACHABLE")
         void noUrl(String href) throws Exception {
-            answers(href, POINTER.size());
+            answers(href, pointer.size());
 
-            var fetch = client.object(repository(), POINTER);
+            var fetch = client.object(repository(), pointer);
 
             assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "the download action names no URL");
         }
@@ -445,22 +531,22 @@ class LfsBatchClientTest {
     @Test
     @DisplayName("names a header by its name only when that is an HTTP token")
     void headerNameText() {
-        assertAll(
+        assertAll("the header naming",
                 () -> assertEquals("the header X-Auth of the download action is invalid",
-                        LfsBatchClient.headerName("X-Auth")),
+                        LfsBatchClient.headerName("X-Auth"), "a token name is named"),
                 () -> assertEquals("a header of the download action has an invalid name",
-                        LfsBatchClient.headerName("X Auth: value")),
+                        LfsBatchClient.headerName("X Auth: value"), "a name with a space is not named"),
                 () -> assertEquals("a header of the download action has an invalid name",
-                        LfsBatchClient.headerName("")));
+                        LfsBatchClient.headerName(""), "an empty name is not named"));
     }
 
     @Test
     @DisplayName("a stalled response is UNREACHABLE after the read timeout, and the WARN is logged")
     void stalled() {
-        on("POST", BATCH, new MockResponse.Builder().code(200).headersDelay(3, TimeUnit.SECONDS)
+        on("POST", batch(), new MockResponse.Builder().code(200).headersDelay(3, TimeUnit.SECONDS)
                 .body(batchAnswer()).build());
 
-        var fetch = client.object(repository(), POINTER);
+        var fetch = client.object(repository(), pointer);
 
         assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail);
         assertUnavailableLogged();
@@ -469,24 +555,24 @@ class LfsBatchClientTest {
     @Test
     @DisplayName("refuses a repository that is not https without sending anything")
     void refusesCleartext() {
-        var fetch = new LfsBatchClient().object(repository(), POINTER);
+        var fetch = new LfsBatchClient().object(repository(), pointer);
 
-        assertAll(
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
+        assertAll("the refused cleartext repository",
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                () -> assertEquals(0, server.getRequestCount()));
+                () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
         assertUnavailableLogged();
     }
 
     @Test
     @DisplayName("refuses a repository URL with user information without sending anything")
     void refusesUserInfo() {
-        var fetch = client.object(URI.create("https://user:pw@example.org/r"), POINTER);
+        var fetch = client.object(URI.create("https://user:pw@example.org/r"), pointer);
 
-        assertAll(
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
+        assertAll("the refused user information",
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertFalse(fetch.detail().contains("pw"), fetch::detail),
-                () -> assertEquals(0, server.getRequestCount()));
+                () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -494,12 +580,12 @@ class LfsBatchClientTest {
             "//example.org/beta"})
     @DisplayName("refuses a repository URL without scheme or host as UNREACHABLE, logs the WARN and never throws")
     void refusesWithoutSchemeOrHost(String uri) {
-        var fetch = client.object(URI.create(uri), POINTER);
+        var fetch = client.object(URI.create(uri), pointer);
 
-        assertAll(
-                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
+        assertAll("the refused URL",
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
                 () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
-                () -> assertEquals(0, server.getRequestCount()));
+                () -> assertEquals(0, server.getRequestCount(), "nothing is sent"));
         assertUnavailableLogged();
         LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, "<a URL without scheme or host>");
     }
@@ -508,7 +594,8 @@ class LfsBatchClientTest {
     @MethodSource("batchUris")
     @DisplayName("derives the batch API from the .git URL of the repository")
     void batchUri(String repository, String expected) {
-        assertEquals(URI.create(expected), LfsBatchClient.batchUri(URI.create(repository)));
+        assertEquals(URI.create(expected), LfsBatchClient.batchUri(URI.create(repository)),
+                "the batch API follows the .git URL");
     }
 
     static Stream<Arguments> batchUris() {
@@ -517,6 +604,23 @@ class LfsBatchClientTest {
                 Arguments.of("https://github.com/o/r.git", "https://github.com/o/r.git/info/lfs/objects/batch"),
                 Arguments.of("https://github.com/o/r/", "https://github.com/o/r.git/info/lfs/objects/batch"),
                 Arguments.of("https://h:8443/o/r", "https://h:8443/o/r.git/info/lfs/objects/batch"));
+    }
+
+    /** The ways delivered bytes miss the pointer's object. */
+    enum Tamper {
+        CHANGED, FEWER, MORE;
+
+        byte[] apply(byte[] original) {
+            return switch (this) {
+                case CHANGED -> {
+                    var changed = original.clone();
+                    changed[2] = changed[2] == (byte) 'X' ? (byte) 'Y' : (byte) 'X';
+                    yield changed;
+                }
+                case FEWER -> new String(original, UTF_8).substring(1).getBytes(UTF_8);
+                case MORE -> (new String(original, UTF_8) + "tail").getBytes(UTF_8);
+            };
+        }
     }
 
     /**
@@ -529,20 +633,26 @@ class LfsBatchClientTest {
     class WithinImport {
 
         @TempDir
-        Path base;
+        Path importBase;
 
         private Path corpusRoot;
 
+        ModuleDispatcherElement getModuleDispatcher() {
+            return dispatcher();
+        }
+
         @BeforeEach
         void corpus() throws IOException {
-            corpusRoot = base.resolve("corpus");
-            var directory = corpusRoot.resolve(CorpusImport.SOURCES).resolve("beta");
+            String name = word();
+            String file = "data/" + word() + ".jsonl";
+            corpusRoot = importBase.resolve("corpus");
+            var directory = corpusRoot.resolve(CorpusImport.SOURCES).resolve(name);
             Files.createDirectories(directory);
-            Files.write(directory.resolve(CorpusImport.MANIFEST), SourceManifestCodec.write(new SourceManifest("beta",
-                    URI.create("https://github.com/example/beta"), "2".repeat(40), "MIT", FetchKind.GIT,
-                    List.of(new SourceFile("data/rows.jsonl", POINTER.oid(), true)))));
-            Files.write(directory.resolve(CorpusImport.OVERLAY), SourceOverlayCodec.write(new SourceOverlay("beta",
-                    "data/rows.jsonl", null, LocalDate.of(2026, 10, 14), List.of(new Row("2", "d-2", "review/beta",
+            Files.write(directory.resolve(CorpusImport.MANIFEST), SourceManifestCodec.write(new SourceManifest(name,
+                    URI.create("https://github.com" + repositoryPath), Generators.strings("0123456789abcdef", 40, 40)
+                            .next(), "MIT", FetchKind.GIT, List.of(new SourceFile(file, pointer.oid(), true)))));
+            Files.write(directory.resolve(CorpusImport.OVERLAY), SourceOverlayCodec.write(new SourceOverlay(name,
+                    file, null, LocalDate.of(2026, 10, 14), List.of(new Row("2", "d-2", "review/" + name,
                             "review", "open question 2", List.of(), null, "Review: {diff}", "", null, null,
                             new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
                                     false),
@@ -564,46 +674,38 @@ class LfsBatchClientTest {
 
                 @Override
                 public SourceFetch readFile(Path cacheRoot, SourceManifest manifest, String path) {
-                    return SourceFetch.fetched(POINTER.toBytes(), path);
+                    return SourceFetch.fetched(pointer.toBytes(), path);
                 }
             };
-            return new CorpusImport(pointerOnly, (repository, pointer) -> client.object(repository(), pointer));
+            return new CorpusImport(pointerOnly, (uri, lfsPointer) -> client.object(repository(), lfsPointer));
         }
 
         @Test
         @DisplayName("the delivered object yields the item")
         void complete() {
-            serves(OBJECT);
+            serves(object);
 
-            var result = corpusImport().run(corpusRoot, base.resolve("cache"));
+            var result = corpusImport().run(corpusRoot, importBase.resolve("cache"));
 
-            assertAll(
+            assertAll("the complete import",
                     () -> assertEquals(Verdict.COMPLETE, result.verdict(), result::toString),
-                    () -> assertEquals(1, result.items()));
+                    () -> assertEquals(1, result.items(), "the one item is generated"));
         }
 
         @ParameterizedTest(name = "{0}")
-        @MethodSource("de.planmarshall.runtime.corpus.LfsBatchClientTest#refusedObjects")
+        @EnumSource(Tamper.class)
         @DisplayName("delivered bytes that are not the object fail the run")
-        void refused(String name, byte[] delivered) {
-            serves(delivered);
+        void refused(Tamper tamper) {
+            serves(tamper.apply(object));
 
-            var result = corpusImport().run(corpusRoot, base.resolve("cache"));
+            var result = corpusImport().run(corpusRoot, importBase.resolve("cache"));
 
-            assertAll(
+            assertAll("the refused import",
                     () -> assertEquals(Verdict.FAILED, result.verdict(), result::toString),
-                    () -> assertEquals(1, result.missed().size()),
-                    () -> assertEquals(Reason.HASH_MISMATCH, result.missed().getFirst().reason()),
-                    () -> assertEquals(0, result.items()));
+                    () -> assertEquals(1, result.missed().size(), "the one file is missed"),
+                    () -> assertEquals(Reason.HASH_MISMATCH, result.missed().getFirst().reason(),
+                            "the miss is a hash mismatch"),
+                    () -> assertEquals(0, result.items(), "no item is generated"));
         }
-    }
-
-    static Stream<Arguments> refusedObjects() {
-        var changed = OBJECT.clone();
-        changed[2] = (byte) 'X';
-        return Stream.of(
-                Arguments.of("bytes with another SHA-256", changed),
-                Arguments.of("fewer bytes", new String(OBJECT, UTF_8).substring(1).getBytes(UTF_8)),
-                Arguments.of("more bytes", (new String(OBJECT, UTF_8) + "tail").getBytes(UTF_8)));
     }
 }

@@ -1,16 +1,16 @@
 = `pm-provider-sonar`
 :nofooter:
 
-`pm-provider-sonar` connects the engine to SonarQube and SonarCloud as a code analysis provider. It adapts the
-code-analysis and findings contracts of `pm-core`. It is no CI provider; it depends on `pm-provider-http` for the shared HTTP
-base alone. What the module may depend on is stated in the
+`pm-provider-sonar` connects the engine to SonarQube and SonarCloud as a code analysis provider. It holds the issue
+client that reads the open issues of a pull request, below the later adapter of the code-analysis and findings contracts
+of `pm-core`. It is no CI provider; it depends on `pm-provider-http` for the shared HTTP base alone. What the module may depend on is stated in the
 https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
 
 == Package
 
 The line is the first sentence of the package's `package-info.java`.
 
-* `de.planmarshall.provider.sonar`: Sonar (SonarQube and SonarCloud) as a code analysis provider: the adapter of the code-analysis and findings contracts of `pm-core`.
+* `de.planmarshall.provider.sonar`: Sonar (SonarQube and SonarCloud) as a code analysis provider: the issue client that reads the open issues of a pull request, below the later adapter of the code-analysis and findings contracts of `pm-core`.
 
 == Build and Test
 
@@ -22,5 +22,7 @@ The commands for the whole repository are in `CLAUDE.md`.
 
 == Developer Documentation and ADRs
 
-The developer guide is link:doc/developer/provider-sonar.adoc[`provider-sonar.adoc`]. The module has no ADRs of its own
-yet. The index of all ADRs of the repository is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].
+The developer guide is link:doc/developer/provider-sonar.adoc[`provider-sonar.adoc`]. The ADRs of the package are in
+link:doc/adr/provider-sonar/[`doc/adr/provider-sonar/`]: the issue client as the transport slice below the adapter
+(ADR link:doc/adr/provider-sonar/001-the-issue-client-is-the-transport-slice-below-the-adapter.adoc[001]). The index of
+all ADRs of the repository is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].

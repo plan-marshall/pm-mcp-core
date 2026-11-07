@@ -9,6 +9,7 @@
  */
 package de.planmarshall.provider.github;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -25,36 +26,61 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
-import mockwebserver3.Dispatcher;
 import mockwebserver3.MockResponse;
-import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 
 import de.planmarshall.provider.http.Endpoint;
 import de.planmarshall.provider.http.Json;
 import de.planmarshall.provider.http.Result;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
+import de.cuioss.test.mockwebserver.URIBuilder;
+import de.cuioss.test.mockwebserver.dispatcher.HttpMethodMapper;
+import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcher;
+import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcherElement;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/**
+ * The installation token cache of a GitHub App against a mock GitHub API.
+ * <p>
+ * Every mint is answered by one response primed per test into {@link #getModuleDispatcher()}, keyed by method and
+ * request target, so a mint for a wrong installation gets no answer. Contract literals, kept by design: the mint
+ * path grammar {@code /app/installations/{id}/access_tokens}; the JSON field names {@code token},
+ * {@code expires_at}, {@code repositories} and {@code permissions}; the permission names and levels GitHub defines
+ * ({@code contents}, {@code pull_requests}, {@code read}, {@code write}); the {@code ghs_} prefix of an installation
+ * token; the {@code X-GitHub-Api-Version} header with its version; the {@code Bearer} scheme; the five-minute reuse
+ * margin; the status codes; the unreadable expiry {@code tomorrow} and the unusable key {@code garbage}. The clock,
+ * the App client id, the installation ids, the repository names and the token values are generated.
+ */
 @EnableMockWebServer
+@EnableGeneratorController
+@ModuleDispatcher
 @DisplayName("InstallationTokens")
 class InstallationTokensTest {
 
-    private static final Instant NOW = Instant.parse("2026-10-05T12:00:00Z");
-    private static final String PATH = "/app/installations/42/access_tokens";
+    /** The permissions of a mint (contract: GitHub's permission names and levels). */
     private static final Map<String, String> PERMISSIONS = Map.of("pull_requests", "write", "contents", "read");
-    private static final MockResponse NOT_FOUND = json(404, "{\"message\":\"Not Found\"}");
+    /** The request body those permissions give, keys sorted (contract: the mint body grammar). */
+    private static final String PERMISSIONS_JSON = "{\"contents\":\"read\",\"pull_requests\":\"write\"}";
+    /** The seconds before expiry from which a cached token is renewed (contract: the reuse margin). */
+    private static final int REUSE_MARGIN = 300;
 
     /** A clock the test moves. */
     static final class MovableClock extends Clock {
-        Instant now = NOW;
+        private Instant now;
+
+        MovableClock(Instant now) {
+            this.now = now;
+        }
 
         @Override
         public ZoneId getZone() {
@@ -72,33 +98,52 @@ class InstallationTokensTest {
         }
     }
 
-    /**
-     * Canned responses by {@code METHOD target}, queued per key; each answers one request, and a key with no
-     * response left, like any other request, is answered 404.
-     */
-    private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
+    /** Canned responses by {@code METHOD target}; each answers one request, in the order they were primed. */
+    private final Map<String, Deque<MockResponse>> routes = new ConcurrentHashMap<>();
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
+    private Instant now;
+    private String clientId;
+    private int installation;
+    private String repository;
     private Endpoint endpoint;
     private MovableClock clock;
     private List<String> redacted;
     private InstallationTokens tokens;
 
-    @BeforeEach
-    void start(MockWebServer server) {
-        server.setDispatcher(new Dispatcher() {
+    /** Records every request and answers it with the next response primed for its method and target. */
+    ModuleDispatcherElement getModuleDispatcher() {
+        return new ModuleDispatcherElement() {
             @Override
-            public MockResponse dispatch(RecordedRequest request) {
-                requests.add(request);
-                Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
-                MockResponse next = queue == null ? null : queue.poll();
-                return next == null ? NOT_FOUND : next;
+            public String getBaseUrl() {
+                return "/app";
             }
-        });
-        endpoint = Endpoint.of(URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/"));
-        clock = new MovableClock();
+
+            @Override
+            public Optional<MockResponse> handlePost(RecordedRequest request) {
+                requests.add(request);
+                Deque<MockResponse> queue = routes.get(request.getMethod() + " " + request.getTarget());
+                return Optional.ofNullable(queue == null ? null : queue.poll());
+            }
+
+            @Override
+            public Set<HttpMethodMapper> supportedMethods() {
+                return Set.of(HttpMethodMapper.POST);
+            }
+        };
+    }
+
+    @BeforeEach
+    void start(URIBuilder uriBuilder) {
+        URI root = uriBuilder.build();
+        endpoint = Endpoint.of(URI.create(root.getScheme() + "://" + root.getHost() + ":" + root.getPort() + "/"));
+        now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 1_900_000_000L).next());
+        clientId = "Iv23" + Generators.letterStrings(8, 16).next();
+        installation = Generators.integers(1, 1_000_000).next();
+        repository = Generators.letterStrings(4, 20).next();
+        clock = new MovableClock(now);
         redacted = new ArrayList<>();
-        tokens = new InstallationTokens(endpoint, "Iv23liClient", () -> TestKeys.PKCS8_PEM, redacted::add, clock);
+        tokens = new InstallationTokens(endpoint, clientId, () -> TestKeys.PKCS8_PEM, redacted::add, clock);
     }
 
     @AfterEach
@@ -106,8 +151,12 @@ class InstallationTokensTest {
         tokens.close();
     }
 
-    private void on(String method, String target, MockResponse response) {
-        responses.computeIfAbsent(method + " " + target, k -> new ConcurrentLinkedDeque<>()).add(response);
+    private void on(int installationId, MockResponse response) {
+        routes.computeIfAbsent("POST " + path(installationId), k -> new ConcurrentLinkedDeque<>()).add(response);
+    }
+
+    private static String path(int installationId) {
+        return "/app/installations/" + installationId + "/access_tokens";
     }
 
     private static MockResponse json(int status, String body) {
@@ -117,6 +166,16 @@ class InstallationTokensTest {
 
     private static MockResponse minted(String token, Instant expiresAt) {
         return json(201, "{\"token\":\"" + token + "\",\"expires_at\":\"" + expiresAt + "\"}");
+    }
+
+    /** @return a generated installation token with the {@code ghs_} prefix */
+    private static String installationToken() {
+        return "ghs_" + Generators.letterStrings(16, 36).next();
+    }
+
+    /** @return a generated installation id that differs from {@code other} */
+    private static int otherInstallation(int other) {
+        return other + Generators.integers(1, 1000).next();
     }
 
     private static String header(RecordedRequest request, String name) {
@@ -131,91 +190,109 @@ class InstallationTokensTest {
     @Test
     @DisplayName("mints with a verifiable JWT, narrowed to the repository and permissions")
     void mints() throws Exception {
-        on("POST", PATH, minted("ghs_one", NOW.plusSeconds(3600)));
+        String minted = installationToken();
+        on(installation, minted(minted, now.plusSeconds(3600)));
 
-        Result<InstallationTokens.InstallationToken> result = tokens.token(42, "plan-marshall-mcp", PERMISSIONS);
+        Result<InstallationTokens.InstallationToken> result = tokens.token(installation, repository, PERMISSIONS);
 
-        assertTrue(result.isOk());
-        assertEquals("ghs_one", result.value().orElseThrow().token());
-        assertFalse(result.value().orElseThrow().toString().contains("ghs_one"));
+        assertTrue(result.isOk(), "the mint succeeds");
         var request = requests.getFirst();
         String authorization = header(request, "Authorization");
-        assertTrue(authorization.startsWith("Bearer "));
+        assertTrue(authorization.startsWith("Bearer "), "the JWT is sent as a bearer token");
         Object claims = Json.parse(TestKeys.verifiedClaims(authorization.substring(7),
                 TestKeys.PAIR.getPublic())).orElseThrow();
-        assertEquals(Optional.of("Iv23liClient"), Json.string(claims, "iss"));
-        assertEquals("{\"repositories\":[\"plan-marshall-mcp\"],\"permissions\":{\"contents\":\"read\","
-                + "\"pull_requests\":\"write\"}}", body(request));
-        assertEquals("2022-11-28", header(request, "X-GitHub-Api-Version"));
-        assertEquals(List.of("ghs_one"), redacted);
+        assertAll("the minted token and its request",
+                () -> assertEquals(minted, result.value().orElseThrow().token(), "the minted token is returned"),
+                () -> assertFalse(result.value().orElseThrow().toString().contains(minted),
+                        "the token is not printed"),
+                () -> assertEquals(Optional.of(clientId), Json.string(claims, "iss"),
+                        "the JWT is issued by the App client"),
+                () -> assertEquals("{\"repositories\":[\"" + repository + "\"],\"permissions\":"
+                        + PERMISSIONS_JSON + "}", body(request), "the mint is narrowed to repo and permissions"),
+                () -> assertEquals("2022-11-28", header(request, "X-GitHub-Api-Version"),
+                        "the API version header is sent"),
+                () -> assertEquals(List.of(minted), redacted, "the minted token is registered for redaction"));
     }
 
     @Test
     @DisplayName("mints the token of a pull-request comment with pull_requests:write, signed with a PKCS#1 key")
     void mintsForOperationClass() throws Exception {
-        on("POST", PATH, minted("ghs_comment", NOW.plusSeconds(3600)));
-        try (var pkcs1 = new InstallationTokens(endpoint, "Iv23liClient", () -> TestKeys.PKCS1_PEM, redacted::add,
-                     Clock.fixed(NOW, ZoneOffset.UTC))) {
+        on(installation, minted(installationToken(), now.plusSeconds(3600)));
+        try (var pkcs1 = new InstallationTokens(endpoint, clientId, () -> TestKeys.PKCS1_PEM, redacted::add,
+                     Clock.fixed(now, ZoneOffset.UTC))) {
 
-            var result = pkcs1.token(42, "plan-marshall-mcp", GitHubOperation.PULL_REQUEST_COMMENT);
+            var result = pkcs1.token(installation, repository, GitHubOperation.PULL_REQUEST_COMMENT);
 
-            assertTrue(result.isOk());
+            assertTrue(result.isOk(), "the PKCS#1 signed mint succeeds");
         }
         var request = requests.getFirst();
         TestKeys.verifiedClaims(header(request, "Authorization").substring(7), TestKeys.PAIR.getPublic());
-        assertEquals("{\"repositories\":[\"plan-marshall-mcp\"],\"permissions\":{\"pull_requests\":\"write\"}}",
-                body(request));
+        assertEquals("{\"repositories\":[\"" + repository + "\"],\"permissions\":{\"pull_requests\":\"write\"}}",
+                body(request), "the comment mint asks for pull_requests:write");
     }
 
     @Test
     @DisplayName("reuses a token until the reuse margin, then mints with a fresh JWT")
     void reusesUntilMargin() {
-        on("POST", PATH, minted("ghs_one", NOW.plusSeconds(3600)));
-        on("POST", PATH, minted("ghs_two", NOW.plusSeconds(7200)));
+        String one = installationToken();
+        String two = installationToken() + "x";
+        on(installation, minted(one, now.plusSeconds(3600)));
+        on(installation, minted(two, now.plusSeconds(7200)));
 
-        String first = tokens.token(42, "repo", PERMISSIONS).value().orElseThrow().token();
-        clock.now = NOW.plusSeconds(3600 - 301);
-        String reused = tokens.tokenSource(42, "repo", PERMISSIONS).token().orElseThrow();
-        clock.now = NOW.plusSeconds(3600 - 300);
-        String renewed = tokens.token(42, "repo", PERMISSIONS).value().orElseThrow().token();
+        String first = tokens.token(installation, repository, PERMISSIONS).value().orElseThrow().token();
+        clock.now = now.plusSeconds(3600L - REUSE_MARGIN - 1);
+        String reused = tokens.tokenSource(installation, repository, PERMISSIONS).token().orElseThrow();
+        clock.now = now.plusSeconds(3600L - REUSE_MARGIN);
+        String renewed = tokens.token(installation, repository, PERMISSIONS).value().orElseThrow().token();
 
-        assertEquals("ghs_one", first);
-        assertEquals("ghs_one", reused);
-        assertEquals("ghs_two", renewed);
-        assertEquals(2, requests.size());
-        assertNotEquals(header(requests.get(0), "Authorization"), header(requests.get(1), "Authorization"),
-                "a JWT is never reused");
+        assertAll("the reuse window",
+                () -> assertEquals(one, first, "the first token is minted"),
+                () -> assertEquals(one, reused, "the token is reused before the margin"),
+                () -> assertEquals(two, renewed, "a new token is minted at the margin"),
+                () -> assertEquals(2, requests.size(), "two mints are sent"),
+                () -> assertNotEquals(header(requests.get(0), "Authorization"),
+                        header(requests.get(1), "Authorization"), "a JWT is never reused"));
     }
 
     @Test
     @DisplayName("keys the cache by permission set")
     void keyedByPermissions() {
-        on("POST", PATH, minted("ghs_read", NOW.plusSeconds(3600)));
-        on("POST", PATH, minted("ghs_write", NOW.plusSeconds(3600)));
+        String write = installationToken() + "w";
+        on(installation, minted(installationToken(), now.plusSeconds(3600)));
+        on(installation, minted(write, now.plusSeconds(3600)));
 
-        tokens.token(42, "repo", Map.of("contents", "read"));
-        String write = tokens.token(42, "repo", Map.of("contents", "write")).value().orElseThrow().token();
+        tokens.token(installation, repository, Map.of("contents", "read"));
+        String minted = tokens.token(installation, repository, Map.of("contents", "write")).value().orElseThrow()
+                .token();
 
-        assertEquals("ghs_write", write);
+        assertEquals(write, minted, "another permission set mints its own token");
     }
 
     @Test
     @DisplayName("reports refused mints, unreadable responses and unusable keys")
     void failures() {
-        // installation 42 is asked twice: by token and by the token source, neither caching a refused mint
-        on("POST", PATH, json(401, "{\"message\":\"A JSON web token could not be decoded\"}"));
-        on("POST", PATH, json(401, "{\"message\":\"A JSON web token could not be decoded\"}"));
-        on("POST", "/app/installations/7/access_tokens", json(201, "{\"token\":\"t\"}"));
-        on("POST", "/app/installations/8/access_tokens", json(201, "{\"token\":\"t\",\"expires_at\":\"tomorrow\"}"));
+        int noExpiry = otherInstallation(installation);
+        int badExpiry = otherInstallation(noExpiry);
+        // the installation is asked twice: by token and by the token source, neither caching a refused mint
+        on(installation, json(401, "{\"message\":\"A JSON web token could not be decoded\"}"));
+        on(installation, json(401, "{\"message\":\"A JSON web token could not be decoded\"}"));
+        on(noExpiry, json(201, "{\"token\":\"" + installationToken() + "\"}"));
+        on(badExpiry, json(201, "{\"token\":\"" + installationToken() + "\",\"expires_at\":\"tomorrow\"}"));
 
-        assertEquals(Result.Outcome.AUTH_FAILED, tokens.token(42, "repo", PERMISSIONS).outcome());
-        assertEquals(Result.Outcome.FAILED, tokens.token(7, "repo", PERMISSIONS).outcome());
-        assertEquals(Result.Outcome.FAILED, tokens.token(8, "repo", PERMISSIONS).outcome());
-        assertTrue(tokens.tokenSource(42, "repo", PERMISSIONS).token().isEmpty());
-        try (var broken = new InstallationTokens(endpoint, "id", () -> "garbage", redacted::add, clock)) {
-            assertEquals(Result.Outcome.AUTH_FAILED, broken.token(42, "repo", PERMISSIONS).outcome());
+        assertAll("the failed mints",
+                () -> assertEquals(Result.Outcome.AUTH_FAILED, tokens.token(installation, repository, PERMISSIONS)
+                        .outcome(), "a refused JWT is an auth failure"),
+                () -> assertEquals(Result.Outcome.FAILED, tokens.token(noExpiry, repository, PERMISSIONS).outcome(),
+                        "a mint without expiry is a failure"),
+                () -> assertEquals(Result.Outcome.FAILED, tokens.token(badExpiry, repository, PERMISSIONS)
+                        .outcome(), "an unreadable expiry is a failure"),
+                () -> assertTrue(tokens.tokenSource(installation, repository, PERMISSIONS).token().isEmpty(),
+                        "a refused mint gives no token"));
+        try (var broken = new InstallationTokens(endpoint, clientId, () -> "garbage", redacted::add, clock)) {
+            assertEquals(Result.Outcome.AUTH_FAILED, broken.token(installation, repository, PERMISSIONS).outcome(),
+                    "an unusable key is an auth failure");
         }
-        assertTrue(redacted.isEmpty());
+        assertTrue(redacted.isEmpty(), "no failed mint registers a token");
         assertEquals(4, requests.size(), "an unusable key sends no request");
     }
 }

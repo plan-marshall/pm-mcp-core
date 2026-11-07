@@ -16,9 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
-
 import de.planmarshall.provider.http.Endpoint;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

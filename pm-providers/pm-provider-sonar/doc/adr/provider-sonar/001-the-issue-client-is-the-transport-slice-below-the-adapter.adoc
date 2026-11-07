@@ -1,0 +1,87 @@
+= ADR 001: The Issue Client Is the Transport Slice Below the Adapter
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-07
+
+== Context
+
+`pm-provider-sonar` held the provider id `SonarProvider.ID` and the key type `SonarIssueKey` and made no call. The
+adapter that implements the code-analysis and findings contracts of `pm-core` (`CodeAnalysisProvider`,
+`FindingResponder`) is not built yet, and it needs a way to read the issues of Sonar first. Work package PLAN-V2-93,
+which moves every HTTP test onto the annotation route of ADR
+link:../../../../../doc/adr/017-http-tests-through-mock-response-config-and-module-dispatcher.adoc[017], also asked for
+the first HTTP test of this module; by the operator's decision that test comes with the client it tests.
+
+The shared HTTP base `pm-provider-http` (link:../../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`])
+pages by the `Link` header (`HttpClient.getAll`) and maps a refused answer by its `message` or `error`. Sonar sends no
+`Link` header: an answer of `api/issues/search` carries a `paging` object with `pageIndex`, `pageSize` and `total`, and
+a refused request carries its reasons in `errors[].msg`. Sonar serves at most 500 issues per page and at most 10 000
+results per search. Sonar authenticates a user token sent as `Authorization: Bearer`.
+
+The Token Lane of the specification
+(link:../../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc[Credentials & Enrolment §
+Two-Lane Provider Architecture]) names SonarQube and SonarCloud as Token Lane integrations: the runtime calls them in
+process through `cui-http`, with the token resolved per request and sent only to the origin of the credential entry's
+`url`. The outbound rules
+(link:../../../../../doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment
+§ Outbound HTTPS Security]) require origin-pinned bearer transmission through `cui-http`'s `HttpHandler`.
+
+== Decision
+
+* `SonarClient` is the transport slice of the module: one read, `openIssues(projectKey, pullRequest)`, the open issues of
+  one pull request, returning a `Result<List<SonarIssue>>` of the shared base. The later adapter builds on it; the client
+  implements no contract of `pm-core` and maps nothing to a `Finding`.
+* The read is `GET api/issues/search` with the query parameters `projects` (the project key, URL-encoded),
+  `pullRequest`, `resolved=false`, `p` and `ps=500`, in this order. The project is named by `projects`, the parameter of
+  the issue search that takes project keys, by the operator's decision; the reason is not recorded.
+* The client pages by `p` and `ps` itself and reads the next page while
+  `paging.pageIndex * paging.pageSize < paging.total`, at most 20 pages (`MAX_PAGES`, the 10 000-result window at 500
+  per page). A read stopped at that cap is `OK` and not `complete`; it does not use `HttpClient.getAll`, because Sonar
+  sends no `Link` header.
+* The token goes through the shared base as `Authorization: Bearer`, to the origin of the endpoint alone, resolved per
+  request from the `TokenSource`. This is the token authentication of Sonar, and it is the Token Lane and the
+  origin-pinned bearer transmission of the specification as `HttpClient` already carries them; the client reads no
+  credential of its own.
+* A failed answer maps through `Result.failed` of the shared base. A `4xx` other than `401`, `403` and `404` whose body
+  carries `errors[].msg` is `REJECTED` with those messages, read locally in `SonarClient`, because the shared mapping
+  reads only `message` and `error`; `pm-provider-http` stays unchanged. An unreadable answer, or one that names an issue
+  key `SonarIssueKey` refuses, is `FAILED`, with a detail that names the page and quotes no remote text.
+
+== Alternatives Considered
+
+* *Build the adapter in the same plan.* Not taken: the plan's scope is the HTTP tests, and the client is the part the
+  first HTTP test of the module needs; the adapter's mapping to `Finding` and its registration are a plan of their own.
+* *Page through `HttpClient.getAll`.* Not taken: it follows the `Link` header, which Sonar does not send, so it would
+  read one page and report it complete.
+* *Read `errors[].msg` in `Result.failed` of the shared base.* Not taken: it changes the mapping of every provider, and
+  `pm-provider-http` names no forge and no analysis service (ADR
+  link:../../../../pm-provider-http/doc/adr/provider-http/001-neutral-class-names.adoc[provider-http/001]); the operator
+  decided that the shared base stays unchanged.
+
+== Consequences
+
+* The adapter of the code-analysis and findings contracts reads Sonar through `SonarClient` and adds the mapping to
+  `Finding`, the registration and the answer of a finding; it does not page or authenticate again.
+* A pull request with more than 10 000 open issues is read incompletely and says so (`complete == false`); a caller
+  never reads a capped read as the whole.
+* `SonarClientTest` tests the client against a mock Sonar API on the annotation route; a request with a wrong path,
+  method, query or page gets no answer.
+* The values the client composes into a request are the operator's project key, URL-encoded, and an integer, so no
+  adversarial attack-database test applies; the untrusted input is the response body, which is parsed by `Json` and is
+  `FAILED` wherever it cannot be read.
+
+== Source
+
+* Work package PLAN-V2-93, `test(http): annotation-based HTTP tests, first Sonar client and test`, with the operator's
+  decisions on the client's scope, the query parameter `projects` and the unchanged shared base
+* link:../../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc[Credentials & Enrolment §
+  Two-Lane Provider Architecture] (the Token Lane)
+* link:../../../../../doc/specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment
+  § Outbound HTTPS Security] (origin-pinned bearer token transmission)
+* Requirement link:../../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]

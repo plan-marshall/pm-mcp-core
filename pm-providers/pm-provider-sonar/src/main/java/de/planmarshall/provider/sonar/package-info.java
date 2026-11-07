@@ -8,10 +8,13 @@
  * the root of this repository.
  */
 /**
- * Sonar (SonarQube and SonarCloud) as a code analysis provider: the adapter of the code-analysis and findings
- * contracts of {@code pm-core}. It is no CI provider; it depends on {@code pm-provider-http} for the shared HTTP base alone.
- * {@link de.planmarshall.provider.sonar.SonarProvider} holds the provider id, {@link
- * de.planmarshall.provider.sonar.SonarIssueKey} the key a finding of Sonar is answered on.
+ * Sonar (SonarQube and SonarCloud) as a code analysis provider: the issue client that reads the open issues of a pull
+ * request, below the later adapter of the code-analysis and findings contracts of {@code pm-core}. It is no CI provider;
+ * it depends on {@code pm-provider-http} for the shared HTTP base alone.
+ * {@link de.planmarshall.provider.sonar.SonarClient} reads the open issues of one pull request, {@link
+ * de.planmarshall.provider.sonar.SonarIssue} is one of them, {@link de.planmarshall.provider.sonar.SonarProvider}
+ * holds the provider id, and {@link de.planmarshall.provider.sonar.SonarIssueKey} the key a finding of Sonar is
+ * answered on.
  * <p>
  * Specification:
  * <ul>

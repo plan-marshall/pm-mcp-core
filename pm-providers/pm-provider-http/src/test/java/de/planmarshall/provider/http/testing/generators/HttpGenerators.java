@@ -9,13 +9,13 @@
  */
 package de.planmarshall.provider.http.testing.generators;
 
-import de.cuioss.test.generator.TypedGenerator;
 import java.net.URI;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.provider.http.Endpoint;
 import de.planmarshall.provider.http.PagedResult;
 import de.planmarshall.provider.http.Response;
+import de.cuioss.test.generator.TypedGenerator;
 
 /**
  * Registers the generator artifact of {@code pm-provider-http} in one place: one factory method per

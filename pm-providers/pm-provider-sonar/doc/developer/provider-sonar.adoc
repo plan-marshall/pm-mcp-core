@@ -12,12 +12,14 @@
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
 
 Package `de.planmarshall.provider.sonar` is Sonar's place among the code analysis providers: the identity under which
-Sonar's results are stored, and the key an issue of Sonar is answered on. It is no CI provider; it depends on
-`pm-provider-http` for the shared HTTP base alone (link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]).
+Sonar's results are stored, the key an issue of Sonar is answered on, and the issue client that reads the open issues of
+one pull request from Sonar. It is no CI provider; it depends on `pm-provider-http` for the shared HTTP base alone
+(link:../../../pm-provider-http/doc/developer/provider-http.adoc[`provider.http`]).
 
-The package is deliberately small: the identity and the key are what the contract of `core.analysis` and
-`core.findings` needs from the provider side first. The adapter that fetches and answers Sonar's issues builds on them and
-is not part of this slice.
+The package is deliberately small: the identity, the key and the one read are what the contracts of `core.analysis` and
+`core.findings` need from the provider side first. The adapter that implements those contracts builds on them and is not
+part of this slice (link:../adr/provider-sonar/001-the-issue-client-is-the-transport-slice-below-the-adapter.adoc[ADR
+provider-sonar/001]).
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]_
@@ -34,6 +36,17 @@ provider of the gate `analysis_gate:sonar`. It matches the provider-id pattern t
 |The key of an issue on Sonar, the address a finding of Sonar is answered on. The key is assigned by Sonar and opaque
 here: it is refused only where it could not be one — when it is missing (`NullPointerException`), empty, or holds white
 space (a Unicode space such as the no-break space included) or a control character.
+
+|link:{src}/SonarClient.java[`SonarClient`]
+|The issue client over the shared HTTP base. `openIssues(projectKey, pullRequest)` reads the open issues of one pull
+request through `GET api/issues/search` with the query `projects` (the project key, URL-encoded), `pullRequest`,
+`resolved=false`, `p` (the page) and `ps=500` (`PAGE_SIZE`), in this order, and returns a `Result<List<SonarIssue>>` of
+the shared base. It pages by the `paging` object of each answer (`pageIndex`, `pageSize`, `total`), at most 20 pages
+(`MAX_PAGES`).
+
+|link:{src}/SonarIssue.java[`SonarIssue`]
+|One open issue as the search returns it: `key` (a `SonarIssueKey`), `rule`, `severity`, `type`, `component`, `line`
+(`null` for an issue on the file as a whole) and `message`, unchanged. Every text but the key is remote text.
 |===
 
 == Using the Identity
@@ -47,26 +60,51 @@ space (a Unicode space such as the no-break space included) or a control charact
   the ledger, a `FindingSource` under the same key (link:../../../../pm-core/doc/developer/core-analysis.adoc[`core.analysis`],
   link:../../../../pm-core/doc/developer/core-findings.adoc[`core.findings`]).
 
+== Reading the Open Issues
+
+* *The endpoint and the token.* A `SonarClient` is built from the Sonar `Endpoint` (for example `https://sonarcloud.io/`)
+  and a `TokenSource`. The token is resolved per request and sent as `Authorization: Bearer` to the origin of the
+  endpoint alone, by the shared base; the client reads no credential of its own and caches none.
+* *Paging.* Sonar sends no `Link` header, so `HttpClient.getAll` does not apply. The client reads page `p` and asks for the
+  next one while `paging.pageIndex * paging.pageSize < paging.total`. A read that reaches the last page is `OK` and
+  `complete`; a read stopped at 20 pages (the 10 000-issue result window of Sonar) is `OK` and not `complete`.
+* *Outcomes.* A failed answer maps through `Result.failed` of the shared base: `401` is `AUTH_FAILED`, `403`
+  `PERMISSION_DENIED`, `404` `NOT_FOUND`, `429` (and a `403` that names a rate limit) `RATE_LIMITED` with `resetAt`, a
+  `5xx` `FAILED`. A further `4xx` whose body carries the error messages of Sonar (`errors[].msg`) is `REJECTED` with
+  those messages, read by the client itself because the shared mapping reads only `message` and `error`. Without such a
+  message the shared mapping decides: `405`, `406`, `409` and `422` are `REJECTED`, another `4xx` (such as `400`) is
+  `REJECTED` when its body carries a top-level `message` or `error`, and every other one is `FAILED`. A failed later page
+  fails the whole read.
+* *Unreadable answers.* A body that is no JSON, a missing or unusable `paging`, a missing `issues` array, an issue that
+  is no object or misses a field, a line that is no whole number, and an issue key `SonarIssueKey` refuses are `FAILED`
+  with a detail that names the page and never quotes the body.
+
 == Invariants and Failure Modes
 
 * *The id is one value.* `sonar` is the provider id, the store's `provider` and the gate's suffix; a second spelling would
   separate an observation from its findings and its gate.
 * *The key is opaque and non-empty.* This package never parses a Sonar issue key or derives one; it only refuses a value
   that cannot be a key. A key with white space or a control character is a defect of whatever produced it, not something
-  to normalise here.
-* *No call is made here.* The package holds no HTTP call and no credential read; a credential refusal of Sonar is the
-  adapter's outcome, not an identity error.
+  to normalise here; an answer that names one is `FAILED`.
+* *One read is made here.* The package makes one call: the open issues of one pull request, through the shared base,
+  with the token resolved per request and no credential read of its own. A credential refusal of Sonar is an outcome of
+  that read (`AUTH_FAILED`, `PERMISSION_DENIED`), not an identity error.
+* *Remote text stays remote text.* The rule, the severity, the type, the component, the message and a `REJECTED` detail
+  come from Sonar; whoever emits them passes them through the secret redactor (`PM-CRED-5`). The client logs nothing
+  and writes nothing.
 * *Unconfigured is not failed.* When the project configures no Sonar integration, the plan instance prunes the analysis
   round-trip; no Sonar call is attempted and no empty analysis is reported.
 
 == Extending the Package
 
 . The adapter of Sonar's issues implements `CodeAnalysisProvider` and `FindingResponder` in this module, using
-   `SonarProvider.ID` and `SonarIssueKey`; it builds on `pm-provider-http` and the endpoints of the credential
-   configuration.
-2. A second Sonar-shaped service (another analysis host) gets its own provider id and its own constant or class; the id
+   `SonarProvider.ID` and `SonarIssueKey`; it builds on `SonarClient` for the read and on `pm-provider-http` and the
+   endpoints of the credential configuration.
+. A further read or write of Sonar (for example the transition of an issue) is a method of `SonarClient` with its own
+   test group in `SonarClientTest`, on the same shared base.
+. A second Sonar-shaped service (another analysis host) gets its own provider id and its own constant or class; the id
    is part of the stored data, so it is never shared.
-3. Add the accepted and refused key forms to `SonarIssueKeyTest` and the id to `SonarProviderTest`.
+. Add the accepted and refused key forms to `SonarIssueKeyTest` and the id to `SonarProviderTest`.
 
 == Testing
 
@@ -74,13 +112,31 @@ space (a Unicode space such as the no-break space included) or a control charact
 link:{test}/SonarProviderTest.java[`SonarProviderTest`]:: the id is `sonar` and it matches the provider-id pattern.
 link:{test}/SonarIssueKeyTest.java[`SonarIssueKeyTest`]:: an ordinary Sonar key is accepted; an empty key, a key with a
 space, a no-break space, a tab and a control character are refused; and no key is ever transformed.
+link:{test}/SonarClientTest.java[`SonarClientTest`]:: against a mock Sonar API on the annotation route of ADR
+link:../../../../doc/adr/017-http-tests-through-mock-response-config-and-module-dispatcher.adoc[017]
+(`@EnableMockWebServer`, a `ModuleDispatcherElement` under `@ModuleDispatcher` keyed on method and request target, the
+base URI from the injected `URIBuilder`), so a request with a wrong path, method, query or page gets no answer: the read
+with its query and the `Bearer` token, an empty read, the refused arguments, two pages, the 20-page cap, a failed later
+page, `401`, `403`, `404`, a `400` with and without the messages of Sonar, `429` with `Retry-After`, `500`, a body that is
+no JSON and nine further unreadable answers.
+
+No adversarial attack-database test applies to the client: the only values it composes into a request are the
+operator's project key, URL-encoded, and an integer; the remote body is parsed by `Json` of the shared base, and every
+unreadable or refused value is `FAILED`. The client does read untrusted HTTP input — the Sonar response body — and that
+handling is what `SonarClientTest` covers.
 
 == Specification Tracing
 
 * Specification: link:{docs}/specification/module-structure.adoc#module-pm-provider-sonar[Module Structure §
   `pm-provider-sonar`], link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials
   & Enrolment § Agent Credentials of the Native Variant],
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc[Credentials & Enrolment § Two-Lane Provider
+  Architecture] (the Token Lane),
+  link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment § Outbound HTTPS
+  Security],
   link:{spec}/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Finalize Step Bands],
   link:{spec}/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Parsers and Gates]
 * The contracts it adapts: link:../../../../pm-core/doc/developer/core-analysis.adoc[`core.analysis`],
   link:../../../../pm-core/doc/developer/core-findings.adoc[`core.findings`]
+* Decisions: link:../adr/provider-sonar/001-the-issue-client-is-the-transport-slice-below-the-adapter.adoc[ADR
+  provider-sonar/001]

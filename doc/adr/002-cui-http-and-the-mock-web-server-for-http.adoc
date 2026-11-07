@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by link:017-http-tests-through-mock-response-config-and-module-dispatcher.adoc[ADR 017]
 
 == Date
 

@@ -9,11 +9,11 @@
  */
 package de.planmarshall.provider.http.testing.generators;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.TypedGenerator;
 import java.util.Optional;
 
 import de.planmarshall.provider.http.Response;
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.TypedGenerator;
 
 /**
  * Generates a valid successful {@link Response} with a generated body and {@code ETag}; the next target and the rate
