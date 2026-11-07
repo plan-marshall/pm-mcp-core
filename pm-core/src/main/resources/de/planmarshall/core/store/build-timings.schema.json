@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/build-timings.json",
+  "title": "BuildTimingsStore",
+  "type": "object",
+  "required": ["format_version", "keys"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "keys": {
+      "type": "object",
+      "description": "Budget keys (timeouts.adoc, Job Budgets): <build_system>:<verb>[@<module_id>] (a verb's template names its build profile literally, so the key carries none), git:<operation>, ci:<operation> (the contract operation name; one key for the native in-process operation and the CLI job alike), llm:<role> (workers, one key per role whatever the harness). project_script keys never learn.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}:[a-z][a-z0-9.-]{0,63}(@[A-Za-z0-9][A-Za-z0-9_.-]{0,56})?$", "maxLength": 155 },
+      "additionalProperties": { "$ref": "#/$defs/keyTimings" }
+    }
+  },
+  "$defs": {
+    "baseline": {
+      "type": "object",
+      "required": ["learned_seconds", "observations"],
+      "additionalProperties": false,
+      "properties": {
+        "learned_seconds": { "type": ["integer", "null"], "minimum": 1, "description": "Blended baseline L; null before the first observation." },
+        "observations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "keyTimings": {
+      "type": "object",
+      "required": ["clean", "poisoned", "cold", "escalation_seconds", "last_observed_at"],
+      "additionalProperties": false,
+      "properties": {
+        "clean": { "$ref": "#/$defs/baseline", "description": "Finished runs without residue or cold start: the baseline L used for allocation." },
+        "poisoned": { "$ref": "#/$defs/baseline", "description": "Residue-poisoned runs; used only while clean.observations == 0." },
+        "cold": { "$ref": "#/$defs/baseline", "description": "Cold rebuilds; used only while clean.observations == 0." },
+        "escalation_seconds": { "type": ["integer", "null"], "minimum": 1, "description": "One-shot escalation budget E set by a timed_out run; cleared by the next finished run." },
+        "last_observed_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}
