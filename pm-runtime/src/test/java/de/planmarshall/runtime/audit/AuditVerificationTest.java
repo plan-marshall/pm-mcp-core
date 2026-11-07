@@ -10,12 +10,12 @@
 package de.planmarshall.runtime.audit;
 
 import static de.planmarshall.runtime.audit.AuditTrailFixture.editLine;
-import static de.planmarshall.runtime.audit.AuditTrailFixture.foreignKey;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.lines;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.recordAt;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.removeLine;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.words;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.writeLines;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.hmacKeys;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -203,7 +203,7 @@ class AuditVerificationTest {
         void replacedHead() throws Exception {
             var trail = fiveRecords();
             var head = trail.readHead().orElseThrow();
-            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(foreignKey(), head)));
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(hmacKeys().next(), head)));
 
             assertBroken(BreakReason.HEAD_MISMATCH, trail.verification().verify());
         }
@@ -455,7 +455,7 @@ class AuditVerificationTest {
             removeLine(trail.logFile(), 5);
             removeLine(trail.logFile(), 4);
             var headHash = AuditTrailFixture.hashOf(trail.logFile(), 3);
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
             trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
                     checkpoint(trail, otherKey, 3, headHash)));
 
@@ -471,7 +471,7 @@ class AuditVerificationTest {
             var first = recordAt(trail.logFile(), 1);
             removeLine(trail.logFile(), 5);
             var headHash = AuditTrailFixture.hashOf(trail.logFile(), 4);
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
             trail.underAuditLock(transaction -> {
                 var forged = checkpoint(trail, otherKey, 4, headHash);
                 var forgedHash = trail.log.appendCheckpoint(transaction, forged);
@@ -597,7 +597,7 @@ class AuditVerificationTest {
         @DisplayName("with a head under another key is head_mismatch")
         void headUnderOtherKey() throws Exception {
             var trail = stopped();
-            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(foreignKey(),
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(hmacKeys().next(),
                     trail.readHead().orElseThrow())));
 
             assertBrokenInBoth(BreakReason.HEAD_MISMATCH, trail);
@@ -728,7 +728,7 @@ class AuditVerificationTest {
             removeLine(trail.logFile(), 4);
             removeLine(trail.logFile(), 3);
             var headHash = AuditTrailFixture.hashOf(trail.logFile(), 2);
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
             trail.underAuditLock(transaction -> {
                 var forged = Pending.checkpoint(trail, otherKey, 2, headHash);
                 var forgedHash = trail.log.appendCheckpoint(transaction, forged);

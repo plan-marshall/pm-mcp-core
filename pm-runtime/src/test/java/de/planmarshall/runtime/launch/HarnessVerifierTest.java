@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -27,7 +28,6 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -103,8 +103,9 @@ class HarnessVerifierTest {
     @Test
     @DisplayName("an endpoint-form entry of the client refuses the launch as not enrolled")
     void endpointEntry() {
-        store.enrol(HarnessEnrolment.endpoint(CLIENT, "https://" + lowerLetters() + ".example.test", lowerLetters(),
-                now, new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of())));
+        store.enrol(HarnessEnrolment.endpoint(CLIENT, "https://" + shortWords().next() + ".example.test",
+                shortWords().next(), now,
+                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of())));
 
         var verification = verifier().verify(CLIENT, LaunchFixtures.block());
 
@@ -162,7 +163,7 @@ class HarnessVerifierTest {
     @DisplayName("an accepted self-update rewrites the store and is audited")
     void acceptedSelfUpdate() {
         var stale = RuntimeGenerators.sha256Digests().next();
-        var old = version + "-" + lowerLetters();
+        var old = version + "-" + shortWords().next();
         store.enrol(enrolment(stale, old));
         evidence.set(true);
         var verification = verifier().verify(CLIENT, LaunchFixtures.block());
@@ -186,7 +187,7 @@ class HarnessVerifierTest {
     @Test
     @DisplayName("a harness the operator added from a verified profile is enrolled and accepted like a shipped one")
     void operatorAddedHarness() {
-        var client = "c" + lowerLetters() + "-cli";
+        var client = "c" + shortWords().next() + "-cli";
         var added = base.resolve("bin").resolve(client);
         try {
             Files.writeString(added, script(version), StandardCharsets.UTF_8);
@@ -228,8 +229,8 @@ class HarnessVerifierTest {
         var probed = supportedVersion();
         assertTrue(HarnessVerifier.matchVersion(CLIENT + " " + probed, null).isEmpty(),
                 "an absent pattern matches no version");
-        assertTrue(HarnessVerifier.matchVersion(lowerLetters() + " " + lowerLetters(), VERSION_PATTERN).isEmpty(),
-                "a text without a version matches nothing");
+        assertTrue(HarnessVerifier.matchVersion(shortWords().next() + " " + shortWords().next(), VERSION_PATTERN)
+                .isEmpty(), "a text without a version matches nothing");
         assertEquals(probed, HarnessVerifier.matchVersion("v" + probed, VERSION_PATTERN).orElseThrow(),
                 "the pattern's group is the matched version");
     }
@@ -267,9 +268,5 @@ class HarnessVerifierTest {
 
     private static String script(String printed) {
         return "#!/bin/sh\necho " + printed + "\n";
-    }
-
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
     }
 }

@@ -31,7 +31,6 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.LockTransaction;
@@ -108,12 +107,6 @@ final class AuditTrailFixture {
     /** @param base the test base, with the default limits of the rotation */
     AuditTrailFixture(Path base) {
         this(base, AuditRotation.Limits.DEFAULTS);
-    }
-
-    /** @return a generated key other than the integrity key, as anyone without the key could sign with */
-    static SecretKey foreignKey() {
-        return new SecretKeySpec(Generators.letterStrings(32, 32).next().getBytes(StandardCharsets.UTF_8),
-                EnrolmentKey.ALGORITHM);
     }
 
     /** @return a generated text of two words, for a message, a damaged file or a blocker */

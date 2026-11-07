@@ -12,6 +12,8 @@ package de.planmarshall.runtime.audit;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.hashOf;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.lines;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.recordAt;
+import static de.planmarshall.runtime.audit.AuditTrailFixture.words;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.hmacKeys;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,15 +29,12 @@ import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,7 +43,6 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.credentials.SecretStoreException;
-import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.AuditChainVerification;
 
@@ -67,15 +65,6 @@ class AuditHeadTest {
 
     @TempDir
     Path base;
-
-    private static SecretKey foreignKey() {
-        return new SecretKeySpec(Generators.letterStrings(32, 32).next().getBytes(StandardCharsets.UTF_8),
-                EnrolmentKey.ALGORITHM);
-    }
-
-    private static String text() {
-        return Generators.letterStrings(3, 12).next() + " " + Generators.letterStrings(3, 12).next();
-    }
 
     @Nested
     @DisplayName("with the integrity key")
@@ -113,7 +102,7 @@ class AuditHeadTest {
             var key = trail.createKey();
             trail.append(2);
             var head = trail.readHead().orElseThrow();
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
 
             assertAll(
                     () -> assertTrue(AuditHead.verifies(key, head), "the written head verifies"),
@@ -215,7 +204,7 @@ class AuditHeadTest {
             trail.append(4);
             AuditTrailFixture.removeLine(trail.logFile(), 4);
             AuditTrailFixture.removeLine(trail.logFile(), 3);
-            var damaged = text();
+            var damaged = words();
             Files.writeString(trail.headFile(), damaged);
 
             trail.append(1);
@@ -239,7 +228,7 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
             trail.append(2);
-            var foreign = AuditHead.sign(foreignKey(), trail.readHead().orElseThrow());
+            var foreign = AuditHead.sign(hmacKeys().next(), trail.readHead().orElseThrow());
             Files.write(trail.headFile(), AuditCodec.writeHead(foreign));
 
             trail.append(1);
@@ -276,7 +265,7 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
             Files.createDirectories(trail.headFile());
-            Files.writeString(trail.headFile().resolve("blocker"), text());
+            Files.writeString(trail.headFile().resolve("blocker"), words());
 
             trail.append(1);
 
@@ -295,7 +284,7 @@ class AuditHeadTest {
             trail.append(1);
             Files.delete(trail.headFile());
             Files.createDirectories(trail.headFile());
-            Files.writeString(trail.headFile().resolve("blocker"), text());
+            Files.writeString(trail.headFile().resolve("blocker"), words());
 
             trail.append(1);
 
@@ -393,7 +382,7 @@ class AuditHeadTest {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
             var secret = trail.keyring.entries.values().iterator().next();
-            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, text());
+            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, words());
 
             trail.append(1);
 

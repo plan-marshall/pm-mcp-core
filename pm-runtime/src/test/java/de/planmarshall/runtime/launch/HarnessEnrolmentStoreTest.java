@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,7 +25,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import javax.crypto.SecretKey;
@@ -199,8 +199,8 @@ class HarnessEnrolmentStoreTest {
     @DisplayName("the remote form of a judgment endpoint round-trips its origin and credential key")
     void endpointEntryRoundTrip() {
         var client = clientId();
-        var origin = "https://" + lowerLetters() + ".example.test";
-        var credentialKey = lowerLetters();
+        var origin = "https://" + shortWords().next() + ".example.test";
+        var credentialKey = shortWords().next();
         var endpoint = HarnessEnrolment.endpoint(client, origin, credentialKey, now,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED,
                         Map.of("input", "reported")));
@@ -271,7 +271,7 @@ class HarnessEnrolmentStoreTest {
     @DisplayName("the start context of a verified usage report round-trips")
     void startContextRoundTrip() {
         var client = clientId();
-        var model = lowerLetters();
+        var model = shortWords().next();
         var report = new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.VERIFIED,
                 Map.of("input", "reported", "cache_creation", "not_applicable"), List.of(
                         new HarnessEnrolment.UsageReport.StartContext("writer", model,
@@ -288,11 +288,7 @@ class HarnessEnrolmentStoreTest {
 
     /** @return a client id of the store's pattern: a lower-case letter first, at most 32 characters */
     private static String clientId() {
-        return "c" + lowerLetters();
-    }
-
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+        return "c" + shortWords().next();
     }
 
     private static String version() {

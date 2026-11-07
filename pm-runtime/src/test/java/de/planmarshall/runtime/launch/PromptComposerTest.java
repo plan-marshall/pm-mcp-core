@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.planIds;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -18,7 +20,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +47,7 @@ class PromptComposerTest {
     @Test
     @DisplayName("two launches of one role agree byte for byte up to the end of the role skill")
     void sharedPrefix() {
-        var planId = planId();
+        var planId = planIds().next();
         var firstEntity = entity();
         var first = new PromptComposer().compose(request(false, List.of(OUTLINE_SKILL), envelope(planId,
                 firstEntity)));
@@ -102,7 +103,7 @@ class PromptComposerTest {
     @DisplayName("a required skill that does not resolve fails the composition")
     void missingSkill() {
         var composer = new PromptComposer();
-        var missing = "skill://pm/missing-" + lowerLetters() + "/SKILL.md";
+        var missing = "skill://pm/missing-" + shortWords().next() + "/SKILL.md";
         assertThrows(PromptComposer.CompositionException.class, () -> composer.compose(request(false, List.of(
                 missing), null)), "an unresolvable skill fails the composition");
     }
@@ -136,21 +137,13 @@ class PromptComposerTest {
     }
 
     private static ContractEnvelope envelope(String planId, String entity) {
-        return ContractEnvelope.of("plan", planId, entity, List.of(new LinkSchema(lowerLetters() + ":"
-                + lowerLetters(), List.of(new LinkParameter(lowerLetters(), "text", null)))),
+        return ContractEnvelope.of("plan", planId, entity, List.of(new LinkSchema(shortWords().next() + ":"
+                + shortWords().next(), List.of(new LinkParameter(shortWords().next(), "text", null)))),
                 schema("{\"type\":\"object\"}"));
     }
 
     private static String entity() {
         return "task-" + Generators.letterStrings(8, 16).next();
-    }
-
-    private static String planId() {
-        return Generators.integers(1, 999).next() + "-" + lowerLetters();
-    }
-
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
     }
 
     private static JsonNode schema(String document) {

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.lock;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +33,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -102,9 +102,9 @@ class StaleLeaseSweepTest {
     void createStore() throws IOException {
         acquiredAt = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE / 2).next());
         now = acquiredAt.plusSeconds(Generators.integers(1, 1_000_000).next());
-        project = "project-" + lowerLetters();
+        project = "project-" + shortWords().next();
         otherProject = project + "-other";
-        planId = "plan-" + lowerLetters();
+        planId = "plan-" + shortWords().next();
         slot = slotKey();
         store = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
         storeKey = LockKey.buildSlots(base);
@@ -115,12 +115,8 @@ class StaleLeaseSweepTest {
         dead = new HolderInstance(self.pid(), startedAt.minusSeconds(86_400));
     }
 
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
-    }
-
     private static String slotKey() {
-        return "slot-" + lowerLetters();
+        return "slot-" + shortWords().next();
     }
 
     private LeaseRecord claim(String key, HolderInstance holder) {

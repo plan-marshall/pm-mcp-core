@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.lock;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -36,7 +37,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -90,14 +90,10 @@ class FileLockManagerTest {
 
     @BeforeEach
     void createManager() {
-        projectId = "project-" + lowerLetters();
-        planId = "plan-" + lowerLetters();
+        projectId = "project-" + shortWords().next();
+        planId = "plan-" + shortWords().next();
         auditSink = new RecordingAuditSink();
         manager = new FileLockManager(auditSink);
-    }
-
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
     }
 
     @AfterEach
@@ -371,7 +367,7 @@ class FileLockManagerTest {
         @Test
         @DisplayName("the epic lock and then the mailbox leaf lock of a plan is accepted without an audit record")
         void epicThenMailbox() throws Exception {
-            var epic = LockKey.epic(base, projectId, "epic-" + lowerLetters());
+            var epic = LockKey.epic(base, projectId, "epic-" + shortWords().next());
             var mailbox = LockKey.mailbox(base, projectId, planId);
             Files.createDirectories(mailbox.lockFile().getParent());
             try (var transaction = manager.openTransaction()) {

@@ -10,11 +10,11 @@
 package de.planmarshall.runtime.audit;
 
 import static de.planmarshall.runtime.audit.AuditTrailFixture.USER;
-import static de.planmarshall.runtime.audit.AuditTrailFixture.foreignKey;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.hashOf;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.lines;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.recordAt;
 import static de.planmarshall.runtime.audit.AuditTrailFixture.words;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.hmacKeys;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -157,7 +157,7 @@ class AuditRotationTest {
         @ValueSource(strings = {"en-US", "de-DE", "ar-EG", "th-TH-u-nu-thai"})
         @DisplayName("signs the record count with ASCII digits under any default locale")
         void asciiDigitsUnderAnyLocale(String languageTag) {
-            var key = foreignKey();
+            var key = hmacKeys().next();
             var headHash = AuditCodec.sha256Hex(words().getBytes(StandardCharsets.UTF_8));
             long recordCount = Generators.longs(1, Long.MAX_VALUE).next();
             Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(languageTag));
@@ -784,7 +784,7 @@ class AuditRotationTest {
             trail.append(4);
             cutToTwoRecords(trail);
             var headHash = hashOf(trail.logFile(), 2);
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
             trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
                     checkpoint(trail, otherKey, 2, headHash)));
 
@@ -814,7 +814,7 @@ class AuditRotationTest {
             var first = recordAt(trail.logFile(), 1);
             cutToTwoRecords(trail);
             var headHash = hashOf(trail.logFile(), 2);
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
             trail.underAuditLock(transaction -> {
                 var forged = checkpoint(trail, otherKey, 2, headHash);
                 var forgedHash = trail.log.appendCheckpoint(transaction, forged);
@@ -885,7 +885,7 @@ class AuditRotationTest {
             AuditTrailFixture.removeLine(trail.logFile(), 4);
             AuditTrailFixture.removeLine(trail.logFile(), 3);
             var headHash = hashOf(trail.logFile(), 2);
-            var otherKey = foreignKey();
+            var otherKey = hmacKeys().next();
             trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
                     checkpoint(trail, otherKey, 2, headHash)));
             tearTail(trail);

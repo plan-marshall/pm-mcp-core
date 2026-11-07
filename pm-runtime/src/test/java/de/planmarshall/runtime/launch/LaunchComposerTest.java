@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.planIds;
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -241,7 +242,7 @@ class LaunchComposerTest {
     @Test
     @DisplayName("an unmapped tier is passed through as the model identifier")
     void unmappedTier() {
-        var model = "model-" + lowerLetters();
+        var model = "model-" + shortWords().next();
         assertEquals(model, LaunchComposer.renderModel(model, LaunchFixtures.block()),
                 "an unmapped tier is passed through as model");
     }
@@ -267,7 +268,7 @@ class LaunchComposerTest {
     @Test
     @DisplayName("a harness the operator added from a verified profile is launched like a shipped one")
     void operatorAddedHarness() {
-        var client = "c" + lowerLetters() + "-cli";
+        var client = "c" + shortWords().next() + "-cli";
         var profile = LaunchFixtures.profileForClient(client);
         var block = HeadlessBlock.of(profile);
         var role = LaunchFixtures.roleWithHarness(client, skills);
@@ -291,8 +292,8 @@ class LaunchComposerTest {
     @DisplayName("an endpoint-form enrolment composes no worker launch")
     void endpointEnrolmentComposesNoWorker() {
         var role = roleWithoutResume(RoleClass.ZERO_TOOL);
-        var enrolled = HarnessEnrolment.endpoint("claude", "https://" + lowerLetters() + ".example.test",
-                lowerLetters(), LaunchFixtures.clock().instant(), new HarnessEnrolment.UsageReport(
+        var enrolled = HarnessEnrolment.endpoint("claude", "https://" + shortWords().next() + ".example.test",
+                shortWords().next(), LaunchFixtures.clock().instant(), new HarnessEnrolment.UsageReport(
                         HarnessEnrolment.UsageSource.DECLARED, Map.of()));
         var request = request(role, true, LaunchRequest.WorkdirKind.PLAN_WORKTREE, false, enrolled);
 
@@ -310,7 +311,7 @@ class LaunchComposerTest {
             boolean freeText, HarnessEnrolment enrolment) {
         var jobPrivate = root.resolve("run/jobs").resolve(generation);
         var workdir = kind == LaunchRequest.WorkdirKind.JOB_PRIVATE ? null : root.resolve("worktree");
-        var planId = planId();
+        var planId = planIds().next();
         var zeroToolPrompt = Generators.letterStrings(2, 10).next() + " " + Generators.letterStrings(2, 10).next()
                 + ".";
         return new LaunchRequest(role, LaunchFixtures.block(), enrolment, generation,
@@ -331,16 +332,8 @@ class LaunchComposerTest {
 
     private static ContractEnvelope envelope(String planId) {
         return ContractEnvelope.of("plan", planId, "envelope-" + Generators.integers(1, 99).next(), List.of(
-                new LinkSchema(lowerLetters() + ":" + lowerLetters(), List.of(new LinkParameter(lowerLetters(), "text",
-                        null)))), JsonDocument.parse("{\"type\":\"object\"}".getBytes(StandardCharsets.UTF_8),
-                "schema"));
-    }
-
-    private static String planId() {
-        return Generators.integers(1, 999).next() + "-" + lowerLetters();
-    }
-
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
+                new LinkSchema(shortWords().next() + ":" + shortWords().next(),
+                        List.of(new LinkParameter(shortWords().next(), "text", null)))),
+                JsonDocument.parse("{\"type\":\"object\"}".getBytes(StandardCharsets.UTF_8), "schema"));
     }
 }

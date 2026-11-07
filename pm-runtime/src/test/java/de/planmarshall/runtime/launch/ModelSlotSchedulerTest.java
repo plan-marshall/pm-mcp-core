@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -24,7 +25,6 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -81,8 +81,8 @@ class ModelSlotSchedulerTest {
     @BeforeEach
     void createStore() throws IOException {
         now = Instant.ofEpochSecond(Generators.integers(0, Integer.MAX_VALUE).next());
-        project = "project-" + lowerLetters();
-        plan = "plan-" + lowerLetters();
+        project = "project-" + shortWords().next();
+        plan = "plan-" + shortWords().next();
         otherPlan = plan + "-other";
         jobBase = Generators.integers(0, 1_000_000).next();
         file = Files.createDirectories(base.resolve("state")).resolve("model-slots.json");
@@ -112,10 +112,6 @@ class ModelSlotSchedulerTest {
 
     private Request writer(String planId, int job) {
         return request(planId, job, WorkerClass.WRITER, Form.FRESH);
-    }
-
-    private static String lowerLetters() {
-        return Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
     }
 
     @Nested
