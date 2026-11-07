@@ -99,7 +99,7 @@ class PmExecLauncherTest {
 
             assertAll(
                     () -> assertEquals(launcher.command(launch.argv()), builder.command(),
-                            "the builder starts exactly the launcher, the separator and the verified vector"),
+                            "the builder starts launcher, separator and vector"),
                     () -> assertTrue(builder.command().stream().noneMatch(argument -> argument.contains(marker)),
                             "the payload is in no argument"),
                     () -> assertTrue(builder.environment().values().stream().noneMatch(value -> value.contains(

@@ -152,7 +152,7 @@ class HarnessEnrolmentStoreTest {
         var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
                 "a malformed store document is refused");
         assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
-                "the malformed document is unreadable: " + document);
+                "the malformed document is refused as unreadable");
     }
 
     /**

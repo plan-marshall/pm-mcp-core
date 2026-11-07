@@ -78,7 +78,7 @@ class WorkerEgressProxyTest {
                             "the admitted tunnel is established"),
                     () -> assertEquals(payload, new String(echoed, StandardCharsets.US_ASCII),
                             "the tunnel carries the bytes both ways"),
-                    () -> assertEquals(0, proxy.refusedCount(), "nothing was refused"),
+                    () -> assertEquals(0, proxy.refusedCount(), "the proxy refused no connection"),
                     () -> assertTrue(audit.isEmpty(), "an admitted tunnel is not audited"));
         }
     }

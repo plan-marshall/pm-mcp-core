@@ -174,7 +174,7 @@ class ModelSlotSchedulerTest {
                 var granted = outcomes.stream().filter(Granted.class::isInstance).count();
                 assertAll(
                         () -> assertEquals(2, granted, "exactly the cap is granted"),
-                        () -> assertEquals(2, store.snapshot().slots().size(), "never above the cap"),
+                        () -> assertEquals(2, store.snapshot().slots().size(), "the slots never exceed the cap"),
                         () -> assertEquals(6, store.snapshot().waiting().size(),
                                 "every other claimant waits for a slot"));
             } finally {

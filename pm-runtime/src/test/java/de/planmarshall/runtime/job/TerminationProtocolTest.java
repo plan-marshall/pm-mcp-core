@@ -254,7 +254,7 @@ class TerminationProtocolTest {
                     () -> assertEquals(List.of(new Call(true, pid, Signal.SIGTERM)), signals.calls,
                             "only the group is signalled"),
                     () -> assertEquals(0, signals.count(false, Signal.SIGTERM), "the freed PID is not signalled"),
-                    () -> assertEquals(Duration.ZERO, time.slept(), "nothing was waited"));
+                    () -> assertEquals(Duration.ZERO, time.slept(), "the protocol never waited"));
         }
 
         @Test
@@ -268,7 +268,7 @@ class TerminationProtocolTest {
                     () -> assertEquals(new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty()), report,
                             "an ended process is not reached"),
                     () -> assertEquals(2, signals.calls.size(), "only the group and the PID are tried"),
-                    () -> assertEquals(Duration.ZERO, time.slept(), "nothing was waited"));
+                    () -> assertEquals(Duration.ZERO, time.slept(), "the protocol never waited"));
         }
 
         /** The calls that may be refused, each with the answer that refuses it as EPERM: contract of the protocol. */

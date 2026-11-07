@@ -104,6 +104,6 @@ class HolderLivenessTest {
         var holder = new HolderInstance(Generators.integers(2, 4_000_000).next(), recorded);
 
         assertEquals(alive, HolderLiveness.isAlive(holder, processExists, shiftMillis.map(recorded::plusMillis)),
-                "the liveness decision of the observation");
+                "liveness of: " + observation);
     }
 }

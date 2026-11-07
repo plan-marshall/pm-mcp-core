@@ -255,7 +255,7 @@ class JobEnvironmentComposerTest {
                     Optional.of(committer), Optional.of(email), false);
 
             assertAll(
-                    () -> assertEquals("0", environment.get("GIT_TERMINAL_PROMPT"), "git never prompts"),
+                    () -> assertEquals("0", environment.get("GIT_TERMINAL_PROMPT"), "git never prompts for a password"),
                     () -> assertEquals("never", environment.get("GCM_INTERACTIVE"),
                             "the credential manager never prompts"),
                     () -> assertEquals("0", environment.get("GIT_OPTIONAL_LOCKS"), "git takes no optional lock"),

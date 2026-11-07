@@ -357,7 +357,7 @@ class StaleLeaseSweepTest {
                             new Decision(withEvidence, Action.REMOVED, Rule.ABANDONED),
                             new Decision(orphaned, Action.ORPHANED, Rule.SKIPPED_NO_EVIDENCE)), result.decisions(),
                             "each lease is decided in the store's order"),
-                    () -> assertEquals(1, result.count(Action.KEPT), "one lease is kept"),
+                    () -> assertEquals(1, result.count(Action.KEPT), "exactly one lease is kept"),
                     () -> assertEquals(1, result.count(Action.ORPHANED), "one lease is orphaned"),
                     () -> assertEquals(1, result.count(Action.REMOVED), "one lease is removed"),
                     () -> assertEquals(Optional.empty(), result.emptyPopulation(),

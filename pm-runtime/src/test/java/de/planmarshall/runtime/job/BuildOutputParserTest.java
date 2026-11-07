@@ -179,7 +179,7 @@ class BuildOutputParserTest {
                 """);
 
         assertAll(
-                () -> assertEquals(0, parse.diagnostics(), "no row was placed"),
+                () -> assertEquals(0, parse.diagnostics(), "no row was placed in the parse result"),
                 () -> assertTrue(parse.contradictingEvidence(), "the summary's error contradicts a success"));
     }
 

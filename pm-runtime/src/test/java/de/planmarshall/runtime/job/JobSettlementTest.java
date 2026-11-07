@@ -327,7 +327,7 @@ class JobSettlementTest {
                     () -> assertEquals(Optional.of(Name.FATE), report.stoppedAt(), "the settlement stopped at fate"),
                     () -> assertInstanceOf(Outcome.Failed.class, report.steps().getFirst().outcome(),
                             "the fate step failed"),
-                    () -> assertTrue(slotHeld(), "the slot stays held"));
+                    () -> assertTrue(slotHeld(), "the slot of the job stays held"));
         }
 
         @Test

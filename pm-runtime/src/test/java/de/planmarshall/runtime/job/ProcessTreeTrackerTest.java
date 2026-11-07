@@ -171,7 +171,7 @@ class ProcessTreeTrackerTest {
             assertAll(
                     () -> assertEquals(List.of(new Call(first, Signal.SIGTERM)), signals.calls,
                             "the detached member is sent SIGTERM"),
-                    () -> assertFalse(starts.containsKey(first), "the member ended"),
+                    () -> assertFalse(starts.containsKey(first), "the ended member is no longer tracked"),
                     () -> assertEquals(List.of(), survivors, "an ended member is no survivor"));
         }
 

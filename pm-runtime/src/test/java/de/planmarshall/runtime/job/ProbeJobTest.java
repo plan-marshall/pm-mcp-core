@@ -162,7 +162,7 @@ class ProbeJobTest {
 
         var store = JobRecordStore.ofMachine(fixture.base);
         assertAll(
-                () -> assertEquals(JobId.Kind.PROBE, jobId.kind(), "the job is a probe"),
+                () -> assertEquals(JobId.Kind.PROBE, jobId.kind(), "the job id is of the probe kind"),
                 () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "a declared exit code succeeds"),
                 () -> assertEquals(7, settled.outcomeRow(), "the success is row 7"),
                 () -> assertEquals((long) declared, settled.exitCode(), "the declared exit code is recorded"),
@@ -199,7 +199,7 @@ class ProbeJobTest {
         var settled = settled(jobId);
 
         assertAll(
-                () -> assertEquals(Status.ENDED, settled.status(), "the probe has ended"),
+                () -> assertEquals(Status.ENDED, settled.status(), "the probe record has ended"),
                 () -> assertEquals(Fate.FAILED, settled.fate(), "the launcher never started the probe"),
                 () -> assertEquals(10, settled.outcomeRow(), "row 7 would read the declared code of a job not started"),
                 () -> assertEquals(127L, settled.exitCode(), "the launcher's 127 is recorded"));
@@ -273,7 +273,7 @@ class ProbeJobTest {
         var settled = settled(jobId);
 
         assertAll(
-                () -> assertEquals(Status.ENDED, settled.status(), "the probe has ended"),
+                () -> assertEquals(Status.ENDED, settled.status(), "the probe record has ended"),
                 () -> assertEquals(Fate.FAILED, settled.fate(), "a missing launcher fails the probe"),
                 () -> assertEquals(10, settled.outcomeRow(), "the failure is row 10"),
                 () -> assertNull(settled.exitCode(), "no exit was observed"));
@@ -309,7 +309,7 @@ class ProbeJobTest {
         var log = new JobLog(JobRecordStore.ofMachine(fixture.base).logPath(jobId));
         var lines = assertInstanceOf(JobLog.Lines.class, log.readLines(0), "the probe log answers lines");
         assertAll(
-                () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the probe succeeds"),
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the probe settles as succeeded"),
                 () -> assertEquals(7, settled.outcomeRow(), "the success is row 7"),
                 () -> assertEquals(fixture.base.resolve("run/jobs").resolve(jobId.value()).resolve("cwd"), cwd,
                         "the cwd lies below the real base"),
@@ -407,7 +407,7 @@ class ProbeJobTest {
                 () -> assertEquals("executable_digest_mismatch", records.getFirst().refusalReason(),
                         "the record names the refusal reason"),
                 () -> assertFalse(Files.exists(JobRecordStore.ofMachine(fixture.base)
-                        .logPath(records.getFirst().jobId())), "nothing was spawned"),
+                        .logPath(records.getFirst().jobId())), "no job log shows nothing was spawned"),
                 () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"));
     }
 }

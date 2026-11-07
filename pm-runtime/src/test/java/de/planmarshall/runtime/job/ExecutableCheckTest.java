@@ -113,8 +113,9 @@ class ExecutableCheckTest {
             var refusal = refused(JobEnrolmentFixture.withoutHostTool(enrolment, HostToolName.GH),
                     call(HostToolName.GH));
 
-            assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
-                    "a tool missing from the enrolment is refused");
+            assertAll(
+                    () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason(),
+                            "a tool missing from the enrolment is refused"));
         }
 
         @Test

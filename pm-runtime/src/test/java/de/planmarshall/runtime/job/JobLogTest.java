@@ -157,7 +157,7 @@ class JobLogTest {
                     "a read beyond the end is unavailable");
 
             assertAll(
-                    () -> assertEquals(LogState.MISSING, missing.state(), "the log is missing"),
+                    () -> assertEquals(LogState.MISSING, missing.state(), "the job log file is missing"),
                     () -> assertEquals(LogState.TRUNCATED, truncated.state(), "the log is truncated"),
                     () -> assertThrows(IllegalArgumentException.class, () -> log.readLines(-1),
                             "a negative offset is refused"));
