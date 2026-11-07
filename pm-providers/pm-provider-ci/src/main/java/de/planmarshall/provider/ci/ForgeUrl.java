@@ -9,7 +9,6 @@
  */
 package de.planmarshall.provider.ci;
 
-import de.planmarshall.core.findings.FindingSourceKey;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -20,6 +19,8 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
+
+import de.planmarshall.core.findings.FindingSourceKey;
 
 /**
  * The issue or pull-request URL of a source, resolved to its forge, repository and number.
