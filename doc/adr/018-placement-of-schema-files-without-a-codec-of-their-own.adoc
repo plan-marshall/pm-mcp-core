@@ -1,0 +1,99 @@
+= ADR 018: Placement of Schema Files Without a Codec of Their Own
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-07
+
+== Context
+
+ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] places a JSON schema of the specification in the
+resources of the module that owns its codec, in `src/main/resources/<resource package of the codec>/<record>.schema.json`.
+The work package `schema-files-tested-records` moves the 27 schema blocks of the store-schema documents 01, 02, 03, 09,
+10, 14 and 16 into such files. Checked against the code of `main`, two kinds of block do not fit the rule as ADR 016
+states it:
+
+* Eleven blocks have no codec of their own. They describe a member of another record (`owed[]`, `policy_counters`,
+  `gaps[]` of `status`), the value schema of a fact kind, a record of the findings and review family that no codec
+  writes yet, a sibling of the qualification records, or a store of the plan (the plan overrides and the failure
+  envelope).
+* Two blocks belong to records whose codec lies in `pm-workflow`, not in `pm-core`: the plan instance header
+  (`PlanInstanceHeader`, written by `HeaderJson`) and the line of the composition log (`CompositionRecord`). The work
+  package placed every file below `pm-core`.
+
+== Decision
+
+* *A record without a codec of its own goes with the codec of the store that holds it.* A member of `status` lies
+  beside `WorkflowStatusCodec`, a record of the findings and review family beside the findings ledger, a value schema
+  of a fact kind beside `DerivedFactsCodec`, a sibling of the qualification records beside `QualificationRecordCodec`,
+  and a record of a plan store beside the plan stores of `de/planmarshall/core/store/`. A package that builds the codec
+  of such a record later moves nothing.
+* *A schema whose codec lies in `pm-workflow` lies in `pm-workflow`.* `plan-instance-header.schema.json` and
+  `composition-record.schema.json` lie in `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/`, beside
+  `PlanInstanceHeader` and `CompositionRecord`; this follows ADR 016 over the wording of the work package (operator
+  decision of 2026-11-07).
+* *The file name* is the last path segment of the block's `$id` without `.json`. The `AnalysisResult` block has no
+  `$id`; its file is named after its anchor, `analysis-result.schema.json`.
+
+The placement of the 27 files, which this decision rests on:
+
+[cols="1,3,3,4"]
+|===
+|Document |File |Codec |Resource package
+
+|01 |`pending-entry.schema.json` |`PendingEntryCodec` |`pm-core` `de/planmarshall/core/store/`
+|02 |`status.schema.json` |`WorkflowStatusCodec` |`pm-core` `de/planmarshall/core/store/`
+|02 |`history-line.schema.json` |`PlanHistoryCodec` |`pm-core` `de/planmarshall/core/store/`
+|03 |`owed-item.schema.json` |none (member `owed[]` of `status`) |`pm-core` `de/planmarshall/core/store/`
+|03 |`finding-record.schema.json` |`Finding` (findings ledger) |`pm-core` `de/planmarshall/core/findings/`
+|03 |`analysis-result.schema.json` (no `$id`) |`AnalysisResultCodec` |`pm-core` `de/planmarshall/core/analysis/`
+|03 |`assessment-record.schema.json` |none (a store of the findings family) |`pm-core` `de/planmarshall/core/findings/`
+|03 |`review-participation.schema.json` |none (review record) |`pm-core` `de/planmarshall/core/findings/`
+|03 |`review-bot-registry.schema.json` |none (review record) |`pm-core` `de/planmarshall/core/findings/`
+|09 |`derived-facts.schema.json` |`DerivedFactsCodec` |`pm-core` `de/planmarshall/core/store/`
+|09 |`fact-module-discovery.schema.json` |none (value schema of a fact kind) |`pm-core` `de/planmarshall/core/store/`
+|09 |`fact-cost-calibration.schema.json` |none (value schema of a fact kind) |`pm-core` `de/planmarshall/core/store/`
+|09 |`build-timings.schema.json` |`BuildTimingsCodec` |`pm-core` `de/planmarshall/core/store/`
+|10 |`job-record.schema.json` |`JobRecordCodec` |`pm-core` `de/planmarshall/core/store/`
+|10 |`lesson-front-matter.schema.json` |`LessonCodec` |`pm-core` `de/planmarshall/core/store/`
+|14 |`plan-instance-header.schema.json` |`PlanInstanceHeader` / `HeaderJson` |`pm-workflow` `de/planmarshall/workflow/plan/`
+|14 |`composition-record.schema.json` |`CompositionRecord` |`pm-workflow` `de/planmarshall/workflow/plan/`
+|14 |`plan-overrides.schema.json` |none (plan store) |`pm-core` `de/planmarshall/core/store/`
+|14 |`waiver-request.schema.json` |`WorkflowStatusCodec` (`waiver_requests[]`) |`pm-core` `de/planmarshall/core/store/`
+|14 |`policy-counter.schema.json` |none (member `policy_counters` of `status`) |`pm-core` `de/planmarshall/core/store/`
+|14 |`gap-record.schema.json` |none (member `gaps[]` of `status`) |`pm-core` `de/planmarshall/core/store/`
+|14 |`failure-envelope.schema.json` |none (plan evidence store) |`pm-core` `de/planmarshall/core/store/`
+|16 |`queue-task.schema.json` |`QueueTaskRecordCodec` |`pm-core` `de/planmarshall/core/queue/`
+|16 |`activity-entry.schema.json` |`ActivityEntryCodec` |`pm-core` `de/planmarshall/core/queue/`
+|16 |`qualification-record.schema.json` |`QualificationRecordCodec` |`pm-core` `de/planmarshall/core/role/qualification/`
+|16 |`decision-calibration-record.schema.json` |none (sibling of the qualification records) |`pm-core` `de/planmarshall/core/role/qualification/`
+|16 |`judge-check-record.schema.json` |`JudgeCheckCodec` |`pm-core` `de/planmarshall/core/role/qualification/`
+|===
+
+== Alternatives Considered
+
+1. *Every file below `pm-core`, as the work package states.* Rejected for the two plan-instance records: it would
+   separate the schema from the codec that writes the record, which ADR 016 rules out.
+2. *A shared directory for the schemas without a codec.* Rejected: a record without a codec is still held by a store
+   that has one, and the schema belongs beside that store's codec, where a later codec of its own finds it.
+
+== Consequences
+
+* The work packages that move the schema blocks of the remaining documents (`schema-files-machine-stores`,
+  `schema-files-other-specifications`) place a codec-less block by the same rule.
+* `pm-workflow` carries schema files of its own; a test of `pm-workflow` reads them through `SchemaResource` of
+  `pm-core:tests`, as ADR 016 provides.
+* When a later package builds a codec for a record of the table, it writes the codec in the package the file already
+  lies in, and the file stays.
+
+== Source
+
+* The work package `schema-files-tested-records` (`doc/plans/schema-files-tested-records.adoc`) as it stood on
+  `origin/main` at `262059a5`
+* ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016]
+* link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance]
+* The pull request of PLAN-V2-116 that carries this ADR

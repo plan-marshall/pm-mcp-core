@@ -174,11 +174,11 @@ JSON schema of the analysis result record.
 link:../../src/test/java/de/planmarshall/core/guard/AnalysisBoundaryArchTest.java[`AnalysisBoundaryArchTest`]:: the
 boundary rule of <<boundary>> on the main classes of both packages, and its control fixtures.
 
-The schema test reads the specification of this repository (`doc/specification`) through `SpecificationDocument`. The
-repository root is named by the system property `pm.specification.root`, which the surefire configuration passes from
-the Maven property of the same name (by default the root of the multi-module build; override it with
-`-Dpm.specification.root=<path>`). An unset property, a missing specification directory, a missing document and a
-missing schema block are each a failure, never a skipped test.
+The schema test reads the schema file beside the codec,
+link:../../src/main/resources/de/planmarshall/core/analysis/analysis-result.schema.json[`de/planmarshall/core/analysis/analysis-result.schema.json`],
+from the class path through `SchemaResource` of `pm-core:tests`; document 03 of the store schemas includes that file
+(link:../../../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016]). An absent resource and a file
+that is not UTF-8 are each a failure, never a skipped test.
 
 == Pitfalls
 
