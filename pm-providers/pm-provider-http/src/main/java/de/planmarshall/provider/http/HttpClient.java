@@ -9,9 +9,6 @@
  */
 package de.planmarshall.provider.http;
 
-import de.cuioss.http.client.handler.HttpHandler;
-import de.cuioss.http.client.handler.RedirectNotAllowedException;
-import de.cuioss.http.client.handler.RedirectPolicy;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpHeaders;
@@ -31,6 +28,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.planmarshall.provider.http.Response.Outcome;
+import de.cuioss.http.client.handler.HttpHandler;
+import de.cuioss.http.client.handler.RedirectNotAllowedException;
+import de.cuioss.http.client.handler.RedirectPolicy;
 
 /**
  * The shared HTTP base of the native provider clients, over {@code cui-http}'s {@link HttpHandler}.
