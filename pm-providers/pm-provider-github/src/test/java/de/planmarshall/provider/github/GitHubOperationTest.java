@@ -16,12 +16,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-// the permission names and access levels are GitHub's wire contract, so they stay literals
+/**
+ * The permission set per operation class. Every literal is a contract: the permission names ({@code pull_requests},
+ * {@code issues}, {@code contents}, {@code metadata}, {@code administration}) and the access levels ({@code read},
+ * {@code write}) are GitHub's wire vocabulary of an installation-token request, so no datum here is generated.
+ */
+@EnableGeneratorController
 @DisplayName("GitHubOperation: permission set per operation class")
 class GitHubOperationTest {
 

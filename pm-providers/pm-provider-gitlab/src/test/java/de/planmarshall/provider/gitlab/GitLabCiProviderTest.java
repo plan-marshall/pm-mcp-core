@@ -60,14 +60,42 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * The GitLab CI provider against a mock GitLab API.
+ * <p>
+ * Contract literals, kept by design: the provider id {@code gitlab} and the forge origin {@code https://gitlab.com};
+ * the project {@code cuioss/pm} with the issue and merge-request numbers, because the paths of every static
+ * {@code @MockResponseConfig} name them (PLAN-V2-62 fixture repository); the subgroup project {@code group/sub/project}
+ * of the nested-path tests, for the same reason; the response bodies and headers of the static configurations, which
+ * are recorded GitLab wire shapes with their bot-user naming rules ({@code project_N_bot_*}, {@code group_N_bot_*});
+ * the URL grammar of the derived web URLs; the state, access-level, outcome and status names of the contract, of
+ * GitLab and of HTTP. The titles, bodies, branches, commits, paths, project ids, comment texts and fork groups of the
+ * dynamic reads are generated.
+ */
 @EnableMockWebServer
 @EnableGeneratorController
 @ModuleDispatcher
 @DisplayName("GitLabCiProvider")
 class GitLabCiProviderTest {
 
+    /** The forge origin the provider is bound to (contract: the gitlab.com web origin). */
     private static final String WEB_ORIGIN = "https://gitlab.com";
-    private static final RepositoryRef REPOSITORY = new RepositoryRef("gitlab", WEB_ORIGIN, "cuioss", "pm");
+    /** The provider id (contract: the CI provider id of GitLab). */
+    private static final String FORGE = "gitlab";
+    /** The group of the project the static mock paths name (contract: the PLAN-V2-62 fixture repository). */
+    private static final String OWNER = "cuioss";
+    /** The project the static mock paths name (contract: the PLAN-V2-62 fixture repository). */
+    private static final String NAME = "pm";
+    /** The project path of {@link #OWNER} and {@link #NAME}, as GitLab's {@code path_with_namespace} names it. */
+    private static final String PROJECT_PATH = OWNER + "/" + NAME;
+    /** The GitLab access level Developer, the lowest that may push (contract: GitLab's access levels). */
+    private static final int DEVELOPER = 30;
+    /** The GitLab access level Maintainer (contract: GitLab's access levels). */
+    private static final int MAINTAINER = 40;
+    /** The GitLab access level Reporter, below push (contract: GitLab's access levels). */
+    private static final int REPORTER = 20;
+    private static final RepositoryRef REPOSITORY = new RepositoryRef(FORGE, WEB_ORIGIN, OWNER, NAME);
+    /** A personal access token (contract: the {@code glpat-} prefix of a GitLab personal token). */
     private static final String TOKEN = "glpat-token";
     private static final PullRequestRef MERGE_REQUEST = new PullRequestRef(REPOSITORY, 7);
     /** The project reads a test primes, answered by {@link #getModuleDispatcher()}. */
@@ -122,6 +150,11 @@ class GitLabCiProviderTest {
 
     private IssueRef issue(String origin, String forge, String ownerOrPath, String name, int number) {
         return new IssueRef(new RepositoryRef(forge, origin, ownerOrPath, name), number);
+    }
+
+    /** @return a generated comment text */
+    private static String comment() {
+        return Generators.nonBlankStrings().next();
     }
 
     private static String authorization(RecordedRequest request) {
@@ -202,7 +235,7 @@ class GitLabCiProviderTest {
     void readsNestedProjectIssue(MockWebServer server) {
         var provider = provider(server);
 
-        Result<Issue> result = provider.issueView(issue(WEB_ORIGIN, "gitlab", "group/sub", "project", 9));
+        Result<Issue> result = provider.issueView(issue(WEB_ORIGIN, FORGE, "group/sub", "project", 9));
 
         Issue read = result.value().orElseThrow();
         assertAll("the issue fields",
@@ -222,7 +255,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"message\":\"Too many requests\"}", headers = {"Retry-After=60"})
     void reportsRateLimit(MockWebServer server) {
         Instant before = Instant.now();
-        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5));
+        var result = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5));
         Instant after = Instant.now();
         Instant reset = result.resetAt().orElseThrow();
 
@@ -245,10 +278,10 @@ class GitLabCiProviderTest {
 
         assertAll("the refused reads",
                 () -> assertEquals(Result.Outcome.PERMISSION_DENIED,
-                        provider.issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5)).outcome(),
+                        provider.issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5)).outcome(),
                         "a 403 is a permission refusal"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
-                        provider.issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 6)).outcome(),
+                        provider.issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 6)).outcome(),
                         "a 404 reads as not found"));
     }
 
@@ -257,7 +290,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/5", method = HttpMethodMapper.GET, status = 200,
             stringContent = "this is not json")
     void refusesMalformedBody(MockWebServer server) {
-        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5));
+        var result = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5));
 
         assertEquals(Result.Outcome.FAILED, result.outcome(), "a malformed body is a failure");
     }
@@ -269,11 +302,11 @@ class GitLabCiProviderTest {
 
         assertAll("the refusals",
                 () -> assertEquals(Result.Outcome.REJECTED,
-                        provider.issueView(issue("https://gitlab.example.com", "gitlab", "cuioss", "pm", 5))
+                        provider.issueView(issue("https://gitlab.example.com", FORGE, OWNER, NAME, 5))
                                 .outcome(),
                         "another origin is refused"),
                 () -> assertEquals(Result.Outcome.REJECTED,
-                        provider.issueView(issue(WEB_ORIGIN, "github", "cuioss", "pm", 5)).outcome(),
+                        provider.issueView(issue(WEB_ORIGIN, "github", OWNER, NAME, 5)).outcome(),
                         "another forge is refused"));
     }
 
@@ -301,7 +334,7 @@ class GitLabCiProviderTest {
             status = 201, stringContent = "{\"id\":9001}")
     void postsSubgroupComment(MockWebServer server) {
         var comment = provider(server)
-                .issueComment(issue(WEB_ORIGIN, "gitlab", "group/sub", "project", 9), "A comment")
+                .issueComment(issue(WEB_ORIGIN, FORGE, "group/sub", "project", 9), comment())
                 .value().orElseThrow();
 
         assertEquals("https://gitlab.com/group/sub/project/-/issues/9#note_9001", comment.url(),
@@ -312,7 +345,7 @@ class GitLabCiProviderTest {
     @DisplayName("refuses a comment on issue 5 of another forge before sending")
     void refusesCommentOfAnotherForge(MockWebServer server) {
         var result = provider(server)
-                .issueComment(issue(WEB_ORIGIN, "github", "cuioss", "pm", 5), "A comment");
+                .issueComment(issue(WEB_ORIGIN, "github", OWNER, NAME, 5), comment());
 
         assertAll("the comment of another forge",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(),
@@ -327,7 +360,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"id\":9001}")
     void postsComment(MockWebServer server) {
         Result<IssueComment> result = provider(server)
-                .issueComment(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5), "A comment");
+                .issueComment(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5), comment());
 
         IssueComment comment = result.value().orElseThrow();
         assertAll("the posted comment",
@@ -345,10 +378,10 @@ class GitLabCiProviderTest {
 
         assertAll("the comment refusals",
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
-                        provider.issueComment(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5), "A comment").outcome(),
+                        provider.issueComment(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5), comment()).outcome(),
                         "a refused post is mapped"),
                 () -> assertEquals(Result.Outcome.REJECTED,
-                        provider.issueComment(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 5), " ").outcome(),
+                        provider.issueComment(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5), " ").outcome(),
                         "a blank body is refused"));
     }
 
@@ -362,7 +395,7 @@ class GitLabCiProviderTest {
         clients.add(anonymous);
 
         var result = new GitLabCiProvider(WEB_ORIGIN, anonymous)
-                .issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 9));
+                .issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 9));
         var request = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the anonymous issue 9 read",
@@ -379,7 +412,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
                     + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/7\"}")
     void readsIssueByTheIssueEndpoint(MockWebServer server) {
-        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 7));
+        var result = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 7));
 
         assertAll("the issue endpoint",
                 () -> assertTrue(result.isOk(), "the issue is read and is no merge request"),
@@ -390,12 +423,15 @@ class GitLabCiProviderTest {
     @Test
     @DisplayName("refuses a whoami of another origin before sending")
     void refusesWhoamiOfAnotherOrigin(MockWebServer server) {
-        var other = new RepositoryRef("gitlab", "https://gitlab.example.com", "cuioss", "pm");
+        // an origin other than the one the provider is bound to
+        var other = new RepositoryRef(FORGE, "https://gitlab.example.com", OWNER, NAME);
 
         var result = provider(server).whoami(other);
 
-        assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
-        assertEquals(0, server.getRequestCount(), "no request is sent for another origin");
+        assertAll("the whoami of another origin",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(),
+                        "another origin is refused before sending"),
+                () -> assertEquals(0, server.getRequestCount(), "no request is sent for another origin"));
     }
 
     @Test
@@ -408,6 +444,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/projects/cuioss%2Fpm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{}")
     void normalisesOrigin(MockWebServer server) {
+        // the same origin in another spelling: upper-case host and a trailing slash
         var provider = new GitLabCiProvider("https://GitLab.com/", http(server));
 
         var result = provider.whoami(REPOSITORY);
@@ -460,7 +497,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
                     + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/11\",\"milestone\":{\"title\":\" \"}}")
     void blankMilestoneIsNoMilestone(MockWebServer server) {
-        Issue read = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 11)).value().orElseThrow();
+        Issue read = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 11)).value().orElseThrow();
 
         assertNull(read.milestone(), "a blank milestone title is no milestone");
     }
@@ -472,7 +509,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/merge_requests/8", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"iid\":8}")
     void missingIssueIsNotFoundBesideMergeRequest(MockWebServer server) {
-        var result = provider(server).issueView(issue(WEB_ORIGIN, "gitlab", "cuioss", "pm", 8));
+        var result = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 8));
 
         assertAll("the missing issue 8",
                 () -> assertEquals(Result.Outcome.NOT_FOUND, result.outcome(),
@@ -486,7 +523,7 @@ class GitLabCiProviderTest {
     @Test
     @DisplayName("has the CI provider id")
     void hasProviderId(MockWebServer server) {
-        assertEquals("gitlab", provider(server).id(), "the provider id is gitlab");
+        assertEquals(FORGE, provider(server).id(), "the provider id is gitlab");
     }
 
     /** The generated fields of one merge request. */
@@ -514,8 +551,14 @@ class GitLabCiProviderTest {
         return fixture.targetProjectId() + Generators.integers(1, 1000).next();
     }
 
+    /** @return a generated fork group, from letters {@link #OWNER} does not contain, so it never names the target */
     private static String forkGroup() {
-        return "fork" + Generators.letterStrings(3, 10).next();
+        return Generators.strings("abdefghjklmnpqrtvwxyz", 3, 12).next();
+    }
+
+    /** @return a generated error message of a refused read, which the provider must not echo */
+    private static String remoteText() {
+        return Generators.letterStrings(12, 30).next();
     }
 
     /**
@@ -577,14 +620,14 @@ class GitLabCiProviderTest {
     /** Primes an open same-project merge request and its project with the given project access level. */
     private void primeSameProject(Fixture fixture, @Nullable Integer projectLevel) {
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
-        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", projectLevel, null));
+        primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, projectLevel, null));
     }
 
     @Test
     @DisplayName("prView reads an open same-project merge request with Developer access as writable")
     void readsOpenSameProjectMergeRequest(MockWebServer server) {
         var fixture = fixture();
-        primeSameProject(fixture, 30);
+        primeSameProject(fixture, DEVELOPER);
 
         Result<PullRequest> result = provider(server).prView(MERGE_REQUEST);
 
@@ -611,7 +654,7 @@ class GitLabCiProviderTest {
     void mapsStates(String state, PullRequest.State expected, MockWebServer server) {
         var fixture = fixture();
         primeMergeRequest(fixture, mergeRequestBody(fixture, state, fixture.targetProjectId(), false));
-        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 40, null));
+        primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, MAINTAINER, null));
 
         Result<PullRequest> result = provider(server).prView(MERGE_REQUEST);
 
@@ -628,13 +671,13 @@ class GitLabCiProviderTest {
         int forkId = forkId(fixture);
         String group = forkGroup();
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
-        primeProject(forkId, projectBody(group + "/pm", 40, null));
+        primeProject(forkId, projectBody(group + "/" + NAME, MAINTAINER, null));
 
         PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
 
         assertAll("the fork without collaboration",
                 () -> assertFalse(read.headWritable(), "a fork without collaboration is not writable"),
-                () -> assertEquals(Optional.of(new RepositoryRef("gitlab", WEB_ORIGIN, group, "pm")),
+                () -> assertEquals(Optional.of(new RepositoryRef(FORGE, WEB_ORIGIN, group, NAME)),
                         read.headRepository(), "the head repository is the fork"),
                 () -> assertEquals(3, server.getRequestCount(), "no target project read is sent"));
     }
@@ -644,16 +687,17 @@ class GitLabCiProviderTest {
     void forkWithCollaborationAndDeveloperAccessIsWritable(MockWebServer server) {
         var fixture = fixture();
         int forkId = forkId(fixture);
-        String group = forkGroup();
+        // a fork in a subgroup: a namespace of two generated segments
+        String group = forkGroup() + "/" + forkGroup();
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
-        primeProject(forkId, projectBody("sub/" + group + "/pm", null, null));
-        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", null, 30));
+        primeProject(forkId, projectBody(group + "/" + NAME, null, null));
+        primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, null, DEVELOPER));
 
         PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
 
         assertAll("the fork with collaboration",
                 () -> assertTrue(read.headWritable(), "collaboration and Developer access: writable"),
-                () -> assertEquals(Optional.of(new RepositoryRef("gitlab", WEB_ORIGIN, "sub/" + group, "pm")),
+                () -> assertEquals(Optional.of(new RepositoryRef(FORGE, WEB_ORIGIN, group, NAME)),
                         read.headRepository(), "the head repository is the nested fork"));
     }
 
@@ -663,8 +707,8 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         int forkId = forkId(fixture);
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
-        primeProject(forkId, projectBody(forkGroup() + "/pm", 40, null));
-        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 20, null));
+        primeProject(forkId, projectBody(forkGroup() + "/" + NAME, MAINTAINER, null));
+        primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, REPORTER, null));
 
         PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
 
@@ -689,7 +733,7 @@ class GitLabCiProviderTest {
     void absentAccessLevelIsNotWritable(MockWebServer server) {
         var fixture = fixture();
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
-        primeProject(fixture.targetProjectId(), Map.of("path_with_namespace", "cuioss/pm"));
+        primeProject(fixture.targetProjectId(), Map.of("path_with_namespace", PROJECT_PATH));
 
         PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
 
@@ -716,7 +760,7 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         int forkId = forkId(fixture);
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
-        prime(PROJECTS_PATH + "/" + forkId, json(404, Map.of("message", "404 Project Not Found")));
+        prime(PROJECTS_PATH + "/" + forkId, json(404, Map.of("message", remoteText())));
 
         PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
 
@@ -731,7 +775,7 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         int forkId = forkId(fixture);
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
-        primeProject(forkId, projectBody(Generators.letterStrings(3, 10).next(), 40, null));
+        primeProject(forkId, projectBody(Generators.letterStrings(3, 10).next(), MAINTAINER, null));
 
         var result = provider(server).prView(MERGE_REQUEST);
 
@@ -742,7 +786,7 @@ class GitLabCiProviderTest {
     @DisplayName("prView reports a diff list cut by the page cap as PAGE_CAP")
     void reportsPageCap(MockWebServer server) {
         var fixture = fixture();
-        primeSameProject(fixture, 30);
+        primeSameProject(fixture, DEVELOPER);
         String next = "http://" + server.getHostName() + ":" + server.getPort() + DIFFS_PATH
                 + "?per_page=100&page=2";
         prime(DIFFS_PATH, new MockResponse.Builder().code(200).addHeader("Content-Type", "application/json")
@@ -768,7 +812,7 @@ class GitLabCiProviderTest {
         var mergeRequest = mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false);
         mergeRequest.put("changes_count", changesCount);
         primeMergeRequest(fixture, mergeRequest);
-        primeProject(fixture.targetProjectId(), projectBody("cuioss/pm", 30, null));
+        primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, DEVELOPER, null));
         if (pageCapped) {
             String next = "http://" + server.getHostName() + ":" + server.getPort() + DIFFS_PATH
                     + "?per_page=100&page=2";
@@ -837,7 +881,7 @@ class GitLabCiProviderTest {
     @DisplayName("prView answers a diffs page that is no JSON array with FAILED")
     void refusesMalformedDiffs(MockWebServer server) {
         var fixture = fixture();
-        primeSameProject(fixture, 30);
+        primeSameProject(fixture, DEVELOPER);
         prime(DIFFS_PATH, json(200, Map.of("new_path", fixture.paths().getFirst())));
 
         var result = provider(server).prView(MERGE_REQUEST);
@@ -849,8 +893,8 @@ class GitLabCiProviderTest {
     @DisplayName("prView answers a diff without a new path with FAILED, never a shortened COMPLETE list")
     void refusesDiffWithoutNewPath(MockWebServer server) {
         var fixture = fixture();
-        String remote = "remote-" + Generators.letterStrings(5, 20).next();
-        primeSameProject(fixture, 30);
+        String remote = remoteText();
+        primeSameProject(fixture, DEVELOPER);
         prime(DIFFS_PATH, json(200, List.of(Map.of("old_path", fixture.paths().getFirst(), "new_path",
                 fixture.paths().getFirst()), Map.of("old_path", remote))));
 
@@ -888,7 +932,7 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         int forkId = forkId(fixture);
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
-        primeProject(forkId, projectBody(forkGroup() + "/pm", 40, null));
+        primeProject(forkId, projectBody(forkGroup() + "/" + NAME, MAINTAINER, null));
         prime(PROJECTS_PATH + "/" + fixture.targetProjectId(),
                 json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
 
@@ -903,8 +947,8 @@ class GitLabCiProviderTest {
     @DisplayName("prView maps a refused diffs read")
     void mapsRefusedDiffs(MockWebServer server) {
         var fixture = fixture();
-        primeSameProject(fixture, 30);
-        prime(DIFFS_PATH, json(403, Map.of("message", "403 Forbidden")));
+        primeSameProject(fixture, DEVELOPER);
+        prime(DIFFS_PATH, json(403, Map.of("message", remoteText())));
 
         var result = provider(server).prView(MERGE_REQUEST);
 
@@ -915,8 +959,8 @@ class GitLabCiProviderTest {
     @DisplayName("prView answers a 404 of the diffs of an existing merge request with FAILED, not NOT_FOUND")
     void notFoundDiffsAreFailed(MockWebServer server) {
         var fixture = fixture();
-        String remote = "remote-" + Generators.letterStrings(5, 20).next();
-        primeSameProject(fixture, 30);
+        String remote = remoteText();
+        primeSameProject(fixture, DEVELOPER);
         prime(DIFFS_PATH, json(404, Map.of("message", remote)));
 
         var result = provider(server).prView(MERGE_REQUEST);
@@ -933,7 +977,7 @@ class GitLabCiProviderTest {
     @DisplayName("prView answers a 404 of a project of an existing merge request with FAILED, not NOT_FOUND")
     void notFoundProjectIsFailed(MockWebServer server) {
         var fixture = fixture();
-        String remote = "remote-" + Generators.letterStrings(5, 20).next();
+        String remote = remoteText();
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
         prime(PROJECTS_PATH + "/" + fixture.targetProjectId(), json(404, Map.of("message", remote)));
 
@@ -954,7 +998,7 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         int forkId = forkId(fixture);
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
-        primeProject(forkId, projectBody(path, 40, null));
+        primeProject(forkId, projectBody(path, MAINTAINER, null));
 
         var result = provider(server).prView(MERGE_REQUEST);
 
@@ -969,7 +1013,7 @@ class GitLabCiProviderTest {
     void mapsRefusedProjectRead(MockWebServer server) {
         var fixture = fixture();
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
-        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(), json(401, Map.of("message", "401 Unauthorized")));
+        prime(PROJECTS_PATH + "/" + fixture.targetProjectId(), json(401, Map.of("message", remoteText())));
 
         var result = provider(server).prView(MERGE_REQUEST);
 
@@ -993,7 +1037,7 @@ class GitLabCiProviderTest {
     @CsvSource({"gitlab, https://gitlab.example.com", "github, https://gitlab.com", "forgejo, https://gitlab.com"})
     // the forge ids and origins are the contract's provider ids and web origins
     void refusesForeignMergeRequest(String forge, String origin, MockWebServer server) {
-        var foreign = new PullRequestRef(new RepositoryRef(forge, origin, "cuioss", "pm"), 7);
+        var foreign = new PullRequestRef(new RepositoryRef(forge, origin, OWNER, NAME), MERGE_REQUEST.number());
 
         var result = provider(server).prView(foreign);
 

@@ -243,9 +243,11 @@ link:{test}/PullRequestTest.java[`PullRequestTest`]:: the invariants of `PullReq
 below 1 and a missing repository refused, blank required text and missing components refused, an empty body kept, the
 changed paths copied immutably, and an absent head repository read as an empty `headRepository()`.
 
-The module has no shared abstract contract test and publishes no test JAR
-(link:../adr/provider-ci/005-no-shared-contract-test.adoc[module ADR 005]); each adapter tests the contract against its
-own mock web server.
+The module has no shared abstract contract test and publishes the generator-only test JAR `pm-provider-ci:tests`
+(`CiGenerators`, the generator of a valid `RepositoryRef`)
+(link:../adr/provider-ci/005-no-shared-contract-test.adoc[module ADR 005, amended 2026-11-06]); each adapter tests the
+contract against its own mock web server. The consumers of the artifact are recorded in
+link:../../../../doc/adr/012-generator-artifacts.adoc[repository ADR 012].
 
 == Pitfalls
 
@@ -278,6 +280,7 @@ own mock web server.
 * The adapters: link:../../../pm-provider-github/doc/developer/provider-github.adoc[`provider.github`],
   link:../../../pm-provider-gitlab/doc/developer/provider-gitlab.adoc[`provider.gitlab`]
 * Decisions: link:../adr/provider-ci/[the module's ADRs],
+  link:../adr/provider-ci/005-no-shared-contract-test.adoc[module ADR 005],
   link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006],
   link:../adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[module ADR 007],
   link:../adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[module ADR 008],

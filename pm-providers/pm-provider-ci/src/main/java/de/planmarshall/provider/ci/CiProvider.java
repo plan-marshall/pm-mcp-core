@@ -9,8 +9,9 @@
  */
 package de.planmarshall.provider.ci;
 
-import de.planmarshall.provider.http.Result;
 import org.jspecify.annotations.Nullable;
+
+import de.planmarshall.provider.http.Result;
 
 /**
  * A CI provider of one forge, implemented by that forge's adapter and registered under its {@link #id()} in the

@@ -19,21 +19,25 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import de.planmarshall.provider.ci.testing.generators.CiGenerators;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+/**
+ * The pull request of the CI contract and its reference. Every text, branch, commit, number, state and completeness
+ * is generated, and every repository comes from {@link CiGenerators#repositoryRefs()}. What stays literal is boundary
+ * or contract data and each test says so: the number {@code 0} below which a reference is refused, the empty body that
+ * is kept, the blank text {@code " "} that is refused, and the enum names of the states and completeness values.
+ */
 @EnableGeneratorController
 @DisplayName("PullRequest and PullRequestRef")
 class PullRequestTest {
 
     private static String text() {
         return Generators.letterStrings(1, 20).next();
-    }
-
-    /** The forge and the origin are a provider id and its web origin, so they are contract literals. */
-    private static RepositoryRef repository() {
-        return new RepositoryRef("github", "https://github.com", text(), text());
     }
 
     private static PullRequest.PullRequestBuilder validPullRequest() {
@@ -44,7 +48,7 @@ class PullRequestTest {
                 .baseBranch(text())
                 .headBranch(text())
                 .headSha(text())
-                .headRepositoryRef(repository())
+                .headRepositoryRef(CiGenerators.repositoryRefs().next())
                 .headWritable(Generators.booleans().next())
                 .changedPaths(List.of(text()))
                 .pathCompleteness(Generators.enumValues(PullRequest.PathCompleteness.class).next());
@@ -57,7 +61,7 @@ class PullRequestTest {
         @Test
         @DisplayName("keeps its repository and number")
         void keepsRepositoryAndNumber() {
-            var repository = repository();
+            var repository = CiGenerators.repositoryRefs().next();
             var number = Generators.integers(1, Integer.MAX_VALUE).next();
 
             var ref = new PullRequestRef(repository, number);
@@ -70,7 +74,7 @@ class PullRequestTest {
         @Test
         @DisplayName("refuses a number below 1 (0 is the boundary of the contract)")
         void refusesNumberBelowOne() {
-            var repository = repository();
+            var repository = CiGenerators.repositoryRefs().next();
             var negative = Generators.integers(Integer.MIN_VALUE, -1).next();
 
             assertAll("the refused numbers",
@@ -120,7 +124,7 @@ class PullRequestTest {
             var baseBranch = text();
             var headBranch = text();
             var headSha = text();
-            var headRepository = repository();
+            var headRepository = CiGenerators.repositoryRefs().next();
             var headWritable = Generators.booleans().next();
             var completeness = Generators.enumValues(PullRequest.PathCompleteness.class).next();
 
@@ -144,7 +148,7 @@ class PullRequestTest {
         }
 
         @Test
-        @DisplayName("keeps an empty body")
+        @DisplayName("keeps an empty body (the empty body is the boundary)")
         void keepsEmptyBody() {
             var pullRequest = validPullRequest().body("").build();
 
@@ -160,7 +164,7 @@ class PullRequestTest {
         }
 
         @Test
-        @DisplayName("refuses a blank title, branch or head commit")
+        @DisplayName("refuses a blank title, branch or head commit (the blank text is the boundary)")
         void refusesBlankRequiredText() {
             var blankTitle = validPullRequest().title(" ");
             var blankBase = validPullRequest().baseBranch(" ");

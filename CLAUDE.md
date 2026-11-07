@@ -85,20 +85,27 @@ its own pull request.
 
 ### Generator Artifacts
 
-Four modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
-`SNAPSHOT` like every other artifact of the repository. The three new generator artifacts carry only their generator
+Six modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
+`SNAPSHOT` like every other artifact of the repository. The five generator artifacts carry only their generator
 package; `pm-runtime:tests` carries its whole test scope, because the assembly already consumes `TestBases` and the
 fakes there:
 
 - `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
 - `pm-provider-http:tests` — consumable by `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
+- `pm-provider-ci:tests` — consumable by `pm-provider-github` and `pm-provider-gitlab`.
+- `pm-provider-git:tests` — no consumer in this repository; the assembly `plan-marshall-mcp` may consume it.
 - `pm-workflow:tests` and `pm-runtime:tests` — consumable by the assembly `plan-marshall-mcp` only, because neither
   may depend on the other and the rules forbid `pm-runtime` and the providers to depend on the engine.
+
+The two provider artifacts `pm-provider-ci:tests` and `pm-provider-git:tests` are the operator's decision of
+2026-11-06 (PLAN-V2-92): a provider module that needs a generator for its own type in two or more of its own test
+classes publishes it.
 
 A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`, never from a literal. The generators live in
 `de.planmarshall.<module>.testing.generators`, one `TypedGenerator<T>` per type, registered by the module's factory
-(`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`). The convention is recorded in
+(`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`, `CiGenerators`, `GitGenerators`). The
+convention and the consumers of each artifact are recorded in
 `doc/adr/012-generator-artifacts.adoc`.
 
 ## Dependencies and Versions
@@ -170,8 +177,9 @@ them with a fixture project below `src/guard-controls`:
   string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. No
   `Random`, no `UUID.randomUUID()` as test data. The reusable generators of a module live in that module's
   generator artifact (a test JAR deployed with the `SNAPSHOT`): `pm-core`'s are usable by `pm-workflow`,
-  `pm-runtime` and the providers; `pm-provider-http`'s by `-github`, `-gitlab` and `-sonar`; those of `pm-workflow`
-  and `pm-runtime` by the assembly only. A test that needs a generator for another module's type takes it from that
+  `pm-runtime` and the providers; `pm-provider-http`'s by `-github`, `-gitlab` and `-sonar`; `pm-provider-ci`'s by
+  `-github` and `-gitlab`; `pm-provider-git`'s by no module here (the assembly may); those of `pm-workflow` and
+  `pm-runtime` by the assembly only. A test that needs a generator for another module's type takes it from that
   module's artifact.
 - A class with a hand-written `equals`/`hashCode` (not a record or an enum) has a contract test through
   `ShouldHandleObjectContracts` (`cui-test-value-objects`).

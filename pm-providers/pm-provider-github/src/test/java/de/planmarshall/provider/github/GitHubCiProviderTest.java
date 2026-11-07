@@ -61,36 +61,85 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * The GitHub CI provider against a mock GitHub API.
+ * <p>
+ * Contract literals, kept by design: the provider id {@code github} and the forge origin {@code https://github.com};
+ * the repository {@code cuioss/pm} with the issue and pull-request numbers, because the paths of every static
+ * {@code @MockResponseConfig} name them; the token prefixes {@code ghp_}, {@code github_pat_}, {@code ghs_} and
+ * {@code ghu_}, from which the provider derives the token kind (PLAN-V2-62); the response bodies and headers of the
+ * static configurations, which are recorded GitHub wire shapes with the expiry formats GitHub sends; the URL grammar
+ * of the derived web URLs; the state, outcome and status names of the contract and of HTTP. The titles, bodies,
+ * branches, commits, paths, comment texts and fork owners of the dynamic reads are generated.
+ */
 @EnableMockWebServer
 @EnableGeneratorController
 @ModuleDispatcher
 @DisplayName("GitHubCiProvider")
 class GitHubCiProviderTest {
 
+    /** The forge origin the provider is bound to (contract: the github.com web origin). */
     private static final String WEB_ORIGIN = "https://github.com";
-    private static final RepositoryRef REPOSITORY = new RepositoryRef("github", WEB_ORIGIN, "cuioss", "pm");
+    /** The provider id (contract: the CI provider id of GitHub). */
+    private static final String FORGE = "github";
+    /** The owner of the repository the static mock paths name (contract: the PLAN-V2-62 fixture repository). */
+    private static final String OWNER = "cuioss";
+    /** The repository the static mock paths name (contract: the PLAN-V2-62 fixture repository). */
+    private static final String NAME = "pm";
+    /** A classic personal access token (contract: the {@code ghp_} prefix names the kind, PLAN-V2-62). */
+    private static final String CLASSIC_TOKEN = "ghp_classic";
+    /** A fine-grained personal access token (contract: the {@code github_pat_} prefix names the kind). */
+    private static final String FINE_GRAINED_TOKEN = "github_pat_fine";
+    /** A token whose prefix names no kind (contract: no known prefix). */
+    private static final String OPAQUE_TOKEN = "opaque-token";
+    /** An App installation token (contract: the {@code ghs_} prefix). */
+    private static final String INSTALLATION_TOKEN = "ghs_installation";
+    /** An App user access token (contract: the {@code ghu_} prefix). */
+    private static final String USER_TOKEN = "ghu_operator";
+    /** The App JWT the installation lookup carries; its value is opaque to the provider. */
+    private static final String APP_JWT = "jwt";
+    /** The prefix of an Authorization header carrying a token (contract: RFC 6750). */
+    private static final String BEARER = "Bearer ";
+
+    private static final RepositoryRef REPOSITORY = new RepositoryRef(FORGE, WEB_ORIGIN, OWNER, NAME);
     private static final PullRequestRef PULL_REQUEST = new PullRequestRef(REPOSITORY, 7);
+    /** The repository reads of the GitHub REST API (contract: GitHub's URL grammar). */
+    private static final String REPOSITORIES_PATH = "/repos";
+    /** The repository read of {@link #REPOSITORY}, the permission read a test may prime. */
+    private static final String REPOSITORY_PATH = REPOSITORIES_PATH + "/" + OWNER + "/" + NAME;
     /** The pull-request reads of {@link #PULL_REQUEST}, answered by {@link #getModuleDispatcher()}. */
-    private static final String PULLS_PATH = "/repos/cuioss/pm/pulls";
+    private static final String PULLS_PATH = REPOSITORY_PATH + "/pulls";
 
     private final List<HttpClient> clients = new CopyOnWriteArrayList<>();
     private final AtomicReference<MockResponse> pullResponse = new AtomicReference<>();
     private final AtomicReference<MockResponse> filesResponse = new AtomicReference<>();
+    private final AtomicReference<MockResponse> repositoryResponse = new AtomicReference<>();
 
     /**
      * Answers the pull-request read and the changed-files read with the responses a test primed; the two reads
-     * carry generated titles, bodies, branches and paths, which a static {@code @MockResponseConfig} cannot.
+     * carry generated titles, bodies, branches and paths, which a static {@code @MockResponseConfig} cannot. The
+     * repository's permission read is answered only when a test primed it, so a test can vary the permission between
+     * two reads; every other path is left to the static configurations. The base URL is the parent of every path it
+     * answers rather than one of them, because a dispatcher whose base URL equals the path of a static configuration
+     * is refused as a conflict.
      */
     ModuleDispatcherElement getModuleDispatcher() {
         return new ModuleDispatcherElement() {
             @Override
             public String getBaseUrl() {
-                return PULLS_PATH;
+                return REPOSITORIES_PATH;
             }
 
             @Override
             public Optional<MockResponse> handleGet(RecordedRequest request) {
-                boolean files = request.getUrl().encodedPath().endsWith("/files");
+                String path = request.getUrl().encodedPath();
+                if (REPOSITORY_PATH.equals(path)) {
+                    return Optional.ofNullable(repositoryResponse.get());
+                }
+                if (!path.startsWith(PULLS_PATH)) {
+                    return Optional.empty();
+                }
+                boolean files = path.endsWith("/files");
                 return Optional.ofNullable(files ? filesResponse.get() : pullResponse.get());
             }
 
@@ -121,13 +170,18 @@ class GitHubCiProviderTest {
     }
 
     private IssueRef issue(String origin, String forge, int number) {
-        return new IssueRef(new RepositoryRef(forge, origin, "cuioss", "pm"), number);
+        return new IssueRef(new RepositoryRef(forge, origin, OWNER, NAME), number);
+    }
+
+    /** @return a generated comment text */
+    private static String comment() {
+        return Generators.nonBlankStrings().next();
     }
 
     private GitHubCiProvider appProvider(MockWebServer server) {
-        HttpClient readHttp = http(server, () -> Optional.of("ghs_installation"));
-        HttpClient userHttp = http(server, () -> Optional.of("ghu_operator"));
-        GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of("jwt")),
+        HttpClient readHttp = http(server, () -> Optional.of(INSTALLATION_TOKEN));
+        HttpClient userHttp = http(server, () -> Optional.of(USER_TOKEN));
+        GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of(APP_JWT)),
                 GitHubClient.GRAPHQL_PATH);
         return GitHubCiProvider.forApp(WEB_ORIGIN, readHttp, appClient, userHttp);
     }
@@ -145,7 +199,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"permissions\":{\"push\":true,\"pull\":true}}")
     void readsTokenIdentity(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
         Result<Identity> result = provider.whoami(REPOSITORY);
 
@@ -166,7 +220,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"login\":\"octocat\",\"id\":1}")
     void namesFineGrainedToken(MockWebServer server) {
-        var provider = tokenProvider(server, "github_pat_fine");
+        var provider = tokenProvider(server, FINE_GRAINED_TOKEN);
 
         var identity = provider.whoami(null).value().orElseThrow();
 
@@ -178,7 +232,7 @@ class GitHubCiProviderTest {
     @Test
     @DisplayName("refuses a token whose prefix names no kind")
     void refusesUnknownPrefix(MockWebServer server) {
-        var provider = tokenProvider(server, "opaque-token");
+        var provider = tokenProvider(server, OPAQUE_TOKEN);
 
         var result = provider.whoami(REPOSITORY);
 
@@ -207,9 +261,9 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"permissions\":{\"admin\":false,\"push\":true}}")
     void readsAppIdentity(MockWebServer server) throws Exception {
-        HttpClient readHttp = http(server, () -> Optional.of("ghs_installation"));
-        HttpClient userHttp = http(server, () -> Optional.of("ghu_operator"));
-        GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of("jwt")),
+        HttpClient readHttp = http(server, () -> Optional.of(INSTALLATION_TOKEN));
+        HttpClient userHttp = http(server, () -> Optional.of(USER_TOKEN));
+        GitHubClient appClient = new GitHubClient(http(server, () -> Optional.of(APP_JWT)),
                 GitHubClient.GRAPHQL_PATH);
         var provider = GitHubCiProvider.forApp(WEB_ORIGIN, readHttp, appClient, userHttp);
 
@@ -226,13 +280,13 @@ class GitHubCiProviderTest {
                 () -> assertEquals("operator", identity.operatorLogin(), "the operator login is read"),
                 () -> assertEquals(Map.of("admin", "false", "push", "true"), identity.permissions(),
                         "the repository permissions are read"),
-                () -> assertEquals("Bearer jwt", authorization(appRequest),
+                () -> assertEquals(BEARER + APP_JWT, authorization(appRequest),
                         "the installation lookup carries the JWT"),
-                () -> assertEquals("Bearer ghs_installation", authorization(botRequest),
+                () -> assertEquals(BEARER + INSTALLATION_TOKEN, authorization(botRequest),
                         "the bot read carries the installation token"),
-                () -> assertEquals("Bearer ghu_operator", authorization(operatorRequest),
+                () -> assertEquals(BEARER + USER_TOKEN, authorization(operatorRequest),
                         "the operator read carries the user token"),
-                () -> assertEquals("Bearer ghs_installation", authorization(permissionsRequest),
+                () -> assertEquals(BEARER + INSTALLATION_TOKEN, authorization(permissionsRequest),
                         "the permission read carries the installation token"));
     }
 
@@ -244,10 +298,10 @@ class GitHubCiProviderTest {
     void readsIssueWithInstallationToken(MockWebServer server) throws Exception {
         var provider = appProvider(server);
 
-        provider.issueView(issue(WEB_ORIGIN, "github", 5));
+        provider.issueView(issue(WEB_ORIGIN, FORGE, 5));
         var request = server.takeRequest(5, TimeUnit.SECONDS);
 
-        assertEquals("Bearer ghs_installation", authorization(request),
+        assertEquals(BEARER + INSTALLATION_TOKEN, authorization(request),
                 "the issue read carries the installation token");
     }
 
@@ -259,9 +313,9 @@ class GitHubCiProviderTest {
                     + "\"labels\":[{\"name\":\"bug\"},{\"name\":\"docs\"}],"
                     + "\"milestone\":{\"title\":\"M1\"},\"assignees\":[{\"login\":\"octocat\"}]}")
     void readsIssue(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
-        Result<Issue> result = provider.issueView(issue(WEB_ORIGIN, "github", 5));
+        Result<Issue> result = provider.issueView(issue(WEB_ORIGIN, FORGE, 5));
 
         Issue read = result.value().orElseThrow();
         assertAll("the issue fields",
@@ -280,8 +334,8 @@ class GitHubCiProviderTest {
             stringContent = "{\"title\":\"An issue\",\"body\":\"\",\"state\":\"open\","
                     + "\"html_url\":\"https://github.com/cuioss/pm/issues/11\",\"milestone\":{\"title\":\" \"}}")
     void blankMilestoneIsNoMilestone(MockWebServer server) {
-        Issue read = tokenProvider(server, "ghp_classic")
-                .issueView(issue(WEB_ORIGIN, "github", 11)).value().orElseThrow();
+        Issue read = tokenProvider(server, CLASSIC_TOKEN)
+                .issueView(issue(WEB_ORIGIN, FORGE, 11)).value().orElseThrow();
 
         assertNull(read.milestone(), "a blank milestone title is no milestone");
     }
@@ -294,7 +348,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +0000"})
     void readsOffsetExpiryNumeric(MockWebServer server) {
-        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "a numeric offset expiry is the same instant");
@@ -306,7 +360,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +00:00"})
     void readsOffsetExpiryColon(MockWebServer server) {
-        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "a colon offset expiry is the same instant");
@@ -318,7 +372,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01T14:00:00+02:00"})
     void readsIsoOffsetExpiry(MockWebServer server) {
-        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "an ISO offset expiry is the same instant");
@@ -330,7 +384,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01T14:00:00+0200"})
     void readsIsoNumericOffsetExpiry(MockWebServer server) {
-        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "a T-separated numeric offset expiry is the same instant");
@@ -342,7 +396,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-02-30 12:00:00 +0000"})
     void dropsInvalidOffsetExpiry(MockWebServer server) {
-        Identity identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
 
         assertNull(identity.expiresAt(), "an invalid day of month is no expiry");
     }
@@ -354,9 +408,9 @@ class GitHubCiProviderTest {
                     + "\"html_url\":\"https://github.com/cuioss/pm/pull/7\","
                     + "\"pull_request\":{\"url\":\"https://api.github.com/repos/cuioss/pm/pulls/7\"}}")
     void refusesPullRequest(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
-        var result = provider.issueView(issue(WEB_ORIGIN, "github", 7));
+        var result = provider.issueView(issue(WEB_ORIGIN, FORGE, 7));
 
         assertAll("the pull request refusal",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a pull request is refused"),
@@ -370,7 +424,7 @@ class GitHubCiProviderTest {
     void refusesAnonymousPrivateIssue(MockWebServer server) throws Exception {
         var provider = GitHubCiProvider.forToken(WEB_ORIGIN, http(server, TokenSource.NONE), TokenSource.NONE);
 
-        var result = provider.issueView(issue(WEB_ORIGIN, "github", 9));
+        var result = provider.issueView(issue(WEB_ORIGIN, FORGE, 9));
         var request = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the anonymous issue 9 read",
@@ -387,9 +441,9 @@ class GitHubCiProviderTest {
             stringContent = "{\"message\":\"API rate limit exceeded\"}",
             headers = {"x-ratelimit-remaining=0", "x-ratelimit-reset=1791194400"})
     void reportsRateLimit(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
-        var result = provider.issueView(issue(WEB_ORIGIN, "github", 5));
+        var result = provider.issueView(issue(WEB_ORIGIN, FORGE, 5));
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
@@ -404,14 +458,14 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/6", method = HttpMethodMapper.GET, status = 404,
             stringContent = "{\"message\":\"Not Found\"}")
     void mapsRefusals(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
         assertAll("the refused reads",
                 () -> assertEquals(Result.Outcome.PERMISSION_DENIED,
-                        provider.issueView(issue(WEB_ORIGIN, "github", 5)).outcome(),
+                        provider.issueView(issue(WEB_ORIGIN, FORGE, 5)).outcome(),
                         "a 403 is a permission refusal"),
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
-                        provider.issueView(issue(WEB_ORIGIN, "github", 6)).outcome(),
+                        provider.issueView(issue(WEB_ORIGIN, FORGE, 6)).outcome(),
                         "a 404 reads as not found"));
     }
 
@@ -420,9 +474,9 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/5", method = HttpMethodMapper.GET, status = 200,
             stringContent = "this is not json")
     void refusesMalformedBody(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
-        var result = provider.issueView(issue(WEB_ORIGIN, "github", 5));
+        var result = provider.issueView(issue(WEB_ORIGIN, FORGE, 5));
 
         assertEquals(Result.Outcome.FAILED, result.outcome(), "a malformed body is a failure");
     }
@@ -430,9 +484,9 @@ class GitHubCiProviderTest {
     @Test
     @DisplayName("refuses an issue on another origin before sending")
     void refusesAnotherOrigin(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
-        var result = provider.issueView(issue("https://github.example.com", "github", 5));
+        var result = provider.issueView(issue("https://github.example.com", FORGE, 5));
 
         assertAll("the origin refusal",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused"),
@@ -442,7 +496,7 @@ class GitHubCiProviderTest {
     @Test
     @DisplayName("refuses an issue of another forge before sending")
     void refusesAnotherForge(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
         var result = provider.issueView(issue(WEB_ORIGIN, "forgejo", 5));
 
@@ -454,8 +508,8 @@ class GitHubCiProviderTest {
     @Test
     @DisplayName("refuses a comment on issue 5 of another origin before sending")
     void refusesCommentOfAnotherOrigin(MockWebServer server) {
-        var result = tokenProvider(server, "ghp_classic")
-                .issueComment(issue("https://github.example.com", "github", 5), "A comment");
+        var result = tokenProvider(server, CLASSIC_TOKEN)
+                .issueComment(issue("https://github.example.com", FORGE, 5), comment());
 
         assertAll("the comment of another origin",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(),
@@ -469,9 +523,9 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/5/comments", method = HttpMethodMapper.POST, status = 201,
             stringContent = "{\"id\":9001}")
     void postsComment(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
-        Result<IssueComment> result = provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment");
+        Result<IssueComment> result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment());
 
         IssueComment comment = result.value().orElseThrow();
         assertAll("the posted comment",
@@ -485,14 +539,14 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm/issues/5/comments", method = HttpMethodMapper.POST, status = 404,
             stringContent = "{\"message\":\"Not Found\"}")
     void refusesComment(MockWebServer server) {
-        var provider = tokenProvider(server, "ghp_classic");
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
 
         assertAll("the comment refusals",
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
-                        provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment").outcome(),
+                        provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment()).outcome(),
                         "a refused post is mapped"),
                 () -> assertEquals(Result.Outcome.REJECTED,
-                        provider.issueComment(issue(WEB_ORIGIN, "github", 5), " ").outcome(),
+                        provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), " ").outcome(),
                         "a blank body is refused"));
     }
 
@@ -501,7 +555,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 401,
             stringContent = "{\"message\":\"Bad credentials\"}")
     void mapsRefusedIdentity(MockWebServer server) {
-        assertEquals(Result.Outcome.AUTH_FAILED, tokenProvider(server, "ghp_classic").whoami(null).outcome(),
+        assertEquals(Result.Outcome.AUTH_FAILED, tokenProvider(server, CLASSIC_TOKEN).whoami(null).outcome(),
                 "a refused user read is an auth failure");
     }
 
@@ -510,7 +564,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"id\":1}")
     void refusesUserWithoutLogin(MockWebServer server) {
-        assertEquals(Result.Outcome.FAILED, tokenProvider(server, "ghp_classic").whoami(null).outcome(),
+        assertEquals(Result.Outcome.FAILED, tokenProvider(server, CLASSIC_TOKEN).whoami(null).outcome(),
                 "a user body without a login is a failure");
     }
 
@@ -521,7 +575,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 404,
             stringContent = "{\"message\":\"Not Found\"}")
     void mapsRefusedPermissions(MockWebServer server) {
-        assertEquals(Result.Outcome.NOT_FOUND, tokenProvider(server, "ghp_classic").whoami(REPOSITORY).outcome(),
+        assertEquals(Result.Outcome.NOT_FOUND, tokenProvider(server, CLASSIC_TOKEN).whoami(REPOSITORY).outcome(),
                 "a refused permission read is mapped");
     }
 
@@ -534,7 +588,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{}")
     void readsExpiryVariants(MockWebServer server) {
-        Identity identity = tokenProvider(server, "ghp_classic").whoami(REPOSITORY).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(REPOSITORY).value().orElseThrow();
 
         assertAll("the header variants",
                 () -> assertEquals(List.of("repo", "read:org"), identity.scopes(),
@@ -550,7 +604,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=not-a-date"})
     void dropsUnreadableExpiry(MockWebServer server) {
-        var identity = tokenProvider(server, "ghp_classic").whoami(null).value().orElseThrow();
+        var identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
 
         assertNull(identity.expiresAt(), "an unreadable expiry is dropped");
     }
@@ -621,8 +675,9 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{}")
     void normalisesOrigin(MockWebServer server) {
-        HttpClient http = http(server, () -> Optional.of("ghp_classic"));
-        var provider = GitHubCiProvider.forToken("https://GitHub.com/", http, () -> Optional.of("ghp_classic"));
+        HttpClient http = http(server, () -> Optional.of(CLASSIC_TOKEN));
+        // the same origin in another spelling: upper-case host and a trailing slash
+        var provider = GitHubCiProvider.forToken("https://GitHub.com/", http, () -> Optional.of(CLASSIC_TOKEN));
 
         var result = provider.whoami(REPOSITORY);
 
@@ -632,12 +687,15 @@ class GitHubCiProviderTest {
     @Test
     @DisplayName("refuses a whoami of another origin before sending")
     void refusesWhoamiOfAnotherOrigin(MockWebServer server) {
-        var other = new RepositoryRef("github", "https://github.example.com", "cuioss", "pm");
+        // an origin other than the one the provider is bound to
+        var other = new RepositoryRef(FORGE, "https://github.example.com", OWNER, NAME);
 
-        var result = tokenProvider(server, "ghp_classic").whoami(other);
+        var result = tokenProvider(server, CLASSIC_TOKEN).whoami(other);
 
-        assertEquals(Result.Outcome.REJECTED, result.outcome(), "another origin is refused before sending");
-        assertEquals(0, server.getRequestCount(), "no request is sent for another origin");
+        assertAll("the whoami of another origin",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(),
+                        "another origin is refused before sending"),
+                () -> assertEquals(0, server.getRequestCount(), "no request is sent for another origin"));
     }
 
     @Test
@@ -647,13 +705,13 @@ class GitHubCiProviderTest {
     void postsAppCommentWithUserToken(MockWebServer server) throws Exception {
         var provider = appProvider(server);
 
-        var result = provider.issueComment(issue(WEB_ORIGIN, "github", 5), "A comment");
+        var result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment());
         var request = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the App comment",
                 () -> assertNotNull(request, "the comment request reaches the server"),
                 () -> assertTrue(result.isOk(), "the comment is posted"),
-                () -> assertEquals("Bearer ghu_operator",
+                () -> assertEquals(BEARER + USER_TOKEN,
                         request == null ? null : request.getHeaders().get("Authorization"),
                         "the user access token authors the comment"));
     }
@@ -678,8 +736,14 @@ class GitHubCiProviderTest {
         return Generators.letterStrings(2, 10).next() + "/" + Generators.letterStrings(2, 10).next() + ".java";
     }
 
+    /** @return a generated fork owner, from letters {@link #OWNER} does not contain, so it never names the base */
     private static String forkOwner() {
-        return "fork" + Generators.letterStrings(3, 10).next();
+        return Generators.strings("abdefghjklmnpqrtvwxyz", 3, 12).next();
+    }
+
+    /** @return the body of a repository read with that push permission; the member names are GitHub's wire format */
+    private static MockResponse permissions(boolean push) {
+        return json(200, Map.of("permissions", Map.of("push", push, "pull", true)));
     }
 
     /**
@@ -689,7 +753,7 @@ class GitHubCiProviderTest {
      */
     private static Map<String, Object> pullBody(Fixture fixture, String state, boolean merged,
             @Nullable String headOwner, boolean maintainerCanModify, int changedFiles) {
-        return pullBody(fixture, state, merged, headOwner, "pm", maintainerCanModify, changedFiles);
+        return pullBody(fixture, state, merged, headOwner, NAME, maintainerCanModify, changedFiles);
     }
 
     /**
@@ -708,7 +772,7 @@ class GitHubCiProviderTest {
         body.put("merged", merged);
         body.put("title", fixture.title());
         body.put("body", fixture.body());
-        body.put("base", Map.of("ref", fixture.baseBranch(), "repo", Map.of("full_name", "cuioss/pm")));
+        body.put("base", Map.of("ref", fixture.baseBranch(), "repo", Map.of("full_name", OWNER + "/" + NAME)));
         body.put("head", head);
         body.put("maintainer_can_modify", maintainerCanModify);
         body.put("changed_files", changedFiles);
@@ -739,9 +803,9 @@ class GitHubCiProviderTest {
             stringContent = "{\"permissions\":{\"push\":true,\"pull\":true}}")
     void readsOpenPullRequest(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
 
-        Result<PullRequest> result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        Result<PullRequest> result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         PullRequest read = result.value().orElseThrow();
         assertAll("the open pull request",
@@ -769,7 +833,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         prime(fixture, pullBody(fixture, state, merged, "cuioss", false, fixture.paths().size()));
 
-        Result<PullRequest> result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        Result<PullRequest> result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the state " + state,
                 () -> assertEquals(Result.Outcome.OK, result.outcome(), "a non-open pull request is OK"),
@@ -778,20 +842,23 @@ class GitHubCiProviderTest {
     }
 
     @Test
-    @DisplayName("prView reads a fork head with maintainer edits but no push on the base as not writable")
-    @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
-            stringContent = "{\"permissions\":{\"push\":false,\"pull\":true}}")
+    @DisplayName("prView reads a fork head with maintainer edits but no push on the base as not writable, "
+            + "and the same fork with push as writable")
     void forkWithoutPushIsNotWritable(MockWebServer server) {
         var fixture = fixture();
         String owner = forkOwner();
         primeOpen(fixture, owner, true);
+        repositoryResponse.set(permissions(false));
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest withoutPush = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        repositoryResponse.set(permissions(true));
+        PullRequest withPush = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
-        assertAll("the fork without push",
-                () -> assertFalse(read.headWritable(), "a fork without push on the base is not writable"),
-                () -> assertEquals(Optional.of(new RepositoryRef("github", WEB_ORIGIN, owner, "pm")),
-                        read.headRepository(), "the head repository is the fork"));
+        assertAll("the fork without and with push",
+                () -> assertFalse(withoutPush.headWritable(), "a fork without push on the base is not writable"),
+                () -> assertTrue(withPush.headWritable(), "the same fork with push on the base is writable"),
+                () -> assertEquals(Optional.of(new RepositoryRef(FORGE, WEB_ORIGIN, owner, NAME)),
+                        withoutPush.headRepository(), "the head repository is the fork"));
     }
 
     @Test
@@ -802,7 +869,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, forkOwner(), true);
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
         assertTrue(read.headWritable(), "maintainer edits and push on the base: writable");
     }
@@ -815,7 +882,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, forkOwner(), false);
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
         assertAll("the fork without maintainer edits",
                 () -> assertFalse(read.headWritable(), "a fork without maintainer edits is not writable"),
@@ -828,7 +895,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, null, true);
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
         assertAll("the deleted head repository",
                 () -> assertTrue(read.headRepository().isEmpty(), "a deleted head repository is absent"),
@@ -842,9 +909,9 @@ class GitHubCiProviderTest {
             stringContent = "{\"permissions\":{\"pull\":true}}")
     void absentPushMemberIsNotWritable(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
         assertFalse(read.headWritable(), "an absent push member reads as not writable");
     }
@@ -855,14 +922,14 @@ class GitHubCiProviderTest {
             stringContent = "{\"permissions\":{\"push\":true}}")
     void reportsPageCap(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
         String next = "http://" + server.getHostName() + ":" + server.getPort() + PULLS_PATH
                 + "/7/files?per_page=100&page=2";
         filesResponse.set(new MockResponse.Builder().code(200).addHeader("Content-Type", "application/json")
                 .addHeader("Link", "<" + next + ">; rel=\"next\"").body(Json.write(filesBody(fixture.paths())))
                 .build());
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
         assertAll("the capped list",
                 () -> assertEquals(PullRequest.PathCompleteness.PAGE_CAP, read.pathCompleteness(),
@@ -878,9 +945,9 @@ class GitHubCiProviderTest {
     void reportsProviderResultCap(MockWebServer server) {
         var fixture = fixture();
         int changedFiles = fixture.paths().size() + Generators.integers(1, 5000).next();
-        prime(fixture, pullBody(fixture, "open", false, "cuioss", false, changedFiles));
+        prime(fixture, pullBody(fixture, "open", false, OWNER, false, changedFiles));
 
-        PullRequest read = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
 
         assertAll("the provider-capped list",
                 () -> assertEquals(PullRequest.PathCompleteness.PROVIDER_RESULT_CAP, read.pathCompleteness(),
@@ -895,7 +962,7 @@ class GitHubCiProviderTest {
     void mapsRefusedRead(int status, Result.Outcome expected, MockWebServer server) {
         pullResponse.set(json(status, Map.of("message", Generators.letterStrings(5, 20).next())));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the refused read",
                 () -> assertEquals(expected, result.outcome(), "the status is mapped to its outcome"),
@@ -911,7 +978,7 @@ class GitHubCiProviderTest {
                 .addHeader("x-ratelimit-reset", String.valueOf(reset))
                 .body("{\"message\":\"API rate limit exceeded\"}").build());
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
@@ -928,7 +995,7 @@ class GitHubCiProviderTest {
     void refusesMalformedPullRequest(String body, MockWebServer server) {
         pullResponse.set(new MockResponse.Builder().code(200).body(body).build());
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertEquals(Result.Outcome.FAILED, result.outcome(), "a malformed body is a failure");
     }
@@ -937,10 +1004,10 @@ class GitHubCiProviderTest {
     @DisplayName("prView answers a changed-files page that is no JSON array with FAILED")
     void refusesMalformedFiles(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
         filesResponse.set(json(200, Map.of("filename", fixture.paths().getFirst())));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertEquals(Result.Outcome.FAILED, result.outcome(), "a files page without an array fails");
     }
@@ -949,13 +1016,13 @@ class GitHubCiProviderTest {
     @DisplayName("prView answers a changed-files entry without a filename with FAILED, not PROVIDER_RESULT_CAP")
     void refusesFilesEntryWithoutFilename(MockWebServer server) {
         var fixture = fixture();
-        prime(fixture, pullBody(fixture, "open", false, "cuioss", false, fixture.paths().size() + 1));
+        prime(fixture, pullBody(fixture, "open", false, OWNER, false, fixture.paths().size() + 1));
         var entries = new ArrayList<Object>(filesBody(fixture.paths()));
         entries.add(Generators.integers(1, fixture.paths().size()).next(),
                 Map.of("status", Generators.letterStrings(3, 10).next()));
         filesResponse.set(json(200, entries));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the entry without a filename",
                 () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
@@ -970,10 +1037,10 @@ class GitHubCiProviderTest {
     @DisplayName("prView maps a refused changed-files read")
     void mapsRefusedFiles(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
-        filesResponse.set(json(403, Map.of("message", "Forbidden")));
+        primeOpen(fixture, OWNER, false);
+        filesResponse.set(json(403, Map.of("message", Generators.letterStrings(5, 20).next())));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertEquals(Result.Outcome.PERMISSION_DENIED, result.outcome(), "a refused files read is mapped");
     }
@@ -984,9 +1051,9 @@ class GitHubCiProviderTest {
             stringContent = "{\"message\":\"Bad credentials\"}")
     void mapsRefusedPermissionRead(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertEquals(Result.Outcome.AUTH_FAILED, result.outcome(), "a refused permission read is mapped");
     }
@@ -997,7 +1064,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"message\":\"Not Found\"}")
     void notFoundPermissionReadIsNotWritable(MockWebServer server) {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
 
         var result = appProvider(server).prView(PULL_REQUEST);
 
@@ -1018,7 +1085,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, forkOwner(), true);
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the fork with a hidden base",
                 () -> assertEquals(Result.Outcome.OK, result.outcome(), "a 404 permission read is no failure"),
@@ -1030,11 +1097,11 @@ class GitHubCiProviderTest {
     @DisplayName("prView answers a 404 of the changed files of a read pull request with FAILED, not NOT_FOUND")
     void notFoundFilesAreFailed(MockWebServer server) {
         var fixture = fixture();
-        String remote = "remote-" + Generators.letterStrings(5, 20).next();
-        primeOpen(fixture, "cuioss", false);
+        String remote = Generators.letterStrings(12, 30).next();
+        primeOpen(fixture, OWNER, false);
         filesResponse.set(json(404, Map.of("message", remote)));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the missing files",
                 () -> assertEquals(Result.Outcome.FAILED, result.outcome(),
@@ -1052,7 +1119,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         prime(fixture, pullBody(fixture, "open", false, owner, name, true, fixture.paths().size()));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the refused head repository",
                 () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "a non-segment head is a failure"),
@@ -1069,7 +1136,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         prime(fixture, pullBody(fixture, "open", false, "cuioss", "pm", false, count));
 
-        var result = tokenProvider(server, "ghp_classic").prView(PULL_REQUEST);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
         assertAll("the unusable count",
                 () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "an unusable count is a failure"),
@@ -1082,9 +1149,9 @@ class GitHubCiProviderTest {
             "gitlab, https://gitlab.com"})
     // the forge ids and origins are the contract's provider ids and web origins
     void refusesForeignPullRequest(String forge, String origin, MockWebServer server) {
-        var foreign = new PullRequestRef(new RepositoryRef(forge, origin, "cuioss", "pm"), 7);
+        var foreign = new PullRequestRef(new RepositoryRef(forge, origin, OWNER, NAME), PULL_REQUEST.number());
 
-        var result = tokenProvider(server, "ghp_classic").prView(foreign);
+        var result = tokenProvider(server, CLASSIC_TOKEN).prView(foreign);
 
         assertAll("the foreign pull request",
                 () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a foreign pull request is refused"),
@@ -1097,7 +1164,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"permissions\":{\"push\":true}}")
     void readsAppPermissionWithUserToken(MockWebServer server) throws Exception {
         var fixture = fixture();
-        primeOpen(fixture, "cuioss", false);
+        primeOpen(fixture, OWNER, false);
 
         var result = appProvider(server).prView(PULL_REQUEST);
         var pullRequest = server.takeRequest(5, TimeUnit.SECONDS);
@@ -1106,17 +1173,17 @@ class GitHubCiProviderTest {
 
         assertAll("the App pull-request read",
                 () -> assertTrue(result.value().orElseThrow().headWritable(), "the user may push to the head"),
-                () -> assertEquals("Bearer ghs_installation", authorization(pullRequest),
+                () -> assertEquals(BEARER + INSTALLATION_TOKEN, authorization(pullRequest),
                         "the pull request is read with the installation"),
-                () -> assertEquals("Bearer ghs_installation", authorization(files),
+                () -> assertEquals(BEARER + INSTALLATION_TOKEN, authorization(files),
                         "the files are read with the installation token"),
-                () -> assertEquals("Bearer ghu_operator", authorization(permission),
+                () -> assertEquals(BEARER + USER_TOKEN, authorization(permission),
                         "the push fact is read with the user token"));
     }
 
     @Test
     @DisplayName("has the CI provider id")
     void hasProviderId(MockWebServer server) {
-        assertEquals("github", tokenProvider(server, "ghp_classic").id(), "the provider id is github");
+        assertEquals(FORGE, tokenProvider(server, CLASSIC_TOKEN).id(), "the provider id is github");
     }
 }

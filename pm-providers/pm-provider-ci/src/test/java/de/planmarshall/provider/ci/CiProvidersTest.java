@@ -17,12 +17,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Collections;
 import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/**
+ * The registry of the CI providers. The owner, repository name and number of the resolved URL are generated. What
+ * stays literal is contract and each test says so: the provider ids {@code github}, {@code gitlab} and
+ * {@code forgejo} (the ids the registry is addressed by), the id {@code Not-An-Id} outside the provider id pattern,
+ * and the forge origin {@code https://github.com} with its issue path.
+ */
 @EnableGeneratorController
 @DisplayName("CiProviders")
 class CiProvidersTest {
@@ -35,7 +43,7 @@ class CiProvidersTest {
     }
 
     @Test
-    @DisplayName("finds a registered provider by its id")
+    @DisplayName("finds a registered provider by its id (the provider ids are the contract)")
     void findsById() {
         var github = provider("github");
         var gitlab = provider("gitlab");
@@ -49,7 +57,7 @@ class CiProvidersTest {
     }
 
     @Test
-    @DisplayName("keeps the registration order of the ids")
+    @DisplayName("keeps the registration order of the ids (the provider ids are the contract)")
     void keepsOrder() {
         var registry = new CiProviders(List.of(provider("gitlab"), provider("github")));
 
@@ -57,17 +65,19 @@ class CiProvidersTest {
     }
 
     @Test
-    @DisplayName("selects the provider of a resolved URL's forge")
+    @DisplayName("selects the provider of a resolved URL's forge (the github.com issue path is the grammar)")
     void selectsByUrl() {
         var github = provider("github");
         var registry = new CiProviders(List.of(github));
-        var url = ForgeUrl.resolve("https://github.com/cuioss/pm/issues/1").url().orElseThrow();
+        var url = ForgeUrl.resolve("https://github.com/%s/%s/issues/%d".formatted(
+                Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 20).next(),
+                Generators.integers(1, 99_999).next())).url().orElseThrow();
 
         assertEquals(github, registry.select(url).orElseThrow(), "the URL's forge selects the provider");
     }
 
     @Test
-    @DisplayName("refuses a duplicate id and an id outside the pattern")
+    @DisplayName("refuses a duplicate id and an id outside the pattern (the ids are the id grammar)")
     void refusesInvalidRegistrations() {
         var github = provider("github");
         List<CiProvider> duplicate = List.of(github, provider("github"));

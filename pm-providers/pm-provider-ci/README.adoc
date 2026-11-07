@@ -23,8 +23,16 @@ The commands for the whole repository are in `CLAUDE.md`.
 
 == Test artifact
 
-The module publishes no generator artifact and no shared abstract contract test: each adapter tests the contract
-against its own mock web server.
+The test scope is published as the `pm-provider-ci:tests` test JAR (the `tests` classifier, built by `verify` and
+deployed with the `SNAPSHOT`). It holds the package `de.planmarshall.provider.ci.testing.generators` with the
+`TypedGenerator<T>` of the contract type the test classes build by hand (`RepositoryRef`) and the `CiGenerators`
+factory that registers it. The `test-jar` goal includes only this package, so the module's own tests are not
+published. `pm-provider-github` and `pm-provider-gitlab` may consume it as a test-scope dependency of type `test-jar`;
+the version comes from the root POM's `dependencyManagement`. The artifact is the operator's decision of 2026-11-06
+(PLAN-V2-92); its consumers are recorded in link:../../doc/adr/012-generator-artifacts.adoc[ADR 012].
+
+The module publishes no shared abstract contract test: each adapter tests the contract against its own mock web
+server (module ADR link:doc/adr/provider-ci/005-no-shared-contract-test.adoc[005], amended 2026-11-06).
 
 == Developer Documentation and ADRs
 

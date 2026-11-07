@@ -11,6 +11,9 @@ package de.planmarshall.provider.git;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.TypedGenerator;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,14 +23,20 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/**
+ * The version-1 framing of the working-tree digest. The entry tags {@code F}, {@code L} and {@code D}, the NUL
+ * separators and the 8-byte big-endian length are the framing of the specification; the head, the paths and the
+ * contents are generated.
+ */
+@EnableGeneratorController
 @DisplayName("WorktreeShaDigest framing")
 class WorktreeShaDigestTest {
-
-    private static final String HEAD = "0123456789abcdef0123456789abcdef01234567";
 
     /** One expected entry: path, tag and payload. */
     record Entry(String path, char tag, byte[] payload) {
@@ -69,23 +78,47 @@ class WorktreeShaDigestTest {
         }
     }
 
+    private String head;
+    private TypedGenerator<String> names;
+
+    @BeforeEach
+    void generate() {
+        head = JGitCacheRepositoryTest.commitId();
+        // lower-case ASCII names, distinct, so the byte order of the paths is the order of the strings
+        names = Generators.uniqueValues(Generators.strings("abcdefghijklmnopqrstuvwxyz", 1, 10));
+    }
+
+    private static String content() {
+        return Generators.letterStrings(1, 40).next();
+    }
+
     @Test
     @DisplayName("frames files, links and deletions sorted by path bytes")
     void frames(@TempDir Path root) throws Exception {
-        Files.writeString(root.resolve("z.txt"), "zz");
-        Files.createDirectories(root.resolve("dir"));
-        Files.writeString(root.resolve("dir/a.txt"), "a");
-        Files.createSymbolicLink(root.resolve("ln"), Path.of("dir/a.txt"));
+        var top = names.next() + ".txt";
+        var nested = names.next() + "/" + names.next() + ".txt";
+        var link = names.next();
+        var gone = names.next() + ".txt";
+        var topContent = content();
+        var nestedContent = content();
+        Files.writeString(root.resolve(top), topContent);
+        Files.createDirectories(root.resolve(nested).getParent());
+        Files.writeString(root.resolve(nested), nestedContent);
+        Files.createSymbolicLink(root.resolve(link), Path.of(nested));
 
-        String digest = WorktreeShaDigest.digest(HEAD, root, List.of("z.txt", "ln", "gone.txt", "dir/a.txt"));
+        // descending order, so every run hands the digest paths that need sorting
+        var descending = Stream.of(top, link, gone, nested).sorted(Comparator.reverseOrder()).toList();
 
-        assertEquals(independentDigest(HEAD, List.of(file("z.txt", "zz"), link("ln", "dir/a.txt"),
-                deleted("gone.txt"), file("dir/a.txt", "a"))), digest);
+        String digest = WorktreeShaDigest.digest(head, root, descending);
+
+        assertEquals(independentDigest(head, List.of(file(top, topContent), link(link, nested), deleted(gone),
+                file(nested, nestedContent))), digest, "the digest matches the independent framing");
     }
 
     @Test
     @DisplayName("has a fixed digest for an empty path set")
     void emptySet(@TempDir Path root) throws Exception {
-        assertEquals(independentDigest(HEAD, List.of()), WorktreeShaDigest.digest(HEAD, root, List.of()));
+        assertEquals(independentDigest(head, List.of()), WorktreeShaDigest.digest(head, root, List.of()),
+                "an empty path set frames the head alone");
     }
 }

@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,105 +31,152 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+/**
+ * The JSON tree of the provider clients and the mapping of failed responses. Free-form string and number values, the
+ * provider messages and the transport details are generated. What stays literal is contract and each test says so:
+ * the JSON syntax ({@code null}, {@code true}, {@code false}, braces, an unterminated object, an HTML page), the
+ * punctuation, spaces, quotes and escapes a round trip must preserve, the field names of the tree, the reason keys
+ * {@code message} and {@code error}, the HTTP status codes and the {@code "HTTP <status>"} detail format.
+ */
+@EnableGeneratorController
 @DisplayName("Json")
 class JsonTest {
 
     @Test
-    @DisplayName("round-trips a tree and navigates it")
+    @DisplayName("round-trips a tree and navigates it (escapes, quotes, spaces and field names are the contract)")
     void roundTrip() {
+        var first = word();
+        var second = word();
+        var quoted = word();
+        var tail = word();
+        var element = word();
+        var text = first + "\n" + second + " \"" + quoted + "\"; " + tail + "\\";
+        var escaped = first + "\\n" + second + " \\\"" + quoted + "\\\"; " + tail + "\\\\";
+        long n = Generators.longs().next();
+        int i = Generators.integers().next();
+        var d = BigDecimal.valueOf(Generators.integers(0, 1_000_000).next(), 1);
+        var o = Duration.ofSeconds(Generators.integers(1, 1_000_000).next());
         var tree = new LinkedHashMap<String, Object>();
-        tree.put("s", "line1\nline2 \"q\"");
-        tree.put("n", 3L);
-        tree.put("i", 4);
-        tree.put("d", new BigDecimal("1.5"));
+        tree.put("s", text);
+        tree.put("n", n);
+        tree.put("i", i);
+        tree.put("d", d);
         tree.put("b", true);
         tree.put("z", null);
-        tree.put("l", Arrays.asList("a", null, Map.of("k", false)));
-        tree.put("o", Duration.ofSeconds(1));
+        tree.put("l", Arrays.asList(element, null, Map.of("k", false)));
+        tree.put("o", o);
 
         String json = Json.write(tree);
         Object parsed = Json.parse(json).orElseThrow();
 
-        assertEquals("{\"s\":\"line1\\nline2 \\\"q\\\"\",\"n\":3,\"i\":4,\"d\":1.5,\"b\":true,\"z\":null,"
-                + "\"l\":[\"a\",null,{\"k\":false}],\"o\":\"PT1S\"}", json);
-        assertEquals(Optional.of("line1\nline2 \"q\""), Json.string(parsed, "s"));
-        assertEquals(Optional.of("3"), Json.string(parsed, "n"));
-        assertTrue(Json.bool(parsed, "b"));
-        assertFalse(Json.bool(parsed, "missing"));
-        assertEquals(3, Json.list(parsed, "l").size());
-        assertNull(Json.list(parsed, "l").get(1));
-        assertEquals(List.of(), Json.list(parsed, "s"));
-        assertEquals(Optional.empty(), Json.at(parsed, "s", "deeper"));
-        assertEquals(Optional.empty(), Json.at(parsed, "z"));
+        assertEquals("{\"s\":\"" + escaped + "\",\"n\":" + n + ",\"i\":" + i + ",\"d\":" + d
+                + ",\"b\":true,\"z\":null,\"l\":[\"" + element + "\",null,{\"k\":false}],\"o\":\"" + o + "\"}", json,
+                "the tree is written as compact escaped JSON");
+        assertEquals(Optional.of(text), Json.string(parsed, "s"), "the escaped string reads back unchanged");
+        assertEquals(Optional.of(String.valueOf(n)), Json.string(parsed, "n"), "a number reads back in its JSON form");
+        assertTrue(Json.bool(parsed, "b"), "the true literal reads back as true");
+        assertFalse(Json.bool(parsed, "missing"), "an absent key reads back as false");
+        assertEquals(3, Json.list(parsed, "l").size(), "the array keeps all three of its elements");
+        assertNull(Json.list(parsed, "l").get(1), "the null element of the array is kept");
+        assertEquals(List.of(), Json.list(parsed, "s"), "a string read as a list yields no elements");
+        assertEquals(Optional.empty(), Json.at(parsed, "s", "deeper"), "a path through a string yields nothing");
+        assertEquals(Optional.empty(), Json.at(parsed, "z"), "the null value yields no tree at its key");
     }
 
     @Test
-    @DisplayName("rejects text that is not JSON")
+    @DisplayName("rejects text that is not JSON (the inputs are JSON syntax contract)")
     void rejects() {
-        assertThrows(Json.JsonFormatException.class, () -> Json.parse(""));
-        assertThrows(Json.JsonFormatException.class, () -> Json.parse("{\"a\":"));
+        assertThrows(Json.JsonFormatException.class, () -> Json.parse(""), "an empty document is not JSON");
+        assertThrows(Json.JsonFormatException.class, () -> Json.parse("{\"a\":"),
+                "an unterminated object is not JSON");
         assertTrue(Json.parseOrNull("<html>").isEmpty(), "Text that is not JSON yields no tree");
         assertTrue(Json.parseOrNull("null").isEmpty(), "The JSON null literal yields no tree");
     }
 
     @Test
-    @DisplayName("returns no tree for the JSON null literal")
+    @DisplayName("returns no tree for the JSON null literal (the null literal is the contract)")
     void parsesNullLiteralAsEmpty() {
         assertEquals(Optional.empty(), Json.parse("null"), "The JSON null literal yields no tree");
     }
 
     @Test
-    @DisplayName("maps failed responses to contract outcomes")
+    @DisplayName("maps failed responses to contract outcomes (status codes and reason keys are the contract)")
     void mapsOutcomes() {
-        assertEquals(Result.Outcome.AUTH_FAILED, failed(401, "").outcome());
-        assertEquals(Result.Outcome.PERMISSION_DENIED, failed(403, "").outcome());
-        assertEquals(Result.Outcome.NOT_FOUND, failed(404, "").outcome());
-        assertEquals(Result.Outcome.REJECTED, failed(409, "{\"message\":\"SHA does not match\"}").outcome());
-        assertEquals("HTTP 409: SHA does not match", failed(409, "{\"message\":\"SHA does not match\"}").detail());
-        assertEquals(Result.Outcome.FAILED, failed(500, "oops").outcome());
-        assertEquals(Result.Outcome.FAILED, failed(500, "{\"message\":\"500 Internal Server Error\"}").outcome());
+        var reason = phrase();
+        var refused = phrase();
+        var transport = word();
+        var reset = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
+
+        assertEquals(Result.Outcome.AUTH_FAILED, failed(401, "").outcome(), "a 401 is a refused credential");
+        assertEquals(Result.Outcome.PERMISSION_DENIED, failed(403, "").outcome(), "a 403 is a missing permission");
+        assertEquals(Result.Outcome.NOT_FOUND, failed(404, "").outcome(), "a 404 is an absent entity");
+        assertEquals(Result.Outcome.REJECTED, failed(409, message(reason)).outcome(),
+                "a 409 with a reason is a provider refusal");
+        assertEquals("HTTP 409: " + reason, failed(409, message(reason)).detail(),
+                "the detail carries the provider's reason");
+        assertEquals(Result.Outcome.FAILED, failed(500, word()).outcome(), "a 500 with a text body is a failure");
+        assertEquals(Result.Outcome.FAILED, failed(500, message(reason)).outcome(),
+                "a 500 with a reason is still a failure");
         assertEquals(Result.Outcome.FAILED,
-                Result.failed(Response.failure(Response.Outcome.REFUSED, "outside the origin")).outcome());
+                Result.failed(Response.failure(Response.Outcome.REFUSED, refused)).outcome(),
+                "a request refused before sending is a failure");
         assertEquals(Result.Outcome.FAILED,
-                Result.failed(Response.failure(Response.Outcome.TRANSPORT_FAILED, "IOException")).outcome());
+                Result.failed(Response.failure(Response.Outcome.TRANSPORT_FAILED, transport)).outcome(),
+                "a transport failure maps to a failure");
         var limited = Result.failed(new Response(Response.Outcome.RATE_LIMITED, 429, "", Optional.empty(),
-                Optional.empty(), Optional.of(Instant.EPOCH), "rate limited"));
-        assertEquals(Result.Outcome.RATE_LIMITED, limited.outcome());
-        assertEquals(Optional.of(Instant.EPOCH), limited.resetAt());
-        assertFalse(limited.isOk());
-        assertTrue(Result.ok("v", false).isOk());
+                Optional.empty(), Optional.of(reset), phrase()));
+        assertEquals(Result.Outcome.RATE_LIMITED, limited.outcome(), "a rate-limited response stays rate limited");
+        assertEquals(Optional.of(reset), limited.resetAt(), "the rate limit keeps its reset instant");
+        assertFalse(limited.isOk(), "a rate-limited result is not OK");
+        assertTrue(Result.ok(word(), false).isOk(), "an OK result of a partial read is OK");
     }
 
     @ParameterizedTest(name = "{0} {1}")
     @CsvSource(delimiter = '|', value = {
-            "400|{\"message\":\"Merge trains are not enabled for this project\"}|REJECTED|HTTP 400: Merge trains are not enabled for this project",
-            "400|{\"error\":\"sha is missing\"}|REJECTED|HTTP 400: sha is missing",
-            "409|{\"message\":\"SHA does not match\"}|REJECTED|HTTP 409: SHA does not match",
-            "409|''|REJECTED|HTTP 409",
-            "422|{\"message\":\"Validation Failed\"}|REJECTED|HTTP 422: Validation Failed",
-            "405|{\"message\":\"Method Not Allowed\"}|REJECTED|HTTP 405: Method Not Allowed",
-            "410|{\"message\":\"Gone\"}|REJECTED|HTTP 410: Gone",
-            "400|''|FAILED|HTTP 400",
-            "400|<html>bad gateway page</html>|FAILED|HTTP 400",
-            "400|{\"message\":\" \"}|FAILED|HTTP 400",
-            "400|{\"message\":null}|FAILED|HTTP 400",
-            "401|{\"message\":\"Bad credentials\"}|AUTH_FAILED|HTTP 401: Bad credentials",
-            "403|{\"message\":\"Resource not accessible by integration\"}|PERMISSION_DENIED|HTTP 403: Resource not accessible by integration",
-            "404|{\"message\":\"Not Found\"}|NOT_FOUND|HTTP 404: Not Found",
-            "502|{\"message\":\"Bad Gateway\"}|FAILED|HTTP 502: Bad Gateway",
-            "302|{\"message\":\"moved\"}|FAILED|HTTP 302: moved"
+            "400|{\"message\":\"%s\"}|REJECTED|true",
+            "400|{\"error\":\"%s\"}|REJECTED|true",
+            "409|{\"message\":\"%s\"}|REJECTED|true",
+            "409|''|REJECTED|false",
+            "422|{\"message\":\"%s\"}|REJECTED|true",
+            "405|{\"message\":\"%s\"}|REJECTED|true",
+            "410|{\"message\":\"%s\"}|REJECTED|true",
+            "400|''|FAILED|false",
+            "400|<html>%s</html>|FAILED|false",
+            "400|{\"message\":\" \"}|FAILED|false",
+            "400|{\"message\":null}|FAILED|false",
+            "401|{\"message\":\"%s\"}|AUTH_FAILED|true",
+            "403|{\"message\":\"%s\"}|PERMISSION_DENIED|true",
+            "404|{\"message\":\"%s\"}|NOT_FOUND|true",
+            "502|{\"message\":\"%s\"}|FAILED|true",
+            "302|{\"message\":\"%s\"}|FAILED|true"
     })
-    @DisplayName("keeps a provider refusal (REJECTED) apart from a credential refusal and from a failure")
-    void separatesRefusals(int status, String body, Result.Outcome outcome, String detail) {
-        var result = failed(status, body);
+    @DisplayName("keeps a provider refusal (REJECTED) apart from a credential refusal and from a failure "
+            + "(status codes, body shapes and the detail format are the contract)")
+    void separatesRefusals(int status, String bodyShape, Result.Outcome outcome, boolean reasoned) {
+        var reason = phrase();
+        var result = failed(status, bodyShape.formatted(reason));
 
-        assertEquals(outcome, result.outcome());
-        assertEquals(detail, result.detail());
-        assertTrue(result.value().isEmpty());
+        assertEquals(outcome, result.outcome(), "the status and body shape decide the outcome");
+        assertEquals(reasoned ? "HTTP " + status + ": " + reason : "HTTP " + status, result.detail(),
+                "the detail is the status plus any provider reason");
+        assertTrue(result.value().isEmpty(), "a failed result carries no value");
     }
 
     private static Result<Object> failed(int status, String body) {
         return Result.failed(new Response(Response.Outcome.HTTP_ERROR, status, body, Optional.empty(),
                 Optional.empty(), Optional.empty(), "HTTP " + status));
+    }
+
+    /** The GitHub and GitLab error body with the provider's reason under {@code message}: a wire contract. */
+    private static String message(String reason) {
+        return "{\"message\":\"" + reason + "\"}";
+    }
+
+    private static String word() {
+        return Generators.letterStrings(1, 12).next();
+    }
+
+    private static String phrase() {
+        return word() + " " + word();
     }
 }

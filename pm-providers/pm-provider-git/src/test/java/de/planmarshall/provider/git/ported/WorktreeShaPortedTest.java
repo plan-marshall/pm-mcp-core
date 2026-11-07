@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -26,6 +28,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -54,7 +57,12 @@ import de.planmarshall.provider.git.ported.PortedFixtures.Header;
  * The deliberate-change fixtures assert the corrected behaviour where the original hashes git's textual output, folds
  * an unreadable file in as empty content, or frames untracked entries ambiguously. The roster test closes the corpus
  * in both directions against the original's twelve pytest cases.
+ * <p>
+ * The fixture and roster texts of the loader tests, the fixture names, the directive keywords, the step names of an
+ * {@code unavailable} result and the refusal phrases are literals by design: they are the fixture grammar under test.
+ * The digests and the failure texts of the comparison helper are generated.
  */
+@EnableGeneratorController
 @DisplayName("git.worktree-sha ported from plan-marshall")
 class WorktreeShaPortedTest {
 
@@ -64,6 +72,9 @@ class WorktreeShaPortedTest {
      * smaller suite green.
      */
     static final int POPULATION_FLOOR = 17;
+
+    /** The number of pytest cases of the original suite, the population the roster closes against. */
+    private static final int ORIGINAL_CASES = 12;
 
     private static final List<Fixture> FIXTURES = WorktreeShaScenario.fixtures();
 
@@ -97,7 +108,8 @@ class WorktreeShaPortedTest {
     @EnabledOnOs(value = {OS.LINUX, OS.MAC}, disabledReason = "the fixture removes POSIX file permissions")
     @DisplayName("holds the equality behaviour of each fixture that needs POSIX permissions")
     void posixEqualityBehaviour(Fixture fixture, @TempDir Path temp) throws Exception {
-        Path probe = Files.writeString(temp.resolve("probe"), "p");
+        // a probe file outside the fixture, whose permissions are removed to learn whether the user can read past them
+        Path probe = Files.writeString(temp.resolve("probe"), Generators.letterStrings(1, 10).next());
         Files.setPosixFilePermissions(probe, PosixFilePermissions.fromString("---------"));
         Assumptions.assumeFalse(Files.isReadable(probe),
                 "the running user reads a file without read permission (root), so no file is unreadable to it");
@@ -113,10 +125,10 @@ class WorktreeShaPortedTest {
     void populationFloor() {
         assertAll(
                 () -> assertTrue(FIXTURES.size() >= POPULATION_FLOOR,
-                        "the corpus holds " + FIXTURES.size() + " fixtures, fewer than " + POPULATION_FLOOR),
+                        "the corpus holds no fewer fixtures than its floor"),
                 () -> assertTrue(FIXTURES.stream().allMatch(f -> f.requires().isEmpty()
                                 || f.requires().equals(Set.of(WorktreeShaScenario.POSIX_PERMISSIONS))),
-                        "a fixture requires a capability no test source runs"));
+                        "no fixture requires a capability no source runs"));
     }
 
     @Test
@@ -129,31 +141,33 @@ class WorktreeShaPortedTest {
             Header header = fixture.header();
             if (header.original()) {
                 checks.add(() -> assertEquals(roster.pytestPath(), header.pytestPath(),
-                        fixture + " is derived from another suite"));
+                        "an original fixture derives from the pinned suite"));
                 header.cases().forEach(c -> derived.computeIfAbsent(c, k -> new TreeSet<>()).add(fixture.name()));
             } else {
+                // the name prefix of a deliberate fixture is the contract of the fixture grammar
                 checks.add(() -> assertTrue(fixture.name().startsWith("deliberate-"),
-                        fixture + " is headed deliberate but not named deliberate-<change>"));
+                        "a deliberate fixture is named deliberate-<change>"));
             }
         }
         for (var entry : roster.cases().entrySet()) {
             String pytestCase = entry.getKey();
             var rosterEntry = entry.getValue();
             if (rosterEntry.fixtures().isEmpty()) {
-                checks.add(() -> assertFalse(rosterEntry.reason().isBlank(), pytestCase + " is excluded without a reason"));
+                checks.add(() -> assertFalse(rosterEntry.reason().isBlank(), "an excluded pytest case names a reason"));
                 checks.add(() -> assertFalse(derived.containsKey(pytestCase),
-                        pytestCase + " is excluded, yet " + derived.get(pytestCase) + " name it"));
+                        "no fixture is derived from an excluded case"));
             } else {
                 checks.add(() -> assertEquals(new TreeSet<>(rosterEntry.fixtures()),
                         derived.getOrDefault(pytestCase, Set.of()),
-                        "the fixtures derived from " + pytestCase + " differ from the roster"));
+                        "the fixtures of a case are those of the roster"));
             }
         }
         for (String pytestCase : derived.keySet()) {
             checks.add(() -> assertTrue(roster.cases().containsKey(pytestCase),
-                    derived.get(pytestCase) + " name " + pytestCase + ", which the roster does not list"));
+                    "every case a fixture names is in the roster"));
         }
-        checks.add(() -> assertEquals(12, roster.cases().size(), "the original suite has twelve pytest cases"));
+        checks.add(() -> assertEquals(ORIGINAL_CASES, roster.cases().size(),
+                "the original suite has twelve pytest cases"));
 
         assertAll("roster", checks);
     }
@@ -175,13 +189,18 @@ class WorktreeShaPortedTest {
                     + "requires: posix-permissions\nrepository initial\nwrite a.txt one two\\n\nresult r\n");
 
             assertAll(
-                    () -> assertTrue(fixture.header().original()),
-                    () -> assertEquals("t/test_a.py", fixture.header().pytestPath()),
-                    () -> assertEquals(Set.of("test_one", "test_two"), fixture.header().cases()),
-                    () -> assertEquals(Set.of("posix-permissions"), fixture.requires()),
+                    () -> assertTrue(fixture.header().original(), "an original header is read as original"),
+                    () -> assertEquals("t/test_a.py", fixture.header().pytestPath(),
+                            "the header names the pytest file"),
+                    () -> assertEquals(Set.of("test_one", "test_two"), fixture.header().cases(),
+                            "the header names both pytest cases"),
+                    () -> assertEquals(Set.of("posix-permissions"), fixture.requires(),
+                            "the required capability is read"),
                     () -> assertEquals(List.of("repository", "write", "result"),
-                            fixture.directives().stream().map(Directive::keyword).toList()),
-                    () -> assertEquals(List.of("a.txt", "one two\\n"), fixture.directives().get(1).arguments()));
+                            fixture.directives().stream().map(Directive::keyword).toList(),
+                            "the directives are read in file order"),
+                    () -> assertEquals(List.of("a.txt", "one two\\n"), fixture.directives().get(1).arguments(),
+                            "the last argument keeps its spaces"));
         }
 
         @Test
@@ -189,7 +208,7 @@ class WorktreeShaPortedTest {
         void readsDeliberate() {
             var fixture = parse("deliberate-x", "deliberate: deliberate-x\nrepository initial\nresult r\n");
 
-            assertFalse(fixture.header().original());
+            assertFalse(fixture.header().original(), "a deliberate header is not read as original");
         }
 
         @Test
@@ -227,9 +246,12 @@ class WorktreeShaPortedTest {
         @DisplayName("resolves the content escapes and refuses an unknown or unfinished one")
         void unescapes() {
             assertAll(
-                    () -> assertEquals("a\nb\tc\0d\\e", WorktreeShaScenario.unescape("a\\nb\\tc\\0d\\\\e")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.unescape("a\\x")),
-                    () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.unescape("a\\")));
+                    () -> assertEquals("a\nb\tc\0d\\e", WorktreeShaScenario.unescape("a\\nb\\tc\\0d\\\\e"),
+                            "each known escape resolves to its character"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.unescape("a\\x"),
+                            "an unknown escape is refused"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.unescape("a\\"),
+                            "an unfinished escape is refused"));
         }
 
         @Test
@@ -239,23 +261,29 @@ class WorktreeShaPortedTest {
 
             assertAll(
                     () -> assertEquals(Set.of("f1", "f2"),
-                            PortedFixtures.roster(suite + "case test_a -> f1 f2\n").cases().get("test_a").fixtures()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> PortedFixtures.roster("case test_a -> f\n")),
+                            PortedFixtures.roster(suite + "case test_a -> f1 f2\n").cases().get("test_a").fixtures(),
+                            "a mapped case lists its fixtures"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> PortedFixtures.roster("case test_a -> f\n"),
+                            "a roster without its suite is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> PortedFixtures.roster("suite: plan-marshall@b3aba30 t/test_a.py\n")),
+                            () -> PortedFixtures.roster("suite: plan-marshall@b3aba30 t/test_a.py\n"),
+                            "a roster of a foreign pin is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> PortedFixtures.roster(suite + "case test_a\n")),
+                            () -> PortedFixtures.roster(suite + "case test_a\n"),
+                            "a case without mapping is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> PortedFixtures.roster(suite + "test_a -> f\n")),
+                            () -> PortedFixtures.roster(suite + "test_a -> f\n"),
+                            "a line without the case keyword is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> PortedFixtures.roster(suite + "case test_a -> f\ncase test_a excluded: r\n")),
+                            () -> PortedFixtures.roster(suite + "case test_a -> f\ncase test_a excluded: r\n"),
+                            "a case listed twice is refused"),
                     () -> assertRefused("duplicate fixture",
                             () -> PortedFixtures.roster(suite + "case test_a -> f f\n")));
         }
 
         private void assertRefused(String reason, Executable parse) {
-            var refusal = assertThrows(IllegalArgumentException.class, parse);
-            assertTrue(refusal.getMessage().contains(reason), refusal.getMessage());
+            var refusal = assertThrows(IllegalArgumentException.class, parse, "the fixture text is refused");
+            assertTrue(refusal.getMessage().contains(reason), "the refusal message names its reason");
         }
     }
 
@@ -263,8 +291,15 @@ class WorktreeShaPortedTest {
     @DisplayName("comparison helper")
     class Relations {
 
-        private static final String DIGEST_A = "a".repeat(64);
-        private static final String DIGEST_B = "b".repeat(64);
+        private String digestA;
+        private String digestB;
+
+        @BeforeEach
+        void digests() {
+            var digests = Generators.uniqueValues(Generators.strings("0123456789abcdef", 64, 64));
+            digestA = digests.next();
+            digestB = digests.next();
+        }
 
         private WorktreeShaScenario.Run run(Map<String, GitResult<WorktreeSha>> results, String... expectations) {
             var directives = new ArrayList<Directive>();
@@ -280,51 +315,68 @@ class WorktreeShaPortedTest {
             return GitResult.ok(new WorktreeSha(digest, DigestRelations.VERSION));
         }
 
+        /** @return an {@code unavailable} result of that step, its failure text generated */
+        private GitResult<WorktreeSha> unavailable(String step) {
+            return GitResult.of(GitOutcome.UNAVAILABLE, step + ": " + Generators.letterStrings(3, 30).next());
+        }
+
         @Test
         @DisplayName("passes matching relations and fails each contradicted one")
         void relations() {
-            Map<String, GitResult<WorktreeSha>> results = Map.of("a", ok(DIGEST_A), "a2", ok(DIGEST_A), "b", ok(DIGEST_B),
-                    "u", GitResult.of(GitOutcome.UNAVAILABLE, "read: java.nio.file.AccessDeniedException"));
+            Map<String, GitResult<WorktreeSha>> results = Map.of("a", ok(digestA), "a2", ok(digestA), "b", ok(digestB),
+                    "u", unavailable("read"));
 
             DigestRelations.assertRelations(run(results, "same a a2", "different a b", "unavailable u read"));
             var contradicted = run(results, "different a a2", "same a b", "unavailable u read");
             var wrongReason = run(results, "same a a2", "different a b", "unavailable u head");
             var wrongLabel = run(results, "same a a2", "different a b", "unavailable a read");
             assertAll(
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(contradicted)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongReason)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongLabel)));
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(contradicted),
+                            "contradicted relations fail"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongReason),
+                            "an unavailable result of another step fails"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongLabel),
+                            "an available result named unavailable fails"));
         }
 
         @Test
         @DisplayName("never lets an unavailable result enter an equality assertion")
         void unavailableNeverEqual() {
-            var unavailable = GitResult.<WorktreeSha>of(GitOutcome.UNAVAILABLE, "open: x");
+            var unavailable = unavailable("open");
             Map<String, GitResult<WorktreeSha>> results = Map.of("u", unavailable, "v", unavailable);
             var same = run(results, "same u v");
             var different = run(results, "different u v");
 
             assertAll(
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(same)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(different)));
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(same),
+                            "unavailable results are never the same"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(different),
+                            "unavailable results are never different"));
         }
 
         @Test
         @DisplayName("fails a wrong hash version, a malformed digest, an unnamed result and an unknown label")
         void wellFormedness() {
-            var wrongVersion = run(Map.of("a", GitResult.ok(new WorktreeSha(DIGEST_A, 2)), "b", ok(DIGEST_B)),
+            // a version other than the current one, and upper-case hex digits, which the digest format excludes
+            var wrongVersion = run(Map.of("a", GitResult.ok(new WorktreeSha(digestA, DigestRelations.VERSION + 1)),
+                    "b", ok(digestB)), "different a b");
+            var malformedDigest = run(Map.of("a", ok(Generators.strings("ABCDEF", 64, 64).next()), "b", ok(digestB)),
                     "different a b");
-            var malformedDigest = run(Map.of("a", ok("A".repeat(64)), "b", ok(DIGEST_B)), "different a b");
-            var unnamedResult = run(Map.of("a", ok(DIGEST_A), "b", ok(DIGEST_B), "c", ok(DIGEST_B)), "different a b");
-            var unknownLabel = run(Map.of("a", ok(DIGEST_A)), "same a missing");
-            var noRelation = run(Map.of("a", ok(DIGEST_A)));
+            var unnamedResult = run(Map.of("a", ok(digestA), "b", ok(digestB), "c", ok(digestB)), "different a b");
+            var unknownLabel = run(Map.of("a", ok(digestA)), "same a missing");
+            var noRelation = run(Map.of("a", ok(digestA)));
 
             assertAll(
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongVersion)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(malformedDigest)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(unnamedResult)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(unknownLabel)),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(noRelation)));
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongVersion),
+                            "a wrong hash version fails"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(malformedDigest),
+                            "a malformed digest fails"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(unnamedResult),
+                            "a result no relation names fails"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(unknownLabel),
+                            "a relation of an unknown label fails"),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(noRelation),
+                            "a run without any relation fails"));
         }
     }
 
@@ -341,16 +393,21 @@ class WorktreeShaPortedTest {
         var unknownKind = new Fixture("w", new Header(false, "", Set.of()), Set.of(),
                 List.of(new Directive(1, "repository", List.of("bare"))));
 
+        // fixture paths: one fresh root per scenario
         var twoRepositoriesRoot = temp.resolve("2");
         var twiceRoot = temp.resolve("3");
         var unknownKindRoot = temp.resolve("4");
 
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(noRepository, temp)),
+                () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(noRepository, temp),
+                        "a scenario without repository is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> WorktreeShaScenario.run(twoRepositories, twoRepositoriesRoot)),
-                () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(twice, twiceRoot)),
+                        () -> WorktreeShaScenario.run(twoRepositories, twoRepositoriesRoot),
+                        "a scenario with two repositories is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(twice, twiceRoot),
+                        "a label recorded twice is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> WorktreeShaScenario.run(unknownKind, unknownKindRoot)));
+                        () -> WorktreeShaScenario.run(unknownKind, unknownKindRoot),
+                        "an unknown repository kind is refused"));
     }
 }

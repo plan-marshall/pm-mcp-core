@@ -9,11 +9,12 @@
  */
 package de.planmarshall.provider.ci;
 
-import de.planmarshall.core.findings.FindingSourceKey;
 import java.net.URI;
 import java.util.Locale;
 import java.util.Objects;
 import lombok.Builder;
+
+import de.planmarshall.core.findings.FindingSourceKey;
 
 /**
  * The repository a CI operation addresses: its forge, its web origin and its owner (or, on GitLab, its group

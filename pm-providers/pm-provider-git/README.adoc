@@ -20,6 +20,17 @@ Run from the root of the repository:
 
 The commands for the whole repository are in `CLAUDE.md`.
 
+== Test artifact
+
+The test scope is published as the `pm-provider-git:tests` test JAR (the `tests` classifier, built by `verify` and
+deployed with the `SNAPSHOT`). It holds the package `de.planmarshall.provider.git.testing.generators` with the
+`TypedGenerator<T>` of the transport credential the test classes build by hand (`GitOperations.GitCredential`) and the
+`GitGenerators` factory that registers it. The `test-jar` goal includes only this package, so the module's own tests
+are not published. No module of this repository consumes it; the assembly `plan-marshall-mcp` may, as a test-scope
+dependency of type `test-jar` whose version comes from the root POM's `dependencyManagement`. The artifact is the
+operator's decision of 2026-11-06 (PLAN-V2-92); its consumers are recorded in
+link:../../doc/adr/012-generator-artifacts.adoc[ADR 012].
+
 == Developer Documentation
 
 * link:doc/developer/provider-git.adoc[The Git Contract, the Project Operations and the Cache Repository Operations (`provider.git`)]
