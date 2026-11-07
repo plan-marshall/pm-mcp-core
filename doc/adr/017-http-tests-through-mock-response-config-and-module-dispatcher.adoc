@@ -1,0 +1,57 @@
+= ADR 017: HTTP Tests Through `@MockResponseConfig` and `@ModuleDispatcher`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-07
+
+== Context
+
+ADR link:002-cui-http-and-the-mock-web-server-for-http.adoc[002] put every HTTP test on
+`cui-test-mockwebserver-junit5`, and each test class served its canned responses from its own dispatcher. In practice
+that dispatcher was a hand-written `mockwebserver3.Dispatcher`, installed with `server.setDispatcher(...)` and routing
+by its own map of method and path. Such a dispatcher answers whatever request reaches it, so a test that sends a wrong
+path, method or query can still pass, and every class repeats the routing.
+
+The operator's rule R20 asks for the library's annotation route instead: `@MockResponseConfig` and `@ModuleDispatcher`,
+with the base URI from the injected `URIBuilder`, and no hand-written `Dispatcher`. `GitHubCiProviderTest` and
+`GitLabCiProviderTest` (PLAN-V2-92) were the first classes of the repository on that route. At the head of `main`,
+twelve HTTP test classes in `pm-provider-http`, `pm-provider-github`, `pm-provider-gitlab` and `pm-runtime` still
+installed a hand-written dispatcher, and `pm-provider-sonar` held no HTTP test.
+
+== Decision
+
+* Every HTTP test class carries `@EnableMockWebServer` and serves its canned responses through the annotations of `cui-test-mockwebserver-junit5`:
+** a static response through `@MockResponseConfig`, one per request, naming the path, the method and the query the request must carry;
+** a response that carries generated data, depends on the request or pages through a `ModuleDispatcherElement` returned by `getModuleDispatcher()` under `@ModuleDispatcher`.
+* The base URI of the server comes from the injected `URIBuilder`.
+* No test class implements `mockwebserver3.Dispatcher`, and none calls `server.setDispatcher(...)`.
+* Kept from ADR 002: every HTTP call goes through `cui-http`, pinned by the guard test `sendsThroughCuiHttp` in `HttpClientTest`; cross-origin tests address the one mock web server as the literal of the address it bound (`127.0.0.1` or `[::1]`) and as `localhost`, two origins on one machine.
+
+A request that no configuration names gets no canned answer, so a test that sends a wrong request fails instead of
+passing on a catch-all route.
+
+== Alternatives Considered
+
+* *Keep the hand-written dispatchers of ADR 002.* Rejected by rule R20: each class repeats its routing, and a catch-all
+  route lets a wrong request pass unnoticed.
+* *One shared dispatcher helper for all modules.* Rejected: ADR 002 already ruled out a shared helper class, and the
+  annotations of the library give each class its routing without one.
+
+== Consequences
+
+* No class of the repository imports `mockwebserver3.Dispatcher`; the twelve classes that did are converted in the same pull request.
+* A new HTTP test is written on the annotation route from its first line; the converted classes and the precedents `GitHubCiProviderTest` and `GitLabCiProviderTest` are its pattern.
+* `pm-provider-sonar` holds an HTTP test now, `SonarClientTest` for its issue client; the consequence of ADR 002 that it holds none no longer applies.
+* A boundary test keeps its boundary: a test of a closed port opens its own `ServerSocket`, because no mock web server answers there.
+
+== Source
+
+* Work package PLAN-V2-93, `test(http): annotation-based HTTP tests, first Sonar client and test`
+* Rule R20 of the operator (HTTP tests through `@MockResponseConfig` or `@ModuleDispatcher` and an injected `URIBuilder`)
+* Precedent: `GitHubCiProviderTest` and `GitLabCiProviderTest`, PLAN-V2-92
+* Supersedes ADR link:002-cui-http-and-the-mock-web-server-for-http.adoc[002]
