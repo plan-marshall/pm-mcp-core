@@ -15,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,10 +36,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,8 +58,18 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.AtomicStoreFile;
+import de.planmarshall.core.store.AuditAnchor;
+import de.planmarshall.core.store.AuditCodec;
+import de.planmarshall.core.store.AuditLog;
+import de.planmarshall.core.store.AuditRecord;
+import de.planmarshall.core.store.AuditRecord.Category;
+import de.planmarshall.core.store.AuditRecord.Outcome;
+import de.planmarshall.core.store.AuditRecord.Scope;
+import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 
 /**
@@ -76,6 +91,14 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 @Timeout(value = 30, unit = TimeUnit.SECONDS)
 @DisplayName("File lock manager")
 class FileLockManagerTest {
+
+    /** The instant and the clock of the audit records the leaf-lock tests write. */
+    private static final Instant AT = Instant.parse("2026-11-08T09:30:15.250Z");
+    private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
+
+    /** A complete line and a torn tail of a JSONL store: the contract of an append, not generated data. */
+    private static final byte[] APPENDED = "{\"format_version\":1,\"n\":1}\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] TORN = "{\"format_version\":1,\"n\":".getBytes(StandardCharsets.UTF_8);
 
     @TempDir
     Path base;
@@ -126,6 +149,19 @@ class FileLockManagerTest {
 
     private static String mode(Path path) throws IOException {
         return PosixFilePermissions.toString(Files.getPosixFilePermissions(path));
+    }
+
+    /**
+     * The sidecar a leaf key's OS lock is taken on, derived from the layout alone: the guarded file's name with
+     * {@code .lock} appended, beside it. A test derives the expected path independently of the class under test.
+     */
+    private static Path osLockFile(LockKey key) {
+        return key.lockFile().resolveSibling(key.lockFile().getFileName() + ".lock");
+    }
+
+    /** @return whether this process holds a lock of the operating system on the file; a missing file is unlocked */
+    private boolean isLockedIfPresent(Path file) throws IOException {
+        return Files.exists(file) && isLocked(file);
     }
 
     /** Returns when the thread waits for a lock, or has ended without ever waiting for one. */
@@ -378,7 +414,8 @@ class FileLockManagerTest {
                 assertAll(
                         () -> assertTrue(transaction.holds(epic), "the epic lock is held"),
                         () -> assertTrue(transaction.holds(mailbox), "the mailbox leaf lock is held"),
-                        () -> assertTrue(isLocked(mailbox.lockFile()), "the mailbox lock file is locked"),
+                        () -> assertTrue(isLocked(osLockFile(mailbox)), "the mailbox sidecar is locked"),
+                        () -> assertFalse(Files.exists(mailbox.lockFile()), "the mailbox itself is not created"),
                         () -> assertEquals(List.of(), auditSink.events(), "the ordered pair is not audited"),
                         () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, FileLockManager.class));
             }
@@ -436,12 +473,15 @@ class FileLockManagerTest {
 
         /**
          * A leaf key names an append-only file of a store. Its directory is the store's: a plan directory that the
-         * lock manager created would stand in the way of the plan that is published into that place.
+         * lock manager created would stand in the way of the plan that is published into that place. The OS lock is
+         * taken on the sidecar beside the guarded file (ADR 068), so the acquisition creates the sidecar and not the
+         * store.
          */
         @Test
-        @DisplayName("a leaf lock creates its file with mode 0600 but never its directory")
+        @DisplayName("a leaf lock creates its sidecar with mode 0600 but never its directory nor the store")
         void leafLock() throws Exception {
             var audit = LockKey.auditLog(base);
+            var sidecar = osLockFile(audit);
             var failure = new AtomicReference<RuntimeException>();
             try (var transaction = manager.openTransaction()) {
                 var missingDirectory = assertThrows(UncheckedIOException.class, () -> transaction.acquire(audit),
@@ -458,12 +498,14 @@ class FileLockManagerTest {
                 other.join();
 
                 assertAll(
-                        () -> assertTrue(missingDirectory.getMessage().contains(audit.lockFile().toString()),
-                                "the failure names the leaf lock file"),
+                        () -> assertTrue(missingDirectory.getMessage().contains(sidecar.toString()),
+                                "the failure names the sidecar lock file"),
                         () -> assertFalse(heldAfterFailure, "a failed leaf acquisition holds nothing"),
                         () -> assertNull(failure.get(), "the failed acquisition left the key free"),
-                        () -> assertEquals("rw-------", mode(audit.lockFile()), "the leaf lock file has mode 0600"),
-                        () -> assertEquals(0, Files.size(audit.lockFile()), "the leaf lock file is created empty"));
+                        () -> assertEquals("rw-------", mode(sidecar), "the sidecar lock file has mode 0600"),
+                        () -> assertEquals(0, Files.size(sidecar), "the sidecar lock file is created empty"),
+                        () -> assertFalse(Files.exists(audit.lockFile()),
+                                "the guarded store is not created by the acquisition"));
             }
         }
 
@@ -679,6 +721,173 @@ class FileLockManagerTest {
                     () -> assertFalse(isLocked(key.lockFile()), "the lock file is released again"),
                     () -> assertEquals(0, manager.threadLockCount(), "no thread lock entry after the reuse"),
                     () -> assertEquals(0, manager.osLockCount(), "no OS lock entry after the reuse"));
+        }
+    }
+
+    /**
+     * A leaf key names an append-only store, and a store write opens and closes channels on that file. On POSIX a
+     * close on a file releases every OS lock the process holds on it, so the leaf key's OS lock is taken on a sidecar
+     * that no store channel opens (ADR 068). These tests prove that an append, a torn-tail repair and the audit anchor
+     * calls leave the lock held, that a second manager cannot take the key meanwhile, and that the last close
+     * releases it once.
+     */
+    @Nested
+    @DisplayName("the OS lock of a leaf key")
+    class LeafLockSurvival {
+
+        @Test
+        @DisplayName("an append through a JSONL store keeps the OS lock until the transaction ends")
+        void appendKeepsTheLock() throws Exception {
+            Files.createDirectories(base.resolve("logs"));
+            var key = LockKey.auditLog(base);
+            var store = new JsonlStoreFile(key.lockFile(), key);
+            var sidecar = osLockFile(key);
+
+            try (var transaction = manager.openTransaction()) {
+                transaction.acquire(key);
+
+                store.append(transaction, APPENDED, auditSink);
+
+                assertAll("an append under a leaf key",
+                        () -> assertTrue(isLockedIfPresent(sidecar), "the OS lock survives the append"),
+                        () -> assertTrue(transaction.holds(key), "the transaction still holds the key"),
+                        () -> assertArrayEquals(APPENDED, Files.readAllBytes(key.lockFile()),
+                                "the block is appended to the guarded store"));
+            }
+
+            assertAll("after the transaction closed",
+                    () -> assertFalse(isLockedIfPresent(sidecar), "the OS lock is released with the transaction"),
+                    () -> assertTrue(Files.exists(sidecar), "the sidecar lock file stays in place"));
+        }
+
+        @Test
+        @DisplayName("a second lock manager in a second thread cannot take the leaf key after an append")
+        void secondManagerCannotTakeTheKey() throws Exception {
+            Files.createDirectories(base.resolve("logs"));
+            var key = LockKey.auditLog(base);
+            var store = new JsonlStoreFile(key.lockFile(), key);
+            var secondManager = new FileLockManager(new RecordingAuditSink());
+            var secondResult = new AtomicReference<RuntimeException>();
+
+            try (var transaction = manager.openTransaction()) {
+                transaction.acquire(key);
+                store.append(transaction, APPENDED, auditSink);
+
+                var secondThread = Thread.ofPlatform().start(() -> {
+                    try (var other = secondManager.openTransaction()) {
+                        other.acquire(key);
+                    } catch (IllegalStateException | UncheckedIOException e) {
+                        secondResult.set(e);
+                    }
+                });
+                secondThread.join();
+
+                assertAll("a second lock manager on the same base",
+                        () -> assertInstanceOf(IllegalStateException.class, secondResult.get(),
+                                "the second manager cannot take the key"),
+                        () -> assertTrue(transaction.holds(key), "the first transaction still holds the key"));
+            }
+        }
+
+        @Test
+        @DisplayName("the OS lock is released exactly once, by the last holder's close")
+        void releasedOnceByTheLastHolder() throws Exception {
+            Files.createDirectories(base.resolve("logs"));
+            var key = LockKey.auditLog(base);
+            var sidecar = osLockFile(key);
+            var first = manager.openTransaction();
+            var second = manager.openTransaction();
+            first.acquire(key);
+            second.acquire(key);
+
+            first.close();
+            var lockedAfterFirstClose = isLockedIfPresent(sidecar);
+            second.close();
+
+            assertAll("the OS lock of a leaf key across two holders",
+                    () -> assertTrue(lockedAfterFirstClose,
+                            "the lock stays held while the second transaction holds the key"),
+                    () -> assertFalse(isLockedIfPresent(sidecar), "the last close releases the OS lock"),
+                    () -> assertFalse(second.holds(key), "the closed transaction holds nothing"),
+                    () -> assertTrue(Files.exists(sidecar), "the sidecar lock file stays in place"));
+
+            try (var again = manager.openTransaction()) {
+                again.acquire(key);
+                assertTrue(again.holds(key), "the released key is acquired again");
+            }
+        }
+
+        @Test
+        @DisplayName("a torn-tail repair and the audit anchor calls run in the one transaction holding the key")
+        void repairAndAnchorUnderTheLock() throws Exception {
+            Files.createDirectories(base.resolve("logs"));
+            var key = LockKey.auditLog(base);
+            var anchor = new RecordingAnchor();
+            var principal = Generators.letterStrings(3, 20).next();
+            var log = new AuditLog(base, anchor, CLOCK, principal);
+            Files.write(log.logFile(), TORN);
+
+            try (var transaction = manager.openTransaction()) {
+                transaction.acquire(key);
+
+                log.append(transaction, template(principal));
+
+                assertAll("a repairing append under the leaf key",
+                        () -> assertTrue(isLockedIfPresent(osLockFile(key)),
+                                "the OS lock survives the repair and the writes"),
+                        () -> assertEquals(List.of("beforeAppend", "afterAppend"), anchor.calls(),
+                                "both anchor calls ran"),
+                        () -> assertSame(transaction, anchor.transaction(),
+                                "the anchor ran in the transaction that holds the key"),
+                        () -> assertEquals(2, log.read(transaction).lines().size(),
+                                "the repair record and the appended record are both in the log"));
+            }
+        }
+
+        private AuditRecord template(String principal) {
+            return AuditRecord.builder()
+                    .eventId(TransactionId.generate(CLOCK).value())
+                    .prevHash(AuditCodec.GENESIS_HASH)
+                    .timestamp(AT)
+                    .category(Category.OPERATOR)
+                    .event("leaf_lock_test")
+                    .scopeType(Scope.MACHINE)
+                    .actor(principal)
+                    .outcome(Outcome.SUCCEEDED)
+                    .details(Map.of("os_principal", principal))
+                    .build();
+        }
+    }
+
+    /** The anchor of the leaf-lock test: it records its calls and the transaction they saw. */
+    private static final class RecordingAnchor implements AuditAnchor {
+
+        private final List<String> calls = new ArrayList<>();
+        private final List<LockTransaction> transactions = new ArrayList<>();
+
+        @Override
+        public void beforeAppend(LockTransaction transaction, AuditLog log) {
+            calls.add("beforeAppend");
+            transactions.add(transaction);
+        }
+
+        @Override
+        public Optional<String> emptyLogPredecessor() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void afterAppend(LockTransaction transaction, AuditLog log, AuditRecord appended, String lineHash) {
+            calls.add("afterAppend");
+            transactions.add(transaction);
+        }
+
+        List<String> calls() {
+            return List.copyOf(calls);
+        }
+
+        LockTransaction transaction() {
+            return transactions.getLast();
         }
     }
 
