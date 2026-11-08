@@ -20,6 +20,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-9[PM-ARCH-9: Runtime Metrics]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1: Single Version Authority & Embedded Harness Bundles]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5: Subprocess Environment Sanitization & Linux Filesystem Confinement]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-2[PM-EXEC-2: Operator Enrolment & Verify-Not-Resolve Contract]_
 

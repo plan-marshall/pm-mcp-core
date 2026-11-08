@@ -14,17 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
+import java.util.Properties;
 import java.util.stream.Stream;
 
 
@@ -39,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
@@ -669,30 +667,58 @@ class UnitFrontmatterReaderTest {
         }
 
         @Test
-        @DisplayName("enforces the numbers the specification part states")
-        void constantsAreTheSpecificationValues() throws Exception {
-            var specification = specificationPart();
-
+        @DisplayName("reads the three limits from the module's limits resource")
+        void constantsAreReadFromTheLimitsResource() {
             assertAll(
-                    () -> assertEquals(ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
-                            number(specification, "at most (\\d+) bytes")),
-                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES,
-                            number(specification, "at most (\\d+) lines")),
-                    () -> assertEquals(UnitFrontmatterReader.MAX_ECHO_LENGTH,
-                            number(specification, "at most (\\d+) characters")));
+                    () -> assertEquals(
+                            ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
+                            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_UNIT_FILE_BYTES), "the file bound must come from the resource"),
+                    () -> assertEquals(
+                            UnitFrontmatterReader.MAX_FRONTMATTER_LINES,
+                            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_FRONTMATTER_LINES), "the line bound must come from the resource"),
+                    () -> assertEquals(
+                            UnitFrontmatterReader.MAX_ECHO_LENGTH,
+                            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_ECHO_LENGTH), "the echo bound must come from the resource"));
         }
 
-        private static String specificationPart() throws IOException {
-            var property = System.getProperty("pm.specification.root");
-            var root = Path.of(property == null || property.isBlank() ? ".." : property);
-            return Files.readString(root.toAbsolutePath().normalize()
-                    .resolve("doc/specification/workflow-dsl/01-grammar.adoc"), StandardCharsets.UTF_8);
+        @Test
+        @DisplayName("an alternate resource yields its own value, never a fixed one")
+        void readsAnAlternateResource() {
+            var alternate = "/de/planmarshall/workflow/dsl/alternate-limits.properties";
+
+            assertEquals(42, LimitProperties.read(alternate, UnitLimits.MAX_ECHO_LENGTH),
+                    "the reader must return the value of the resource");
         }
 
-        private static int number(String text, String regex) {
-            var matcher = Pattern.compile(regex).matcher(text);
-            assertTrue(matcher.find(), () -> "the specification states no '" + regex + "'");
-            return Integer.parseInt(matcher.group(1));
+        @Test
+        @DisplayName("an absent limits resource fails the load instead of defaulting")
+        void anAbsentLimitsResourceFailsTheLoad() {
+            var absent = "/de/planmarshall/workflow/dsl/absent-limits.properties";
+
+            assertThrows(IllegalStateException.class,
+                    () -> LimitProperties.read(absent, UnitLimits.MAX_ECHO_LENGTH),
+                    "an absent limits resource must fail the load");
+        }
+
+        @Test
+        @DisplayName("an absent key fails the load instead of defaulting")
+        void anAbsentKeyFailsTheLoad() {
+            var properties = new Properties();
+
+            assertThrows(IllegalStateException.class,
+                    () -> LimitProperties.value(properties, UnitLimits.MAX_ECHO_LENGTH, "limits"),
+                    "an absent limit key must fail the load");
+        }
+
+        @Test
+        @DisplayName("a value that is not a number fails the load instead of defaulting")
+        void aNonNumericValueFailsTheLoad() {
+            var properties = new Properties();
+            properties.setProperty(UnitLimits.MAX_ECHO_LENGTH, "not-a-number");
+
+            assertThrows(IllegalStateException.class,
+                    () -> LimitProperties.value(properties, UnitLimits.MAX_ECHO_LENGTH, "limits"),
+                    "a non-numeric limit must fail the load");
         }
     }
 }

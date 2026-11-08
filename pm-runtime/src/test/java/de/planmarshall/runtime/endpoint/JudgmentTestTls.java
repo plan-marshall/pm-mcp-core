@@ -20,6 +20,9 @@ import javax.net.ssl.X509TrustManager;
  * The TLS context of the remote-form tests: the mock web server answers with a self-signed certificate it generates per
  * run, so the test client trusts that peer. Only the peer's trust is relaxed; the request itself, its headers and the
  * redirect policy are the ones the runtime uses.
+ * <p>
+ * Every datum of this fixture is a contract: the TLS protocol name and the trust policy that accepts the server's
+ * self-signed certificate.
  */
 final class JudgmentTestTls {
 

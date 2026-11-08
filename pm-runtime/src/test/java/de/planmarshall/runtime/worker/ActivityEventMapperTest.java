@@ -15,9 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +31,11 @@ import de.planmarshall.core.queue.ActivityEventMapping;
 /**
  * The runtime maps a line of a worker's output stream onto the closed activity kinds through the harness's pointers and
  * never keeps a tool result's content or a whole argument list (Client Profiles § What a Worker Does).
+ * <p>
+ * The text samples and the file path are generated; the pointer document, the event kinds, the tool names and the
+ * measured usage numbers are the wire contract the mapper reads.
  */
+@EnableGeneratorController
 @DisplayName("Activity event mapper")
 class ActivityEventMapperTest {
 
@@ -46,6 +53,28 @@ class ActivityEventMapperTest {
             """;
 
     private static final Map<String, String> USAGE = usagePointers();
+
+    private String shortText;
+
+    private String filePath;
+
+    private String toolName;
+
+    private String command;
+
+    private String argumentValue;
+
+    private int resultSize;
+
+    @BeforeEach
+    void draw() {
+        shortText = Generators.letterStrings(1, 40).next();
+        filePath = "src/" + Generators.letterStrings(1, 12).next() + ".java";
+        toolName = Generators.letterStrings(3, 12).next();
+        command = Generators.letterStrings(3, 20).next() + " " + Generators.letterStrings(3, 12).next();
+        argumentValue = Generators.letterStrings(1, 20).next();
+        resultSize = Generators.integers(1, 100_000).next();
+    }
 
     private static Map<String, String> usagePointers() {
         var pointers = new LinkedHashMap<String, String>();
@@ -72,7 +101,7 @@ class ActivityEventMapperTest {
     @Test
     @DisplayName("a text line is mapped and cut to the compiled bound")
     void textLine() {
-        var longText = "a".repeat(ActivityEntry.TEXT_BOUND + 10);
+        var longText = Generators.letterStrings(ActivityEntry.TEXT_BOUND + 10, ActivityEntry.TEXT_BOUND + 10).next();
         var mapped = mapper().map("{\"type\":\"assistant\",\"message\":{\"content\":\"" + longText + "\"}}")
                 .orElseThrow();
 
@@ -85,53 +114,55 @@ class ActivityEventMapperTest {
     @Test
     @DisplayName("a short text line is not marked truncated")
     void shortText() {
-        var mapped = mapper().map("{\"type\":\"assistant\",\"message\":{\"content\":\"hello\"}}").orElseThrow();
+        var mapped = mapper().map("{\"type\":\"assistant\",\"message\":{\"content\":\"" + shortText + "\"}}")
+                .orElseThrow();
 
         assertAll(
                 () -> assertFalse(mapped.truncated()),
-                () -> assertEquals("hello", mapped.text()));
+                () -> assertEquals(shortText, mapped.text()));
     }
 
     @Test
     @DisplayName("a tool call keeps the tool's name and the first target, never the arguments")
     void toolCall() {
         var mapped = mapper().map("""
-                {"type":"tool_use","name":"read_file","input":{"file_path":"src/A.java","pattern":"secret"}}
-                """).orElseThrow();
+                {"type":"tool_use","name":"%s","input":{"file_path":"%s","pattern":"%s"}}
+                """.formatted(toolName, filePath, argumentValue)).orElseThrow();
 
         assertAll(
                 () -> assertEquals(ActivityEntry.Kind.TOOL_CALL, mapped.kind()),
-                () -> assertEquals("read_file", mapped.tool().name()),
-                () -> assertEquals("src/A.java", mapped.tool().target()));
+                () -> assertEquals(toolName, mapped.tool().name()),
+                () -> assertEquals(filePath, mapped.tool().target()));
     }
 
     @Test
     @DisplayName("a tool call falls back to the next target pointer")
     void toolCallFallsBack() {
-        var mapped = mapper().map("{\"type\":\"tool_use\",\"name\":\"bash\",\"input\":{\"command\":\"mvn verify\"}}")
+        var mapped = mapper().map("{\"type\":\"tool_use\",\"name\":\"bash\",\"input\":{\"command\":\"" + command + "\"}}")
                 .orElseThrow();
 
-        assertEquals("mvn verify", mapped.tool().target());
+        assertEquals(command, mapped.tool().target());
     }
 
     @Test
     @DisplayName("a tool result keeps the size and the failure, never the content")
     void toolResult() {
-        var mapped = mapper().map("{\"type\":\"tool_result\",\"size\":4096,\"failed\":true,\"content\":\"secret\"}")
+        var mapped = mapper().map("{\"type\":\"tool_result\",\"size\":" + resultSize
+                + ",\"failed\":true,\"content\":\"secret\"}")
                 .orElseThrow();
 
         assertAll(
                 () -> assertEquals(ActivityEntry.Kind.TOOL_RESULT, mapped.kind()),
-                () -> assertEquals(4096, mapped.result().bytes()),
+                () -> assertEquals(resultSize, mapped.result().bytes()),
                 () -> assertTrue(mapped.result().failed()));
     }
 
     @Test
     @DisplayName("a file change keeps the path")
     void fileChanged() {
-        var mapped = mapper().map("{\"type\":\"file\",\"path\":\"src/A.java\"}").orElseThrow();
+        var mapped = mapper().map("{\"type\":\"file\",\"path\":\"" + filePath + "\"}").orElseThrow();
 
-        assertEquals("src/A.java", mapped.path());
+        assertEquals(filePath, mapped.path());
     }
 
     @Test

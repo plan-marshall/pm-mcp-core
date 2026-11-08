@@ -59,6 +59,21 @@ public class RuntimeGenerators {
         return new PlanIdGenerator();
     }
 
+    /** @return a generator of project ids, taken from the generator artifact of {@code pm-core} */
+    public static TypedGenerator<String> projectIds() {
+        return new ProjectIdGenerator();
+    }
+
+    /** @return a generator of queue task ids in their written form, the prefix {@code qt-} and 16 hex digits */
+    public static TypedGenerator<String> queueTaskIds() {
+        return new QueueTaskIdGenerator();
+    }
+
+    /** @return a generator of question ids in their written form, the prefix {@code Q-} and three to six digits */
+    public static TypedGenerator<String> questionIds() {
+        return new QuestionIdGenerator();
+    }
+
     /** @return a generator of keys of the enrolment integrity algorithm that are no enrolment's integrity key */
     public static TypedGenerator<SecretKey> hmacKeys() {
         return new HmacKeyGenerator();

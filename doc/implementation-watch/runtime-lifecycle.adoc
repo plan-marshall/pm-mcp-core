@@ -123,7 +123,7 @@ unnoticed.
 Guard:: `pm-operator status`, the web app, and the epic view derive `stalled` (cause `no_progress`) for non-terminal
 scopes without pending condition or awaited event (no running job, no task queued or leased within its budget, no
 open external wait, operator wait, pause, or hold) whose last transition or task progress is older than the
-compiled stalled threshold, and the runtime records one `plan_stalled` audit record per episode with the idle span;
+stalled threshold, and the runtime records one `plan_stalled` audit record per episode with the idle span;
 a role the supervisor cannot serve stalls nothing, because its tasks close `role_unavailable`; metrics derive idle
 gaps from the audit log; nothing of it reaches a model-facing representation; test with an aged fixture, a blocked
 control, and a control with a leased task, neither of which is reported.

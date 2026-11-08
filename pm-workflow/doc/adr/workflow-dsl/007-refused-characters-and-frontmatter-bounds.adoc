@@ -51,8 +51,8 @@ not trust.
   unchanged; the printer never needs an escape for a refused character because such a value never enters a tree.
 * `UnitFrontmatterReaderTest` covers every refused category in every field, with its CRLF twin, and the cap, the echo
   bound and the head read. `WorkflowParserRefusalTest` covers one malformed fixture per category.
-* The three numbers are stated in the specification part and a test reads them from it; changing one means changing
-  both.
+* The three numbers are stated in the module's limits resource and the code reads them from it; changing one means
+  changing the resource.
 
 == Source
 

@@ -15,9 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,9 +32,23 @@ import de.planmarshall.core.profile.JsonNode;
  * The one request of a task on an endpoint (PM-CLIENT-2, Client Profiles § The Request): the launch prompt as the system
  * message, the task input as the user message, streaming explicitly off, no {@code tools} member and no tool choice, the
  * role's result schema where the endpoint accepts one, and every default of the serving program sent explicitly.
+ * <p>
+ * The prompt and task texts are generated; the wire member names, the model tier {@code mid}, the schema and the
+ * defaults {@code 1024} and {@code 0} are the contract the request proves.
  */
+@EnableGeneratorController
 @DisplayName("Endpoint request")
 class EndpointRequestTest {
+
+    private String prompt;
+
+    private String task;
+
+    @BeforeEach
+    void draw() {
+        prompt = Generators.letterStrings(1, 40).next();
+        task = Generators.letterStrings(1, 40).next();
+    }
 
     private static JsonNode schema() {
         return JsonDocument.parse("{\"type\":\"object\",\"required\":[\"verdict\"]}".getBytes(StandardCharsets.UTF_8),
@@ -41,9 +58,13 @@ class EndpointRequestTest {
     @Test
     @DisplayName("the request sends the launch prompt and the task, streaming off and with no tool")
     void streamingOffAndNoTool() {
-        var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", "You are the screener.", "Text to screen.",
+        var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, task,
                 null);
         var body = composed.request().body();
+        var document = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "request");
+        var systemContent = document.member("messages").orElseThrow().elements().stream()
+                .filter(message -> message.member("role").flatMap(JsonNode::text).filter("system"::equals).isPresent())
+                .findFirst().orElseThrow().member("content").orElseThrow().text().orElseThrow();
 
         assertAll(
                 () -> assertTrue(composed.isComposed()),
@@ -51,7 +72,7 @@ class EndpointRequestTest {
                 () -> assertTrue(body.contains("\"stream\":false")),
                 () -> assertTrue(body.contains("\"role\":\"system\"")),
                 () -> assertTrue(body.contains("\"role\":\"user\"")),
-                () -> assertTrue(body.contains("You are the screener.")),
+                () -> assertEquals(prompt, systemContent, "the system message carries the launch prompt"),
                 () -> assertTrue(body.contains("\"model\":\"mid\"")),
                 () -> assertTrue(body.contains("\"max_tokens\":1024")),
                 () -> assertTrue(body.contains("\"temperature\":0")),
@@ -63,7 +84,7 @@ class EndpointRequestTest {
     @Test
     @DisplayName("the result schema is the response format where the endpoint accepts one")
     void resultSchemaSent() {
-        var body = EndpointRequest.compose(EndpointFixtures.profile(), "mid", "prompt", "task", schema())
+        var body = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, task, schema())
                 .request().body();
 
         assertAll(
@@ -81,7 +102,7 @@ class EndpointRequestTest {
                         "/models", "none", 8192, 1024, 30),
                 Map.of(), null);
 
-        var body = EndpointRequest.compose(profile, "mid", "prompt", "task", schema()).request().body();
+        var body = EndpointRequest.compose(profile, "mid", prompt, task, schema()).request().body();
 
         assertFalse(body.contains("\"response_format\""));
     }
@@ -89,9 +110,10 @@ class EndpointRequestTest {
     @Test
     @DisplayName("a launch prompt that alone does not fit the context budget refuses the composition")
     void promptExceedingBudget() {
-        var prompt = "x".repeat(EndpointRequest.CHARS_PER_TOKEN * 7168 + 4);
+        var longPrompt = Generators.letterStrings(EndpointRequest.CHARS_PER_TOKEN * 7168 + 4,
+                EndpointRequest.CHARS_PER_TOKEN * 7168 + 4).next();
 
-        var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, "task", null);
+        var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", longPrompt, task, null);
 
         assertAll(
                 () -> assertFalse(composed.isComposed()),
@@ -102,9 +124,10 @@ class EndpointRequestTest {
     @Test
     @DisplayName("a task that does not fit the context budget refuses the composition")
     void taskExceedingBudget() {
-        var task = "x".repeat(EndpointRequest.CHARS_PER_TOKEN * 7168 + 4);
+        var longTask = Generators.letterStrings(EndpointRequest.CHARS_PER_TOKEN * 7168 + 4,
+                EndpointRequest.CHARS_PER_TOKEN * 7168 + 4).next();
 
-        var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", "prompt", task, null);
+        var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, longTask, null);
 
         assertAll(
                 () -> assertFalse(composed.isComposed()),
@@ -114,7 +137,7 @@ class EndpointRequestTest {
     @Test
     @DisplayName("the tool-call probe declares one tool and no tool choice")
     void probeDeclaresOneTool() {
-        var body = EndpointRequest.compose(EndpointFixtures.profile(), "mid", "prompt", "task", null)
+        var body = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, task, null)
                 .request().bodyWithTools(EndpointVerification.PROBE_TOOL);
 
         assertAll(

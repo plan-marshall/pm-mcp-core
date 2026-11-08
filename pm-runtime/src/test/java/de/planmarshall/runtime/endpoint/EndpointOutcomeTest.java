@@ -25,6 +25,9 @@ import de.planmarshall.core.store.Measurement;
  * What a task on an endpoint harness ends with (PM-CLIENT-2, Client Profiles § The Request): an answer that does not
  * validate, a refusal text, an HTTP error and a timeout each end the attempt like a worker without a valid result, and a
  * missing usage count is {@code unmeasured}.
+ * <p>
+ * Every datum of this test is a contract: the OpenAI-compatible wire members, the HTTP status codes, the refusal text
+ * and the schema's member names.
  */
 @DisplayName("Endpoint answer")
 class EndpointOutcomeTest {

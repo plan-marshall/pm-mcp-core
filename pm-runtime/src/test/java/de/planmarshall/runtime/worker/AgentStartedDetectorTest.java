@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -34,6 +36,8 @@ import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The {@code agent_started} detection (PM-WORK-7, A Worker Off Track): the enrolled match by path and digest, the
@@ -42,17 +46,17 @@ import de.planmarshall.runtime.launch.HarnessVerifier;
  * <p>
  * The tree is the real one: the test's own process is the root and the child it starts is the member, so the detector
  * reads what the operating system answers for a live process rather than a table the test supplied.
+ * <p>
+ * The queue task, the attempt and the two impostor digests are generated in the {@code @BeforeEach}; the enrolled
+ * executable, its digest, the operator binary's name and the parses of a live process tree are the contracts.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("agent_started detection")
 class AgentStartedDetectorTest {
 
     /** An executable every Linux and macOS installation carries, so the enrolled match reads a real file. */
     private static final Path SLEEP = Path.of("/bin/sleep").toAbsolutePath();
-
-    private static final String QUEUE_TASK = "queue-task-7";
-
-    private static final int ATTEMPT = 2;
 
     @TempDir
     Path base;
@@ -61,9 +65,21 @@ class AgentStartedDetectorTest {
 
     private Process child;
 
+    private String queueTask;
+
+    private int attempt;
+
+    private String impostorDigest;
+
+    private String otherDigest;
+
     @BeforeEach
     void setUp() throws IOException {
         fixture = new SupervisorTestFixture(base);
+        queueTask = RuntimeGenerators.queueTaskIds().next();
+        attempt = Generators.integers(1, 5).next();
+        impostorDigest = RuntimeGenerators.sha256Digests().next();
+        otherDigest = RuntimeGenerators.sha256Digests().next();
     }
 
     @AfterEach
@@ -98,11 +114,13 @@ class AgentStartedDetectorTest {
                 () -> assertTrue(again.isEmpty(), "one started agent never raises the signal twice"),
                 () -> assertEquals(1, fixture.protocol.startedAgents.size(), "exactly one signal"),
                 () -> assertEquals(generation.generationId(), signal.generationId()),
-                () -> assertEquals(QUEUE_TASK, signal.queueTaskId(), "the signal names the task it holds"),
-                () -> assertEquals(ATTEMPT, signal.attempt()),
+                () -> assertEquals(queueTask, signal.queueTaskId(), "the signal names the task it holds"),
+                () -> assertEquals(attempt, signal.attempt()),
                 () -> assertEquals(executable.toString(), signal.executable()),
                 () -> assertEquals(Optional.of(EndCause.OFF_TRACK), ending.requestedCause(generation.generationId()),
                         "the action is restart"),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.AGENT_STARTED_DETECTED.resolveIdentifierString()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         "Agent started in the process tree of worker generation '" + generation.generationId() + "'"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -118,7 +136,7 @@ class AgentStartedDetectorTest {
         child = startChild();
         var executable = realPath();
         var detector = new AgentStartedDetector(environment, ProcessExecutables.system(),
-                () -> List.of(enrolment(executable, "b".repeat(64))), ending);
+                () -> List.of(enrolment(executable, impostorDigest)), ending);
 
         var matched = detector.detect(generation, ProcessHandle.current().pid(), task());
 
@@ -157,7 +175,7 @@ class AgentStartedDetectorTest {
         var ending = ending(environment);
         child = startChild();
         var detector = new AgentStartedDetector(environment, reading(child.pid(),
-                new ProcessExecutable(child.pid(), operator, ProcessExecutable.DIGEST_PREFIX + "c".repeat(64))),
+                new ProcessExecutable(child.pid(), operator, ProcessExecutable.DIGEST_PREFIX + otherDigest)),
                 List::of, ending);
 
         var matched = detector.detect(generation, ProcessHandle.current().pid(), task());
@@ -245,8 +263,8 @@ class AgentStartedDetectorTest {
         return asked -> asked == pid ? new ProcessExecutables.Found(executable) : new ProcessExecutables.Absent();
     }
 
-    private static AgentStartedDetector.HeldTask task() {
-        return new AgentStartedDetector.HeldTask(QUEUE_TASK, ATTEMPT);
+    private AgentStartedDetector.HeldTask task() {
+        return new AgentStartedDetector.HeldTask(queueTask, attempt);
     }
 
     private static HarnessEnrolment enrolment(Path executable, String sha256) {

@@ -13,12 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,13 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+/**
+ * The D-Bus connection (SASL, Hello and calls over a Unix socket).
+ * <p>
+ * The call's string argument and the unique name's numeric part are generated; the SASL lines, the bus and interface
+ * names, the error names and the bus addresses are the D-Bus wire contract.
+ */
+@EnableGeneratorController
 @DisplayName("DbusConnection: SASL, Hello and calls over a Unix socket")
 class DbusConnectionTest {
 
@@ -34,6 +44,13 @@ class DbusConnectionTest {
 
     @TempDir
     Path temp;
+
+    private String callArgument;
+
+    @BeforeEach
+    void draw() {
+        callArgument = Generators.letterStrings(1, 20).next();
+    }
 
     private FakeBus bus(FakeBus.Handler handler) throws Exception {
         return new FakeBus(temp.resolve("bus"), UID, handler);
@@ -88,7 +105,7 @@ class DbusConnectionTest {
         void reply() throws Exception {
             FakeBus.Handler echo = call -> new FakeBus.Reply("su", List.of(call.member(), 42L));
             try (var _ = bus(echo); var connection = DbusConnection.open(temp.resolve("bus"), UID, TIMEOUT)) {
-                var body = connection.call("org.example", "/o", "org.example.I", "Ping", "s", List.of("x"));
+                var body = connection.call("org.example", "/o", "org.example.I", "Ping", "s", List.of(callArgument));
 
                 assertEquals(List.of("Ping", 42L), body);
             }

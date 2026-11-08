@@ -12,8 +12,11 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,8 +24,25 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * The credential account and service-name rules.
+ * <p>
+ * The valid names are generated from the allowed {@code [a-zA-Z0-9._-]} set; the refused names, the
+ * {@code de.planmarshall.mcp} prefix and the sixteen-hex-character qualification are the contracts.
+ */
+@EnableGeneratorController
 @DisplayName("Credential naming: accounts and service names")
 class CredentialNamingTest {
+
+    private String validName;
+
+    private String keyName;
+
+    @BeforeEach
+    void draw() {
+        validName = Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789._-", 4, 20).next();
+        keyName = Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789_-", 3, 20).next();
+    }
 
     @Nested
     @DisplayName("CredentialAccount")
@@ -32,7 +52,7 @@ class CredentialNamingTest {
         @DisplayName("global and project accounts")
         void accounts() {
             assertEquals("github", CredentialAccount.global("github").account());
-            assertEquals("my-proj.1/mcp-server_x", CredentialAccount.project("my-proj.1", "mcp-server_x").account());
+            assertEquals(validName + "/" + keyName, CredentialAccount.project(validName, keyName).account());
         }
 
         @ParameterizedTest(name = "''{0}''")

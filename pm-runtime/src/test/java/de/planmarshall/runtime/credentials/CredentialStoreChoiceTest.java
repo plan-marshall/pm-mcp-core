@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -80,6 +82,7 @@ import de.planmarshall.runtime.start.CredentialStoreMoveResume;
  * and decides the one store the runtime uses; before the choice no credential is entered, and an unavailable recorded
  * OS store is never replaced by the file store.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("CredentialStoreChoice: the operator's recorded store")
 class CredentialStoreChoiceTest {
@@ -99,9 +102,11 @@ class CredentialStoreChoiceTest {
     private final MemoryStore secretService = new MemoryStore(SecretStore.SECRET_SERVICE);
     private FileLockManager locks;
     private LockTransaction transaction;
+    private String secret;
 
     @BeforeEach
     void openTransaction() {
+        secret = Generators.letterStrings(4, 20).next();
         AuditSink sink = events::add;
         locks = new FileLockManager(sink);
         transaction = locks.openTransaction();
@@ -414,7 +419,7 @@ class CredentialStoreChoiceTest {
                 + "nothing is written, carried or deleted")
         void aspectRefusedForTheOtherStore() throws Exception {
             writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
-            secretService.put(GITHUB, "token");
+            secretService.put(GITHUB, secret);
             var key = new EnrolmentKey(secretService, base.resolve("state"), USER, new SecureRandom()).readOrCreate();
             var choice = linux(true);
 
@@ -427,7 +432,7 @@ class CredentialStoreChoiceTest {
                     () -> assertEquals(document(",\"credentials\":{\"store\":\"os\"}"), readMachineConfig()),
                     () -> assertEquals(List.of(CredentialAccount.global(EnrolmentKey.ACCOUNT), GITHUB),
                             secretService.entries()),
-                    () -> assertEquals(Optional.of("token"), secretService.get(GITHUB)),
+                    () -> assertEquals(Optional.of(secret), secretService.get(GITHUB)),
                     () -> assertArrayEquals(key.getEncoded(), new EnrolmentKey(secretService, base.resolve("state"),
                             USER, new SecureRandom()).read().orElseThrow().getEncoded()),
                     () -> assertFalse(Files.exists(base.resolve("credentials"))),
@@ -502,13 +507,13 @@ class CredentialStoreChoiceTest {
             choice.record(locks, USER, Store.OS);
             var store = choice.activeStore();
 
-            store.put(GITHUB, "token");
+            store.put(GITHUB, secret);
 
             assertAll(
                     () -> assertEquals(SecretStore.SECRET_SERVICE, store.name()),
-                    () -> assertEquals(Optional.of("token"), store.get(GITHUB)),
+                    () -> assertEquals(Optional.of(secret), store.get(GITHUB)),
                     () -> assertEquals(List.of(GITHUB), store.entries()),
-                    () -> assertEquals(Optional.of("token"), secretService.get(GITHUB)),
+                    () -> assertEquals(Optional.of(secret), secretService.get(GITHUB)),
                     () -> assertTrue(store.delete(GITHUB)),
                     () -> assertEquals("secret-service:/run/user/1/bus:" + SERVICE, probes.getFirst()),
                     () -> assertFalse(Files.exists(base.resolve("credentials"))));
@@ -521,11 +526,11 @@ class CredentialStoreChoiceTest {
             choice.record(locks, USER, Store.OS);
             var store = choice.activeStore();
 
-            store.put(GITHUB, "token");
+            store.put(GITHUB, secret);
 
             assertAll(
                     () -> assertEquals(SecretStore.KEYCHAIN, store.name()),
-                    () -> assertEquals(Optional.of("token"), keychain.get(GITHUB)),
+                    () -> assertEquals(Optional.of(secret), keychain.get(GITHUB)),
                     () -> assertEquals("keychain:" + SERVICE, probes.getFirst()));
         }
 
@@ -536,7 +541,7 @@ class CredentialStoreChoiceTest {
             choice.record(locks, USER, Store.OS);
             var store = choice.activeStore();
 
-            store.put(GITHUB, "token");
+            store.put(GITHUB, secret);
             store.get(GITHUB);
             store.entries();
             choice.activeStore().delete(GITHUB);

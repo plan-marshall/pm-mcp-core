@@ -54,25 +54,26 @@ import de.planmarshall.runtime.launch.PromptComposer;
 import de.planmarshall.runtime.launch.ResolvedSkill;
 import de.planmarshall.runtime.launch.SkillSource;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The supervisor test fixture: the real launch contracts over a temporary base, a fake job starter that records the
  * composed starts and ends, a fake model-slot admission, a recording state writer and the one order list the end path's
  * collaborators append to.
+ * <p>
+ * The identifiers of one fixture — its project, plan, digest and generation — are drawn when the fixture is constructed;
+ * a test that builds it in its {@code @BeforeEach} draws them under the per-test seed, and a test that builds it in the
+ * body draws them at that point. The remaining literals are fixture contracts and naming: the client id {@code claude}
+ * and its executable, the {@code skill://} fixture URIs, the shim line, the role and model names, the harness version and
+ * the profile document, which is a wire format the launch contract parses.
  */
 final class SupervisorTestFixture {
 
-    static final String PROJECT = "sample-project";
-
     static final Instant NOW = Instant.parse("2026-10-25T10:00:00Z");
-
-    static final String SHA = "a".repeat(64);
 
     static final String CLIENT = "claude";
 
     static final String ROLE_SKILL = "skill://pm/role/implementer/SKILL.md";
-
-    static final String PLAN = "plan-30-supervisor";
 
     static final String SHIM = "Skills of plan-marshall arrive in-band or are named by a skill://pm/ URI.";
 
@@ -80,8 +81,14 @@ final class SupervisorTestFixture {
 
     static final String DOMAIN_SKILL = "skill://pm/ext/domain-java/SKILL.md";
 
-    /** The generation a bare loss detector names. */
-    static final String GENERATION = "l-0123456789abcdef";
+    final String project = RuntimeGenerators.projectIds().next();
+
+    final String plan = RuntimeGenerators.planIds().next();
+
+    final String sha = RuntimeGenerators.sha256Digests().next();
+
+    /** The generation a bare loss detector names; a job-id shape, so it parses as one. */
+    final String generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
 
     final Path base;
 
@@ -121,7 +128,7 @@ final class SupervisorTestFixture {
         Files.createDirectories(base.resolve("run"));
         Files.createDirectories(base.resolve("home"));
         workdir = Files.createDirectories(base.resolve("worktree"));
-        enrolment = new ProjectEnrolment(PROJECT, workdir.toString(), NOW, false, null, null, List.of(), List.of(),
+        enrolment = new ProjectEnrolment(project, workdir.toString(), NOW, false, null, null, List.of(), List.of(),
                 ProjectEnrolment.Build.defaults(), Map.of(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>(),
                 List.of(), new TreeMap<>());
         profile = profile();
@@ -148,13 +155,13 @@ final class SupervisorTestFixture {
                 new FileLockManager(event -> {
                 }), USER);
         if (enrol) {
-            store.enrol(new HarnessEnrolment(CLIENT, base.resolve("bin").resolve(CLIENT), SHA, "1.5.0", NOW, NOW,
+            store.enrol(new HarnessEnrolment(CLIENT, base.resolve("bin").resolve(CLIENT), sha, "1.5.0", NOW, NOW,
                     new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()), Map.of(),
                     Map.of()));
         }
-        var verifier = new HarnessVerifier(store, file -> Optional.of(SHA), (file, argv, pattern) -> Optional.of(
+        var verifier = new HarnessVerifier(store, file -> Optional.of(sha), (file, argv, pattern) -> Optional.of(
                 "1.5.0"), (evidence, file) -> true, events::add, clock);
-        return new SupervisorEnvironment(PROJECT, enrolment, base, base.resolve("home"), base.resolve("runtime"),
+        return new SupervisorEnvironment(project, enrolment, base, base.resolve("home"), base.resolve("runtime"),
                 base.resolve("run").resolve("pm.sock"), SHIM, skillSource, profile, verifier, new LaunchComposer(),
                 starter, stateWriter, jobTokens, slots, protocol, events::add, clock, timers,
                 new FileLockManager(event -> {
@@ -181,7 +188,7 @@ final class SupervisorTestFixture {
 
     /** @return the contract envelope of one fresh task */
     ContractEnvelope envelope() {
-        return ContractEnvelope.of("plan", PLAN, "plan",
+        return ContractEnvelope.of("plan", plan, "plan",
                 List.of(new LinkSchema("submit", List.of(new LinkParameter("outline", "text", null)))),
                 JsonNode.object(Map.of()));
     }
@@ -189,14 +196,14 @@ final class SupervisorTestFixture {
     /** @return a fresh start request in a plan worktree with the fixture envelope */
     WorkerStartRequest freshRequest(EffectiveRole role) {
         return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
-                PLAN, workdir, envelope(), false, List.of(STATE_SKILL), List.of(DOMAIN_SKILL), "",
+                plan, workdir, envelope(), false, List.of(STATE_SKILL), List.of(DOMAIN_SKILL), "",
                 Optional.empty());
     }
 
     /** @return a warm start request in the given plan worktree */
     WorkerStartRequest warmRequest(EffectiveRole role, Path directory) {
         return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
-                PLAN, directory, null, false, List.of(), List.of(), "", Optional.empty());
+                plan, directory, null, false, List.of(), List.of(), "", Optional.empty());
     }
 
     /** @return a supervisor over the fixture environment with an open guard and gate */
@@ -220,7 +227,7 @@ final class SupervisorTestFixture {
      * @return a loss detector over the virtual clock and the fixture's signal sink
      */
     LossDetection detection(RoleClass roleClass, WorkerParameters parameters) {
-        return new LossDetection(GENERATION, roleClass, parameters, clock, clock, signals::add);
+        return new LossDetection(generation, roleClass, parameters, clock, clock, signals::add);
     }
 
     /**

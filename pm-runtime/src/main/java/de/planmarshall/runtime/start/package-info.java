@@ -94,7 +94,8 @@
  * <p>
  * The stalled-scope detection ({@link de.planmarshall.runtime.start.StalledScopeDetector}) decides on read whether a
  * plan or an epic is held {@code stalled}: it awaits no event and has made no transition and no task progress for at
- * least the compiled threshold (600 seconds), while it is neither paused, nor in an operator wait, nor under a hold of
+ * least the stalled threshold, read from {@code pm.runtime.stalled-threshold-seconds} in the module's
+ * {@code stalled-scope.properties}, while it is neither paused, nor in an operator wait, nor under a hold of
  * another kind. The hold is never stored; its first detection in an episode hands one {@code plan_stalled} audit
  * record over and announces the hold, a detection that finds the scope moved on announces the report
  * {@code plan.hold_released}, and the hold's count is what a {@code needs_operator} summary counts on read.

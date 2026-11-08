@@ -28,6 +28,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * The server's own reading of an answer of the protocol {@code system_one} (Client Profiles § Judgment Endpoint, The
  * Request and the Answer): the model id, the answer of every question, the choice and the probabilities that sum to
  * {@code 1} within {@code 0.01}, and never the {@code confidence} member.
+ * <p>
+ * Every datum of this test is a contract: the protocol's wire member names, the model id in the answer, the option keys
+ * and the probability tolerance.
  */
 @DisplayName("An answer of the protocol system_one")
 class SystemOneAnswerTest {

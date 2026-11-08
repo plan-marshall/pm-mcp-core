@@ -23,6 +23,9 @@ import de.planmarshall.runtime.credentials.dbus.Variant;
  * {@code SearchItems} matches every item whose attributes contain the wanted ones, so a search on
  * {@code service} alone enumerates the store, and {@code Get} of {@code Attributes} serves the
  * attributes of each item.
+ * <p>
+ * Every datum of this fixture is a contract: the Secret Service's object paths, member names, wire signatures and
+ * error names.
  */
 public class FakeSecretService implements FakeBus.Handler {
 

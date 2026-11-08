@@ -24,7 +24,7 @@ The specification sections named are the single statement of what each task buil
 . *The job record's `confinement`, `seccomp` and `egress`*, in `JobRecord` and its schema together: link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record].
 . *The confinement self-check*: link:../specification/job-runtime/02-confinement-and-environment.adoc#confinement-self-check[§ Confinement Self-Check].
 . *The git identity check* in both variants: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#git-identities[Job Runtime § Git Identities].
-. *The concept _Job Confinement_* in link:../../../plan-marshall-documentation/doc/concepts/[`doc/concepts/`] of `plan-marshall-documentation`, written from the sections above (the open network of `build` jobs: link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-23[Later Improvements, L-23]).
+. *The concept _Job Confinement_* in link:../../../plan-marshall-documentation/doc/concepts/[`doc/concepts/`] of `plan-marshall-documentation`, written from the sections above (the open network of `build` jobs until Milestone 6 builds link:../specification/job-runtime/02-confinement-and-environment.adoc#build-egress[Build Egress & Build Read Set]).
 
 Left out: the `pm-exec` packages `exec-listed-read-set` and `exec-hardening` of `pm-mcp-clients`.
 

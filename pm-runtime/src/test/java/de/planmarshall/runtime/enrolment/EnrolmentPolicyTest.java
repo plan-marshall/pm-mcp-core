@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,6 +51,7 @@ import de.planmarshall.core.store.ProjectEnrolment.WorkerKind;
  * {@code maxLength} is above the global ceiling, write paths against the base directory, and refused build
  * environment names. A compliant enrolment has no violation.
  */
+@EnableGeneratorController
 @DisplayName("Enrolment policy")
 class EnrolmentPolicyTest {
 
@@ -289,7 +292,8 @@ class EnrolmentPolicyTest {
     class EnvironmentNames {
 
         private List<String> withName(String name) {
-            return violations(enrolment(Build.defaults(), Map.of(), List.of(), Map.of(name, "value")));
+            return violations(enrolment(Build.defaults(), Map.of(), List.of(),
+                    Map.of(name, Generators.letterStrings(1, 20).next())));
         }
 
         @ParameterizedTest(name = "{0}")
