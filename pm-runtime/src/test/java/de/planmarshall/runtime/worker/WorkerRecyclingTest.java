@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -35,6 +36,8 @@ import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.WorkerState.ContextTokens;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
@@ -43,14 +46,14 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * never a run total and never before the first closed task, the tasks per generation and a changed configuration digest
  * recycle after the task, a changed digest clears the guard even when the task bound recycles in the same call, the idle
  * yield frees a slot for another role, and every recycle logs once with its cause.
+ * <p>
+ * The queue task, the changed digest, the alternative worktree and the two role names are generated in the test's
+ * {@code @BeforeEach}; the token budget, the idle bound and the parameters are the values the contract fixes.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Worker recycling")
 class WorkerRecyclingTest {
-
-    private static final String FIRST_TASK = "qt-0123456789abcdef";
-
-    private static final String CHANGED_DIGEST = "6d2f1b3c4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef";
 
     private static final int TOKEN_BUDGET = 20_000;
 
@@ -77,9 +80,21 @@ class WorkerRecyclingTest {
 
     private WorkerRecycling recycling;
 
+    private String firstTask;
+
+    private String changedDigest;
+
+    private String otherWorktree;
+
+    private String waitingRole;
+
     @BeforeEach
     void setUp() throws IOException {
         fixture = new SupervisorTestFixture(base);
+        firstTask = RuntimeGenerators.queueTaskIds().next();
+        changedDigest = RuntimeGenerators.sha256Digests().next();
+        otherWorktree = RuntimeGenerators.words().next();
+        waitingRole = "role-" + RuntimeGenerators.words().next();
         guard = new RecordingGuard();
         environment = fixture.environment(guard, OPEN_GATE);
         supervisor = new WorkerSupervisor(environment);
@@ -91,7 +106,7 @@ class WorkerRecyclingTest {
     @Test
     @DisplayName("a wait answer of a generation holding a lease counts no idle wake-up and recycles nothing")
     void leasedWaitIsNoIdleWakeUp() {
-        var generation = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(FIRST_TASK)
+        var generation = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(firstTask)
                 .withIdleWakeups(IDLE_WAKEUPS - 1L);
 
         var result = recycling.waitAgain(generation);
@@ -124,7 +139,7 @@ class WorkerRecyclingTest {
         var lower = recycling.waitAgain(generation);
 
         recycling = recycling(new RoleArtifact.Recycling(null, TOKEN_BUDGET, null));
-        var other = warm(Files.createDirectories(base.resolve("other-worktree")))
+        var other = warm(Files.createDirectories(base.resolve(otherWorktree)))
                 .withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(1L);
         var raised = recycling.waitAgain(other);
 
@@ -138,7 +153,7 @@ class WorkerRecyclingTest {
     @Test
     @DisplayName("the token budget reads the latest turn's context and never a run total")
     void tokenBudgetReadsTheLatestTurnContext() {
-        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK));
+        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask));
 
         assertAll(
                 () -> assertTrue(recycling.afterTurnCompleted(closed).isEmpty(),
@@ -152,15 +167,15 @@ class WorkerRecyclingTest {
     @Test
     @DisplayName("a start context over the budget recycles only after the first closed task")
     void startContextRecyclesOnlyAfterTheFirstTask() {
-        var executing = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(FIRST_TASK)
+        var executing = warm().withLifecycle(WorkerLifecycle.EXECUTING).withLeasedTask(firstTask)
                 .withContextTokens(ContextTokens.measured(TOKEN_BUDGET * 20L));
         var afterClose = executing.withLifecycle(WorkerLifecycle.WAITING).withLeasedTask(null)
-                .withServedTasks(List.of(FIRST_TASK));
+                .withServedTasks(List.of(firstTask));
 
         assertAll(
                 () -> assertTrue(recycling.afterTurnCompleted(executing).isEmpty(),
                         "the context a worker starts with is no reason to end its first task"),
-                () -> assertTrue(recycling.afterTurnCompleted(executing.withServedTasks(List.of(FIRST_TASK))).isEmpty(),
+                () -> assertTrue(recycling.afterTurnCompleted(executing.withServedTasks(List.of(firstTask))).isEmpty(),
                         "a task the worker still leases is not recycled at the budget"),
                 () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(afterClose),
                         "the closed task ends the lease, so the budget recycles the next wait"));
@@ -169,7 +184,7 @@ class WorkerRecyclingTest {
     @Test
     @DisplayName("a worker holding its task for an answer leaves the hold at the budget")
     void holdingWorkerRecyclesAtTheBudget() {
-        var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(FIRST_TASK)
+        var holding = warm().withLifecycle(WorkerLifecycle.HOLDING).withLeasedTask(firstTask)
                 .withContextTokens(ContextTokens.measured(TOKEN_BUDGET));
 
         assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), recycling.afterTurnCompleted(holding));
@@ -178,14 +193,14 @@ class WorkerRecyclingTest {
     @Test
     @DisplayName("a changed configuration digest recycles after the task and clears the start-failure guard")
     void changedConfigurationRecyclesAfterTheTask() {
-        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK))
+        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask))
                 .withContextTokens(ContextTokens.NOT_MEASURED);
 
         assertAll(
                 () -> assertTrue(recycling.afterTaskClosed(closed, closed.configurationDigest()).isEmpty(),
                         "an unchanged digest recycles nothing"),
                 () -> assertEquals(Optional.of(RecycleCause.CONFIGURATION_CHANGED),
-                        recycling.afterTaskClosed(closed, CHANGED_DIGEST)),
+                        recycling.afterTaskClosed(closed, changedDigest)),
                 () -> assertEquals(List.of("implementer@claude"), guard.cleared,
                         "the guard of the role on its harness is cleared"));
     }
@@ -194,7 +209,7 @@ class WorkerRecyclingTest {
     @DisplayName("a generation that closed the role's tasks per generation is recycled")
     void tasksPerGenerationRecycles() {
         recycling = recycling(new RoleArtifact.Recycling(null, TOKEN_BUDGET, 1));
-        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK));
+        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask));
 
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION),
@@ -208,9 +223,9 @@ class WorkerRecyclingTest {
     @DisplayName("a changed configuration clears the guard even when the generation reached its tasks")
     void aChangedConfigurationClearsTheGuardAtTheTaskBound() {
         recycling = recycling(new RoleArtifact.Recycling(null, TOKEN_BUDGET, 1));
-        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(FIRST_TASK));
+        var closed = warm().withLifecycle(WorkerLifecycle.WAITING).withServedTasks(List.of(firstTask));
 
-        var cause = recycling.afterTaskClosed(closed, CHANGED_DIGEST);
+        var cause = recycling.afterTaskClosed(closed, changedDigest);
 
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION), cause,
@@ -223,7 +238,7 @@ class WorkerRecyclingTest {
     @DisplayName("the idle yield frees the slot of the longest-idle warm worker for another role")
     void idleYieldFreesASlotForAnotherRole() {
         var generation = registered(warm().withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(5L));
-        fixture.slots.waitingRole = "reviewer";
+        fixture.slots.waitingRole = waitingRole;
 
         var cause = recycling.yieldIdleSlot();
         var requested = ending.requestedCause(generation.generationId());
@@ -244,8 +259,8 @@ class WorkerRecyclingTest {
         fixture.slots.waitingRole = "implementer";
         var sameRole = recycling.yieldIdleSlot();
 
-        fixture.slots.waitingRole = "reviewer";
-        registered(generation.withLeasedTask(FIRST_TASK));
+        fixture.slots.waitingRole = waitingRole;
+        registered(generation.withLeasedTask(firstTask));
         var leased = recycling.yieldIdleSlot();
 
         fixture.slots.waitingRole = null;
@@ -269,6 +284,8 @@ class WorkerRecyclingTest {
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.IDLE), first.recycleCause()),
                 () -> assertTrue(second.recycleCause().isEmpty(), "a generation is recycled once"),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                        INFO.WORKER_GENERATION_RECYCLED.resolveIdentifierString()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         "recycled for 'idle'"));
     }

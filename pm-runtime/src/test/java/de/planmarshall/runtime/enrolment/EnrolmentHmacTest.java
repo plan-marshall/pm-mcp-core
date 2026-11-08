@@ -31,6 +31,8 @@ import de.planmarshall.core.store.StoreDigest;
 /**
  * The HMAC of an enrolment file (PM-EXEC-2, PM-SEC-5): HMAC-SHA-256 in lowercase hex over the exact bytes, compared in
  * constant time, carried by a sidecar record with the size and SHA-256 of the same bytes.
+ * <p>
+ * Every datum of this test is a contract: the RFC 4231 known-answer vectors, the algorithm and the sidecar's fields.
  */
 @DisplayName("Enrolment HMAC")
 class EnrolmentHmacTest {

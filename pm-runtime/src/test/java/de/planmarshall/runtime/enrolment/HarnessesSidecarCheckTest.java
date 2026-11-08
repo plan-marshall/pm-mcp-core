@@ -15,15 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.security.SecureRandom;
 import java.util.Optional;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,13 +36,18 @@ import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.runtime.enrolment.HarnessesSidecarCheck.Outcome;
 import de.planmarshall.runtime.enrolment.HarnessesSidecarCheck.Result;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The verification of the harness enrolment sidecar (PM-SEC-5, PM-CRED-2): {@code harnesses.json} passes against its
  * sidecar under the key it was signed with and fails under any other key; a missing half of the pair, a digest
  * mismatch, an HMAC mismatch, a failed per-use check and an unreadable sidecar each fail with their reason; the check
  * holds {@code locks/harnesses.lock} while it reads.
+ * <p>
+ * The two keys are drawn from the module's key generator; the document shape, the modes, the reason constants and the
+ * lock key are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("Harnesses sidecar check")
 class HarnessesSidecarCheckTest {
 
@@ -51,8 +55,6 @@ class HarnessesSidecarCheckTest {
     private static final String OWNER_ONLY = "rw-------";
     private static final byte[] CONTENT = """
             {"format_version":1,"harnesses":{}}""".getBytes(StandardCharsets.UTF_8);
-
-    private final SecureRandom random = new SecureRandom();
 
     @TempDir
     Path base;
@@ -75,9 +77,7 @@ class HarnessesSidecarCheckTest {
     }
 
     private SecretKey newKey() {
-        var bytes = new byte[EnrolmentKey.KEY_BYTES];
-        random.nextBytes(bytes);
-        return new SecretKeySpec(bytes, EnrolmentKey.ALGORITHM);
+        return RuntimeGenerators.hmacKeys().next();
     }
 
     private static void write(Path path, byte[] bytes) throws IOException {

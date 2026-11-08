@@ -14,11 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,17 +30,35 @@ import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Each off-track signal holds at its threshold and not below it, a lowered threshold of a role artifact applies and a
  * raised one is refused (Model Work § A Worker Off Track).
+ * <p>
+ * The tool name, the file target and the submitted task id are generated; the thresholds, the signal and action names,
+ * the fixed instant and the role artifact's own fields are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("Off-track detector")
 class OffTrackDetectorTest {
 
     private static final Instant AT = Instant.parse("2026-10-26T10:00:00Z");
 
     private final OffTrackDetector detector = new OffTrackDetector();
+
+    private String tool;
+
+    private String target;
+
+    private String submittedTask;
+
+    @BeforeEach
+    void draw() {
+        tool = RuntimeGenerators.words().next();
+        target = Generators.letterStrings(1, 12).next() + ".java";
+        submittedTask = "TASK-" + Generators.integers(1, 999).next();
+    }
 
     static RoleArtifact role(Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack) {
         return new RoleArtifact(1, "implementer", "the implementer", RoleClass.WRITER,
@@ -57,10 +78,10 @@ class OffTrackDetectorTest {
                 .at(AT).build();
     }
 
-    static ActivityEntry link(int seq) {
+    ActivityEntry link(int seq) {
         return ActivityEntry.builder().seq(seq).attempt(1).source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.LINK)
-                .link(new ActivityEntry.Link(ActivityEntry.LinkRelation.SUBMIT, "TASK-001"))
+                .link(new ActivityEntry.Link(ActivityEntry.LinkRelation.SUBMIT, submittedTask))
                 .at(AT).build();
     }
 
@@ -73,8 +94,8 @@ class OffTrackDetectorTest {
     void repeating() {
         var role = role(Map.of(RoleArtifact.OffTrackSignal.REPEATING,
                 new RoleArtifact.OffTrackSetting(3.0, RoleArtifact.OffTrackAction.NUDGE)));
-        var three = List.of(toolCall(1, "read_file", "A.java"), toolCall(2, "read_file", "A.java"),
-                toolCall(3, "read_file", "A.java"));
+        var three = List.of(toolCall(1, tool, target), toolCall(2, tool, target),
+                toolCall(3, tool, target));
         var two = three.subList(0, 2);
 
         assertAll(
@@ -90,15 +111,15 @@ class OffTrackDetectorTest {
     void repeatingBreaks() {
         var role = role(Map.of(RoleArtifact.OffTrackSignal.REPEATING,
                 new RoleArtifact.OffTrackSetting(2.0, RoleArtifact.OffTrackAction.SHOW)));
-        var written = new ArrayList<>(List.of(toolCall(1, "read_file", "A.java")));
+        var written = new ArrayList<>(List.of(toolCall(1, tool, target)));
         written.add(ActivityEntry.builder().seq(2).attempt(1).source(ActivityEntry.Source.HARNESS)
-                .kind(ActivityEntry.Kind.FILE_CHANGED).path("A.java").at(AT).build());
-        written.add(toolCall(3, "read_file", "A.java"));
+                .kind(ActivityEntry.Kind.FILE_CHANGED).path(target).at(AT).build());
+        written.add(toolCall(3, tool, target));
 
-        var failed = new ArrayList<>(List.of(toolCall(1, "read_file", "A.java")));
+        var failed = new ArrayList<>(List.of(toolCall(1, tool, target)));
         failed.add(ActivityEntry.builder().seq(2).attempt(1).source(ActivityEntry.Source.HARNESS)
                 .kind(ActivityEntry.Kind.TOOL_RESULT).result(new ActivityEntry.Result(10, true)).at(AT).build());
-        failed.add(toolCall(3, "read_file", "A.java"));
+        failed.add(toolCall(3, tool, target));
 
         assertAll(
                 () -> assertTrue(detect(written, role).isEmpty()),

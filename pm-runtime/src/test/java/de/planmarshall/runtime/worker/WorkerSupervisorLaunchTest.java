@@ -37,6 +37,9 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * de.planmarshall.runtime.launch.LaunchComposer} composes it from the role and the profile's block, the refusal path
  * records a failed composition, and the {@link WorkerStart} carries the project, the role's floor budget and the
  * harness's writable paths.
+ * <p>
+ * Every datum of this test is a contract: the fixture profile's client id, executable, model and role name, the
+ * composed prompt's heading, the refusal reason code and the role's floor budget.
  */
 @DisplayName("Worker supervisor launch")
 class WorkerSupervisorLaunchTest {
@@ -107,7 +110,7 @@ class WorkerSupervisorLaunchTest {
         var block = HeadlessBlock.of(fixture.profile);
 
         assertAll(
-                () -> assertEquals(SupervisorTestFixture.PROJECT, start.enrolment().projectId()),
+                () -> assertEquals(fixture.project, start.enrolment().projectId()),
                 () -> assertEquals(JobRecord.Scope.Type.PROJECT, start.scope().type()),
                 () -> assertEquals("worker:implementer", start.budgetKey()),
                 () -> assertEquals(60, start.budgetSeconds()),

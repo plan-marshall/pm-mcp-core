@@ -18,6 +18,9 @@ import java.util.Map;
 
 /**
  * Writes the figures a verification IT measured to {@code target/verification-results/<item>.json}.
+ * <p>
+ * Every datum of this fixture is a contract: the item name, the measured values and the output file's shape and
+ * location.
  */
 public final class VerificationResults {
 

@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,7 +36,11 @@ import de.planmarshall.runtime.credentials.CredentialStoreCheck.Step;
 /**
  * The check of the OS store before it is recorded (PM-CRED-2): write, read back and delete one test entry, each one
  * check line; a failed step ends the check and leaves no test entry behind.
+ * <p>
+ * The scripted read-back values are generated; the step names, the message keys, the reason code and the fixed check
+ * account are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("CredentialStoreCheck: the OS store before it is recorded")
 class CredentialStoreCheckTest {
 
@@ -44,6 +51,16 @@ class CredentialStoreCheckTest {
 
     private final CredentialStoreCheck check = new CredentialStoreCheck(new SecureRandom());
     private final ScriptedStore store = new ScriptedStore();
+
+    private String otherValue;
+
+    private String wrongValue;
+
+    @BeforeEach
+    void draw() {
+        otherValue = Generators.letterStrings(1, 20).next();
+        wrongValue = Generators.letterStrings(1, 20).next();
+    }
 
     @Test
     @DisplayName("a passing check reports write, read back and delete as three ok lines and leaves no entry")
@@ -84,7 +101,7 @@ class CredentialStoreCheckTest {
     @Test
     @DisplayName("a read-back of another value fails the second line and deletes the test entry")
     void readBackDiffers() {
-        store.readBack(Optional.of("another value"));
+        store.readBack(Optional.of(otherValue));
 
         var result = check.check(store);
 
@@ -155,7 +172,7 @@ class CredentialStoreCheckTest {
     @Test
     @DisplayName("the test value never appears in a check line")
     void noValueInLines() {
-        store.readBack(Optional.of("wrong"));
+        store.readBack(Optional.of(wrongValue));
         var result = check.check(store);
 
         var written = store.written.getFirst();

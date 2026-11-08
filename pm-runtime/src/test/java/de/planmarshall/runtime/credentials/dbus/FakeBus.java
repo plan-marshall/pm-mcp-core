@@ -28,6 +28,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * A fake message bus on a JDK Unix domain socket: answers SASL {@code EXTERNAL}, {@code Hello}
  * (preceded by a {@code NameAcquired} signal, as a real bus sends), and dispatches every other method
  * call to a {@link Handler}. Usable on macOS and Linux.
+ * <p>
+ * Every datum of this fixture is a contract: the SASL exchange, the {@code Hello} reply, the bus and interface names and
+ * the wire signatures.
  */
 public final class FakeBus implements AutoCloseable {
 

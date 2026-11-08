@@ -14,12 +14,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,12 +35,20 @@ import de.planmarshall.core.config.ConsentStore;
 import de.planmarshall.runtime.config.Provider;
 import de.planmarshall.runtime.config.ProviderDefault;
 import de.planmarshall.runtime.config.ProviderVariant;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The provider verification (Credentials &amp; Enrolment § Provider Verification, State Catalogue § Providers): one line per
  * check of the provider's kind, the CLI variant's identity comparison, and the consent {@code verify_providers} that
  * precedes every check.
+ * <p>
+ * The tool's identity, the tool version, the "not logged in" answer and the other identity are generated; the check
+ * names, the message keys, the HTTP status texts and the fixed instant are the contracts.
  */
+@EnableGeneratorController
+@EnableTestLogger
 @DisplayName("Provider verification")
 class ProviderVerificationTest {
 
@@ -45,7 +59,21 @@ class ProviderVerificationTest {
     private boolean originReachable = true;
     private boolean credentialOk = true;
     private boolean toolLoggedIn = true;
-    private String toolIdentity = "octocat";
+    private String toolIdentity;
+    private String credentialIdentity;
+    private String otherIdentity;
+    private String toolVersion;
+    private String notLoggedIn;
+
+    @BeforeEach
+    void draw() {
+        credentialIdentity = RuntimeGenerators.words().next();
+        toolIdentity = credentialIdentity;
+        otherIdentity = credentialIdentity + "-other";
+        toolVersion = Generators.integers(1, 9).next() + "." + Generators.integers(0, 99).next() + "."
+                + Generators.integers(0, 99).next();
+        notLoggedIn = Generators.letterStrings(3, 30).next();
+    }
 
     private final ProviderVerification.ProviderProbe probe = new ProviderVerification.ProviderProbe() {
 
@@ -58,7 +86,7 @@ class ProviderVerificationTest {
         @Override
         public ProviderVerification.Answer identity(Provider provider, String credentialKey) {
             calls.add("identity:" + provider.wireName() + ":" + credentialKey);
-            return credentialOk ? ProviderVerification.Answer.ok("octocat")
+            return credentialOk ? ProviderVerification.Answer.ok(credentialIdentity)
                     : ProviderVerification.Answer.failed("401 Bad credentials");
         }
 
@@ -80,14 +108,14 @@ class ProviderVerificationTest {
         @Override
         public ProviderVerification.Answer version(Provider provider) {
             calls.add("version:" + provider.wireName());
-            return ProviderVerification.Answer.ok("2.60.0");
+            return ProviderVerification.Answer.ok(toolVersion);
         }
 
         @Override
         public ProviderVerification.Answer loginIdentity(Provider provider) {
             calls.add("login:" + provider.wireName());
             return toolLoggedIn ? ProviderVerification.Answer.ok(toolIdentity)
-                    : ProviderVerification.Answer.failed("not logged in");
+                    : ProviderVerification.Answer.failed(notLoggedIn);
         }
     };
 
@@ -117,6 +145,8 @@ class ProviderVerificationTest {
                 () -> assertEquals(4, result.lines().size()),
                 () -> assertEquals(List.of("origin:github", "identity:github:github", "permissions:github",
                         "expiry:github"), calls),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                        INFO.PROVIDER_VERIFIED.resolveIdentifierString()),
                 () -> assertTrue(result.toRecord().isEmpty()));
     }
 
@@ -135,7 +165,7 @@ class ProviderVerificationTest {
     @Test
     @DisplayName("a tool logged in as another identity than the credential fails the verification")
     void identityDiffers() {
-        toolIdentity = "somebody-else";
+        toolIdentity = otherIdentity;
 
         var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
 
@@ -182,7 +212,9 @@ class ProviderVerificationTest {
                 () -> assertEquals("provider_verification.origin.failed", result.lines().getFirst().messageKey()),
                 () -> assertEquals(Optional.of("503"), result.lines().getFirst().answer()),
                 () -> assertEquals("provider_verification.whoami.failed", result.lines().get(1).messageKey()),
-                () -> assertEquals(Optional.of("401 Bad credentials"), result.lines().get(1).answer()));
+                () -> assertEquals(Optional.of("401 Bad credentials"), result.lines().get(1).answer()),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
     }
 
     @Test

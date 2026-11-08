@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -40,8 +43,10 @@ import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.role.RoleArtifact;
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobLog;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The off-track scenarios of Model Work § A Worker Off Track ("Verified by scenarios"): a worker's scripted output stream
@@ -52,13 +57,13 @@ import de.planmarshall.runtime.lock.FileLockManager;
  * <p>
  * The stream is the fixture harness's: every line is printed by a started process and read back from its real output,
  * never handed to the mapper directly.
+ * <p>
+ * The task id, the generation, the project and plan ids and the two file paths are generated in {@code @BeforeEach};
+ * the pointer document, the event kinds, the tool name and the {@code end_turn} stop reason are the wire contract.
  */
+@EnableGeneratorController
 @DisplayName("Off-track scenarios")
 class OffTrackScenarioTest {
-
-    private static final String TASK = "qt-0000000000000001";
-
-    private static final String GENERATION = "l-0123456789abcdef";
 
     private static final Instant AT = Instant.parse("2026-10-26T10:00:00Z");
 
@@ -82,13 +87,33 @@ class OffTrackScenarioTest {
     private static final Map<String, String> USAGE = Map.of("input_tokens", "/usage/input_tokens",
             "output_tokens", "/usage/output_tokens");
 
-    private static final String LOOPING_READ = "{\"type\":\"tool_use\",\"name\":\"read_file\",\"input\":{\"file_path\":"
-            + "\"A.java\"}}";
-
     private static final String TURN = "{\"type\":\"result\",\"stop_reason\":\"end_turn\"}";
 
     @TempDir
     Path base;
+
+    private String task;
+
+    private String generation;
+
+    private String project;
+
+    private String plan;
+
+    private String loopingRead;
+
+    private String outsidePath;
+
+    @BeforeEach
+    void draw() {
+        task = RuntimeGenerators.queueTaskIds().next();
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
+        project = RuntimeGenerators.projectIds().next();
+        plan = RuntimeGenerators.planIds().next();
+        var readPath = Generators.letterStrings(1, 12).next() + ".java";
+        loopingRead = "{\"type\":\"tool_use\",\"name\":\"read_file\",\"input\":{\"file_path\":\"" + readPath + "\"}}";
+        outsidePath = "outside/" + readPath;
+    }
 
     /** One signal reported to the task protocol, with the facts it records. */
     private record Reported(String signal, String action, double measurement, double threshold) {
@@ -136,8 +161,8 @@ class OffTrackScenarioTest {
     private Observed replayOrFail(List<String> stream, RoleArtifact role, Double predictedCost, int unplannedChange)
             throws IOException {
         var directory = Files.createTempDirectory(base, "scenario");
-        var journal = ActivityJournal.ofScope(directory, "project-a",
-                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-a"),
+        var journal = ActivityJournal.ofScope(directory, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
                 new FileLockManager(_ -> {
                 }));
         var protocol = new RecordingProtocol();
@@ -152,7 +177,7 @@ class OffTrackScenarioTest {
         try (var harness = FixtureHarness.start(directory, arguments(stream))) {
             for (var index = 0; index < stream.size(); index++) {
                 append(log, awaitLine(harness));
-                pump.pump(TASK, GENERATION, new JobLog(log));
+                pump.pump(task, generation, new JobLog(log));
                 counts.add(protocol.reports.size());
             }
         }
@@ -173,8 +198,8 @@ class OffTrackScenarioTest {
         return OffTrackDetectorTest.role(Map.of(signal, new RoleArtifact.OffTrackSetting(null, action)));
     }
 
-    private static List<String> repeats(int count) {
-        return Collections.nCopies(count, LOOPING_READ);
+    private List<String> repeats(int count) {
+        return Collections.nCopies(count, loopingRead);
     }
 
     private static List<String> turns(int count, int inputTokens, int outputTokens) {
@@ -241,7 +266,7 @@ class OffTrackScenarioTest {
         var role = role(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.SHOW);
         // outside_footprint is measured on the task's recorded unplanned changes, not on the journal: the stream is the
         // worker's output, and the recorded footprint is the other half of the task's facts.
-        var stream = List.of(TURN, "{\"type\":\"file\",\"path\":\"outside/A.java\"}");
+        var stream = List.of(TURN, "{\"type\":\"file\",\"path\":\"" + outsidePath + "\"}");
 
         var below = replay(stream, role, 100.0, 2);
         var at = replay(stream, role, 100.0, 3);
@@ -289,7 +314,7 @@ class OffTrackScenarioTest {
                 RoleArtifact.OffTrackAction.NUDGE, null, -1);
         assertReplaysTwice(turns(6, 40, 10), RoleArtifact.OffTrackSignal.OVER_SIZE,
                 RoleArtifact.OffTrackAction.YIELD, 100.0, -1);
-        assertReplaysTwice(List.of(TURN, "{\"type\":\"file\",\"path\":\"outside/A.java\"}"),
+        assertReplaysTwice(List.of(TURN, "{\"type\":\"file\",\"path\":\"" + outsidePath + "\"}"),
                 RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT, RoleArtifact.OffTrackAction.RESTART, 100.0, 3);
     }
 

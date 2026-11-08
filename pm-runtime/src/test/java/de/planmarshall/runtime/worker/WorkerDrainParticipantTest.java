@@ -33,6 +33,9 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * The supervisor as a drain participant (PM-WORK-3; Runtime &amp; Interaction Model, Drain): idle warm workers end on
  * {@code endIdle}, a running task continues up to the drain timeout, a worker that outlives it is force-ended with the
  * cause {@code drain} and its state left unwritten until its exit, and {@code awaitQuiet} answers at the deadline.
+ * <p>
+ * Every datum of this test is a contract: the one second before the deadline, the lifecycle order, the {@code drain}
+ * cause and the supervisor's cancel cause.
  */
 @DisplayName("Worker drain participant")
 class WorkerDrainParticipantTest {

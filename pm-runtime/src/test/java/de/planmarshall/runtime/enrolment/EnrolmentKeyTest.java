@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;
@@ -33,6 +35,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,6 +83,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
  * {@code enrolment-integrity-key}, or on a host without a keyring the {@code 0600} key file below the state directory;
  * created once, then reused; absent and unreadable are told apart.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Enrolment key")
 class EnrolmentKeyTest {
@@ -89,6 +93,13 @@ class EnrolmentKeyTest {
 
     @TempDir
     Path state;
+
+    private String foreignUser;
+
+    @BeforeEach
+    void draw() {
+        foreignUser = USER + "-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+    }
 
     @Nested
     @DisplayName("in a keyring")
@@ -410,7 +421,7 @@ class EnrolmentKeyTest {
         void foreignOwner() {
             key.readOrCreate();
 
-            var foreign = new EnrolmentKey(new FileStoreName(), state, "someone-else", new SecureRandom());
+            var foreign = new EnrolmentKey(new FileStoreName(), state, foreignUser, new SecureRandom());
 
             assertEquals(Reason.INSECURE, assertThrows(SecretStoreException.class, foreign::read).reason());
         }

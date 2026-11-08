@@ -16,11 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -28,21 +30,31 @@ import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
 import de.planmarshall.core.profile.VerificationRecord;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The verification-record eligibility gate (PM-CLIENT-5, Runtime check on load; PM-SEC-8, Consent Before Acting): the
  * pure predicate the supervisor consults before a start, over the failing {@code faults} stage, the {@code not_run}
  * isolation stage, the missing {@code classes} stage of an enforced tool-set claim, a record written on another
  * platform, the shipped profile, and the two no-claim controls.
+ * <p>
+ * The profile digest is generated; {@code acme-cli}, the stage names, the statuses, the platform pair and the JSON
+ * document shapes are the wire contract the gate reads.
  */
+@EnableGeneratorController
 @DisplayName("The verification-record eligibility gate")
 class ProfileWorkerEligibilityTest {
 
     private static final String CLIENT = "acme-cli";
 
-    private static final String DIGEST = "sha256:" + "0".repeat(64);
-
     private static final RuntimePlatform THIS_PLATFORM = new RuntimePlatform("linux", "x86_64");
+
+    private String digest;
+
+    @BeforeEach
+    void draw() {
+        digest = "sha256:" + RuntimeGenerators.sha256Digests().next();
+    }
 
     @Test
     @DisplayName("a failed faults stage leaves an eligible harness ineligible")
@@ -243,7 +255,7 @@ class ProfileWorkerEligibilityTest {
         }
     }
 
-    private static VerificationRecord verificationRecord(Map<String, String> stages) {
+    private VerificationRecord verificationRecord(Map<String, String> stages) {
         var stageJson = stages.entrySet().stream()
                 .map(entry -> "\"%s\": {\"status\": \"%s\"}".formatted(entry.getKey(), entry.getValue()))
                 .collect(Collectors.joining(", "));
@@ -261,7 +273,7 @@ class ProfileWorkerEligibilityTest {
                   "stages": {%3$s},
                   "values": [{"pointer": "/worker/eligible", "status": "measured"}]
                 }
-                """.formatted(CLIENT, DIGEST, stageJson);
+                """.formatted(CLIENT, digest, stageJson);
         return VerificationRecord.read(json.getBytes(StandardCharsets.UTF_8), "verification.json");
     }
 }

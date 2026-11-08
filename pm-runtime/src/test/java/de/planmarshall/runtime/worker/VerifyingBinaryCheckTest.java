@@ -14,11 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -28,21 +31,39 @@ import de.planmarshall.core.profile.VerificationRecord;
  * The verifying-binary control (PM-CLIENT-5, Profile Verification): the installed binary is asked with a fixed argument
  * vector and only the record's own version and commit are accepted, while the two control records drive the
  * ineligibility assertions of the load-time gate.
+ * <p>
+ * The recorded version and commit, the other commit and the unreadable binary's message are generated; the binary name,
+ * the fixed argument vector and the two control resources are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("The verifying-binary control")
 class VerifyingBinaryCheckTest {
 
     private static final Path BINARY = Path.of("pm-mcpd");
 
-    private static final VerificationRecord.Tool RECORDED = new VerificationRecord.Tool("0.1.1996", "abcdef0123");
+    private VerificationRecord.Tool recorded;
+
+    private String otherCommit;
+
+    private String noAnswer;
+
+    @BeforeEach
+    void draw() {
+        recorded = new VerificationRecord.Tool(
+                Generators.integers(0, 9).next() + "." + Generators.integers(0, 99).next() + "."
+                        + Generators.integers(0, 9_999).next(),
+                Generators.strings("0123456789abcdef", 10, 10).next());
+        otherCommit = Generators.strings("0123456789abcdef", 8, 8).next();
+        noAnswer = Generators.letterStrings(3, 30).next();
+    }
 
     @Test
     @DisplayName("a binary of the recorded version and commit matches")
     void aMatchingBinaryMatches() {
-        var installed = new VerifyingBinaryCheck.Identity(RECORDED.version(), RECORDED.commit());
+        var installed = new VerifyingBinaryCheck.Identity(recorded.version(), recorded.commit());
         var check = VerifyingBinaryCheck.of(BINARY, (executable, argv) -> installed);
 
-        var verdict = check.verify(RECORDED);
+        var verdict = check.verify(recorded);
 
         var match = assertInstanceOf(VerifyingBinaryCheck.Verdict.Match.class, verdict);
         assertEquals(installed, match.installed(), "the match names the installed identity");
@@ -51,25 +72,25 @@ class VerifyingBinaryCheckTest {
     @Test
     @DisplayName("a binary of another commit is a mismatch that names both builds")
     void anotherCommitIsAMismatch() {
-        var installed = new VerifyingBinaryCheck.Identity(RECORDED.version(), "ffffffff");
+        var installed = new VerifyingBinaryCheck.Identity(recorded.version(), otherCommit);
         var check = VerifyingBinaryCheck.of(BINARY, (executable, argv) -> installed);
 
-        var verdict = check.verify(RECORDED);
+        var verdict = check.verify(recorded);
 
         var mismatch = assertInstanceOf(VerifyingBinaryCheck.Verdict.Mismatch.class, verdict);
         assertAll(
                 () -> assertEquals(installed, mismatch.installed(), "the mismatch names the installed build"),
-                () -> assertEquals(RECORDED, mismatch.recorded(), "the mismatch names the recorded build"));
+                () -> assertEquals(recorded, mismatch.recorded(), "the mismatch names the recorded build"));
     }
 
     @Test
     @DisplayName("a binary that reports no identity is unreadable")
     void anUnreadableBinaryIsUnreadable() {
         var check = VerifyingBinaryCheck.of(BINARY, (executable, argv) -> {
-            throw new IOException("no answer");
+            throw new IOException(noAnswer);
         });
 
-        var verdict = check.verify(RECORDED);
+        var verdict = check.verify(recorded);
 
         assertInstanceOf(VerifyingBinaryCheck.Verdict.Unreadable.class, verdict);
     }
@@ -80,14 +101,14 @@ class VerifyingBinaryCheckTest {
         var seen = new AtomicReference<List<String>>();
         var check = VerifyingBinaryCheck.of(BINARY, (executable, argv) -> {
             seen.set(argv);
-            return new VerifyingBinaryCheck.Identity(RECORDED.version(), RECORDED.commit());
+            return new VerifyingBinaryCheck.Identity(recorded.version(), recorded.commit());
         });
 
-        check.verify(RECORDED);
+        check.verify(recorded);
 
         assertAll(
                 () -> assertEquals(VerifyingBinaryCheck.FIXED_ARGV, seen.get(), "the fixed argv is used"),
-                () -> assertFalse(seen.get().contains(RECORDED.commit()),
+                () -> assertFalse(seen.get().contains(recorded.commit()),
                         "no value of the record becomes an argument"));
     }
 

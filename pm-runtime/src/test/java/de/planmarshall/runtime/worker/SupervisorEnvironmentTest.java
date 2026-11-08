@@ -15,19 +15,27 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.WorkerState;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The terminal-state construction of the worker-state writer (PM-WORK-3, Job Record): the worker block's invariants
  * refuse a terminal state whose end reason is still absent and a leased task in a terminal state, so the state, its
  * instant, the end reason, the start-failure flag and the cleared task must reach the record together.
+ * <p>
+ * The task id and both digests are generated; the instants, the state and the end reason are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("The terminal worker state")
 class SupervisorEnvironmentTest {
 
@@ -35,9 +43,24 @@ class SupervisorEnvironmentTest {
 
     private static final Instant ENDED_AT = CONNECTED_AT.plusSeconds(60);
 
-    private static final String TASK = "qt-0123456789abcdef";
+    private String task;
 
-    private static final String DIGEST = "a".repeat(64);
+    private String digest;
+
+    private String roleName;
+
+    private String harnessName;
+
+    private String modelName;
+
+    @BeforeEach
+    void draw() {
+        task = RuntimeGenerators.queueTaskIds().next();
+        digest = RuntimeGenerators.sha256Digests().next();
+        roleName = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        harnessName = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        modelName = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
 
     @Test
     @DisplayName("is built in one construction, with the leased task cleared")
@@ -68,23 +91,23 @@ class SupervisorEnvironmentTest {
                 () -> assertTrue(failed.startFailure(), "the flag and the end reason agree"));
     }
 
-    private static WorkerState leasedWorker() {
+    private WorkerState leasedWorker() {
         return WorkerState.builder()
-                .role("implementer")
-                .configurationDigest(DIGEST)
+                .role(roleName)
+                .configurationDigest(digest)
                 .roleClass(WorkerState.RoleClass.WRITER)
                 .form(WorkerState.Form.WARM)
-                .harness("claude")
+                .harness(harnessName)
                 .harnessVersion("1.0.0")
-                .model("a-model")
-                .generationId(new JobId("l-00000000000000ff"))
+                .model(modelName)
+                .generationId(new JobId(RuntimeGenerators.jobIds(JobId.Kind.LLM).next()))
                 .workdir(new WorkerState.Workdir(WorkerState.Workdir.Kind.PROJECT_CHECKOUT, null))
-                .promptDigest(DIGEST)
-                .jobTokenSha256(DIGEST)
+                .promptDigest(digest)
+                .jobTokenSha256(digest)
                 .connectedAt(CONNECTED_AT)
                 .state(WorkerState.State.EXECUTING)
                 .stateAt(CONNECTED_AT)
-                .task(TASK)
+                .task(task)
                 .servedTasks(List.of())
                 .idleWakeups(0L)
                 .contextTokens(WorkerState.ContextTokens.NOT_MEASURED)

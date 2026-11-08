@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,6 +37,7 @@ import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
@@ -42,13 +45,15 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * the virtual clock and asserted at deadline−1, at the deadline and after it, so no scenario sleeps. The consultation,
  * resume and {@code agent_started} scenarios start {@link FixtureHarness} as a real process and read its scripted
  * stream, so what the harness does is observed rather than assumed.
+ * <p>
+ * The queue task, the alternative worktree name, the changed digest and the impostor digest are generated in
+ * {@code @BeforeEach}; the scripted harness lines, the deadline seconds and the exit code 143 are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("Supervisor scenarios")
 class SupervisorScenarioTest {
 
     private static final Instant NOW = SupervisorTestFixture.NOW;
-
-    private static final String TASK = "qt-0123456789abcdef";
 
     private static final int ACK_SECONDS = 10;
 
@@ -63,13 +68,29 @@ class SupervisorScenarioTest {
     @TempDir
     Path base;
 
+    private String task;
+
+    private String worktreeName;
+
+    private String changedDigest;
+
+    private String impostorDigest;
+
+    @BeforeEach
+    void draw() {
+        task = RuntimeGenerators.queueTaskIds().next();
+        worktreeName = RuntimeGenerators.words().next();
+        changedDigest = RuntimeGenerators.sha256Digests().next();
+        impostorDigest = RuntimeGenerators.sha256Digests().next();
+    }
+
     @Test
     @DisplayName("the acknowledgement signal fires at its deadline and settles after")
     void acknowledgementAtTheDeadline() throws Exception {
         var fixture = new SupervisorTestFixture(base);
         var detection = fixture.detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(NOW);
-        detection.offered(TASK, NOW);
+        detection.offered(task, NOW);
         var deadline = NOW.plusSeconds(ACK_SECONDS);
 
         fixture.clock.moveTo(deadline.minusMillis(1));
@@ -83,7 +104,7 @@ class SupervisorScenarioTest {
                 () -> assertEquals(0, before, "nothing fires a millisecond before the deadline"),
                 () -> assertEquals(1, at, "the signal fires at the deadline"),
                 () -> assertEquals(LossReason.ACK_MISSED, fixture.signals.getFirst().reason()),
-                () -> assertEquals(TASK, fixture.signals.getFirst().leasedTask()),
+                () -> assertEquals(task, fixture.signals.getFirst().leasedTask()),
                 () -> assertEquals(1, after, "a settled detection fires no second signal"));
     }
 
@@ -200,13 +221,13 @@ class SupervisorScenarioTest {
     void theStartFailureGuardHoldsAndAChangedConfigurationClearsIt() throws Exception {
         var fixture = new SupervisorTestFixture(base);
         var parameters = parameters(OptionalInt.empty(), false);
-        var guard = new StartFailureGuard(SupervisorTestFixture.PROJECT, List::of, fixture.protocol,
+        var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol,
                 fixture.events::add, fixture.clock);
         var environment = fixture.environment(guard, SupervisorEnvironment.EligibilityGate.open());
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
         var generation = assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.warmRequest(role, base.resolve("warm")))).getFirst()).generation();
+                supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst()).generation();
         var ending = new WorkerEnding(environment, () -> false, () -> {
         });
         var recycling = new WorkerRecycling(environment, ending, supervisor::generations,
@@ -217,7 +238,7 @@ class SupervisorScenarioTest {
             guard.startFailed(role.artifact().name(), SupervisorTestFixture.CLIENT, "the start failed");
         }
         var heldBeforeTheChange = guard.holds(role.artifact().name(), SupervisorTestFixture.CLIENT);
-        var cause = recycling.afterTaskClosed(generation, "another-configuration");
+        var cause = recycling.afterTaskClosed(generation, changedDigest);
         var failedStarts = fixture.events.stream()
                 .filter(event -> AuditEvent.WORKER_START_FAILED.equals(event.event()))
                 .count();
@@ -271,7 +292,7 @@ class SupervisorScenarioTest {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var generation = assertInstanceOf(StartOutcome.Started.class,
                 supervisor.start(List.of(fixture.freshRequest(role))).getFirst()).generation();
-        var leased = generation.withLeasedTask(TASK);
+        var leased = generation.withLeasedTask(task);
         var ending = new WorkerEnding(environment, () -> false, () -> {
         });
 
@@ -279,7 +300,7 @@ class SupervisorScenarioTest {
         var terminal = ending.exited(leased);
 
         assertAll(
-                () -> assertEquals(TASK, leased.leasedTask(), "the paused generation holds the task's lease"),
+                () -> assertEquals(task, leased.leasedTask(), "the paused generation holds the task's lease"),
                 () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels,
                         "the leased worker is cancelled with the operator's pause"),
                 () -> assertEquals(List.of(generation.generationId()), fixture.protocol.fences,
@@ -300,14 +321,14 @@ class SupervisorScenarioTest {
         var answeredAt = NOW.plusSeconds(2);
         var silent = fixture.detection(RoleClass.WRITER, parameters);
         silent.started(NOW);
-        silent.offered(TASK, NOW);
+        silent.offered(task, NOW);
         silent.acknowledged(NOW.plusSeconds(1));
         silent.waitOpened(answeredAt);
         silent.waitClosed(answeredAt);
         silent.answerDelivered(answeredAt);
         var acknowledging = fixture.detection(RoleClass.WRITER, parameters);
         acknowledging.started(NOW);
-        acknowledging.offered(TASK, NOW);
+        acknowledging.offered(task, NOW);
         acknowledging.acknowledged(NOW.plusSeconds(1));
         acknowledging.waitOpened(answeredAt);
         acknowledging.waitClosed(answeredAt);
@@ -325,7 +346,7 @@ class SupervisorScenarioTest {
                 () -> assertEquals(1, at, "one continuing worker missed its acknowledgement"),
                 () -> assertEquals(LossReason.ACK_MISSED, fixture.signals.getFirst().reason(),
                         "the loss is the missing acknowledgement"),
-                () -> assertEquals(TASK, fixture.signals.getFirst().leasedTask(),
+                () -> assertEquals(task, fixture.signals.getFirst().leasedTask(),
                         "the loss names the task the worker holds"),
                 () -> assertTrue(acknowledging.due(deadline.plusSeconds(1)).isEmpty(),
                         "a worker that acknowledges the answer has no acknowledgement loss"));
@@ -345,8 +366,8 @@ class SupervisorScenarioTest {
         var recycling = new WorkerRecycling(environment, ending, supervisor::generations,
                 name -> Optional.of(role.artifact().recycling()), parameters);
         var started = assertInstanceOf(StartOutcome.Started.class,
-                supervisor.start(List.of(fixture.warmRequest(role, base.resolve("warm")))).getFirst()).generation();
-        var consulting = started.withLeasedTask(TASK);
+                supervisor.start(List.of(fixture.warmRequest(role, base.resolve(worktreeName)))).getFirst()).generation();
+        var consulting = started.withLeasedTask(task);
         var idle = started.withLeasedTask(null).withIdleWakeups(parameters.idleWakeups() - 1);
 
         var held = recycling.waitAgain(consulting);
@@ -388,7 +409,7 @@ class SupervisorScenarioTest {
                     () -> assertEquals(executable.toString(),
                             fixture.protocol.startedAgents.getFirst().executable(),
                             "the signal names the executable of the recorded tree"),
-                    () -> assertEquals(TASK, fixture.protocol.startedAgents.getFirst().queueTaskId(),
+                    () -> assertEquals(task, fixture.protocol.startedAgents.getFirst().queueTaskId(),
                             "the signal names the task whose attempt is re-offered"),
                     () -> assertEquals(Optional.of(EndCause.OFF_TRACK), ending.requestedCause(generation.generationId()),
                             "the fixed action is restart"),
@@ -412,7 +433,7 @@ class SupervisorScenarioTest {
             });
             var generation = generation(fixture, environment);
             var detector = new AgentStartedDetector(environment, ProcessExecutables.system(),
-                    () -> List.of(enrolment(executable, "b".repeat(64))), ending);
+                    () -> List.of(enrolment(executable, impostorDigest)), ending);
 
             var matched = detector.detect(generation, harness.pid(), task());
 
@@ -437,8 +458,8 @@ class SupervisorScenarioTest {
         return Path.of("/bin/sleep").toRealPath();
     }
 
-    private static AgentStartedDetector.HeldTask task() {
-        return new AgentStartedDetector.HeldTask(TASK, 1);
+    private AgentStartedDetector.HeldTask task() {
+        return new AgentStartedDetector.HeldTask(task, 1);
     }
 
     private static HarnessEnrolment enrolment(Path executable, String sha256) {

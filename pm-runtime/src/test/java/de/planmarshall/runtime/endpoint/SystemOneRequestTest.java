@@ -14,9 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,34 +30,49 @@ import de.planmarshall.core.profile.JsonNode;
 /**
  * The two requests of a judgment task (Client Profiles § Judgment Endpoint, The Request and the Answer): the options of a
  * question in one order and in the opposite one, nothing beside the protocol's members, and the context budget.
+ * <p>
+ * The model name, the question text and the state's finding are generated; the criterion keys and labels, the endpoint's
+ * paths, the {@code system_one} kind and the context budgets are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("The two requests of a judgment task")
 class SystemOneRequestTest {
 
-    private static final String MODEL = "judge-2026-01-01";
+    private String model;
 
-    private static EndpointProfile profile(int contextTokens) {
+    private String questionText;
+
+    private String finding;
+
+    @BeforeEach
+    void draw() {
+        model = "judge-" + Generators.integers(1, 9_999).next();
+        questionText = Generators.letterStrings(3, 40).next();
+        finding = Generators.letterStrings(3, 40).next();
+    }
+
+    private EndpointProfile profile(int contextTokens) {
         return new EndpointProfile("hosted-judge", null, null, null,
                 new EndpointProfile.Endpoint("system_one", "remote", "https://judge.example.test", null, "/v1/models",
                         "/data", "enforced", contextTokens, 512, 30, "judge-token"),
-                Map.of("standard", MODEL), null);
+                Map.of("standard", model), null);
     }
 
-    private static List<SystemOneRequest.Question> questions() {
-        return List.of(new SystemOneRequest.Question("q-1", "Which reading holds?",
+    private List<SystemOneRequest.Question> questions() {
+        return List.of(new SystemOneRequest.Question("q-1", questionText,
                 Map.of("b", new SystemOneRequest.Criterion("B", "The second reading", "It closes the question"),
                         "a", new SystemOneRequest.Criterion("A", "The first reading", null),
                         "c", new SystemOneRequest.Criterion("C", "The third reading", null))));
     }
 
-    private static JsonNode state() {
-        return JsonNode.object(Map.of("finding", JsonNode.string("the build failed twice")));
+    private JsonNode state() {
+        return JsonNode.object(Map.of("finding", JsonNode.string(finding)));
     }
 
     @Test
     @DisplayName("the options of every question are listed sorted, and in the opposite order in the second request")
     void oppositeOrders() {
-        var composed = SystemOneRequest.compose(profile(8192), MODEL, state(), questions()).request();
+        var composed = SystemOneRequest.compose(profile(8192), model, state(), questions()).request();
 
         assertAll(
                 () -> assertTrue(composed.ascending().indexOf("\"a\":") < composed.ascending().indexOf("\"b\":"),
@@ -67,11 +85,11 @@ class SystemOneRequestTest {
     @Test
     @DisplayName("a request holds the model, the state and the questions, and nothing else")
     void sendsNothingElse() {
-        var body = SystemOneRequest.compose(profile(8192), MODEL, state(), questions()).request().ascending();
+        var body = SystemOneRequest.compose(profile(8192), model, state(), questions()).request().ascending();
         var document = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "request");
 
         assertAll(
-                () -> assertEquals(MODEL, document.member("model").flatMap(JsonNode::text).orElseThrow()),
+                () -> assertEquals(model, document.member("model").flatMap(JsonNode::text).orElseThrow()),
                 () -> assertEquals(state(), document.member("state").orElseThrow()),
                 () -> assertTrue(document.member("recommendation").isEmpty()),
                 () -> assertTrue(document.member("tools").isEmpty()),
@@ -83,14 +101,14 @@ class SystemOneRequestTest {
     @Test
     @DisplayName("a question carries the type choice, its instructions and its criteria")
     void questionShape() {
-        var body = SystemOneRequest.compose(profile(8192), MODEL, state(), questions()).request().ascending();
+        var body = SystemOneRequest.compose(profile(8192), model, state(), questions()).request().ascending();
         var document = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "request");
         var question = document.member("questions").flatMap(value -> value.member("q-1")).orElseThrow();
         var criterion = question.member("criteria").flatMap(value -> value.member("b")).orElseThrow();
 
         assertAll(
                 () -> assertEquals("choice", question.member("type").flatMap(JsonNode::text).orElseThrow()),
-                () -> assertEquals("Which reading holds?",
+                () -> assertEquals(questionText,
                         question.member("instructions").flatMap(JsonNode::text).orElseThrow()),
                 () -> assertEquals("B", criterion.member("label").flatMap(JsonNode::text).orElseThrow()),
                 () -> assertEquals("The second reading",
@@ -104,8 +122,8 @@ class SystemOneRequestTest {
     @Test
     @DisplayName("a task asks at least one question and names each once")
     void refusesAnEmptyOrAmbiguousTask() {
-        var empty = SystemOneRequest.compose(profile(8192), MODEL, state(), List.of());
-        var ambiguous = SystemOneRequest.compose(profile(8192), MODEL, state(),
+        var empty = SystemOneRequest.compose(profile(8192), model, state(), List.of());
+        var ambiguous = SystemOneRequest.compose(profile(8192), model, state(),
                 List.of(questions().getFirst(), questions().getFirst()));
 
         assertAll(
@@ -120,7 +138,7 @@ class SystemOneRequestTest {
     @DisplayName("an entity larger than the context budget is refused before a request is sent")
     void refusesAnEntityOverTheBudget() {
         var huge = JsonNode.object(Map.of("finding", JsonNode.string("x".repeat(4000))));
-        var result = SystemOneRequest.compose(profile(1024), MODEL, huge, questions());
+        var result = SystemOneRequest.compose(profile(1024), model, huge, questions());
 
         assertAll(
                 () -> assertFalse(result.isComposed()),

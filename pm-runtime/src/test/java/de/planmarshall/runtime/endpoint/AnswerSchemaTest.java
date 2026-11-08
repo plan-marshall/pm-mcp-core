@@ -26,6 +26,8 @@ import de.planmarshall.core.profile.JsonNode;
  * The server's own check of an answer against the result schema (PM-CLIENT-2, Client Profiles § The Request): the JSON
  * Schema subset a result schema uses is enforced, and a schema with a keyword the check does not implement is refused
  * instead of passing.
+ * <p>
+ * Every datum of this test is a contract: the JSON Schema keywords, the member names and the pointers into the answer.
  */
 @DisplayName("Answer schema")
 class AnswerSchemaTest {

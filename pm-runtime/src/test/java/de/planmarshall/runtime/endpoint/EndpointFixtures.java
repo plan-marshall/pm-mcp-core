@@ -17,9 +17,14 @@ import java.util.Map;
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * An endpoint profile and its harness enrolment, for the tests of the endpoint harness.
+ * <p>
+ * Every datum of this fixture is a contract or fixture naming: the loopback origin, the client id, the executable's own
+ * path, the result-schema policy, the model tiers and the weights probe. The digest of {@code enrolment} is a generated
+ * SHA-256 the fixture's tests do not compute; {@code enrolled} measures the program's real digest.
  */
 final class EndpointFixtures {
 
@@ -73,8 +78,8 @@ final class EndpointFixtures {
      * @return the enrolment of the harness, with a digest the fixture does not compute
      */
     static HarnessEnrolment enrolment(String executablePath) {
-        return new HarnessEnrolment("local-runner", Path.of(executablePath), "a".repeat(64), "1.0.0",
-                Instant.EPOCH, Instant.EPOCH,
+        return new HarnessEnrolment("local-runner", Path.of(executablePath), RuntimeGenerators.sha256Digests().next(),
+                "1.0.0", Instant.EPOCH, Instant.EPOCH,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()), Map.of(), Map.of());
     }
 

@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -39,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,6 +72,7 @@ import de.planmarshall.runtime.enrolment.HarnessesSidecarCheck;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The move between the credential stores (PM-CRED-2, PM-CRED-3, PM-SEC-5), against a fake OS store, so it runs on
@@ -78,7 +80,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * sidecars verified under it, the store is switched once and the move is audited; a failure before the switch leaves
  * the old store recorded and the target without copies; a move stopped after any step is completed by
  * {@link CredentialStoreMove#resume()}.
+ * <p>
+ * The project id and the two entry secrets are generated (the {@code ghp-} and {@code squ-} prefixes are the wire shapes
+ * of the providers); the store names, the record phases, the audit fields and the fixed instant are the contracts.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("CredentialStoreMove: every entry between the OS store and the file store")
 class CredentialStoreMoveTest {
@@ -86,11 +92,7 @@ class CredentialStoreMoveTest {
     private static final String SERVICE = "de.planmarshall.mcp";
     private static final String USER = System.getProperty("user.name");
     private static final String OWNER_ONLY = "rw-------";
-    private static final String PROJECT = "pm-mcp-core";
     private static final CredentialAccount GITHUB = CredentialAccount.global("github");
-    private static final CredentialAccount SONAR = CredentialAccount.project(PROJECT, "sonar");
-    private static final String GITHUB_SECRET = "ghp-secret-of-the-github-entry";
-    private static final String SONAR_SECRET = "squ-secret-of-the-sonar-entry";
     private static final Instant STARTED = Instant.parse("2026-10-17T15:00:00Z");
     private static final TransactionId TRANSACTION = new TransactionId("018f0000-0000-7000-8000-000000000001");
     private static final byte[] HARNESSES = """
@@ -107,9 +109,19 @@ class CredentialStoreMoveTest {
     private FileSecretStore fileStore;
     private Path stateDirectory;
     private EnrolmentStore enrolments;
+    private String project;
+    private CredentialAccount sonar;
+    private String githubSecret;
+    private String sonarSecret;
+    private String heldSecret;
 
     @BeforeEach
     void setUp() throws IOException {
+        project = RuntimeGenerators.projectIds().next();
+        sonar = CredentialAccount.project(project, "sonar");
+        githubSecret = "ghp-" + Generators.letterStrings(8, 24).next();
+        sonarSecret = "squ-" + Generators.letterStrings(8, 24).next();
+        heldSecret = Generators.letterStrings(8, 30).next();
         stateDirectory = Files.createDirectories(base.resolve("state"));
         enrolments = new EnrolmentStore(base);
         Files.createDirectories(enrolments.directory());
@@ -124,8 +136,8 @@ class CredentialStoreMoveTest {
     private SecretKey machineOn(Store store) throws IOException {
         choice.record(locks, USER, store);
         var secrets = store == Store.OS ? osStore : fileStore;
-        secrets.put(GITHUB, GITHUB_SECRET);
-        secrets.put(SONAR, SONAR_SECRET);
+        secrets.put(GITHUB, githubSecret);
+        secrets.put(sonar, sonarSecret);
         var key = keyIn(secrets).readOrCreate();
         signAll(key);
         return key;
@@ -136,8 +148,8 @@ class CredentialStoreMoveTest {
     }
 
     private void signAll(SecretKey key) throws IOException {
-        signed(enrolments.file(PROJECT), enrolments.sidecar(PROJECT),
-                "{\"project_id\":\"pm-mcp-core\"}".getBytes(StandardCharsets.UTF_8), key);
+        signed(enrolments.file(project), enrolments.sidecar(project),
+                ("{\"project_id\":\"" + project + "\"}").getBytes(StandardCharsets.UTF_8), key);
         signed(harnesses(), harnessesSidecar(), HARNESSES, key);
         writeHead(key);
     }
@@ -161,7 +173,8 @@ class CredentialStoreMoveTest {
     }
 
     private void writeHead(SecretKey key) throws IOException {
-        var unsigned = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 1, UUID.randomUUID().toString(),
+        var unsigned = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 1,
+                TransactionId.generate(Clock.fixed(STARTED, ZoneOffset.UTC)).value(),
                 AuditCodec.GENESIS_HASH, AuditCodec.GENESIS_HASH, AuditCodec.GENESIS_HASH);
         write(AuditHead.headFile(base), AuditCodec.writeHead(AuditHead.sign(key, unsigned)));
     }
@@ -214,8 +227,8 @@ class CredentialStoreMoveTest {
     private void assertMovedState(Store to, SecretStore target, SecretStore old, SecretKey key) {
         assertAll(
                 () -> assertEquals(Optional.of(to), choice.recorded()),
-                () -> assertEquals(Optional.of(GITHUB_SECRET), target.get(GITHUB)),
-                () -> assertEquals(Optional.of(SONAR_SECRET), target.get(SONAR)),
+                () -> assertEquals(Optional.of(githubSecret), target.get(GITHUB)),
+                () -> assertEquals(Optional.of(sonarSecret), target.get(sonar)),
                 () -> assertArrayEquals(key.getEncoded(), keyIn(target).read().orElseThrow().getEncoded()),
                 () -> assertTrue(old.entries().isEmpty(), old.entries().toString()),
                 () -> assertTrue(keyIn(old).read().isEmpty()),
@@ -254,8 +267,8 @@ class CredentialStoreMoveTest {
                         failure.getMessage()),
                 () -> assertNoSecretIn(failure),
                 () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
+                () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
+                () -> assertEquals(Optional.of(sonarSecret), osStore.get(sonar)),
                 () -> assertTrue(keyIn(osStore).read().isPresent()),
                 () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
                 () -> assertFalse(Files.exists(keyIn(fileStore).keyFile())),
@@ -265,10 +278,10 @@ class CredentialStoreMoveTest {
                         WARN.CREDENTIAL_STORE_MOVE_FAILED.resolveIdentifierString()));
     }
 
-    private static void assertNoSecretIn(Throwable failure) {
+    private void assertNoSecretIn(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             var message = String.valueOf(cause.getMessage());
-            assertFalse(message.contains(GITHUB_SECRET) || message.contains(SONAR_SECRET), message);
+            assertFalse(message.contains(githubSecret) || message.contains(sonarSecret), message);
         }
     }
 
@@ -305,7 +318,7 @@ class CredentialStoreMoveTest {
 
             move().move(Store.OS);
 
-            assertEquals(List.of(GITHUB.account(), SONAR.account(), EnrolmentKey.ACCOUNT), osStore.puts);
+            assertEquals(List.of(GITHUB.account(), sonar.account(), EnrolmentKey.ACCOUNT), osStore.puts);
         }
 
         @Test
@@ -350,8 +363,9 @@ class CredentialStoreMoveTest {
             machineOn(Store.OS);
             var other = otherKey();
             switch (tampered) {
-                case ENROLMENT -> signed(enrolments.file(PROJECT), enrolments.sidecar(PROJECT),
-                        "{\"project_id\":\"pm-mcp-core\",\"pilot\":true}".getBytes(StandardCharsets.UTF_8), other);
+                case ENROLMENT -> signed(enrolments.file(project), enrolments.sidecar(project),
+                        ("{\"project_id\":\"" + project + "\",\"pilot\":true}")
+                                .getBytes(StandardCharsets.UTF_8), other);
                 case HARNESSES -> signed(harnesses(), harnessesSidecar(), HARNESSES, other);
                 case AUDIT_HEAD -> writeHead(other);
             }
@@ -366,7 +380,7 @@ class CredentialStoreMoveTest {
         @DisplayName("a copy the target refuses")
         void failingCopy() throws Exception {
             machineOn(Store.FILE);
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             var mover = move();
 
             var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.OS));
@@ -376,7 +390,7 @@ class CredentialStoreMoveTest {
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertFalse(Files.exists(recordFile())));
         }
@@ -396,7 +410,7 @@ class CredentialStoreMoveTest {
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertFalse(Files.exists(recordFile())));
         }
 
@@ -416,7 +430,7 @@ class CredentialStoreMoveTest {
                             failure.getMessage()),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertFalse(Files.exists(recordFile())));
         }
@@ -425,7 +439,7 @@ class CredentialStoreMoveTest {
         @DisplayName("an entry the old store lists and no longer holds")
         void vanishedEntry() throws Exception {
             machineOn(Store.OS);
-            osStore.vanishedOf = SONAR.account();
+            osStore.vanishedOf = sonar.account();
             var mover = move();
 
             var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.FILE));
@@ -435,7 +449,7 @@ class CredentialStoreMoveTest {
                     () -> assertTrue(failure.getMessage().contains("vanished"), failure.getMessage()),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
                     () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
                     () -> assertFalse(Files.exists(recordFile())));
         }
@@ -444,7 +458,7 @@ class CredentialStoreMoveTest {
         @DisplayName("a clean-up the target refuses is added to the cause, and the record is kept for the next start")
         void failingCleanUp() throws Exception {
             machineOn(Store.FILE);
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             osStore.failDeleteOf = GITHUB.account();
             var mover = move();
 
@@ -461,9 +475,9 @@ class CredentialStoreMoveTest {
                     () -> assertTrue(failure.getCause().getSuppressed()[0].getMessage().contains("refuses to delete"),
                             failure.getCause().getSuppressed()[0].getMessage()),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
                     () -> assertTrue(Files.exists(recordFile())));
         }
 
@@ -471,7 +485,7 @@ class CredentialStoreMoveTest {
         @DisplayName("after a clean-up the target refused, the resume removes the copies and completes the move")
         void resumeAfterAFailedCleanUpCompletes() throws Exception {
             var key = machineOn(Store.FILE);
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             osStore.failDeleteOf = GITHUB.account();
             var failing = move();
             assertThrows(SecretStoreException.class, () -> failing.move(Store.OS));
@@ -490,7 +504,7 @@ class CredentialStoreMoveTest {
                 + "deletes the record")
         void resumeAfterAFailedCleanUpFailsCleanly() throws Exception {
             machineOn(Store.FILE);
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             osStore.failDeleteOf = GITHUB.account();
             var failing = move();
             assertThrows(SecretStoreException.class, () -> failing.move(Store.OS));
@@ -504,7 +518,7 @@ class CredentialStoreMoveTest {
                             failure.getMessage()),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertFalse(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()));
@@ -515,7 +529,7 @@ class CredentialStoreMoveTest {
                 + "deleted")
         void targetRecordedWhenTheCopyFails() throws Exception {
             machineOn(Store.FILE);
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             var mover = move(step -> {
                 if (step == Step.RECORDED) {
                     rewriteMachineConfiguration("{\"format_version\":1,\"revision\":9,\"max_build_slots\":2,"
@@ -532,8 +546,8 @@ class CredentialStoreMoveTest {
                                             + "record is deleted"),
                             failure.getMessage()),
                     () -> assertNoSecretIn(failure),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertFalse(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()));
@@ -544,7 +558,7 @@ class CredentialStoreMoveTest {
                 + "says so")
         void unreadableMachineConfiguration() throws Exception {
             machineOn(Store.FILE);
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             var mover = move(step -> {
                 if (step == Step.RECORDED) {
                     rewriteMachineConfiguration("{\"format_version\":1,\"revision\":\"one\"}");
@@ -561,8 +575,8 @@ class CredentialStoreMoveTest {
                     () -> assertFalse(failure.getMessage().contains("unknown"), failure.getMessage()),
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(1, failure.getCause().getSuppressed().length),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertTrue(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()),
@@ -586,7 +600,7 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertTrue(failure.getMessage().contains("not in phase 'copying'"), failure.getMessage()),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
                     () -> assertTrue(movedEvents().isEmpty()));
         }
     }
@@ -698,7 +712,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(Optional.of(Store.OS), recordedWhileOpen),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertFalse(Files.exists(recordFile())),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)));
+                    () -> assertEquals(Optional.of(githubSecret), fileStore.get(GITHUB)));
         }
     }
 
@@ -753,14 +767,14 @@ class CredentialStoreMoveTest {
             var key = machineOn(Store.FILE);
             var stopped = move(stopAfter(Step.STORE_RECORDED));
             assertThrows(Stop.class, () -> stopped.move(Store.OS));
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
 
             move().resume();
 
             assertAll(
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                    () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(sonarSecret), osStore.get(sonar)),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
                     () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
                     () -> assertFalse(Files.exists(recordFile())),
@@ -775,7 +789,7 @@ class CredentialStoreMoveTest {
             machineOn(Store.FILE);
             var stopped = move(stopAfter(Step.ENTRIES_COPIED));
             assertThrows(Stop.class, () -> stopped.move(Store.OS));
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             var mover = move();
 
             var failure = assertThrows(SecretStoreException.class, mover::resume);
@@ -785,7 +799,7 @@ class CredentialStoreMoveTest {
                     () -> assertNoSecretIn(failure),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertFalse(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()));
@@ -807,8 +821,8 @@ class CredentialStoreMoveTest {
                     () -> assertTrue(failure.getMessage().contains("credentials.store names 'os', not 'file'"),
                             failure.getMessage()),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                    () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(sonarSecret), osStore.get(sonar)),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
                     () -> assertTrue(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()));
@@ -886,7 +900,7 @@ class CredentialStoreMoveTest {
                 + "nothing is written or deleted in either store")
         void targetNotEmpty() throws Exception {
             var key = machineOn(Store.OS);
-            fileStore.put(GITHUB, "a secret the target held before the move");
+            fileStore.put(GITHUB, heldSecret);
             var mover = move();
 
             var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.FILE));
@@ -896,13 +910,13 @@ class CredentialStoreMoveTest {
                     () -> assertTrue(failure.getMessage().contains("'file' holds Token Lane entries already (1)"),
                             failure.getMessage()),
                     () -> assertNoSecretIn(failure),
-                    () -> assertFalse(failure.getMessage().contains("a secret the target held"), failure.getMessage()),
+                    () -> assertFalse(failure.getMessage().contains(heldSecret), failure.getMessage()),
                     () -> assertFalse(Files.exists(recordFile())),
                     () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
-                    () -> assertEquals(Optional.of("a secret the target held before the move"), fileStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(heldSecret), fileStore.get(GITHUB)),
                     () -> assertEquals(List.of(GITHUB), fileStore.entries()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                    () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
+                    () -> assertEquals(Optional.of(githubSecret), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(sonarSecret), osStore.get(sonar)),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
                     () -> assertTrue(movedEvents().isEmpty()));
         }
@@ -984,7 +998,7 @@ class CredentialStoreMoveTest {
 
     /** @return the bytes of every HMAC sidecar of the machine, in a fixed order */
     private List<byte[]> sidecars() throws IOException {
-        return List.of(Files.readAllBytes(enrolments.sidecar(PROJECT)), Files.readAllBytes(harnessesSidecar()),
+        return List.of(Files.readAllBytes(enrolments.sidecar(project)), Files.readAllBytes(harnessesSidecar()),
                 Files.readAllBytes(AuditHead.headFile(base)));
     }
 
@@ -1031,7 +1045,7 @@ class CredentialStoreMoveTest {
                     () -> assertSameSidecars(signed, sidecars()),
                     () -> assertTrue(target.entries().stream().allMatch(
                             account -> EnrolmentKey.ACCOUNT.equals(account.account())), target.entries().toString()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), storeOf(from).entries().stream()
+                    () -> assertEquals(List.of(GITHUB, sonar), storeOf(from).entries().stream()
                             .filter(account -> !EnrolmentKey.ACCOUNT.equals(account.account())).toList()),
                     () -> assertTrue(osStore.puts.isEmpty(), osStore.puts.toString()),
                     () -> assertTrue(movedEvents().isEmpty()));
@@ -1049,7 +1063,7 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertMoved(Store.FILE, Store.OS, osStore, fileStore, key),
-                    () -> assertEquals(List.of(GITHUB.account(), SONAR.account()), osStore.puts));
+                    () -> assertEquals(List.of(GITHUB.account(), sonar.account()), osStore.puts));
         }
 
         @ParameterizedTest(name = "into the {0} store")
@@ -1072,8 +1086,8 @@ class CredentialStoreMoveTest {
                     () -> assertArrayEquals(key.getEncoded(), keyIn(target).read().orElseThrow().getEncoded()),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(storeOf(from)).read().orElseThrow().getEncoded()),
                     () -> assertTrue(target.get(GITHUB).isEmpty()),
-                    () -> assertTrue(target.get(SONAR).isEmpty()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), storeOf(from).get(GITHUB)),
+                    () -> assertTrue(target.get(sonar).isEmpty()),
+                    () -> assertEquals(Optional.of(githubSecret), storeOf(from).get(GITHUB)),
                     () -> assertFalse(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()));
         }
@@ -1087,7 +1101,7 @@ class CredentialStoreMoveTest {
             var stopped = move(stopAfter(Step.KEY_COPIED));
             assertThrows(Stop.class, () -> stopped.move(Store.OS));
             var moveRecord = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             var mover = move();
 
             var failure = assertThrows(SecretStoreException.class, mover::resume);
@@ -1099,7 +1113,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
                     () -> assertTrue(osStore.get(GITHUB).isEmpty()),
-                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertEquals(List.of(GITHUB, sonar), fileStore.entries()),
                     () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
                     () -> assertFalse(Files.exists(recordFile())));
         }
@@ -1111,7 +1125,7 @@ class CredentialStoreMoveTest {
             var stopped = move(stopAfter(Step.KEY_COPIED));
             assertThrows(Stop.class, () -> stopped.move(Store.OS));
             var moveRecord = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
-            osStore.failPutOf = SONAR.account();
+            osStore.failPutOf = sonar.account();
             var mover = move();
 
             assertThrows(SecretStoreException.class, mover::resume);
@@ -1127,7 +1141,7 @@ class CredentialStoreMoveTest {
         @DisplayName("a key in the target while the old store holds none is no conflict and stays")
         void keyWhileTheOldStoreHoldsNone() {
             choice.record(locks, USER, Store.OS);
-            osStore.put(GITHUB, GITHUB_SECRET);
+            osStore.put(GITHUB, githubSecret);
             var targetKey = otherKey();
             keyIn(fileStore).write(targetKey);
 
@@ -1135,7 +1149,7 @@ class CredentialStoreMoveTest {
 
             assertAll(
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(githubSecret), fileStore.get(GITHUB)),
                     () -> assertArrayEquals(targetKey.getEncoded(),
                             keyIn(fileStore).read().orElseThrow().getEncoded()),
                     () -> assertTrue(osStore.entries().isEmpty(), osStore.entries().toString()),

@@ -37,7 +37,11 @@ import de.planmarshall.core.store.QuestionRecordCodec;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.runtime.lock.FileLockManager;
 
-/** The fixture log of the adapter tests: records the store accepts, the raw lines it refuses, and both line endings. */
+/** The fixture log of the adapter tests: records the store accepts, the raw lines it refuses, and both line endings.
+ * <p>
+ * Every datum of this fixture is a contract: the question id grammar, the record's required members, the wire event
+ * names and both line endings.
+ */
 final class QuestionFixtures {
 
     static final Instant AT = Instant.parse("2026-10-19T09:00:00Z");

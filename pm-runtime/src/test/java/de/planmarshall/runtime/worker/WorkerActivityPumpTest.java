@@ -12,6 +12,8 @@ package de.planmarshall.runtime.worker;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +25,7 @@ import java.time.InstantSource;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,18 +35,22 @@ import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobLog;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The pump reads a running worker's stream into its journal as the lines arrive and counts a line that matches no
  * mapping (Model Work § Output Read While the Worker Runs).
+ * <p>
+ * The task id, the generation, the project and plan ids, the two file paths and the text are generated; the pointer
+ * document, the event kinds and the {@code off_track} end marker are the wire contract.
  */
+@EnableGeneratorController
 @DisplayName("Worker activity pump")
 class WorkerActivityPumpTest {
 
-    private static final String TASK = "qt-0000000000000001";
-    private static final String GENERATION = "l-0123456789abcdef";
     private static final Instant AT = Instant.parse("2026-10-26T10:00:00Z");
 
     private static final String EVENTS = """
@@ -58,6 +65,28 @@ class WorkerActivityPumpTest {
               }
             }
             """;
+
+    private String task;
+
+    private String generation;
+
+    private String project;
+
+    private String plan;
+
+    private String file;
+
+    private String text;
+
+    @BeforeEach
+    void draw() {
+        task = RuntimeGenerators.queueTaskIds().next();
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
+        project = RuntimeGenerators.projectIds().next();
+        plan = RuntimeGenerators.planIds().next();
+        file = Generators.letterStrings(1, 12).next() + ".java";
+        text = Generators.letterStrings(1, 30).next();
+    }
 
     private static WorkerActivityPump pump(ActivityJournal journal) {
         var mapping = ActivityEventMapping.of(
@@ -108,26 +137,26 @@ class WorkerActivityPumpTest {
     @Test
     @DisplayName("only the lines gained since the previous pass are appended, and an unmatched line is counted")
     void pumpsNewLines(@TempDir Path base) {
-        var journal = ActivityJournal.ofScope(base, "project-a",
-                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-a"),
+        var journal = ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
                 new FileLockManager(_ -> {
                 }));
         var log = base.resolve("worker.log");
-        append(log, "{\"type\":\"assistant\",\"message\":{\"content\":\"hello\"}}");
+        append(log, "{\"type\":\"assistant\",\"message\":{\"content\":\"" + text + "\"}}");
         append(log, "{\"type\":\"unknown\"}");
-        append(log, "{\"type\":\"tool_use\",\"name\":\"read_file\",\"input\":{\"file_path\":\"A.java\"}}");
+        append(log, "{\"type\":\"tool_use\",\"name\":\"read_file\",\"input\":{\"file_path\":\"" + file + "\"}}");
         var pump = pump(journal);
 
-        var first = pump.pump(TASK, GENERATION, new JobLog(log));
-        append(log, "{\"type\":\"file\",\"path\":\"A.java\"}");
-        var second = pump.pump(TASK, GENERATION, new JobLog(log));
+        var first = pump.pump(task, generation, new JobLog(log));
+        append(log, "{\"type\":\"file\",\"path\":\"" + file + "\"}");
+        var second = pump.pump(task, generation, new JobLog(log));
         var unmapped = pump.unmappedLines();
-        var end = pump.finish(TASK, GENERATION, QueueTaskRecord.AttemptEnd.OFF_TRACK);
+        var end = pump.finish(task, generation, QueueTaskRecord.AttemptEnd.OFF_TRACK);
 
         assertAll(
                 () -> assertEquals(2, first),
                 () -> assertEquals(1, second),
-                () -> assertEquals(4, journal.entries(TASK).size()),
+                () -> assertEquals(4, journal.entries(task).size()),
                 () -> assertEquals(1, unmapped),
                 () -> assertEquals(1, end.unmappedLines()),
                 () -> assertEquals(ActivityEntry.Kind.ATTEMPT_END, end.kind()),

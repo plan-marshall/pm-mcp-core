@@ -14,17 +14,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleClass;
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The three deadlines of one worker generation (PM-WORK-3, Detection): an acknowledgement and a silence signal fire
@@ -32,15 +36,15 @@ import de.planmarshall.core.role.RoleClass;
  * their signal, an exit before the first call is a start failure for every role but {@code zero_tool}, whose exit alone
  * decides and is never a start failure, and a {@code zero_tool} worker is exempt from the acknowledgement and silence
  * signals.
+ * <p>
+ * The generation id and the queue task are generated in the {@code @BeforeEach}; the spawn instant and the three
+ * deadline seconds are the contract values the test pins.
  */
+@EnableGeneratorController
 @DisplayName("Worker loss detection")
 class WorkerLossDetectionTest {
 
     private static final Instant SPAWN = Instant.parse("2026-10-25T10:00:00Z");
-
-    private static final String GENERATION = "l-0123456789abcdef";
-
-    private static final String TASK = "qt-0123456789abcdef";
 
     private static final int ACK_SECONDS = 10;
 
@@ -56,12 +60,22 @@ class WorkerLossDetectionTest {
 
     private final List<LossSignal> signals = new CopyOnWriteArrayList<>();
 
+    private String generation;
+
+    private String task;
+
+    @BeforeEach
+    void draw() {
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
+        task = RuntimeGenerators.queueTaskIds().next();
+    }
+
     @Test
     @DisplayName("the acknowledgement signal fires at its deadline and never earlier")
     void acknowledgementFiresAtItsDeadline() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
         var deadline = SPAWN.plusSeconds(ACK_SECONDS);
 
         var before = detection.due(deadline.minusMillis(1));
@@ -99,7 +113,7 @@ class WorkerLossDetectionTest {
     void timerFiresAtTheDeadline() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
         var deadline = SPAWN.plusSeconds(ACK_SECONDS);
 
         clock.set(deadline.minusMillis(1));
@@ -112,7 +126,7 @@ class WorkerLossDetectionTest {
         assertAll(
                 () -> assertEquals(1, signals.size(), "exactly one signal fires"),
                 () -> assertEquals(LossReason.ACK_MISSED, signals.getFirst().reason()),
-                () -> assertEquals(TASK, signals.getFirst().leasedTask()));
+                () -> assertEquals(task, signals.getFirst().leasedTask()));
     }
 
     @Test
@@ -120,7 +134,7 @@ class WorkerLossDetectionTest {
     void informationalAcknowledgementIsSuppressed() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), true));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
 
         var at = detection.due(SPAWN.plusSeconds(ACK_SECONDS));
 
@@ -151,7 +165,7 @@ class WorkerLossDetectionTest {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.empty(), false));
         detection.started(SPAWN);
         detection.firstCall(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN);
         var observed = SPAWN.plusSeconds(5);
 
@@ -162,7 +176,7 @@ class WorkerLossDetectionTest {
                 () -> assertEquals(observed, loss.orElseThrow().measuredAt()),
                 () -> assertEquals(observed, loss.orElseThrow().deadline()),
                 () -> assertTrue(loss.orElseThrow().firstCallMade()),
-                () -> assertEquals(TASK, loss.orElseThrow().leasedTask()),
+                () -> assertEquals(task, loss.orElseThrow().leasedTask()),
                 () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty(),
                         "a settled worker produces no further signal"));
     }
@@ -205,7 +219,7 @@ class WorkerLossDetectionTest {
     void anEarlyTimerReArms() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
 
         timers.runEarly();
         var firedEarly = List.copyOf(signals);
@@ -223,7 +237,7 @@ class WorkerLossDetectionTest {
     void cancelledSchedulesNothing() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
 
         detection.cancelled();
         clock.set(SPAWN.plusSeconds(ACK_SECONDS));
@@ -232,7 +246,7 @@ class WorkerLossDetectionTest {
         assertAll(
                 () -> assertTrue(signals.isEmpty()),
                 () -> assertTrue(detection.due(SPAWN.plusSeconds(600)).isEmpty()),
-                () -> assertEquals(TASK, detection.leasedTask().orElseThrow(),
+                () -> assertEquals(task, detection.leasedTask().orElseThrow(),
                         "the cancellation keeps the observed task"));
     }
 
@@ -241,7 +255,7 @@ class WorkerLossDetectionTest {
     void answerAcknowledgement() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN.plusSeconds(1));
         var delivered = SPAWN.plusSeconds(600);
 
@@ -260,7 +274,7 @@ class WorkerLossDetectionTest {
     void answerAcknowledged() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), false));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN.plusSeconds(1));
         detection.answerDelivered(SPAWN.plusSeconds(600));
 
@@ -276,7 +290,7 @@ class WorkerLossDetectionTest {
     void informationalAnswerAcknowledgement() {
         var detection = detection(RoleClass.WRITER, parameters(OptionalInt.of(ACK_SECONDS), true));
         detection.started(SPAWN);
-        detection.offered(TASK, SPAWN);
+        detection.offered(task, SPAWN);
         detection.acknowledged(SPAWN.plusSeconds(1));
         detection.answerDelivered(SPAWN.plusSeconds(600));
 
@@ -288,7 +302,7 @@ class WorkerLossDetectionTest {
     }
 
     private LossDetection detection(RoleClass roleClass, WorkerParameters parameters) {
-        return new LossDetection(GENERATION, roleClass, parameters, clock, timers, signals::add);
+        return new LossDetection(generation, roleClass, parameters, clock, timers, signals::add);
     }
 
     private static WorkerParameters parameters(OptionalInt ackDeadline, boolean informational) {

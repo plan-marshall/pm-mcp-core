@@ -13,12 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -27,10 +30,21 @@ import org.junit.jupiter.api.condition.OS;
 /**
  * The owner check of the listening socket (PM-SEC-5, Client Profiles § Enrolment): the lookup reads the program that
  * accepted the port, and a port nobody listens on, or a platform without such a table, refuses instead of passing.
+ * <p>
+ * The absent program's path is generated; {@code 127.0.0.1}, the kernel's {@code /proc/net/tcp} tables and the loopback
+ * detail text are the contracts.
  */
 @EnabledOnOs(OS.LINUX)
+@EnableGeneratorController
 @DisplayName("Socket owner")
 class SocketOwnerTest {
+
+    private String absentProgram;
+
+    @BeforeEach
+    void draw() {
+        absentProgram = "/" + Generators.letterStrings(3, 12).next() + "/program";
+    }
 
     @Test
     @DisplayName("the owner of a listening socket is the executable of the process that accepted it")
@@ -44,7 +58,7 @@ class SocketOwnerTest {
                     () -> assertTrue(Path.of(lookup.executablePath()).isAbsolute()),
                     () -> assertTrue(Files.isRegularFile(Path.of(lookup.executablePath()))),
                     () -> assertTrue(lookup.runs(lookup.executablePath())),
-                    () -> assertFalse(lookup.runs("/nonexistent/program")));
+                    () -> assertFalse(lookup.runs(absentProgram)));
         }
     }
 
@@ -74,7 +88,7 @@ class SocketOwnerTest {
 
         assertAll(
                 () -> assertFalse(lookup.isFound()),
-                () -> assertFalse(lookup.runs("/nonexistent/program")),
+                () -> assertFalse(lookup.runs(absentProgram)),
                 () -> assertTrue(lookup.detail().contains("no program listens")));
     }
 
