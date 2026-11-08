@@ -1,0 +1,35 @@
+= The chat's reply as it is written
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `chat-reply-stream`
+
+[horizontal]
+Roadmap item:: _Stream the chat's reply_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow (`chat.reply` writing its turn as it comes, the link `stop`, the open proposal while the operator writes on); pm-core (the turns of the transcript with their kind, status, and format; `chat_id` and `turn_id`)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The operator's message as its own turn*, recorded when `message` is taken, its id the answer of the request: link:../specification/state-catalogue.adoc#chat-reply-stream[State Catalogue § The Reply as It Is Written]; link:../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model § The Chat's Routes], _A message_.
+. *The reply written into its turn* from the worker's activity, each piece and each derived step announced, the turn replaced by the submitted reply at its end: § The Reply as It Is Written; link:../../../plan-marshall-documentation/doc/specification/runtime-model/06-event-catalogue.adoc#chat-events[Event Catalogue § Chat].
+. *Stop* while `chat.reply` runs, the one link that ends a job, the state taking `cancelled` and the text so far kept `stopped`: § The Reply as It Is Written; link:../specification/state-catalogue.adoc#state-chat.reply[`chat.reply`]; link:../specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units].
+. *Writing on while a proposal is open* (`message` and `end` in `chat.read-back`): link:../specification/state-catalogue.adoc#state-chat.read-back[`chat.read-back`].
+. *A failed reply* (`infeasible`, `lost`) keeping its text so far with its reason, and a new proposal replacing the open one: § The Reply as It Is Written.
+. *The transcript's turns* with `turn_id`, `kind`, status, `format`, `untrusted`, `model`, `steps`, and `refs`, read in pages: Runtime Model § The Chat's Routes, _Reading_; link:../specification/identifiers/02-registry-stores-to-web.adoc#id-chat-id[Identifiers § `chat_id`], link:../specification/identifiers/02-registry-stores-to-web.adoc#id-turn-id[§ `turn_id`]; link:../specification/timeouts/02-runtime-leases-operator-web.adoc#chat-page[Timeouts § Chat Transcript Page].
+
+Left out: the routes, the events on the streams, and the `202` answer of the daemon (`plan-marshall-mcp`); the client contract and the mock runtime (`pm-mcp-clients`).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-24[PM-WF-24]
+* Specification: the sections the tasks name; link:../specification/harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles § What a Worker Does]
+
+== Done When
+
+* Watch: no item is anchored to the sections the tasks name.
+* Tests: the message recorded before the reply; pieces appended in order and the turn replaced by the submitted reply; steps derived from the activity as message keys, never the model's words; stop keeping the text so far; `infeasible` and `lost` keeping theirs with the reason; a new proposal replacing the open one; untrusted items and the operator's messages always `plain`; the transcript read in pages.

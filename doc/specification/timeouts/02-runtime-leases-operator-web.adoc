@@ -308,4 +308,20 @@ The runtime owns every value of this section: it serves web access itself, on it
 |`last_used_at` of paired devices
 |—
 |link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-devices[CLI & Security, Paired Devices]; link:../store-schemas/12-machine-stores.adoc#web-access-records[Store Schemas, Web Access Records]
+
+|[[transcription-bounds]]Transcription bounds
+|A recording of at most `120` s and `8` MB; a transcription of the local model or the provider within `60` s.
+|fixed (compiled constants)
+|—
+|`POST /api/v1/transcriptions`; the `speech` job and the provider's call
+|A larger recording is refused `invalid_arguments`; an expired transcription ends the job (`timed_out`) or the call and answers `transcription_failed`; nothing is kept.
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#transcriptions[Runtime Model, Transcriptions]; link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work, The Speech Role `transcribe`]
+
+|[[chat-page]]Chat transcript page
+|`50` turns per page of `GET …/chat`.
+|fixed (compiled constant)
+|—
+|the transcript of a chat read by a client
+|—
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]
 |===

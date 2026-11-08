@@ -1,0 +1,33 @@
+= The speech role `transcribe`
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `transcribe`
+
+[horizontal]
+Roadmap item:: _Implement voice input_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-core (the consent kinds, the project's narrowing); pm-runtime (the role's machine value in `machine-config.json`, the local model's check, the `speech` job, the provider's call); pm-workflow (the role's states in the roles step)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The role's values*: the allowed methods, the local model, the provider, off by default, and a project's narrowing: link:../specification/model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work § The Speech Role `transcribe`], _Its methods_; link:../specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store]; link:../specification/store-schemas/08-project-configuration-local.adoc#project-levels[§ Project Values over Machine Values].
+. *The consent kinds* `scan_speech_model`, `transcribe_browser`, `transcribe_provider`, remembered and withdrawn like every consent: link:../specification/store-schemas/12-machine-stores.adoc#consent[Store Schemas § Consent Before Acting].
+. *The roles step* offering the role apart from the assignment (`roles.speech`, `roles.speech-consent`, `roles.speech-check`, `roles.speech-write`): link:../specification/state-catalogue/19-onboarding-aspects-models-providers.adoc#state-catalogue-roles[State Catalogue § Role Assignment: `roles`]; § The Speech Role `transcribe`, _Chosen in the roles step_; link:../specification/job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime § Probe Jobs].
+. *A transcription* by the local model (the job kind `speech`, without network) or the provider (its one protocol, on the closed list of outbound calls), within its bounds, nothing kept: § The Speech Role `transcribe`, _A transcription_; link:../specification/identifiers/01-general-rules-and-registry.adoc[Identifiers § General Rules] (`job_id`, prefix `s`); link:../specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Confinement & Environment] (_Network_); link:../specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[Credentials & Enrolment § Closed List of Outbound Calls]; link:../specification/timeouts/02-runtime-leases-operator-web.adoc#transcription-bounds[Timeouts § Transcription Bounds]; link:../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#transcriptions[Runtime Model § Transcriptions].
+
+Left out: the route `POST /api/v1/transcriptions`, its error codes, and `Permissions-Policy` of the daemon (`plan-marshall-mcp`); the microphone, the browser's recognition, and the per-browser choice (`pm-mcp-clients`).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-6[UC-ONB-6], link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-10[UC-ONB-10]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-24[PM-WF-24]
+* Specification: the sections the tasks name; link:../specification/state-catalogue/19-onboarding-aspects-models-providers.adoc#state-catalogue-roles[State Catalogue § Role Assignment: `roles`]
+
+== Done When
+
+* Watch: no item is anchored to the sections the tasks name.
+* Tests: off by default; each method allowed only after its consent and out of use once withdrawn; a project narrowing and a widening refused; the local model found and not found; a transcription answered as text with nothing kept in a log, the audit, or a store; a method not allowed refused; a failed local model or provider answered with its reason.
