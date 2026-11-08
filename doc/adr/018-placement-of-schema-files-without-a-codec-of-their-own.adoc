@@ -36,8 +36,10 @@ states it:
   `composition-record.schema.json` lie in `pm-workflow/src/main/resources/de/planmarshall/workflow/plan/`, beside
   `PlanInstanceHeader` and `CompositionRecord`; this follows ADR 016 over the wording of the work package (operator
   decision of 2026-11-07).
-* *The file name* is the last path segment of the block's `$id` without `.json`. The `AnalysisResult` block has no
-  `$id`; its file is named after its anchor, `analysis-result.schema.json`.
+* *The file name* is the last path segment of the block's `$id` with its ending `.json` replaced by `.schema.json`: the
+  `$id` `https://cuioss.de/plan-marshall-mcp/schemas/status.json` gives `status.schema.json`, as ADR 016 names the files
+  `<record>.schema.json`. The `AnalysisResult` block has no `$id`; its file is named after its anchor,
+  `analysis-result.schema.json`.
 
 The placement of the 27 files, which this decision rests on:
 
@@ -84,9 +86,12 @@ The placement of the 27 files, which this decision rests on:
 == Consequences
 
 * The work packages that move the schema blocks of the remaining documents (`schema-files-machine-stores`,
-  `schema-files-other-specifications`) place a codec-less block by the same rule.
-* `pm-workflow` carries schema files of its own; a test of `pm-workflow` reads them through `SchemaResource` of
-  `pm-core:tests`, as ADR 016 provides.
+  `schema-files-other-specifications`) place a codec-less block by the same rule and move it in their own package: a
+  block is not left inline until the package that builds its codec runs. That package writes the codec and adds the
+  parity test over the file, which already lies where it belongs.
+* `pm-workflow` carries schema files of its own. No test of `pm-workflow` reads them yet, so neither file is covered by a
+  test of its module. A test of `pm-workflow` that does, such as the parity test of a codec, reads them through
+  `SchemaResource` of `pm-core:tests`, as ADR 016 provides.
 * When a later package builds a codec for a record of the table, it writes the codec in the package the file already
   lies in, and the file stays.
 
