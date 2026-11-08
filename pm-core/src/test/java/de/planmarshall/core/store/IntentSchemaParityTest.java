@@ -94,6 +94,17 @@ class IntentSchemaParityTest {
     }
 
     @Test
+    @DisplayName("the store's record reference names the record file's id")
+    void recordReference() {
+        var store = SchemaParity.load(STORE);
+        var revision = SchemaParity.object(SchemaParity.object(store.get("$defs")).get("revision"));
+        var record = SchemaParity.object(SchemaParity.object(revision.get("properties")).get("record"));
+
+        assertEquals(SchemaParity.load(RECORD).get("$id"), record.get("$ref"),
+                "the store should reference the record file");
+    }
+
+    @Test
     @DisplayName("the record deviates from its file only in choices-to-decisions and the absent repairs")
     void recordMembers() {
         var schema = SchemaParity.load(RECORD);
