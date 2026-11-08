@@ -51,8 +51,8 @@ import de.planmarshall.core.store.LockKey;
  * The other process is ended after every test, also after a failed one, and never waited for without a bound.
  * <p>
  * The project and plan ids are generated and passed to the other process. The literals that stay are the contract:
- * the child-process protocol (its arguments and the {@link LockHolderProcess#HELD} line), its exit code 0 and the
- * process and observation bounds.
+ * the child-process protocol (its arguments, the {@link LockHolderProcess#HELD} line and the
+ * {@link LockHolderProcess#LEAF} mode), its exit code 0 and the process and observation bounds.
  */
 @EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)

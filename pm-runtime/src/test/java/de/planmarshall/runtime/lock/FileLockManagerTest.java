@@ -10,6 +10,15 @@
 package de.planmarshall.runtime.lock;
 
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.anyString;
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -47,6 +56,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -727,9 +738,13 @@ class FileLockManagerTest {
     /**
      * A leaf key names an append-only store, and a store write opens and closes channels on that file. On POSIX a
      * close on a file releases every OS lock the process holds on it, so the leaf key's OS lock is taken on a sidecar
-     * that no store channel opens (ADR 068). These tests prove that an append, a torn-tail repair and the audit anchor
-     * calls leave the lock held, that a second manager cannot take the key meanwhile, and that the last close
-     * releases it once.
+     * that no store channel opens (ADR 068).
+     * <p>
+     * A probe inside this process cannot see a lost OS lock: the JVM's own lock table keeps the first channel's lock
+     * registered after another channel on the file closes, so {@code isLocked} and a second manager both answer from
+     * that table. The OS-level proof is {@code FileLockManagerTwoProcessIT.leafAppendKeepsTheOsLock}, which watches
+     * the sidecar from a second process. These tests pin the sidecar's layout, the second manager's refusal, the
+     * release, and the append and repair path.
      */
     @Nested
     @DisplayName("the OS lock of a leaf key")
@@ -805,8 +820,7 @@ class FileLockManagerTest {
             second.close();
 
             assertAll("the OS lock of a leaf key across two holders",
-                    () -> assertTrue(lockedAfterFirstClose,
-                            "the lock stays held while the second transaction holds the key"),
+                    () -> assertTrue(lockedAfterFirstClose, "the lock is held by the second transaction"),
                     () -> assertFalse(isLockedIfPresent(sidecar), "the last close releases the OS lock"),
                     () -> assertFalse(second.holds(key), "the closed transaction holds nothing"),
                     () -> assertTrue(Files.exists(sidecar), "the sidecar lock file stays in place"));
@@ -822,9 +836,16 @@ class FileLockManagerTest {
         void repairAndAnchorUnderTheLock() throws Exception {
             Files.createDirectories(base.resolve("logs"));
             var key = LockKey.auditLog(base);
-            var anchor = new RecordingAnchor();
+            AuditAnchor anchor = createMock(AuditAnchor.class);
             var principal = Generators.letterStrings(3, 20).next();
             var log = new AuditLog(base, anchor, CLOCK, principal);
+            Capture<LockTransaction> seen = newCapture(CaptureType.LAST);
+            anchor.beforeAppend(capture(seen), anyObject(AuditLog.class));
+            expectLastCall();
+            anchor.afterAppend(capture(seen), anyObject(AuditLog.class), anyObject(AuditRecord.class), anyString());
+            expectLastCall();
+            expect(anchor.emptyLogPredecessor()).andReturn(Optional.empty()).anyTimes();
+            replay(anchor);
             Files.write(log.logFile(), TORN);
 
             try (var transaction = manager.openTransaction()) {
@@ -835,12 +856,11 @@ class FileLockManagerTest {
                 assertAll("a repairing append under the leaf key",
                         () -> assertTrue(isLockedIfPresent(osLockFile(key)),
                                 "the OS lock survives the repair and the writes"),
-                        () -> assertEquals(List.of("beforeAppend", "afterAppend"), anchor.calls(),
-                                "both anchor calls ran"),
-                        () -> assertSame(transaction, anchor.transaction(),
-                                "the anchor ran in the transaction that holds the key"),
+                        () -> assertDoesNotThrow(() -> verify(anchor), "both anchor calls ran"),
+                        () -> assertSame(transaction, seen.getValue(),
+                                "the anchor ran in the transaction holding the key"),
                         () -> assertEquals(2, log.read(transaction).lines().size(),
-                                "the repair record and the appended record are both in the log"));
+                                "the repair and the append are both in the log"));
             }
         }
 
@@ -856,38 +876,6 @@ class FileLockManagerTest {
                     .outcome(Outcome.SUCCEEDED)
                     .details(Map.of("os_principal", principal))
                     .build();
-        }
-    }
-
-    /** The anchor of the leaf-lock test: it records its calls and the transaction they saw. */
-    private static final class RecordingAnchor implements AuditAnchor {
-
-        private final List<String> calls = new ArrayList<>();
-        private final List<LockTransaction> transactions = new ArrayList<>();
-
-        @Override
-        public void beforeAppend(LockTransaction transaction, AuditLog log) {
-            calls.add("beforeAppend");
-            transactions.add(transaction);
-        }
-
-        @Override
-        public Optional<String> emptyLogPredecessor() {
-            return Optional.empty();
-        }
-
-        @Override
-        public void afterAppend(LockTransaction transaction, AuditLog log, AuditRecord appended, String lineHash) {
-            calls.add("afterAppend");
-            transactions.add(transaction);
-        }
-
-        List<String> calls() {
-            return List.copyOf(calls);
-        }
-
-        LockTransaction transaction() {
-            return transactions.getLast();
         }
     }
 
