@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/config-project.json",
+  "title": "ProjectConfigFile",
+  "description": "Sparse team file .marshall/config/project.json: only deviations from the derived and compiled defaults.",
+  "type": "object",
+  "required": ["format_version"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "base_branch": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_./-]+$",
+      "maxLength": 128,
+      "description": "Integration branch of plans. Default derived from origin/HEAD (derived fact base_branch_default), fallback main. Server rule: the branch exists on the remote (base_branch_unknown)."
+    },
+    "branch_prefix": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9/_-]*/$",
+      "maxLength": 64,
+      "default": "feature/",
+      "description": "The server names every plan branch <branch_prefix><plan_id>."
+    },
+    "merge_method": {
+      "type": "string",
+      "enum": ["squash", "merge", "rebase"],
+      "description": "Override of the derived merge method (one method allowed by the repository -> that one; several -> squash). Server rule: allowed by the repository settings (merge_method_not_allowed)."
+    },
+    "ci_provider": {
+      "type": "string",
+      "enum": ["github", "gitlab", "forgejo"],
+      "description": "Override of the CI provider derived from the remote host (derived fact ci_provider), for self-hosted remotes. Server rule: the matching host tool is enrolled."
+    },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sonar": {
+          "type": "object",
+          "required": ["organization", "project_key"],
+          "additionalProperties": false,
+          "description": "Sonar coordinates of the project. The credential is the operator's (local-config.json integrations.sonar, else the machine's providers.sonar); its token is sent only to that entry's url origin (PM-CRED-5), never to a value of this file.",
+          "properties": {
+            "organization": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "project_key": { "type": "string", "minLength": 1, "maxLength": 400 }
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "write_back": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, a plan started from an issue of the project's own repository posts the clarified request after Phase 2 and the approved outline after Phase 3 to it (ci.issue-comment); never to an issue of another repository."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_bots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bot_kind" },
+          "uniqueItems": true,
+          "description": "No default: the presence of the key is the roster answer (absent: never answered, roster aggregate unestablished; []: answered empty, vacuous), so the key is exempt from redundant_config_key. Server rule: every token resolves in the review-bot registry (unregistered_kind); disjoint from optional_bots."
+        },
+        "optional_bots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bot_kind" },
+          "uniqueItems": true,
+          "description": "Default []."
+        },
+        "bot_registry": {
+          "type": "array",
+          "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/review-bot-registry.json" },
+          "description": "Project review-bot registry records (Review-Bot Registry Record); a bot_kind that collides with a compiled record is refused."
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["exact_sha", "after_last_push"],
+          "default": "after_last_push",
+          "description": "Strictness of the review currency test of the pre-merge barrier (phase-workflows.adoc, Predicate 2)."
+        },
+        "operator_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "uniqueItems": true,
+          "maxItems": 100,
+          "description": "Default []. Git pathspec globs of the paths whose changes the operator merges: a realized footprint that touches one leaves the merge to the operator whatever the asking axis (phase-workflows.adoc, Operator Paths). Server rule: every glob parses (invalid_glob)."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "bot_kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" }
+  }
+}

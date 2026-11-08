@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/quality-report.json",
+  "title": "QualityReport",
+  "type": "object",
+  "required": ["format_version", "mode", "plans", "computed_at", "engine_version", "instruments"],
+  "additionalProperties": false,
+  "$defs": {
+    "count": {
+      "type": "object",
+      "description": "Every published count names its population.",
+      "required": ["population"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": ["integer", "number"], "description": "Omitted when the population is empty or the figure is withheld or unmeasured." },
+        "population": { "type": "integer", "minimum": 0 },
+        "state": { "type": "string", "enum": ["measured", "withheld", "unmeasured", "unmeasurable", "floor"], "default": "measured" },
+        "withheld_reason": { "type": ["string", "null"] },
+        "zero_reason": { "type": ["string", "null"], "enum": ["structural", "starved", "gated", "no_count", "disciplinary", "no_block", "fired", null] }
+      }
+    }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "mode": { "type": "string", "enum": ["plan", "corpus"] },
+    "plans": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "plan_id values the report covers (one in plan mode)." },
+    "computed_at": { "type": "string", "format": "date-time" },
+    "engine_version": { "type": "string", "description": "Runtime release version (PM-DIST-1) of the engine that computed the report." },
+    "populations": {
+      "type": "object",
+      "description": "Corpus mode: plans per population; plans without a plan instance form the separately sized indeterminate population.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "repaired_landings": { "$ref": "#/$defs/count", "description": "Corpus mode: landed plans a later plan names in repairs (numerator) over the plans that landed (denominator); a lower bound." },
+    "quality_chain": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["step_id", "presence"],
+            "properties": {
+              "step_id": { "type": "string", "pattern": "^(default|project):[a-z][a-z0-9-]{0,63}$" },
+              "presence": { "type": "string", "enum": ["not_admitted", "admitted_not_fired", "fired", "fired_but_refused", "after_window", "indeterminate"] },
+              "assurance_verdict": { "type": ["string", "null"], "enum": ["checked", "degraded", "not_reached", "never_performed", "attempted_over_empty_scope", "unadjudicated", null] },
+              "structural_limit": { "type": ["string", "null"], "description": "The step's declared cannotReach class, reported apart from degraded." },
+              "yield": { "type": "object", "description": "Per resolution, source and severity: one $defs/count per enum member." }
+            }
+          }
+        },
+        "coverage": { "$ref": "#/$defs/count" },
+        "second_reading_yield": { "description": "Committed findings of the second code reading that no finding of the first duplicates, over all committed findings of the two readings (Phase Workflows Specification, second-code-reading); withheld where the plan ran one reading." },
+        "escape_distance": { "type": "object", "description": "Per detecting stage (build, self_review, automatic_review, human): one $defs/count." }
+      }
+    },
+    "review_retrospective": { "type": ["object", "null"], "description": "Null when the plan has no pull request (with the reason in instruments)." },
+    "footprint": { "type": "object", "description": "Three-way reconciliation results and the assessment comparison state." },
+    "spend": {
+      "type": ["object", "null"],
+      "description": "The tokens used, read from the metrics snapshot, by phase, spend class, and step; null in corpus mode for plans whose metrics are unreadable (counted as floor).",
+      "required": ["measured_until", "excluded_steps"],
+      "properties": {
+        "measured_until": { "type": "string", "format": "date-time", "description": "Instant of the snapshot (plan mode) or the latest snapshot instant folded (corpus mode)." },
+        "excluded_steps": { "type": "array", "items": { "type": "string" }, "description": "Steps outside the window: the report's own step and every later step of the plan instance in force." },
+        "per_phase": { "type": "object", "description": "Per phase: total_tokens with tokens_in and tokens_out as $defs/count, with population stamp and boundary (closed, re_entered, provisional)." },
+        "per_spend_class": { "type": "object", "description": "Per spend class (submitted, findings_only, no_product, unmeasured) and termination status: one $defs/count." },
+        "per_step": { "type": "object", "description": "Per finding-filing step and firing cause: one $defs/count." }
+      }
+    },
+    "instruments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["instrument", "gates_merge", "proves", "falsifiable_preconditions", "self_included"],
+        "additionalProperties": false,
+        "properties": {
+          "instrument": { "type": "string" },
+          "gates_merge": { "type": "boolean", "const": false },
+          "proves": { "type": "string" },
+          "falsifiable_preconditions": { "type": "array", "items": { "type": "string" } },
+          "self_included": { "type": "boolean" },
+          "self_included_reason": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["measured", "unmeasured", "withheld"] }
+        }
+      }
+    }
+  }
+}

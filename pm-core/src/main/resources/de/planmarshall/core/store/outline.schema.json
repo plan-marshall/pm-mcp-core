@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/outline.json",
+  "title": "OutlineStore",
+  "type": "object",
+  "required": [
+    "format_version",
+    "current",
+    "deliverable_status",
+    "history"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "current": {
+      "$ref": "#/$defs/revision"
+    },
+    "deliverable_status": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[1-9][0-9]?$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "active",
+          "deferred",
+          "removed"
+        ]
+      },
+      "description": "Server-owned, by deliverable number: active, or deferred or removed by a re-planning (kept in the record with their state)."
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/revision"
+      }
+    }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "required": [
+        "revision",
+        "submitted_at",
+        "task_id",
+        "record"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "submitted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "record": {
+          "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/outline-record-v1.json"
+        }
+      }
+    }
+  }
+}

@@ -16,7 +16,7 @@ A move as in link:schema-files-tested-records.adoc[`schema-files-tested-records`
 . *Harness profiles*: `harness-profiles/01-profile-schema.adoc` (the schema block; the example block after it stays inline) and `03-endpoint-harness.adoc` (1).
 . *Model work*: `model-work/01-roles-and-configuration.adoc` (2), `06-envelopes-questions-deadlines.adoc` (2), `07-untrusted-text-screening.adoc` (2) and `09-completion-usage-and-spend.adoc` (1).
 . *Where a file of the same record already exists* (the corpus schemas `source-overlay`, `source-manifest` and `imported-item` in `core/role/corpus/` are the ones known), the block is replaced by an include of that file after the two statements are compared; the deviating one is corrected with evidence, never worked around. A block whose codec does not exist yet is moved and named in the package that builds the codec; that package's task adds the parity test over the file.
-. *A parity test per schema whose codec exists*, as in link:schema-files-remaining-records.adoc[`schema-files-remaining-records`].
+. *A parity test per schema whose codec exists*, as in `schema-files-remaining-records` (retired by its own plan).
 
 == Trace
 
