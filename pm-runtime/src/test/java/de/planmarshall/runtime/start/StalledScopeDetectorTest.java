@@ -36,6 +36,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.AuditRecord;
 import de.planmarshall.core.store.JournalScopeType;
@@ -670,8 +671,10 @@ class StalledScopeDetectorTest {
     @Test
     @DisplayName("an absent key fails the load instead of defaulting")
     void anAbsentKeyFailsTheLoad() {
+        var properties = new Properties();
+
         assertThrows(IllegalStateException.class,
-                () -> LimitProperties.value(new Properties(), StalledScopeDetector.THRESHOLD_KEY, "limits"),
+                () -> LimitProperties.value(properties, StalledScopeDetector.THRESHOLD_KEY, "limits"),
                 "an absent limit key must fail the load");
     }
 

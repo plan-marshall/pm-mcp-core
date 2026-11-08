@@ -115,8 +115,9 @@ scope rests in, the instant of the last transition or task progress and the idle
 without), which a `needs_operator` summary counts on read.
 `OperatorPort`:: Where the hold is announced: `holdOpened` when an episode begins, `holdReleased` when it clears by
 itself, with the report `plan.hold_released`.
-`LimitProperties`:: Reads the threshold from the module's properties resource when the detector loads; an absent
-resource, an absent key or a value that is not a number fails the load, never defaults.
+`LimitProperties`:: The shared reader `de.planmarshall.core.config.LimitProperties` reads the threshold from the
+module's properties resource when the detector loads; an absent resource, an absent key or a value that is not a
+number fails the load, never defaults.
 
 A scope is stalled when it has no pending condition, no active job, no active task, and has been idle at least the
 threshold. The detector keeps the open episodes in memory, keyed by project, scope type and scope id: the first

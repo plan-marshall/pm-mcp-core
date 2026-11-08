@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import de.cuioss.tools.logging.CuiLogger;
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.PathConfinement;
 import de.planmarshall.core.store.WorkspaceRoots;
@@ -43,9 +44,9 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
-import de.planmarshall.workflow.dsl.LimitProperties;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.UnitFrontmatterReader;
+import de.planmarshall.workflow.dsl.UnitLimits;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
@@ -114,7 +115,7 @@ public final class ProjectUnitLoader {
      * module's limits resource when the class loads.
      */
     public static final int MAX_UNIT_FILE_BYTES = Math.toIntExact(
-            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_UNIT_FILE_BYTES));
+            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_UNIT_FILE_BYTES));
 
     /** The line that opens and closes the frontmatter of a unit. */
     private static final String FRONTMATTER_DELIMITER = "---";

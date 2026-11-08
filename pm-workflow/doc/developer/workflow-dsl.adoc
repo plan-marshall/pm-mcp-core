@@ -25,9 +25,9 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 `UnitFrontmatterReader`:: Reads the frontmatter of a unit, and nothing else: `read(resourceName, source)` returns the
 sealed `UnitFrontmatterReader.Result`, either `Read` with the `UnitFrontmatter` and the line the body starts at, or
 `Refused` with a `Diagnostic` of the rule `FRONTMATTER`. It stops at the closing `---`, so the body need not parse.
-`LimitProperties`:: Reads the three limits of a project unit file and a unit frontmatter from
-`unit-limits.properties` when the classes load; an absent resource, an absent key or a value that is not a number
-fails the load, never defaults.
+`UnitLimits`:: The classpath location and the keys of the three limits of a project unit file and a unit frontmatter;
+`de.planmarshall.core.config.LimitProperties` reads them when the classes load; an absent resource, an absent key or
+a value that is not a number fails the load, never defaults.
 `WorkflowParser`:: `parse(resourceName, source, origin)` reads a whole unit and returns the sealed `ParseResult`:
 `Parsed` with the `WorkflowDefinition`, or `Refused` with the first `Diagnostic`.
 `WorkflowPrinter`:: Prints a `WorkflowDefinition` as canonical source, so that parsing the printed text yields the same

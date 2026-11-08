@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
@@ -671,13 +672,13 @@ class UnitFrontmatterReaderTest {
             assertAll(
                     () -> assertEquals(
                             ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
-                            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_UNIT_FILE_BYTES), "the file bound must come from the resource"),
+                            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_UNIT_FILE_BYTES), "the file bound must come from the resource"),
                     () -> assertEquals(
                             UnitFrontmatterReader.MAX_FRONTMATTER_LINES,
-                            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_FRONTMATTER_LINES), "the line bound must come from the resource"),
+                            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_FRONTMATTER_LINES), "the line bound must come from the resource"),
                     () -> assertEquals(
                             UnitFrontmatterReader.MAX_ECHO_LENGTH,
-                            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_ECHO_LENGTH), "the echo bound must come from the resource"));
+                            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_ECHO_LENGTH), "the echo bound must come from the resource"));
         }
 
         @Test
@@ -685,7 +686,7 @@ class UnitFrontmatterReaderTest {
         void readsAnAlternateResource() {
             var alternate = "/de/planmarshall/workflow/dsl/alternate-limits.properties";
 
-            assertEquals(42, LimitProperties.read(alternate, LimitProperties.MAX_ECHO_LENGTH),
+            assertEquals(42, LimitProperties.read(alternate, UnitLimits.MAX_ECHO_LENGTH),
                     "the reader must return the value of the resource");
         }
 
@@ -695,15 +696,17 @@ class UnitFrontmatterReaderTest {
             var absent = "/de/planmarshall/workflow/dsl/absent-limits.properties";
 
             assertThrows(IllegalStateException.class,
-                    () -> LimitProperties.read(absent, LimitProperties.MAX_ECHO_LENGTH),
+                    () -> LimitProperties.read(absent, UnitLimits.MAX_ECHO_LENGTH),
                     "an absent limits resource must fail the load");
         }
 
         @Test
         @DisplayName("an absent key fails the load instead of defaulting")
         void anAbsentKeyFailsTheLoad() {
+            var properties = new Properties();
+
             assertThrows(IllegalStateException.class,
-                    () -> LimitProperties.value(new Properties(), LimitProperties.MAX_ECHO_LENGTH, "limits"),
+                    () -> LimitProperties.value(properties, UnitLimits.MAX_ECHO_LENGTH, "limits"),
                     "an absent limit key must fail the load");
         }
 
@@ -711,10 +714,10 @@ class UnitFrontmatterReaderTest {
         @DisplayName("a value that is not a number fails the load instead of defaulting")
         void aNonNumericValueFailsTheLoad() {
             var properties = new Properties();
-            properties.setProperty(LimitProperties.MAX_ECHO_LENGTH, "not-a-number");
+            properties.setProperty(UnitLimits.MAX_ECHO_LENGTH, "not-a-number");
 
             assertThrows(IllegalStateException.class,
-                    () -> LimitProperties.value(properties, LimitProperties.MAX_ECHO_LENGTH, "limits"),
+                    () -> LimitProperties.value(properties, UnitLimits.MAX_ECHO_LENGTH, "limits"),
                     "a non-numeric limit must fail the load");
         }
     }

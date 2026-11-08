@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
@@ -78,14 +79,14 @@ public final class UnitFrontmatterReader {
      * resource when the class loads.
      */
     public static final int MAX_FRONTMATTER_LINES = Math.toIntExact(
-            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_FRONTMATTER_LINES));
+            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_FRONTMATTER_LINES));
 
     /**
      * The most characters of the source a refusal echoes; a longer text is cut at this bound and marked with
      * {@code ...}, read from the module's limits resource when the class loads.
      */
     public static final int MAX_ECHO_LENGTH = Math.toIntExact(
-            LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_ECHO_LENGTH));
+            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_ECHO_LENGTH));
 
     private static final String KEY_NAME = "name";
     private static final String KEY_DESCRIPTION = "description";

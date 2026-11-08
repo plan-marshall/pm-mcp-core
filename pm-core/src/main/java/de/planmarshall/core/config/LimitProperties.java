@@ -7,18 +7,17 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.workflow.dsl;
+package de.planmarshall.core.config;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.Properties;
-
 import lombok.experimental.UtilityClass;
 
 /**
- * Reads a numeric limit from a properties resource of this module (PM-IMPL-5).
+ * Reads a numeric limit from a properties resource of the calling module (PM-ARCH-8, PM-IMPL-5).
  * <p>
  * A limit is read when the constant that names it is initialized. A resource that is absent, a key that is absent and
  * a value that is not a non-negative integer are faults of the build and are never defaulted: the load fails with an
@@ -29,18 +28,6 @@ import lombok.experimental.UtilityClass;
  */
 @UtilityClass
 public class LimitProperties {
-
-    /** The classpath location of the limits of a project unit file and of a unit frontmatter. */
-    public static final String RESOURCE = "/de/planmarshall/workflow/dsl/unit-limits.properties";
-
-    /** The key of the most bytes a project unit file may hold. */
-    public static final String MAX_UNIT_FILE_BYTES = "pm.workflow.unit.max-file-bytes";
-
-    /** The key of the most lines a frontmatter may hold, its two delimiters included. */
-    public static final String MAX_FRONTMATTER_LINES = "pm.workflow.unit.max-frontmatter-lines";
-
-    /** The key of the most characters a refusal echoes from the source. */
-    public static final String MAX_ECHO_LENGTH = "pm.workflow.unit.max-echo-length";
 
     /**
      * Reads a non-negative limit from a classpath resource.
