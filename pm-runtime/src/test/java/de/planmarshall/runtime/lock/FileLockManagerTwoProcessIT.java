@@ -170,7 +170,7 @@ class FileLockManagerTwoProcessIT {
         var key = LockKey.auditLog(base);
         startHolder(LockHolderProcess.LEAF);
 
-        var sidecarLockedWhileHeld = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
         var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));

@@ -787,6 +787,7 @@ class FileLockManagerTest {
             try (var transaction = manager.openTransaction()) {
                 transaction.acquire(key);
                 store.append(transaction, APPENDED, auditSink);
+                var lockedAfterAppend = isLockedIfPresent(osLockFile(key));
 
                 var secondThread = Thread.ofPlatform().start(() -> {
                     try (var other = secondManager.openTransaction()) {
@@ -798,6 +799,7 @@ class FileLockManagerTest {
                 secondThread.join();
 
                 assertAll("a second lock manager on the same base",
+                        () -> assertTrue(lockedAfterAppend, "the OS lock survives the append"),
                         () -> assertInstanceOf(IllegalStateException.class, secondResult.get(),
                                 "the second manager cannot take the key"),
                         () -> assertTrue(transaction.holds(key), "the first transaction still holds the key"));
