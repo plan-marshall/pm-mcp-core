@@ -9,12 +9,11 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.WaiverRecord.Channel;
 

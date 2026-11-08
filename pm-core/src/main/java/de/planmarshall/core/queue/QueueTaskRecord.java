@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.queue;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -19,6 +17,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One queue task record {@code queue/<queue_task_id>.json} (Store Schemas § Queue Task Record): the delivery of one

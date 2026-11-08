@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -20,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The plan's solution outline, the model-supplied document the server accepts at {@code submit:outline} (Store Schemas

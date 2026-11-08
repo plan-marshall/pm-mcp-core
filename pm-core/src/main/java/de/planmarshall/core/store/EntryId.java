@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code entry_id} of a pending entry record (PM-CLIENT-1): {@code ent-} and 8 to 32 lower-case hexadecimal

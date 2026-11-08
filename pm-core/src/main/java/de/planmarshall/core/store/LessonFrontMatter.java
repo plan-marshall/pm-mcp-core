@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -19,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The front matter of a lesson of the project lesson store (Store Schemas § Lesson Record, the {@code

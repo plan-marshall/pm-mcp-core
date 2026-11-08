@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.role.corpus;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
@@ -25,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
 import de.planmarshall.core.store.StrictJson;

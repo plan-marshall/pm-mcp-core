@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.role;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A role artifact or role assignment refused as a whole (PM-WORK-1). The refusal names the role, the closed reason of the

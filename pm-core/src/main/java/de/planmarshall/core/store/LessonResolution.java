@@ -9,13 +9,12 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What one lesson of the project lesson store resolves to (Store Schemas § Lesson Record, One Resolver, Four States;

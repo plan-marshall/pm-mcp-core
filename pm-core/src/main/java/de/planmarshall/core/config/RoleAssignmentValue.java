@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.config;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleAssignment;

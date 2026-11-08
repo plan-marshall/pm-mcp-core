@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.role;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -20,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Loads the effective role set of a machine and a project (PM-WORK-1, Role Sets &amp; Precedence).

@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.build;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Locale;
 import java.util.Objects;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One structured diagnostic of a build log: where the tool pointed and what it said.

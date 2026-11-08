@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One line of the waiver log {@code plans/<plan_id>/waivers.jsonl} of a plan (PM-SEC-3, PM-IMPL-2): an operator's act

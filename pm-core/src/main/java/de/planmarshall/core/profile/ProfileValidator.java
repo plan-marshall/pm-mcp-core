@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.text.Normalizer;
 import java.util.Collections;
 import java.util.HashSet;
@@ -21,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Validates a client profile as a whole against the client profile schema and the rules stated with its blocks

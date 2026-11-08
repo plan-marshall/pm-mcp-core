@@ -78,7 +78,9 @@ A role artifact is the file `<name>.json` of a role set (<<role-sets>>). Its sch
         "repeating": { "$ref": "#/$defs/off_track_signal" },
         "no_progress": { "$ref": "#/$defs/off_track_signal" },
         "over_size": { "$ref": "#/$defs/off_track_signal" },
-        "outside_footprint": { "$ref": "#/$defs/off_track_signal" }
+        "outside_footprint": { "$ref": "#/$defs/off_track_signal" },
+        "failing_again": { "$ref": "#/$defs/off_track_signal" },
+        "edit_churn": { "$ref": "#/$defs/off_track_signal" }
       },
       "description": "Thresholds and actions of the off-track signals of the role's workers (A Worker Off Track); a signal absent here takes its compiled threshold and the action show. Not allowed for zero_tool."
     }

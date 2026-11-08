@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -25,6 +23,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The enrolment of one project (PM-EXEC-2, PM-MIG-1, PM-MIG-2, PM-IMPL-2): the operator-authorized record of what the

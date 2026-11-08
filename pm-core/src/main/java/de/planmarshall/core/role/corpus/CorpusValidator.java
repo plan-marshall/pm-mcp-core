@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.role.corpus;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +28,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.CorpusViolation.Rule;
 import de.planmarshall.core.role.corpus.JsonValue.JsonBoolean;

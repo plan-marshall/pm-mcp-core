@@ -9,13 +9,12 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The supported version range of a harness CLI, {@code headless.supported_versions} (PM-CLIENT-5, Update Evidence).

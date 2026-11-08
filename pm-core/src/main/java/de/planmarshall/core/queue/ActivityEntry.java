@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.queue;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.time.Instant;
@@ -20,6 +18,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.QueueTaskRecord.SignalAction;
 import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
