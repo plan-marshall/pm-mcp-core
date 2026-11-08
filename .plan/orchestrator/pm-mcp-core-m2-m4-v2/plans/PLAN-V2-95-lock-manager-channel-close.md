@@ -4,7 +4,7 @@ epic: pm-mcp-core-m2-m4-v2
 workstream: WS-05
 lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again).
 > Lives at `plans/PLAN-V2-95-lock-manager-channel-close.md` and is queued as one row file, `queue/PLAN-V2-95.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -49,6 +49,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **No new dependency and no change of a stored format** (R13).
 - **The lock order is unchanged:** `LockOrderTest` and `LockKey` order rules stay green.
 - **Operating-system behaviour is tested with `@EnabledOnOs`** where the behaviour is POSIX-only (CLAUDE.md); the Windows path is not in scope.
+- **The landing message:** the lane files it (`landing-check`); it carries the standing-rule revision and rule ids and the open items, and names `spec_source` and `spec_differ`.
 
 ## Claim Labels
 

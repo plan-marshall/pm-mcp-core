@@ -1,0 +1,314 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/outline-record-v1.json",
+  "title": "OutlineRecord",
+  "type": "object",
+  "required": [
+    "summary",
+    "overview",
+    "scope_estimate",
+    "deliverables"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 2000
+    },
+    "overview": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 8000,
+      "description": "An optional text diagram of the solution."
+    },
+    "scope_estimate": {
+      "type": "string",
+      "enum": [
+        "none",
+        "surgical",
+        "single_module",
+        "multi_module",
+        "broad"
+      ]
+    },
+    "deliverables": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "number",
+          "title",
+          "intent_gloss",
+          "change_type",
+          "execution_mode",
+          "domain",
+          "module",
+          "depends",
+          "design_notes",
+          "profiles",
+          "affected_files",
+          "change_per_file",
+          "verification",
+          "satisfies",
+          "added_dependencies",
+          "interfaces",
+          "key_links"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "intent_gloss": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 200,
+            "description": "One sentence of what the deliverable does; copied verbatim into its derived tasks."
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "analysis",
+              "feature",
+              "enhancement",
+              "bug_fix",
+              "tech_debt",
+              "verification"
+            ],
+            "description": "Deliverable-scoped; reconciled with the plan's change_type (phase-workflows/03, Scope Disagreement Refusal)."
+          },
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "automated",
+              "manual",
+              "mixed"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "depends": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            }
+          },
+          "design_notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          },
+          "profiles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "implementation",
+                "module_testing",
+                "integration_testing",
+                "verification"
+              ]
+            }
+          },
+          "affected_files": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "intent",
+                "gate"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "description": "Repository-relative; a glob is judged on its expansion."
+                },
+                "intent": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write-new",
+                    "write-replace",
+                    "write-conditional",
+                    "delete"
+                  ]
+                },
+                "gate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 200,
+                  "description": "For write-conditional: the gate whose firing changes the file; null otherwise."
+                }
+              }
+            }
+          },
+          "change_per_file": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 8000
+          },
+          "verification": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "required": [
+                "command",
+                "criterion"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "criterion": {
+                  "type": "string",
+                  "minLength": 5,
+                  "maxLength": 500
+                }
+              }
+            }
+          },
+          "satisfies": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 40,
+            "items": {
+              "type": "string",
+              "pattern": "^(AC|DC)-[0-9]{1,4}$"
+            }
+          },
+          "added_dependencies": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "coordinate",
+                "why",
+                "rejected_alternative"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "coordinate": {
+                  "type": "string",
+                  "pattern": "^(maven|npm|pypi):.+$",
+                  "maxLength": 256
+                },
+                "why": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 500
+                },
+                "rejected_alternative": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 500,
+                  "description": "The simpler alternative considered and why it was rejected."
+                }
+              }
+            }
+          },
+          "interfaces": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "required": [
+                "direction",
+                "symbol",
+                "signature"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "produces",
+                    "consumes"
+                  ]
+                },
+                "symbol": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "signature": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              }
+            }
+          },
+          "key_links": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "from",
+                "to",
+                "pattern"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "to": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "pattern": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

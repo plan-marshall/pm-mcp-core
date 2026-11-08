@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/role-assignments.json",
+  "title": "RoleAssignments",
+  "type": "object",
+  "required": ["format_version", "revision", "roles"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "roles": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "role name (identifiers.adoc)." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["harness", "model"],
+        "additionalProperties": false,
+        "properties": {
+          "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of an enrolled, worker-eligible harness." },
+          "model": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Allowed on that harness by the effective catalogue (model_not_allowed otherwise)." },
+          "effort": { "type": ["string", "null"], "description": "null: the profile's default effort." },
+          "escalation": {
+            "type": ["object", "null"],
+            "required": ["harness", "model", "effort"],
+            "additionalProperties": false,
+            "description": "Optional: the stronger configuration the last round of a fix budget runs on (model-work/01, Escalation Assignment); validated and qualified like the role's own values.",
+            "properties": {
+              "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+              "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "effort": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

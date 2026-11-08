@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/audit-head.json",
+  "title": "AuditHead",
+  "type": "object",
+  "required": ["format_version", "file", "record_count", "last_event_id", "head_hash", "index_head_hash", "hmac"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "file": { "type": "string", "const": "audit.jsonl", "description": "The current log file." },
+    "record_count": { "type": "integer", "minimum": 0 },
+    "last_event_id": { "type": ["string", "null"], "format": "uuid", "description": "null for an empty log." },
+    "head_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the last canonical line; 64 '0' characters for an empty log." },
+    "index_head_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the last line of audit-index.jsonl; 64 '0' characters before the first rotation." },
+    "hmac": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "HMAC-SHA-256 under the enrolment integrity key." }
+  }
+}

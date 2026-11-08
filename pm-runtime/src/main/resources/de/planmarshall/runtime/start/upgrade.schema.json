@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/upgrade.json",
+  "title": "UpgradeRecord",
+  "type": "object",
+  "required": ["format_version", "newest_known", "last_check", "last_upgrade", "way_back"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "newest_known": {
+      "type": ["object", "null"],
+      "required": ["version", "checked_at"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "checked_at": { "type": "string", "format": "date-time" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of the release archive of the machine's platform, as the registry states it; shown only. An upgrade verifies the archive against the digest of its build attestation, never against this value." }
+      }
+    },
+    "last_check": {
+      "type": ["object", "null"],
+      "required": ["at", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "outcome": { "type": "string", "enum": ["ok", "failed"] },
+        "reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "failed only." }
+      }
+    },
+    "last_upgrade": {
+      "type": ["object", "null"],
+      "required": ["from_version", "to_version", "started_at", "step", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "from_version": { "type": "string", "minLength": 1 },
+        "to_version": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "format": "date-time" },
+        "step": { "type": "string", "enum": ["fetching", "verifying", "unpacking", "switched", "draining", "started"], "description": "The last step reached." },
+        "outcome": { "type": ["string", "null"], "enum": ["upgraded", "failed", "withdrawn", "rolled_back", null], "description": "null while it runs." },
+        "reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+        "channel": { "type": "string", "enum": ["cli", "web"] },
+        "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" }
+      }
+    },
+    "way_back": {
+      "type": ["object", "null"],
+      "required": ["version", "installation_dir"],
+      "additionalProperties": false,
+      "description": "The previous installation directory kept as the way back until the next upgrade removes it.",
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "installation_dir": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/epic-intent-v1.json",
+  "title": "EpicIntent",
+  "type": "object",
+  "required": ["destination", "done_when", "non_goals", "not_yet_specified"],
+  "additionalProperties": false,
+  "properties": {
+    "destination": { "type": "string", "minLength": 10, "maxLength": 300, "description": "One sentence: where the epic ends." },
+    "done_when": { "type": "array", "minItems": 3, "maxItems": 6, "items": { "type": "string", "minLength": 10, "maxLength": 300 }, "description": "Checks the operator can run; the completion review judges each against evidence." },
+    "non_goals": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "type": "string", "minLength": 5, "maxLength": 500 }, "description": "Inherited by every plan of the epic as required source claims." },
+    "not_yet_specified": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 10, "maxLength": 500 }, "description": "Questions that can be stated but are not yet answered." }
+  }
+}

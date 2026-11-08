@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/host-tools.json",
+  "title": "MachineHostTools",
+  "type": "object",
+  "required": ["format_version", "revision", "tools"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "tools": {
+      "type": "object",
+      "propertyNames": { "enum": ["git", "gh", "glab"] },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["executable_path", "sha256", "version", "enrolled_at"],
+        "additionalProperties": false,
+        "properties": {
+          "executable_path": { "type": "string", "minLength": 1, "description": "Resolved absolute path." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "version": { "type": "string", "minLength": 1, "description": "Printed by the version probe at enrolment; informational." },
+          "enrolled_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

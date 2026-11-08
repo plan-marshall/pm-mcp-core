@@ -14,7 +14,6 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.Properties;
-
 import lombok.experimental.UtilityClass;
 
 /**

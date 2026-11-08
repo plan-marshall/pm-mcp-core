@@ -11,6 +11,8 @@ package de.planmarshall.core;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
+import org.jspecify.annotations.Nullable;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -21,7 +23,9 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -31,6 +35,8 @@ import lombok.experimental.UtilityClass;
  * A schema is a file of the module that implements it, beside the code it describes, and is read by its class-path
  * location (ADR {@code doc/adr/016-schemas-are-files-of-the-implementing-module.adoc}). The schema belongs to the
  * module, so an absent resource or a file that is not a JSON object is a failure of the test, never a skipped test.
+ * The casts {@link #object(Object)} and {@link #array(Object)} navigate a loaded schema and fail the test the same way
+ * on a value of another JSON type.
  * <p>
  * A resource path is absolute on the class path and carries no leading slash, for example
  * {@code de/planmarshall/core/store/audit.schema.json}.
@@ -73,10 +79,37 @@ public class SchemaResource {
         } catch (UncheckedIOException e) {
             return fail("the schema resource is not JSON: " + resourcePath, e);
         }
+        return object(value, () -> "the schema resource is not a JSON object: " + resourcePath);
+    }
+
+    /**
+     * Casts a parsed JSON value that must be an object; any other value fails the test.
+     *
+     * @param value a parsed JSON value that must be an object
+     * @return the object as a map in member order
+     */
+    public static Map<?, ?> object(@Nullable Object value) {
+        return object(value, () -> "not a JSON object: " + value);
+    }
+
+    /**
+     * Casts a parsed JSON value that must be an array; any other value fails the test.
+     *
+     * @param value a parsed JSON value that must be an array
+     * @return the array as a list
+     */
+    public static List<?> array(@Nullable Object value) {
+        if (value instanceof List<?> list) {
+            return list;
+        }
+        return fail("not a JSON array: " + value);
+    }
+
+    private static Map<?, ?> object(@Nullable Object value, Supplier<String> failure) {
         if (value instanceof Map<?, ?> map) {
             return map;
         }
-        return fail("the schema resource is not a JSON object: " + resourcePath);
+        return fail(failure);
     }
 
     /**

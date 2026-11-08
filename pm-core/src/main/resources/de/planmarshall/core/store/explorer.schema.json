@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/explorer.json",
+  "title": "ExplorerStore",
+  "type": "object",
+  "required": ["format_version", "revision", "favourites", "activity"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "favourites": { "type": "array", "uniqueItems": true, "description": "project_ids in the operator's order.", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" } },
+    "activity": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["last_at", "days"],
+        "additionalProperties": false,
+        "properties": {
+          "last_at": { "type": "string", "format": "date-time" },
+          "days": { "type": "object", "propertyNames": { "format": "date" }, "additionalProperties": { "type": "integer", "minimum": 1 }, "description": "Acts per UTC day within the window." }
+        }
+      }
+    }
+  }
+}

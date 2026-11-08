@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/grant-record.json",
+  "title": "AccessGrantRecord",
+  "type": "object",
+  "required": ["format_version", "access", "reason", "operator", "at"],
+  "oneOf": [
+    { "required": ["project_id"], "not": { "anyOf": [ { "required": ["org"] }, { "required": ["repo"] }, { "required": ["host"] } ] } },
+    { "required": ["org"], "properties": { "access": { "const": "read" } }, "not": { "anyOf": [ { "required": ["project_id"] }, { "required": ["repo"] }, { "required": ["host"] } ] } },
+    { "required": ["repo"], "properties": { "access": { "const": "read" } }, "not": { "anyOf": [ { "required": ["project_id"] }, { "required": ["org"] } ] } }
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "project_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "The other enrolled project the plan may access." },
+    "org": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$", "description": "The organisation (GitHub) or group path (GitLab) at the plan's provider whose repository list and code search the plan may read (ci.org-repos, ci.code-search)." },
+    "repo": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,253}/[A-Za-z0-9._-]{1,100}$", "description": "The repository <owner>/<name> whose files, labels, issues, and pull requests the plan or start may read (ci.repo-file, ci.labels, ci.issue-view)." },
+    "host": { "type": "string", "pattern": "^[a-z0-9.-]{1,253}(:[0-9]{1,5})?$", "description": "repo only: the forge's host when it is not the project's provider, resolved from a source's URL." },
+    "access": { "type": "string", "enum": ["read", "read-write"] },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "operator": {
+      "type": "object",
+      "required": ["channel", "os_principal"],
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "type": "string", "enum": ["cli", "web"] },
+        "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" },
+        "os_principal": { "type": "string" }
+      }
+    },
+    "at": { "type": "string", "format": "date-time" }
+  }
+}

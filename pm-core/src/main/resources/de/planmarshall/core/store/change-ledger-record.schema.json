@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/change-ledger-record.json",
+  "title": "ChangeLedgerRecord",
+  "type": "object",
+  "required": [
+    "format_version",
+    "kind",
+    "worktree_sha",
+    "worktree_sha_version",
+    "recorded_at"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "worktree_sha": { "const": "unavailable" } }, "required": ["worktree_sha"] },
+      "then": { "required": ["worktree_sha_failure"], "properties": { "worktree_sha_failure": { "type": "object" } } },
+      "else": { "properties": { "worktree_sha_failure": { "type": "null" } } }
+    }
+  ],
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "kind": { "type": "string", "enum": ["build", "change", "job", "task_diff", "baseline_red"] },
+    "worktree_sha": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{64}|unavailable)$",
+      "description": "The PM-MCP-native working-tree digest, or 'unavailable' when a git invocation failed (job-runtime.adoc, Working-Tree Hash, rule 5); an 'unavailable' row never satisfies a freshness gate and never equals another 'unavailable'."
+    },
+    "worktree_sha_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Hash version of worktree_sha (job-runtime.adoc, Working-Tree Hash, rule 4); a change of the git invocation or framing is a new version, and freshness gates compare only equal versions."
+    },
+    "worktree_sha_failure": {
+      "type": ["object", "null"],
+      "description": "Non-null exactly when worktree_sha == 'unavailable' (allOf above): the failing git command (argument vector) and how it failed.",
+      "required": ["command", "failure"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "failure": { "type": "string", "enum": ["exit_code", "signal", "timed_out"] },
+        "exit_code": { "type": ["integer", "null"] },
+        "signal": { "type": ["integer", "null"] }
+      }
+    },
+    "gate_kind": { "type": ["string", "null"], "pattern": "^(compile|test-compile|module-tests|integration-tests|e2e|coverage|quality-gate|arch-gate|verify|ci_check:[\\x20-\\x7E]{1,128})$", "description": "The gate the row proves, one closed set with baseline.gate_kind: the canonical build verb of a local gate (job-runtime.adoc, Canonical Build Verb Set; never clean, install, clean-install, package, or benchmark) or ci_check:<name> for a CI check; null for a row that proves no gate. Read by the freshness gate (job-runtime.adoc, Gate Honesty Verification)." },
+    "outcome": {
+      "type": ["string", "null"],
+      "enum": ["succeeded", "failed", "failed_unparsed", "refused", "cancelled", "timed_out", "killed", "indeterminate", null]
+    },
+    "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "job_id": { "type": ["string", "null"], "pattern": "^[bcgp]-[0-9a-f]{16}$" },
+    "commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+    "changed_paths": { "type": "array", "items": { "type": "string" } },
+    "change_origin": {
+      "type": ["string", "null"],
+      "enum": ["plan_change", "quality_gate_autofix", null],
+      "description": "For kind == 'change': quality_gate_autofix marks commits produced by a quality gate's auto-fix; footprint reconciliation reports those paths separately from deliverable changes."
+    },
+    "expect": {
+      "type": ["string", "null"],
+      "enum": ["green", "red", null],
+      "description": "For kind == 'build': the pm_build expect parameter. A failed run with expect == 'red' is expected_red (no finding); a succeeded run with expect == 'red' is expected_red_went_green (recorded in expect_result); an expect == 'red' row never satisfies a freshness gate (mcp-tools.adoc, pm_build)."
+    },
+    "expect_result": {
+      "type": ["string", "null"],
+      "enum": ["expected_red", "expected_red_went_green", null],
+      "description": "For kind == 'build' with expect == 'red': expected_red when the run failed (the result's expectation: met), expected_red_went_green when it succeeded (expectation: violated); null otherwise."
+    },
+    "criterion": {
+      "type": ["string", "null"],
+      "description": "For kind == 'build' with expect == 'red': the pm_build criterion parameter, the fix criterion this run proves red (Phase Workflows, Fix Proof Guard); null otherwise."
+    },
+    "red_tests": {
+      "type": ["array", "null"],
+      "description": "For a build row with a criterion: the test files the worktree changed against base_ref at this run; null otherwise.",
+      "items": {
+        "type": "object",
+        "required": ["path", "blob"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "blob": { "type": "string" }
+        }
+      }
+    },
+    "baseline": {
+      "type": ["object", "null"],
+      "description": "Required (non-null) iff kind == 'baseline_red'; null otherwise. The server's proof that a red gate at this worktree_sha is red only through failures already present on the base (Job Runtime, Baseline Separation).",
+      "required": ["gate_kind", "merge_base", "base_commit", "proof_source", "diagnostics_digest", "fingerprints"],
+      "additionalProperties": false,
+      "properties": {
+        "gate_kind": { "type": "string", "pattern": "^(compile|test-compile|module-tests|integration-tests|e2e|coverage|quality-gate|arch-gate|verify|ci_check:[\\x20-\\x7E]{1,128})$", "description": "The red gate, in the closed set of the row's gate_kind." },
+        "merge_base": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "base_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The base commit whose result proved the failures: the merge base, or the latest base-branch commit containing it that has a provider result." },
+        "proof_source": { "type": "string", "enum": ["ci_base_result", "local_merge_base_build"], "description": "ci_base_result: the provider's CI result of the same check on base_commit (primary); local_merge_base_build: a build of the merge base in the baseline scratch worktree (fallback for local gates or when the provider has no result for the base)." },
+        "diagnostics_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the sorted failure fingerprints accepted as baseline-only." },
+        "fingerprints": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+      }
+    },
+    "deliverable_id": { "type": ["string", "null"] },
+    "task_id": { "type": ["string", "null"], "description": "Required for kind == 'task_diff'; written only by the submit:TASK-NNN verification." },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  }
+}

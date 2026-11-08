@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/machine-config.json",
+  "title": "MachineConfigStore",
+  "type": "object",
+  "required": ["format_version", "revision", "max_build_slots", "lsp_idle_timeout_seconds"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0, "description": "Settings revision, incremented by every write; a change against an older revision is refused with conflict." },
+    "max_build_slots": { "type": "integer", "minimum": 1, "maximum": 16, "default": 2 },
+    "model_slots": { "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "description": "Machine cap of concurrently running workers (job kind llm), warm or fresh, across all projects and the machine scope (Machine Lease Stores, model-slots.json); a warm worker holds its slot for its whole generation, idle or not; per plan at most one of them is a writer worker." },
+    "lsp_idle_timeout_seconds": { "type": "integer", "minimum": 60, "default": 900 },
+    "lsp_start_timeout_seconds": { "type": "integer", "minimum": 10, "default": 120 },
+    "lsp_request_timeout_seconds": { "type": "integer", "minimum": 5, "default": 60 },
+    "max_lsp_instances": { "type": "integer", "minimum": 1, "maximum": 8, "default": 3 },
+    "drain_timeout_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 600,
+      "description": "How long running jobs may finish after SIGTERM/SIGINT, pm-operator drain, or the operator's stop with when drain, before their process groups are terminated and recorded killed (runtime-model.adoc, Drain, Stop & Upgrade; timeouts.adoc, Runtime Lifecycle); a stop with when now cuts it to zero. The runtime's drain reads an invalid value (negative, not an integer, or a file that is unreadable or not one JSON object) as the default, with a warning, and never fails for it."
+    },
+    "escalation_cap_seconds": {
+      "type": "integer",
+      "minimum": 330,
+      "default": 1800,
+      "description": "Cap C of the one-shot escalation budget E = max(t, min(2t, C)) after a timed_out job (timeouts.adoc, Job Budgets)."
+    },
+    "progress_wait_max_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 7200,
+      "default": 1800,
+      "description": "Upper bound of a progress wait (timeouts.adoc, Waits & Long-Polls)."
+    },
+    "audit_rotation": {
+      "type": "object",
+      "description": "Rotation thresholds of logs/audit.jsonl (checkpoint record, audit-index.jsonl entry); whichever is reached first rotates",
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes": { "type": "integer", "minimum": 1048576, "default": 67108864 },
+        "max_days": { "type": "integer", "minimum": 1, "default": 30 },
+        "retain_days": { "type": "integer", "minimum": 0, "default": 365, "description": "Age in days after which a rotated audit file is technical residue the periodic sweep removes (Evidence-Based Removal Sweeps); 0 keeps rotated files forever. Index entries are never removed." }
+      }
+    },
+    "harness_profiles": {
+      "type": "object",
+      "description": "Machine-wide operator overrides of a harness profile's connection settings; no other profile key can be overridden. An override passes the same profile validation as the compiled value (for a harness whose progress_resets_timeout is false, bounded_wait_seconds at most idle_timeout_seconds - 30; timeouts.adoc, Harness Integration).",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of a profile of the effective profile set, an operator-added one included (identifiers.adoc, harness_id)." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["connection"],
+        "additionalProperties": false,
+        "properties": {
+          "connection": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "description": "Each present key replaces the profile's compiled value; an absent key keeps it.",
+            "properties": {
+              "bounded_wait_seconds": { "type": "integer", "minimum": 15, "maximum": 3600, "description": "Bounded wait window (timeouts.adoc, Bounded wait)." },
+              "idle_timeout_seconds": { "type": "integer", "minimum": 45, "maximum": 7200, "description": "Harness tool-call idle timeout (timeouts.adoc, Harness Integration)." },
+              "progress_resets_timeout": { "type": "boolean", "description": "Whether notifications/progress resets the harness's tool-call timer." }
+            }
+          }
+        }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional outbound proxy, applied to every cui-http call (provider calls, the icon fetch, the release check and fetch) and to the JGit transport of the native git variant; never taken from a repository value or from the environment. Absent: direct connections.",
+      "properties": {
+        "https_proxy": { "type": "string", "format": "uri", "pattern": "^https?://[^/@]+/?$", "description": "Proxy URL (scheme, host, optional port) without embedded credentials; a URL with user information is refused. Authenticated proxies are not supported (later-improvements.adoc, L-8)." },
+        "no_proxy": { "type": "array", "uniqueItems": true, "description": "Hosts reached directly, without the proxy.", "items": { "type": "string", "minLength": 1, "maxLength": 253 } }
+      }
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Web access of the runtime with its two listeners side by side (PM-SEC-7; CLI, Coordination & Security Specification, Loopback and LAN Listeners Side by Side). Absent: both closed. The runtime opens each listener at every start while its switch is true.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false, "description": "The loopback listener: plain HTTP on 127.0.0.1 at port. Written true by pm-operator web enable (also by a first pm-operator web pair, web open, or the terminal client's entry) and false by pm-operator web disable, which also writes lan false; paired devices survive false." },
+        "lan": { "type": "boolean", "default": false, "description": "The LAN listener: HTTPS on all interfaces at lan_port with the certificate in <PM_MCP_BASE>/web/tls/, beside the loopback listener. Written true by pm-operator web enable --lan or the entry's yes to other devices (both also write enabled true); written false by pm-operator web disable and by turning the network listener off from either client, which leaves enabled unchanged." },
+        "port": { "type": "integer", "minimum": 1024, "maximum": 65535, "default": 7420, "description": "TCP port of the loopback listener, used the next time it opens (an open listener is never re-bound)." },
+        "lan_port": { "type": "integer", "minimum": 1024, "maximum": 65535, "default": 7421, "description": "TCP port of the LAN listener, used the next time it opens; never equal to port. Each listener applies the occupied-port rule to its own port: an occupied port fails the verb that opens it and leaves that switch unchanged; at a runtime start it leaves that listener closed, reported in the runtime status, while the runtime and the other listener still start. Another port is never chosen." }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The two languages of Module Structure, Languages and Internationalisation.",
+      "properties": {
+        "interface": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{1,8})*$", "description": "The operator's interface language: a locale with a language pack. Absent: the locale of the client's request where a pack exists, else en; the runtime's own environment is never an input. A machine fact, with no project value." },
+        "model": { "type": "string", "pattern": "^(same|[a-z]{2,3}(-[A-Za-z0-9]{1,8})*)$", "default": "same", "description": "The machine's model language: same (the interface language) or a locale; a project's language.model of local-config.json overrides it." }
+      }
+    },
+    "diagrams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "type": "string", "enum": ["text", "mermaid"], "default": "text", "description": "The form of a diagram in text a model writes for a human (the writing skill): text, a fixed-width text diagram, or mermaid, a fenced Mermaid block; a project's diagrams.format of local-config.json overrides it." }
+      }
+    },
+    "harnesses": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of a worker-eligible harness of harnesses.json, written by harness.enrol of the onboarding and its later runs; the steward runs on it. A harness that is the default cannot be removed before another is chosen." }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "store": { "type": "string", "enum": ["os", "file"], "description": "The credential store the operator chose in the onboarding's store step or its verb (CLI, Coordination & Security Specification, Credential Store as an Operator Choice); no default: before it is recorded no credential can be entered. The runtime uses the recorded store and never another." }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "description": "The machine's provider defaults (Machine Provider Defaults).",
+      "propertyNames": { "enum": ["git", "github", "gitlab", "forgejo", "sonar"] },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["available"],
+        "additionalProperties": false,
+        "properties": {
+          "available": { "type": "boolean", "description": "true only once its verification passed, or false on the operator's word after a failed verification; a provider recorded false never serves a project." },
+          "variant": { "type": "string", "enum": ["native", "cli"], "description": "The default integration variant of a project that sets none; cli only for git, github, and gitlab." },
+          "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "The credential entry the provider uses where a project names none (identifiers.adoc, credential_key)." }
+        }
+      }
+    },
+    "plan_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The machine's variant of each plan behaviour axis (Workflow DSL Specification, Plan Behaviour Axes); a project's team or operator value and a plan's own override it; posture is no axis but resolves by the same levels.",
+      "properties": {
+        "landing": { "type": "string", "enum": ["landing.pull-request", "landing.main", "landing.files"], "default": "landing.pull-request" },
+        "method": { "type": "string", "enum": ["method.test-first", "method.tests-after"], "default": "method.tests-after" },
+        "asking": { "type": "string", "enum": ["ask.every-phase", "ask.key-points", "ask.questions-only"], "default": "ask.questions-only" },
+        "posture": { "type": "string", "enum": ["minimal", "standard", "full"], "description": "Optional, no default: the machine's execution posture, set in the machine's settings and never asked in the onboarding; while neither the machine nor the project sets it, a plan asks it in init.options (Workflow DSL Specification, Posture and base branch)." }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "documents_mode": { "type": "string", "enum": ["copy", "move", "ask"], "default": "ask", "description": "How the documents of a start are taken into its source directory (State Catalogue Specification, Documents as a Source); answering always in the start writes copy or move here." }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Durations of the one cleanup (Timeouts & Budgets Specification, One Cleanup): an item is due when its end is older than its duration; a project's local-config.json cleanup overrides the first three for its items.",
+      "properties": {
+        "plans_after_days": { "$ref": "#/$defs/cleanup_duration" },
+        "epics_after_days": { "$ref": "#/$defs/cleanup_duration" },
+        "logs_after_days": { "$ref": "#/$defs/cleanup_duration" },
+        "reports_after_days": { "$ref": "#/$defs/cleanup_duration", "description": "Read reports; machine only." },
+        "unenrolled_after_days": { "$ref": "#/$defs/cleanup_duration", "description": "Machine stores of unenrolled projects; machine only." },
+        "remind_after_days": { "type": "integer", "minimum": 1, "default": 3, "description": "After how many days a postponed cleanup asks again." }
+      }
+    },
+    "console": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Preferences of the terminal client.",
+      "properties": {
+        "notify": { "type": "boolean", "default": true, "description": "Whether the terminal client signals a new report or decision." },
+        "full_screen": { "type": "boolean", "default": false, "description": "Whether the terminal client opens in its full-screen view." }
+      }
+    },
+    "project_defaults": {
+      "description": "The machine's value of the per-project operator keys; each local-config.json key of $defs/settings falls back to this value, then to the compiled default (Operator Local Configuration).",
+      "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/local-config.json#/$defs/settings",
+      "unevaluatedProperties": false
+    }
+  },
+  "$defs": {
+    "cleanup_duration": {
+      "oneOf": [ { "type": "integer", "minimum": 7 }, { "type": "string", "const": "never" } ],
+      "default": 30,
+      "description": "Days, at least 7 so that no window of the system view (at most 7 days) loses data, or never."
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/model-catalogue.json",
+  "title": "ModelCatalogue",
+  "type": "object",
+  "required": ["format_version", "revision", "harnesses"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "harnesses": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of an enrolled harness." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["models"],
+        "additionalProperties": false,
+        "properties": {
+          "models": {
+            "type": "array",
+            "description": "The allowed models; a model not listed is not allowed on this harness.",
+            "items": {
+              "type": "object",
+              "required": ["model", "source", "recorded_at"],
+              "additionalProperties": false,
+              "properties": {
+                "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "source": { "type": "string", "enum": ["probe", "operator"] },
+                "recorded_at": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
