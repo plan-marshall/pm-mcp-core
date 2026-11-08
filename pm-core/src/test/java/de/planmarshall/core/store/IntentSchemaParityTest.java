@@ -73,7 +73,8 @@ class IntentSchemaParityTest {
                 () -> assertEquals(1,
                         ((Number) SchemaParity.member(schema, "format_version").get("const")).intValue(),
                         "the schema's format version stays 1"),
-                () -> assertEquals(1, IntentStore.FORMAT_VERSION, "the codec's format version stays 1"));
+                () -> assertEquals(1, ((Number) SchemaParity.document(document).get("format_version")).intValue(),
+                        "the codec's written format version stays 1"));
     }
 
     @Test

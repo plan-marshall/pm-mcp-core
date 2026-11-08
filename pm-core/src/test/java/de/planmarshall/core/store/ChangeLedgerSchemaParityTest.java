@@ -116,8 +116,9 @@ class ChangeLedgerSchemaParityTest {
                 () -> assertEquals(1,
                         ((Number) SchemaParity.member(schema, "worktree_sha_version").get("const")).intValue(),
                         "the schema's hash version stays 1"),
-                () -> assertEquals(1, ChangeLedgerRecord.WORKTREE_SHA_VERSION,
-                        "the record's hash version stays 1"));
+                () -> assertEquals(1,
+                        ((Number) SchemaParity.document(written()).get("worktree_sha_version")).intValue(),
+                        "the record's written hash version stays 1"));
     }
 
     @Test
