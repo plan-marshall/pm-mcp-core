@@ -946,3 +946,19 @@ the field and the position, and `inbox.jsonl` and `spec.md` are byte-identical a
 characters is written. Matched negative controls: a text with an emoji sequence joined by U+200D and one that spells
 `​` as an escape in a code block are written unchanged.
 Source:: Article analysis `secure-architecture-for-ai-agents` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-74]
+=== PM-WATCH-DISP-74: A plan that read third-party content counts as one that read untrusted text
+
+Anchor:: link:../specification/model-work/07-untrusted-text-screening.adoc#third-party-content[Model Work § Third-Party Content on This Machine],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
+Hazard:: The mark is derived from `tool_call` targets that are plain paths only, so `cat node_modules/x/README.md`, a
+search over the tree, or a path reached through a pnpm symbolic link leaves the plan unmarked; or a harness without
+mapped targets counts as having read nothing, so the instruction scan of the added lines never runs for its plans.
+Guard:: Scenario tests with scripted activity journals: a read of `node_modules/pkg/README.md`, a shell command line
+`grep -r token node_modules/pkg`, a read of a file below a directory holding `pyvenv.cfg`, and a read through a
+symbolic link into `node_modules/.pnpm/` each mark the plan, the added-line rule table runs, and a lesson the plan writes
+has `derived_from_untrusted: true`; a harness profile without `tool_call` targets on a worktree that holds a
+`node_modules/` marks it as well. Matched controls: reads of `src/` only and a worktree without third-party trees leave
+the plan unmarked and the rule table unrun.
+Source:: Article analysis `secure-architecture-for-ai-agents-owasp-llm` of plan-marshall-documentation.
