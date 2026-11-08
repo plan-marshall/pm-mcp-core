@@ -77,10 +77,12 @@ class ModelCatalogueSchemaParityTest {
                 () -> {
                     var bound = ((Number) SchemaResource.object(properties.get("model")).get("maxLength")).intValue();
                     var recorded = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
-                    assertDoesNotThrow(() -> new CatalogueModel("m".repeat(bound), ModelSource.OPERATOR, recorded),
+                    var atBound = "m".repeat(bound);
+                    var aboveBound = "m".repeat(bound + 1);
+                    assertDoesNotThrow(() -> new CatalogueModel(atBound, ModelSource.OPERATOR, recorded),
                             "The schema's bound is the codec's bound");
                     assertThrows(IllegalArgumentException.class,
-                            () -> new CatalogueModel("m".repeat(bound + 1), ModelSource.OPERATOR, recorded),
+                            () -> new CatalogueModel(aboveBound, ModelSource.OPERATOR, recorded),
                             "One character above the bound is refused");
                 });
     }
