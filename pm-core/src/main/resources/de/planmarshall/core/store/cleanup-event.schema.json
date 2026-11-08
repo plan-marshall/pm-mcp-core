@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/cleanup-event.json",
+  "title": "CleanupEvent",
+  "type": "object",
+  "required": ["format_version", "event", "job_id", "at"],
+  "additionalProperties": false,
+  "$defs": {
+    "item_ref": {
+      "type": "object",
+      "required": ["kind", "id", "project_id"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["plan", "epic", "job_log", "report", "unenrolled_project"] },
+        "id": { "type": "string", "minLength": 1, "description": "plan_id, epic_id, job_id, report_id, or project_id." },
+        "project_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "null for a report." }
+      }
+    }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event": { "type": "string", "enum": ["job", "decided", "deleted", "delete_failed", "kept", "released"] },
+    "job_id": { "type": "string", "pattern": "^cln-[0-9]{4,}$" },
+    "at": { "type": "string", "format": "date-time" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "description": "job only.",
+      "items": {
+        "type": "object",
+        "required": ["ref", "title", "outcome", "ended_at", "size_bytes", "duration_days", "duration_source"],
+        "additionalProperties": false,
+        "properties": {
+          "ref": { "$ref": "#/$defs/item_ref" },
+          "title": { "type": ["string", "null"], "maxLength": 200 },
+          "outcome": { "type": ["string", "null"], "description": "The plan outcome or the epic's terminal_reason; null otherwise." },
+          "ended_at": { "type": "string", "format": "date-time", "description": "Archiving, reading, the job's end, or unenrolment." },
+          "size_bytes": { "type": "integer", "minimum": 0 },
+          "duration_days": { "type": "integer", "minimum": 7 },
+          "duration_source": { "type": "string", "enum": ["project", "machine", "compiled_default"] }
+        }
+      }
+    },
+    "decision": { "type": "string", "enum": ["delete", "remind", "ignore"], "description": "decided only." },
+    "unchecked": { "type": "array", "items": { "$ref": "#/$defs/item_ref" }, "description": "decided with delete: the items kept for good." },
+    "remind_at": { "type": "string", "format": "date-time", "description": "decided with remind." },
+    "channel": { "type": "string", "enum": ["cli", "web"], "description": "decided, kept, and released." },
+    "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" },
+    "ref": { "$ref": "#/$defs/item_ref", "description": "deleted, delete_failed, kept, released." },
+    "reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "delete_failed, or deleted skipped as no longer due (no_longer_due)." }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "const": "job" } } }, "then": { "required": ["items"] } },
+    { "if": { "properties": { "event": { "const": "decided" } } }, "then": { "required": ["decision", "channel", "device_id"] } },
+    { "if": { "properties": { "event": { "enum": ["deleted", "delete_failed", "kept", "released"] } } }, "then": { "required": ["ref"] } },
+    { "if": { "properties": { "event": { "const": "delete_failed" } } }, "then": { "required": ["reason"] } }
+  ]
+}

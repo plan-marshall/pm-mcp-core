@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/harnesses.json",
+  "title": "HarnessEnrolmentStore",
+  "type": "object",
+  "required": ["format_version", "harnesses"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "harnesses": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of a worker-eligible profile of the effective profile set with a headless template, a shipped or an operator-added one, or of an endpoint profile (its serving program); a profile marked headless null or worker.eligible false is never enrolled." },
+      "additionalProperties": { "$ref": "#/$defs/program_entry" }
+    }
+  },
+  "$defs": {
+    "program_entry": {
+      "type": "object",
+      "required": ["executable_path", "sha256", "version", "enrolled_at", "updated_at", "usage_report", "events"],
+      "additionalProperties": false,
+      "properties": {
+        "executable_path": { "type": "string", "minLength": 1, "description": "Resolved absolute path." },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of the executable at the last accepted probe." },
+        "version": { "type": "string", "minLength": 1, "description": "Version printed by the profile's version probe at the last accepted probe." },
+        "enrolled_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time", "description": "Last accepted self-update (equals enrolled_at before the first)." },
+        "weights": { "$ref": "#/$defs/weights" },
+        "usage_report": { "$ref": "#/$defs/usage_report" },
+        "events": { "$ref": "#/$defs/events" }
+      }
+    },
+    "weights": {
+      "type": "object",
+      "description": "Only for a profile whose weights_probe is not null: per allowed model id, the weights identity last read (Harness Profiles Specification, Weights Identity); a member of the qualification digest.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["weights_id", "read_at"],
+        "additionalProperties": false,
+        "properties": {
+          "weights_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "read_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "usage_report": {
+      "type": "object",
+      "required": ["source", "figures"],
+      "additionalProperties": false,
+      "description": "What the harness reports of its usage (Harness Profiles Specification, Tokens, Not Money), shown in the harness list as complete, partial (naming what is missing), or not_reported. The install path maps the verification stage's `UsageResult` onto this member: `input_tokens`/`output_tokens` become `input`/`output`, each `UsageStatus` is written as its wire name (`reported`, `not_applicable`, `missing`), and `startContext` is copied unchanged.",
+      "properties": {
+        "source": { "type": "string", "enum": ["declared", "verified"], "description": "declared: from the profile's usage pointers; verified: from the usage stage of the profile's verification." },
+        "figures": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "input": { "$ref": "#/$defs/figure" },
+            "output": { "$ref": "#/$defs/figure" },
+            "cache_read": { "$ref": "#/$defs/figure" },
+            "cache_creation": { "$ref": "#/$defs/figure" },
+            "reasoning": { "$ref": "#/$defs/figure" },
+            "tool_uses": { "$ref": "#/$defs/figure" }
+          }
+        },
+        "start_context": {
+          "type": "array",
+          "description": "Input tokens of a worker's first model turn per class and model, recorded by the profile's verification (Harness Profiles Specification, Tokens, Not Money); absent for source declared.",
+          "items": {
+            "type": "object",
+            "required": ["class", "model", "tokens"],
+            "additionalProperties": false,
+            "properties": {
+              "class": { "type": "string", "enum": ["writer", "read_only", "zero_tool"] },
+              "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "tokens": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "const": "unmeasured" } ] }
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "object",
+      "description": "The per-kind results of the events stage of the profile's verification, kept with the entry (Harness Profiles Specification, What a Worker Does): each activity kind the stage checked, reported or missing. A shipped profile carries the release's results; an operator-added profile carries the results of its verification.",
+      "additionalProperties": { "type": "string", "enum": ["reported", "missing"] }
+    },
+    "figure": { "type": "string", "enum": ["reported", "not_applicable", "missing"] }
+  }
+}

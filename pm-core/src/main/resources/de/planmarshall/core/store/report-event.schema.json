@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/report-event.json",
+  "title": "ReportEvent",
+  "type": "object",
+  "required": ["format_version", "event", "at"],
+  "additionalProperties": false,
+  "$defs": {
+    "text": { "type": "object", "required": ["key", "args"], "additionalProperties": false, "properties": { "key": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" }, "args": { "type": "object" } } },
+    "report_id": { "type": "string", "pattern": "^rep-[0-9]{4,}$" }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event": { "type": "string", "enum": ["report", "read", "deleted"] },
+    "at": { "type": "string", "format": "date-time" },
+    "report_id": { "$ref": "#/$defs/report_id", "description": "report only." },
+    "kind": { "type": "string", "enum": ["plan.started", "plan.ended", "plan.revised", "plan.hold_released", "epic.launchable", "epic.waits_overlap", "epic.overlap_found", "epic.recut_applied", "epic.through", "epic.ended", "project.onboarded", "project.released", "source.flagged", "decision.closed_elsewhere", "task.off_track", "system.cleanup_due"], "description": "report only; the catalogue of Reports to the Operator." },
+    "from": {
+      "type": "object",
+      "required": ["project_id"],
+      "additionalProperties": false,
+      "description": "report only.",
+      "properties": {
+        "project_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "null for a report of the machine itself." },
+        "epic_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+        "plan_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }
+      }
+    },
+    "subject": { "$ref": "#/$defs/text", "description": "report only: one line." },
+    "body": { "$ref": "#/$defs/text", "description": "report only." },
+    "created_at": { "type": "string", "format": "date-time", "description": "report only: when it happened." },
+    "sent_at": { "type": "string", "format": "date-time", "description": "report only: when the clients could first read it." },
+    "detail": { "type": ["string", "null"], "description": "report only: the local-API path of its detail, null where there is none." },
+    "report_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/report_id" }, "description": "read and deleted." },
+    "channel": { "type": "string", "enum": ["cli", "web"], "description": "read only." },
+    "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "read only." },
+    "job_id": { "type": "string", "pattern": "^cln-[0-9]{4,}$", "description": "deleted only: the cleanup job." },
+    "last_report_id": { "$ref": "#/$defs/report_id", "description": "deleted only: the highest id ever allocated." }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "const": "report" } } }, "then": { "required": ["report_id", "kind", "from", "subject", "body", "created_at", "sent_at", "detail"] } },
+    { "if": { "properties": { "event": { "const": "read" } } }, "then": { "required": ["report_ids", "channel", "device_id"] } },
+    { "if": { "properties": { "event": { "const": "deleted" } } }, "then": { "required": ["report_ids", "job_id", "last_report_id"] } }
+  ]
+}

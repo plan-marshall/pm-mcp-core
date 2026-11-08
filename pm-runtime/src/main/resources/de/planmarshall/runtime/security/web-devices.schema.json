@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/web-devices.json",
+  "title": "WebDeviceStore",
+  "type": "object",
+  "required": ["format_version", "devices"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["device_id", "label", "paired_by", "paired_from", "secret_sha256", "created_at", "last_used_at"],
+        "additionalProperties": false,
+        "properties": {
+          "device_id": { "type": "string", "pattern": "^dev-[0-9a-f]{12}$", "description": "identifiers.adoc, device_id; unique in the store, never reused." },
+          "label": { "type": "string", "minLength": 1, "maxLength": 64, "description": "From the label given at pairing, else the device_id; local for a device paired through pm-operator web open; renamed by the operator in either client; display only." },
+          "paired_by": { "type": "string", "enum": ["pair", "open"], "description": "The verb that issued the redeemed pairing code (the terminal client's entry issues codes as pair does). While the store holds a device with open, pm-operator web open opens the app without pairing again (cli-and-security, web-open)." },
+          "paired_from": { "type": "string", "enum": ["loopback", "lan"], "description": "The listener the pairing was redeemed on." },
+          "secret_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the UTF-8 device secret (pmw_...); the secret itself is returned once at pairing and never stored." },
+          "created_at": { "type": "string", "format": "date-time" },
+          "last_used_at": { "type": "string", "format": "date-time", "description": "Last authenticated request, written at most once per write interval (timeouts.adoc#device-last-used-granularity); older than the device idle expiry (timeouts.adoc#device-idle-expiry) expires the device." }
+        }
+      }
+    }
+  }
+}

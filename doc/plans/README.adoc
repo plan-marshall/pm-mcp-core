@@ -399,11 +399,11 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`schema-files-foundation`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
-|link:schema-files-machine-stores.adoc[`schema-files-machine-stores`]
+|`schema-files-machine-stores`
 |The 22 schema blocks of `store-schemas` 11, 12, 13 and 15 as files; the audit and credential parity tests read the files, the credential test without regular expressions
-|`open`
-|`schema-files-foundation`
-|none: the way a specification states a schema, a limit and a list (ADR 009)
+|`done`
+|
+|
 
 |link:schema-files-other-specifications.adoc[`schema-files-other-specifications`]
 |The 14 schema blocks of the domain extensions, the harness profiles and the model work as files
@@ -426,7 +426,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:adoc-reading-retired.adoc[`adoc-reading-retired`]
 |`SpecificationDocument` and `pm.specification.root` deleted, the `**/doc/**` entry removed from the docs-only include list, the ADRs of the docs-only skip marked superseded
 |`open`
-|`schema-files-tested-records`; `schema-files-machine-stores`; `schema-files-other-specifications`; `limits-in-data-files`; `generated-listings`
+|`schema-files-tested-records`; `schema-files-other-specifications`; `limits-in-data-files`; `generated-listings`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |===

@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -103,7 +104,7 @@ class IntentSchemaParityTest {
         var recordId = SchemaParity.load(RECORD).get("$id");
 
         assertAll(
-                () -> assertTrue(recordId instanceof String, "the record file should carry its id"),
+                () -> assertInstanceOf(String.class, recordId, "the record file should carry its id"),
                 () -> assertEquals(recordId, recordMember.get("$ref"),
                         "the store should reference the record file"));
     }

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/audit-index-entry.json",
+  "title": "AuditIndexEntry",
+  "type": "object",
+  "required": ["format_version", "prev_hash", "file", "first_event_id", "last_event_id", "record_count", "checkpoint_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "prev_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the previous index line; 64 '0' characters for the first." },
+    "file": { "type": "string", "pattern": "^audit-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.jsonl$" },
+    "first_event_id": { "type": "string", "format": "uuid" },
+    "last_event_id": { "type": "string", "format": "uuid", "description": "The event_id of the file's checkpoint record." },
+    "record_count": { "type": "integer", "minimum": 1 },
+    "checkpoint_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the checkpoint record's canonical line." }
+  }
+}

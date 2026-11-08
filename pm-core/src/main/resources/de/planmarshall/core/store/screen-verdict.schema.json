@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/screen-verdict.json",
+  "title": "ScreenVerdictRecord",
+  "type": "object",
+  "required": ["format_version", "sha256", "verdict", "spans", "batch_id", "queue_task_id", "screened_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the level-1-cleaned text; the cache key within the scope." },
+    "verdict": { "type": "string", "enum": ["clean", "suspicious"] },
+    "spans": {
+      "type": "array",
+      "description": "suspicious only: the flagged spans of the cleaned text; empty for clean.",
+      "items": { "type": "object", "required": ["start", "end", "reason"], "additionalProperties": false, "properties": { "start": { "type": "integer", "minimum": 0 }, "end": { "type": "integer", "minimum": 0 }, "reason": { "type": "string", "maxLength": 200 } } }
+    },
+    "batch_id": { "type": "string", "pattern": "^BT-[0-9]+$" },
+    "queue_task_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$", "description": "The screener task (role screener) that returned the verdict." },
+    "screened_at": { "type": "string", "format": "date-time" }
+  }
+}
