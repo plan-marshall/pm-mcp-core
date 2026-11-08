@@ -75,14 +75,12 @@ class CredentialStoreMoveRecordParityTest {
         var schema = SchemaResource.load(SCHEMA);
         var properties = SchemaResource.object(schema.get("properties"));
         var stores = Arrays.stream(Store.values()).map(Store::value).toList();
-        var text = SchemaResource.text(SCHEMA);
+        var operations = Set.copyOf(Arrays.stream(Operation.values()).map(Operation::value).toList());
 
         assertAll(
-                () -> {
-                    for (var operation : Operation.values()) {
-                        assertTrue(text.contains("\"" + operation.value() + "\""), operation.value());
-                    }
-                },
+                () -> assertEquals(operations, Set.copyOf(names(SchemaResource.array(
+                        SchemaResource.object(properties.get("operation")).get("enum")))),
+                        "The operation values are the schema's"),
                 () -> assertEquals(stores, names(SchemaResource.array(
                         SchemaResource.object(properties.get("from")).get("enum"))),
                         "The from values are the store's values"),

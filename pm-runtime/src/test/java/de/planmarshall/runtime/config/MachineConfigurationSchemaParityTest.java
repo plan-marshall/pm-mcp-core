@@ -42,10 +42,18 @@ class MachineConfigurationSchemaParityTest {
     @DisplayName("a created document has exactly the members the schema requires, in schema order")
     void createdDocumentMembers() {
         var schema = SchemaResource.load(SCHEMA);
+        var properties = SchemaResource.object(schema.get("properties"));
         var created = document(MachineConfigurationCodec.create(ProviderDefaults.none()));
 
-        assertEquals(names(SchemaResource.array(schema.get("required"))), names(created.keySet()),
-                "The created members are the required ones in order");
+        assertAll(
+                () -> assertEquals(names(SchemaResource.array(schema.get("required"))), names(created.keySet()),
+                        "The created members are the required ones in order"),
+                () -> assertEquals(SchemaResource.object(properties.get("format_version")).get("const"),
+                        created.get("format_version"), "The format version is the schema const"),
+                () -> assertEquals(SchemaResource.object(properties.get("max_build_slots")).get("default"),
+                        created.get("max_build_slots"), "The build slot default is the schema's"),
+                () -> assertEquals(SchemaResource.object(properties.get("lsp_idle_timeout_seconds")).get("default"),
+                        created.get("lsp_idle_timeout_seconds"), "The LSP timeout default is the schema's"));
     }
 
     @Test

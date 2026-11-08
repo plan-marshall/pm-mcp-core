@@ -114,6 +114,9 @@ class HarnessEnrolmentSchemaParityTest {
         assertAll(
                 () -> assertEquals(Set.copyOf(names(SchemaResource.array(weightsEntry.get("required")))),
                         Set.copyOf(names(writtenWeights.keySet())), "The weights members are the schema's"),
+                () -> assertEquals(Map.of("turn", "reported", "budget", "missing"),
+                        SchemaResource.object(written.get("events")),
+                        "The event results survive serialization"),
                 () -> assertTrue(names(SchemaResource.array(eventResults.get("enum")))
                                 .containsAll(names(SchemaResource.object(written.get("events")).values())),
                         "Every written event result is a schema value"),
