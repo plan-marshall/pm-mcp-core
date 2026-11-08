@@ -2,10 +2,10 @@
   "id": "PLAN-V2-91",
   "slug": "runtime-tests-workers-and-endpoints",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-91-runtime-tests-workers-and-endpoints",
+  "pr": "#327",
+  "landing": "landings/PLAN-V2-91.md",
   "seq": -16
 }

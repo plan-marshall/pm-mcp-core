@@ -4,7 +4,7 @@ epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again).
 > Lives at `plans/PLAN-V2-99-optional-conversion-runtime-and-providers.md` and is queued as one row file, `queue/PLAN-V2-99.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -48,6 +48,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 - **Read the landing analysis of PLAN-V2-98 at the outline** (`landings/PLAN-V2-98.md`, Wa78): see the matching bullet of PLAN-V2-97 (undecided collection-wrapped `Optional` and kept private parameters, the Done-when regex, stale ADRs, one ADR per decision, split below 100 files).
 - **Read the landing analysis of PLAN-V2-110 at the outline** (`landings/PLAN-V2-110.md` S3, C2–C4, owner-register Wa60; decide at refine, R07): the null-contract plan left about 200 `nullableX(…).orElse(null)` round trips into `@Nullable` locals and builders, an `Optional` return fed through `.orElse(null)` into an unannotated component (`EffectiveRole.idleWakeups`), and `@Nullable` annotations that are not true (`SubprocessJobRunner.latest`, `HarnessProfile.askUserTool`); convert the sites of this plan's modules by making the absence a type, not by another annotation. The expected surface is unchanged.
+- **Read the landing analysis of PLAN-V2-91 at the outline** (`landings/PLAN-V2-91.md`, Wa83): the new tests of this plan (the absent case of each changed signature) draw their data from the module generators (`RuntimeGenerators`, `CoreGenerators`) and do not copy a helper into the class; a class that states "every datum is a contract" must not build a fixture that draws values; two values that a test must tell apart are drawn so that they cannot be equal.
+- **Overlap with PLAN-V2-95 (running when this spec was emitted):** both edit `FileLockManager.java` and `FileLockManagerTest.java` (operator answered the overlap prompt with "emit" on 2026-11-08). Before editing either file, list the open pull requests and merge `origin/main`; if PLAN-V2-95 has not merged, change the lock manager files last and say so in the landing message.
+- **The landing message:** the lane files it (`landing-check`); it carries the standing-rule revision and rule ids and the open items, and names `spec_source` and `spec_differ`.
 - **`Optional` stays as a return type** (absence); this plan converts fields, parameters and record components only.
 - **No format change** (R13): the codecs map `null` to the absent member exactly as `Optional.empty()` was mapped.
 - **R19 is replaced:** the Expected Surface names packages by directory; the plan runs in the conformance wave, after the test migration of its module.
