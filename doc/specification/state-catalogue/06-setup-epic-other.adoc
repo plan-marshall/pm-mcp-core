@@ -264,8 +264,8 @@ Declared in `epic.pmwf` (`scope epic`, compiled only, start `epic.decompose`); t
 |[[state-epic.decompose]]`epic.decompose`
 |`epic`
 |`call`
-|The epic's creation by its start (`start-epic.create`, or `start-epic.adopt` for an adopted ledger without any queue row; the unit's start state; the header and the sources exist); `epic.next-work` (`decomposition_pending`, `decompose_requested`); `epic.recut` (`review`).
-|`call decomposition` (xref:17-epic-decomposition-and-review.adoc#state-catalogue-decomposition[Decomposition]): the draft of the role `decompose` over the epic's stored sources (on a later run also the ledger: what shipped, what runs, what is paused, the operator's instruction, or the re-cut's proposal), the server's checks, and the operator's review; nothing is committed before the operator agrees and every check passes. A ledger read that fails raises `precondition_unmet` (`ledger_unreadable`, xref:01-conventions-generic-conditions.adoc#condition-precondition_unmet[Condition precondition unmet]).
+|The epic's creation by its start (`start-epic.create`, or `start-epic.adopt` for an adopted ledger without any queue row; the unit's start state; the header and the sources exist); `epic.next-work` (`decomposition_pending`, `decompose_requested`); `epic.recut`, `epic.ingest` (`review`); `epic.review-completion` (`continue`).
+|`call decomposition` (xref:17-epic-decomposition-and-review.adoc#state-catalogue-decomposition[Decomposition]): the draft of the role `decompose` over the epic's stored sources (on a later run also the ledger: what shipped, what runs, what is paused, the operator's instruction, or the proposal of a re-cut or a `coordinate` task), the server's checks, and the operator's review; nothing is committed before the operator agrees and every check passes. A ledger read that fails raises `precondition_unmet` (`ledger_unreadable`, xref:01-conventions-generic-conditions.adoc#condition-precondition_unmet[Condition precondition unmet]).
 |`done` (the decomposition committed) -> `epic.next-work`; `held` (the drafting role failed: the decomposition `held`) -> `epic.active`.
 |link:../model-work/08-epic-coordination.adoc#decomposition-review[Model Work Specification, The Decomposition Is Reviewed]
 
@@ -305,8 +305,8 @@ Declared in `epic.pmwf` (`scope epic`, compiled only, start `epic.decompose`); t
 |`epic`
 |`job`
 |`epic.next-work` (`message_pending`).
-|`job llm message role coordinate each epic.pending-messages`: one task per pending inbox message (a plan's message, or an operator act on one of its plans: paused, started, cancelled, abandoned, revised, settings changed), entity `message-<message_id>` (multi-submit: `submit ingest` with `kind: enum[transferred\|re-scoped\|left_alone]` and `note: text[1..2000]?`, the repeatable `submit stage`, `submit spec_section`, `submit mailbox_send`, `submit transfer_offer`, and `submit register_item` (a finding or a watch for the epic's registers), and the closing `submit:message`, which records the message `processed`). A plan that ended without landing holds the rows that depend on it with that reason; the task may re-stage its row or raise a decision for the operator, and never ends a plan.
-|`submitted` -> `epic.commit-ledger`; `infeasible`, `lost` -> `epic.active` (the messages `held`).
+|`job llm message role coordinate each epic.pending-messages`: one task per pending inbox message (a plan's message, or an operator act on one of its plans: paused, started, cancelled, abandoned, revised, settings changed), entity `message-<message_id>` (multi-submit: `submit ingest` with `kind: enum[transferred\|re-scoped\|left_alone]` and `note: text[1..2000]?`, the repeatable `submit stage` and `submit spec_section` (written into the task's proposal, never the ledger), `submit mailbox_send`, `submit transfer_offer`, and `submit register_item` (a finding or a watch for the epic's registers), and the closing `submit:message`, which records the message `processed`). A plan that ended without landing holds the rows that depend on it with that reason; the task may propose its row again or raise a decision for the operator, and never ends a plan.
+|`submitted` (no row or section proposed) -> `epic.commit-ledger`; `review` (a row or a section proposed) -> `epic.decompose` (the proposal as the draft's input); `infeasible`, `lost` -> `epic.active` (the messages `held`).
 |link:../model-work/08-epic-coordination.adoc#cross-epic-transfer[Model Work Specification, Cross-Epic Intake & Transfer]; link:../model-work/08-epic-coordination.adoc#epic-informed[The Epic Is Told]
 
 |[[state-epic.analyze-landing]]`epic.analyze-landing`
@@ -337,8 +337,8 @@ Declared in `epic.pmwf` (`scope epic`, compiled only, start `epic.decompose`); t
 |`epic`
 |`job`
 |`epic.next-work` (`through`, `archive_requested` without a completion review since the epic was through).
-|`job llm completion role coordinate`: entity `completion`, which may stage further rows (`submit stage`, `submit spec_section`) and closes with `submit:completion` carrying `verdict: enum[complete\|continue]` (`continue` is refused, `detail: nothing_staged`, unless the entity staged at least one row) and one check result per `done_when` check of the epic intent (`complete` is refused, `detail: done_when_unmet`, while a check is unmet or missing). The review is recorded in the ledger and reported (`epic.through`); `complete` never archives the epic by itself.
-|`continue` -> `epic.commit-ledger` (the archive request, if any, answered with the new rows); `complete` -> `epic.archive-check` when an archive request is pending, otherwise `epic.commit-ledger`; `infeasible`, `lost` -> `epic.active` (the completion review `held`).
+|`job llm completion role coordinate`: entity `completion`, which may propose further rows (`submit stage`, `submit spec_section`, written into its proposal) and closes with `submit:completion` carrying `verdict: enum[complete\|continue]` (`continue` is refused, `detail: nothing_staged`, unless the entity proposed at least one row) and one check result per `done_when` check of the epic intent (`complete` is refused, `detail: done_when_unmet`, while a check is unmet or missing). The review is recorded in the ledger and reported (`epic.through`); `complete` never archives the epic by itself.
+|`continue` -> `epic.decompose` (the proposed rows as the draft's input; the archive request, if any, answered with them); `complete` -> `epic.archive-check` when an archive request is pending, otherwise `epic.commit-ledger`; `infeasible`, `lost` -> `epic.active` (the completion review `held`).
 |link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]
 
 |[[state-epic.archive-check]]`epic.archive-check`
@@ -352,7 +352,7 @@ Declared in `epic.pmwf` (`scope epic`, compiled only, start `epic.decompose`); t
 |[[state-epic.commit-ledger]]`epic.commit-ledger`
 |`epic`
 |`call`
-|`epic.reground`, `epic.recut` (`applied`), `epic.ingest`, `epic.analyze-landing`, `epic.recheck-watches` (`submitted`); `epic.review-completion` (`continue`, `complete` without an archive request); `epic.next-work` (`settings_changed`, `archive_uncommitted`); `epic.archive` (`archived`).
+|`epic.reground`, `epic.recut` (`applied`), `epic.ingest`, `epic.analyze-landing`, `epic.recheck-watches` (`submitted`); `epic.review-completion` (`complete` without an archive request); `epic.next-work` (`settings_changed`, `archive_uncommitted`); `epic.archive` (`archived`).
 |`call git.commit_and_push (message_mode=step_or_fallback, push_mode=never)` in the shared epic worktree on the fixed epic branch, staging only `.marshall/epics/**`; while the epic archives also `.marshall/archived-epics/**` (link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]).
 |`done` -> `epic.next-work`; `stepped_out` -> `epic.active` (the write stays uncommitted and is committed with the next ledger write, or while the epic archives after the watch settled again).
 |link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]

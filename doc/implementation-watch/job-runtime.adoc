@@ -675,3 +675,22 @@ proxy admitted, and a tunnel to a compiled-only host is refused; a fixture launc
 `egress: unenforced`. Matched control: a worker under the compiled profile records `compiled` and its digest.
 Source:: Article analysis `your-agent-is-mine` of plan-marshall-documentation; the paper's transparency log records the
 router URL per request.
+
+[#PM-WATCH-JOB-47]
+=== PM-WATCH-JOB-47: A build reaches only its enrolled hosts and its listed read set, and keeps its warm daemons
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#build-egress[Job Runtime § Build Egress & Build Read Set],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: A network namespace per job leaves the Gradle daemon or `mvnd` of the previous job unreachable over loopback,
+so every build starts a new daemon and the old ones pile up; a build tool ignores `HTTPS_PROXY` (Maven, a forked test
+JVM) and fails on a host the enrolment admits; a captured `build_environment` carries the operator's own
+`HTTPS_PROXY` and overrides the job's; or the read set misses a file the build tool needs and the build fails in a way
+that names neither the file nor the field that grants it.
+Guard:: Integration tests on Linux and macOS with a fixture registry: a Maven and a Gradle build resolve from a host in
+`egress_hosts` through the proxy; a test that connects to a host outside it fails, the failure envelope names the host
+and `egress_hosts`, and a `security` record `egress_refused` is written; a test that reads `~/.ssh/id_ed25519` or
+`~/.config/gh/hosts.yml` fails, and `~/.m2/settings.xml` is readable only when `build_credential_files` names it; two
+consecutive Gradle builds of one project and write set reuse one daemon; the job records state `egress: enforced` and
+the admitted hosts. Matched controls: under `build_network: open` the outside host is reached and the record states
+`egress: open`; a `build_environment` with the operator's `HTTPS_PROXY` set leaves the job's own proxy in force, never the captured value.
+Source:: Article analyses `secure-architecture-for-ai-agents-owasp-llm` and `secure-architecture-for-ai-agents-owasp-agentic` of plan-marshall-documentation.
