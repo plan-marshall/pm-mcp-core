@@ -51,7 +51,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `StalledScopeDetectorTest` and `UnitFrontmatterReaderTest` name `pm.specification.root` today (grep, `main` of 2026-11-06).
+  - verdict: corroborated | checked_at: 5f0e74be | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: At 7d1720c8 neither StalledScopeDetectorTest nor UnitFrontmatterReaderTest names pm.specification.root; the diff removes System.getProperty of it from both (old thresholdIsTheSpecifiedValue and specificationPart). The claim held at 9c867f05.
 - HYPOTHESIS: `StalledScopeDetector.THRESHOLD` lies in `pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java` and the three limits in `UnitFrontmatterReader` of `pm-workflow` (`workflow/dsl/`) — confirm at the outline (verify-at-outline).
+  - verdict: contradicted | checked_at: 5f0e74be | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: no | evidence: Partly refuted: StalledScopeDetector.THRESHOLD lay in StalledScopeDetector (:46 at the parent) and MAX_FRONTMATTER_LINES and MAX_ECHO_LENGTH in UnitFrontmatterReader (:77, :83), but MAX_UNIT_FILE_BYTES lay in pm-workflow/.../unit/ProjectUnitLoader.java:112 (:117 at the merge), a file outside the Expected Surface. Recorded by the plan as a surface delta; the spec's own package file already named ProjectUnitLoader.
 - Verify-first clause: before editing, list the open pull requests for one that touches these classes; PLAN-V2-89 edits the tests of `runtime/start/` and PLAN-V2-98 the production code of `pm-workflow`.
 
 ## Expected Surface

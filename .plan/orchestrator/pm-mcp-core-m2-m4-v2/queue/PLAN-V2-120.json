@@ -2,10 +2,10 @@
   "id": "PLAN-V2-120",
   "slug": "limits-in-data-files",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-120-limits-in-data-files",
+  "pr": "#321",
+  "landing": "landings/PLAN-V2-120.md",
   "seq": 108
 }
