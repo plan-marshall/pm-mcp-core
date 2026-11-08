@@ -32,9 +32,9 @@ import de.planmarshall.core.store.OutlineStore.DeliveryStatus;
 import de.planmarshall.core.store.OutlineStore.Revision;
 
 /**
- * The outline store and the outline record keep parity with the schema files of {@code store-schemas/06}: their members,
- * their required members and every enumeration are the files', and the two negative controls prove the comparison
- * reports a member only one side has.
+ * The outline store and the outline record keep parity with the schema files of {@code store-schemas/06}: their members
+ * and every enumeration are the files', every required member a record shares with its file is carried, and the two
+ * negative controls prove the comparison reports a member only one side has.
  */
 @EnableGeneratorController
 @DisplayName("Outline store and record schema parity")
