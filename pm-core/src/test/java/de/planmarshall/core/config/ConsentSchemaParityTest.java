@@ -83,7 +83,7 @@ class ConsentSchemaParityTest {
         var kinds = SchemaResource.object(SchemaResource.object(condition.get("if")).get("properties")).get("kind");
 
         assertEquals(Arrays.stream(ConsentKind.values()).filter(ConsentKind::projectScoped)
-                .map(ConsentKind::wireName).toList(),
+                        .map(ConsentKind::wireName).toList(),
                 names(SchemaResource.array(SchemaResource.object(kinds).get("enum"))),
                 "The project-scoped kinds are the entry rule's");
     }

@@ -61,7 +61,7 @@ class CredentialStoreMoveRecordParityTest {
                         "operation", "transaction_id"), declared),
                 () -> assertEquals(declared, required(schema), "every member is required"),
                 () -> assertEquals(declared, SchemaResource.object(
-                        SchemaResource.parse(new String(written, StandardCharsets.UTF_8))).keySet(),
+                                SchemaResource.parse(new String(written, StandardCharsets.UTF_8))).keySet(),
                         "the written members are the schema's"),
                 () -> assertEquals(1, CredentialStoreMoveRecord.FORMAT_VERSION),
                 () -> assertTrue(new String(written, StandardCharsets.UTF_8).startsWith("{\"format_version\":1,"),
