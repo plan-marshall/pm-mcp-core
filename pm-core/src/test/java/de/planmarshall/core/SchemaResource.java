@@ -11,8 +11,6 @@ package de.planmarshall.core;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
