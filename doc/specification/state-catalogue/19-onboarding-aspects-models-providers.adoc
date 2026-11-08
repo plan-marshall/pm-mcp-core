@@ -132,8 +132,8 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |[[state-roles.speech]]`roles.speech`
 |`machine`
 |`operator_wait`
-|`roles.review` (`speech`); `roles.speech-check` (`not_found`).
-|The methods of the speech role `transcribe`, each with where its audio goes, the ones allowed marked; after a failed check the local model with its reason. `allow` (the methods, the provider with its credential key); `back`.
+|`roles.review` (`speech`); `roles.speech-check` (`not_found`, `check_failed`, `cancelled`).
+|The methods of the speech role `transcribe`, each with where its audio goes, the ones allowed marked; after a failed check the local model with its reason. `allow` (the methods, the provider with its base URL, model id, and credential key; in the first run the provider's token is asked later, in `providers.credentials`); `back`.
 |`allow` -> `roles.speech-consent` where a chosen method's consent is not remembered, else `roles.speech-check` where the local model is chosen and not yet checked, else `roles.speech-write`; `back` -> `roles.review`.
 |link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work Specification, The Speech Role `transcribe`]
 
@@ -141,8 +141,8 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`machine`
 |`operator_wait`
 |`roles.speech` (`allow`).
-|Consent kinds `transcribe_browser`, `transcribe_provider`, and `scan_speech_model`, one per chosen method, each answered alone with `yes_remember` or `no`; a method answered `no` is not allowed.
-|`answered` -> `roles.speech-check` where the local model is consented, else `roles.speech-write`.
+|Consent kinds `transcribe_browser`, `transcribe_provider` (each answered alone with `yes_remember` or `no`), and `scan_speech_model` (`yes`, `yes_remember`, or `no`), one per chosen method; a method answered `no` is not allowed.
+|`answered` -> `roles.speech-check` where the local model is consented and not yet checked, else `roles.speech-write`.
 |link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
 
 |[[state-roles.speech-check]]`roles.speech-check`

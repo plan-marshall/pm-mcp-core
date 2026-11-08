@@ -318,10 +318,10 @@ The runtime owns every value of this section: it serves web access itself, on it
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#transcriptions[Runtime Model, Transcriptions]; link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work, The Speech Role `transcribe`]
 
 |[[chat-page]]Chat transcript page
-|`50` turns per page of `GET …/chat`.
+|`50` turns per page of `GET …/chat`; a role's reply of at most `64` KiB (the chat reply bound).
 |fixed (compiled constant)
 |—
-|the transcript of a chat read by a client
-|—
+|the transcript of a chat read by a client; the reply `chat.reply` writes
+|A longer reply ends its job; the turn ends `failed` with the reason.
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]
 |===
