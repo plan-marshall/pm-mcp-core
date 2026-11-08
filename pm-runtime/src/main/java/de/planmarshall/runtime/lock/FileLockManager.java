@@ -74,7 +74,10 @@ import de.planmarshall.runtime.start.PosixModes;
  * {@code <file>.lock} beside that store, which no append, repair or read of the store opens: closing a channel on a
  * file releases every OS lock the process holds on it, so a lock taken on the store itself would be dropped by the
  * store's own write (ADR 068). The manager creates the sidecar where it is absent, but never its directory, which
- * belongs to the store. Opening an existing lock file changes neither its content nor its modification time.
+ * belongs to the store. Opening an existing lock file changes neither its content nor its modification time. The
+ * sidecar does not remove the hazard of the second instance described above: an acquisition that meets the sidecar's
+ * lock still closes a channel on it and releases the first holder's lock, so one instance per runtime stays a
+ * precondition.
  * <p>
  * The locks of a thread are held per transaction. A thread that opens a second transaction while the first holds a
  * key may acquire that key in the second one as well; the order is asserted within each transaction only.
