@@ -63,7 +63,7 @@ class QuestionLogRecordReaderBoundaryTest {
     @BeforeEach
     void createRuntime() throws IOException {
         project = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
-        planId = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        planId = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         base = TestBases.create("pmq-");
         Files.createDirectories(base);
         base = base.toRealPath();

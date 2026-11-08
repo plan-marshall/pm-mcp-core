@@ -61,6 +61,10 @@ class EndpointRequestTest {
         var composed = EndpointRequest.compose(EndpointFixtures.profile(), "mid", prompt, task,
                 null);
         var body = composed.request().body();
+        var document = JsonDocument.parse(body.getBytes(StandardCharsets.UTF_8), "request");
+        var systemContent = document.member("messages").orElseThrow().elements().stream()
+                .filter(message -> message.member("role").flatMap(JsonNode::text).filter("system"::equals).isPresent())
+                .findFirst().orElseThrow().member("content").orElseThrow().text().orElseThrow();
 
         assertAll(
                 () -> assertTrue(composed.isComposed()),
@@ -68,7 +72,7 @@ class EndpointRequestTest {
                 () -> assertTrue(body.contains("\"stream\":false")),
                 () -> assertTrue(body.contains("\"role\":\"system\"")),
                 () -> assertTrue(body.contains("\"role\":\"user\"")),
-                () -> assertTrue(body.contains(prompt)),
+                () -> assertEquals(prompt, systemContent, "the system message carries the launch prompt"),
                 () -> assertTrue(body.contains("\"model\":\"mid\"")),
                 () -> assertTrue(body.contains("\"max_tokens\":1024")),
                 () -> assertTrue(body.contains("\"temperature\":0")),

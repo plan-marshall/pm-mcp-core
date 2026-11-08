@@ -98,7 +98,7 @@ class EnrolmentKeyTest {
 
     @BeforeEach
     void draw() {
-        foreignUser = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        foreignUser = USER + "-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
     }
 
     @Nested

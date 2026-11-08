@@ -76,7 +76,7 @@ class AgentStartedDetectorTest {
     @BeforeEach
     void setUp() throws IOException {
         fixture = new SupervisorTestFixture(base);
-        queueTask = "queue-task-" + Generators.integers(1, 999).next();
+        queueTask = RuntimeGenerators.queueTaskIds().next();
         attempt = Generators.integers(1, 5).next();
         impostorDigest = RuntimeGenerators.sha256Digests().next();
         otherDigest = RuntimeGenerators.sha256Digests().next();
