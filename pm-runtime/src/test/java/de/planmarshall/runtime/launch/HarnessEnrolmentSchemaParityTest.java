@@ -58,7 +58,6 @@ class HarnessEnrolmentSchemaParityTest {
 
     private static final String SCHEMA = "de/planmarshall/runtime/launch/harnesses.schema.json";
     private static final String USER = System.getProperty("user.name");
-    private static final String SHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     @TempDir
     Path base;
@@ -77,7 +76,7 @@ class HarnessEnrolmentSchemaParityTest {
     @DisplayName("an entry with weights carries exactly the schema's members")
     void fullEntryMembers() {
         var properties = SchemaResource.object(programEntry().get("properties"));
-        var entry = writtenEntry(Map.of("deepseek-v4.1", new HarnessEnrolment.Weights("weights-" + SHA256,
+        var entry = writtenEntry(Map.of("deepseek-v4.1", new HarnessEnrolment.Weights("weights-" + digest(),
                 Instant.ofEpochSecond(Generators.longs(0, 2_000_000_000L).next()))), Map.of());
 
         assertEquals(Set.copyOf(names(properties.keySet())), Set.copyOf(names(entry.keySet())),
@@ -106,7 +105,7 @@ class HarnessEnrolmentSchemaParityTest {
         var defs = SchemaResource.object(SchemaResource.load(SCHEMA).get("$defs"));
         var weightsEntry = SchemaResource.object(SchemaResource.object(defs.get("weights")).get("additionalProperties"));
         var eventResults = SchemaResource.object(SchemaResource.object(defs.get("events")).get("additionalProperties"));
-        var written = writtenEntry(Map.of("deepseek-v4.1", new HarnessEnrolment.Weights("weights-" + SHA256,
+        var written = writtenEntry(Map.of("deepseek-v4.1", new HarnessEnrolment.Weights("weights-" + digest(),
                         Instant.ofEpochSecond(Generators.longs(0, 2_000_000_000L).next()))),
                 Map.of("turn", "reported", "budget", "missing"));
         var writtenWeights = SchemaResource.object(SchemaResource.object(written.get("weights"))
@@ -120,6 +119,11 @@ class HarnessEnrolmentSchemaParityTest {
                         "Every written event result is a schema value"),
                 () -> assertEquals(HarnessEnrolmentStore.FORMAT_VERSION, formatVersion(),
                         "The format version is the schema const"));
+    }
+
+    /** @return a 64-character lowercase hexadecimal digest */
+    private static String digest() {
+        return Generators.strings("0123456789abcdef", 64, 64).next();
     }
 
     @Test
@@ -172,7 +176,7 @@ class HarnessEnrolmentSchemaParityTest {
     private Map<?, ?> writtenEntry(Map<String, HarnessEnrolment.Weights> weights, Map<String, String> events,
             UsageReport usageReport) {
         var now = Instant.ofEpochSecond(Generators.longs(0, 2_000_000_000L).next());
-        var enrolment = new HarnessEnrolment("opencode", Path.of("/opt/harness/opencode"), SHA256,
+        var enrolment = new HarnessEnrolment("opencode", Path.of("/opt/harness/opencode"), digest(),
                 "1." + Generators.integers(0, 99).next(), now, now, usageReport, events, weights);
         store().enrol(enrolment);
         var document = SchemaResource.object(SchemaResource.parse(

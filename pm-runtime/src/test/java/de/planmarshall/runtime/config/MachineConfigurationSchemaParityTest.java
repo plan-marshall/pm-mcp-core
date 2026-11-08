@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -56,9 +57,10 @@ class MachineConfigurationSchemaParityTest {
         var created = document(MachineConfigurationCodec.create(defaults));
         var providers = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("providers"));
         var written = SchemaResource.object(SchemaResource.object(created.get("providers")).get("github"));
+        var expected = new ArrayList<>(names(SchemaResource.array(schema.get("required"))));
+        expected.add("providers");
 
-        assertEquals(List.of("format_version", "revision", "max_build_slots", "lsp_idle_timeout_seconds", "providers"),
-                names(created.keySet()), "The providers follow the required members");
+        assertEquals(expected, names(created.keySet()), "The providers follow the required members");
         assertEquals(Arrays.stream(Provider.values()).map(Provider::wireName).toList(),
                 names(SchemaResource.array(SchemaResource.object(providers.get("propertyNames")).get("enum"))),
                 "The provider keys are the schema's closed list");
