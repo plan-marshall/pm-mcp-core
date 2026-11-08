@@ -47,7 +47,8 @@ import de.planmarshall.core.store.PlanHistoryLine.Event;
  * members {@link PlanHistoryCodec#write(PlanHistoryLine)} emits are the schema's members in schema order and every one
  * of them is required, the values of {@code event} are the wire names of {@link Event}, the format version is the
  * schema's {@code const}, the bounds of the schema (the {@code maxItems} of the call path, the minimums of {@code seq}
- * and {@code instance_version}, the pattern of {@code outcome}) are the limits the codec enforces, and every line the
+ * and {@code instance_version}, the {@code minLength} of {@code node}, the pattern of {@code outcome}) are the limits
+ * the codec enforces, and every line the
  * codec writes is valid against the schema. The codec exposes no member
  * list, so the test reads the members of a written line. The schema is the file
  * {@code de/planmarshall/core/store/history-line.schema.json} beside the codec, read from the class path.
@@ -138,6 +139,7 @@ class PlanHistorySchemaParityTest {
         var seqMin = ((Number) SchemaResource.object(properties.get("seq")).get("minimum")).longValue();
         var versionMin = ((Number) SchemaResource.object(properties.get("instance_version")).get("minimum"))
                 .intValue();
+        var nodeMin = ((Number) SchemaResource.object(properties.get("node")).get("minLength")).intValue();
         var outcomePattern = Pattern.compile(
                 String.valueOf(SchemaResource.object(properties.get("outcome")).get("pattern")));
         var word = lowerWord();
@@ -157,6 +159,10 @@ class PlanHistorySchemaParityTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> build(seqMin, versionMin, callPathMax + 1, word),
                         "One frame above the maxItems is refused"),
+                () -> assertDoesNotThrow(() -> buildNode(nodeMin),
+                        "The codec accepts the schema node minimum"),
+                () -> assertThrows(IllegalArgumentException.class, () -> buildNode(nodeMin - 1),
+                        "One below the node minLength is refused"),
                 () -> assertTrue(outcomePattern.matcher(word).matches(),
                         "The schema outcome pattern accepts a word"),
                 () -> assertFalse(outcomePattern.matcher(notWord).matches(),
@@ -164,6 +170,13 @@ class PlanHistorySchemaParityTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> build(seqMin, versionMin, callPathMax, notWord),
                         "The codec refuses what the pattern refuses"));
+    }
+
+    private static PlanHistoryLine buildNode(int nodeLength) {
+        var node = nodeLength == 0 ? "" : Generators.letterStrings(nodeLength, nodeLength).next();
+        return PlanHistoryLine.of(Generators.longs(1, 1_000_000).next(), Event.LEFT, node, List.of(), null, null,
+                Generators.integers(1, 1_000).next(),
+                Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next()));
     }
 
     private static PlanHistoryLine build(long seq, int instanceVersion, int callFrames, String outcome) {

@@ -2456,8 +2456,8 @@ construction) and `PlanHistorySchemaParityTest`, which reads the schema file
 `de/planmarshall/core/store/history-line.schema.json` beside the codec through `SchemaResource` and proves that the
 members the codec writes are the schema's members in schema order and all required, that the events and the format
 version are the schema's, that the schema's bounds are the limits the codec enforces (the `maxItems` of the call path,
-the minimums of `seq` and `instance_version`, and the `outcome` pattern, each with the value on the bound accepted and
-the one beyond it refused), and that every written line is valid against the schema while a line with an undeclared
+the minimums of `seq` and `instance_version`, the `minLength` of `node` and the `outcome` pattern, each with the value
+on the bound accepted and the one beyond it refused), and that every written line is valid against the schema while a line with an undeclared
 member is not.
 
 link:../adr/core-store/051-the-plan-history-in-core-store.adoc[ADR 051]: the plan's history is an append-only log in
