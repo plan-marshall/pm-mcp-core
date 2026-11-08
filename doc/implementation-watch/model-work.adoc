@@ -912,3 +912,37 @@ before each restart the count. Eight `file_changed` entries of one path without 
 matched control: a `pm_build` call after the seventh restarts it. The compiled `edit_churn` threshold is checked
 against the changes per file of recorded envelope tasks before the shipped roles choose an action other than `show`.
 Source:: Repository analysis `claude-code-bill-tokeneconomizer` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-72]
+=== PM-WATCH-DISP-72: A row a task proposes reaches the ledger only through the operator's review
+
+Anchor:: link:../specification/model-work/08-epic-coordination.adoc#decomposition-review[Model Work § The Decomposition Is Reviewed]
+(_Every new row through the review_), link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15]
+Hazard:: The `stage` and `spec_section` submits share one handler for the draft and the ledger, and the `message` or
+`completion` entity of `coordinate` keeps the old path that writes the ledger; with automatic mode on, the epic then
+starts a plan from a section that a task wrote after reading a plan's message, and the plan reads it as the
+project's own (`epic_row`), unscreened and without the operator having seen it.
+Guard:: Scenario test with automatic mode on: a `coordinate` task for a plan's `process_finding` message submits
+`stage` and `spec_section`; `epic.ingest` settles `review`, `epic.decompose` is entered with the proposal as the
+draft's input, `queue/` and `spec.md` are byte-identical until the operator's _agree_, and no plan starts before it;
+the same for the `completion` entity's `continue` and for a cross-epic intake, whose `intake_confirmed` is appended
+only when the agreed row is committed. Matched controls: a re-cut that only re-orders staged rows is applied without
+the review (`applied`), and the follow-up of a re-planning is staged and started without the review and, when the plan
+it follows read a source marked untrusted, runs the added-line rule table.
+Source:: Article analysis `secure-architecture-for-ai-agents` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-73]
+=== PM-WATCH-DISP-73: A hidden character never reaches the epic ledger
+
+Anchor:: link:../specification/model-work/08-epic-coordination.adoc#git-distributed-epic-ledger[Model Work § Git-Distributed Epic Ledger]
+(_No hidden character in the ledger_),
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
+Hazard:: The check runs only on the submits of the epic's own tasks and misses a plan's `outbox:send`, whose body lands
+in `inbox.jsonl`; or it runs on the NFC copy only and lets a code point through that normalisation keeps; or it strips
+the character silently, so the task never learns that its text was changed.
+Guard:: Scenario tests: an `outbox:send` body and a `spec_section` text each holding U+200B (zero-width space) and
+U+202E (right-to-left override) are refused with `invalid_link_args` and the `detail` code `hidden_characters` naming
+the field and the position, and `inbox.jsonl` and `spec.md` are byte-identical afterwards; a re-submit without the
+characters is written. Matched negative controls: a text with an emoji sequence joined by U+200D and one that spells
+`​` as an escape in a code block are written unchanged.
+Source:: Article analysis `secure-architecture-for-ai-agents` of plan-marshall-documentation.
