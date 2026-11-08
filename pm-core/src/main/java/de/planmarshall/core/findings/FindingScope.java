@@ -9,12 +9,11 @@
  */
 package de.planmarshall.core.findings;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What findings are fetched for and what code analysis is asked about (PM-IMPL-1): a commit, or a pull request at

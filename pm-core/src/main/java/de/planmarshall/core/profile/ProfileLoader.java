@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +25,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.StoreRefusal;

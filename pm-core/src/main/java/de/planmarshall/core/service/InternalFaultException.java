@@ -9,12 +9,11 @@
  */
 package de.planmarshall.core.service;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.LockKey;
 

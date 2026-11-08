@@ -21,8 +21,6 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -35,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads and writes one line of the waiver consumption log (PM-IMPL-2): a {@link WaiverConsumptionRecord} as the JSON

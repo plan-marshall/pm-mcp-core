@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -25,6 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One line of the question log {@code questions.jsonl} of a scope (PM-WF-12, PM-IMPL-2): one event of one question,

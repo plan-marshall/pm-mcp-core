@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -21,6 +19,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.ConfinementOutcome.Reason;
 import de.planmarshall.core.store.ConfinementOutcome.Rejected;

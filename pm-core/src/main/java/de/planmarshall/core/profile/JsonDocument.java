@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -19,6 +17,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads a client profile or a profile verification record as the bounded tree of a {@link JsonNode} (PM-CLIENT-5).

@@ -9,12 +9,11 @@
  */
 package de.planmarshall.core.queue;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Masks a secret-shaped value before an activity entry is written (Store Schemas § Activity Journal: every text and

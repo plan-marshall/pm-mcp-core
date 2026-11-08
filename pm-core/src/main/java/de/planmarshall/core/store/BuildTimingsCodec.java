@@ -19,8 +19,6 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -35,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.BuildTimings.Baseline;
 import de.planmarshall.core.store.BuildTimings.KeyTimings;

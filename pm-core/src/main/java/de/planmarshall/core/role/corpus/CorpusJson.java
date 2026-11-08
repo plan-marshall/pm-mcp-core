@@ -12,8 +12,6 @@ package de.planmarshall.core.role.corpus;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -27,6 +25,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.StrictJson;
 

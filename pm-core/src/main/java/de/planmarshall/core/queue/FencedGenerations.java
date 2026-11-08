@@ -21,8 +21,6 @@ import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 import static de.planmarshall.core.store.StrictJson.writeInstant;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -39,6 +37,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;

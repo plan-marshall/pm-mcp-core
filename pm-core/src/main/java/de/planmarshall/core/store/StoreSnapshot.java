@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -21,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The lock-free read of a store (PM-IMPL-7): the content of the file as it is at the moment of the read, taken

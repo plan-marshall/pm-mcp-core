@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.role.qualification;
 
-import org.jspecify.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -19,6 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The measurements of one instrument check of a judge configuration (Store Schemas § Judge Check Record; Model Work

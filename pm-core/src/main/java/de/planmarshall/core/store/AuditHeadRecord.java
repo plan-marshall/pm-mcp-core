@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Objects;
 import java.util.regex.Pattern;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The head of the audit log {@code logs/audit.head} (PM-SEC-6): the state of the current log after the last append,

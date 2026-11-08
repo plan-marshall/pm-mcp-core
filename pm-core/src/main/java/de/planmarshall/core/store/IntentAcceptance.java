@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.IntentRecord.CapabilityChange;
 import de.planmarshall.core.store.IntentRecord.CapabilityLink;

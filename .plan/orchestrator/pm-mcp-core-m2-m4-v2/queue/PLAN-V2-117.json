@@ -2,10 +2,10 @@
   "id": "PLAN-V2-117",
   "slug": "schema-files-machine-stores",
   "workstream": "WS-12",
-  "status": "launched",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-117-schema-files-machine-stores",
+  "pr": "#320",
+  "landing": "landings/PLAN-V2-117.md",
   "seq": 105
 }

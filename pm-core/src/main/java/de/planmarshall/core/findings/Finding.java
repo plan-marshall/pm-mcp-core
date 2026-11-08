@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.findings;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -20,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One finding as the findings ledger records it (PM-IMPL-1, PM-IMPL-2): a provider-neutral, normalized finding from

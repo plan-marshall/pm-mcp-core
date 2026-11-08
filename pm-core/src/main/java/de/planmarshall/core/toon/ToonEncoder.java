@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.toon;
 
-import org.jspecify.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -19,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.toon.ToonEncodingException.Reason;
 import de.planmarshall.core.toon.ToonValue.ToonArray;

@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.role;
 
-import org.jspecify.annotations.Nullable;
-
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The three role sets of a machine and a project (PM-WORK-1, Role Sets &amp; Precedence): what the release ships, what the

@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.spi.validation;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.IntentRecord;
 
