@@ -37,8 +37,9 @@ import de.planmarshall.core.store.LockLevel;
  * {@code plans/<plan_id>/tasks/activity/<queue_task_id>.jsonl}, and the same below {@code epics/<epic_id>/},
  * {@code workspace/} and the machine scope.
  * <p>
- * The journal is append-only. The runtime appends each entry as its line arrives, under the journal's own leaf lock
- * taken on the file, outside the scope's transaction journal and digest sidecar, like a job log. A torn last line is
+ * The journal is append-only. The runtime appends each entry as its line arrives, under the journal's own leaf lock,
+ * whose OS lock the manager takes on the sibling {@code <queue_task_id>.jsonl.lock}, outside the scope's transaction
+ * journal and digest sidecar, like a job log. A torn last line is
  * ignored by a reader and repaired by the next writer. {@code seq} is never reused, so a client's cursor stays valid.
  * A journal holds at most the compiled bound of 5000 entries; an append beyond it rewrites the journal without its
  * oldest {@code text} entries, never a server entry, under the same lock. A journal of more than the bound in server

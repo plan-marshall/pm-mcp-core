@@ -1657,8 +1657,9 @@ within its level. There is one factory per lock (`LockKey.plan(base, projectId, 
 …), and the factories are the one list of the lock paths. A project, plan or epic id is checked against the identifier
 pattern before it becomes part of a path. The lock files of a project lie below `projects/<project_id>/locks/`, those of
 the machine stores below `locks/` (those of the machine scope below `machine/locks/`, the lock of an onboarding entry
-below `onboardings/locks/`), outside the directories they protect. Only the two leaf keys name the guarded file
-itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`); the OS lock of a leaf key is taken on the sidecar
+below `onboardings/locks/`), outside the directories they protect. Only the leaf keys name the guarded file itself
+(the audit log `logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`, a task's activity journal); the OS lock of a leaf
+key is taken on the sidecar
 `<key.lockFile()>.lock`, so that no write of the store releases it — for the two factory leaf keys that is
 `<store>.lock` beside the store (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). Keys are
 ordered by level, then by id, then by lock path; the id of a machine store lock is its lock name without the
@@ -1782,13 +1783,13 @@ before it touches the file.
 A JSONL store of a scope is appended to through its `ScopeTransaction` (<<_scope_transaction>>), not through `append`
 directly; `append` is for the JSONL stores outside a scope, under their own key.
 
-*Leaf keys and the OS lock:* a leaf key names the store file itself (`logs/audit.jsonl`, a plan's
-`mcp/mailbox.jsonl`), and on POSIX closing any channel on a file releases every OS lock the process holds on it. An
-append, a repair and a predecessor read therefore open and close a channel on the store, so the OS lock of a leaf key
-is taken on the sidecar `<key.lockFile()>.lock` beside it, which no store channel opens; the store itself stays
-unlocked. For the two factory leaf keys the key names the store, so the sidecar is `<store>.lock`
-(link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). A store guarded by a non-leaf key is not
-affected: its lock file lies elsewhere than the store.
+*Leaf keys and the OS lock:* a leaf key names a file no store channel may hold a lock on: an append, a repair and a
+predecessor read open and close a channel on the store, and on POSIX closing any channel on a file releases every OS
+lock the process holds on it. The OS lock of a leaf key is therefore taken on the sidecar `<key.lockFile()>.lock`,
+which no store channel opens; the guarded file itself stays unlocked. For the two factory leaf keys the key names the
+guarded store, so the sidecar is `<store>.lock` beside it; the audit key also guards the audit index, whose appends
+open channels on the index, never on `audit.jsonl.lock`. A store guarded by a non-leaf key is not affected: its lock
+file lies elsewhere than the store (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]).
 
 Tests: `JsonlStoreFileTest`.
 
