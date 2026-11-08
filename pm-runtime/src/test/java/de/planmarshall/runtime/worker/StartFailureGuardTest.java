@@ -245,8 +245,10 @@ class StartFailureGuardTest {
                 generation(RuntimeGenerators.jobIds(JobId.Kind.LLM).next(), WorkerLifecycle.START_FAILED),
                 generation(RuntimeGenerators.jobIds(JobId.Kind.LLM).next(), WorkerLifecycle.START_FAILED)));
         var built = new StartFailureGuard(project, () -> List.copyOf(failed), protocol, audits::add, clock(),
-                (role, harness) -> failed.removeIf(generation -> generation.lifecycle() == WorkerLifecycle.START_FAILED
-                        && generation.role().equals(role) && generation.harness().equals(harness)));
+                (clearedRole, clearedHarness) -> failed.removeIf(
+                        generation -> generation.lifecycle() == WorkerLifecycle.START_FAILED
+                                && generation.role().equals(clearedRole)
+                                && generation.harness().equals(clearedHarness)));
         var heldBefore = built.holds(role, harness);
 
         built.clear(role, harness);
