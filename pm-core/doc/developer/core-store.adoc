@@ -1659,10 +1659,10 @@ pattern before it becomes part of a path. The lock files of a project lie below 
 the machine stores below `locks/` (those of the machine scope below `machine/locks/`, the lock of an onboarding entry
 below `onboardings/locks/`), outside the directories they protect. Only the two leaf keys name the guarded file
 itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`); the OS lock of a leaf key is taken on the sidecar
-`<file>.lock` beside the guarded file, so that no write of the store releases it
-(link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). Keys are ordered by level, then by id, then
-by lock path; the id of a machine store lock is its lock name without the extension, so `ab.lock` sorts before
-`ab-c.lock`.
+`<key.lockFile()>.lock`, so that no write of the store releases it — for the two factory leaf keys that is
+`<store>.lock` beside the store (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). Keys are
+ordered by level, then by id, then by lock path; the id of a machine store lock is its lock name without the
+extension, so `ab.lock` sorts before `ab-c.lock`.
 
 `LockOrder` is the order assertion as a pure function of the held keys and the requested key; it opens no file. Its
 `Decision` is `Reentry` (the key is held already), `Permitted`, or `Violation(held, requested)`: nothing after a leaf,
@@ -1785,7 +1785,8 @@ directly; `append` is for the JSONL stores outside a scope, under their own key.
 *Leaf keys and the OS lock:* a leaf key names the store file itself (`logs/audit.jsonl`, a plan's
 `mcp/mailbox.jsonl`), and on POSIX closing any channel on a file releases every OS lock the process holds on it. An
 append, a repair and a predecessor read therefore open and close a channel on the store, so the OS lock of a leaf key
-is taken on the sidecar `<store>.lock` beside it, which no store channel opens; the store itself stays unlocked
+is taken on the sidecar `<key.lockFile()>.lock` beside it, which no store channel opens; the store itself stays
+unlocked. For the two factory leaf keys the key names the store, so the sidecar is `<store>.lock`
 (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). A store guarded by a non-leaf key is not
 affected: its lock file lies elsewhere than the store.
 

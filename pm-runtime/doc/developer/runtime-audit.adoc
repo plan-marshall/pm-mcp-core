@@ -181,7 +181,7 @@ verifies the checkpoint under the key (below).
 
 *A stop during a rotation.* Because the index entry is written before the rename, a stop after the rename still finds
 the entry, and the next record links to the checkpoint. A stop between the rename and the record of the same append
-leaves no current log (or an empty one the audit lock creates, or a torn first line), an index whose last entry names
+leaves no current log (or an empty one an append creates, or a torn first line), an index whose last entry names
 the rotated file, and the head of the last append before the rotation, which anchors the index line before that entry
 and the line before the checkpoint of the rotated file. The verification reports that state intact only when every
 piece of it verifies (<<_the_verification>>), and the next append heals it: its record chains to the checkpoint line,

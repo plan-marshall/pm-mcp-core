@@ -28,10 +28,13 @@ opens.
 
 == Decision
 
-`FileLockManager` takes the OS lock of a leaf key on the **sidecar** `<lock file>.lock` beside the guarded file
-(`logs/audit.jsonl.lock`, `.../mcp/mailbox.jsonl.lock`), and leaves the guarded store unlocked. The derivation lives in
-the manager (`FileLockManager.osLockFile`); `LockKey.lockFile()` keeps naming the guarded file, so every path a caller
-derives from a leaf key (`AuditHead.headFile`, `AuditIndex`, `AuditVerification`) is unchanged.
+`FileLockManager` takes the OS lock of a leaf key on the **sidecar** `<lock file>.lock` — that is,
+`<key.lockFile()>.lock` — and leaves the guarded file unlocked. For the two factory leaf keys (`LockKey.auditLog`,
+`LockKey.mailbox`) the key names the guarded store, so the sidecar is `logs/audit.jsonl.lock` and
+`.../mcp/mailbox.jsonl.lock` beside it. For the activity journal's leaf key, which names the journal, it is the
+sibling `<journal>.lock` that ADR 006 already required. The derivation lives in the manager
+(`FileLockManager.osLockFile`); `LockKey.lockFile()` keeps naming the guarded file, so every path a caller derives
+from a leaf key (`AuditHead.headFile`, `AuditIndex`, `AuditVerification`, the journal's `delete`) is unchanged.
 
 The sidecar is created with mode `0600` where it is absent. The manager still creates no directory of a leaf key; the
 store's directory is the store's to create, as before. The store file itself is now created by its first append, not by
@@ -60,7 +63,9 @@ the first acquisition of its key. Stored formats do not change (R13).
   until the end for the same reason.
 * The audit log's rotation renames `audit.jsonl` and never the sidecar, so the lock stays in place across a rotation.
 * A sidecar left behind after its store was deleted holds no lock and excludes nobody.
-* The lock file of a leaf key is now a second file beside the store; the store's directory and its mode are unchanged.
+* The lock file of a leaf key is now a second file beside the guarded file; that directory and its mode are
+  unchanged. A leaf key that already named a sibling lock file (`ActivityJournal` before this decision) now names the
+  journal it guards, so the derived sidecar is the same sibling it used before.
 
 == Source
 

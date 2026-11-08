@@ -52,8 +52,9 @@ import de.planmarshall.core.service.LockTransaction;
  * A leaf key names the store file itself, and an append, a repair and a predecessor read each open and close a
  * channel on it; on POSIX closing any channel on a file releases every lock of the operating system that the process
  * holds on that file. The lock manager therefore takes the OS lock of a leaf key on the sidecar
- * {@code <store>.lock} beside the store, which no store channel opens, so the lock survives the store's own writes
- * (ADR 068). A store guarded by a non-leaf key is not affected: its lock file lies elsewhere than the store.
+ * {@code <key.lockFile()>.lock}, which no store channel opens, so the lock survives the store's own writes (ADR 068).
+ * For the factory leaf keys the key names the store, so the sidecar is {@code <store>.lock} beside it. A store guarded
+ * by a non-leaf key is not affected: its lock file lies elsewhere than the store.
  * <p>
  * The directory of the store exists before the first append; this type does not create it. The store file is
  * created by the first append, readable and writable by its owner only.

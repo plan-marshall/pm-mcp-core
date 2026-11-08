@@ -62,9 +62,9 @@ before it waits, so a lock is never replaced under a waiting thread.
 `InternalFaultException`. `pm-core` names no wire error; mapping the exception to `internal_fault` is the assembly's job.
 
 A lock file below `locks/` is created with mode `0600`, its directories with mode `0700`. A leaf key names the
-append-only file itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`). Its OS lock is taken on the sidecar
-`<file>.lock` beside that file, which no store channel opens, so the append, the tail repair and the predecessor read
-of the store do not release it
+guarded file — the append-only store itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`) or a task's activity
+journal. Its OS lock is taken on the sidecar `<lock file>.lock` beside it, which no store channel opens, so the
+append, the tail repair and the predecessor read of the store do not release it
 (link:../../../pm-core/doc/adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]); the manager
 creates the sidecar where it is absent, but never its directory, which belongs to the store. Opening an existing lock
 file changes neither its content nor its modification time.

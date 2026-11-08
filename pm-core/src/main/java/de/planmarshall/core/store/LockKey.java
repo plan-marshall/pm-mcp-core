@@ -15,8 +15,10 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * The canonical key of one transaction lock (PM-IMPL-7): its level in the total lock order, the file the lock is
- * taken on, and the id that orders keys within a level. One factory exists per lock of the runtime; each takes the
+ * The canonical key of one transaction lock (PM-IMPL-7): its level in the total lock order, the file the lock
+ * guards, and the id that orders keys within a level. The OS lock of a leaf key is taken on the sidecar
+ * {@code <lockFile>.lock}, so a write of the guarded file does not release it (ADR 068). One factory exists per lock
+ * of the runtime; each takes the
  * instance directory of the runtime (its base directory) and the identifiers of the lock and returns the fixed lock
  * path.
  * <p>
@@ -36,7 +38,8 @@ import java.util.regex.Pattern;
  * consistent with {@link #equals(Object)}.
  *
  * @param level    the level of the lock in the total order
- * @param lockFile the absolute, normalized path of the file the lock is taken on
+ * @param lockFile the absolute, normalized path of the file the lock guards; the OS lock of a leaf key is taken on
+ *                 the sidecar {@code <lockFile>.lock}
  * @param id       what orders this key among the keys of its level
  * @since 0.1
  */
