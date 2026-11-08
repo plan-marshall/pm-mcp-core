@@ -3,7 +3,9 @@
 
 == Status
 
-Accepted
+Accepted. Superseded in part by link:068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]: the lost OS lock is no
+longer accepted — the OS lock of the audit log's leaf key is taken on the sidecar `audit.jsonl.lock` beside the log,
+and the read of the last line, the repair and the append no longer release it. The rest of this record stands.
 
 == Date
 

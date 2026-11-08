@@ -304,7 +304,8 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
 
     /**
      * @param base the base directory of the runtime
-     * @return the leaf key of the audit log, which is taken on the append-only log itself
+     * @return the leaf key of the audit log; its OS lock is taken on the sidecar beside the append-only log, so a
+     *         write of the log does not release it
      */
     public static LockKey auditLog(Path base) {
         return new LockKey(LockLevel.LEAF, canonical(base).resolve("logs").resolve("audit.jsonl"), "audit");
@@ -314,7 +315,8 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
      * @param base      the base directory of the runtime
      * @param projectId the project
      * @param planId    the plan
-     * @return the leaf key of the plan's mailbox, which is taken on the append-only mailbox itself
+     * @return the leaf key of the plan's mailbox; its OS lock is taken on the sidecar beside the append-only mailbox,
+     *         so a write of the mailbox does not release it
      */
     public static LockKey mailbox(Path base, String projectId, String planId) {
         var mailbox = projectStore(base, projectId).resolve("plans").resolve(identifier(planId, "planId"))

@@ -350,8 +350,9 @@ AuditSink auditSink = new AuditLogSink(lockManager, log);
 AuditChainVerification auditChain = new AuditVerification(base, integrityKey);
 ----
 
-* `logs/` must exist before the first append: the audit lock is a leaf key whose lock file is the log itself, and
-  `FileLockManager` creates that file but never its directory.
+* `logs/` must exist before the first append: the audit lock is a leaf key whose OS lock is taken on the sidecar
+  `audit.jsonl.lock` beside the log, and `FileLockManager` creates that sidecar but never its directory
+  (link:../../../pm-core/doc/adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]).
 * `FileLockManager` takes the audit sink in its constructor, and `AuditLogSink` takes the lock manager: the assembly
   breaks the cycle, for example with a sink that forwards to the `AuditLogSink` once it is built.
 * The limits come from `audit_rotation` of `machine-config.json` once the assembly reads it; until then

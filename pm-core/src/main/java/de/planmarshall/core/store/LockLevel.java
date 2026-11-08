@@ -40,6 +40,9 @@ public enum LockLevel {
     QUEUE,
     /** The lock of a machine store; several machine store locks are ordered alphabetically by their lock path. */
     MACHINE_STORE,
-    /** The lock of an append-only file that is locked directly; nothing is acquired after it. */
+    /**
+     * The lock of an append-only file; its OS lock is taken on the sidecar beside that file, so a write of the store
+     * does not release it. Nothing is acquired after it.
+     */
     LEAF
 }

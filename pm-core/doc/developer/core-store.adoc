@@ -443,9 +443,10 @@ AuditLog.append(transaction, template)
 
 The read of the last line, the append and the anchor calls run in the one transaction that holds the audit lock, so no
 second appender comes between the hash and the line that carries it. The append goes through the one append path of a
-JSONL store, `JsonlStoreFile`, unchanged. It closes its channel after every append, so only the in-process lock of the
-key holds the append; the runtime lock (`RuntimeLock`) excludes a second runtime on the same base
-(link:../adr/core-store/024-audit-log-appended-through-the-jsonl-store-file.adoc[ADR 024]).
+JSONL store, `JsonlStoreFile`. It opens and closes a channel on the log for every append, repair and predecessor read,
+so the OS lock of the leaf key is taken on the sidecar `audit.jsonl.lock` beside the log, which no store channel
+opens: the lock is held for the whole append, and the runtime lock (`RuntimeLock`) excludes a second runtime on the
+same base (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]).
 
 *The write paths.* Every record a producer hands over goes through `append`, which calls the anchor. A rotation, which
 runs inside that call, writes through exactly two members that never call the anchor, so a rotation cannot recurse:
@@ -464,8 +465,9 @@ names the file a rotation renames, `recordCount(transaction)` counts its complet
 `snapshot()` reads it without a lock.
 
 The directory `logs/` must exist before the first append, and the caller that builds the log creates it: the audit
-lock is a leaf key whose lock file is the log itself, and the lock manager creates that file where it is absent but
-never its directory. In the daemon the assembly `pm-mcp-server` has to create it before it builds the log.
+lock is a leaf key whose OS lock the manager takes on the sidecar beside the log, and the manager creates that
+sidecar where it is absent but never its directory. In the daemon the assembly `pm-mcp-server` has to create it
+before it builds the log.
 
 === The Torn Tail of the Log Itself
 
@@ -1656,8 +1658,11 @@ within its level. There is one factory per lock (`LockKey.plan(base, projectId, 
 pattern before it becomes part of a path. The lock files of a project lie below `projects/<project_id>/locks/`, those of
 the machine stores below `locks/` (those of the machine scope below `machine/locks/`, the lock of an onboarding entry
 below `onboardings/locks/`), outside the directories they protect. Only the two leaf keys name the guarded file
-itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`). Keys are ordered by level, then by id, then by lock path; the
-id of a machine store lock is its lock name without the extension, so `ab.lock` sorts before `ab-c.lock`.
+itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`); the OS lock of a leaf key is taken on the sidecar
+`<file>.lock` beside the guarded file, so that no write of the store releases it
+(link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). Keys are ordered by level, then by id, then
+by lock path; the id of a machine store lock is its lock name without the extension, so `ab.lock` sorts before
+`ab-c.lock`.
 
 `LockOrder` is the order assertion as a pure function of the held keys and the requested key; it opens no file. Its
 `Decision` is `Reentry` (the key is held already), `Permitted`, or `Violation(held, requested)`: nothing after a leaf,
@@ -1777,10 +1782,12 @@ before it touches the file.
 A JSONL store of a scope is appended to through its `ScopeTransaction` (<<_scope_transaction>>), not through `append`
 directly; `append` is for the JSONL stores outside a scope, under their own key.
 
-*Known limitation, leaf keys:* a leaf key names the store file itself (`logs/audit.jsonl`, a plan's
+*Leaf keys and the OS lock:* a leaf key names the store file itself (`logs/audit.jsonl`, a plan's
 `mcp/mailbox.jsonl`), and on POSIX closing any channel on a file releases every OS lock the process holds on it. An
-append or a repair under a leaf key therefore drops the OS lock, and only the in-process lock of the key remains. Such
-a store is safe only while every writer runs in the one runtime that holds the in-process lock.
+append, a repair and a predecessor read therefore open and close a channel on the store, so the OS lock of a leaf key
+is taken on the sidecar `<store>.lock` beside it, which no store channel opens; the store itself stays unlocked
+(link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]). A store guarded by a non-leaf key is not
+affected: its lock file lies elsewhere than the store.
 
 Tests: `JsonlStoreFileTest`.
 

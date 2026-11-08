@@ -49,11 +49,11 @@ import de.planmarshall.core.service.LockTransaction;
  * ever touched: a malformed complete line stays in place and is
  * reported as unreadable with its line number, while the other records of the store stay readable.
  * <p>
- * A leaf key names the store file itself, and on POSIX closing any channel on a file releases every lock of the
- * operating system that the process holds on that file. An append or a repair under a leaf key therefore releases
- * the lock of the operating system that the lock manager took on the store; only the in-process lock of the key
- * remains. Such a store is safe only while every writer of it runs in the one runtime that holds that in-process
- * lock.
+ * A leaf key names the store file itself, and an append, a repair and a predecessor read each open and close a
+ * channel on it; on POSIX closing any channel on a file releases every lock of the operating system that the process
+ * holds on that file. The lock manager therefore takes the OS lock of a leaf key on the sidecar
+ * {@code <store>.lock} beside the store, which no store channel opens, so the lock survives the store's own writes
+ * (ADR 068). A store guarded by a non-leaf key is not affected: its lock file lies elsewhere than the store.
  * <p>
  * The directory of the store exists before the first append; this type does not create it. The store file is
  * created by the first append, readable and writable by its owner only.
