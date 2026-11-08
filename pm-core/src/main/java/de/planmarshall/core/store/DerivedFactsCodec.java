@@ -64,7 +64,7 @@ import de.planmarshall.core.role.corpus.JsonValue.JsonString;
  * {@code null} there, because the schema does not require it (ADR {@code core-store/055}).
  * <p>
  * The member lists are package-private constants, so {@code DerivedFactsSchemaParityTest} pins them to the schema
- * block of the specification (the pattern of {@link JobRecordCodec#MEMBERS}).
+ * file {@code derived-facts.schema.json} (the pattern of {@link JobRecordCodec#MEMBERS}).
  *
  * @since 0.1
  */

@@ -60,10 +60,9 @@ absolute and without a leading slash (for example `de/planmarshall/core/role/cor
 resource, a file that is not JSON or not a JSON object fails the test, it is never skipped. The decision is
 link:../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016].
 
-The schema tests not yet moved to their schema files read the specification of this repository
-(`doc/specification`), whose root the Maven property `pm.specification.root` names (default: the root of the build); a
-missing schema fails them. The work package `adoc-reading-retired` retires this property with the last of these
-readers. `ProductCorpusValidationTest`,
+No schema test reads the specification of this repository any more. The Maven property `pm.specification.root`
+(default: the root of the build) and the test helper `SpecificationDocument` stay until the work package
+`adoc-reading-retired` retires them. `ProductCorpusValidationTest`,
 which validates the corpus of plan-marshall-mcp, reads a sibling checkout named by `pm.product.root` (default
 `../plan-marshall-mcp`); both properties are passed to Surefire as system properties of the same name. A test whose
 checkout is absent is skipped with the path named. In a worktree whose defaults do not
