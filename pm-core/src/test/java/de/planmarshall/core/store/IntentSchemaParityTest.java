@@ -100,9 +100,12 @@ class IntentSchemaParityTest {
         var store = SchemaParity.load(STORE);
         var revision = SchemaParity.object(SchemaParity.object(store.get("$defs")).get("revision"));
         var recordMember = SchemaParity.object(SchemaParity.object(revision.get("properties")).get("record"));
+        var recordId = SchemaParity.load(RECORD).get("$id");
 
-        assertEquals(SchemaParity.load(RECORD).get("$id"), recordMember.get("$ref"),
-                "the store should reference the record file");
+        assertAll(
+                () -> assertTrue(recordId instanceof String, "the record file should carry its id"),
+                () -> assertEquals(recordId, recordMember.get("$ref"),
+                        "the store should reference the record file"));
     }
 
     @Test
