@@ -1,0 +1,72 @@
+= ADR 068: The OS Lock of a Leaf Key Is Taken on a Sidecar That No Append Opens
+:nofooter:
+
+== Status
+
+Accepted. Supersedes ADR 024 in part (its acceptance of the lost OS lock of the audit log).
+
+== Date
+
+2026-11-08
+
+== Context
+
+On POSIX closing any channel on a file releases every lock of the operating system the process holds on that file.
+`FileLockManager` keeps one open channel and one OS lock per lock file and holds them for as long as a transaction
+holds the key. A **leaf** key is the one exception among the key factories: it names the append-only store file itself
+(`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`), so until now the OS lock was taken on the store.
+
+`JsonlStoreFile` opens and closes a channel on the store for every append, every tail repair of the last line, and
+every read of the last line (`AuditLog.predecessor`); `AuditLog.recordCount` opens one more. Every one of those closes
+drops the OS lock the manager still believes it holds, and only the in-process lock of the key remains. ADR 024
+accepted that for the audit log alone, on the strength of `RuntimeLock` excluding a second runtime. The operator
+decided on 2026-10-30 (decision 3) to fix it in the lock manager instead of accepting it a second time: `PLAN-V2-07`
+builds the epic inbox and the epic register on the same append path, and any leaf-keyed JSONL store repeats the defect.
+
+A store guarded by a non-leaf key is not affected: its lock file is a sibling below `locks/`, which no store channel
+opens.
+
+== Decision
+
+`FileLockManager` takes the OS lock of a leaf key on the **sidecar** `<lock file>.lock` beside the guarded file
+(`logs/audit.jsonl.lock`, `.../mcp/mailbox.jsonl.lock`), and leaves the guarded store unlocked. The derivation lives in
+the manager (`FileLockManager.osLockFile`); `LockKey.lockFile()` keeps naming the guarded file, so every path a caller
+derives from a leaf key (`AuditHead.headFile`, `AuditIndex`, `AuditVerification`) is unchanged.
+
+The sidecar is created with mode `0600` where it is absent. The manager still creates no directory of a leaf key; the
+store's directory is the store's to create, as before. The store file itself is now created by its first append, not by
+the first acquisition of its key. Stored formats do not change (R13).
+
+== Alternatives Considered
+
+* **(b) One long-lived channel per held key, with the store appending through it.** Rejected: it needs a
+  channel-bearing member on the `LockManager`/`LockTransaction` port of `pm-core`, and it does not stop there — every
+  read channel `AuditLog` opens (predecessor, record count) would have to go through that channel too, because a close
+  on any other channel releases the lock. The plumbing would reach every read path of the store for one lock.
+* **(c) The append channel is not closed while the transaction holds the key.** Rejected: the same plumbing as (b),
+  and it does not cover the torn-tail repair and the audit-log reads, which open and close their own channels; leaving
+  one channel open helps only until the next one closes.
+* **Keeping the lock on the store and accepting the loss** (the position of ADR 024 for the audit log): ruled out by
+  the operator decision of 2026-10-30 (decision 3).
+
+== Consequences
+
+* An append, a torn-tail repair, a predecessor read and a rotation of a leaf-keyed store all leave the OS lock held
+  until the transaction ends. A second process is excluded for the whole check-then-act on the store's tail.
+* The hazard of the second stated kind stays: a second `FileLockManager` instance in the same process meets the
+  sidecar's lock, fails with `IllegalStateException`, and closing the channel it opened releases the first instance's
+  OS lock. One instance per runtime remains a precondition the assembly must meet.
+* A lock taken past the manager on the sidecar still drops the manager's OS lock; tests keep their probe channel open
+  until the end for the same reason.
+* The audit log's rotation renames `audit.jsonl` and never the sidecar, so the lock stays in place across a rotation.
+* A sidecar left behind after its store was deleted holds no lock and excludes nobody.
+* The lock file of a leaf key is now a second file beside the store; the store's directory and its mode are unchanged.
+
+== Source
+
+* The operator decision of 2026-10-30, decision 3, in the epic `pm-mcp-core-m2-m4-v2` (`epic.md` § Decisions)
+* PLAN-V2-95 of the epic, and the conformance audit of 2026-10-30
+* link:024-audit-log-appended-through-the-jsonl-store-file.adoc[ADR 024] (superseded in part),
+  link:018-jsonl-tail-repair-of-the-last-line-only.adoc[ADR 018],
+  link:012-atomic-rename-guarded-by-a-sibling-lock-file.adoc[ADR 012]
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Audit Log]
