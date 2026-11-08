@@ -36,6 +36,9 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * A scenario starts it through {@link #start(Path, List)} and reads its stream through {@link Handle#awaitLine(Duration)},
  * so the harness's output is observed rather than assumed.
+ * <p>
+ * Every datum of this fixture is a contract: the command-line option names, the child marker and the exit behaviour a
+ * scenario scripts.
  *
  * @since 0.1
  */

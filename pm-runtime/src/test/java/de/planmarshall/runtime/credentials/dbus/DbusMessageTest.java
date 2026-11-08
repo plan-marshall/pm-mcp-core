@@ -29,6 +29,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Byte-exact tests against message dumps constructed field by field from the D-Bus specification
  * (little-endian, header fields in ascending code order), independently of the marshaller.
+ * <p>
+ * Every datum of this test is a contract: the byte-exact message dumps, the wire signatures, the D-Bus type codes and
+ * the bus and interface names.
  */
 @DisplayName("DbusMessage: wire format")
 class DbusMessageTest {

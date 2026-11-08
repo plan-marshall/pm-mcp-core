@@ -21,6 +21,9 @@ import de.planmarshall.api.MachinePaths;
 /**
  * A {@link CredentialStoreChoice} for tests outside this package, whose OS store is a store the test supplies, so a
  * test of a caller of the choice runs on every OS without a keyring.
+ * <p>
+ * Every datum of this fixture is a contract: the macOS OS selector, the empty environment and the caller-supplied store
+ * and service name.
  */
 @UtilityClass
 public final class CredentialStoreChoiceFixture {

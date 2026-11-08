@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
@@ -29,7 +31,11 @@ import de.planmarshall.runtime.launch.HarnessVerifier;
  * The operating system's reading of a process's executable (PM-WORK-7, {@code agent_started}): the path and digest of a
  * live process, the absence of a process that does not exist, an executable that is not a regular file, and the branch
  * the reading is selected by.
+ * <p>
+ * The temporary file's name and the arbitrary process ids are generated; {@code /proc/self/exe}, the platform names and
+ * {@code Integer.MAX_VALUE} (the absent-PID boundary) are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("the executable reader of the operating system")
 class SystemProcessExecutablesTest {
 
@@ -76,11 +82,11 @@ class SystemProcessExecutablesTest {
     @Test
     @DisplayName("an executable that is not a regular file yields not-regular")
     void aDeletedExecutableYieldsNotRegular() throws Exception {
-        var deleted = Files.createTempFile(base, "deleted", ".bin");
+        var deleted = Files.createTempFile(base, Generators.letterStrings(3, 12).next(), ".bin");
         Files.delete(deleted);
         var reader = new SystemProcessExecutables(pid -> Optional.of(deleted), HarnessVerifier::digestExecutable);
 
-        var reading = reader.read(4711);
+        var reading = reader.read(someProcessId());
 
         assertEquals(deleted.toAbsolutePath().normalize(),
                 assertInstanceOf(ProcessExecutables.NotRegular.class, reading).path(),
@@ -92,7 +98,11 @@ class SystemProcessExecutablesTest {
     void aProcessWithoutAPathYieldsAbsent() {
         var reader = new SystemProcessExecutables(pid -> Optional.empty(), HarnessVerifier::digestExecutable);
 
-        assertInstanceOf(ProcessExecutables.Absent.class, reader.read(4711));
+        assertInstanceOf(ProcessExecutables.Absent.class, reader.read(someProcessId()));
+    }
+
+    private static long someProcessId() {
+        return Generators.integers(1, 4_000_000).next();
     }
 
     @Test

@@ -14,8 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -28,25 +31,36 @@ import de.planmarshall.core.profile.JsonNode;
 /**
  * The weights identity of a model (PM-WORK-6, Client Profiles § Weights Identity): read from a pointer of the models
  * listing or from a probe run without a shell, and left unread where neither names an identity.
+ * <p>
+ * The weights identity is generated; the model ids, the pointers, the {@code /bin/echo} and {@code /bin/false} probe
+ * programs and the patterns are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("Weights reader")
 class WeightsReaderTest {
 
-    private static EndpointProfile profile(EndpointProfile.WeightsProbe probe) {
+    private String weightsId;
+
+    @BeforeEach
+    void draw() {
+        weightsId = Generators.strings("abcdef0123456789", 6, 12).next();
+    }
+
+    private EndpointProfile profile(EndpointProfile.WeightsProbe probe) {
         var base = EndpointFixtures.profile();
         return new EndpointProfile(base.clientId(), base.executable(), base.identity(), base.updateEvidence(),
                 base.endpoint(), base.modelTiers(), probe);
     }
 
-    private static JsonNode listing() {
-        return JsonDocument.parse("[{\"id\":\"mid\",\"digest\":\"abc123\"},{\"id\":\"big\"}]"
+    private JsonNode listing() {
+        return JsonDocument.parse(("[{\"id\":\"mid\",\"digest\":\"" + weightsId + "\"},{\"id\":\"big\"}]")
                 .getBytes(StandardCharsets.UTF_8), "models");
     }
 
     @Test
     @DisplayName("the identity is the pointer of the model's entry in the listing")
     void fromListing() {
-        var listing = JsonDocument.parse("[{\"id\":\"mid\",\"digest\":\"abc123\"}]"
+        var listing = JsonDocument.parse(("[{\"id\":\"mid\",\"digest\":\"" + weightsId + "\"}]")
                 .getBytes(StandardCharsets.UTF_8), "models");
 
         var reading = new WeightsReader().read(profile(new EndpointProfile.WeightsProbe("models_listing", "/digest",
@@ -55,7 +69,7 @@ class WeightsReaderTest {
         assertAll(
                 () -> assertTrue(reading.isRead()),
                 () -> assertEquals("mid", reading.model()),
-                () -> assertEquals("abc123", reading.weightsId()));
+                () -> assertEquals(weightsId, reading.weightsId()));
     }
 
     @Test
@@ -93,14 +107,14 @@ class WeightsReaderTest {
     @EnabledOnOs(OS.LINUX)
     @DisplayName("an argv probe reports the identity in the first group of its pattern")
     void fromArgvProbe() {
-        var probe = new EndpointProfile.WeightsProbe("argv", null, List.of("/bin/echo", "weights:abc123"),
+        var probe = new EndpointProfile.WeightsProbe("argv", null, List.of("/bin/echo", "weights:" + weightsId),
                 "weights:([a-z0-9]+)");
 
         var reading = new WeightsReader().read(profile(probe), "mid", null);
 
         assertAll(
                 () -> assertTrue(reading.isRead(), reading.detail()),
-                () -> assertEquals("abc123", reading.weightsId()));
+                () -> assertEquals(weightsId, reading.weightsId()));
     }
 
     @Test

@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.InstantSource;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,24 +33,51 @@ import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.role.RoleArtifact;
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Every appended activity entry is the evaluation point of the off-track signals, and one cause takes its action once
  * (Model Work § A Worker Off Track, § Output Read While the Worker Runs).
+ * <p>
+ * The task id, the generation, the project and plan ids, the tool name and its target are generated in the
+ * {@code @BeforeEach}; the fixed instant, the signal names {@code repeating} and {@code show}, and the threshold of
+ * three are the contracts of the detector.
  */
+@EnableGeneratorController
 @DisplayName("Activity recorder")
 class ActivityRecorderTest {
 
-    private static final String TASK = "qt-0000000000000001";
-    private static final String GENERATION = "l-0123456789abcdef";
     private static final Instant AT = Instant.parse("2026-10-26T10:00:00Z");
 
     private final RecordingProtocol protocol = new RecordingProtocol();
 
+    private String task;
+
+    private String generation;
+
+    private String project;
+
+    private String plan;
+
+    private String tool;
+
+    private String target;
+
+    @BeforeEach
+    void draw() {
+        task = RuntimeGenerators.queueTaskIds().next();
+        generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
+        project = RuntimeGenerators.projectIds().next();
+        plan = RuntimeGenerators.planIds().next();
+        tool = RuntimeGenerators.words().next();
+        target = Generators.letterStrings(1, 12).next() + ".java";
+    }
+
     private ActivityJournal journal(Path base) {
-        return ActivityJournal.ofScope(base, "project-a",
-                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, "plan-a"),
+        return ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
                 new FileLockManager(_ -> {
                 }));
     }
@@ -71,13 +101,13 @@ class ActivityRecorderTest {
     @DisplayName("the entry is written with the journal's sequence and the task's attempt")
     void appends(@TempDir Path base) {
         var journal = journal(base);
-        var written = recorder(journal, 1).append(TASK, GENERATION, toolCall("read_file", "A.java"));
+        var written = recorder(journal, 1).append(task, generation, toolCall(tool, target));
 
         assertAll(
                 () -> assertEquals(1, written.seq()),
                 () -> assertEquals(1, written.attempt()),
-                () -> assertEquals("A.java", written.tool().target()),
-                () -> assertEquals(1, journal.entries(TASK).size()));
+                () -> assertEquals(target, written.tool().target()),
+                () -> assertEquals(1, journal.entries(task).size()));
     }
 
     @Test
@@ -86,12 +116,12 @@ class ActivityRecorderTest {
         var journal = journal(base);
         var recorder = recorder(journal, 1);
 
-        recorder.append(TASK, GENERATION, toolCall("read_file", "A.java"));
-        recorder.append(TASK, GENERATION, toolCall("read_file", "A.java"));
+        recorder.append(task, generation, toolCall(tool, target));
+        recorder.append(task, generation, toolCall(tool, target));
         assertEquals(0, protocol.signals.size());
 
-        recorder.append(TASK, GENERATION, toolCall("read_file", "A.java"));
-        recorder.append(TASK, GENERATION, toolCall("read_file", "A.java"));
+        recorder.append(task, generation, toolCall(tool, target));
+        recorder.append(task, generation, toolCall(tool, target));
 
         assertEquals(1, protocol.signals.size());
         assertAll(
@@ -109,10 +139,10 @@ class ActivityRecorderTest {
         var recorder = new ActivityRecorder(journal, tasks, protocol, new OffTrackDetector(),
                 InstantSource.fixed(AT));
 
-        var entry = toolCall("x", "y");
+        var entry = toolCall(tool, target);
         assertThrows(IllegalStateException.class,
-                () -> recorder.append(TASK, GENERATION, entry));
-        assertTrue(journal.entries(TASK).isEmpty());
+                () -> recorder.append(task, generation, entry));
+        assertTrue(journal.entries(task).isEmpty());
         assertTrue(protocol.signals.isEmpty());
     }
 

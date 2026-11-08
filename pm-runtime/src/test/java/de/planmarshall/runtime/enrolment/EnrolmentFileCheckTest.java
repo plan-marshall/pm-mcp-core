@@ -42,6 +42,9 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
  * The per-use checks of an enrolment file (PM-SEC-4): a foreign owner, a mode broader than {@code 0600} and a symbolic
  * link are each refused with {@code enrolment_insecure}; a {@code 0600} and a narrower {@code 0400} file of the
  * running user pass.
+ * <p>
+ * Every datum of this test is a contract: the POSIX modes, the {@code {}} document, the reason codes and the fixed
+ * project file name.
  */
 @DisplayName("Enrolment file check")
 class EnrolmentFileCheckTest {

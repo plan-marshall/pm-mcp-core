@@ -14,27 +14,65 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
+
 /**
  * Real login-keychain items under a unique test service name, created, read, replaced and deleted
  * by this process, so the creator ACL never prompts. Gate 4 on the JVM.
+ * <p>
+ * The service suffix, the account names, the project id and the secrets are generated; the keychain's status codes and
+ * the {@code github} fixture account are the contracts.
  */
 @EnabledOnOs(OS.MAC)
+@EnableGeneratorController
 @DisplayName("KeychainSecretStore against the macOS login keychain")
 class KeychainSecretStoreTest {
 
-    private final String service = "de.planmarshall.mcp.test/" + UUID.randomUUID();
-    private final KeychainSecretStore store = new KeychainSecretStore(service);
-    private final CredentialAccount global = CredentialAccount.global("github");
-    private final CredentialAccount project = CredentialAccount.project("p1", "github");
+    private String service;
+
+    private KeychainSecretStore store;
+
+    private String projectId;
+
+    private String otherProject;
+
+    private String firstSecret;
+
+    private String secondSecret;
+
+    private String globalSecret;
+
+    private String projectSecret;
+
+    private CredentialAccount global;
+
+    private CredentialAccount project;
+
+    @BeforeEach
+    void create() {
+        service = "de.planmarshall.mcp.test/"
+                + Generators.strings("0123456789abcdef", 16, 16).next();
+        store = new KeychainSecretStore(service);
+        projectId = RuntimeGenerators.projectIds().next();
+        otherProject = projectId + "-other";
+        firstSecret = Generators.letterStrings(1, 20).next();
+        secondSecret = Generators.letterStrings(1, 20).next();
+        globalSecret = Generators.letterStrings(1, 20).next();
+        projectSecret = Generators.letterStrings(1, 20).next();
+        global = CredentialAccount.global("github");
+        project = CredentialAccount.project(projectId, "github");
+    }
 
     @AfterEach
     void cleanUp() {
@@ -47,10 +85,10 @@ class KeychainSecretStoreTest {
     void roundTrip() {
         assertEquals(Optional.empty(), store.get(global));
 
-        store.put(global, "first-s3cr€t");
-        assertEquals(Optional.of("first-s3cr€t"), store.get(global));
-        store.put(global, "second");
-        assertEquals(Optional.of("second"), store.get(global));
+        store.put(global, firstSecret);
+        assertEquals(Optional.of(firstSecret), store.get(global));
+        store.put(global, secondSecret);
+        assertEquals(Optional.of(secondSecret), store.get(global));
 
         assertTrue(store.delete(global));
         assertFalse(store.delete(global));
@@ -61,11 +99,11 @@ class KeychainSecretStoreTest {
     @Test
     @DisplayName("project and global entries are separate accounts, the project one resolves first")
     void projectAccount() {
-        store.put(global, "global");
-        store.put(project, "project");
+        store.put(global, globalSecret);
+        store.put(project, projectSecret);
 
-        assertEquals(Optional.of("project"), store.resolve("p1", "github"));
-        assertEquals(Optional.of("global"), store.resolve("p2", "github"));
+        assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
+        assertEquals(Optional.of(globalSecret), store.resolve(otherProject, "github"));
     }
 
     @Test
@@ -79,9 +117,9 @@ class KeychainSecretStoreTest {
     void entries() {
         var other = new KeychainSecretStore(service + "-other");
         var foreign = CredentialAccount.global("foreign");
-        store.put(project, "project");
-        store.put(global, "global");
-        other.put(foreign, "other");
+        store.put(project, projectSecret);
+        store.put(global, globalSecret);
+        other.put(foreign, Generators.letterStrings(1, 20).next());
         try {
             assertEquals(List.of(global, project), store.entries());
             assertEquals(List.of(foreign), other.entries());
@@ -95,7 +133,8 @@ class KeychainSecretStoreTest {
     void dataProtectionKeychainNeedsEntitlement() {
         var dataProtection = new KeychainSecretStore(service, true);
 
-        var e = assertThrows(KeychainSecretStore.KeychainException.class, () -> dataProtection.put(global, "x"));
+        var e = assertThrows(KeychainSecretStore.KeychainException.class,
+                () -> dataProtection.put(global, Generators.letterStrings(1, 20).next()));
         assertEquals(MacSecurity.MISSING_ENTITLEMENT, e.status());
         assertEquals(SecretStoreException.Reason.FAILED, e.reason());
     }

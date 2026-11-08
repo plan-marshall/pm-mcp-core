@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -36,6 +38,7 @@ import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.store.WorkerState;
 import de.planmarshall.runtime.job.TerminationProtocol;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
@@ -43,7 +46,11 @@ import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
  * record, the forced end reaches the process only through the runner's cancel, the fence, token revocation, slot release
  * and terminal state occur in that order, only a lost worker and an off-track restart spend a re-offer, and a task-done
  * end starts a successor when work remains.
+ * <p>
+ * The loss signal's observed instant is generated; the helper order names, the terminal states and the end reasons are
+ * the contracts the production code names.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Worker ending")
 class WorkerEndingTest {
@@ -89,6 +96,8 @@ class WorkerEndingTest {
         assertEquals(cause.endReason(), write.endReason(), "the end reason");
         assertEquals(cause == EndCause.START_FAILURE, write.startFailure(), "only a start failure is flagged");
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                INFO.WORKER_GENERATION_ENDED.resolveIdentifierString());
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                 "ended with cause '" + cause.wireName() + "'");
     }
 
@@ -117,7 +126,7 @@ class WorkerEndingTest {
         var generation = startedFresh();
         var ending = ending(false, () -> {
         });
-        var at = SupervisorTestFixture.NOW.plusSeconds(40);
+        var at = SupervisorTestFixture.NOW.plusSeconds(Generators.integers(1, 120).next());
         var signal = new LossSignal(LossReason.SILENCE, generation.generationId(), at, at, true, null);
 
         ending.end(generation, signal);

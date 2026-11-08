@@ -22,6 +22,8 @@ import de.planmarshall.runtime.credentials.SecretStoreException.Reason;
 /**
  * A keyring of the tests of the enrolment key: entries in memory, an optional failure of every read, an optional
  * refused write. It is the active key source "keyring" as the key sees it, without a platform keyring.
+ * <p>
+ * Every datum of this fixture is a contract: the account format, the keyring name and the failure reasons.
  */
 final class InMemoryKeyring implements SecretStore {
 

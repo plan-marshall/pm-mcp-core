@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -30,12 +32,18 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
  * The supervisor's start decision (PM-WORK-3, PM-WF-14): the fresh and warm forms, the role's count, the three refusals
  * it decides itself, the probe a throwing start settles, and the one log line a successful start writes.
+ * <p>
+ * The other worktree's name and the failure detail are generated; the reason codes, the worker-block field name and the
+ * harness client id are the contracts the production code names.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Worker supervisor start decision")
 class WorkerSupervisorStartTest {
@@ -50,9 +58,15 @@ class WorkerSupervisorStartTest {
 
     private SupervisorTestFixture fixture;
 
+    private String otherWorktree;
+
+    private String startFailure;
+
     @BeforeEach
     void setUp() throws IOException {
         fixture = new SupervisorTestFixture(base);
+        otherWorktree = RuntimeGenerators.words().next();
+        startFailure = Generators.letterStrings(3, 30).next();
     }
 
     @Test
@@ -75,7 +89,7 @@ class WorkerSupervisorStartTest {
     @DisplayName("a warm role starts one worker per working directory and none without queued work")
     void warmStartsOnePerDirectory() throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 3);
-        var other = Files.createDirectories(base.resolve("other-worktree"));
+        var other = Files.createDirectories(base.resolve(otherWorktree));
         var supervisor = supervisor(OPEN_GUARD, OPEN_GATE);
 
         var outcomes = supervisor.start(List.of(fixture.warmRequest(role, fixture.workdir),
@@ -119,11 +133,11 @@ class WorkerSupervisorStartTest {
     @DisplayName("a start that throws after consuming the probe restarts the backoff instead of stranding the guard")
     void aThrowingStartRestartsTheProbeBackoff() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
-        var guard = new StartFailureGuard(SupervisorTestFixture.PROJECT, List::of, fixture.protocol,
+        var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol,
                 fixture.events::add, fixture.clock);
         hold(guard, role);
         fixture.advance(StartFailureGuard.PROBE_BACKOFF);
-        fixture.starter.startFailure = new IllegalStateException("the job runtime is gone");
+        fixture.starter.startFailure = new IllegalStateException(startFailure);
         var supervisor = supervisor(guard, OPEN_GATE);
         var requests = List.of(fixture.freshRequest(role));
 
@@ -133,7 +147,7 @@ class WorkerSupervisorStartTest {
         var nextProbeAdmitted = !guard.holds(role.artifact().name(), role.harness());
 
         assertAll(
-                () -> assertEquals("the job runtime is gone", thrown.getMessage(),
+                () -> assertEquals(startFailure, thrown.getMessage(),
                         "the start's own failure propagates"),
                 () -> assertTrue(heldWhileTheRestartedBackoffRuns,
                         "the throw releases the consumed probe and restarts its backoff"),
@@ -202,7 +216,9 @@ class WorkerSupervisorStartTest {
         assertAll(
                 () -> assertInstanceOf(StartOutcome.Started.class, outcome),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
-                        "started on harness 'claude'"));
+                        INFO.WORKER_GENERATION_STARTED.resolveIdentifierString()),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                        "started on harness '" + SupervisorTestFixture.CLIENT + "'"));
     }
 
     private WorkerSupervisor supervisor(SupervisorEnvironment.StartGuard guard,

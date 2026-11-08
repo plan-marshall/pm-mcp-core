@@ -15,23 +15,38 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
+import java.util.Locale;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The loopback decoy servers (PM-CLIENT-5, Profile Verification): each decoy stays on {@code 127.0.0.1}, listens on its
  * own ephemeral port, and records exactly the requests a worker made of it.
+ * <p>
+ * The unlisted path is generated; {@code /mcp}, {@code /v1/messages}, {@code /models}, {@code 127.0.0.1} and the status
+ * codes are the wire contract the decoys serve.
  */
+@EnableGeneratorController
 @DisplayName("The loopback decoy servers")
 class DecoyServersTest {
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
+
+    private String unlistedPath;
+
+    @BeforeEach
+    void draw() {
+        unlistedPath = "v1/" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
 
     @Test
     @DisplayName("a request to the decoy MCP server is recorded on it alone")
@@ -51,12 +66,13 @@ class DecoyServersTest {
     @DisplayName("a request to a path the decoy was not told about is recorded too")
     void anUnlistedPathIsRecorded() throws Exception {
         try (var decoys = DecoyServers.start()) {
-            var response = get(decoys.endpoint().uri().resolve("v1/messages"));
+            var response = get(decoys.endpoint().uri().resolve(unlistedPath));
 
             assertAll(
                     () -> assertEquals(200, response.statusCode(), "the decoy answers every path"),
                     () -> assertTrue(decoys.endpoint().touched(), "the unlisted path is a hit"),
-                    () -> assertEquals(List.of("GET /v1/messages"), decoys.endpoint().hits(), "the path is recorded"),
+                    () -> assertEquals(List.of("GET /" + unlistedPath), decoys.endpoint().hits(),
+                            "the path is recorded"),
                     () -> assertFalse(decoys.mcp().touched(), "the other decoy is untouched"));
         }
     }

@@ -23,6 +23,8 @@ import java.util.Objects;
  * A scenario asserts the state at deadline−1, at the deadline and after it without a sleep: it moves the clock, and
  * every deadline the supervisor or its loss detector scheduled at or before the new instant fires in order. A timer
  * scheduled while the clock is being moved is picked up by the same move, so a re-armed deadline is never missed.
+ * <p>
+ * Every datum of this fixture is a contract: the start instant a scenario supplies and the deadline it moves to.
  *
  * @since 0.1
  */

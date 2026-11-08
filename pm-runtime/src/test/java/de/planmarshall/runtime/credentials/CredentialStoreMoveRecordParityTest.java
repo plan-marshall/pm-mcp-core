@@ -40,6 +40,9 @@ import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Operation;
  * schema is the file {@code credential-store-move.schema.json} beside the codec in
  * {@code pm-runtime/src/main/resources/de/planmarshall/runtime/credentials/}, read from the class path through
  * {@link SchemaResource}.
+ * <p>
+ * Every datum of this test is a contract: the schema file's member names and enumerations, the wire names and the
+ * transaction-id pattern.
  */
 @DisplayName("CredentialStoreMoveRecord schema parity")
 class CredentialStoreMoveRecordParityTest {

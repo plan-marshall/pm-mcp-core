@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -27,18 +29,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.runtime.credentials.dbus.FakeBus;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The Secret Service backend against an in-memory secret service on a fake bus (runs on every
  * platform); {@code SecretServiceIT} runs the same operations against a real keyring on Linux.
+ * <p>
+ * The project id and the secret values are generated; the service name, the attribute keys, the wire member names and
+ * the error reasons are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("SecretServiceStore over a fake session bus")
 class SecretServiceStoreTest {
 
     private static final long UID = 4242;
     private static final String SERVICE = "de.planmarshall.mcp";
     private static final CredentialAccount GITHUB = CredentialAccount.global("github");
-    private static final CredentialAccount PROJECT_GITHUB = CredentialAccount.project("p1", "github");
 
     @TempDir
     Path temp;
@@ -46,9 +52,23 @@ class SecretServiceStoreTest {
     private final FakeSecretService secrets = new FakeSecretService();
     private FakeBus bus;
     private SecretServiceStore store;
+    private CredentialAccount projectGithub;
+    private String projectId;
+    private String otherProject;
+    private String firstSecret;
+    private String secondSecret;
+    private String projectSecret;
+    private String globalSecret;
 
     @BeforeEach
     void start() throws Exception {
+        projectId = RuntimeGenerators.projectIds().next();
+        otherProject = projectId + "-other";
+        projectGithub = CredentialAccount.project(projectId, "github");
+        firstSecret = Generators.letterStrings(1, 20).next();
+        secondSecret = Generators.letterStrings(1, 20).next();
+        projectSecret = Generators.letterStrings(1, 20).next();
+        globalSecret = Generators.letterStrings(1, 20).next();
         bus = new FakeBus(temp.resolve("bus"), UID, secrets);
         store = new SecretServiceStore(temp.resolve("bus"), UID, SERVICE, Duration.ofSeconds(5));
     }
@@ -86,24 +106,24 @@ class SecretServiceStoreTest {
         @Test
         @DisplayName("a second put replaces the secret of the same item")
         void replace() {
-            store.put(GITHUB, "one");
-            store.put(GITHUB, "two");
+            store.put(GITHUB, firstSecret);
+            store.put(GITHUB, secondSecret);
 
             assertEquals(1, secrets.items.size());
             assertTrue(secrets.members.contains("SetSecret"));
-            assertEquals(Optional.of("two"), store.get(GITHUB));
+            assertEquals(Optional.of(secondSecret), store.get(GITHUB));
         }
 
         @Test
         @DisplayName("a project entry carries the project attribute and resolves before the global one")
         void projectEntry() {
-            store.put(PROJECT_GITHUB, "project-token");
+            store.put(projectGithub, projectSecret);
 
             assertEquals(Optional.empty(), store.get(GITHUB), "global lookup ignores project items");
-            assertEquals(Optional.of("project-token"), store.resolve("p1", "github"));
-            store.put(GITHUB, "global-token");
-            assertEquals(Optional.of("project-token"), store.resolve("p1", "github"));
-            assertEquals(Optional.of("global-token"), store.resolve("p2", "github"));
+            assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
+            store.put(GITHUB, globalSecret);
+            assertEquals(Optional.of(projectSecret), store.resolve(projectId, "github"));
+            assertEquals(Optional.of(globalSecret), store.resolve(otherProject, "github"));
             assertEquals(2, secrets.items.size());
         }
     }
@@ -126,18 +146,18 @@ class SecretServiceStoreTest {
         @Test
         @DisplayName("lists the global and project entries of its service name in account order")
         void globalAndProject() {
-            store.put(GITHUB, "global");
-            store.put(PROJECT_GITHUB, "project");
-            store.put(CredentialAccount.global("enrolment-integrity-key"), "key");
+            store.put(GITHUB, globalSecret);
+            store.put(projectGithub, projectSecret);
+            store.put(CredentialAccount.global("enrolment-integrity-key"), firstSecret);
 
-            assertEquals(List.of(CredentialAccount.global("enrolment-integrity-key"), GITHUB, PROJECT_GITHUB),
+            assertEquals(List.of(CredentialAccount.global("enrolment-integrity-key"), GITHUB, projectGithub),
                     store.entries());
         }
 
         @Test
         @DisplayName("lists no item of another service name and no item without a credential key")
         void foreignItems() {
-            store.put(GITHUB, "global");
+            store.put(GITHUB, globalSecret);
             foreignItem("other-service", Map.of("service", SERVICE + "/0123456789abcdef", "credential_key", "sonar"));
             foreignItem("no-key", Map.of("service", SERVICE));
 
@@ -156,7 +176,7 @@ class SecretServiceStoreTest {
         @Test
         @DisplayName("locked matching items report LOCKED")
         void locked() {
-            store.put(GITHUB, "global");
+            store.put(GITHUB, globalSecret);
             secrets.itemsLocked = true;
 
             var e = assertThrows(SecretStoreException.class, store::entries);
@@ -183,7 +203,7 @@ class SecretServiceStoreTest {
         void lockedCollection() {
             secrets.collectionLocked = true;
 
-            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, "x"));
+            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, firstSecret));
             assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
             assertFalse(secrets.members.contains("Unlock"));
         }
@@ -191,7 +211,7 @@ class SecretServiceStoreTest {
         @Test
         @DisplayName("get of a locked item reports LOCKED")
         void lockedItem() {
-            store.put(GITHUB, "x");
+            store.put(GITHUB, firstSecret);
             secrets.itemsLocked = true;
 
             var e = assertThrows(SecretStoreException.class, () -> store.get(GITHUB));
@@ -203,7 +223,7 @@ class SecretServiceStoreTest {
         void prompt() {
             secrets.promptOnCreate = true;
 
-            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, "x"));
+            var e = assertThrows(SecretStoreException.class, () -> store.put(GITHUB, firstSecret));
             assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
         }
     }

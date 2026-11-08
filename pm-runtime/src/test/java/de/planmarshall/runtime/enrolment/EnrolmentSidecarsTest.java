@@ -13,18 +13,19 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -38,15 +39,21 @@ import de.planmarshall.core.store.AuditHeadRecord;
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.enrolment.EnrolmentSidecars.Failure;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Every HMAC sidecar under one key (PM-SEC-5, PM-CRED-2): the enrolment files, {@code harnesses.json} and the audit
  * head pass under the key they were signed with; each kind fails under another key or when tampered, naming the file;
  * the locks are taken in the total lock order behind the credentials lock.
+ * <p>
+ * The keys are drawn from the module's key generator; the document shapes, the project ids, the reason constants and the
+ * transaction-id form are the contracts.
  */
+@EnableGeneratorController
 @DisplayName("EnrolmentSidecars: every sidecar under one key")
 class EnrolmentSidecarsTest {
 
@@ -56,7 +63,6 @@ class EnrolmentSidecarsTest {
     private static final byte[] HARNESSES = """
             {"format_version":1,"harnesses":{}}""".getBytes(StandardCharsets.UTF_8);
 
-    private final SecureRandom random = new SecureRandom();
     private final List<AuditEvent> events = new ArrayList<>();
 
     @TempDir
@@ -84,9 +90,7 @@ class EnrolmentSidecarsTest {
     }
 
     private SecretKey newKey() {
-        var bytes = new byte[EnrolmentKey.KEY_BYTES];
-        random.nextBytes(bytes);
-        return new SecretKeySpec(bytes, EnrolmentKey.ALGORITHM);
+        return RuntimeGenerators.hmacKeys().next();
     }
 
     private static byte[] enrolment(String projectId) {
@@ -112,7 +116,8 @@ class EnrolmentSidecarsTest {
     }
 
     private void writeHead(SecretKey under) throws IOException {
-        var unsigned = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 1, UUID.randomUUID().toString(),
+        var unsigned = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 1,
+                TransactionId.generate(Clock.fixed(Instant.EPOCH, ZoneOffset.UTC)).value(),
                 AuditCodec.GENESIS_HASH, AuditCodec.GENESIS_HASH, AuditCodec.GENESIS_HASH);
         write(AuditHead.headFile(base), AuditCodec.writeHead(AuditHead.sign(under, unsigned)));
     }

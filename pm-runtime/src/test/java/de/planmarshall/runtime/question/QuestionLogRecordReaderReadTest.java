@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -52,18 +53,21 @@ import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.question.QuestionFixtures.EndOfLine;
 import de.planmarshall.runtime.test.TestBases;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /**
  * The read of the adapter as a read (PM-SEC-2, ADR {@code core-store/032}): it takes no lock an append waits on, writes
  * nothing, and passes the log path through the workspace confinement, where a refused path is a value.
  */
+@EnableGeneratorController
 @DisplayName("Question log record reader: the read is a read")
 class QuestionLogRecordReaderReadTest {
 
     private static final String PROJECT = "pm-mcp-core";
     private static final String PLAN = "a-plan";
-    private static final String QUESTION = "Q-001";
+
+    private String question;
 
     private Path base;
     private JournalScope plan;
@@ -72,6 +76,7 @@ class QuestionLogRecordReaderReadTest {
 
     @BeforeEach
     void createRuntime() throws IOException {
+        question = RuntimeGenerators.questionIds().next();
         base = TestBases.create("pmq-");
         Files.createDirectories(base);
         base = base.toRealPath();
@@ -88,7 +93,7 @@ class QuestionLogRecordReaderReadTest {
         TestBases.delete(base);
     }
 
-    private static ReadRequest request(String scopeId, String questionId) {
+    private ReadRequest request(String scopeId, String questionId) {
         return new ReadRequest(Optional.of(scopeId), questionId);
     }
 
@@ -100,11 +105,11 @@ class QuestionLogRecordReaderReadTest {
         @EnumSource(EndOfLine.class)
         @DisplayName("is identical before and after a read: same names, sizes and modification times")
         void leavesTheTreeUnchanged(EndOfLine endOfLine) throws Exception {
-            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION),
-                    closing(QUESTION, QuestionEvent.ANSWERED));
+            QuestionFixtures.append(locks, plan, endOfLine, asked(question),
+                    closing(question, QuestionEvent.ANSWERED));
             var before = tree(plan.pathBase());
 
-            var read = reader.read(request(PLAN, QUESTION));
+            var read = reader.read(request(PLAN, question));
 
             assertEquals(new Resolved("answered"), read);
             assertEquals(before, tree(plan.pathBase()),
@@ -141,7 +146,7 @@ class QuestionLogRecordReaderReadTest {
         @EnumSource(EndOfLine.class)
         @DisplayName("does not delay the read, and the read does not block the append it follows")
         void readsWhileAnotherThreadHoldsTheAppendLock(EndOfLine endOfLine) throws Exception {
-            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION));
+            QuestionFixtures.append(locks, plan, endOfLine, asked(question));
             var locked = new CountDownLatch(1);
             var release = new CountDownLatch(1);
             var failure = new AtomicReference<Throwable>();
@@ -160,7 +165,7 @@ class QuestionLogRecordReaderReadTest {
             try {
                 assertTrue(locked.await(10, SECONDS), "the holder should hold the append lock");
                 var read = assertTimeout(Duration.ofSeconds(10),
-                        () -> reader.read(request(PLAN, QUESTION)),
+                        () -> reader.read(request(PLAN, question)),
                         "the read takes no lock and returns although an append holds it");
                 assertEquals(new Open(), read);
             } finally {
@@ -169,9 +174,9 @@ class QuestionLogRecordReaderReadTest {
             }
             assertNull(failure.get(), "the lock holder should not fail: " + failure.get());
 
-            QuestionFixtures.append(locks, plan, endOfLine, closing(QUESTION, QuestionEvent.ANSWERED));
+            QuestionFixtures.append(locks, plan, endOfLine, closing(question, QuestionEvent.ANSWERED));
 
-            assertEquals(new Resolved("answered"), reader.read(request(PLAN, QUESTION)),
+            assertEquals(new Resolved("answered"), reader.read(request(PLAN, question)),
                     "the append the read did not block is in the log");
         }
     }
@@ -184,12 +189,12 @@ class QuestionLogRecordReaderReadTest {
         @EnumSource(EndOfLine.class)
         @DisplayName("answers Unreadable, as a value, for a log outside the confinement")
         void refusesAPathOutsideTheConfinement(EndOfLine endOfLine) throws Exception {
-            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION));
+            QuestionFixtures.append(locks, plan, endOfLine, asked(question));
             var elsewhere = Files.createDirectories(base.resolve("elsewhere"));
             var confined = new QuestionLogRecordReader(base, PROJECT,
                     new WorkspaceConfinement(new WorkspaceRoots(elsewhere, Set.of())));
 
-            var read = assertDoesNotThrow(() -> confined.read(request(PLAN, QUESTION)),
+            var read = assertDoesNotThrow(() -> confined.read(request(PLAN, question)),
                     "a refused path is a value, never an exception");
 
             assertNotEquals(new Open(), read, "a refused log is never reported open");
@@ -205,7 +210,7 @@ class QuestionLogRecordReaderReadTest {
             var confined = new QuestionLogRecordReader(base, PROJECT,
                     new WorkspaceConfinement(new WorkspaceRoots(missing, Set.of())));
 
-            var read = assertDoesNotThrow(() -> confined.read(request(PLAN, QUESTION)));
+            var read = assertDoesNotThrow(() -> confined.read(request(PLAN, question)));
 
             var unreadable = assertInstanceOf(Unreadable.class, read);
             assertEquals("the question log is refused with path_traversal_rejected: canonicalization_failed",
@@ -217,11 +222,11 @@ class QuestionLogRecordReaderReadTest {
         @DisabledOnOs(OS.WINDOWS)
         @DisplayName("answers Unreadable for a scope directory reached through a symbolic link")
         void refusesASymbolicLink(EndOfLine endOfLine) throws Exception {
-            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION));
+            QuestionFixtures.append(locks, plan, endOfLine, asked(question));
             var linkedScope = plan.pathBase().getParent().resolve("linked-plan");
             Files.createSymbolicLink(linkedScope, plan.pathBase());
 
-            var read = assertDoesNotThrow(() -> reader.read(request("linked-plan", QUESTION)));
+            var read = assertDoesNotThrow(() -> reader.read(request("linked-plan", question)));
 
             var unreadable = assertInstanceOf(Unreadable.class, read);
             assertEquals("the question log is not reached by its canonical path", unreadable.reason());

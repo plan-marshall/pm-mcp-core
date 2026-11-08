@@ -17,9 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
@@ -45,11 +48,12 @@ import de.planmarshall.runtime.test.TestBases;
  * The boundaries of the adapter (PM-ARCH-4, PM-IMPL-5): the question id grammar, the scope id grammar, a log of one
  * record and of many, the intermediate lines of a revision, and the refused closing line that must never read open.
  */
+@EnableGeneratorController
 @DisplayName("Question log record reader: the boundaries")
 class QuestionLogRecordReaderBoundaryTest {
 
-    private static final String PROJECT = "pm-mcp-core";
-    private static final String PLAN = "a-plan";
+    private String project;
+    private String planId;
 
     private Path base;
     private JournalScope plan;
@@ -58,15 +62,17 @@ class QuestionLogRecordReaderBoundaryTest {
 
     @BeforeEach
     void createRuntime() throws IOException {
+        project = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        planId = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         base = TestBases.create("pmq-");
         Files.createDirectories(base);
         base = base.toRealPath();
-        plan = JournalScope.plan(base, PROJECT, PLAN);
+        plan = JournalScope.plan(base, project, planId);
         Files.createDirectories(plan.journalFile().getParent());
         locks = new FileLockManager(event -> {
             // a lock acquisition of these tests records nothing
         });
-        reader = QuestionFixtures.reader(base, PROJECT);
+        reader = QuestionFixtures.reader(base, project);
     }
 
     @AfterEach
@@ -75,7 +81,7 @@ class QuestionLogRecordReaderBoundaryTest {
     }
 
     private ReadRequest request(String questionId) {
-        return new ReadRequest(Optional.of(PLAN), questionId);
+        return new ReadRequest(Optional.of(planId), questionId);
     }
 
     @Nested

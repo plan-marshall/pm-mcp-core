@@ -32,6 +32,9 @@ import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Phase;
 /**
  * The record of the open credential-store operation (PM-CRED-2, PM-IMPL-2): written in its one shape and read back
  * unchanged; every other shape is refused as unreadable, another format version as outdated or newer.
+ * <p>
+ * Every datum of this test is a contract: the record's wire members, the store and operation wire names, the
+ * transaction-id form and the fixed file path.
  */
 @DisplayName("CredentialStoreMoveRecord: the record of the open operation")
 class CredentialStoreMoveRecordTest {

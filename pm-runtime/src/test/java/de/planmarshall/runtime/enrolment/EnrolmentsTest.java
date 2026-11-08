@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -35,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -82,13 +85,13 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * in the project's intent file before the mutation and hands it over after it; a refused or stopped hand-over leaves
  * the record owed, and the next write or the replay hands it over with the same transaction id.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Enrolments")
 class EnrolmentsTest {
 
     private static final String PROJECT = "pm-mcp-core";
     private static final String USER = System.getProperty("user.name");
-    private static final String LIVE_PLAN = "add-login";
     private static final String WORLD_WRITABLE = "rw-rw-rw-";
     private static final String AUDIT_LOG_FULL = "audit log full";
     private static final String OWNER_ONLY = "rw-------";
@@ -106,9 +109,15 @@ class EnrolmentsTest {
     private FileLockManager locks;
     private EnrolmentCheck check;
     private Enrolments enrolments;
+    private String livePlan;
+    private String liveEpic;
+    private String liveJob;
 
     @BeforeEach
     void create() throws IOException {
+        livePlan = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        liveEpic = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
+        liveJob = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
         state = Files.createDirectories(base.resolve("state"));
         store = new EnrolmentStore(base);
@@ -540,8 +549,8 @@ class EnrolmentsTest {
         void refusedForLiveWork() {
             enrolments.enrol(enrolment(false, null), false);
             events.clear();
-            var items = List.of(new Item(Kind.PLAN, LIVE_PLAN), new Item(Kind.EPIC, "auth-rework"),
-                    new Item(Kind.JOB, "job-1"));
+            var items = List.of(new Item(Kind.PLAN, livePlan), new Item(Kind.EPIC, liveEpic),
+                    new Item(Kind.JOB, liveJob));
             liveWork.put(PROJECT, items);
 
             var refusal = assertThrows(ScopeActiveException.class, () -> enrolments.unenrol(PROJECT));
@@ -550,7 +559,8 @@ class EnrolmentsTest {
                     () -> assertEquals(PROJECT, refusal.projectId()),
                     () -> assertEquals(items, refusal.items()),
                     () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE)),
-                    () -> assertTrue(refusal.getMessage().contains("plan add-login, epic auth-rework, job job-1"),
+                    () -> assertTrue(refusal.getMessage().contains(
+                                    "plan " + livePlan + ", epic " + liveEpic + ", job " + liveJob),
                             refusal.getMessage()),
                     () -> assertTrue(Files.exists(store.file(PROJECT))),
                     () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
@@ -564,7 +574,7 @@ class EnrolmentsTest {
         @DisplayName("stays refused with scope_active when the audit sink fails, and carries the failure")
         void refusalSurvivesAFailingAuditSink() {
             enrolments.enrol(enrolment(false, null), false);
-            var items = List.of(new Item(Kind.PLAN, LIVE_PLAN));
+            var items = List.of(new Item(Kind.PLAN, livePlan));
             liveWork.put(PROJECT, items);
             var failure = auditFailure();
             var failing = enrolmentsWith(key, failingWith(failure));
@@ -1306,7 +1316,7 @@ class EnrolmentsTest {
             void liveWorkRefusal() {
                 enrolments.enrol(enrolment(false, null), false);
                 events.clear();
-                liveWork.put(PROJECT, List.of(new Item(Kind.PLAN, LIVE_PLAN)));
+                liveWork.put(PROJECT, List.of(new Item(Kind.PLAN, livePlan)));
 
                 assertThrows(ScopeActiveException.class, () -> owing.unenrol(PROJECT));
 

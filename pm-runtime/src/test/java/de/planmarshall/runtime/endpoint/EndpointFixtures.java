@@ -20,6 +20,10 @@ import de.planmarshall.runtime.launch.HarnessVerifier;
 
 /**
  * An endpoint profile and its harness enrolment, for the tests of the endpoint harness.
+ * <p>
+ * Every datum of this fixture is a contract or fixture naming: the loopback origin, the client id, the executable's own
+ * path, the result-schema policy, the model tiers and the weights probe. The digest of {@code enrolment} is the
+ * fixture's own unresolved placeholder ({@code "a" * 64}), which a test replaces with the measured one when it means it.
  */
 final class EndpointFixtures {
 

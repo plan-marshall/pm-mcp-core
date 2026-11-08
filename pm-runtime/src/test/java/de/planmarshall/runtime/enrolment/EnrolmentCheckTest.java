@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -54,17 +55,18 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The enrolment check (PM-EXEC-2, PM-SEC-4, PM-SEC-5): an untouched enrolment passes and reads typed values; a
  * tampered or insecure one is refused, logged and audited, and blocks only its own project.
  */
+@EnableGeneratorController
 @EnableTestLogger
 @DisplayName("Enrolment check")
 class EnrolmentCheckTest {
 
     private static final String PROJECT = "pm-mcp-core";
-    private static final String OTHER = "other-project";
     private static final String USER = System.getProperty("user.name");
     private static final String COMMAND = "pm-operator accept-edit enrolment " + PROJECT;
 
@@ -76,9 +78,11 @@ class EnrolmentCheckTest {
     private EnrolmentKey key;
     private FileLockManager locks;
     private EnrolmentCheck check;
+    private String otherProject;
 
     @BeforeEach
     void enrolTwoProjects() throws IOException {
+        otherProject = RuntimeGenerators.projectIds().next();
         Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
         var state = Files.createDirectories(base.resolve("state"));
         store = new EnrolmentStore(base);
@@ -89,7 +93,7 @@ class EnrolmentCheckTest {
         check = new EnrolmentCheck(store, key, fileCheck, sink);
         var enrolments = new Enrolments(store, key, fileCheck, locks, projectId -> List.<LiveWork.Item>of(), sink);
         enrolments.enrol(enrolment(PROJECT, false), true);
-        enrolments.enrol(enrolment(OTHER, false), false);
+        enrolments.enrol(enrolment(otherProject, false), false);
         events.clear();
     }
 
@@ -148,18 +152,18 @@ class EnrolmentCheckTest {
         @Test
         @DisplayName("a file edited to pilot: true with a forged size and SHA-256: its HMAC differs")
         void forgedDigest() throws Exception {
-            var oldSidecar = EnrolmentSidecar.read(store.sidecar(OTHER), Files.readAllBytes(store.sidecar(OTHER)));
-            var edited = EnrolmentCodec.write(enrolment(OTHER, true));
-            Files.write(store.file(OTHER), edited);
-            Files.write(store.sidecar(OTHER), new EnrolmentSidecar(StoreDigest.of(edited), oldSidecar.hmac()).write());
+            var oldSidecar = EnrolmentSidecar.read(store.sidecar(otherProject), Files.readAllBytes(store.sidecar(otherProject)));
+            var edited = EnrolmentCodec.write(enrolment(otherProject, true));
+            Files.write(store.file(otherProject), edited);
+            Files.write(store.sidecar(otherProject), new EnrolmentSidecar(StoreDigest.of(edited), oldSidecar.hmac()).write());
 
-            var refusal = refused(OTHER);
+            var refusal = refused(otherProject);
 
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
                     () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH)),
-                    () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + OTHER)),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentTampered(OTHER, EnrolmentCheck.HMAC_MISMATCH)),
+                    () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + otherProject)),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentTampered(otherProject, EnrolmentCheck.HMAC_MISMATCH)),
                             events));
         }
 
@@ -284,7 +288,7 @@ class EnrolmentCheckTest {
             Files.createSymbolicLink(store.file(PROJECT), target);
 
             var refusal = refused(PROJECT);
-            var other = verify(OTHER);
+            var other = verify(otherProject);
 
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
@@ -295,7 +299,7 @@ class EnrolmentCheckTest {
                             events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
-                    () -> assertEquals(OTHER, other.projectId()));
+                    () -> assertEquals(otherProject, other.projectId()));
         }
 
         @Test
@@ -339,7 +343,7 @@ class EnrolmentCheckTest {
                     () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INVALID.resolveIdentifierString()),
-                    () -> assertEquals(OTHER, verify(OTHER).projectId()));
+                    () -> assertEquals(otherProject, verify(otherProject).projectId()));
         }
 
         @Test
@@ -420,11 +424,11 @@ class EnrolmentCheckTest {
         Files.delete(store.sidecar(PROJECT));
 
         var refusal = refused(PROJECT);
-        var other = verify(OTHER);
+        var other = verify(otherProject);
 
         assertAll(
                 () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
-                () -> assertEquals(OTHER, other.projectId()),
+                () -> assertEquals(otherProject, other.projectId()),
                 () -> assertFalse(other.pilot()));
     }
 

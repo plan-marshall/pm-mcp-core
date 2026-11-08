@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +31,11 @@ import org.junit.jupiter.api.io.TempDir;
  * The probe workspace (PM-CLIENT-5, Profile Verification): a fresh directory under the temporary directory with owner-
  * only permissions, a canary and an outside read path of its own, the observation of a run, and a whole removal when
  * it closes.
+ * <p>
+ * The file contents and the nested file's name are generated; the directory and canary prefixes, the file names, the
+ * {@code 0700} permission set and the "the token is " prefix are the contracts the workspace proves.
  */
+@EnableGeneratorController
 @DisplayName("The probe workspace")
 class ProbeWorkspaceTest {
 
@@ -85,7 +91,8 @@ class ProbeWorkspaceTest {
         var root = workspace.root();
         var outside = workspace.outsideRoot();
         Files.createDirectories(root.resolve("nested"));
-        Files.writeString(root.resolve("nested").resolve("file.txt"), "content", StandardCharsets.UTF_8);
+        Files.writeString(root.resolve("nested").resolve(Generators.letterStrings(3, 12).next() + ".txt"),
+                Generators.letterStrings(3, 30).next(), StandardCharsets.UTF_8);
 
         workspace.close();
 
@@ -110,9 +117,10 @@ class ProbeWorkspaceTest {
         var workspace = ProbeWorkspace.create(parent);
         var root = workspace.root();
         var outside = workspace.outsideRoot();
-        Files.writeString(root.resolve("answer.txt"), "the answer", StandardCharsets.UTF_8);
+        var answer = Generators.letterStrings(3, 30).next();
+        Files.writeString(root.resolve("answer.txt"), answer, StandardCharsets.UTF_8);
 
-        var observation = workspace.observe("the answer");
+        var observation = workspace.observe(answer);
 
         assertAll(
                 () -> assertFalse(observation.canaryReturned(), "the canary is not named"),
@@ -134,8 +142,8 @@ class ProbeWorkspaceTest {
         var outside = workspace.outsideRoot();
         var createdOutside = outside.resolve("escape.txt");
         var readPath = outside.resolve(ProbeWorkspace.OUTSIDE_FILE);
-        Files.writeString(createdOutside, "escaped", StandardCharsets.UTF_8);
-        Files.writeString(readPath, "tampered", StandardCharsets.UTF_8);
+        Files.writeString(createdOutside, Generators.letterStrings(3, 30).next(), StandardCharsets.UTF_8);
+        Files.writeString(readPath, Generators.letterStrings(3, 30).next(), StandardCharsets.UTF_8);
 
         var observation = workspace.observe("the token is " + workspace.canary());
 

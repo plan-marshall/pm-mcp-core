@@ -14,6 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -42,12 +47,18 @@ import de.planmarshall.runtime.credentials.CredentialStoreAspect.State;
 import de.planmarshall.runtime.credentials.CredentialStoreAspect.Transition;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The engine half of the credential-store aspect (State Catalogue § Credential Store): the states and their order, the
  * consent {@code check_credential_store} before the OS store is checked, the file store checked without one, and a failed
  * move that keeps the old store and reports {@code credential_store_failed}.
+ * <p>
+ * The entry secret is generated; the service name, the bus address, the states and the reason code are the contracts.
  */
+@EnableGeneratorController
+@EnableTestLogger
 @DisplayName("Credential store aspect")
 class CredentialStoreAspectTest {
 
@@ -66,8 +77,11 @@ class CredentialStoreAspectTest {
     private CredentialStoreChoice choice;
     private CredentialStoreAspect aspect;
 
+    private String secret;
+
     @BeforeEach
     void openRuntime() throws Exception {
+        secret = Generators.letterStrings(1, 20).next();
         AuditSink sink = events::add;
         locks = new FileLockManager(sink);
         consents = new ConsentStore(ConsentStore.file(base), locks, events::add);
@@ -171,6 +185,8 @@ class CredentialStoreAspectTest {
                 () -> assertEquals(3, checked.lines().size()),
                 () -> assertTrue(checked.lines().stream().allMatch(line -> line.outcome()
                         == CredentialStoreCheck.Outcome.OK)),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                        INFO.CREDENTIAL_STORE_CHECK_PASSED.resolveIdentifierString()),
                 () -> assertEquals(State.DONE, recorded.next()),
                 () -> assertEquals(Optional.of(Store.FILE), choice.recorded()));
     }
@@ -192,7 +208,7 @@ class CredentialStoreAspectTest {
     @DisplayName("a passed check with another store recorded reaches store.confirm-move with the entry count")
     void confirmMove() {
         aspect.recordStore(Store.FILE);
-        new FileSecretStore(base.resolve("credentials")).put(CredentialAccount.global("github"), "secret");
+        new FileSecretStore(base.resolve("credentials")).put(CredentialAccount.global("github"), secret);
 
         var checked = aspect.check(Store.OS);
         var confirmed = aspect.confirmMove();
@@ -207,7 +223,7 @@ class CredentialStoreAspectTest {
     @DisplayName("a failed move keeps the old store and reports credential_store_failed")
     void moveFailed() {
         aspect.recordStore(Store.FILE);
-        secretService.put(CredentialAccount.global("github"), "secret");
+        secretService.put(CredentialAccount.global("github"), secret);
         secretService.failWith(SecretStoreException.Reason.FAILED);
 
         var transition = aspect.move(Store.OS);
@@ -215,6 +231,8 @@ class CredentialStoreAspectTest {
         assertAll(
                 () -> assertEquals(State.UNAVAILABLE, transition.next()),
                 () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason().orElseThrow()),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.CREDENTIAL_STORE_ASPECT_MOVE_FAILED.resolveIdentifierString()),
                 () -> assertEquals(Optional.of(Store.FILE), choice.recorded()));
     }
 
