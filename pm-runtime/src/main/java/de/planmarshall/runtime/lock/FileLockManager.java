@@ -70,9 +70,11 @@ import de.planmarshall.runtime.start.PosixModes;
  * and the call fails with {@link InternalFaultException}.
  * <p>
  * A lock file below a {@code locks/} directory is created with mode {@code 0600} and its directories with mode
- * {@code 0700}. A leaf key names an append-only file of a store, which is locked itself: the manager creates that
- * file where it is absent, but never its directory, which belongs to the store. Opening an existing lock file
- * changes neither its content nor its modification time.
+ * {@code 0700}. A leaf key names an append-only file of a store. Its OS lock is taken on the sidecar
+ * {@code <file>.lock} beside that store, which no append, repair or read of the store opens: closing a channel on a
+ * file releases every OS lock the process holds on it, so a lock taken on the store itself would be dropped by the
+ * store's own write (ADR 068). The manager creates the sidecar where it is absent, but never its directory, which
+ * belongs to the store. Opening an existing lock file changes neither its content nor its modification time.
  * <p>
  * The locks of a thread are held per transaction. A thread that opens a second transaction while the first holds a
  * key may acquire that key in the second one as well; the order is asserted within each transaction only.
@@ -82,6 +84,9 @@ import de.planmarshall.runtime.start.PosixModes;
 public final class FileLockManager implements LockManager {
 
     private static final CuiLogger LOGGER = new CuiLogger(FileLockManager.class);
+
+    /** The suffix of the sidecar a leaf key's OS lock is taken on, beside the guarded store. */
+    private static final String SIDECAR_SUFFIX = ".lock";
 
     private final AuditSink auditSink;
 
@@ -113,6 +118,18 @@ public final class FileLockManager implements LockManager {
         return osLocks.size();
     }
 
+    /**
+     * @param key a key
+     * @return the file the OS lock of the key is taken on: the lock file itself, or for a leaf key the sidecar
+     *         {@code <lock file>.lock} beside the guarded store, which no store channel opens (ADR 068)
+     */
+    private static Path osLockFile(LockKey key) {
+        var lockFile = key.lockFile();
+        return key.level() == LockLevel.LEAF
+                ? lockFile.resolveSibling(lockFile.getFileName() + SIDECAR_SUFFIX)
+                : lockFile;
+    }
+
     /** The locks of one transaction, in the order they were acquired, which is the lock order. */
     private final class Transaction implements LockTransaction {
 
@@ -137,7 +154,7 @@ public final class FileLockManager implements LockManager {
         }
 
         private void lockFile(LockKey key) {
-            var lockFile = key.lockFile();
+            var lockFile = osLockFile(key);
             var osLock = osLocks.enter(lockFile);
             var taken = false;
             try {
@@ -153,7 +170,7 @@ public final class FileLockManager implements LockManager {
         // The thread leaves the key after it gave the lock back: a waiting thread entered the key before it began
         // to wait, so the lock it waits for stays the lock of the key.
         private void unlock(LockKey key) {
-            var lockFile = key.lockFile();
+            var lockFile = osLockFile(key);
             try {
                 osLocks.get(lockFile).release(lockFile);
             } finally {
@@ -289,7 +306,7 @@ public final class FileLockManager implements LockManager {
         }
 
         private static FileChannel openAndLock(LockKey key) {
-            var lockFile = key.lockFile();
+            var lockFile = osLockFile(key);
             try {
                 if (key.level() != LockLevel.LEAF) {
                     Files.createDirectories(lockFile.getParent(), PosixModes.directoryAttribute());
