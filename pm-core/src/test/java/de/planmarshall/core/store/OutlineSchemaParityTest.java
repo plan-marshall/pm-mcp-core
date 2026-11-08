@@ -37,6 +37,8 @@ import de.planmarshall.core.store.OutlineStore.Revision;
  * negative controls prove the comparison reports a member only one side has.
  */
 @EnableGeneratorController
+@SuppressWarnings("java:S5778")
+// each assertAll entry builds its value under test in the assertion, by design
 @DisplayName("Outline store and record schema parity")
 class OutlineSchemaParityTest {
 
@@ -48,7 +50,7 @@ class OutlineSchemaParityTest {
                 new Revision(1, OutlineFixtures.AT, "TASK-001", OutlineFixtures.valid())));
     }
 
-    private static Map<?, ?> record() {
+    private static Map<?, ?> recordDocument() {
         var store = SchemaParity.document(written());
         return SchemaParity.object(SchemaParity.object(store.get("current")).get("record"));
     }
@@ -69,14 +71,14 @@ class OutlineSchemaParityTest {
                 () -> assertEquals(1,
                         ((Number) SchemaParity.member(schema, "format_version").get("const")).intValue(),
                         "the schema's format version stays 1"),
-                () -> assertEquals(OutlineStore.FORMAT_VERSION, 1, "the codec's format version stays 1"));
+                () -> assertEquals(1, OutlineStore.FORMAT_VERSION, "the codec's format version stays 1"));
     }
 
     @Test
     @DisplayName("the members and required members of the record are the file's")
     void recordMembers() {
         var schema = SchemaParity.load(RECORD);
-        var document = record();
+        var document = recordDocument();
         var members = SchemaParity.members(document);
 
         assertAll(
@@ -148,7 +150,7 @@ class OutlineSchemaParityTest {
     @Test
     @DisplayName("the comparison reports a member the record has and the file lacks")
     void recordOnlyNegativeControl() {
-        var diffs = SchemaParity.withRecordOnly(SchemaParity.members(record()), SchemaParity.load(RECORD),
+        var diffs = SchemaParity.withRecordOnly(SchemaParity.members(recordDocument()), SchemaParity.load(RECORD),
                 "summary");
 
         assertTrue(diffs.contains("record-only:summary"), "the missing file member should be reported");

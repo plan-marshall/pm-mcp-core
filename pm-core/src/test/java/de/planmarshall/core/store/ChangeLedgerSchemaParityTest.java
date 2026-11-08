@@ -39,6 +39,8 @@ import de.planmarshall.core.store.ChangeLedgerRecord.Outcome;
  * message reports it.
  */
 @EnableGeneratorController
+@SuppressWarnings("java:S5778")
+// each assertAll entry builds its value under test in the assertion, by design
 @DisplayName("Change ledger record schema parity")
 class ChangeLedgerSchemaParityTest {
 
@@ -114,7 +116,7 @@ class ChangeLedgerSchemaParityTest {
                 () -> assertEquals(1,
                         ((Number) SchemaParity.member(schema, "worktree_sha_version").get("const")).intValue(),
                         "the schema's hash version stays 1"),
-                () -> assertEquals(ChangeLedgerRecord.WORKTREE_SHA_VERSION, 1,
+                () -> assertEquals(1, ChangeLedgerRecord.WORKTREE_SHA_VERSION,
                         "the record's hash version stays 1"));
     }
 

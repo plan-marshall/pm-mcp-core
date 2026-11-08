@@ -42,6 +42,8 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * {@code taskRow} does not declare. The test pins that drift; the landing message reports it.
  */
 @EnableGeneratorController
+@SuppressWarnings("java:S5778")
+// each assertAll entry builds its value under test in the assertion, by design
 @DisplayName("Metrics store schema parity")
 class MetricsSchemaParityTest {
 
@@ -68,8 +70,7 @@ class MetricsSchemaParityTest {
     }
 
     private static Map<?, ?> taskRow() {
-        var document = SchemaParity.object(SchemaParity.array(SchemaParity.document(written()).get("rows")).getFirst());
-        return document;
+        return SchemaParity.object(SchemaParity.array(SchemaParity.document(written()).get("rows")).getFirst());
     }
 
     @Test
@@ -88,7 +89,7 @@ class MetricsSchemaParityTest {
                 () -> assertEquals(1,
                         ((Number) SchemaParity.member(schema, "format_version").get("const")).intValue(),
                         "the schema's format version stays 1"),
-                () -> assertEquals(MetricsStore.FORMAT_VERSION, 1, "the codec's format version stays 1"));
+                () -> assertEquals(1, MetricsStore.FORMAT_VERSION, "the codec's format version stays 1"));
     }
 
     @Test

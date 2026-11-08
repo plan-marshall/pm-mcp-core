@@ -39,6 +39,8 @@ import de.planmarshall.core.store.IntentStore.Revision;
  * silently; the plan that owns the correction fixes the codec, and the landing message reports the drift.
  */
 @EnableGeneratorController
+@SuppressWarnings("java:S5778")
+// each assertAll entry builds its value under test in the assertion, by design
 @DisplayName("Intent store and record schema parity")
 class IntentSchemaParityTest {
 
@@ -50,7 +52,7 @@ class IntentSchemaParityTest {
                 new Revision(1, IntentFixtures.AT, "TASK-001", IntentFixtures.valid())));
     }
 
-    private static Map<?, ?> record() {
+    private static Map<?, ?> recordDocument() {
         var store = SchemaParity.document(written());
         return SchemaParity.object(SchemaParity.object(store.get("current")).get("record"));
     }
@@ -71,7 +73,7 @@ class IntentSchemaParityTest {
                 () -> assertEquals(1,
                         ((Number) SchemaParity.member(schema, "format_version").get("const")).intValue(),
                         "the schema's format version stays 1"),
-                () -> assertEquals(IntentStore.FORMAT_VERSION, 1, "the codec's format version stays 1"));
+                () -> assertEquals(1, IntentStore.FORMAT_VERSION, "the codec's format version stays 1"));
     }
 
     @Test
@@ -95,7 +97,7 @@ class IntentSchemaParityTest {
     @DisplayName("the record deviates from its file only in choices-to-decisions and the absent repairs")
     void recordMembers() {
         var schema = SchemaParity.load(RECORD);
-        var diffs = new TreeSet<>(SchemaParity.memberDiffs(SchemaParity.members(record()), schema));
+        var diffs = new TreeSet<>(SchemaParity.memberDiffs(SchemaParity.members(recordDocument()), schema));
 
         assertEquals(new TreeSet<>(List.of("file-only:choices", "file-only:repairs", "record-only:decisions")), diffs,
                 "the record's recorded drift should not change silently");
@@ -105,7 +107,7 @@ class IntentSchemaParityTest {
     @DisplayName("the record carries every required member its file and the codec share")
     void recordRequiredMembers() {
         var schema = SchemaParity.load(RECORD);
-        var present = new TreeSet<>(SchemaParity.members(record()));
+        var present = new TreeSet<>(SchemaParity.members(recordDocument()));
         var required = new TreeSet<>(SchemaParity.required(schema));
         required.removeAll(Set.of("choices", "repairs"));
 
@@ -158,7 +160,7 @@ class IntentSchemaParityTest {
     @Test
     @DisplayName("the record comparison reports a member the file has and the record lacks")
     void recordFileOnlyNegativeControl() {
-        var diffs = SchemaParity.withFileOnly(SchemaParity.members(record()), SchemaParity.load(RECORD),
+        var diffs = SchemaParity.withFileOnly(SchemaParity.members(recordDocument()), SchemaParity.load(RECORD),
                 "synthetic_member");
 
         assertTrue(diffs.contains("file-only:synthetic_member"), "the extra file member should be reported");
@@ -167,7 +169,7 @@ class IntentSchemaParityTest {
     @Test
     @DisplayName("the record comparison reports a member the record has and the file lacks")
     void recordRecordOnlyNegativeControl() {
-        var diffs = SchemaParity.withRecordOnly(SchemaParity.members(record()), SchemaParity.load(RECORD), "why");
+        var diffs = SchemaParity.withRecordOnly(SchemaParity.members(recordDocument()), SchemaParity.load(RECORD), "why");
 
         assertTrue(diffs.contains("record-only:why"), "the missing file member should be reported");
     }
