@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/register-item.json",
+  "title": "EpicRegisterItem",
+  "type": "object",
+  "required": ["format_version", "item_id", "register", "statement", "rules", "origin", "state", "trigger", "promoted_to", "opened_at", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "item_id": { "type": "string", "pattern": "^EI-[0-9]+$", "description": "Store-assigned, monotonic per file, never reused." },
+    "register": { "type": "string", "enum": ["findings", "watches"] },
+    "statement": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "rules": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 400 }, "description": "The rules the item bears on (a requirement id, a specification anchor, a convention of the epic's spec.md)." },
+    "origin": {
+      "type": "object",
+      "required": ["kind", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["landing", "message", "observation"] },
+        "ref": { "type": ["string", "null"], "description": "The plan_id of the landing, the message_id of the plan's message; null for an observation of the epic's task." }
+      }
+    },
+    "state": { "type": "string", "enum": ["open", "kept", "dropped", "promoted"], "description": "open: not decided yet; kept: kept in its register; dropped; promoted: became a staged row (promoted_to)." },
+    "trigger": {
+      "type": ["object", "null"],
+      "description": "watches only (required then): what makes the epic check the watch again; null for a finding.",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["landing", "base_advanced"], "description": "landing: a landing of the epic (of plan_id when set); base_advanced: an advance of the default branch (touching one of paths when set)." },
+        "plan_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+        "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "promoted_to": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "promoted only: the plan_id of the row the item became." },
+    "opened_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

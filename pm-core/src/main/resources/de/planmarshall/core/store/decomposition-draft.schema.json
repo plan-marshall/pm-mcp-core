@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decomposition-draft.json",
+  "title": "EpicDecompositionDraft",
+  "type": "object",
+  "required": ["format_version", "run", "instruction", "intent", "rows", "sections", "workstreams", "dropped", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "run": { "type": "string", "enum": ["first", "again", "recut"], "description": "first: the epic's first decomposition; again: the operator's decompose again; recut: a re-cut with its proposal as input." },
+    "instruction": { "type": ["string", "null"], "maxLength": 4000, "description": "The operator's instruction of a decompose again or a draft again; null otherwise." },
+    "intent": {
+      "oneOf": [{ "type": "null" }, { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/epic-intent-v1.json" }],
+      "description": "The epic intent of the draft, from the intent submit or the operator's edits; a later run starts from the committed intent."
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["plan_id", "replaces", "workstream_id", "prerequisites", "declared_surface", "spec_section", "done_when", "edited_by_operator"],
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "From the stage submit's plan_slug." },
+          "replaces": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "A later run: the committed staged row the draft row changes; null for a new row." },
+          "workstream_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$" },
+          "prerequisites": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" } },
+          "declared_surface": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/queue-row.json#/properties/declared_surface" },
+          "spec_section": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" },
+          "done_when": { "type": "string", "minLength": 10, "maxLength": 300 },
+          "edited_by_operator": { "type": "boolean" }
+        }
+      }
+    },
+    "sections": { "type": "object", "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" }, "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 65536 }, "description": "Staged plan sections of spec.md by anchor, as the spec_section submits or the operator's edits wrote them." },
+    "workstreams": { "type": "array", "items": { "type": "object", "required": ["workstream_id", "title", "order"], "additionalProperties": false, "properties": { "workstream_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$" }, "title": { "type": "string", "minLength": 3, "maxLength": 200 }, "order": { "type": "integer", "minimum": 1, "maximum": 999 } } } },
+    "dropped": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }, "description": "A later run: committed staged rows the draft drops." },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

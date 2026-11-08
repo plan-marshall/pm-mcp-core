@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/review-draft.json",
+  "title": "EpicReviewDraft",
+  "type": "object",
+  "required": ["format_version", "register", "items", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "register": { "type": "string", "enum": ["findings", "watches"] },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_id", "proposal", "disposition"],
+        "additionalProperties": false,
+        "properties": {
+          "item_id": { "type": "string", "pattern": "^EI-[0-9]+$" },
+          "proposal": { "type": ["object", "null"], "required": ["kind", "rationale"], "additionalProperties": false, "properties": { "kind": { "type": "string", "enum": ["keep", "drop", "promote", "move_to_watches"] }, "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 } }, "description": "The review task's proposal; null until it is made." },
+          "disposition": {
+            "type": ["object", "null"],
+            "description": "The operator's disposition, confirmed at its read-back where a model drafted it; null while undecided.",
+            "required": ["kind"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": { "type": "string", "enum": ["keep", "drop", "promote", "edit", "move_to_watches"] },
+              "reason": { "type": ["string", "null"], "maxLength": 2000, "description": "drop: the operator's reason." },
+              "statement": { "type": ["string", "null"], "maxLength": 2000, "description": "edit: the rewritten statement." },
+              "rules": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1, "maxLength": 400 }, "description": "edit: the rewritten rules." },
+              "row": { "type": ["object", "null"], "description": "promote: the staged row drafted for the item, of the shape of a decomposition draft row, with its section text." }
+            }
+          }
+        }
+      }
+    },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}
