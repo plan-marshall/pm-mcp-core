@@ -418,9 +418,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |link:generated-listings.adoc[`generated-listings`]
-|The log message table and the protocol lists taken from the code instead of compared with it by a test; the form waits for the decision `generated-listings`
-|`blocked`
-|`schema-files-foundation`; the open question `generated-listings` of the documentation
+|The log message tables generated from the holders and the protocol lists linked to the Javadoc instead of compared with the code by a test
+|`open`
+|`schema-files-foundation`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |link:adoc-reading-retired.adoc[`adoc-reading-retired`]

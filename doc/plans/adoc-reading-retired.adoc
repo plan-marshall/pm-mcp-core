@@ -13,9 +13,9 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 Start when every package of the transition is done: the docs-only skip is on `main` (link:../adr/015-the-docs-only-build-skip-with-a-code-include-list.adoc[ADR 015]) with the include list this package shrinks.
 
 . *Delete* `SpecificationDocument` and the property `pm.specification.root`: its declaration and its pass-through to the tests in `pm-core/pom.xml`, and the `..` fallback of every test that read the property.
-. *Shrink the include list* of `maven-build.paths-code-extra` in `.github/project.yml`: `**/doc/**` goes, unless `generated-listings` keeps a check of a generated file below a `doc/` tree; then the entry narrows to that file. `**/src/**` stays: a fixture below a source tree is build input.
+. *Shrink the include list* of `maven-build.paths-code-extra` in `.github/project.yml`: `**/doc/**` narrows to the generated log message files of `generated-listings`, the only files below a `doc/` tree a test still reads. `**/src/**` stays: a fixture below a source tree is build input.
 . *ADR*: the ADR of `schema-files-foundation` states that the premise of ADR 009 and the `**/doc/**` entry of ADR 015 no longer hold; the ADR index marks them superseded.
-. *Verify by search*: no test source of the repository opens a path below `doc/` (a search for `"doc/`, `Path.of("..`, `Path.of("doc` and `getProperty("pm.` in the test trees), apart from the generated-file check where the decision kept one.
+. *Verify by search*: no test source of the repository opens a path below `doc/` (a search for `"doc/`, `Path.of("..`, `Path.of("doc` and `getProperty("pm.` in the test trees), apart from the byte check of the generated log message files of `generated-listings`.
 . *Documents here*: the two sentences of project setup about `skip-on-docs-only` and the docs-only pull request are checked; the pull request beside this one is only needed where one names them.
 
 == Trace
