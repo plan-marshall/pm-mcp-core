@@ -195,7 +195,7 @@ public final class ActivityJournal {
         } catch (IOException e) {
             throw new UncheckedIOException("Activity journal directory cannot be created: " + file.getParent(), e);
         }
-        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        var key = new LockKey(LockLevel.LEAF, file, queueTaskId);
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(key);
             var current = Files.exists(file) ? read(file) : List.<ActivityEntry>of();
@@ -225,6 +225,10 @@ public final class ActivityJournal {
      * The lock of a journal is a sibling file, not the journal itself: a bounded journal is replaced by an atomic
      * rename, which replaces the inode, and a lock on the old inode would exclude nobody
      * (link:../../adr/core-queue/006-the-journal-lock-is-a-sibling-file.adoc[ADR 006]).
+     * <p>
+     * The journal's leaf key names the journal, so the lock manager takes the OS lock on exactly this sibling
+     * (link:../../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]); this method is the one
+     * place that spells it, for the cleanup of {@link #delete(String)}.
      */
     private static Path lockFile(Path journal) {
         return journal.resolveSibling(journal.getFileName() + ".lock");
@@ -262,7 +266,7 @@ public final class ActivityJournal {
         }
         var target = Objects.requireNonNull(targetDirectory, "targetDirectory")
                 .toAbsolutePath().normalize().resolve(file.getFileName());
-        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        var key = new LockKey(LockLevel.LEAF, file, queueTaskId);
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(key);
             Files.createDirectories(target.getParent());
@@ -284,7 +288,7 @@ public final class ActivityJournal {
         if (!Files.exists(file) && !Files.exists(lockFile(file))) {
             return;
         }
-        var key = new LockKey(LockLevel.LEAF, lockFile(file), queueTaskId);
+        var key = new LockKey(LockLevel.LEAF, file, queueTaskId);
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(key);
             Files.deleteIfExists(file);

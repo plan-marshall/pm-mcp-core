@@ -11,6 +11,7 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.queue.QueueTaskRecord.SignalAction;
 import de.planmarshall.core.queue.QueueTaskRecord.SignalName;
+import de.planmarshall.core.store.LockLevel;
 
 /**
  * The activity journal of a task lies in the store of the task's scope and appends one entry per line under its own
@@ -91,6 +93,37 @@ class ActivityJournalTest {
 
         assertEquals(base.resolve("machine/tasks/activity/" + TASK + ".jsonl").toAbsolutePath().normalize(),
                 journal.journalPath(TASK));
+    }
+
+    @Test
+    @DisplayName("the journal's leaf key names the journal, whose lock is the sibling .lock file")
+    void journalLockKey(@TempDir Path base) {
+        var locks = new TestLocks();
+        var journal = new ActivityJournal(base.resolve("journal"), locks);
+
+        journal.append(TASK, signal(1));
+
+        var key = locks.acquisitions().getFirst();
+        assertAll("the key of the journal lock",
+                () -> assertEquals(LockLevel.LEAF, key.level(), "the journal lock is a leaf lock"),
+                () -> assertEquals(journal.journalPath(TASK), key.lockFile(),
+                        "the key names the journal, not its lock file"));
+    }
+
+    @Test
+    @DisplayName("delete removes the journal and the sibling lock file beside it")
+    void deleteRemovesTheSiblingLock(@TempDir Path base) throws Exception {
+        var journal = new ActivityJournal(base.resolve("journal"), new TestLocks());
+        journal.append(TASK, signal(1));
+        var file = journal.journalPath(TASK);
+        var lock = file.resolveSibling(file.getFileName() + ".lock");
+        Files.writeString(lock, "");
+
+        journal.delete(TASK);
+
+        assertAll("a deleted journal",
+                () -> assertFalse(Files.exists(file), "the journal itself is deleted"),
+                () -> assertFalse(Files.exists(lock), "the sibling lock file is deleted"));
     }
 
     @Test
