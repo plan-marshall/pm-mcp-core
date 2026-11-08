@@ -79,7 +79,7 @@ class CredentialStoreMoveRecordParityTest {
 
         assertAll(
                 () -> assertEquals(operations, Set.copyOf(names(SchemaResource.array(
-                        SchemaResource.object(properties.get("operation")).get("enum")))),
+                                SchemaResource.object(properties.get("operation")).get("enum")))),
                         "The operation values are the schema's"),
                 () -> assertEquals(stores, names(SchemaResource.array(
                         SchemaResource.object(properties.get("from")).get("enum"))),
