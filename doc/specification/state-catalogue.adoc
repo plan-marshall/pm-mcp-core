@@ -142,7 +142,7 @@ _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc
 |the caller's or the subject's phase value
 |`operator_wait`
 |`chat.reply` (`proposed`); `chat.route` (`proposal_open`).
-|Each proposed change in one sentence beside the operator's message. `accept`, `reject`; `message` (the operator writes on, the proposal stays open); `end` (the proposal dropped).
+|Each proposed change in one sentence beside the operator's message. `accept`, `reject` (each naming the proposal it answers; one that names a replaced proposal is refused `conflict`); `message` (`text[1..8000]`, the operator writes on, the proposal stays open); `end` (the proposal dropped).
 |`accept` -> `chat.apply` (a hosted chat) or `chat.carried` (a called chat); `reject` -> `chat.turn`; `message` -> `chat.reply`; `end` -> `chat.end`.
 |link:model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
 

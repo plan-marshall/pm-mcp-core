@@ -30,4 +30,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: no item is anchored to the sections the tasks name.
-* Tests: off by default; each method allowed only after its consent and out of use once withdrawn; a project narrowing and a widening refused; the local model found and not found; a transcription answered as text with nothing kept in a log, the audit, or a store; a method not allowed refused; a failed local model or provider answered with its reason.
+* Tests: a recording over each bound (120 s, 8 MB) refused for each method; an outbound connection from a `speech` job refused; a failure of the local model and of the provider each answered with its reason; with `transcribe_provider` off, a provider transcription attempts no connection at all; off by default; each method allowed only after its consent and out of use once withdrawn; a project narrowing and a widening refused; the local model found and not found; a transcription answered as text with nothing kept in a log, the audit, or a store; a method not allowed refused; a failed local model or provider answered with its reason.
