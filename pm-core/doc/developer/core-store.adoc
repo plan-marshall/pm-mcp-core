@@ -2410,9 +2410,9 @@ closes such a task `lost`.
 
 == Testing
 
-The tests run on the JVM over stores in a temporary base. The schema parity tests already moved to schema files
-(`AuditSchemaParityTest`, the tests of `core.config`, and `LeaseOwnerSchemaParityTest`) read the file beside the codec
-from the class path (`SchemaResource`, ADR 016). The parity tests that still read the specification of this repository
+The tests run on the JVM over stores in a temporary base. The schema parity tests already moved to schema files (for
+example `AuditSchemaParityTest`, the tests of `core.config`, and `LeaseOwnerSchemaParityTest`) read the file beside the
+codec from the class path (`SchemaResource`, ADR 016). The parity tests that still read the specification of this repository
 (`doc/specification`, below the root the system property `pm.specification.root` names, `SpecificationDocument`) include
 `PendingEntrySchemaParityTest`, `DerivedFactsSchemaParityTest`, `LessonFrontMatterSchemaParityTest`,
 `TaskQueueSchemaParityTest`, `FindingSchemaParityTest`, `AnalysisResultSchemaTest`, `WorkflowStatusSchemaParityTest` and

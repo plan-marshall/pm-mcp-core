@@ -19,6 +19,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -57,6 +60,9 @@ class CredentialStoreMoveRecordParityTest {
                 () -> assertEquals(Set.of("format_version", "from", "to", "started_at", "phase", "target_held_key",
                         "operation", "transaction_id"), declared),
                 () -> assertEquals(declared, required(schema), "every member is required"),
+                () -> assertEquals(declared, SchemaResource.object(
+                        SchemaResource.parse(new String(written, StandardCharsets.UTF_8))).keySet(),
+                        "the written members are the schema's"),
                 () -> assertEquals(1, CredentialStoreMoveRecord.FORMAT_VERSION),
                 () -> assertTrue(new String(written, StandardCharsets.UTF_8).startsWith("{\"format_version\":1,"),
                         new String(written, StandardCharsets.UTF_8)),
@@ -66,19 +72,23 @@ class CredentialStoreMoveRecordParityTest {
     @Test
     @DisplayName("the wire names of the operations and of the stores are the ones the schema enumerates")
     void wireNames() {
-        var schema = SchemaResource.text(SCHEMA);
+        var schema = SchemaResource.load(SCHEMA);
+        var properties = SchemaResource.object(schema.get("properties"));
+        var stores = Arrays.stream(Store.values()).map(Store::value).toList();
+        var text = SchemaResource.text(SCHEMA);
 
         assertAll(
                 () -> {
                     for (var operation : Operation.values()) {
-                        assertTrue(schema.contains("\"" + operation.value() + "\""), operation.value());
+                        assertTrue(text.contains("\"" + operation.value() + "\""), operation.value());
                     }
                 },
-                () -> {
-                    for (var store : Store.values()) {
-                        assertTrue(schema.contains("\"" + store.value() + "\""), store.value());
-                    }
-                });
+                () -> assertEquals(stores, names(SchemaResource.array(
+                        SchemaResource.object(properties.get("from")).get("enum"))),
+                        "The from values are the store's values"),
+                () -> assertEquals(stores, names(SchemaResource.array(
+                        SchemaResource.object(properties.get("to")).get("enum"))),
+                        "The to values are the store's values"));
     }
 
     @Test
@@ -106,5 +116,9 @@ class CredentialStoreMoveRecordParityTest {
     /** @return the member names of the schema's {@code required} */
     private static Set<String> required(Map<?, ?> schema) {
         return Set.copyOf(SchemaResource.array(schema.get("required")).stream().map(String::valueOf).toList());
+    }
+
+    private static List<String> names(Collection<?> values) {
+        return values.stream().map(String::valueOf).toList();
     }
 }

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.launch;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -25,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -120,6 +122,39 @@ class HarnessEnrolmentSchemaParityTest {
                         "The format version is the schema const"));
     }
 
+    @Test
+    @DisplayName("a populated usage report carries the schema's figures and start context")
+    void populatedUsageReport() {
+        var report = new UsageReport(UsageSource.VERIFIED,
+                Map.of("input", "reported", "output", "missing", "cache_read", "not_applicable"),
+                List.of(new UsageReport.StartContext("writer", "deepseek-v4.1", OptionalLong.of(1024)),
+                        new UsageReport.StartContext("read_only", "deepseek-v4.1", OptionalLong.empty())));
+        var written = SchemaResource.object(writtenEntry(Map.of(), Map.of(), report).get("usage_report"));
+        var writtenFigures = SchemaResource.object(written.get("figures"));
+        var writtenContext = SchemaResource.array(written.get("start_context"));
+        var defs = SchemaResource.object(SchemaResource.load(SCHEMA).get("$defs"));
+        var usageReport = SchemaResource.object(defs.get("usage_report"));
+        var figureProperties = SchemaResource.object(SchemaResource.object(
+                SchemaResource.object(usageReport.get("properties")).get("figures")).get("properties"));
+        var figureValues = names(SchemaResource.array(SchemaResource.object(defs.get("figure")).get("enum")));
+        var contextItem = SchemaResource.object(SchemaResource.object(SchemaResource.object(
+                usageReport.get("properties")).get("start_context")).get("items"));
+
+        assertAll(
+                () -> assertTrue(names(figureProperties.keySet()).containsAll(names(writtenFigures.keySet())),
+                        "Every written figure is a schema property"),
+                () -> assertTrue(figureValues.containsAll(names(writtenFigures.values())),
+                        "Every written figure result is a schema value"),
+                () -> assertEquals(Set.copyOf(names(SchemaResource.array(contextItem.get("required")))),
+                        Set.copyOf(names(SchemaResource.object(writtenContext.get(0)).keySet())),
+                        "A start context entry carries the required members"),
+                () -> assertInstanceOf(Number.class, SchemaResource.object(writtenContext.get(0)).get("tokens"),
+                        "A measured start context carries a number"),
+                () -> assertEquals("unmeasured",
+                        SchemaResource.object(writtenContext.get(1)).get("tokens"),
+                        "An unmeasured start context carries the const"));
+    }
+
     private static Map<?, ?> programEntry() {
         return SchemaResource.object(
                 SchemaResource.object(SchemaResource.load(SCHEMA).get("$defs")).get("program_entry"));
@@ -131,10 +166,14 @@ class HarnessEnrolmentSchemaParityTest {
     }
 
     private Map<?, ?> writtenEntry(Map<String, HarnessEnrolment.Weights> weights, Map<String, String> events) {
+        return writtenEntry(weights, events, new UsageReport(UsageSource.VERIFIED, Map.of()));
+    }
+
+    private Map<?, ?> writtenEntry(Map<String, HarnessEnrolment.Weights> weights, Map<String, String> events,
+            UsageReport usageReport) {
         var now = Instant.ofEpochSecond(Generators.longs(0, 2_000_000_000L).next());
         var enrolment = new HarnessEnrolment("opencode", Path.of("/opt/harness/opencode"), SHA256,
-                "1." + Generators.integers(0, 99).next(), now, now, new UsageReport(UsageSource.VERIFIED, Map.of()),
-                events, weights);
+                "1." + Generators.integers(0, 99).next(), now, now, usageReport, events, weights);
         store().enrol(enrolment);
         var document = SchemaResource.object(SchemaResource.parse(
                 new String(read(base.resolve("harnesses.json")), UTF_8)));

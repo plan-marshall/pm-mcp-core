@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.config;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
@@ -54,12 +55,17 @@ class MachineConfigurationSchemaParityTest {
                 new ProviderDefault(true, Optional.of(ProviderVariant.CLI), Optional.of("github"))));
         var created = document(MachineConfigurationCodec.create(defaults));
         var providers = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("providers"));
+        var written = SchemaResource.object(SchemaResource.object(created.get("providers")).get("github"));
 
         assertEquals(List.of("format_version", "revision", "max_build_slots", "lsp_idle_timeout_seconds", "providers"),
                 names(created.keySet()), "The providers follow the required members");
         assertEquals(Arrays.stream(Provider.values()).map(Provider::wireName).toList(),
                 names(SchemaResource.array(SchemaResource.object(providers.get("propertyNames")).get("enum"))),
                 "The provider keys are the schema's closed list");
+        assertAll(
+                () -> assertEquals(Boolean.TRUE, written.get("available"), "The provider is recorded available"),
+                () -> assertEquals("cli", written.get("variant"), "The written variant is the cli one"),
+                () -> assertEquals("github", written.get("credential_key"), "The written key names the entry"));
     }
 
     @Test

@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -70,13 +71,20 @@ class LeaseOwnerSchemaParityTest {
     void holderMembers() {
         var holder = SchemaResource.object(
                 SchemaResource.object(SchemaResource.load(SCHEMA).get("properties")).get("holder_instance"));
-        var written = SchemaResource.object(writtenOwner().get("holder_instance"));
+        var owner = writtenOwner();
+        var written = SchemaResource.object(owner.get("holder_instance"));
 
         assertAll(
                 () -> assertEquals(names(SchemaResource.object(holder.get("properties")).keySet()),
                         names(written.keySet()), "The holder members are the schema's in order"),
                 () -> assertEquals(names(SchemaResource.array(holder.get("required"))), names(written.keySet()),
-                        "Every holder member is required"));
+                        "Every holder member is required"),
+                () -> assertInstanceOf(String.class, owner.get("project_id"), "The project id is a string"),
+                () -> assertInstanceOf(String.class, owner.get("scope_type"), "The scope type is a string"),
+                () -> assertInstanceOf(Map.class, owner.get("holder_instance"), "The holder is an object"),
+                () -> assertInstanceOf(Number.class, written.get("runtime_pid"), "The pid is a number"),
+                () -> assertInstanceOf(String.class, written.get("runtime_started_at"),
+                        "The start instant is a string"));
     }
 
     /** @return the owner object of a lease store document, written by the codec and parsed again */

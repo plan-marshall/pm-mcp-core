@@ -21,11 +21,13 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.role.EffortValue;
 
 /**
  * {@link RoleAssignmentsCodec} keeps parity with the schema of Store Schemas § Role Assignments: an empty store carries
@@ -85,8 +87,13 @@ class RoleAssignmentsSchemaParityTest {
     @Test
     @DisplayName("a written store is valid against the schema")
     void writtenStoreIsValid() {
-        var written = RoleAssignmentsCodec.write(
-                Map.of("review-code", RoleAssignmentValue.of("opencode", "deepseek-v4.1", "high")), 1);
+        var written = RoleAssignmentsCodec.write(Map.of(
+                "review-code", RoleAssignmentValue.of("opencode", "deepseek-v4.1", "high"),
+                "default-role", RoleAssignmentValue.of("opencode", "deepseek-v4.1", null),
+                "inherited-role", RoleAssignmentValue.inheritEffort("opencode", "deepseek-v4.1"),
+                "escalated-role", RoleAssignmentValue.of("opencode", "deepseek-v4.1", "high")
+                        .withEscalation(new Escalation("opencode", "deepseek-v4.1",
+                                Optional.of(new EffortValue("high"))))), 1);
 
         assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),
                 () -> "The written store is valid: " + new String(written, UTF_8));
