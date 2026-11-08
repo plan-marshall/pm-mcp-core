@@ -126,8 +126,8 @@ The icons of harnesses whose profile declares the `source` form (link:../harness
 The operator's favourite projects and their order, and per project when the operator last acted in it and how often over a rolling window, for the projects of the machine (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#project-explorer[Runtime & Interaction Model Specification, The Projects of the Machine]). Written by the runtime under `locks/explorer.lock` on the operator's acts in either client: a favourite set, moved, or removed; and, as activity, opening a project, starting a plan or an epic, answering a decision, and changing the project's configuration. An act counts on the UTC day it happened; days older than the compiled activity window are dropped by the next write. An entry of a project no longer enrolled is dropped by the next write. Explorer data is operator data only and never reaches a model.
 
 The schema of the store is the file `explorer.schema.json` in
-`pm-core/src/main/resources/de/planmarshall/core/store/`, beside the machine-scope store layer that holds the operator's
-projects:
+`pm-core/src/main/resources/de/planmarshall/core/store/`, beside the machine-scope store layer of `core.store`; its
+codec is not built yet:
 
 [source,json]
 ----
@@ -145,9 +145,9 @@ A credential file is written only by the runtime under `locks/credentials.lock`:
 The allowed origin for a credential is the origin of the `url` of its operator-owned entry (`PM-CRED-5`), plus, for `github` and `gitlab`, the API origin the provider module derives from it by its compiled rule (`https://github.com` -> `https://api.github.com`; every other host: the `url` origin; link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment Specification, Agent Credentials of the Native Variant]); the native git transport sends the credential only when the effective remote URL has that origin (`remote_origin_mismatch` otherwise). No team file names a credential or decides where a token is sent.
 
 The schema of the full credential file is the file `credential-file.schema.json` in
-`pm-runtime/src/main/resources/de/planmarshall/runtime/credentials/`, beside the store that holds the entries:
-`FileSecretStore` writes the `format_version` and `value` subset today, and the codec of the full record is the
-package's remaining work:
+`pm-runtime/src/main/resources/de/planmarshall/runtime/credentials/`, beside the credential store that holds the
+entries: `FileSecretStore` writes the `format_version` and `value` subset today, and the codec of the full record is the
+remaining work of `runtime.credentials`:
 
 [source,json]
 ----
@@ -164,7 +164,8 @@ Five single-writer records in `<PM_MCP_BASE>/state/` (mode `0600`), each with `f
 *`state/install-records.json`*: written by the runtime on the requests of `pm-operator harness install|update|remove` under `locks/install-records.lock` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#harness-installer[CLI, Coordination & Security Specification, Harness Bundle Installer]); read by the runtime (ownership and digest verification, link:../../../../plan-marshall-documentation/doc/specification/harness-integration/02-bundle-manifest.adoc#_ownership_digest_verification_on_installupdateremove[Harness Integration & Bundle Manifest Specification]) and, read-only, by `pm-operator harness status` for the drift checks `bundle_outdated` and `bundle_modified` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#bundle-drift-notice[CLI, Coordination & Security Specification, Bundle Drift Notice]). One install exists per `(harness_id, scope, target_root)`; every owned file, key, and element carries the digest the drift checks compare.
 
 The schema of the store is the file `install-records.schema.json` in
-`pm-runtime/src/main/resources/de/planmarshall/runtime/launch/`, beside the harness lifecycle that installs the bundles:
+`pm-runtime/src/main/resources/de/planmarshall/runtime/launch/`, beside the runtime's harness lifecycle in
+`runtime.launch`; its codec is not built yet:
 
 [source,json]
 ----
@@ -252,7 +253,8 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 The reports to the operator are records of the machine scope in one append-only journal (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator], which owns the catalogue of kinds, the endpoints, and the representation). The journal is locked directly as a leaf lock, like the audit log, and holds three events: `report` (a report sent), `read` (reports marked read, for every device of the machine), and `deleted` (read reports the cleanup deleted). A report's state, unread or read, is the fold of its events. A report is appended after the transition it reports has committed; one a transition owed when the runtime stopped is written at the next start, with that `sent_at`. `report_id` is store-assigned (`rep-NNNN`, never reused): the next id follows the highest id of the journal, which a `deleted` event carries in `last_report_id`. Unread reports never expire; a read one is deleted only by the cleanup (link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]), by a journaled rewrite of the journal under its lock that drops the deleted reports' `report` and `read` events and appends one `deleted` event. `subject` and `body` are message keys with arguments; a reason the operator wrote, a provider's text, or a title is an argument, carried verbatim.
 
 The schema of an event is the file `report-event.schema.json` in
-`pm-core/src/main/resources/de/planmarshall/core/store/`, beside the machine-scope store layer that holds the journal:
+`pm-core/src/main/resources/de/planmarshall/core/store/`, beside the machine-scope store layer of `core.store`; its
+codec is not built yet:
 
 [source,json]
 ----
@@ -266,7 +268,8 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 The jobs of the one cleanup (link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup], which owns the check, the decisions, and the deletion) in one append-only journal of the machine scope, locked directly as a leaf lock like the report journal. A cleanup job is no job of the job runtime: it starts no process and has no job record; it is identified by `job_id` (`cln-NNNN`, store-assigned, never reused). Its events: `job` (the job with its items, fixed from then on), `decided` (the first decision of the job; a later one is answered with it, unchanged), `deleted` and `delete_failed` per item, `kept` and `released` per item. A job's state (`open`, `postponed`, `deleting`, `done`) and the kept list are the fold of its events; a delete cut by a stop goes on after the next start from the journal.
 
 The schema of an event is the file `cleanup-event.schema.json` in
-`pm-core/src/main/resources/de/planmarshall/core/store/`, beside the machine-scope store layer that holds the journal:
+`pm-core/src/main/resources/de/planmarshall/core/store/`, beside the machine-scope store layer of `core.store`; its
+codec is not built yet:
 
 [source,json]
 ----

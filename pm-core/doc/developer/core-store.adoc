@@ -2410,12 +2410,14 @@ closes such a task `lost`.
 
 == Testing
 
-The tests run on the JVM over stores in a temporary base. `AuditSchemaParityTest` reads the schema file
-beside its codec from the class path (`SchemaResource`, ADR 016). The parity tests not yet moved
-(`PendingEntrySchemaParityTest`, `WorkflowStatusSchemaParityTest`, `JobRecordSchemaParityTest`) read the JSON schema
-from the specification of this repository (`doc/specification`, below the root the system property
-`pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
-parity check over a schema the code does not implement is `@Disabled`, its reason naming what it waits for.
+The tests run on the JVM over stores in a temporary base. The schema parity tests already moved to schema files
+(`AuditSchemaParityTest`, the tests of `core.config`, and `LeaseOwnerSchemaParityTest`) read the file beside the codec
+from the class path (`SchemaResource`, ADR 016). The parity tests that still read the specification of this repository
+(`doc/specification`, below the root the system property `pm.specification.root` names, `SpecificationDocument`) include
+`PendingEntrySchemaParityTest`, `DerivedFactsSchemaParityTest`, `LessonFrontMatterSchemaParityTest`,
+`TaskQueueSchemaParityTest`, `FindingSchemaParityTest`, `AnalysisResultSchemaTest`, `WorkflowStatusSchemaParityTest` and
+`JobRecordSchemaParityTest`; a missing document or schema block is a failure. A parity check over a schema the code does
+not implement is `@Disabled`, its reason naming what it waits for.
 
 == The Plan's History
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_

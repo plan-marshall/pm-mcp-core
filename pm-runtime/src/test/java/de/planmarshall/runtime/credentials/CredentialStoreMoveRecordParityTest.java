@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -86,7 +87,7 @@ class CredentialStoreMoveRecordParityTest {
         var schema = SchemaResource.load(SCHEMA);
         var declared = String.valueOf(SchemaResource.object(
                 SchemaResource.object(schema.get("properties")).get("transaction_id")).get("pattern"));
-        assertFalse("null".equals(declared), "the schema states the pattern of transaction_id");
+        assertNotEquals("null", declared, "the schema states the pattern of transaction_id");
         var pattern = Pattern.compile(declared);
         var generated = TransactionId.generate(Clock.fixed(STARTED, ZoneOffset.UTC)).value();
 
@@ -96,7 +97,7 @@ class CredentialStoreMoveRecordParityTest {
                         "upper case is not the one written form"));
     }
 
-    /** @return the member names of the schema's {@code properties}, in schema order */
+    /** @return the member names of the schema's {@code properties} */
     private static Set<String> properties(Map<?, ?> schema) {
         return Set.copyOf(SchemaResource.object(schema.get("properties")).keySet().stream().map(String::valueOf)
                 .toList());
