@@ -15,9 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,9 +57,9 @@ class SupervisorEnvironmentTest {
     void draw() {
         task = RuntimeGenerators.queueTaskIds().next();
         digest = RuntimeGenerators.sha256Digests().next();
-        roleName = RuntimeGenerators.words().next();
-        harnessName = RuntimeGenerators.words().next();
-        modelName = RuntimeGenerators.words().next();
+        roleName = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        harnessName = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        modelName = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     @Test
