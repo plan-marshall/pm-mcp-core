@@ -51,7 +51,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 - OBSERVED: `AuditSchemaParityTest` is `pm-core/src/test/java/de/planmarshall/core/store/AuditSchemaParityTest.java`; `CredentialStoreMoveRecordParityTest` is `pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreMoveRecordParityTest.java` (find, `main` of 2026-11-06).
 - HYPOTHESIS: the schema files lie in `core/store/` of `pm-core` and in a `credentials` resource package of `pm-runtime` — confirm at the outline against the owning codecs (verify-at-outline).
+  - verdict: contradicted | checked_at: 025a5224 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: no | evidence: the files landed in 7 further resource packages beyond core/store and credentials (core/config; runtime config, launch, security, start), placed by owning codec (git ls-tree 025a5224)
 - Verify-first clause: count the blocks of the four documents at the head of `main` (the package says 22).
+  - verdict: corroborated | checked_at: 025a5224 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: 22 blocks counted at 3a5cd36b: 11:1, 12:18, 13:1, 15:2
 
 ## Expected Surface
 
