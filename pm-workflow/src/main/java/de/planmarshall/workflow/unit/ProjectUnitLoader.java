@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import de.cuioss.tools.logging.CuiLogger;
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.PathConfinement;
 import de.planmarshall.core.store.WorkspaceRoots;
@@ -45,6 +46,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.UnitFrontmatterReader;
+import de.planmarshall.workflow.dsl.UnitLimits;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
@@ -65,7 +67,7 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * an enrolled script. A load runs these stages and collects every finding:
  * <ol>
  * <li>Read {@code .marshall/config/<file>} for every project-ownable file; every path is confined to the workspace
- * ({@link PathConfinement}), a file above {@value #MAX_UNIT_FILE_BYTES} bytes is refused before it is read whole, a
+ * ({@link PathConfinement}), a file above the value of {@link #MAX_UNIT_FILE_BYTES} bytes is refused before it is read whole, a
  * refused path is a {@link UnitFinding.Kind#CONFINEMENT} finding and a missing file a
  * {@link UnitFinding.Kind#MISSING} finding.</li>
  * <li>Parse as a {@link UnitOrigin#PROJECT} unit and refuse a DSL format other than {@value #COMPILED_FORMAT_VERSION}
@@ -108,8 +110,12 @@ public final class ProjectUnitLoader {
     /** The author only a unit compiled into the binary names; a project unit that names it is refused. */
     public static final String RESERVED_AUTHOR = "plan-marshall";
 
-    /** The most bytes a project unit file may hold; a larger file is refused before it is read whole. */
-    public static final int MAX_UNIT_FILE_BYTES = 1_048_576;
+    /**
+     * The most bytes a project unit file may hold; a larger file is refused before it is read whole. Read from the
+     * module's limits resource when the class loads.
+     */
+    public static final int MAX_UNIT_FILE_BYTES = Math.toIntExact(
+            LimitProperties.read(UnitLimits.RESOURCE, UnitLimits.MAX_UNIT_FILE_BYTES));
 
     /** The line that opens and closes the frontmatter of a unit. */
     private static final String FRONTMATTER_DELIMITER = "---";
@@ -228,8 +234,10 @@ public final class ProjectUnitLoader {
             }
             case ConfinementOutcome.Confined(var confinedPath) -> {
                 try (var source = Files.newInputStream(confinedPath)) {
-                    var bytes = source.readNBytes(MAX_UNIT_FILE_BYTES + 1);
-                    if (bytes.length > MAX_UNIT_FILE_BYTES) {
+                    var cap = (long) MAX_UNIT_FILE_BYTES + 1;
+                    var bytes = source.readNBytes((int) Math.min(cap, Integer.MAX_VALUE));
+                    if (bytes.length > MAX_UNIT_FILE_BYTES
+                            || (bytes.length == Integer.MAX_VALUE && source.read() >= 0)) {
                         findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_TOO_LARGE, path, 0,
                                 "the project unit '%s' holds more than %d bytes".formatted(path,
                                         MAX_UNIT_FILE_BYTES)));

@@ -893,3 +893,22 @@ a difference in case, and two tags of one local model name are each refused; two
 weights identities under different names are refused; matched control: two different models on one harness, and the
 same identifier stem from two vendors' distinct models whose weights identities differ, are accepted.
 Source:: Repository analysis `codeaf` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-68]
+=== PM-WATCH-DISP-68: A loop signal counts the loop, not the work around it
+
+Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work § A Worker Off Track]
+(signals `failing_again` and `edit_churn`)
+Hazard:: `failing_again` compares the failure messages, so a test that fails with a changing timestamp or address is a
+new signature every run and the loop is never counted; or it counts an expected-red run, or a run against an unchanged
+working tree, as a failure in a row. `edit_churn` counts writes through the shell, which the profile does not map to
+`file_changed`, as nothing, or it counts the edits of one long, planned change to one file, so a `nudge` or `yield`
+chosen by a role interrupts work that was progressing (in the plugin of the source analysis a rule of this kind fired
+on turns that had already found their cause).
+Guard:: Scenarios with scripted output streams and build results: three failed builds against three working-tree digests
+with equal `(file, rule_or_test)` pairs and different messages raise `failing_again` once; matched controls: a build
+with one pair more or less, an `expect: red` run, a succeeded build, and a run against the same digest as the one
+before each restart the count. Eight `file_changed` entries of one path without a `pm_build` call raise `edit_churn`;
+matched control: a `pm_build` call after the seventh restarts it. The compiled `edit_churn` threshold is checked
+against the changes per file of recorded envelope tasks before the shipped roles choose an action other than `show`.
+Source:: Repository analysis `claude-code-bill-tokeneconomizer` of plan-marshall-documentation.

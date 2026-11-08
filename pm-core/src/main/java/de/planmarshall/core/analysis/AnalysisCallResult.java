@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.analysis;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.findings.Finding;
 

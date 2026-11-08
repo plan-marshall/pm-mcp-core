@@ -9,12 +9,11 @@
  */
 package de.planmarshall.core.build;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The test counts of a parsed build, as either a measurement or the explicit absence of one.

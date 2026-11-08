@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -18,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One line of a {@code change-ledger.jsonl} (Store Schemas § Change Ledger Record): a {@code worktree_sha}-stamped build

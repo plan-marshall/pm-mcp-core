@@ -51,7 +51,8 @@ file protects the loader from a file it would otherwise read whole.
 * A unit file above the bound is never read whole; the load reports `unit_too_large` and, like every finding, refuses
   the lifecycle with `config_invalid`.
 * `ProjectUnitLoaderTest` covers the normalised forms, the near misses, the author read before the parse, the file at
-  the cap and one and four times past it. The number is stated in the specification part and a test reads it from it.
+  the cap and one and four times past it. The number is stated in the module's limits resource and the code reads it
+  from it.
 
 == Source
 

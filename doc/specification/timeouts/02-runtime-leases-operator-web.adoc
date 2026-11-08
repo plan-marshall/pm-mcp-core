@@ -48,8 +48,10 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]
 
 |[[stalled-threshold]]Stalled threshold
-|`600` since the last transition or task progress of a non-terminal scope that is neither paused nor in an operator wait, has no pending condition, and awaits no event (the definition: link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle, Stalled Plans]).
-|fixed (compiled constant; the `plan_stalled` record feeds metrics, which must stay comparable across machines)
+|
+include::../../../pm-runtime/src/main/resources/de/planmarshall/runtime/start/stalled-scope.properties[tag=stalled-threshold]
+since the last transition or task progress of a non-terminal scope that is neither paused nor in an operator wait, has no pending condition, and awaits no event (the definition: link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle, Stalled Plans]).
+|fixed (a value of the module's properties resource; the `plan_stalled` record feeds metrics, which must stay comparable across machines)
 |—
 |plans and epics
 |The scope is shown as the hold `stalled` in both clients of the operator, and one `plan_stalled` audit record is appended per episode; nothing changes in a model-facing representation.

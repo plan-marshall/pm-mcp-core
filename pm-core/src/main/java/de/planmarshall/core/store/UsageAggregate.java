@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,6 +23,7 @@ import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 import de.planmarshall.core.store.MetricsRow.CauseClass;

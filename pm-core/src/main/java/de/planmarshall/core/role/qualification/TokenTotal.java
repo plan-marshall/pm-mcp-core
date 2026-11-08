@@ -9,9 +9,8 @@
  */
 package de.planmarshall.core.role.qualification;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.OptionalLong;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The tokens a grading item or form used (Store Schemas § Role Qualification Record, {@code total_tokens}): a measured

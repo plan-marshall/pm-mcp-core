@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A profile, verification record or lookup refused as a whole (PM-CLIENT-5).

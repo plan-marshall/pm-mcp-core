@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The key of one entry of the derived facts store (Store Schemas § Derived Facts Store, {@code facts}

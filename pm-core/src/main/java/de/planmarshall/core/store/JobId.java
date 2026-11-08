@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -18,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code job_id} of a job record (PM-EXEC-4, PM-ARCH-7): the prefix of its kind, {@code -} and 16 random

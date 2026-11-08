@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +18,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code worker} member of a job record (PM-WORK-2, PM-WORK-3, PM-EXEC-4): the launch contract, the job-bound

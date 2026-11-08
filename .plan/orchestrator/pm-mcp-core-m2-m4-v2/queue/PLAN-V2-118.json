@@ -2,10 +2,10 @@
   "id": "PLAN-V2-118",
   "slug": "schema-files-remaining-records",
   "workstream": "WS-12",
-  "status": "launched",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-118-schema-files-remaining-records",
+  "pr": "#319",
+  "landing": "landings/PLAN-V2-118.md",
   "seq": 106
 }

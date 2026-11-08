@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.role.corpus;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A document that is not one JSON value, or that names a member of an object twice, as {@link JsonValue#parse(byte[])}

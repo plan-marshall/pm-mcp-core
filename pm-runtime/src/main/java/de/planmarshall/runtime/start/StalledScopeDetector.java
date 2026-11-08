@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.AuditRecord;
@@ -27,7 +28,7 @@ import de.planmarshall.core.store.WorkflowStatus;
 
 /**
  * The detection of a stalled plan or epic (PM-ARCH-8): a scope is stalled when it has had no transition and no task
- * progress for at least the compiled stalled threshold and awaits no event
+ * progress for at least the stalled threshold and awaits no event
  * (doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc, Stalled Plans).
  * <p>
  * The hold is derived on read and kept nowhere: the detector writes no store and adds no member to the status
@@ -42,8 +43,17 @@ import de.planmarshall.core.store.WorkflowStatus;
  */
 public final class StalledScopeDetector {
 
-    /** The compiled stalled threshold (doc/specification/timeouts/02-runtime-leases-operator-web.adoc). */
-    public static final Duration THRESHOLD = Duration.ofSeconds(600);
+    /** The classpath location of the limits of the stalled-scope detection. */
+    static final String LIMITS = "/de/planmarshall/runtime/start/stalled-scope.properties";
+
+    /** The key of the stalled threshold in seconds. */
+    static final String THRESHOLD_KEY = "pm.runtime.stalled-threshold-seconds";
+
+    /**
+     * The stalled threshold, read from {@link #LIMITS} when the class loads
+     * (doc/specification/timeouts/02-runtime-leases-operator-web.adoc, Stalled Threshold).
+     */
+    public static final Duration THRESHOLD = Duration.ofSeconds(LimitProperties.read(LIMITS, THRESHOLD_KEY));
 
     /** The report and event name of a hold that ended by itself. */
     public static final String HOLD_RELEASED = "plan.hold_released";

@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The identity record {@code store.json} of a per-project machine store {@code projects/<project_id>/} (PM-ARCH-1,

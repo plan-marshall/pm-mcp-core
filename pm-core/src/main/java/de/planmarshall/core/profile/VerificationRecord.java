@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -20,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The verification record of a machine or project profile (PM-CLIENT-5, Profile Verification): the closed document the

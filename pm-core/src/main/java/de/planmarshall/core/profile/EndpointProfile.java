@@ -9,14 +9,13 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of

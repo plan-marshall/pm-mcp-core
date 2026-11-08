@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -25,6 +23,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The job record {@code jobs/<job_id>.json} (PM-EXEC-4, PM-ARCH-7): the write-ahead journal of one job, written at its

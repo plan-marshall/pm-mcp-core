@@ -49,7 +49,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - HYPOTHESIS: the codecs of these records lie in `pm-core` (`core/store/`, `core/config/`, `core/queue/`) and `pm-workflow` (re-planning, decision records) — the trace matrix names them; confirm at the outline and list the real files in the first progress note (verify-at-outline).
+  - verdict: contradicted | checked_at: 025a5224 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: no | evidence: no pm-workflow file touched; the only codecs are in pm-core core.store; decision-record and replan-record have no class at all (git show 3a5cd36b)
 - Verify-first clause: count the blocks of the seven documents at the head of `main` (the package says 25).
+  - verdict: corroborated | checked_at: 025a5224 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: 25 blocks counted at 3b90dcb7: 04:9 05:2 06:6 07:2 08:3 17:2 18:1
 
 ## Expected Surface
 

@@ -13,7 +13,7 @@ Accepted
 
 A non-terminal plan or epic is `stalled` when it is neither paused nor pausing, is in no operator wait and under no
 hold of another kind, has no pending condition, awaits no event (no running job, no task, no open wait), and its last
-transition or task progress is at least the compiled stalled threshold
+transition or task progress is at least the stalled threshold
 (link:../../../../doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime
 Lifecycle Specification, Stalled Plans]). Stalled is derived from persisted state on read and is never stored as
 workflow state; the first detection of an episode appends one `plan_stalled` audit record, the hold clears by itself
@@ -30,7 +30,8 @@ knows:
    operator wait, or is held for another kind. The status supplies the state, the phase, the update instant, the
    active job, the active tasks and the pending condition; the workspace scope and an ended scope never stall.
 2. A scope is held when it awaits no event and has been idle for at least `StalledScopeDetector.THRESHOLD`, the
-   compiled `600` seconds of the timeouts specification, and the view names the waits the status does not carry: a
+   stalled threshold of the timeouts specification, read from the module's properties resource, and the view names the
+   waits the status does not carry: a
    pause, an operator wait, another hold and an external wait (an open CI, merge-queue or review-bot wait, a
    prerequisite wait). The hold is a `StalledHold` with kind `stalled`, the closed cause `NO_PROGRESS`
    (`no_progress`), the state, the instant of the last progress and the idle seconds of the read; `Activity`
@@ -81,7 +82,7 @@ knows:
 * `StalledScopeDetectorTest` covers the threshold from one second below to past it, every awaited event, a pause, an
   operator wait and another hold, one record per episode, the release by itself and its report, an epic's release, two
   detections racing on one episode, the `needs_operator` count, the untouched status document, the missing-value
-  refusals, and the threshold read from the timeouts specification.
+  refusals, and the threshold read from the module's limits resource.
 
 == Source
 

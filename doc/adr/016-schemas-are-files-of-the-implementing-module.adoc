@@ -46,7 +46,8 @@ the job record, the lesson front matter, the pending entry and the workflow stat
 1. *Keep reading the `.adoc`.* Rejected: it is the break ADR 009 records; a specification-only change stays able to
    turn `main` red.
 2. *Generate the specification block from the file.* Rejected: it adds a generator step and a check that the generated
-   block is current (open question `generated-listings`), where an include shows the file itself.
+   block is current, where an include shows the file itself. The listings the code owns have no file to include;
+   the work package `generated-listings` states their form.
 3. *Keep the schema files in a separate module.* Rejected: the schema belongs to the codec that writes the record, and
    a separate module would separate the two.
 
@@ -58,9 +59,10 @@ the job record, the lesson front matter, the pending entry and the workflow stat
   `adoc-reading-retired` has moved the last reader off the `.adoc` files; `SpecificationDocument` stays until then too.
 * The work packages that move the schema blocks follow the layout and the include convention above; `trace.py` checks
   that every `include::` target exists and reports a schema block that is still inline.
-* A stored record is not validated against its schema file at run time. `networknt` stays a test-scope dependency of
-  `pm-core`; a compile-scope validator is a new dependency and waits for the operator (open question
-  `runtime-schema-validation`).
+* A stored record is not validated against its schema file at run time: the schema files are the contract the parity
+  tests compare the codecs with, and the codecs keep their own checks. `networknt` stays a test-scope dependency of
+  `pm-core`. A record the engine reads without having written it, at a boundary of a client or a harness, is the case
+  that revisits this: validation there is a new decision and a new dependency.
 
 == Source
 

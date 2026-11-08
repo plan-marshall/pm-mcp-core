@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.build;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Objects;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of parsing one build log: its diagnostics, its status, its counts and the verdict on the test population.

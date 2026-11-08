@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The owner of a lease (PM-IMPL-7). A lease is owned by its scope, never by the runtime that serves it: the recovery

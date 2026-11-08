@@ -58,9 +58,11 @@ A `zero_tool` worker (the screener, the judge) has no MCP connection and makes n
 
 [#worker-off-track]
 == A Worker Off Track
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-68[PM-WATCH-DISP-68]_
+
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, or changes files outside the plan task's footprint) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
+Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, changes files outside the plan task's footprint, builds into the same failure again and again, or keeps changing one file without building) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
 
 [cols="1,4"]
 |===
@@ -77,6 +79,12 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 
 |`outside_footprint`
 |The unplanned changes already recorded for the current plan task of an envelope task (changes inside the worktree beyond its declared footprint, link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]) reach `N` files. Only for envelope tasks.
+
+|`failing_again`
+|The worker's last `N` builds of the current plan task (since the plan task was yielded, or since the attempt began outside an envelope task) are terminal `pm_build` results with status `failed`, each against another working-tree digest than the build before it, with one failure signature: the set of `(file, rule_or_test)` pairs of their `failures`, messages left out (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc[MCP Tools Specification, `pm_build`]). A succeeded build, a build with another signature or without located failures (`failed_unparsed`), and an `expect: red` run start the counting again; a build against the same digest as the one before it is not counted. The worker changed code between the builds and the same tests or errors still fail.
+
+|`edit_churn`
+|The worker changed one file `N` times (`file_changed` entries of one path) on the current plan task (counted as for `failing_again`) without a `pm_build` call between the first and the last of them. A `pm_build` call starts the counting again for every path.
 |===
 
 * *Thresholds*: every `N` is a compiled threshold (link:../timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds[Timeouts & Budgets Specification, Off-track signal thresholds]); a role artifact may lower it in its `off_track` member and never raise it (xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]). The compiled values are set from the activity of real plans once it is recorded.
@@ -101,7 +109,7 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 |===
 
 * *Told, not asked*: a `yield` or a `restart` the server took is a report to the operator of the kind `task.off_track`, whose detail is the task's activity (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]); no signal adds to what needs the operator.
-* *Verified by scenarios*: each signal and each action is a scenario of the fixture harness with a scripted output stream (a looping worker, a busy worker without links, a worker far over its size, a worker changing an unplanned file), beside the fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4].
+* *Verified by scenarios*: each signal and each action is a scenario of the fixture harness with a scripted output stream (a looping worker, a busy worker without links, a worker far over its size, a worker changing an unplanned file, a worker building into one failure, a worker changing one file without building), beside the fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4].
 
 A model that watches the activity and judges whether a worker is on track is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-17[Later Improvements, L-17]).
 

@@ -9,11 +9,10 @@
  */
 package de.planmarshall.core.profile;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A profile the loader read and validated, with the state its verification record gives it (PM-CLIENT-5, Profile Sets).

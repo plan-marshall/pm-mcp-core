@@ -9,13 +9,12 @@
  */
 package de.planmarshall.core.role.corpus;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.Serial;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One row of a source file (PM-WORK-6): the line it starts on and its named fields in the order of the source.

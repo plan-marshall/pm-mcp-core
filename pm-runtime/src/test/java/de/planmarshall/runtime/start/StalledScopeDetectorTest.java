@@ -9,7 +9,6 @@
  */
 package de.planmarshall.runtime.start;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,17 +20,15 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.RecordComponent;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,6 +36,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.AuditRecord;
 import de.planmarshall.core.store.JournalScopeType;
@@ -55,7 +53,7 @@ import de.planmarshall.runtime.start.StalledScopeDetector.View;
 
 /**
  * The stalled-scope detection (PM-ARCH-8; Runtime Lifecycle Specification, Stalled Plans; Timeouts Specification,
- * Stalled Threshold): a plan or epic with no transition and no task progress for the compiled threshold, awaiting no
+ * Stalled Threshold): a plan or epic with no transition and no task progress for the stalled threshold, awaiting no
  * event, is held {@code stalled} with the cause {@code no_progress} and the idle span.
  * <p>
  * The detection is derived on read and kept nowhere: the stored status gains no member, the one
@@ -644,17 +642,50 @@ class StalledScopeDetectorTest {
     }
 
     @Test
-    @DisplayName("the threshold is the value of the timeouts specification, read from it")
-    void thresholdIsTheSpecifiedValue() throws Exception {
-        var property = System.getProperty("pm.specification.root");
-        var root = Path.of(property == null || property.isBlank() ? ".." : property);
-        var specification = Files.readString(root.toAbsolutePath().normalize()
-                .resolve("doc/specification/timeouts/02-runtime-leases-operator-web.adoc"), UTF_8);
-        var matcher = Pattern.compile("\\[\\[stalled-threshold\\]\\]Stalled threshold[ \\t]*\\R[ \\t]*\\|`(\\d+)`")
-                .matcher(specification);
+    @DisplayName("the threshold is read from the module's limits resource")
+    void thresholdIsReadFromTheLimitsResource() {
+        var value = LimitProperties.read(StalledScopeDetector.LIMITS, StalledScopeDetector.THRESHOLD_KEY);
 
-        assertTrue(matcher.find(), "the specification states no stalled threshold");
-        assertEquals(Long.parseLong(matcher.group(1)), StalledScopeDetector.THRESHOLD.toSeconds(),
-                "the threshold must be the specified value");
+        assertEquals(value, StalledScopeDetector.THRESHOLD.toSeconds(), "the threshold must come from the resource");
+    }
+
+    @Test
+    @DisplayName("an alternate resource yields its own value, never a fixed one")
+    void readsAnAlternateResource() {
+        var alternate = "/de/planmarshall/runtime/start/alternate-limits.properties";
+
+        assertEquals(42, LimitProperties.read(alternate, StalledScopeDetector.THRESHOLD_KEY),
+                "the reader must return the value of the resource");
+    }
+
+    @Test
+    @DisplayName("an absent limits resource fails the load instead of defaulting")
+    void anAbsentLimitsResourceFailsTheLoad() {
+        var absent = "/de/planmarshall/runtime/start/absent-limits.properties";
+
+        assertThrows(IllegalStateException.class,
+                () -> LimitProperties.read(absent, StalledScopeDetector.THRESHOLD_KEY),
+                "an absent limits resource must fail the load");
+    }
+
+    @Test
+    @DisplayName("an absent key fails the load instead of defaulting")
+    void anAbsentKeyFailsTheLoad() {
+        var properties = new Properties();
+
+        assertThrows(IllegalStateException.class,
+                () -> LimitProperties.value(properties, StalledScopeDetector.THRESHOLD_KEY, "limits"),
+                "an absent limit key must fail the load");
+    }
+
+    @Test
+    @DisplayName("a value that is not a number fails the load instead of defaulting")
+    void aNonNumericValueFailsTheLoad() {
+        var properties = new Properties();
+        properties.setProperty(StalledScopeDetector.THRESHOLD_KEY, "not-a-number");
+
+        assertThrows(IllegalStateException.class,
+                () -> LimitProperties.value(properties, StalledScopeDetector.THRESHOLD_KEY, "limits"),
+                "a non-numeric limit must fail the load");
     }
 }

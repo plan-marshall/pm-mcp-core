@@ -14,8 +14,6 @@ import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 import static de.planmarshall.core.role.corpus.SourceManifest.requireRepository;
 
-import org.jspecify.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.LocalDate;
@@ -25,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A corpus item generated from one row of a fetched source (PM-WORK-6): the members of the corpus item format, with
