@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -19,6 +17,7 @@ import java.util.OptionalLong;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 

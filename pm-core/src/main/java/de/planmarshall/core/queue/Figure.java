@@ -9,9 +9,8 @@
  */
 package de.planmarshall.core.queue;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One navigation figure of a task (Model Work § Navigation Figures): its value, the population it counts over and, when

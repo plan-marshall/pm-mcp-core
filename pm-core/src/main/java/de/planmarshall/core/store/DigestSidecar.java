@@ -18,8 +18,6 @@ import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -34,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The digest sidecar of a scope (PM-IMPL-7, PM-IMPL-2): the recorded size and SHA-256 of every store of the scope,

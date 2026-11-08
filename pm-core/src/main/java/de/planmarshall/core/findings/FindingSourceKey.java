@@ -9,10 +9,9 @@
  */
 package de.planmarshall.core.findings;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The key a finding source and a finding responder are registered under (PM-IMPL-1): the kind of producer of the

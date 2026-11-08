@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.analysis;
 
-import org.jspecify.annotations.Nullable;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -19,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.findings.FindingScope;
 import de.planmarshall.core.findings.FindingSourceKey;

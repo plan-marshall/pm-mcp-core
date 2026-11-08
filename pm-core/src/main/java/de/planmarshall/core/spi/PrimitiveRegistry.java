@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.spi;
 
-import org.jspecify.annotations.Nullable;
-
 import java.lang.reflect.RecordComponent;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
 

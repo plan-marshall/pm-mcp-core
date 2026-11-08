@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import org.jspecify.annotations.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +29,7 @@ import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.LessonFrontMatter.Audience;
 import de.planmarshall.core.store.LessonFrontMatter.Category;

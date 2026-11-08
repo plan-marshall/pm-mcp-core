@@ -18,8 +18,6 @@ import static de.planmarshall.core.store.StrictJson.requireObject;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.undeclared;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -32,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
