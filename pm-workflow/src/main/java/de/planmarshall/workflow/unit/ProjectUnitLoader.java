@@ -233,7 +233,8 @@ public final class ProjectUnitLoader {
             }
             case ConfinementOutcome.Confined(var confinedPath) -> {
                 try (var source = Files.newInputStream(confinedPath)) {
-                    var bytes = source.readNBytes(MAX_UNIT_FILE_BYTES + 1);
+                    var bytes = source.readNBytes(
+                            (int) Math.min((long) MAX_UNIT_FILE_BYTES + 1, Integer.MAX_VALUE));
                     if (bytes.length > MAX_UNIT_FILE_BYTES) {
                         findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_TOO_LARGE, path, 0,
                                 "the project unit '%s' holds more than %d bytes".formatted(path,

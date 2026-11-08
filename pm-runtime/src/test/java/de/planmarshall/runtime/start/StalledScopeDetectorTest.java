@@ -649,6 +649,15 @@ class StalledScopeDetectorTest {
     }
 
     @Test
+    @DisplayName("an alternate resource yields its own value, never a fixed one")
+    void readsAnAlternateResource() {
+        var alternate = "/de/planmarshall/runtime/start/alternate-limits.properties";
+
+        assertEquals(42, LimitProperties.read(alternate, StalledScopeDetector.THRESHOLD_KEY),
+                "the reader must return the value of the resource");
+    }
+
+    @Test
     @DisplayName("an absent limits resource fails the load instead of defaulting")
     void anAbsentLimitsResourceFailsTheLoad() {
         var absent = "/de/planmarshall/runtime/start/absent-limits.properties";

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -677,6 +678,15 @@ class UnitFrontmatterReaderTest {
                     () -> assertEquals(
                             UnitFrontmatterReader.MAX_ECHO_LENGTH,
                             LimitProperties.read(LimitProperties.RESOURCE, LimitProperties.MAX_ECHO_LENGTH), "the echo bound must come from the resource"));
+        }
+
+        @Test
+        @DisplayName("an alternate resource yields its own value, never a fixed one")
+        void readsAnAlternateResource() {
+            var alternate = "/de/planmarshall/workflow/dsl/alternate-limits.properties";
+
+            assertEquals(42, LimitProperties.read(alternate, LimitProperties.MAX_ECHO_LENGTH),
+                    "the reader must return the value of the resource");
         }
 
         @Test
