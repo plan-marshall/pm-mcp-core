@@ -225,6 +225,7 @@ class ProviderVerificationTest {
                 () -> assertFalse(result.passed()),
                 () -> assertEquals(2, result.lines().size()),
                 () -> assertEquals("provider_verification.credential.missing", result.lines().getLast().messageKey()),
+                () -> assertNull(result.lines().getLast().answer(), "a missing key line carries no answer"),
                 () -> assertEquals(List.of("origin:github"), calls));
     }
 

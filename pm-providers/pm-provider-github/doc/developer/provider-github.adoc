@@ -9,6 +9,8 @@
 :test: ../../src/test/java/de/planmarshall/provider/github
 
 == Purpose
+
+A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]_
 
 Package `de.planmarshall.provider.github` holds the native GitHub client of PM-MCP: GitHub App authentication, the fixed

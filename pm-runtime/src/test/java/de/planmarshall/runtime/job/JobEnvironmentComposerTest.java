@@ -282,6 +282,18 @@ class JobEnvironmentComposerTest {
                             "a probe carries no session bus"),
                     () -> assertFalse(environment.containsKey("PM_MCP_JOB_TOKEN"), "a probe carries no job token"));
         }
+
+        @Test
+        @DisplayName("has a PATH of the probed executable alone when it has no interpreter")
+        void pathWithoutInterpreter() {
+            var executableDirectory = absolute();
+            var executable = executableDirectory.resolve(words().next());
+
+            var environment = composer().forProbe(executable, null, false, new TreeMap<>());
+
+            assertEquals(executableDirectory.toString(), environment.get("PATH"),
+                    "PATH is the executable alone");
+        }
     }
 
     @Test

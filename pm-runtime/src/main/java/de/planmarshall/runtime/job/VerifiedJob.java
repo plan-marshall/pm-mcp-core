@@ -68,7 +68,7 @@ JobRequest.@Nullable Value projectScriptArguments, ProjectEnrolment enrolment) {
     }
 
     /**
-     * @throws NullPointerException     if a component or an argument is {@code null}
+     * @throws NullPointerException     if a non-nullable component or an argument is {@code null}
      * @throws IllegalArgumentException if the argument vector is empty
      */
     public VerifiedJob {

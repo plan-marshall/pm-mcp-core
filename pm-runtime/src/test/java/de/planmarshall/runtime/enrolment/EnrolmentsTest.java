@@ -1812,7 +1812,7 @@ class EnrolmentsTest {
     }
 
     @Test
-    @DisplayName("a re-baseline outcome refuses missing components and keeps its own copy of what it settled")
+    @DisplayName("a re-baseline outcome refuses non-nullable components and keeps its own copy of what it settled")
     void rebaselineComponents() {
         var digest = StoreDigest.of(new byte[0]);
         var file = base.resolve("f");

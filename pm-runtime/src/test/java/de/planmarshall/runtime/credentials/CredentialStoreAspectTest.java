@@ -287,6 +287,7 @@ class CredentialStoreAspectTest {
         assertAll(
                 () -> assertTrue(transition.usable()),
                 () -> assertNull(transition.reason()),
+                () -> assertNull(transition.detail(), "an available store carries no detail"),
                 () -> assertNull(transition.toRecord()));
     }
 

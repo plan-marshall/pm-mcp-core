@@ -152,7 +152,7 @@ List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirec
     }
 
     /**
-     * @throws NullPointerException     if a component or an argument is {@code null}
+     * @throws NullPointerException     if a non-nullable component or an argument is {@code null}
      * @throws IllegalArgumentException if no success exit code is declared, the scope is neither the machine nor an
      *                                  onboarding entry, or a checkout root is named for a probe of the machine
      */

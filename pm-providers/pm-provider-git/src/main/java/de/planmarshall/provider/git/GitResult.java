@@ -40,7 +40,7 @@ public record GitResult<V>(GitOutcome outcome, @Nullable V value, String detail)
      * @return an {@link GitOutcome#OK} result
      */
     public static <V> GitResult<V> ok(V value) {
-        return new GitResult<>(GitOutcome.OK, value, "");
+        return new GitResult<>(GitOutcome.OK, Objects.requireNonNull(value, "value"), "");
     }
 
     /**

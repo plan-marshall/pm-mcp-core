@@ -74,7 +74,7 @@ String detail) {
      * @return a complete OK result
      */
     public static <V> Result<V> ok(V value) {
-        return new Result<>(Outcome.OK, value, true, null, "");
+        return new Result<>(Outcome.OK, Objects.requireNonNull(value, "value"), true, null, "");
     }
 
     /**
@@ -84,7 +84,7 @@ String detail) {
      * @return an OK result of a collection read
      */
     public static <V> Result<V> ok(V value, boolean complete) {
-        return new Result<>(Outcome.OK, value, complete, null, "");
+        return new Result<>(Outcome.OK, Objects.requireNonNull(value, "value"), complete, null, "");
     }
 
     /**

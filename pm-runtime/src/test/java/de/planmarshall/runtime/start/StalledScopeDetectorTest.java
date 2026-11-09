@@ -607,7 +607,7 @@ class StalledScopeDetectorTest {
     }
 
     @Test
-    @DisplayName("a missing project, status, view, instant or hold is refused")
+    @DisplayName("a missing project, status or required hold part is refused; a null hold is absent")
     void shouldRefuseMissingValues() {
         var status = plan().build();
         var target = detector();
