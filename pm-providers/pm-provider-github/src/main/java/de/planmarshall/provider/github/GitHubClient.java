@@ -126,11 +126,11 @@ public final class GitHubClient {
      *
      * @param id         the node id
      * @param databaseId the REST id
-     * @param author     the author login, empty for a deleted account
+     * @param author     the author login, {@code null} for a deleted account
      * @param body       the body
      * @param createdAt  the creation instant (ISO-8601)
      */
-    public record ReviewComment(String id, String databaseId, Optional<String> author, String body, String createdAt) {
+    public record ReviewComment(String id, String databaseId, @Nullable String author, String body, String createdAt) {
     }
 
     /**
@@ -140,11 +140,11 @@ public final class GitHubClient {
      * @param resolved whether it is resolved
      * @param outdated whether its position is outdated
      * @param path     the file path
-     * @param line     the line, empty when outdated or file-level
+     * @param line     the line, {@code null} when outdated or file-level
      * @param comments the first comments of the thread
      * @param complete whether {@code comments} holds every comment
      */
-    public record ReviewThread(String id, boolean resolved, boolean outdated, String path, Optional<String> line,
+    public record ReviewThread(String id, boolean resolved, boolean outdated, String path, @Nullable String line,
     List<ReviewComment> comments, boolean complete) {
     }
 
@@ -189,8 +189,8 @@ public final class GitHubClient {
             if (!data.isOk()) {
                 return data.asFailure();
             }
-            Object connection = Json.at(data.value().orElseThrow(), "repository", "pullRequest", "reviewThreads")
-                    .orElse(null);
+            Object connection = Json.at(Objects.requireNonNull(data.value()), "repository", "pullRequest",
+                    "reviewThreads").orElse(null);
             if (connection == null) {
                 return Result.of(Result.Outcome.NOT_FOUND, owner + "/" + name + "#" + number);
             }
@@ -216,7 +216,8 @@ public final class GitHubClient {
         if (!data.isOk()) {
             return data.asFailure();
         }
-        return Result.ok(Json.bool(data.value().orElseThrow(), "resolveReviewThread", "thread", "isResolved"));
+        return Result.ok(Json.bool(Objects.requireNonNull(data.value()), "resolveReviewThread", "thread",
+                "isResolved"));
     }
 
     /**
@@ -234,7 +235,8 @@ public final class GitHubClient {
         if (!data.isOk()) {
             return data.asFailure();
         }
-        Object entry = Json.at(data.value().orElseThrow(), "enqueuePullRequest", "mergeQueueEntry").orElse(null);
+        Object entry = Json.at(Objects.requireNonNull(data.value()), "enqueuePullRequest", "mergeQueueEntry")
+                .orElse(null);
         if (entry == null) {
             return Result.of(Result.Outcome.FAILED, "enqueue returned no merge queue entry");
         }
@@ -255,7 +257,7 @@ public final class GitHubClient {
      */
     public Result<String> postComment(String owner, String name, int number, String body) {
         Response response = http.send("POST", REPOS + owner + "/" + name + "/issues/" + number + "/comments",
-                Optional.of(Json.write(Map.of("body", body))), Optional.empty());
+                Json.write(Map.of("body", body)), null);
         if (!response.isOk()) {
             return Result.failed(response);
         }
@@ -437,7 +439,7 @@ public final class GitHubClient {
         var request = new LinkedHashMap<String, Object>();
         request.put("query", query);
         request.put("variables", variables);
-        Response response = http.send("POST", graphqlPath, Optional.of(Json.write(request)), Optional.empty());
+        Response response = http.send("POST", graphqlPath, Json.write(request), null);
         if (!response.isOk()) {
             return Result.failed(response);
         }
@@ -457,11 +459,12 @@ public final class GitHubClient {
     private static ReviewThread thread(Object node) {
         var comments = Json.list(node, "comments", "nodes").stream()
                 .map(comment -> new ReviewComment(Json.string(comment, "id").orElse(""),
-                        Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", LOGIN),
+                        Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", LOGIN).orElse(null),
                         Json.string(comment, "body").orElse(""), Json.string(comment, "createdAt").orElse("")))
                 .toList();
         return new ReviewThread(Json.string(node, "id").orElse(""), Json.bool(node, "isResolved"),
-                Json.bool(node, "isOutdated"), Json.string(node, "path").orElse(""), Json.string(node, "line"),
+                Json.bool(node, "isOutdated"), Json.string(node, "path").orElse(""),
+                Json.string(node, "line").orElse(null),
                 comments, !Json.bool(node, "comments", PAGE_INFO, "hasNextPage"));
     }
 

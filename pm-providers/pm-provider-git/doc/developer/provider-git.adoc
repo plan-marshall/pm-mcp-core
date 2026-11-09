@@ -11,6 +11,8 @@
 
 == Purpose
 
+A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
+
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 
 Package `de.planmarshall.provider.git` holds the git contract of PM-MCP, `GitOperations`, and its native variant on JGit, `JGitOperations`.

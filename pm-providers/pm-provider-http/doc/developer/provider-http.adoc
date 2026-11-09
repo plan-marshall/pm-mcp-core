@@ -11,6 +11,8 @@
 
 == Purpose
 
+A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
+
 _Requirements:_ link:{req}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{req}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]
 
 Package `de.planmarshall.provider.http` holds the shared HTTP base of the provider adapters: the one

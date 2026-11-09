@@ -92,8 +92,8 @@ final class LinkedWorktrees {
                     ? Optional.of(shortBranch(head.substring(REF_PREFIX.length())))
                     : Optional.empty();
             Optional<String> id = ObjectId.isId(head) ? Optional.of(head) : Optional.empty();
-            result.add(new Worktree(gitFile.getParent(), Optional.of(admin.getFileName().toString()), branch, id, false,
-                    Files.exists(admin.resolve(LOCKED)), !Files.exists(gitFile)));
+            result.add(new Worktree(gitFile.getParent(), admin.getFileName().toString(), branch.orElse(null),
+                    id.orElse(null), false, Files.exists(admin.resolve(LOCKED)), !Files.exists(gitFile)));
         }
         return result;
     }

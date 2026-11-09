@@ -16,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -47,9 +46,9 @@ public final class GlabCommands {
      * A {@code glab} invocation.
      *
      * @param argv  the argument vector, starting with {@code glab}
-     * @param stdin the payload written to standard input, if any
+     * @param stdin the payload written to standard input; {@code null} when none
      */
-    public record Invocation(List<String> argv, Optional<String> stdin) {
+    public record Invocation(List<String> argv, @Nullable String stdin) {
 
         /**
          * @param argv  the argument vector
@@ -57,7 +56,6 @@ public final class GlabCommands {
          */
         public Invocation {
             argv = List.copyOf(argv);
-            Objects.requireNonNull(stdin, "stdin");
         }
     }
 
@@ -150,13 +148,13 @@ public final class GlabCommands {
     private Invocation withBody(String method, String endpoint, Map<String, ?> body) {
         var argv = base();
         argv.addAll(List.of("--method", method, "--header", "Content-Type: application/json", "--input", "-", endpoint));
-        return new Invocation(argv, Optional.of(Json.write(body)));
+        return new Invocation(argv, Json.write(body));
     }
 
     private Invocation read(List<String> arguments) {
         var argv = base();
         argv.addAll(arguments);
-        return new Invocation(argv, Optional.empty());
+        return new Invocation(argv, null);
     }
 
     private List<String> base() {
