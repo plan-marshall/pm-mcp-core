@@ -31,14 +31,14 @@ The package `client-profile-rendering` says that profile completeness — every 
 ## Deliverables
 
 1. **The rule in `ProfileValidator`:** `skill_loading.load_directive_template` must contain the slot `{{uri}}` exactly once; a template without it, or with it twice, is refused with the pointer `/skill_loading/load_directive_template`. Tests in `ProfileValidatorTest` (a parameterized case: none, one, two, a `{{uri}}` split by a character) and a case that every shipped profile still validates.
-2. **Specification and documentation:** the description of `load_directive_template` in `doc/specification/client-profiles/01-profile-schema.adoc` states the requirement; `pm-core/doc/developer/core-profile.adoc` names the rule among the validator's checks. If the lane finds that the shipped profiles of `pm-api` do not all carry the slot, that is a change in `pm-mcp-clients`, reported as a finding and not worked around.
+2. **Specification and documentation:** the description of `load_directive_template` in `doc/specification/harness-profiles/01-profile-schema.adoc` states the requirement; `pm-core/doc/developer/core-profile.adoc` names the rule among the validator's checks. If the lane finds that the shipped profiles of `pm-api` do not all carry the slot, that is a change in `pm-mcp-clients`, reported as a finding and not worked around.
 
 **Done when:** A profile whose `load_directive_template` lacks `{{uri}}` or carries it twice is refused on load with the pointer named; every shipped profile of the `pm-api` SNAPSHOT validates; the specification and the guide state the rule. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready. **Build:** `verify -Ppre-commit` (its rewrites reviewed and committed), then `verify` of every module the plan changes (`pm-core`; where a full run does not finish inside the host's bound, the targeted `-Dtest` runs of the changed classes and the per-module run, each reported in the pull request body), `verify -Pcoverage` and the integration tests of every changed module with tests (`verify -Pintegration-tests -pl <module> -am`, only on `pm-core` and `pm-runtime`; here: `pm-core`) are green. **Links:** run the links check (R17) from the main checkout against the documentation checkout at its `origin/main` (`git -C ../plan-marshall-documentation fetch origin main`, then `trace.py` over a checkout of that revision, or fast-forward the sibling first): a `BROKEN LINKS` count that names an item deleted in the sibling is the sibling's own links, not a defect of this change.
 
 **Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
 - Requirements: PM-CLIENT-2
-- Specification: `doc/specification/client-profiles/02-placeholders.adoc` § Rendering Invariants, item 5 (Profile Completeness); `doc/specification/client-profiles/01-profile-schema.adoc` `skill_loading.load_directive_template`
+- Specification: `doc/specification/harness-profiles/02-placeholders.adoc` § Rendering Invariants, item 5 (Profile Completeness); `doc/specification/harness-profiles/01-profile-schema.adoc` `skill_loading.load_directive_template`
 - Watch: `doc/implementation-watch/client-profiles.adoc` PM-WATCH-CLIENT-6
 
 ## Standing Constraints
@@ -60,7 +60,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — `skillLoading`
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java` — the new cases
-- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — the description of `load_directive_template`
+- OBSERVED: `doc/specification/harness-profiles/01-profile-schema.adoc` — the description of `load_directive_template`
 - OBSERVED: `doc/plans/client-profile-rendering.adoc` — the package file (shared with the two other plans of the package)
 
 ## Dependencies and Sequencing
