@@ -15,8 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The ported tests of {@link IstanbulSummaryParser}: each case reads one plain-file fixture below {@code ported/coverage},
@@ -76,8 +80,8 @@ class IstanbulSummaryParserTest {
     }
 
     @Test
-    @DisplayName("refuses a malformed document")
-    void refusesAMalformedDocument() {
+    @DisplayName("refuses a truncated document")
+    void refusesATruncatedDocument() {
         CoverageParseResult result =
                 IstanbulSummaryParser.parse(CoverageReportFixtures.path("deliberate-istanbul-malformed.json"));
 
@@ -87,72 +91,34 @@ class IstanbulSummaryParserTest {
         assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
     }
 
-    @Test
-    @DisplayName("refuses a document without a total")
-    void refusesADocumentWithoutTotal() {
-        CoverageParseResult result = IstanbulSummaryParser.parse("""
-                {"src/a.js": {"lines": {"pct": 90}}}
-                """);
-
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("malformedDocuments")
+    @DisplayName("refuses a malformed or incomplete document")
+    void refusesAMalformedOrIncompleteDocument(String reason, String json) {
         CoverageParseResult.Refused refused =
-                assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing total is refused");
+                assertInstanceOf(CoverageParseResult.Refused.class, IstanbulSummaryParser.parse(json), reason);
 
         assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
     }
 
-    @Test
-    @DisplayName("refuses a document whose root is not an object")
-    void refusesANonObjectRoot() {
-        CoverageParseResult result = IstanbulSummaryParser.parse("[]");
-
-        CoverageParseResult.Refused refused =
-                assertInstanceOf(CoverageParseResult.Refused.class, result, "A non-object root is refused");
-
-        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
-    }
-
-    @Test
-    @DisplayName("refuses a metric whose pct is not a number")
-    void refusesANonNumericPct() {
-        CoverageParseResult result = IstanbulSummaryParser.parse("""
-                {"total": {"lines": {"pct": "90"}, "statements": {"pct": 90},
-                 "functions": {"pct": 90}, "branches": {"pct": 90}}}
-                """);
-
-        CoverageParseResult.Refused refused =
-                assertInstanceOf(CoverageParseResult.Refused.class, result, "A string pct is refused");
-
-        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
-    }
-
-    @Test
-    @DisplayName("refuses a file branch metric without a pct")
-    void refusesAFileBranchWithoutPct() {
-        CoverageParseResult result = IstanbulSummaryParser.parse("""
-                {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
-                 "functions": {"pct": 90}, "branches": {"pct": 90}},
-                 "src/a.js": {"lines": {"pct": 90}, "branches": {}}}
-                """);
-
-        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
-                "A branches object without pct is refused");
-
-        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
-    }
-
-    @Test
-    @DisplayName("refuses content after the document")
-    void refusesContentAfterTheDocument() {
-        CoverageParseResult result = IstanbulSummaryParser.parse("""
-                {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
-                 "functions": {"pct": 90}, "branches": {"pct": 90}}}
-                {}
-                """);
-
-        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
-                "Content after the document is refused");
-
-        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
+    static Stream<Arguments> malformedDocuments() {
+        return Stream.of(
+                Arguments.of("A missing total is refused", "{\"src/a.js\": {\"lines\": {\"pct\": 90}}}"),
+                Arguments.of("A non-object root is refused", "[]"),
+                Arguments.of("A string pct is refused", """
+                        {"total": {"lines": {"pct": "90"}, "statements": {"pct": 90},
+                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                        """),
+                Arguments.of("A branches object without pct is refused", """
+                        {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
+                         "functions": {"pct": 90}, "branches": {"pct": 90}},
+                         "src/a.js": {"lines": {"pct": 90}, "branches": {}}}
+                        """),
+                Arguments.of("Content after the document is refused", """
+                        {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
+                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                        {}
+                        """));
     }
 
     @Test
