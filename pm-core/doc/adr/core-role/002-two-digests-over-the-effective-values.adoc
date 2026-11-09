@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Accepted, amended 2026-11-09 by PLAN-V2-97: "the level names nothing" is a `null` component of `RoleAssignment`, not
+an empty `Optional` (repository ADR 019).
 
 == Date
 
@@ -34,8 +35,8 @@ lower-case hexadecimal digits:
   harness reports one, `weights_identity` beside it.
 
 `EffortValue` distinguishes "a level names no effort flag" (`value == null`, a value) from "the level names nothing"
-(an empty `Optional`), so the effective effort is rendered as JSON `null` only where the effective configuration really
-has no effort.
+(a `null` component, since PLAN-V2-97), so the effective effort is rendered as JSON `null` only where the effective
+configuration really has no effort.
 
 The `off_track` thresholds are validated against the compiled values in `RoleArtifact.OffTrackSignal` (the caps) and their
 floors (the values from `timeouts/01#off-track-thresholds`): a value above the cap or below the floor is

@@ -41,7 +41,7 @@ UTF-8 bytes without a byte-order mark.
 |===
 
 `ToonValue.java` holds the builder of an object: `ToonObject.builder().add(key, value)` keeps the fields in the order
-they are added, and a `null` or an empty `Optional` value is not added. An explicit JSON `null` is `ToonNull`. PM-MCP
+they are added, and a `null` value is not added. An explicit JSON `null` is `ToonNull`. PM-MCP
 maps its records onto the tree in their declared component order, which is what makes a record's TOON form stable.
 
 == The Encoder

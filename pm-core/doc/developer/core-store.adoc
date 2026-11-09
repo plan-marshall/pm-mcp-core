@@ -1954,7 +1954,7 @@ Tests: `JournalRecoveryTest`.
 
 * `verify(transaction, scope, relativePath, auditSink)` runs `JournalRecovery.recover` and compares one store with its
   sidecar entry. The answer is a `Verification`: `Verified(store, digest)`; `Mismatch(store, recorded, current)`, with
-  `current` empty for a store whose entry outlives its file, the evidence of an edit outside a transaction;
+  `current` `null` for a store whose entry outlives its file, the evidence of an edit outside a transaction;
   `Untracked(store)` when the store exists and the sidecar has no entry; `Absent(store)` when neither exists, which is
   what a transaction's delete leaves and is consistent; or the recovery's `InvariantViolation`, and then nothing was
   compared. A path that leaves the path base or passes through a symbolic link below it is refused with
@@ -2645,4 +2645,4 @@ changes no fingerprint.
 both the planning roles' `facts.capability_index` (`facts()`) and the acceptance's capability checks
 (`fingerprint(capability, requirement)`).
 
-A store record carries its absent state as `@Nullable`: `ScopeIntegrity.Mismatch.current`, `LessonResolution.StoreTampered.current`, `ProjectResolver.Match.refusal`, `HarnessUsage.costUsd` and `HarnessUsage.unmeasuredReason`, `UsageAggregate.population`, `IntentAcceptance.Context.epic` and the builder fields of `MetricsCodec` are nullable, and a codec writes the absent member exactly as it wrote `Optional.empty()` (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019]). The codec's `required(...)` helper takes a nullable value and refuses it with the same `StoreRefusal` as before.
+A store record carries its absent state as `@Nullable`: `ScopeIntegrity.Mismatch.current`, `LessonResolution.StoreTampered.current`, `ProjectResolver.Match.refusal`, `HarnessUsage.costUsd` and `HarnessUsage.unmeasuredReason`, `IntentAcceptance.Context.epic` and the builder fields of `MetricsCodec` are nullable, and a codec writes the absent member exactly as it wrote `Optional.empty()` (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019]). The codec's `required(...)` helper takes a nullable value and refuses it with the same `StoreRefusal` as before.

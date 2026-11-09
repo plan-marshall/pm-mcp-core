@@ -751,7 +751,7 @@ final class EngineFixtures {
         @Override
         public Optional<String> exhaustionOutcome() {
             return CapOutcome.class.equals(outcomeType) ? Optional.of(CapOutcome.SPENT.wireName())
-                    : null;
+                    : Optional.empty();
         }
     }
 

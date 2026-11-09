@@ -91,7 +91,7 @@ The `reason` component pairs with the outcome: it is present exactly when the ou
 `PrimitiveOutcome.reasonType()`, and a present reason is a constant of that enum. A mismatch is an
 `IllegalArgumentException` at construction, like the `NullPointerException` of a missing component: a primitive that
 breaks the pairing is a programming error, not a value the caller receives. The three-component constructor is the form
-for an outcome that declares no reason; it sets the reason to empty. The pairing is stated in
+for an outcome that declares no reason; it sets the reason to `null`. The pairing is stated in
 link:{spec}/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons].
 
 `WorkflowExecutionContext.scopeId()` returns the identifier of the plan or epic the call addresses. For the workspace

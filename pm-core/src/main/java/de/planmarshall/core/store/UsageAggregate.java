@@ -48,7 +48,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * a set of rows of different populations is refused rather than silently mixed. An epic's figure is the sum of its
  * plans' aggregates and its own rows, formed with {@link #plus(UsageAggregate)}.
  *
- * @param population         the population the figures count; {@code null} for an aggregate over no row
+ * @param population         the population the figures count
  * @param totalTokens        the summed total tokens, empty when the population is empty
  * @param tokensIn           the summed input split, empty when the population is empty or a component is unmeasured
  * @param tokensOut          the summed output split, empty when the population is empty or a component is unmeasured
@@ -60,7 +60,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * @param totalIsFloor       whether the figure is a lower bound because a row of the population is unmeasured
  * @since 0.1
  */
-public record UsageAggregate(@Nullable Population population, OptionalLong totalTokens, OptionalLong tokensIn,
+public record UsageAggregate(Population population, OptionalLong totalTokens, OptionalLong tokensIn,
 OptionalLong tokensOut, long rows, long rowsUnmeasured, Map<UnmeasuredReason, Long> unmeasuredReasons,
 long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
 
@@ -244,7 +244,7 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
      */
     public UsageAggregate plus(UsageAggregate other) {
         Objects.requireNonNull(other, "other");
-        if (!Objects.equals(population, other.population())) {
+        if (!population.equals(other.population())) {
             throw new IllegalArgumentException(
                     "Sums are formed only between figures of one population: %s and %s".formatted(population,
                             other.population()));
