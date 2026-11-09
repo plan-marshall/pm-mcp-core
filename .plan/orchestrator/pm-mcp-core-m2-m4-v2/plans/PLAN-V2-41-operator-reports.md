@@ -69,7 +69,7 @@ None beyond the standing rules named in the First Instruction above.
 ## Expected Surface
 
 - OBSERVED: `doc/plans/operator-reports.adoc` — the package file, deleted when the package is done
-- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/harness-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/filesystem-layout/02-machine-runtime.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/hypermedia-format/01-representation-and-link-forms.adoc` — specification part; the implemented sections deleted

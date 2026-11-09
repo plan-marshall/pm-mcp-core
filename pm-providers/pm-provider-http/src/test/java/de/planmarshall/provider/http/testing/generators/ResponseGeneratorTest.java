@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.planmarshall.provider.http.Response;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -38,7 +37,7 @@ class ResponseGeneratorTest {
                 () -> assertNotEquals(first, second, "Two calls yield distinct values"),
                 () -> assertEquals(Response.Outcome.OK, first.outcome(), "The response is a success"),
                 () -> assertEquals(200, first.status(), "The response carries the success status"),
-                () -> assertTrue(first.etag().isPresent(), "The response carries an ETag"));
+                () -> assertNotNull(first.etag(), "The response carries an ETag"));
     }
 
     @Test

@@ -176,7 +176,7 @@ public final class JGitOperations implements GitOperations {
 
     private GitResult<Worktree> addWorktree(Repository main, WorktreeAddInput input, Path target) throws IOException {
         Path commonDir = main.getCommonDirectory().toPath().toRealPath();
-        Optional<String> branchRef = input.branch().map(b -> Constants.R_HEADS + b);
+        Optional<String> branchRef = Optional.ofNullable(input.branch()).map(b -> Constants.R_HEADS + b);
         var resolution = GitIdentity.resolution(main, input.startPoint());
         if (GitIdentity.isAmbiguous(resolution)) {
             return GitResult.of(GitOutcome.GIT_IDENTITY_AMBIGUOUS, input.startPoint());
@@ -185,15 +185,16 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.UNKNOWN_REVISION, ABBREVIATED_COMMIT_ID + input.startPoint());
         }
         var resolved = branchRef.isPresent() && !input.createBranch()
-                ? existingBranchStart(main, commonDir, input.branch().get(), branchRef.get())
-                : newStart(main, input, branchRef);
+                ? existingBranchStart(main, commonDir, Objects.requireNonNull(input.branch()), branchRef.get())
+                : newStart(main, input, branchRef.orElse(null));
         if (resolved.refusal() != null) {
             return Objects.requireNonNull(resolved.refusal(), "refusal");
         }
         if (branchRef.isPresent() && !input.createBranch() && GitIdentity.isFullCommitId(input.startPoint())
                 && !resolved.id().name().equalsIgnoreCase(input.startPoint())) {
             return GitResult.of(GitOutcome.GIT_IDENTITY_MISMATCH,
-                    input.branch().orElseThrow() + " is at " + resolved.id().name() + ", not " + input.startPoint());
+                    Objects.requireNonNull(input.branch()) + " is at " + resolved.id().name() + ", not "
+                            + input.startPoint());
         }
         ObjectId start = resolved.id();
         Files.createDirectories(target);
@@ -204,8 +205,8 @@ public final class JGitOperations implements GitOperations {
             checkout.setFailOnConflict(true);
             checkout.checkout();
             LinkedWorktrees.unlock(admin);
-            return GitResult.ok(new Worktree(target, Optional.of(admin.getFileName().toString()), input.branch(),
-                    Optional.of(start.name()), false, false, false));
+            return GitResult.ok(new Worktree(target, admin.getFileName().toString(), input.branch(),
+                    start.name(), false, false, false));
         } catch (IOException | JGitInternalException e) {
             LinkedWorktrees.delete(commonDir, admin.getFileName().toString(), target);
             throw e;
@@ -236,7 +237,7 @@ public final class JGitOperations implements GitOperations {
         return StartPoint.of(existing.getObjectId());
     }
 
-    private static StartPoint newStart(Repository main, WorktreeAddInput input, Optional<String> branchRef)
+    private static StartPoint newStart(Repository main, WorktreeAddInput input, @Nullable String branchRef)
             throws IOException {
         var resolution = GitIdentity.resolution(main, input.startPoint());
         if (GitIdentity.isAmbiguous(resolution)) {
@@ -253,11 +254,11 @@ public final class JGitOperations implements GitOperations {
             return StartPoint.refused(GitOutcome.GIT_IDENTITY_MISMATCH,
                     "the pin " + input.startPoint() + " reached " + start.name());
         }
-        if (branchRef.isPresent()) {
-            if (main.exactRef(branchRef.get()) != null) {
-                return StartPoint.refused(GitOutcome.ALREADY_EXISTS, branchRef.get());
+        if (branchRef != null) {
+            if (main.exactRef(branchRef) != null) {
+                return StartPoint.refused(GitOutcome.ALREADY_EXISTS, branchRef);
             }
-            var update = main.updateRef(branchRef.get());
+            var update = main.updateRef(branchRef);
             update.setNewObjectId(start);
             update.setExpectedOldObjectId(ObjectId.zeroId());
             update.setRefLogMessage("branch: Created from " + input.startPoint(), false);
@@ -273,7 +274,7 @@ public final class JGitOperations implements GitOperations {
         if (!main.isBare() && branch.equals(main.getBranch())) {
             return true;
         }
-        return LinkedWorktrees.list(commonDir).stream().anyMatch(w -> w.branch().filter(branch::equals).isPresent());
+        return LinkedWorktrees.list(commonDir).stream().anyMatch(w -> branch.equals(w.branch()));
     }
 
     @Override
@@ -287,8 +288,8 @@ public final class JGitOperations implements GitOperations {
                 Optional<String> branch = headRef != null && headRef.isSymbolic()
                         ? Optional.of(Repository.shortenRefName(headRef.getTarget().getName()))
                         : Optional.empty();
-                worktrees.add(new Worktree(main.getWorkTree().toPath().toRealPath(), Optional.empty(), branch,
-                        head.map(ObjectId::name), true, false, false));
+                worktrees.add(new Worktree(main.getWorkTree().toPath().toRealPath(), null, branch.orElse(null),
+                        head.map(ObjectId::name).orElse(null), true, false, false));
             }
             worktrees.addAll(LinkedWorktrees.list(commonDir));
             return GitResult.ok(List.copyOf(worktrees));
@@ -308,7 +309,7 @@ public final class JGitOperations implements GitOperations {
         try {
             Path target = worktree.toAbsolutePath().normalize();
             Path real = Files.exists(target) ? target.toRealPath() : target;
-            Optional<Worktree> match = listed.value().orElseThrow().stream()
+            Optional<Worktree> match = Objects.requireNonNull(listed.value()).stream()
                     .filter(w -> w.path().equals(real) || w.path().equals(target)).findFirst();
             if (match.isEmpty()) {
                 return GitResult.of(GitOutcome.WORKTREE_NOT_FOUND, target.toString());
@@ -331,7 +332,7 @@ public final class JGitOperations implements GitOperations {
                     }
                 }
             }
-            LinkedWorktrees.delete(commonDir, found.name().orElseThrow(), found.path());
+            LinkedWorktrees.delete(commonDir, Objects.requireNonNull(found.name()), found.path());
             return GitResult.ok(found.path());
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
@@ -407,12 +408,15 @@ public final class JGitOperations implements GitOperations {
             }
             var command = git.fetch().setRemote(input.remote())
                     .setRefSpecs(input.refSpecs().stream().map(RefSpec::new).toList());
-            input.credential().ifPresent(c -> command.setCredentialsProvider(
-                    new UsernamePasswordCredentialsProvider(c.username(), c.secret())));
+            GitCredential credential = input.credential();
+            if (credential != null) {
+                command.setCredentialsProvider(
+                        new UsernamePasswordCredentialsProvider(credential.username(), credential.secret()));
+            }
             FetchResult result = command.call();
             var updates = result.getTrackingRefUpdates().stream()
-                    .map(update -> new RefUpdate(update.getLocalName(), id(update.getOldObjectId()),
-                            id(update.getNewObjectId()), update.getResult().name().toLowerCase(Locale.ROOT)))
+                    .map(update -> new RefUpdate(update.getLocalName(), id(update.getOldObjectId()).orElse(null),
+                            id(update.getNewObjectId()).orElse(null), update.getResult().name().toLowerCase(Locale.ROOT)))
                     .toList();
             return GitResult.ok(updates);
         } catch (RefusingFS.CapabilityRefusedException e) {
@@ -437,9 +441,15 @@ public final class JGitOperations implements GitOperations {
             }
             var command = git.push().setRemote(input.remote())
                     .setRefSpecs(new RefSpec(local.name() + ":" + input.remoteRef()));
-            input.expectedRemoteHead().ifPresent(e -> command.setRefLeaseSpecs(new RefLeaseSpec(input.remoteRef(), e)));
-            input.credential().ifPresent(c -> command.setCredentialsProvider(
-                    new UsernamePasswordCredentialsProvider(c.username(), c.secret())));
+            String expectedRemoteHead = input.expectedRemoteHead();
+            if (expectedRemoteHead != null) {
+                command.setRefLeaseSpecs(new RefLeaseSpec(input.remoteRef(), expectedRemoteHead));
+            }
+            GitCredential credential = input.credential();
+            if (credential != null) {
+                command.setCredentialsProvider(
+                        new UsernamePasswordCredentialsProvider(credential.username(), credential.secret()));
+            }
             for (PushResult result : command.call()) {
                 RemoteRefUpdate update = result.getRemoteUpdate(input.remoteRef());
                 if (update != null) {
@@ -586,7 +596,8 @@ public final class JGitOperations implements GitOperations {
     }
 
     private static GitResult<RefUpdate> toPushResult(RemoteRefUpdate update) {
-        var ref = new RefUpdate(update.getRemoteName(), id(update.getExpectedOldObjectId()), id(update.getNewObjectId()),
+        var ref = new RefUpdate(update.getRemoteName(), id(update.getExpectedOldObjectId()).orElse(null),
+                id(update.getNewObjectId()).orElse(null),
                 update.getStatus().name().toLowerCase(Locale.ROOT));
         return switch (update.getStatus()) {
             case OK, UP_TO_DATE -> GitResult.ok(ref);
@@ -637,8 +648,8 @@ public final class JGitOperations implements GitOperations {
                 ? Optional.of(Repository.shortenRefName(head.getTarget().getName()))
                 : Optional.empty();
         Optional<String> id = Optional.ofNullable(repository.resolve(Constants.HEAD)).map(ObjectId::name);
-        return new RepositoryInfo(repository.getWorkTree().toPath().toRealPath(), gitDir, commonDir, id, branch,
-                !gitDir.equals(commonDir));
+        return new RepositoryInfo(repository.getWorkTree().toPath().toRealPath(), gitDir, commonDir,
+                id.orElse(null), branch.orElse(null), !gitDir.equals(commonDir));
     }
 
     private static CommitInfo toInfo(RevCommit commit) {

@@ -120,7 +120,7 @@ class JGitCacheRepositoryTest {
             config.setBoolean("uploadpack", null, "allowAnySHA1InWant", true);
             config.save();
         }
-        return committed.value().orElseThrow().id();
+        return committed.value().id();
     }
 
     @BeforeEach
@@ -159,7 +159,7 @@ class JGitCacheRepositoryTest {
             assertAll(
                     () -> assertEquals(GitOutcome.OK, first.outcome(), "the first initCache creates the cache"),
                     () -> assertEquals(first, second, "a second initCache returns the same result"),
-                    () -> assertEquals(cache.toRealPath(), first.value().orElseThrow(),
+                    () -> assertEquals(cache.toRealPath(), first.value(),
                             "the result is the canonical cache path"),
                     () -> assertTrue(Files.isDirectory(cache.resolve("objects")),
                             "the bare cache holds an objects directory"),
@@ -213,10 +213,10 @@ class JGitCacheRepositoryTest {
 
             assertAll(
                     () -> assertEquals(GitOutcome.OK, fetched.outcome(), "the pinned commit is fetched by its id"),
-                    () -> assertEquals(commit, fetched.value().orElseThrow(), "the fetch returns the pinned commit id"),
-                    () -> assertArrayEquals(csv.getBytes(UTF_8), file.value().orElseThrow(),
+                    () -> assertEquals(commit, fetched.value(), "the fetch returns the pinned commit id"),
+                    () -> assertArrayEquals(csv.getBytes(UTF_8), file.value(),
                             "the plain file is read as it is stored"),
-                    () -> assertArrayEquals(pointer.getBytes(UTF_8), lfs.value().orElseThrow(),
+                    () -> assertArrayEquals(pointer.getBytes(UTF_8), lfs.value(),
                             "the LFS file is read as its pointer"));
         }
 

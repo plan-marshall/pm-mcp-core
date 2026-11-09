@@ -9,9 +9,11 @@
  */
 package de.planmarshall.core.log;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +30,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -47,6 +50,12 @@ class CoreLogMessagesTest {
 
     private static final Pattern PREFIX_DECLARATION =
             Pattern.compile("public static final String PREFIX = \"([^\"]+)\";");
+
+    /** The generated listing of this holder, resolved from the repository root above the module. */
+    private static final Path GENERATED = repositoryRoot().resolve("doc").resolve("log-messages").resolve("pm-core.adoc");
+
+    /** Setting this system property regenerates the committed listing instead of only comparing it. */
+    private static final String REGENERATE = "planmarshall.log-messages.regenerate";
 
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
     @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
@@ -122,6 +131,32 @@ class CoreLogMessagesTest {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
                 () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
+    @Test
+    @DisplayName("the committed listing is the holder's current generation")
+    void generatedListingIsCurrent() throws Exception {
+        var expected = LogMessageListing.render(CoreLogMessages.class).getBytes(UTF_8);
+        if (Boolean.getBoolean(REGENERATE)) {
+            Files.write(GENERATED, expected);
+        }
+        var actual = Files.readAllBytes(GENERATED);
+
+        assertTrue(LogMessageListing.same(expected, actual), "the committed listing matches the holder");
+    }
+
+    @Test
+    @DisplayName("the byte check names a file with one identifier changed")
+    void byteCheckNamesAChangedListing(@TempDir Path tempDir) throws Exception {
+        var expected = LogMessageListing.render(CoreLogMessages.class);
+        var tampered = expected.replace("PM_CORE-1 |", "PM_CORE-99 |");
+        var changed = tempDir.resolve("pm-core.adoc");
+        Files.writeString(changed, tampered, UTF_8);
+
+        assertAll(
+                () -> assertNotEquals(expected, tampered, "the control changes one identifier"),
+                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), Files.readAllBytes(changed)),
+                        "a changed identifier is a mismatch"));
     }
 
     /** The directory above the working directory that holds {@code pm-core} and the root POM. */

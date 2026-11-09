@@ -1,0 +1,4 @@
+{
+  "total": {
+    "lines": { "total": 200, "covered": 180, "pct": 90 },
+    "statements": { "total": 220, "covered": 198, "pct": 90 }

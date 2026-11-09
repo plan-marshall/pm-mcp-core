@@ -51,19 +51,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `branch=main` reads 9 open issues; the two of this plan are `java:S9428` at `pm-core/.../store/StoreDigest.java:97` and `java:S112` at `pm-runtime/.../credentials/MacSecurity.java:305`; `java:S5778` (`ProfileValidatorTest`) and `java:S9412` (`LockKeyTest`) are no longer listed (fixed by #185, PLAN-104)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `https://sonarcloud.io/api/issues/search?componentKeys=plan-marshall_pm-mcp-core&branch=main&resolved=false&ps=500` read on 2026-10-29; `StoreDigest.java:97` and `MacSecurity.java:305` read at a8da4104
+  - verdict: contradicted | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: java:S9428 suppressed at StoreDigest.java:98 with reason (#250); only java:S112 at MacSecurity.java:305 open in code; covered by the rescope note
 - OBSERVED: `StoreDigest.Builder` is used incrementally — `JournalRecovery.java` lines 216 and 222, `ScopeTransaction.java` line 396 (`StoreDigest.builder()` then `update` calls); `StoreDigestTest.java` exists; the module already suppresses Sonar rules inline with a reason (`QueueTaskRecordCodec.java:303`, `ActivityEntryCodec.java:197`, `ActivityEntry.java:330`, `JsonlStoreFile.java:176`)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `grep` over `pm-core/src/main`
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: StoreDigest.builder() used at JournalRecovery.java:216,222 and ScopeTransaction.java:432-440; StoreDigestTest exists
 - OBSERVED: `MacSecurity.call` already carries `@SuppressWarnings("java:S1181")` with the reason "MethodHandle.invokeExact declares Throwable; Errors are rethrown" (line 310); R16 (4) names the inline suppression for the cases where the design requires the flagged shape
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `MacSecurity.java` lines 299 to 320 read
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: MacSecurity.java:308 suppression java:S1181 with reason; interface at :304-306
   - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `git grep` and `grep -c` at a8da4104; the epic's line numbers (`:129`, `:141`) have moved to 99
 - HYPOTHESIS: the Sonar analysis honours `@SuppressWarnings("java:S9428")` and `("java:S112")` as it does the `java:S3776` and `java:S1181` ones already in the code — confirm/refute at the run of the pull request (R18); if S9428 is not honoured the redesign of the constraint above is the fallback and the operator is asked
-  - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: hypothesis
+  - verdict: unverifiable | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: needs a Sonar run on the pull request; suppressions of S3776 and S1181 exist in code
   - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: hypothesis
 - OBSERVED (Deliverable 4): `git grep -n -E 'java:S(2583|2589|2637|2789)' origin/main -- '*.java'` lists exactly five sites, all in `pm-core/.../core/spi/` (`PrimitiveRegistry.java` 214, 273, 290; `PrimitiveResult.java` 57, 121), read at `44cfe8d7` on 2026-11-01; the root `pom.xml` ignores only `java:S4032` and `java:S4449`
-  - verdict: corroborated | checked_at: 44cfe8d7 | by: orchestrator/analyze-PLAN-V2-01 | evidence: the `git grep` above and the sources read in `landings/PLAN-V2-01.md`
+  - verdict: contradicted | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: sixth java:S2637 suppression RefusingFS.java:53 in pm-provider-git beside the five core.spi sites; see Grounding corrections
 - Verify-first clause: before editing, list the open pull requests for one that touches `StoreDigest.java`, `MacSecurity.java` or `.plan/project-architecture/`, and re-read the Sonar list of `main` (a plan that landed meanwhile may have cleared or added one); a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: no package file and no index row; no live spec names the three classes or files
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no open PR touches StoreDigest.java or MacSecurity.java
 
 ## Expected Surface
 
@@ -107,3 +107,13 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 - **PLAN-98 residues (analysis of #222, 2026-10-29)** (Op1) — the repository-wide architecture rule and the recording-test-network test of the Closed List of Outbound Calls belong to V2-53; the small residues (the two limits bisections as one helper, a WARN for a pre-send refusal, a negative fixture for a 400 without max_tokens_exceeded, the unused TASK_INVALID.wireName()) go to V2-67
 - **Two SonarCloud items of PLAN-94 are unsettled, and 2 further issues of main are owned by no pla** (Op27) — main: java:S112 at MacSecurity (the downcall must declare throws Throwable: dismissal is the only settlement), java:S5778 at ProfileValidatorTest, java:S9428 at StoreDigest; re-query before editing
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Narrowed (2026-11-09):** the SonarCloud item `java:S9428` at `StoreDigest.java:96` is settled on main (`@SuppressWarnings("java:S9428")` with a reason, commit `03f182c9`, #250); remove it from the scope and from the Done-when. What remains is `java:S112` at `MacSecurity.java:305` (`T call() throws Throwable;` mirrors `MethodHandle.invokeExact`; a code-side `@SuppressWarnings` with its reason) and the note that `sonar` is `not_configured` for the lane. Live Sonar state was not queried (HYPOTHESIS, verify-at-outline).
+
+## Grounding corrections (cleanup 2026-11-09, main 363ecb48)
+
+Claim 4: main has a SIXTH `java:S2637` suppression, `pm-providers/pm-provider-git/.../RefusingFS.java:53` (added by #274, with a library-contract reason comment), beside the five `core.spi` sites; the Objective's wording that they are the only ones of their kind is false. D4's grep is scoped to `core/spi`, so its Done-when is unaffected: the outline decides whether `RefusingFS` is in scope or deliberately left, and records it.

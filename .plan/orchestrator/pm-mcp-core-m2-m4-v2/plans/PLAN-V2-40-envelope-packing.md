@@ -54,23 +54,23 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/envelope/` holds `package-info.java` only; lines 11 to 13 of it: "The task envelopes: the packing of plan tasks into envelopes by their predicted cost. Specification: `doc/specification/model-work/06-envelopes-questions-deadlines.adoc`."
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: `git ls-tree -r origin/main` lists only `workflow/envelope/package-info.java`
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: envelope/ holds only package-info.java at main 363ecb48
 - OBSERVED: none of `EnvelopePacker`, `TaskCostEstimator`, `cost_size`, `below_minimum_task`, `envelope_budget_tokens` exists in the main sources of `pm-core`, `pm-workflow`, `pm-runtime` (the task record store with `cost_size` and `predicted_cost_tokens` is `store-schemas/06` lines 61 to 63 and is not implemented here); `MetricsRow.PredictedCost` (`pm-core/src/main/java/de/planmarshall/core/store/MetricsRow.java` line 368) carries the summed predicted cost of a measured envelope
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: grep over `pm-*/src/main`
+  - verdict: contradicted | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: classes absent but cost_size/TaskCostEstimator in task-record.schema.json:44-46 and envelope_budget_tokens in local-config.schema.json:157; see Grounding corrections
 - OBSERVED: the specification of the computation — `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` lines 21 to 42 (the six items), lines 46 to 172 (§ Deterministic Envelope Packing Algorithm with the Java block at lines 51 to 170, `MIN_JOB_TOKENS = 10_000`), line 40 (item 4: either fallback is capped at the long-context threshold of the role's model, the operator override and a role-declared budget are taken as set, a task above the budget sits alone)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: read at a8da4104
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: model-work/06 items 21-42, MIN_JOB_TOKENS 10_000 at 62 read
 - OBSERVED: the effective worker context budget is resolved without any cap in `pm-core/src/main/java/de/planmarshall/core/role/EffectiveRole.java` lines 133 to 137 (`declaredContextBudget` or `HarnessProfile.contextBudgetTokens()` or the compiled value); this is the worker's budget, not the envelope budget, and this plan does not change it
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: read at a8da4104
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: EffectiveRole.java:133-137 contextBudget, COMPILED_CONTEXT_BUDGET 400_000 at 48, no cap
 - OBSERVED: the package is a documented gap — the lane message `inbox/archive/rb-103-spec-coverage-pass/rb-103-spec-coverage-pass-001.md` line 108 puts `core.id`, `workflow.envelope` and `workflow.primitive` to the operator ("They are not removed"; `landings/PLAN-103.md` line 82 repeats it); the operator's decision of 2026-10-29 (decision 4 of 18, `logs/decision.log` line 314) cuts a package for `workflow.envelope`; `doc/plans/` holds no file naming the envelope packing (`grep -rn -i envelope doc/plans/*.adoc` finds the task envelope only as the dependency text of `own-calls`, line 189 of the index)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: grep over `doc/plans/`
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: git grep finds no doc/plans file naming envelope packing; README.adoc:243
 - OBSERVED: the roadmap places the packing in Milestone 9 — `plan-marshall-documentation/doc/roadmap.adoc` (at its `origin/main`, the checkout lags by two commits that do not touch it) line 550 "Implement Phase 4 (`phase-4-plan`): … cost sizing and envelope bin-packing …" under `=== Milestone 9`
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: `git show origin/main:doc/roadmap.adoc | sed -n 550p`
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: roadmap item at roadmap.adoc:564 under Milestone 9
 - HYPOTHESIS: the per-envelope budget equals the effective context budget (no factor between them); the specification says "derived from the context budget of the envelope role's artifact" and the profile schema says "the per-envelope packing budget is derived from the effective value" — neither states a factor. Verify-first: re-read `model-work/06` line 40 and `store-schemas/08-project-configuration-local.adoc` line 262 for a factor; if one is stated, add it to `EnvelopeBudget` and say so in the ADR; if none, the identity stands and is recorded in the ADR
-  - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: hypothesis, verify-first by the executing plan
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no factor found in model-work/06:40, harness-profiles/01:432, local-config.schema.json:157-161
 - HYPOTHESIS: the weights and bands of the specification still equal `plan-marshall`'s `_tasks_cost.py` — verify-first by reading the sibling checkout `plan-marshall` (which may lag its `origin/main`); a difference is a finding for the operator, not a change of the specification's numbers
-  - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: hypothesis, not read
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: plan-marshall _tasks_cost.py:44-59,82-91 matches spec weights
 - Verify-first clause: before editing, list the open pull requests for one that names `workflow/envelope/` or `model-work/06-envelopes-questions-deadlines.adoc` (PLAN-V2-23 `decision-engine` and PLAN-V2-29 `chat` declare the specification part), confirm `doc/plans/` still has no envelope package, and re-read `model-work/06` lines 21 to 172 at the head; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/empty-packages-draft | evidence: no staged plan names `workflow/envelope/` in its Expected Surface (`awk` over every `## Expected Surface`); PLAN-V2-23 and PLAN-V2-29 name the specification part
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no staged plan names workflow/envelope/ except 40 and 63; no open PR (#344,#343,#342,#340,#339,#336,#71) touches envelope or model-work/06
 
 ## Expected Surface
 
@@ -109,3 +109,7 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Grounding corrections (cleanup 2026-11-09, main 363ecb48)
+
+Claim 1 is corrected: the Java classes `EnvelopePacker`, `TaskCostEstimator` and `EnvelopeBudget` are absent, but `cost_size`, `predicted_cost_tokens`, `predicted_cost_basis` and the string `TaskCostEstimator` are already in `pm-core/.../store/task-record.schema.json:44-46`, and `envelope_budget_tokens` is already a member of `local-config.schema.json:157-161` (minimum 10000); `MetricsRow.PredictedCost` is at line 376. No Java implements them yet, so the scope does not change; the outline reads the schema files as given. Roadmap item moved to `roadmap.adoc:564`, `README.adoc:243`.

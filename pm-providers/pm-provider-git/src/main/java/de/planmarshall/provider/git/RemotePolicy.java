@@ -11,8 +11,8 @@ package de.planmarshall.provider.git;
 
 import java.net.URI;
 import java.util.Locale;
-import java.util.Optional;
 import org.eclipse.jgit.transport.URIish;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Which remote URLs the native transport may contact.
@@ -21,10 +21,10 @@ import org.eclipse.jgit.transport.URIish;
  * ({@link #httpsOrigin(URI)}). {@link #localOnly()} admits repositories on the local disk
  * ({@code file://} or a plain path), which involve no network and no credential.
  *
- * @param origin the permitted HTTPS origin; empty for local repositories only
+ * @param origin the permitted HTTPS origin; {@code null} for local repositories only
  * @since 0.1
  */
-public record RemotePolicy(Optional<URI> origin) {
+public record RemotePolicy(@Nullable URI origin) {
 
     /**
      * @param origin the HTTPS origin, e.g. {@code https://github.com}
@@ -35,14 +35,14 @@ public record RemotePolicy(Optional<URI> origin) {
         if (!"https".equalsIgnoreCase(origin.getScheme()) || origin.getHost() == null) {
             throw new IllegalArgumentException("not an https origin: " + origin);
         }
-        return new RemotePolicy(Optional.of(origin));
+        return new RemotePolicy(origin);
     }
 
     /**
      * @return a policy admitting local repositories only
      */
     public static RemotePolicy localOnly() {
-        return new RemotePolicy(Optional.empty());
+        return new RemotePolicy(null);
     }
 
     /**
@@ -51,10 +51,10 @@ public record RemotePolicy(Optional<URI> origin) {
      */
     public boolean permits(URIish uri) {
         String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (origin.isEmpty()) {
+        if (origin == null) {
             return uri.getHost() == null && (scheme.isEmpty() || "file".equals(scheme));
         }
-        URI allowed = origin.get();
+        URI allowed = origin;
         return "https".equals(scheme) && allowed.getHost().equalsIgnoreCase(uri.getHost())
                 && port(allowed.getPort()) == port(uri.getPort());
     }

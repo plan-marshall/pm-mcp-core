@@ -82,7 +82,7 @@ None beyond the standing rules named in the First Instruction above.
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/13-leases-integrity-testing.adoc` — specification part; the implemented sections deleted
-- OBSERVED: `doc/specification/timeouts/03-retention-host-config.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/timeouts/03-retention-harness-config.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/MetricsStore.java` — new delete path for a plan's and the workspace's metrics rows
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java` — local-config and machine-config documents that carry the cleanup members (revision and CONFLICT rule)
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java` — writer of unenrolled_at in store.json (the identity is written once today)

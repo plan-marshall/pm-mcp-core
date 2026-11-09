@@ -231,7 +231,7 @@ class HttpClientTest {
             assertAll("the authenticated read",
                     () -> assertEquals(Outcome.OK, response.outcome(), "the read outcome is OK"),
                     () -> assertEquals(content, response.body(), "the response body is returned"),
-                    () -> assertEquals(Optional.of(tag), response.etag(), "the entity tag is returned"),
+                    () -> assertEquals(tag, response.etag(), "the entity tag is returned"),
                     () -> assertEquals(BEARER + token, header(request, "Authorization"),
                             "the token is sent as a bearer token"),
                     () -> assertEquals(GITHUB_MEDIA_TYPE, header(request, "Accept"),
@@ -262,7 +262,7 @@ class HttpClientTest {
             String sent = "{\"body\":\"" + body() + "\\n" + body() + "\"}";
             on("POST", "/" + path, json(201, "{}"));
 
-            Response response = client.send("POST", "/" + path, Optional.of(sent), Optional.empty());
+            Response response = client.send("POST", "/" + path, sent, null);
 
             var request = nextRequest();
             assertNotNull(request.getBody(), "the request carries a body");
@@ -516,7 +516,7 @@ class HttpClientTest {
 
             assertAll("the rate limit",
                     () -> assertEquals(Outcome.RATE_LIMITED, response.outcome(), "a 429 is rate limited"),
-                    () -> assertEquals(Optional.of(now.plusSeconds(seconds)), response.resetAt(),
+                    () -> assertEquals(now.plusSeconds(seconds), response.resetAt(),
                             "the reset is now plus Retry-After"));
         }
 
@@ -536,11 +536,11 @@ class HttpClientTest {
                     Map.of("RateLimit-Reset", String.valueOf(secondaryReset))));
 
             assertAll("the reset instants",
-                    () -> assertEquals(Optional.of(Instant.ofEpochSecond(primaryReset)),
+                    () -> assertEquals(Instant.ofEpochSecond(primaryReset),
                             client.get("/" + primary).resetAt(), "the primary limit names its reset"),
-                    () -> assertEquals(Optional.of(Instant.ofEpochSecond(secondaryReset)),
+                    () -> assertEquals(Instant.ofEpochSecond(secondaryReset),
                             client.get("/" + secondary).resetAt(), "RateLimit-Reset names the reset"),
-                    () -> assertEquals(Optional.of(now.plus(HttpClient.DEFAULT_RATE_LIMIT_WAIT)),
+                    () -> assertEquals(now.plus(HttpClient.DEFAULT_RATE_LIMIT_WAIT),
                             client.get("/rate-limit-date").resetAt(), "an HTTP date falls back to the default"));
         }
 

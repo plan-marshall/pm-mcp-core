@@ -1,4 +1,4 @@
-= ADR 020: The Effective Idle Wakeups Are an `OptionalInt`
+= ADR 022: The Effective Idle Wakeups Are an `OptionalInt`
 :nofooter:
 
 == Status
@@ -42,4 +42,4 @@ further, because the absence here is a number, not a reference.
 
 * Pull request of `PLAN-V2-97` (`optional-conversion-core`)
 * `landings/PLAN-V2-110.md` § Layer 3, C2
-* ADR link:019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[019 `Optional` Fields, Parameters and Record Components Are Nullable States]
+* ADR link:021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[021 `Optional` Fields, Parameters and Record Components Are Nullable States]
