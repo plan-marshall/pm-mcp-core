@@ -52,7 +52,7 @@ The start gathers the plan's sources into its source directory: the operator add
 |— (`entry`)
 |`auto`
 |`start.sources` (`add_description`); `start.chat` (`proposed`: the description the chat proposed and the operator accepted).
-|`auto start.store-description`: writes the description as `description-<n>.md` into the source directory and its manifest entry (trusted: the operator's own words, never screened); a description rewritten in a chat is a new entry, since a stored source never changes.
+|`auto start.store-description`: writes the description as `description-<n>.md` into the source directory and its manifest entry (trusted: the operator's own words, never screened); a description rewritten in a chat is a new entry, since a stored source never changes, and its manifest entry records `origin: {kind: chat, chat_id, turn_id}` beside the operator's channel and device (link:../state-catalogue.adoc#chat-origin[State Catalogue, Origin]).
 |`stored` -> `start.sources`.
 |link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout Specification, The Source Directory]
 
@@ -60,7 +60,7 @@ The start gathers the plan's sources into its source directory: the operator add
 |— (`entry`)
 |`call`
 |`start.sources` (`chat`).
-|`call chat` with the subject the entry, the scope its stored sources and descriptions (an untrusted source still marked), and the role `refine` (link:../state-catalogue.adoc#chat[Chat]).
+|`call chat` with the subject the entry, the scope its stored sources and descriptions (an untrusted source still marked), and the role `refine` (link:../state-catalogue.adoc#chat[Chat]; what its worker is primed with and pulls: link:../state-catalogue.adoc#chat-context[What a Chat Knows]).
 |`proposed` -> `start.store-description`; `ended` -> `start.sources`.
 |link:../state-catalogue.adoc#chat[Chat]
 
@@ -424,7 +424,7 @@ The operator opens the start of an epic in either client with `POST /api/v1/proj
 |— (`entry`)
 |`call`
 |`start-epic.sources` (`chat`).
-|`call chat` with the subject the entry and the role `decompose` (link:../state-catalogue.adoc#chat[Chat]).
+|`call chat` with the subject the entry and the role `decompose` (link:../state-catalogue.adoc#chat[Chat]; what its worker is primed with and pulls: link:../state-catalogue.adoc#chat-context[What a Chat Knows]).
 |`proposed` -> `start-epic.store-description`; `ended` -> `start-epic.sources`.
 |link:../state-catalogue.adoc#chat[Chat]
 

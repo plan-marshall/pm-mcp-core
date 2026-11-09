@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `transcribe`
 
 [horizontal]
 Roadmap item:: _Implement voice input_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-core (the consent kinds, the project's narrowing); pm-runtime (the role's machine value in `machine-config.json`, the local model's check, the `speech` job, the provider's call); pm-workflow (the role's states in the roles step)
+Where:: pm-core (the consent kinds, the project's narrowing); pm-runtime (the role's machine value in `machine-config.json`, the search and check of the local `whisper.cpp` program and its wrapper, the `speech` job, the provider's call); pm-workflow (the role's states in the roles step)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks

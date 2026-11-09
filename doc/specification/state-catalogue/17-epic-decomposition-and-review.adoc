@@ -70,7 +70,7 @@ Declared in `decomposition.pmwf` (`scope subworkflow`, compiled only), called by
 |`epic`
 |`call`
 |`decomposition.review` (`chat`).
-|`call chat` with the subject the epic and the scope the draft, role `decompose` (link:../state-catalogue.adoc#chat[Chat]).
+|`call chat` with the subject the epic and the scope the draft, role `decompose` (link:../state-catalogue.adoc#chat[Chat]; what its worker is primed with and pulls: link:../state-catalogue.adoc#chat-context[What a Chat Knows]).
 |`proposed` (an accepted change, written into the draft) -> `decomposition.check`; `ended` -> `decomposition.review`.
 |link:../state-catalogue.adoc#chat[Chat]
 
@@ -193,7 +193,7 @@ Declared in `review.pmwf` (`scope subworkflow`, compiled only), called by `epic.
 |`epic`
 |`call`
 |`review.item` (`chat`).
-|`call chat` with the subject the epic and the scope one item or the whole register, role `decompose` (link:../state-catalogue.adoc#chat[Chat]).
+|`call chat` with the subject the epic and the scope one item or the whole register, role `decompose` (link:../state-catalogue.adoc#chat[Chat]; what its worker is primed with and pulls: link:../state-catalogue.adoc#chat-context[What a Chat Knows]).
 |`proposed` (an accepted change, recorded as the item's disposition or rewrite), `ended` -> `review.item`.
 |link:../state-catalogue.adoc#chat[Chat]
 

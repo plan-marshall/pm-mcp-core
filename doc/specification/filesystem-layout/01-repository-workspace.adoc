@@ -40,7 +40,7 @@ Every repository checkout of an enrolled project contains a `.marshall/` directo
 │   │       │   └── <plan_id>.json       # Individual queued plan record and spec reference
 │   │       ├── inbox.jsonl              # Append-only event log: messages from plans and epics
 │   │       ├── landings.jsonl           # Verified plan landings and post-merge analysis
-│   │       ├── register.jsonl           # Findings and watches registers of the epic
+│   │       ├── register.jsonl           # Findings and watches registers of the epic (register-item records, a chat's disposition_origin)
 │   │       └── resume_anchor.md         # Human- and model-readable epic checkpoint summary
 │   │
 │   ├── archived-epics/                  # Archived epics (git-tracked, moved in the shared epic worktree)

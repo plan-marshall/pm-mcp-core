@@ -112,3 +112,9 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 - **#190 deleted the specification sentence that PLAN-73's Deliverable 7 depends on (found by the c** (Op47) — #190 deleted Model Work 03 § Recycling Warm Workers incl. "a worker holding its task for an answer that reaches the budget ends its hold"; D7 depends on that sentence; WorkerRecycling recycles a HOLDING generation at the budget without ending the hold
 - **The question-loop verification of plan-marshall-mcp is done (question-loop-verification in its** (Op49) — the question-loop verification of plan-marshall-mcp is done: this plan has no open cross-repository dependency left; #197 wrote the resumability candidates and max_hold_seconds / max_age_seconds 3600 into Client Profiles 01/02 and Model Work 01/06
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Settled (2026-11-09):** the specification sentence "ends its hold" is restored at `model-work/06-envelopes-questions-deadlines.adoc:427` (#201). The behaviour gap, `WorkerRecycling` recycling a HOLDING generation without ending the hold, is D2 here.
