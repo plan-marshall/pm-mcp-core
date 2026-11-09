@@ -24,6 +24,14 @@
  * ported from the {@code plan-marshall} parser module of the same tool, and its tests are ported from that module's
  * pytest suite.
  * <p>
+ * The package also carries the four native coverage report parsers — {@link de.planmarshall.core.build.JacocoReportParser},
+ * {@link de.planmarshall.core.build.CoberturaReportParser}, {@link de.planmarshall.core.build.LcovReportParser} and
+ * {@link de.planmarshall.core.build.IstanbulSummaryParser} — over the model {@link
+ * de.planmarshall.core.build.CoverageReport} with its {@link de.planmarshall.core.build.CoverageMetrics}, {@link
+ * de.planmarshall.core.build.CoverageItem} and {@link de.planmarshall.core.build.CoverageVerdict}. A parser returns a
+ * {@link de.planmarshall.core.build.CoverageParseResult}: the parsed report, or a refusal that names the format, never a
+ * report of zeros. The threshold verdict and the low-coverage list compare the line percentage only.
+ * <p>
  * The package also carries {@link de.planmarshall.core.build.UnparsedEvidence}, the bounded, redacted tail of a raw build
  * log and the URI of the full log, which a build that ended {@code failed_unparsed} hands on without inventing a
  * diagnostic.
@@ -37,7 +45,7 @@
  * <p>
  * Specification: {@code doc/specification/job-runtime/03-parsers-and-gates.adoc}. Developer guide:
  * {@code pm-core/doc/developer/core-build.adoc}. The decisions of the package are recorded in
- * {@code pm-core/doc/adr/core-build/}.
+ * {@code pm-core/doc/adr/core-build/}; the coverage model and its XML hardening are {@code core-build/005}.
  */
 @NullMarked
 package de.planmarshall.core.build;

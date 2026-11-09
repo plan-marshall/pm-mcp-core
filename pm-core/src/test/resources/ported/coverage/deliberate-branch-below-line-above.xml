@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="branch-below-line-above">
+  <package name="com/example">
+    <class name="com/example/Branchy" sourcefilename="Branchy.java">
+      <method name="run" desc="()V" line="10">
+        <counter type="METHOD" missed="0" covered="1"/>
+      </method>
+      <counter type="INSTRUCTION" missed="1" covered="9"/>
+      <counter type="BRANCH" missed="2" covered="1"/>
+      <counter type="LINE" missed="1" covered="9"/>
+      <counter type="METHOD" missed="0" covered="1"/>
+    </class>
+  </package>
+  <counter type="INSTRUCTION" missed="1" covered="9"/>
+  <counter type="BRANCH" missed="2" covered="1"/>
+  <counter type="LINE" missed="1" covered="9"/>
+  <counter type="METHOD" missed="0" covered="1"/>
+</report>
