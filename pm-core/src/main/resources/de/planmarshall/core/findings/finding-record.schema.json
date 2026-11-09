@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/finding-record.json",
+  "title": "FindingRecord",
+  "type": "object",
+  "required": [
+    "format_version",
+    "finding_id",
+    "source",
+    "severity",
+    "blocking",
+    "status",
+    "resolution",
+    "summary",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "finding_id": { "type": "string", "pattern": "^F-[0-9]+$" },
+    "source": {
+      "type": "string",
+      "enum": ["analysis", "github_pr", "gitlab_mr", "ci", "self_review", "arch_gate", "compiler", "qgate", "security_audit", "code_review", "dependency_delta", "capability_tests", "fix_proof", "added_lines"],
+      "description": "fix_proof is the server's pre-merge Fix Proof Guard (Phase Workflows Specification, fix-proof); its finding types are fix_red_missing, fix_test_changed (non-blocking), and fix_proof_indeterminate. added_lines is the server's pre-merge Added-Line Scan (Phase Workflows Specification, added-line-scan); its finding types are hidden_characters, model_instruction (non-blocking), credential_shaped, and added_lines_indeterminate. dependency_delta is the server's pre-merge Dependency Delta Check (Phase Workflows Specification, dependency-delta); its finding types are undeclared_dependency and dependency_delta_indeterminate. capability_tests is filed by no step: the Capability Test Guard is deferred (Later Improvements, L-36). ci is a failed CI check filed by ci-verify (Phase Workflows Specification, step 22); it carries ci_failure."
+    },
+    "provider": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "Required (non-null) iff source == analysis: the id of the code analysis provider that reported the finding (for example sonar), the same id as in its analysis result record; null otherwise. No source value names a single analysis provider."
+    },
+    "ci_failure": {
+      "type": ["object", "null"],
+      "description": "Required (non-null) iff source == ci; null otherwise.",
+      "additionalProperties": false,
+      "required": ["check_name", "failure_class", "failure_kind", "required_check"],
+      "properties": {
+        "check_name": { "type": "string", "minLength": 1, "description": "Provider name of the failed check or pipeline job." },
+        "failure_class": { "type": "string", "enum": ["failure", "cancelled", "timed_out", "action_required", "stale", "startup_failure", "not_triggered", "no_checks"], "description": "From the provider's conclusion." },
+        "failure_kind": { "type": "string", "enum": ["compile", "test", "lint", "policy", "unknown"], "description": "From the check's log, parsed by the PM-IMPL-6 build output parsers; unknown when no parser recognises the log or the log is unreadable; unknown is handled fail-closed: the finding of a failed required check is blocking whatever its kind." },
+        "required_check": { "type": "boolean", "description": "Whether the check is in the derived required_checks of the base branch; a non-required check is filed with blocking false." }
+      }
+    },
+    "phase": { "type": ["string", "null"], "enum": ["phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-6-finalize", null], "description": "Phase the finding was filed against: the phase value of the phase sub-workflow on the call stack of the filing transition (Phases as Sub-Workflows); required for qgate findings. A write addressed to a phase the plan has left is refused with phase_closed." },
+    "queue_task_id": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$", "description": "The queue task whose submit filed the finding (Queue Task Record); null for findings the server files itself. Feeds the spend class findings_only." },
+    "batch_id": { "type": ["string", "null"], "pattern": "^BT-[0-9]+$", "description": "The screening batch (batch-v1) of the gather or source firing that ingested the finding's external text; null for a finding without external text (server-filed, self_review, qgate)." },
+    "screen": {
+      "type": ["object", "null"],
+      "description": "Level-2 screen of the finding's external text (summary and body), taken from the scope's screen verdict cache or the batch's screener job; null when the finding has no external text.",
+      "required": ["verdict", "withheld"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "type": "string", "enum": ["clean", "suspicious"], "description": "A missing, extra, or unparseable verdict item is recorded suspicious (fail-closed)." },
+        "withheld": { "type": "boolean", "description": "true iff verdict is suspicious: the text is never delivered to a model; only the structured fields (author, file, line, kind) and 'withheld: flagged by screener' are rendered, and the finding stays pending until a met waiver of its gate or the unit's fallback." },
+        "spans": { "type": "array", "items": { "type": "object", "required": ["start", "end", "reason"], "additionalProperties": false, "properties": { "start": { "type": "integer", "minimum": 0 }, "end": { "type": "integer", "minimum": 0 }, "reason": { "type": "string", "maxLength": 200 } } }, "description": "Flagged spans of a suspicious text; operator and audit data only." }
+      }
+    },
+    "requirement_refs": {
+      "type": ["array", "null"],
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 },
+      "description": "Requirement ids (PM-<AREA>-<N>) or specification anchors the finding bears on; set by triage and validated by the server against the registry of the binary."
+    },
+    "severity": { "type": "string", "enum": ["blocker", "critical", "major", "minor", "info"] },
+    "submitted_severity": { "type": ["string", "null"], "enum": ["blocker", "critical", "major", "minor", "info", null], "description": "The severity the producer submitted, kept when the security calibration capped it (source security_audit); null otherwise." },
+    "security": {
+      "type": ["object", "null"],
+      "description": "Calibration facts of a security_audit finding, required for that source and null for every other; the server caps severity from them (link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[Phase Workflows § Security Audit Calibration])",
+      "required": ["ingress", "attacker_position", "privileges_required", "evidence_level"],
+      "additionalProperties": false,
+      "properties": {
+        "ingress": { "type": "object", "required": ["file_path", "line"], "additionalProperties": false, "properties": { "file_path": { "type": "string", "minLength": 1 }, "line": { "type": "integer", "minimum": 1 } }, "description": "Where attacker-controlled data enters on the path to the flaw." },
+        "attacker_position": { "type": "string", "enum": ["remote_unauthenticated", "remote_authenticated", "adjacent", "local", "trusted_operator"] },
+        "privileges_required": { "type": "string", "enum": ["none", "low", "high"] },
+        "evidence_level": { "type": "string", "enum": ["reasoned", "test_reproduced"] },
+        "cap_rule": { "type": ["string", "null"], "description": "Server-written: the cap-table rule that lowered the severity, null when none applied." }
+      }
+    },
+    "blocking": { "type": "boolean", "description": "Set at write time from the producer's declared class for this finding type; later changed only by triage." },
+    "status": { "type": "string", "enum": ["open", "triaged_fix", "triaged_dismiss", "triaged_accept", "resolved", "carried"] },
+    "disposition": { "type": ["string", "null"], "enum": ["FIX", "SUPPRESS", "ACCEPT", null], "description": "The triage disposition submitted by the triage job of the gather firing (submit:triage-groups: one disposition per (domain, rule_id) group, with per-finding exceptions); written per finding by the server." },
+    "suppress_reason": {
+      "type": ["string", "null"],
+      "enum": ["claim_refuted", "duplicate", "rule_exception", "generated_code", "tool_limitation", null],
+      "description": "Closed reason of a SUPPRESS disposition, submitted with it (see Closed Suppression Reason); null for every other disposition. claim_refuted iff resolution is rejected."
+    },
+    "introduced_by": {
+      "type": ["object", "null"],
+      "description": "Server-written at filing: the remediation fix whose changed lines the finding is located in (see Fix Attribution); null for a finding on lines no fix of the plan changed, and for an unlocated finding.",
+      "additionalProperties": false,
+      "required": ["remediation_class", "round", "commit_sha"],
+      "properties": {
+        "remediation_class": { "type": "string", "enum": ["qgate-findings", "build-failure", "ci-failure", "analysis", "review-findings", "merge-conflict", "self-review", "loop-back"] },
+        "round": { "type": "integer", "minimum": 1, "description": "The remediation round (or loop-back iteration) whose fix changed the lines." },
+        "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The fix commit, from change-ledger.jsonl." }
+      }
+    },
+    "resolution": {
+      "type": "string",
+      "enum": ["pending", "fixed", "suppressed", "accepted", "taken_into_account", "rejected"],
+      "default": "pending",
+      "description": "Server-written outcome of the finding (see Server-Written Resolution); never a link parameter. Mirrors plan-marshall's resolution vocabulary."
+    },
+    "scope_class": { "type": ["string", "null"], "enum": ["in_footprint", "out_of_footprint", "unlocated", null], "description": "Server-classified at triage: whether file_path lies in the plan's effective footprint; unlocated when the finding names no path." },
+    "carried_to": {
+      "type": ["object", "null"],
+      "description": "Set when a finding still pending after the merge is carried out of the plan.",
+      "additionalProperties": false,
+      "required": ["target", "ref", "carried_at"],
+      "properties": {
+        "target": { "type": "string", "enum": ["epic_inbox", "lesson"] },
+        "ref": { "type": "string", "description": "Inbox message id or lesson_id." },
+        "carried_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "file_path": { "type": ["string", "null"] },
+    "line": { "type": ["integer", "null"], "minimum": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "body": { "type": ["string", "null"], "description": "Promoted full text of the finding (review comment text, Sonar message), stored as the level-1 validator cleaned it (every change reported) and treated as untrusted content; delivered only while screen.withheld is false." },
+    "author": { "type": ["string", "null"], "description": "Structured provider author login of a review comment; never parsed from comment text." },
+    "bot_kind": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{0,31}$", "description": "Review-bot registry key resolved from author (<<review-bot-registry>>)." },
+    "raised_at_head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "HEAD the finding was raised against; required for self_review, qgate, code_review, security_audit, arch_gate, and ci findings (for ci the head SHA of the checked run)." },
+    "reading": { "type": ["integer", "null"], "enum": [1, 2, null], "description": "Which review-code task of a round with two readings filed the finding (Phase Workflows Specification, second-code-reading); null otherwise." },
+    "reviewed_commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "Commit the reviewer covered, taken only from provider evidence (<<review-participation>>); null when the evidence names no commit." },
+    "edit_marker": { "type": ["string", "null"], "format": "date-time", "description": "Provider updated_at of the ingested comment when it differs from its created_at." },
+    "evidence": {
+      "type": ["object", "null"],
+      "description": "Evidence a resolution rested on.",
+      "additionalProperties": false,
+      "required": ["class"],
+      "properties": {
+        "class": { "type": "string", "enum": ["verifier", "substitute", "none"] },
+        "ref": { "type": ["string", "null"], "description": "file:line, job id, or URL the resolution rests on." },
+        "claim_refuted": { "type": "boolean", "default": false, "description": "True when the evidence refutes the finding's claim (refutation sub-state verdict, or substitute evidence with a concrete ref)." }
+      }
+    },
+    "provider_ref": {
+      "type": ["object", "null"],
+      "description": "Structured external provider coordinates for outbound reply/dismissal transmission.",
+      "additionalProperties": false,
+      "properties": {
+        "pr_number": { "type": ["integer", "null"], "minimum": 1 },
+        "thread_id": { "type": ["string", "null"] },
+        "comment_id": { "type": ["string", "null"] },
+        "comment_kind": { "type": ["string", "null"], "enum": ["review_thread", "issue_comment", "review_body", null] },
+        "issue_key": { "type": ["string", "null"], "maxLength": 256, "description": "The analysis provider's own key of the issue (source == analysis), opaque to the server; with provider it identifies the issue for the responder." }
+      }
+    },
+    "disposition_rationale": { "type": ["string", "null"] },
+    "transmit_outcome": {
+      "type": "string",
+      "enum": ["pending", "sent", "not_sent", "sent_unresolved", "skipped_no_address", "partial"],
+      "default": "pending",
+      "description": "Outcome of the outbound reply or dismissal for this finding's disposition."
+    },
+    "transmit_reason": {
+      "type": ["string", "null"],
+      "enum": ["no_provider_address", "pr_number_unrecorded", "belongs_to_other_pr", "nothing_to_transmit", "reply_failed", "resolve_failed", "provider_unreachable", "provider_rejected", null],
+      "description": "Closed reason for not_sent, skipped_no_address, sent_unresolved, or partial; one vocabulary for every provider (GitHub, GitLab, Sonar), see Transmit Reasons. Null when transmit_outcome is pending or sent."
+    },
+    "transmit_disposition": { "type": ["string", "null"], "description": "The disposition value the last transmission carried; (finding_id, transmit_disposition) is the idempotency key." },
+    "responded_at": { "type": ["string", "null"], "format": "date-time", "description": "Stamped after the provider accepted the reply, before thread resolution." },
+    "resolve_state": { "type": "string", "enum": ["unresolved", "resolved", "not_applicable"], "default": "not_applicable" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

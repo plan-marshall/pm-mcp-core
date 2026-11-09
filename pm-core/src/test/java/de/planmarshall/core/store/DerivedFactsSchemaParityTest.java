@@ -24,22 +24,21 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 
 /**
- * The records and the codec keep parity with the schema block of Store Schemas § Derived Facts Store (PM-EXT-6,
- * PM-IMPL-2, R10): the members of the document, of an entry, of {@code source} and of {@code failure} in schema order,
- * their required sets, the values of every enumeration, the patterns, the failure-reason bound and the format version.
- * A member, an enumeration value or a bound changed in the schema without the code fails here. The schema block is
- * read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY} and is test input:
- * it stays byte-stable (R10).
+ * The records and the codec keep parity with the schema of Store Schemas § Derived Facts Store (PM-EXT-6, PM-IMPL-2,
+ * R10): the members of the document, of an entry, of {@code source} and of {@code failure} in schema order, their
+ * required sets, the values of every enumeration, the patterns, the failure-reason bound and the format version. A
+ * member, an enumeration value or a bound changed in the schema without the code fails here. The schema is the file
+ * {@code de/planmarshall/core/store/derived-facts.schema.json} beside the codec, read from the class path; the file is
+ * test input and stays byte-stable (R10).
  */
-// Every datum in this class is a contract: the specification document, its members and its bounds are the schema under test.
+// Every datum in this class is a contract: the schema file, its members and its bounds are the schema under test.
 @DisplayName("Derived facts schema parity")
 class DerivedFactsSchemaParityTest {
 
-    private static final String DOCUMENT = "store-schemas/09-derived-facts-and-build-timings.adoc";
-    private static final String HEADING = "== Derived Facts Store";
+    private static final String SCHEMA = "de/planmarshall/core/store/derived-facts.schema.json";
 
     private static Map<?, ?> schema;
     private static Map<?, ?> properties;
@@ -49,13 +48,12 @@ class DerivedFactsSchemaParityTest {
 
     @BeforeAll
     static void readSchema() {
-        schema = SpecificationDocument.object(
-                SpecificationDocument.parse(SpecificationDocument.jsonBlockAfter(DOCUMENT, HEADING)));
-        properties = SpecificationDocument.object(schema.get("properties"));
-        entry = SpecificationDocument.object(SpecificationDocument.object(schema.get("$defs")).get("entry"));
-        entryProperties = SpecificationDocument.object(entry.get("properties"));
-        sourceProperties = SpecificationDocument.object(
-                SpecificationDocument.object(entryProperties.get("source")).get("properties"));
+        schema = SchemaResource.load(SCHEMA);
+        properties = SchemaResource.object(schema.get("properties"));
+        entry = SchemaResource.object(SchemaResource.object(schema.get("$defs")).get("entry"));
+        entryProperties = SchemaResource.object(entry.get("properties"));
+        sourceProperties = SchemaResource.object(
+                SchemaResource.object(entryProperties.get("source")).get("properties"));
     }
 
     @Test
@@ -73,8 +71,8 @@ class DerivedFactsSchemaParityTest {
     @Test
     @DisplayName("the members of an entry, of source and of failure are those of the schema in schema order")
     void entryMembersEqualSchema() {
-        var source = SpecificationDocument.object(entryProperties.get("source"));
-        var failure = SpecificationDocument.object(entryProperties.get("failure"));
+        var source = SchemaResource.object(entryProperties.get("source"));
+        var failure = SchemaResource.object(entryProperties.get("failure"));
 
         assertAll("The entry, source and failure members equal the schema's",
                 () -> assertEquals(DerivedFactsCodec.ENTRY_MEMBERS, names(entryProperties.keySet()),
@@ -109,23 +107,23 @@ class DerivedFactsSchemaParityTest {
     @Test
     @DisplayName("the patterns, the reason bound and the format version are the schema's")
     void patternsAndBoundsEqualSchema() {
-        var facts = SpecificationDocument.object(properties.get("facts"));
-        var propertyNames = SpecificationDocument.object(facts.get("propertyNames"));
-        var failureReason = SpecificationDocument.object(
-                SpecificationDocument.object(entryProperties.get("failure")).get("properties")).get("reason");
-        var formatVersion = SpecificationDocument.object(properties.get("format_version"));
+        var facts = SchemaResource.object(properties.get("facts"));
+        var propertyNames = SchemaResource.object(facts.get("propertyNames"));
+        var failureReason = SchemaResource.object(
+                SchemaResource.object(entryProperties.get("failure")).get("properties")).get("reason");
+        var formatVersion = SchemaResource.object(properties.get("format_version"));
 
         assertAll("The patterns and bounds equal the schema's",
                 () -> assertEquals(DerivedFactKey.FORM_TEXT, propertyNames.get("pattern"),
                         "The key pattern is the schema's"),
                 () -> assertEquals(DerivedFact.INPUT_DIGEST_TEXT,
-                        SpecificationDocument.object(entryProperties.get("input_digest")).get("pattern"),
+                        SchemaResource.object(entryProperties.get("input_digest")).get("pattern"),
                         "The input digest pattern is the schema's"),
                 () -> assertEquals(DerivedFact.Source.DERIVATION_TEXT,
-                        SpecificationDocument.object(sourceProperties.get("derivation")).get("pattern"),
+                        SchemaResource.object(sourceProperties.get("derivation")).get("pattern"),
                         "The derivation pattern is the schema's"),
                 () -> assertEquals(DerivedFact.Failure.MAX_REASON,
-                        number(SpecificationDocument.object(failureReason).get("maxLength")),
+                        number(SchemaResource.object(failureReason).get("maxLength")),
                         "The failure reason bound is the schema's"),
                 () -> assertEquals(DerivedFacts.FORMAT_VERSION, number(formatVersion.get("const")),
                         "The format version is the schema's"));
@@ -140,23 +138,23 @@ class DerivedFactsSchemaParityTest {
                 () -> assertEquals(Boolean.FALSE, entry.get("additionalProperties"),
                         "An entry is closed"),
                 () -> assertEquals(Boolean.FALSE,
-                        SpecificationDocument.object(entryProperties.get("source")).get("additionalProperties"),
+                        SchemaResource.object(entryProperties.get("source")).get("additionalProperties"),
                         "The source is closed"),
                 () -> assertEquals(Boolean.FALSE,
-                        SpecificationDocument.object(entryProperties.get("failure")).get("additionalProperties"),
+                        SchemaResource.object(entryProperties.get("failure")).get("additionalProperties"),
                         "The failure is closed"));
     }
 
     private static List<String> keys(Map<?, ?> object) {
-        return names(SpecificationDocument.object(object.get("properties")).keySet());
+        return names(SchemaResource.object(object.get("properties")).keySet());
     }
 
     private static List<String> required(Map<?, ?> object) {
-        return names(SpecificationDocument.array(object.get("required")));
+        return names(SchemaResource.array(object.get("required")));
     }
 
     private static List<String> enumOf(Map<?, ?> owner, String name) {
-        return SpecificationDocument.array(SpecificationDocument.object(owner.get(name)).get("enum")).stream()
+        return SchemaResource.array(SchemaResource.object(owner.get(name)).get("enum")).stream()
                 .filter(Objects::nonNull).map(String::valueOf).toList();
     }
 

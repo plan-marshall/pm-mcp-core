@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/gap-record.json",
+  "title": "GapRecord",
+  "type": "object",
+  "required": ["cause", "phase", "state_id", "recorded_at"],
+  "additionalProperties": false,
+  "properties": {
+    "cause": { "type": "string", "enum": ["exhausted", "stepped_out", "decided", "infeasible", "condition", "provider_refused", "merge_by_operator", "operator_path", "local_only", "files_not_applicable", "deliverable_removed"], "description": "exhausted: a budget was spent (budget names it), or a task ended without its required submission and its state took the conservative fallback (task_reason names why, for example role_unqualified); decided: a closed decision a task submitted selected the fallback (return of a refuted hypothesis, hand_back of a re-planning; queue_task_id names the task); infeasible: a task closed infeasible and its state took the fallback (queue_task_id names the task, the evidence is the task's); stepped_out: a caller routed a sub-workflow's stepped_out, a terminal of class stepped_out or a model's step_out (step_out_cause; the engine's unwind of an undeclared lost records exhausted with queue_task_id and task_reason instead); condition: a condition's retry budget was spent (condition names it); provider_refused: the provider refused the merge action; merge_by_operator: the pre-merge barrier passed while the plan's asking variant leaves the merge to the operator, so the ready pull request awaits a human merge (not a failure); operator_path: the change touches a path of review.operator_paths, so the ready pull request awaits a human merge, or a landing.main plan keeps its branch unpushed (phase-workflows.adoc, Operator Paths; not a failure); local_only: the plan ended on a local branch because no push remote exists (not a failure); files_not_applicable: landing.files wrote nothing because a path of the plan's changes is modified in the main checkout or differs there from the plan's merge base, and the plan was handed back in the local form (the gap names the conflicting paths in gate); deliverable_removed: a deliverable removed or deferred by a re-planning (replan_id names it, follow_up_id the follow-up of a deferred one)." },
+    "gate": { "type": ["string", "null"], "description": "The gate or failure class the gap is about." },
+    "policy": { "type": ["string", "null"] },
+    "budget": { "type": ["string", "null"], "description": "exhausted only: retry_budget, fix_budget, loop_back_outline, prerequisite_wait (a re-planning's prerequisite expired or closed unlanded), condition, watch_restart, step_refire, or server_rule_retry (a bounded server rule such as the timed pull-request creation retry of finalize.open-pr, outcome retry_spent)." },
+    "replan_id": { "type": ["string", "null"], "pattern": "^RP-[0-9]+$", "description": "The re-planning whose decision or fallback recorded the gap (Re-Planning Record); null otherwise." },
+    "follow_up_id": { "type": ["string", "null"], "pattern": "^FU-[0-9]+$", "description": "deliverable_removed only: the follow-up plan a deferred deliverable moved to." },
+    "queue_task_id": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$", "description": "The task whose fallback the gap records; null otherwise." },
+    "task_reason": { "type": ["string", "null"], "enum": ["attempts_spent", "role_undefined", "class_mismatch", "role_unqualified", "role_unavailable", null], "description": "With queue_task_id: why the task ended lost (role_unqualified: its role has no valid qualification record, PM-WORK-6; role_unavailable: the start-failure guard of its role holds)." },
+    "condition": { "type": ["string", "null"] },
+    "step_out_cause": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "stepped_out only: the cause of the server step-out (for example attempts_exhausted, push_state_unknown, oracle_failed)." },
+    "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$" },
+    "deliverable_id": { "type": ["string", "null"], "pattern": "^D[0-9]+$" },
+    "request_id": { "type": ["string", "null"], "pattern": "^WR-[0-9]+$", "description": "A declined waiver request of the same gate." },
+    "evidence_uri": { "type": ["string", "null"] },
+    "phase": { "type": "string" },
+    "state_id": { "type": "string" },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  }
+}

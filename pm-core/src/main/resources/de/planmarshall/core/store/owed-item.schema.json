@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/owed-item.json",
+  "title": "OwedItem",
+  "type": "object",
+  "required": ["owed_id", "kind", "what", "discharger", "incurred_by_step", "incurred_at", "discharged_at"],
+  "additionalProperties": false,
+  "properties": {
+    "owed_id": { "type": "string", "pattern": "^O-[0-9]+$" },
+    "kind": {
+      "type": "string",
+      "enum": ["cleanup", "post_merge_cleanup", "capture_ref_retained", "post_merge_step_failed"],
+      "description": "Closed set of 4 kinds; each kind has its named writer states."
+    },
+    "what": { "type": "string", "minLength": 1, "maxLength": 400 },
+    "discharger": { "type": "string", "enum": ["operator", "plan_step"] },
+    "incurred_by_step": { "type": "string" },
+    "incurred_at": { "type": "string", "format": "date-time" },
+    "discharge_proof": { "type": ["string", "null"], "description": "Commit SHA or audit_id that discharged the item." },
+    "discharged_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

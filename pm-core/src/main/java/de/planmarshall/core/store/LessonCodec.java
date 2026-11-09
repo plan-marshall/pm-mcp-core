@@ -86,7 +86,7 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * or refused by the YAML reader (the landing analysis of PLAN-V2-11, claims C1 and I1).
  * <p>
  * The member lists are published as package-private constants in the order of the schema, so the parity test of the
- * schema block of the specification pins them (the pattern of {@link JobRecordCodec#MEMBERS}).
+ * schema file {@code lesson-front-matter.schema.json} pins them (the pattern of {@link JobRecordCodec#MEMBERS}).
  *
  * @since 0.1
  */

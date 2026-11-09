@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/derived-facts.json",
+  "title": "DerivedFactsStore",
+  "type": "object",
+  "required": ["format_version", "facts"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "facts": {
+      "type": "object",
+      "description": "One entry per fact, keyed by <kind> or <kind>:<qualifier> (for example domain_activation:java).",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,47}(:[A-Za-z0-9_.-]{1,128})?$" },
+      "additionalProperties": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": ["kind", "value", "source", "input_digest", "derived_at", "state"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["base_branch_default", "push_remote", "ci_provider", "merge_methods_allowed", "merge_queue_enforced", "branch_up_to_date_required", "required_checks", "signed_commits_required", "base_branch_protected", "checks_visible", "agent_identity", "git_native_capability", "domain_activation", "active_profiles", "module_discovery", "cost_calibration"]
+        },
+        "value": { "description": "Kind-specific value, validated against the value schema registered for the kind; null only with state failed." },
+        "source": {
+          "type": "object",
+          "required": ["derivation", "class"],
+          "additionalProperties": false,
+          "properties": {
+            "derivation": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$", "description": "Identifier of the derivation that produced the value." },
+            "class": { "type": "string", "enum": ["local", "network"] }
+          }
+        },
+        "input_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "derived_at": { "type": "string", "format": "date-time" },
+        "state": { "type": "string", "enum": ["current", "stale", "failed"] },
+        "failure": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["reason", "at"],
+          "properties": {
+            "reason": { "type": "string", "maxLength": 500 },
+            "at": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    }
+  }
+}

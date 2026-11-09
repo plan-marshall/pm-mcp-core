@@ -735,7 +735,8 @@ The reader refuses an anchor, an alias, a tag, a second document, a duplicate or
 member, a missing member and a mistyped member; it refuses a `format_version` other than 1, and an instant only in the
 shape `Instant.toString` writes — RFC 3339, UTC, suffix `Z` — so what is read is written again byte for byte; a
 `date-time` with an offset or another fraction spelling is refused. The member lists are package-private constants in the
-order of the schema, and `LessonFrontMatterSchemaParityTest` compares them with the schema block of the specification.
+order of the schema, and `LessonFrontMatterSchemaParityTest` compares them with the schema file beside the codec,
+`de/planmarshall/core/store/lesson-front-matter.schema.json`, read through `SchemaResource`.
 
 A file that does not decode is not an exception: `decode` returns a sealed `Reading`, either `Readable(Lesson)` or
 `Unreadable(reason, detail)` with the reason `no_opening_fence`, `no_closing_fence`, `not_an_object`, `strict_reader` or
@@ -745,8 +746,8 @@ record is refused by its constructor before the codec sees it.
 
 === Invariants
 
-* The front matter of the record is the schema of the specification, member by member and in order; the schema block is
-  test input and stays byte-stable unless the codec changes with it (R10).
+* The front matter of the record is the schema of the specification, member by member and in order; the schema file
+  `lesson-front-matter.schema.json` is test input and stays byte-stable unless the codec changes with it (R10).
 * The canonical bytes are the writer's: `encode(decode(b))` is `b` for canonical bytes, and a block-style file is
   normalized once when it is written again.
 * A lesson id is the file name and the file name is the id; a name that does not parse is no lesson.
@@ -1514,7 +1515,8 @@ filesystem level is the `UncheckedIOException` of the snapshot read.
   failure, `failed` no value and a failure; every other combination is refused at construction.
 * *The key names the entry's kind*: `DerivedFacts` refuses an entry whose kind is not the kind of its key.
 * *The schema is the contract*: the member lists of the codec, the enumerations, the patterns and the reason bound are
-  pinned to the schema block by `DerivedFactsSchemaParityTest`; the block is test input and stays byte-stable (R10).
+  pinned to the schema file `derived-facts.schema.json` beside the codec by `DerivedFactsSchemaParityTest`, which reads
+  it through `SchemaResource`; the file is test input and stays byte-stable (R10).
 * *A kind is registered once*: a second registration is refused, and a kind never registered has no default schema.
 * *A local fact is decided by its digest, a network fact by its digest and the fixed period*: the period is
   `NETWORK_VALIDITY`, a constant, and every read takes the instant it decides at.
@@ -1581,7 +1583,7 @@ Tested by `DerivedFactKindTest` (the wire names, the operator-only flag and the 
 run time), `DerivedFactKeyTest` (the wire form, the qualifier grammar and the unknown kind part), `DerivedFactTest`
 (the three state shapes, the digest and reason bounds and the key/entry kind invariant), `DerivedFactsCodecTest` (the
 canonical bytes, the round trip and one refusal per rule) and `DerivedFactsSchemaParityTest` (the members, the
-enumerations, the patterns and the bounds against the schema block), `DerivedFactKindsTest` (the registration, the
+enumerations, the patterns and the bounds against the schema file), `DerivedFactKindsTest` (the registration, the
 duplicate refusal, a value accepted and refused by a fixture schema, the operator-only flag and the empty registry),
 `DerivedFactStoreTest` (the empty store, each reading with the instant passed in, the unreadable file, another format
 version and the refused lock level), `DerivedFactRefreshTest` (one case per cell of the decision table, the two
@@ -2419,14 +2421,28 @@ closes such a task `lost`.
 
 == Testing
 
-The tests run on the JVM over stores in a temporary base. The schema parity tests already moved to schema files (for
-example `AuditSchemaParityTest`, the tests of `core.config`, and `LeaseOwnerSchemaParityTest`) read the file beside the
-codec from the class path (`SchemaResource`, ADR 016). The parity tests that still read the specification of this repository
-(`doc/specification`, below the root the system property `pm.specification.root` names, `SpecificationDocument`) include
-`PendingEntrySchemaParityTest`, `DerivedFactsSchemaParityTest`, `LessonFrontMatterSchemaParityTest`,
-`TaskQueueSchemaParityTest`, `FindingSchemaParityTest`, `AnalysisResultSchemaTest`, `WorkflowStatusSchemaParityTest` and
-`JobRecordSchemaParityTest`; a missing document or schema block is a failure. A parity check over a schema the code does
-not implement is `@Disabled`, its reason naming what it waits for.
+The tests run on the JVM over stores in a temporary base. The schema parity tests of this package read the schema file
+beside the codec from the class path, through `SchemaResource` of `pm-core:tests`
+(link:../../../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016]); the store schemas include the
+same files. Each file lies in `pm-core/src/main/resources/de/planmarshall/core/store/`:
+
+[cols="2,3"]
+|===
+|Test |Schema file
+
+|`PendingEntrySchemaParityTest` |`pending-entry.schema.json`
+|`WorkflowStatusSchemaParityTest` |`status.schema.json`, `waiver-request.schema.json`
+|`PlanHistorySchemaParityTest` |`history-line.schema.json`
+|`DerivedFactsSchemaParityTest` |`derived-facts.schema.json`
+|`JobRecordSchemaParityTest` |`job-record.schema.json`
+|`LessonFrontMatterSchemaParityTest` |`lesson-front-matter.schema.json`
+|===
+
+An absent resource or a file that is not a JSON object is a failure, never a skipped test. `AuditSchemaParityTest`, the
+tests of `core.config` and `LeaseOwnerSchemaParityTest` read their schema files the same way. No parity test reads
+the specification of this repository any more; `SpecificationDocument` stays in the test sources until
+`adoc-reading-retired`. A parity check over a schema the code does not implement is `@Disabled`, its reason naming
+what it waits for.
 
 == The Plan's History
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
@@ -2441,6 +2457,16 @@ next line takes from the log itself, so a runtime that restarted continues the s
 The derived node states are not here: `de.planmarshall.workflow.plan.PlanProcessStates` reads the lines and the
 instance version's composed files and derives every node's state (done, running, waiting for the operator, failed with
 its outcome, planned, not taken, not in this plan with its prune reason).
+
+Tested by `PlanHistoryTest` (one append target per transition under the digest sidecar, the round trip, the next
+sequence number, an unreadable line, append-only commits, the refused appends and the schema boundaries at
+construction) and `PlanHistorySchemaParityTest`, which reads the schema file
+`de/planmarshall/core/store/history-line.schema.json` beside the codec through `SchemaResource` and proves that the
+members the codec writes are the schema's members in schema order and all required, that the events and the format
+version are the schema's, that the schema's bounds are the limits the codec enforces (the `maxItems` of the call path,
+the minimums of `seq` and `instance_version`, the `minLength` of `node` and the `outcome` pattern, each with the value
+on the bound accepted and the one beyond it refused), and that every written line is valid against the schema while a line with an undeclared
+member is not.
 
 link:../adr/core-store/051-the-plan-history-in-core-store.adoc[ADR 051]: the plan's history is an append-only log in
 `core.store`, written through the scope transaction.

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/assessment-record.json",
+  "title": "AssessmentRecord",
+  "type": "object",
+  "required": ["format_version", "assessment_id", "component", "certainty", "confidence", "agent", "effective_from", "recorded_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "assessment_id": { "type": "string", "pattern": "^AS-[0-9]+$" },
+    "component": { "type": "string", "minLength": 1, "description": "Repository-relative path or module id." },
+    "certainty": { "type": "string", "enum": ["include", "exclude", "uncertain"] },
+    "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "agent": { "type": "string", "description": "queue_task_id of the task, or the step id, that produced the assessment." },
+    "evidence": { "type": ["string", "null"] },
+    "effective_from": { "type": "string", "format": "date-time" },
+    "recorded_at": { "type": "string", "format": "date-time", "description": "Stamped by the server when the record is appended; never taken from the submitting worker." },
+    "supersedes": { "type": ["string", "null"], "pattern": "^AS-[0-9]+$" }
+  }
+}

@@ -46,30 +46,11 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 An owed item is an obligation a plan incurred but did not discharge. It is written by the step that incurs it, never
 derived from prose, and it stays in the plan's `mcp/status.json` through archival (`PM-WF-30`).
 
+The schema of an owed item is the file `owed-item.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/store/`, beside the codec of the status document, `WorkflowStatusCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/owed-item.json",
-  "title": "OwedItem",
-  "type": "object",
-  "required": ["owed_id", "kind", "what", "discharger", "incurred_by_step", "incurred_at", "discharged_at"],
-  "additionalProperties": false,
-  "properties": {
-    "owed_id": { "type": "string", "pattern": "^O-[0-9]+$" },
-    "kind": {
-      "type": "string",
-      "enum": ["cleanup", "post_merge_cleanup", "capture_ref_retained", "post_merge_step_failed"],
-      "description": "Closed set of 4 kinds; each kind has its named writer states."
-    },
-    "what": { "type": "string", "minLength": 1, "maxLength": 400 },
-    "discharger": { "type": "string", "enum": ["operator", "plan_step"] },
-    "incurred_by_step": { "type": "string" },
-    "incurred_at": { "type": "string", "format": "date-time" },
-    "discharge_proof": { "type": ["string", "null"], "description": "Commit SHA or audit_id that discharged the item." },
-    "discharged_at": { "type": ["string", "null"], "format": "date-time" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/store/owed-item.schema.json[]
 ----
 
 * *Kinds*: The set is closed; each kind names the states that write it.
@@ -91,173 +72,11 @@ Each line in `findings.jsonl` (of a plan, or of the workspace scope for the find
 
 *Versioned lines*: The store is append-only and versioned (xref:01-format-and-session-log.adoc#format-versioning[Format Versioning & Atomic Write Discipline] item 6): every change of a finding (triage, resolution, transmission, carry-out) appends its full record again with a new `updated_at`. The current record of a finding is the last readable line with its `finding_id`; the earlier lines are its history and are never read as current.
 
+The schema of a findings ledger record is the file `finding-record.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/findings/`, beside the findings ledger:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/finding-record.json",
-  "title": "FindingRecord",
-  "type": "object",
-  "required": [
-    "format_version",
-    "finding_id",
-    "source",
-    "severity",
-    "blocking",
-    "status",
-    "resolution",
-    "summary",
-    "created_at"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "finding_id": { "type": "string", "pattern": "^F-[0-9]+$" },
-    "source": {
-      "type": "string",
-      "enum": ["analysis", "github_pr", "gitlab_mr", "ci", "self_review", "arch_gate", "compiler", "qgate", "security_audit", "code_review", "dependency_delta", "capability_tests", "fix_proof", "added_lines"],
-      "description": "fix_proof is the server's pre-merge Fix Proof Guard (Phase Workflows Specification, fix-proof); its finding types are fix_red_missing, fix_test_changed (non-blocking), and fix_proof_indeterminate. added_lines is the server's pre-merge Added-Line Scan (Phase Workflows Specification, added-line-scan); its finding types are hidden_characters, model_instruction (non-blocking), credential_shaped, and added_lines_indeterminate. dependency_delta is the server's pre-merge Dependency Delta Check (Phase Workflows Specification, dependency-delta); its finding types are undeclared_dependency and dependency_delta_indeterminate. capability_tests is filed by no step: the Capability Test Guard is deferred (Later Improvements, L-36). ci is a failed CI check filed by ci-verify (Phase Workflows Specification, step 22); it carries ci_failure."
-    },
-    "provider": {
-      "type": ["string", "null"],
-      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
-      "description": "Required (non-null) iff source == analysis: the id of the code analysis provider that reported the finding (for example sonar), the same id as in its analysis result record; null otherwise. No source value names a single analysis provider."
-    },
-    "ci_failure": {
-      "type": ["object", "null"],
-      "description": "Required (non-null) iff source == ci; null otherwise.",
-      "additionalProperties": false,
-      "required": ["check_name", "failure_class", "failure_kind", "required_check"],
-      "properties": {
-        "check_name": { "type": "string", "minLength": 1, "description": "Provider name of the failed check or pipeline job." },
-        "failure_class": { "type": "string", "enum": ["failure", "cancelled", "timed_out", "action_required", "stale", "startup_failure", "not_triggered", "no_checks"], "description": "From the provider's conclusion." },
-        "failure_kind": { "type": "string", "enum": ["compile", "test", "lint", "policy", "unknown"], "description": "From the check's log, parsed by the PM-IMPL-6 build output parsers; unknown when no parser recognises the log or the log is unreadable; unknown is handled fail-closed: the finding of a failed required check is blocking whatever its kind." },
-        "required_check": { "type": "boolean", "description": "Whether the check is in the derived required_checks of the base branch; a non-required check is filed with blocking false." }
-      }
-    },
-    "phase": { "type": ["string", "null"], "enum": ["phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-6-finalize", null], "description": "Phase the finding was filed against: the phase value of the phase sub-workflow on the call stack of the filing transition (Phases as Sub-Workflows); required for qgate findings. A write addressed to a phase the plan has left is refused with phase_closed." },
-    "queue_task_id": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$", "description": "The queue task whose submit filed the finding (Queue Task Record); null for findings the server files itself. Feeds the spend class findings_only." },
-    "batch_id": { "type": ["string", "null"], "pattern": "^BT-[0-9]+$", "description": "The screening batch (batch-v1) of the gather or source firing that ingested the finding's external text; null for a finding without external text (server-filed, self_review, qgate)." },
-    "screen": {
-      "type": ["object", "null"],
-      "description": "Level-2 screen of the finding's external text (summary and body), taken from the scope's screen verdict cache or the batch's screener job; null when the finding has no external text.",
-      "required": ["verdict", "withheld"],
-      "additionalProperties": false,
-      "properties": {
-        "verdict": { "type": "string", "enum": ["clean", "suspicious"], "description": "A missing, extra, or unparseable verdict item is recorded suspicious (fail-closed)." },
-        "withheld": { "type": "boolean", "description": "true iff verdict is suspicious: the text is never delivered to a model; only the structured fields (author, file, line, kind) and 'withheld: flagged by screener' are rendered, and the finding stays pending until a met waiver of its gate or the unit's fallback." },
-        "spans": { "type": "array", "items": { "type": "object", "required": ["start", "end", "reason"], "additionalProperties": false, "properties": { "start": { "type": "integer", "minimum": 0 }, "end": { "type": "integer", "minimum": 0 }, "reason": { "type": "string", "maxLength": 200 } } }, "description": "Flagged spans of a suspicious text; operator and audit data only." }
-      }
-    },
-    "requirement_refs": {
-      "type": ["array", "null"],
-      "items": { "type": "string", "minLength": 1, "maxLength": 120 },
-      "description": "Requirement ids (PM-<AREA>-<N>) or specification anchors the finding bears on; set by triage and validated by the server against the registry of the binary."
-    },
-    "severity": { "type": "string", "enum": ["blocker", "critical", "major", "minor", "info"] },
-    "submitted_severity": { "type": ["string", "null"], "enum": ["blocker", "critical", "major", "minor", "info", null], "description": "The severity the producer submitted, kept when the security calibration capped it (source security_audit); null otherwise." },
-    "security": {
-      "type": ["object", "null"],
-      "description": "Calibration facts of a security_audit finding, required for that source and null for every other; the server caps severity from them (link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[Phase Workflows § Security Audit Calibration])",
-      "required": ["ingress", "attacker_position", "privileges_required", "evidence_level"],
-      "additionalProperties": false,
-      "properties": {
-        "ingress": { "type": "object", "required": ["file_path", "line"], "additionalProperties": false, "properties": { "file_path": { "type": "string", "minLength": 1 }, "line": { "type": "integer", "minimum": 1 } }, "description": "Where attacker-controlled data enters on the path to the flaw." },
-        "attacker_position": { "type": "string", "enum": ["remote_unauthenticated", "remote_authenticated", "adjacent", "local", "trusted_operator"] },
-        "privileges_required": { "type": "string", "enum": ["none", "low", "high"] },
-        "evidence_level": { "type": "string", "enum": ["reasoned", "test_reproduced"] },
-        "cap_rule": { "type": ["string", "null"], "description": "Server-written: the cap-table rule that lowered the severity, null when none applied." }
-      }
-    },
-    "blocking": { "type": "boolean", "description": "Set at write time from the producer's declared class for this finding type; later changed only by triage." },
-    "status": { "type": "string", "enum": ["open", "triaged_fix", "triaged_dismiss", "triaged_accept", "resolved", "carried"] },
-    "disposition": { "type": ["string", "null"], "enum": ["FIX", "SUPPRESS", "ACCEPT", null], "description": "The triage disposition submitted by the triage job of the gather firing (submit:triage-groups: one disposition per (domain, rule_id) group, with per-finding exceptions); written per finding by the server." },
-    "suppress_reason": {
-      "type": ["string", "null"],
-      "enum": ["claim_refuted", "duplicate", "rule_exception", "generated_code", "tool_limitation", null],
-      "description": "Closed reason of a SUPPRESS disposition, submitted with it (see Closed Suppression Reason); null for every other disposition. claim_refuted iff resolution is rejected."
-    },
-    "introduced_by": {
-      "type": ["object", "null"],
-      "description": "Server-written at filing: the remediation fix whose changed lines the finding is located in (see Fix Attribution); null for a finding on lines no fix of the plan changed, and for an unlocated finding.",
-      "additionalProperties": false,
-      "required": ["remediation_class", "round", "commit_sha"],
-      "properties": {
-        "remediation_class": { "type": "string", "enum": ["qgate-findings", "build-failure", "ci-failure", "analysis", "review-findings", "merge-conflict", "self-review", "loop-back"] },
-        "round": { "type": "integer", "minimum": 1, "description": "The remediation round (or loop-back iteration) whose fix changed the lines." },
-        "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The fix commit, from change-ledger.jsonl." }
-      }
-    },
-    "resolution": {
-      "type": "string",
-      "enum": ["pending", "fixed", "suppressed", "accepted", "taken_into_account", "rejected"],
-      "default": "pending",
-      "description": "Server-written outcome of the finding (see Server-Written Resolution); never a link parameter. Mirrors plan-marshall's resolution vocabulary."
-    },
-    "scope_class": { "type": ["string", "null"], "enum": ["in_footprint", "out_of_footprint", "unlocated", null], "description": "Server-classified at triage: whether file_path lies in the plan's effective footprint; unlocated when the finding names no path." },
-    "carried_to": {
-      "type": ["object", "null"],
-      "description": "Set when a finding still pending after the merge is carried out of the plan.",
-      "additionalProperties": false,
-      "required": ["target", "ref", "carried_at"],
-      "properties": {
-        "target": { "type": "string", "enum": ["epic_inbox", "lesson"] },
-        "ref": { "type": "string", "description": "Inbox message id or lesson_id." },
-        "carried_at": { "type": "string", "format": "date-time" }
-      }
-    },
-    "file_path": { "type": ["string", "null"] },
-    "line": { "type": ["integer", "null"], "minimum": 1 },
-    "summary": { "type": "string", "minLength": 1 },
-    "body": { "type": ["string", "null"], "description": "Promoted full text of the finding (review comment text, Sonar message), stored as the level-1 validator cleaned it (every change reported) and treated as untrusted content; delivered only while screen.withheld is false." },
-    "author": { "type": ["string", "null"], "description": "Structured provider author login of a review comment; never parsed from comment text." },
-    "bot_kind": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{0,31}$", "description": "Review-bot registry key resolved from author (<<review-bot-registry>>)." },
-    "raised_at_head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "HEAD the finding was raised against; required for self_review, qgate, code_review, security_audit, arch_gate, and ci findings (for ci the head SHA of the checked run)." },
-    "reading": { "type": ["integer", "null"], "enum": [1, 2, null], "description": "Which review-code task of a round with two readings filed the finding (Phase Workflows Specification, second-code-reading); null otherwise." },
-    "reviewed_commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "Commit the reviewer covered, taken only from provider evidence (<<review-participation>>); null when the evidence names no commit." },
-    "edit_marker": { "type": ["string", "null"], "format": "date-time", "description": "Provider updated_at of the ingested comment when it differs from its created_at." },
-    "evidence": {
-      "type": ["object", "null"],
-      "description": "Evidence a resolution rested on.",
-      "additionalProperties": false,
-      "required": ["class"],
-      "properties": {
-        "class": { "type": "string", "enum": ["verifier", "substitute", "none"] },
-        "ref": { "type": ["string", "null"], "description": "file:line, job id, or URL the resolution rests on." },
-        "claim_refuted": { "type": "boolean", "default": false, "description": "True when the evidence refutes the finding's claim (refutation sub-state verdict, or substitute evidence with a concrete ref)." }
-      }
-    },
-    "provider_ref": {
-      "type": ["object", "null"],
-      "description": "Structured external provider coordinates for outbound reply/dismissal transmission.",
-      "additionalProperties": false,
-      "properties": {
-        "pr_number": { "type": ["integer", "null"], "minimum": 1 },
-        "thread_id": { "type": ["string", "null"] },
-        "comment_id": { "type": ["string", "null"] },
-        "comment_kind": { "type": ["string", "null"], "enum": ["review_thread", "issue_comment", "review_body", null] },
-        "issue_key": { "type": ["string", "null"], "maxLength": 256, "description": "The analysis provider's own key of the issue (source == analysis), opaque to the server; with provider it identifies the issue for the responder." }
-      }
-    },
-    "disposition_rationale": { "type": ["string", "null"] },
-    "transmit_outcome": {
-      "type": "string",
-      "enum": ["pending", "sent", "not_sent", "sent_unresolved", "skipped_no_address", "partial"],
-      "default": "pending",
-      "description": "Outcome of the outbound reply or dismissal for this finding's disposition."
-    },
-    "transmit_reason": {
-      "type": ["string", "null"],
-      "enum": ["no_provider_address", "pr_number_unrecorded", "belongs_to_other_pr", "nothing_to_transmit", "reply_failed", "resolve_failed", "provider_unreachable", "provider_rejected", null],
-      "description": "Closed reason for not_sent, skipped_no_address, sent_unresolved, or partial; one vocabulary for every provider (GitHub, GitLab, Sonar), see Transmit Reasons. Null when transmit_outcome is pending or sent."
-    },
-    "transmit_disposition": { "type": ["string", "null"], "description": "The disposition value the last transmission carried; (finding_id, transmit_disposition) is the idempotency key." },
-    "responded_at": { "type": ["string", "null"], "format": "date-time", "description": "Stamped after the provider accepted the reply, before thread resolution." },
-    "resolve_state": { "type": "string", "enum": ["unresolved", "resolved", "not_applicable"], "default": "not_applicable" },
-    "created_at": { "type": "string", "format": "date-time" },
-    "updated_at": { "type": ["string", "null"], "format": "date-time" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/findings/finding-record.schema.json[]
 ----
 
 * *Immutable Severity, Mutable Blocking*: `severity` is set at creation and never changed; for a `security_audit` finding the server sets it at creation from the submitted severity and the calibration cap (link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#security-audit-calibration[Phase Workflows § Security Audit Calibration]), keeping the submitted value in `submitted_severity`. `blocking` is written from the producer's declared class for the finding type (each producer declares it per finding type in its descriptor, validated at write) and may later change only through triage. A waiver changes neither `blocking` nor `resolution`: a finding admitted at a gate by a `findings:<class>` or `qgate_findings:<phase>` waiver stays as it is and is listed in that waiver's consumption (accepted by waiver, xref:14-plan-instance-waivers-questions.adoc#waiver-record[Waiver Record]).
@@ -301,73 +120,11 @@ Each line of `analysis.jsonl` of a plan is one observation of one code analysis 
 
 *Serialization*: one canonical JSON object per line, written through Jackson from a Java record of `de.planmarshall.core.analysis`, with the members in the order of the schema and no member omitted (an absent value is `null`). The log is append-only: a later observation of the same key appends the full record again. The key is (`provider`, `target.kind`, `target.commit_sha`, `target.pr_number`), and the current record of a key is its last readable line. A model never reads the file: the wire shows the aggregated `analysis_status` only, and the record is served on demand to the operator's clients.
 
+The schema of an analysis result record is the file `analysis-result.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/analysis/`, beside its codec `AnalysisResultCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AnalysisResult",
-  "type": "object",
-  "required": ["format_version", "provider", "target", "status", "gate", "count_status", "new_code_issue_count", "issues_fetched", "work_performed", "analysis_ref", "observed_at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "provider": {
-      "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
-      "description": "Id of the code analysis provider in the registry of pm-core (for example sonar)."
-    },
-    "target": {
-      "type": "object",
-      "required": ["kind", "commit_sha", "pr_number"],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "type": "string", "enum": ["commit", "pull_request"] },
-        "commit_sha": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$", "description": "The commit the provider analysed; for a pull request its head commit at the observation." },
-        "pr_number": { "type": ["integer", "null"], "minimum": 1, "description": "Non-null iff kind == pull_request." }
-      }
-    },
-    "status": {
-      "type": "string",
-      "enum": ["running", "passed", "gate_failed", "findings", "undecidable", "not_run"],
-      "description": "The provider's result mapped to the closed wait dimension analysis_status (Hypermedia Format, Composite Wait)."
-    },
-    "gate": {
-      "type": ["object", "null"],
-      "description": "The quality gate of the provider for the target; null when the provider has no gate or has not evaluated one (status running or not_run).",
-      "required": ["result", "conditions"],
-      "additionalProperties": false,
-      "properties": {
-        "result": { "type": "string", "enum": ["passed", "failed"] },
-        "conditions": {
-          "type": "array",
-          "maxItems": 256,
-          "items": {
-            "type": "object",
-            "required": ["metric", "comparator", "threshold", "actual", "result"],
-            "additionalProperties": false,
-            "properties": {
-              "metric": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The provider's name of what the condition measures." },
-              "comparator": { "type": "string", "enum": ["lt", "le", "gt", "ge", "eq", "ne"], "description": "The condition fails when actual <comparator> threshold holds." },
-              "threshold": { "type": "string", "minLength": 1, "maxLength": 64 },
-              "actual": { "type": ["string", "null"], "maxLength": 64, "description": "null when the provider reports no value." },
-              "result": { "type": "string", "enum": ["passed", "failed"] }
-            }
-          }
-        }
-      }
-    },
-    "count_status": {
-      "type": "string",
-      "enum": ["measured", "indeterminate"],
-      "description": "Whether the count of new issues was established. indeterminate (an unverified scan, an unreadable or paged-off count) makes status undecidable; it never passes."
-    },
-    "new_code_issue_count": { "type": ["integer", "null"], "minimum": 0, "description": "Open issues on new code; null iff count_status == indeterminate." },
-    "issues_fetched": { "type": "integer", "minimum": 0, "description": "Issues of this observation read from the provider and filed or matched in the findings ledger." },
-    "work_performed": { "type": "boolean", "description": "Whether this observation changed the findings ledger." },
-    "analysis_ref": { "type": ["string", "null"], "maxLength": 256, "description": "The provider's own identifier of the analysis, for the audit record; never a URL with a credential." },
-    "observed_at": { "type": "string", "format": "date-time" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/analysis/analysis-result.schema.json[]
 ----
 
 * *Consistency*, checked on write: `status: passed` requires `count_status: measured`, `new_code_issue_count: 0`, and a `gate` that is `null` or `passed`; `gate_failed` requires `gate.result: failed`; `findings` requires `new_code_issue_count > 0` and no failed gate; `count_status: indeterminate` requires `status: undecidable` unless the status is `running` or `not_run`.
@@ -379,28 +136,11 @@ _Implementation watch: link:../../../../plan-marshall-documentation/doc/implemen
 
 Tasks of `read_only` roles persist component assessments through their entity `submit` (link:../model-work.adoc[Model Work Specification]). Assessments are a second schema beside findings: they are never written to `findings.jsonl`, and no finding histogram or count reads this store (`PM-WF-11`).
 
+The schema of a component assessment record is the file `assessment-record.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/findings/`, beside the findings ledger:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/assessment-record.json",
-  "title": "AssessmentRecord",
-  "type": "object",
-  "required": ["format_version", "assessment_id", "component", "certainty", "confidence", "agent", "effective_from", "recorded_at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "assessment_id": { "type": "string", "pattern": "^AS-[0-9]+$" },
-    "component": { "type": "string", "minLength": 1, "description": "Repository-relative path or module id." },
-    "certainty": { "type": "string", "enum": ["include", "exclude", "uncertain"] },
-    "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
-    "agent": { "type": "string", "description": "queue_task_id of the task, or the step id, that produced the assessment." },
-    "evidence": { "type": ["string", "null"] },
-    "effective_from": { "type": "string", "format": "date-time" },
-    "recorded_at": { "type": "string", "format": "date-time", "description": "Stamped by the server when the record is appended; never taken from the submitting worker." },
-    "supersedes": { "type": ["string", "null"], "pattern": "^AS-[0-9]+$" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/findings/assessment-record.schema.json[]
 ----
 
 * *Assessments Are Inputs, Never Back-Filled*: The server stamps `recorded_at` when it appends the record. A gate or coverage check that consumes assessments reads only records whose `recorded_at` is earlier than its own evaluation start and refuses those written after it; an empty assessment population is reported as a gap, and no link writes placeholder assessments.
@@ -414,59 +154,11 @@ _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-W
 
 The plan's `review-participation.jsonl` holds one current record per `(pr_number, round, bot_kind)`, written by `automatic-review` at review time for every bot of `required_bots ∪ optional_bots` (`PM-WF-13`). It is versioned like the findings ledger: every change appends the full record again, and the current record of a key is the last readable line with that key. The pre-merge barrier and every post-merge reader take review participation only from these records.
 
+The schema of a review participation record is the file `review-participation.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/findings/`, beside the findings ledger:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/review-participation.json",
-  "title": "ReviewParticipationRecord",
-  "type": "object",
-  "required": ["format_version", "pr_number", "round", "bot_kind", "state", "roster_class", "roster_provenance", "head_at_observation", "observed_at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "pr_number": { "type": "integer", "minimum": 1 },
-    "round": { "type": "integer", "minimum": 1 },
-    "bot_kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" },
-    "state": {
-      "type": "string",
-      "enum": ["participated", "participated_but_empty", "participated_stale", "refused", "declined", "absent", "not_triggered", "not_wired",
-               "rereview_silent_failure", "run_stuck", "in_progress", "unproven", "unreadable", "silent", "unsatisfiable", "unregistered_kind"],
-      "description": "Per-bot state; the closed enumeration is defined in hypermedia-format.adoc, Closed Status Enumerations."
-    },
-    "roster_class": { "type": "string", "enum": ["required", "optional", "unclassified"] },
-    "roster_provenance": { "type": "string", "enum": ["never_asked", "answered"], "description": "answered iff review.required_bots is present in project.json (also as []); never_asked iff the key is absent." },
-    "head_at_observation": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "covered_commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
-    "sha_source": { "type": ["string", "null"], "enum": ["structured", "body", null] },
-    "reviewer_login": { "type": ["string", "null"] },
-    "evidence": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "type": "string", "enum": ["review_object", "declared_clean_verdict", "check_run", "inline_comment"] },
-        "object_id": { "type": "string" },
-        "created_at": { "type": "string", "format": "date-time" },
-        "updated_at": { "type": ["string", "null"], "format": "date-time" }
-      }
-    },
-    "refusal": {
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "properties": {
-        "mode": { "type": "string", "enum": ["rate", "weekly_quota", "size", "no_unreviewed_commit", "unknown"], "description": "refusal_mode of hypermedia-format.adoc, Closed Status Enumerations." },
-        "body": { "type": "string" },
-        "observed_at": { "type": "string", "format": "date-time" },
-        "eta": { "type": ["string", "null"], "format": "date-time" },
-        "eta_state": { "type": "string", "enum": ["parsed", "eta_unparsed", "none_published"] },
-        "cap": { "type": ["string", "null"] },
-        "tier": { "type": ["string", "null"], "description": "Plan tier named by the notice, extracted per notice." },
-        "answers_trigger_id": { "type": ["string", "null"] }
-      }
-    },
-    "observed_at": { "type": "string", "format": "date-time" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/findings/review-participation.schema.json[]
 ----
 
 * *Covered Commit from Evidence Only*: `covered_commit_sha` is taken only from provider evidence (the review's commit id, or the registry's `reviewed_sha_pattern` in the body) and `sha_source` keeps structured and body-derived values distinct. It is `null` when no evidence names a commit; a refusal never sets it. `head_at_observation` is stored separately and is never copied into it.
@@ -481,73 +173,11 @@ _Implementation watch: link:../../implementation-watch/store-schemas.adoc#PM-WAT
 
 One record per `bot_kind` is compiled into the binary; a project may add records through its team configuration (`.marshall/config/project.json` `review.bot_registry`, xref:07-project-configuration.adoc#config-project-json[Team File `project.json`]). `required_bots` and `optional_bots` are resolved against the registry only through one shared reader. A bot token that matches no record fails loudly (`unregistered_kind`) with the same disposition everywhere and is never counted in a ratio denominator.
 
+The schema of a review-bot registry record is the file `review-bot-registry.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/findings/`, beside the findings ledger:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/review-bot-registry.json",
-  "title": "ReviewBotRegistryRecord",
-  "type": "object",
-  "required": ["bot_kind", "author_login", "trigger_token", "publish_shapes", "participation_evidence", "participation_requires_update", "reviewed_sha_carrier", "rate_limit_class"],
-  "additionalProperties": false,
-  "properties": {
-    "bot_kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" },
-    "author_login": { "type": "string", "description": "Identity used for author binding." },
-    "trigger_token": { "type": "string", "description": "The single trigger the server posts; never chosen per call." },
-    "trigger_verbs": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": { "incremental": { "type": "string" }, "full": { "type": "string" } }
-    },
-    "trigger_events": { "type": "array", "items": { "type": "string" }, "description": "Pull-request events the bot subscribes to." },
-    "trigger_semantics": { "type": "string", "enum": ["comment_trigger", "auto_on_push"], "default": "comment_trigger", "description": "comment_trigger: the server posts trigger_token as the operator via the App (the user access token of a GitHub App credential, never the App's bot identity). auto_on_push: the bot reviews every push on its own (used for a bot that acts on no trigger comment); the server never posts a trigger for it, and trigger-based remedies escalate." },
-    "publish_shapes": { "type": "array", "items": { "enum": ["conversation", "inline_thread", "pr_review"] } },
-    "participation_evidence": { "type": "array", "items": { "enum": ["conversation", "inline_thread", "pr_review", "check_run"] } },
-    "participation_markers": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["pattern", "validated_on_prs"],
-        "additionalProperties": false,
-        "properties": { "pattern": { "type": "string" }, "validated_on_prs": { "type": "integer", "minimum": 1 } }
-      },
-      "description": "Anchored (start-of-block or structural) patterns, each with the sample size it was validated on."
-    },
-    "participation_requires_update": { "type": "boolean", "description": "Exempts no bot from the review currency test, which applies to every required bot." },
-    "reviewed_sha_carrier": { "type": "string", "enum": ["structured", "body_pattern", "none"] },
-    "reviewed_sha_pattern": { "type": ["string", "null"] },
-    "completion_check_name": { "type": ["string", "null"] },
-    "refusal_patterns": { "type": "array", "items": { "type": "string" } },
-    "refusal_size_patterns": { "type": "array", "items": { "type": "string" }, "description": "Number-free detection patterns of a size refusal (cause size)." },
-    "refusal_size_cap_patterns": { "type": "array", "items": { "type": "string" }, "description": "Extraction patterns reading the ceiling the size refusal notice states (files or diff characters), recorded with the refusal; no ceiling is encoded in a pattern." },
-    "refusal_wrapper_markers": { "type": "array", "items": { "type": "string" } },
-    "rate_limit_eta_patterns": { "type": "array", "items": { "type": "string" } },
-    "no_new_commits_patterns": { "type": "array", "items": { "type": "string" }, "description": "Anchored patterns of the bot's 'Review skipped: No new commits' notice." },
-    "no_new_commits_class": { "type": ["string", "null"], "enum": ["refused", "declined", null], "description": "Classification of that notice for a bot without trigger_verbs.full; a bot with a full verb always resolves refused with mode no_unreviewed_commit." },
-    "rate_limit_class": { "type": "string", "enum": ["awaitable_window", "hard_quota", "unknown"] },
-    "rate_interval_seconds": { "type": ["integer", "null"], "minimum": 1, "description": "Window length after a claim when the bot publishes no parseable ETA; null applies the compiled rate-window floor (timeouts.adoc, Review-Bot Rate Windows)." },
-    "attempt_ceiling": { "type": "integer", "minimum": 1, "default": 6, "description": "Maximum triggers per (repository, pr_number, bot_kind); compiled default 6 (timeouts.adoc, Review-Bot Rate Windows)." },
-    "structural_caps": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Ceilings for the pre-wait cap gate; null in every compiled-in record (a bot's ceilings are read from its notice), declared only by a team record that knows its bot's plan.",
-      "properties": { "max_files": { "type": ["integer", "null"] }, "max_diff_chars": { "type": ["integer", "null"] } }
-    },
-    "actionable_content_markers": { "type": "array", "items": { "type": "string" } },
-    "contentless_review_markers": { "type": "array", "items": { "type": "string" } },
-    "ignore_patterns": { "type": "array", "items": { "type": "string" } },
-    "severity_map": { "type": "object", "additionalProperties": { "type": "string" } },
-    "config_verdicts": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["key", "verdict", "decided_at"],
-        "additionalProperties": false,
-        "properties": { "key": { "type": "string" }, "verdict": { "type": "string" }, "decided_at": { "type": "string", "format": "date" } }
-      }
-    }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/findings/review-bot-registry.schema.json[]
 ----
 
 The compiled-in records carry the data derived from `plan-marshall` `automatic-review/standards/` at f3de0e14f, normative as written: `coderabbit` (one review per hour, `awaitable_window`, trigger verb `@coderabbitai review`, CodeRabbit refusal wrapper `<details><summary>⚠️ Action not completed</summary>`, and the bot-author skip notices "Bot user detected" and "authored by a bot without an assigned CodeRabbit review seat" among its `refusal_patterns`), `sourcery` (`hard_quota`, an account-level diff-character quota over a rolling 7-day window, and per-pull-request size and file-count ceilings), and `cuioss-review-bot` (`unknown`, reviewed SHA only in the body). No record encodes a bot's ceiling or quota as a number: the detection patterns are number-free and the ceiling is read from the bot's own notice (`refusal_size_cap_patterns`, `rate_limit_eta_patterns`), so a plan change of the bot needs no record change. `sourcery` declares `participation_requires_update: false`; `coderabbit` and `cuioss-review-bot` declare `true` (they edit their summary comment in place on re-review). The provider comment body cap (GitHub 65,536 characters) is a provider limit, not a bot record.

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/waiver-request.json",
+  "title": "WaiverRequest",
+  "type": "object",
+  "required": ["request_id", "gate", "rationale", "requested_at"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "pattern": "^WR-[0-9]+$" },
+    "gate": { "type": "string", "description": "The waivable gate or budget the request names." },
+    "policy": { "type": ["string", "null"], "description": "The remediation unit that filed it." },
+    "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "evidence_uri": { "type": ["string", "null"], "description": "pm://plan/{plan_id}/evidence/{evidence_id} of the failure the request is about." },
+    "requested_at": { "type": "string", "format": "date-time" },
+    "outcome": { "type": ["string", "null"], "enum": ["waived", "raised", "declined", "cancelled", null], "description": "null while pending; declined by the operator's decline; cancelled when the plan ends while the request is pending (cancel, abandon, the release of its project, the integrity abort, delete-plan)." },
+    "waiver_id": { "type": ["string", "null"], "pattern": "^W-[0-9]+$" },
+    "answered": {
+      "type": ["object", "null"],
+      "description": "waived, raised, or declined: the operator's act that answered the request; null otherwise.",
+      "required": ["channel", "device_id", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "type": "string", "enum": ["cli", "web"] },
+        "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" },
+        "reason": { "type": ["string", "null"], "maxLength": 2000, "description": "declined: the operator's reason, when given." },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "pr_comment_ref": { "type": ["string", "null"], "description": "Provider id of the idempotent request comment (label pm-mcp:waiver-requested)." }
+  }
+}

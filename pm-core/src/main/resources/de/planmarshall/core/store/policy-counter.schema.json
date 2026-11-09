@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/policy-counter.json",
+  "title": "PolicyCounter",
+  "type": "object",
+  "required": ["retry_used", "fix_used"],
+  "additionalProperties": false,
+  "properties": {
+    "retry_used": { "type": "integer", "minimum": 0 },
+    "renewed_from": { "type": ["object", "null"], "required": ["retry_used", "fix_used", "replan_id"], "additionalProperties": false, "properties": { "retry_used": { "type": "integer", "minimum": 0 }, "fix_used": { "type": "integer", "minimum": 0 }, "replan_id": { "type": "string", "pattern": "^RP-[0-9]+$" } }, "description": "The counter values at the last re-planning that re-entered execution (Phase Workflows Specification, Dynamic Re-Planning); the effective ceiling is counted from them. null before any renewal." },
+    "fix_used": { "type": "integer", "minimum": 0, "description": "Charged when the fix's commit or artifact exists; an unchanged artifact or an empty commit is refused fix_unchanged and not charged; an uncommitted fix whose commit call stepped out is not charged." },
+    "last_retry": {
+      "type": ["object", "null"],
+      "description": "The last retry and the failure fingerprints it answered; a retry with the same reason over the same fingerprints is refused retry_not_applicable.",
+      "required": ["reason", "fingerprints"],
+      "additionalProperties": false,
+      "properties": {
+        "reason": { "type": "string", "enum": ["flaky", "infra", "timeout"] },
+        "fingerprints": { "type": "array", "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+      }
+    }
+  }
+}

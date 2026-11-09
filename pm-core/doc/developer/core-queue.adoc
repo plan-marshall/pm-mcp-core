@@ -37,8 +37,10 @@ on an intermediate value, so a record can be built member by member through its 
 `QueueTaskRecordCodec`::
 The one reader and writer of a record. It accepts exactly one shape through `core.store`'s `StrictJson`, and writes
 every field in the order of the schema, so a record read back is written back byte for byte.
-`TaskQueueSchemaParityTest` keeps the fields, the required members and every enum equal to the schema block of the
-specification and validates every written record against it.
+`TaskQueueSchemaParityTest` keeps the fields, the required members and every enum equal to the schema file beside the
+codecs, `de/planmarshall/core/queue/queue-task.schema.json` (and `activity-entry.schema.json` for an activity entry),
+read from the class path through `SchemaResource`, and validates every written record against it. Document 16 of the
+store schemas includes both files (link:../../../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016]).
 
 `QueueStore`::
 The records of one queue. `ofProject(base, projectId, locks)` is `projects/<project_id>/queue/` under
@@ -84,9 +86,9 @@ answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `
 
 Create the record through the builder and hand it to `QueueStore.create`; change it through the protocol, which asks the
 store to revise all records in one transaction. A new closed value is a new constant of the matching enum plus the same
-constant in the schema block and in `TaskQueueSchemaParityTest`; the parity test then fails until both agree. A new field
-is a new component of `QueueTaskRecord`, a field in the codec in schema order, and a line in the schema block; the
-parity test compares all three.
+constant in the schema file `queue-task.schema.json` and in `TaskQueueSchemaParityTest`; the parity test then fails until
+both agree. A new field is a new component of `QueueTaskRecord`, a field in the codec in schema order, and a line in the
+schema file; the parity test compares all three.
 
 The runtime writes the `agent_started` detection through `workflow.task`'s protocol, which asks the audit log for one
 `security` record naming the executable; the record here carries the matching `signals[]` entry with the action

@@ -34,6 +34,12 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `HeaderViolation`:: One violation: the JSON pointer of the member and what is wrong.
 
 The canonical JSON form of the header is written and read by the package-private `HeaderJson`.
+The JSON schemas of the two records of this package are files of this module, beside the types that write them, in
+`pm-workflow/src/main/resources/de/planmarshall/workflow/plan/`: `plan-instance-header.schema.json` (the header) and
+`composition-record.schema.json` (one line of the composition log). Document 14 of the store schemas includes both files
+(link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance];
+link:../../../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016],
+link:../../../doc/adr/018-placement-of-schema-files-without-a-codec-of-their-own.adoc[ADR 018]).
 The enumerations equal those of the specification, in its order: `PruneReason` the `prune_reason` of the header schema, `CompositionEvent` its `composition_event`, and `CompositionCause.FallbackCause` the `fallback_cause` of the composition record (`exhausted`, `stepped_out`, `decided`, `infeasible`, `condition`, `provider_refused`, `merge_by_operator`, `local_only`, `files_not_applicable`).
 A header or a log line with a value outside them, such as the former `recipe_override`, `auto_merge_off` or `question_expired`, is refused.
 

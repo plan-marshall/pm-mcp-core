@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.ClampedValue;
 import de.planmarshall.core.store.JobRecord.Confinement;
@@ -43,24 +43,22 @@ import de.planmarshall.core.store.WorkerState.Workdir;
  * The codec of the job record keeps parity with the schema of Store Schemas § Job Record (PM-EXEC-4): the members of
  * the record and of its typed objects in schema order, the required members, the values of every enumeration, the
  * confinement pattern, the {@code job_id} pattern, the format version and the range of {@code outcome_row}. A member
- * added to or removed from the schema without the code fails here. The schema is read from the specification of this
- * repository below {@value SpecificationDocument#ROOT_PROPERTY}.
+ * added to or removed from the schema without the code fails here. The schema is the file
+ * {@code de/planmarshall/core/store/job-record.schema.json} beside the codec, read from the class path.
  */
-// Every datum in this class is a contract: the schema document path, its members and bounds are the specification.
+// Every datum in this class is a contract: the schema file, its members and bounds are the specification.
 @DisplayName("Job record schema parity")
 class JobRecordSchemaParityTest {
 
-    private static final String DOCUMENT = "store-schemas/10-job-and-lesson-records.adoc";
-    private static final String HEADING = "== Job Record";
+    private static final String SCHEMA = "de/planmarshall/core/store/job-record.schema.json";
 
     private static Map<?, ?> schema;
     private static Map<?, ?> properties;
 
     @BeforeAll
     static void readSchema() {
-        schema = SpecificationDocument.object(
-                SpecificationDocument.parse(SpecificationDocument.jsonBlockAfter(DOCUMENT, HEADING)));
-        properties = SpecificationDocument.object(schema.get("properties"));
+        schema = SchemaResource.load(SCHEMA);
+        properties = SchemaResource.object(schema.get("properties"));
     }
 
     @Test
@@ -74,7 +72,7 @@ class JobRecordSchemaParityTest {
                 () -> assertEquals(JobRecordCodec.MEMBERS, expected,
                         "the codec members follow the schema order"),
                 () -> assertEquals(Set.copyOf(JobRecordCodec.MEMBERS),
-                        Set.copyOf(names(SpecificationDocument.array(schema.get("required")))),
+                        Set.copyOf(names(SchemaResource.array(schema.get("required")))),
                         "the required members are every member"));
     }
 
@@ -84,7 +82,7 @@ class JobRecordSchemaParityTest {
         var scope = member("scope");
         var derivation = member("budget_derivation");
         var contradiction = member("self_report_contradiction");
-        var clamped = SpecificationDocument.object(member("clamped_values").get("items"));
+        var clamped = SchemaResource.object(member("clamped_values").get("items"));
 
         assertAll("the typed object members equal the schema's",
                 () -> assertEquals(JobRecordCodec.SCOPE_MEMBERS, keys(scope),
@@ -108,10 +106,10 @@ class JobRecordSchemaParityTest {
     @Test
     @DisplayName("the values of every enumeration are those of the schema")
     void enumerationsEqualSchema() {
-        var scopeProperties = SpecificationDocument.object(member("scope").get("properties"));
-        var derivationProperties = SpecificationDocument.object(member("budget_derivation").get("properties"));
-        var clampedProperties = SpecificationDocument.object(
-                SpecificationDocument.object(member("clamped_values").get("items")).get("properties"));
+        var scopeProperties = SchemaResource.object(member("scope").get("properties"));
+        var derivationProperties = SchemaResource.object(member("budget_derivation").get("properties"));
+        var clampedProperties = SchemaResource.object(
+                SchemaResource.object(member("clamped_values").get("items")).get("properties"));
 
         assertAll("the enumeration values equal the schema's",
                 () -> assertEquals(enumOf(properties, "kind"), wireNames(JobId.Kind.values(), JobId.Kind::wireName),
@@ -163,11 +161,11 @@ class JobRecordSchemaParityTest {
     @DisplayName("the members of the worker block are those of the schema in schema order, every one required")
     void workerMembersEqualSchema() {
         var worker = member("worker");
-        var workerProperties = SpecificationDocument.object(worker.get("properties"));
-        var workdir = SpecificationDocument.object(workerProperties.get("workdir"));
-        var mark = SpecificationDocument.object(workerProperties.get("worktree_mark"));
-        var skill = SpecificationDocument.object(
-                SpecificationDocument.object(workerProperties.get("delivered_skills")).get("items"));
+        var workerProperties = SchemaResource.object(worker.get("properties"));
+        var workdir = SchemaResource.object(workerProperties.get("workdir"));
+        var mark = SchemaResource.object(workerProperties.get("worktree_mark"));
+        var skill = SchemaResource.object(
+                SchemaResource.object(workerProperties.get("delivered_skills")).get("items"));
 
         assertAll("the worker members equal the schema's",
                 () -> assertFalse(WorkerStateCodec.MEMBERS.isEmpty(), "the worker block declares members"),
@@ -192,9 +190,9 @@ class JobRecordSchemaParityTest {
     @Test
     @DisplayName("the values of the worker enumerations are those of the schema")
     void workerEnumerationsEqualSchema() {
-        var workerProperties = SpecificationDocument.object(member("worker").get("properties"));
-        var workdirProperties = SpecificationDocument.object(
-                SpecificationDocument.object(workerProperties.get("workdir")).get("properties"));
+        var workerProperties = SchemaResource.object(member("worker").get("properties"));
+        var workdirProperties = SchemaResource.object(
+                SchemaResource.object(workerProperties.get("workdir")).get("properties"));
 
         assertAll("the worker enumeration values equal the schema's",
                 () -> assertEquals(enumOf(workerProperties, "class"),
@@ -215,34 +213,34 @@ class JobRecordSchemaParityTest {
     @Test
     @DisplayName("the bounds of the worker block are those of the schema")
     void workerBoundsEqualSchema() {
-        var workerProperties = SpecificationDocument.object(member("worker").get("properties"));
+        var workerProperties = SchemaResource.object(member("worker").get("properties"));
 
         assertAll("the worker bounds equal the schema's",
                 () -> assertEquals(WorkerState.MAX_MODEL, number(
-                        SpecificationDocument.object(workerProperties.get("model")).get("maxLength")),
+                        SchemaResource.object(workerProperties.get("model")).get("maxLength")),
                         "the model bound is the schema's"),
                 () -> assertEquals(WorkerState.MAX_HARNESS_ERROR, number(
-                        SpecificationDocument.object(workerProperties.get("harness_error")).get("maxLength")),
+                        SchemaResource.object(workerProperties.get("harness_error")).get("maxLength")),
                         "the harness error bound is the schema's"),
                 () -> assertEquals(0, number(
-                        SpecificationDocument.object(workerProperties.get("idle_wakeups")).get("minimum")),
+                        SchemaResource.object(workerProperties.get("idle_wakeups")).get("minimum")),
                         "the idle wakeup minimum is the schema's"));
     }
 
     private static Map<?, ?> member(String name) {
-        return SpecificationDocument.object(properties.get(name));
+        return SchemaResource.object(properties.get(name));
     }
 
     private static List<String> keys(Map<?, ?> object) {
-        return names(SpecificationDocument.object(object.get("properties")).keySet());
+        return names(SchemaResource.object(object.get("properties")).keySet());
     }
 
     private static List<String> required(Map<?, ?> object) {
-        return names(SpecificationDocument.array(object.get("required")));
+        return names(SchemaResource.array(object.get("required")));
     }
 
     private static Set<String> enumOf(Map<?, ?> owner, String name) {
-        return SpecificationDocument.array(SpecificationDocument.object(owner.get(name)).get("enum")).stream()
+        return SchemaResource.array(SchemaResource.object(owner.get(name)).get("enum")).stream()
                 .filter(Objects::nonNull).map(String::valueOf).collect(Collectors.toUnmodifiableSet());
     }
 

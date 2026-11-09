@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/review-bot-registry.json",
+  "title": "ReviewBotRegistryRecord",
+  "type": "object",
+  "required": ["bot_kind", "author_login", "trigger_token", "publish_shapes", "participation_evidence", "participation_requires_update", "reviewed_sha_carrier", "rate_limit_class"],
+  "additionalProperties": false,
+  "properties": {
+    "bot_kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" },
+    "author_login": { "type": "string", "description": "Identity used for author binding." },
+    "trigger_token": { "type": "string", "description": "The single trigger the server posts; never chosen per call." },
+    "trigger_verbs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "incremental": { "type": "string" }, "full": { "type": "string" } }
+    },
+    "trigger_events": { "type": "array", "items": { "type": "string" }, "description": "Pull-request events the bot subscribes to." },
+    "trigger_semantics": { "type": "string", "enum": ["comment_trigger", "auto_on_push"], "default": "comment_trigger", "description": "comment_trigger: the server posts trigger_token as the operator via the App (the user access token of a GitHub App credential, never the App's bot identity). auto_on_push: the bot reviews every push on its own (used for a bot that acts on no trigger comment); the server never posts a trigger for it, and trigger-based remedies escalate." },
+    "publish_shapes": { "type": "array", "items": { "enum": ["conversation", "inline_thread", "pr_review"] } },
+    "participation_evidence": { "type": "array", "items": { "enum": ["conversation", "inline_thread", "pr_review", "check_run"] } },
+    "participation_markers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pattern", "validated_on_prs"],
+        "additionalProperties": false,
+        "properties": { "pattern": { "type": "string" }, "validated_on_prs": { "type": "integer", "minimum": 1 } }
+      },
+      "description": "Anchored (start-of-block or structural) patterns, each with the sample size it was validated on."
+    },
+    "participation_requires_update": { "type": "boolean", "description": "Exempts no bot from the review currency test, which applies to every required bot." },
+    "reviewed_sha_carrier": { "type": "string", "enum": ["structured", "body_pattern", "none"] },
+    "reviewed_sha_pattern": { "type": ["string", "null"] },
+    "completion_check_name": { "type": ["string", "null"] },
+    "refusal_patterns": { "type": "array", "items": { "type": "string" } },
+    "refusal_size_patterns": { "type": "array", "items": { "type": "string" }, "description": "Number-free detection patterns of a size refusal (cause size)." },
+    "refusal_size_cap_patterns": { "type": "array", "items": { "type": "string" }, "description": "Extraction patterns reading the ceiling the size refusal notice states (files or diff characters), recorded with the refusal; no ceiling is encoded in a pattern." },
+    "refusal_wrapper_markers": { "type": "array", "items": { "type": "string" } },
+    "rate_limit_eta_patterns": { "type": "array", "items": { "type": "string" } },
+    "no_new_commits_patterns": { "type": "array", "items": { "type": "string" }, "description": "Anchored patterns of the bot's 'Review skipped: No new commits' notice." },
+    "no_new_commits_class": { "type": ["string", "null"], "enum": ["refused", "declined", null], "description": "Classification of that notice for a bot without trigger_verbs.full; a bot with a full verb always resolves refused with mode no_unreviewed_commit." },
+    "rate_limit_class": { "type": "string", "enum": ["awaitable_window", "hard_quota", "unknown"] },
+    "rate_interval_seconds": { "type": ["integer", "null"], "minimum": 1, "description": "Window length after a claim when the bot publishes no parseable ETA; null applies the compiled rate-window floor (timeouts.adoc, Review-Bot Rate Windows)." },
+    "attempt_ceiling": { "type": "integer", "minimum": 1, "default": 6, "description": "Maximum triggers per (repository, pr_number, bot_kind); compiled default 6 (timeouts.adoc, Review-Bot Rate Windows)." },
+    "structural_caps": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ceilings for the pre-wait cap gate; null in every compiled-in record (a bot's ceilings are read from its notice), declared only by a team record that knows its bot's plan.",
+      "properties": { "max_files": { "type": ["integer", "null"] }, "max_diff_chars": { "type": ["integer", "null"] } }
+    },
+    "actionable_content_markers": { "type": "array", "items": { "type": "string" } },
+    "contentless_review_markers": { "type": "array", "items": { "type": "string" } },
+    "ignore_patterns": { "type": "array", "items": { "type": "string" } },
+    "severity_map": { "type": "object", "additionalProperties": { "type": "string" } },
+    "config_verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "verdict", "decided_at"],
+        "additionalProperties": false,
+        "properties": { "key": { "type": "string" }, "verdict": { "type": "string" }, "decided_at": { "type": "string", "format": "date" } }
+      }
+    }
+  }
+}

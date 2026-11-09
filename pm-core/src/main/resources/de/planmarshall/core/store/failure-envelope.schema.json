@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/failure-envelope.json",
+  "title": "FailureEnvelope",
+  "type": "object",
+  "required": ["format_version", "failure_id", "gather_job_id", "gather_state_id", "class", "kind", "source", "message", "fingerprint", "waivable", "recorded_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "failure_id": { "type": "string", "pattern": "^FL-[0-9]+$" },
+    "gather_job_id": { "type": ["string", "null"], "pattern": "^[bcgp]-[0-9a-f]{16}$", "description": "The gathering job; null for a class gathered from the plan's stores inside the gather state's transaction." },
+    "gather_state_id": { "type": "string", "description": "The gather state of the remediation unit that recorded the failure." },
+    "class": { "type": "string", "enum": ["ci", "build", "review", "analysis", "merge_conflict", "qgate"] },
+    "kind": { "type": "string", "description": "Closed per class: ci the failure_kind of the check (compile|test|lint|policy|unknown) or infra (a gather constituent that failed), a timed-out check being failure_class timed_out, never a kind; build compile|test|quality_gate|arch_gate|unparsed; review finding|evidence_missing; analysis gate_condition|issue|undecidable; merge_conflict conflict|remote_moved (the plan branch's remote moved under a rejected lease; source: the observed remote_sha); qgate finding." },
+    "source": { "type": "string", "description": "check name, build job id, finding id, analysis provider, or conflicting path." },
+    "file": { "type": ["string", "null"] },
+    "line": { "type": ["integer", "null"], "minimum": 1 },
+    "message": { "type": "string", "maxLength": 400, "description": "One redacted line; untrusted." },
+    "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over class, kind, file, and the normalized message; recognises a repeated failure (retry_not_applicable)." },
+    "excerpt_uri": { "type": ["string", "null"] },
+    "baseline": { "type": "boolean", "default": false, "description": "The failure is present with the same fingerprint on the base (Job Runtime, Baseline Separation)." },
+    "gate": { "type": ["string", "null"], "description": "The waivable gate identifier the failure falls under; null when not waivable." },
+    "waivable": { "type": "boolean" },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  }
+}

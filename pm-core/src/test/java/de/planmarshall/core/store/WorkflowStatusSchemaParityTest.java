@@ -34,7 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 
 /**
@@ -46,25 +46,24 @@ import de.planmarshall.core.store.RetryCounters.RetryRule;
  * required members and the closed values of a {@link WaiverRequest} are those of the schema of the waiver request
  * record (PM-SEC-3). A member, key or value
  * added to or removed from the schema without the code fails here instead of being refused or accepted unseen at run
- * time. The schema is read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY}.
- * The specification documents, their headings, the member names and the closed values are contracts; the ids, the
+ * time. The schemas are the files {@code de/planmarshall/core/store/status.schema.json} and
+ * {@code de/planmarshall/core/store/waiver-request.schema.json} beside the codec, read from the class path.
+ * The schema files, the member names and the closed values are contracts; the ids, the
  * texts, the device, the evidence, the comment reference and the instants of the full request are generated.
  */
 @EnableGeneratorController
 @DisplayName("Workflow state store schema parity")
 class WorkflowStatusSchemaParityTest {
 
-    private static final String DOCUMENT = "store-schemas/02-workflow-state-store.adoc";
-    private static final String HEADING = "== Workflow State Store";
+    private static final String SCHEMA = "de/planmarshall/core/store/status.schema.json";
     private static final String RETRY_COUNTERS = "retry_counters";
 
     private static Map<?, ?> properties;
 
     @BeforeAll
     static void readSchema() {
-        var schema = SpecificationDocument.object(
-                SpecificationDocument.parse(SpecificationDocument.jsonBlockAfter(DOCUMENT, HEADING)));
-        properties = SpecificationDocument.object(schema.get("properties"));
+        var schema = SchemaResource.load(SCHEMA);
+        properties = SchemaResource.object(schema.get("properties"));
     }
 
     @Disabled("the specification added members of the status store; "
@@ -81,9 +80,9 @@ class WorkflowStatusSchemaParityTest {
     @Test
     @DisplayName("the retry rules are the property names the schema admits for retry_counters")
     void retryRulesEqualSchema() {
-        var retryCounters = SpecificationDocument.object(properties.get(RETRY_COUNTERS));
-        var propertyNames = SpecificationDocument.object(retryCounters.get("propertyNames"));
-        var expected = SpecificationDocument.array(propertyNames.get("enum")).stream().map(String::valueOf)
+        var retryCounters = SchemaResource.object(properties.get(RETRY_COUNTERS));
+        var propertyNames = SchemaResource.object(retryCounters.get("propertyNames"));
+        var expected = SchemaResource.array(propertyNames.get("enum")).stream().map(String::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
 
         assertFalse(expected.isEmpty(), "the schema names the retry rules");
@@ -114,8 +113,7 @@ class WorkflowStatusSchemaParityTest {
     @DisplayName("the waiver request")
     class WaiverRequestParity {
 
-        private static final String REQUEST_DOCUMENT = "store-schemas/14-plan-instance-waivers-questions.adoc";
-        private static final String REQUEST_HEADING = "=== Waiver Request Record";
+        private static final String REQUEST_SCHEMA_FILE = "de/planmarshall/core/store/waiver-request.schema.json";
         private static final String ANSWERED = "answered";
 
         private static final Instant REQUESTED_AT = Instant.ofEpochSecond(
@@ -136,9 +134,8 @@ class WorkflowStatusSchemaParityTest {
                 quoted("W-" + Generators.integers(1, 99_999).next()), ANSWERED, json(FULL_ANSWER), "pr_comment_ref",
                 quoted("IC_" + Generators.letterStrings(4, 12).next()));
 
-        private static final Map<?, ?> REQUEST_SCHEMA = SpecificationDocument.object(SpecificationDocument.parse(
-                SpecificationDocument.jsonBlockAfter(REQUEST_DOCUMENT, REQUEST_HEADING)));
-        private static final Map<?, ?> ANSWER_SCHEMA = SpecificationDocument.object(
+        private static final Map<?, ?> REQUEST_SCHEMA = SchemaResource.load(REQUEST_SCHEMA_FILE);
+        private static final Map<?, ?> ANSWER_SCHEMA = SchemaResource.object(
                 propertiesOf(REQUEST_SCHEMA).get(ANSWERED));
 
         @Test
@@ -157,7 +154,7 @@ class WorkflowStatusSchemaParityTest {
         @Test
         @DisplayName("the members the codec requires of a request are the schema's required members")
         void requestRequiredEqualSchema() {
-            var expected = Set.copyOf(names(SpecificationDocument.array(REQUEST_SCHEMA.get("required"))));
+            var expected = Set.copyOf(names(SchemaResource.array(REQUEST_SCHEMA.get("required"))));
 
             var required = requiredByCodec(FULL_REQUEST, WaiverRequestParity::json);
 
@@ -176,7 +173,7 @@ class WorkflowStatusSchemaParityTest {
         @Test
         @DisplayName("the members the codec requires of an answer are the schema's required members")
         void answerRequiredEqualSchema() {
-            var expected = Set.copyOf(names(SpecificationDocument.array(ANSWER_SCHEMA.get("required"))));
+            var expected = Set.copyOf(names(SchemaResource.array(ANSWER_SCHEMA.get("required"))));
 
             var required = requiredByCodec(FULL_ANSWER, members -> {
                 var withAnswer = new LinkedHashMap<>(FULL_REQUEST);
@@ -236,11 +233,11 @@ class WorkflowStatusSchemaParityTest {
         }
 
         private static Map<?, ?> propertiesOf(Map<?, ?> schema) {
-            return SpecificationDocument.object(schema.get("properties"));
+            return SchemaResource.object(schema.get("properties"));
         }
 
         private static Set<String> nonNullEnum(Object declaration) {
-            return SpecificationDocument.array(SpecificationDocument.object(declaration).get("enum")).stream()
+            return SchemaResource.array(SchemaResource.object(declaration).get("enum")).stream()
                     .filter(Objects::nonNull).map(String::valueOf).collect(Collectors.toUnmodifiableSet());
         }
 
@@ -263,8 +260,8 @@ class WorkflowStatusSchemaParityTest {
     }
 
     private static Set<String> enumOf(String member) {
-        var declaration = SpecificationDocument.object(properties.get(member));
-        return SpecificationDocument.array(declaration.get("enum")).stream().map(String::valueOf)
+        var declaration = SchemaResource.object(properties.get(member));
+        return SchemaResource.array(declaration.get("enum")).stream().map(String::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
