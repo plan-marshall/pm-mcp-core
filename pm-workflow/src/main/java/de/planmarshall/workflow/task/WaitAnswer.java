@@ -97,8 +97,8 @@ public sealed interface WaitAnswer permits WaitAnswer.Offered, WaitAnswer.Answer
     enum WaitAgainReason {
 
         /**
-         * Nothing in the role's queue was offered: no queued task, or the held task is not in a waiting state. Answered
-         * as {@code no_task}.
+         * No task is eligible for the caller, or the held task is not in a handled state. A queued task can be
+         * ineligible because its plan is paused or another writer holds the plan. Answered as {@code no_task}.
          */
         NO_TASK("no_task"),
         /** The held task belongs to a plan that is paused. Answered as {@code paused}. */

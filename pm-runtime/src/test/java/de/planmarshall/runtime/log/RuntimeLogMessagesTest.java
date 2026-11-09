@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -51,8 +52,9 @@ import de.planmarshall.core.log.LogMessageListing;
 @DisplayName("RuntimeLogMessages")
 class RuntimeLogMessagesTest {
 
-    /** The generated listing of this holder, from the module directory the tests run in. */
-    private static final Path GENERATED = Path.of("..", "doc", "log-messages", "pm-runtime.adoc");
+    /** The generated listing of this holder, resolved from the repository root above the module. */
+    private static final Path GENERATED = repositoryRoot().resolve("doc").resolve("log-messages")
+            .resolve("pm-runtime.adoc");
 
     /** Setting this system property regenerates the committed listing instead of only comparing it. */
     private static final String REGENERATE = "planmarshall.log-messages.regenerate";
@@ -349,6 +351,17 @@ class RuntimeLogMessagesTest {
                     () -> assertTrue(message.contains(planLock), "the message must name the requested lock"),
                     () -> assertTrue(message.contains(queueLock), "the message must name the held lock"));
         }
+    }
+
+    /** The directory above the working directory that holds {@code pm-core} and the root POM. */
+    private static Path repositoryRoot() {
+        var dir = Path.of("").toAbsolutePath();
+        while (dir != null
+                && !(Files.isDirectory(dir.resolve("pm-core")) && Files.isRegularFile(dir.resolve("pom.xml")))) {
+            dir = dir.getParent();
+        }
+        assertNotNull(dir, "repository root not found above the working directory");
+        return dir;
     }
 
     private static List<LogRecord> allRecords() throws ReflectiveOperationException {

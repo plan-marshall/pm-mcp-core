@@ -131,7 +131,8 @@ class TaskProtocolSubmitTest {
         var same = restarted.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(2));
 
         assertAll(
-                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), other),
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), other,
+                        "another generation is answered no task"),
                 () -> assertInstanceOf(WaitAnswer.Offered.class, same),
                 () -> assertEquals(1, queue.records().getFirst().attempts().size()));
     }

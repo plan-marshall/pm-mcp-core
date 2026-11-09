@@ -51,8 +51,8 @@ class CoreLogMessagesTest {
     private static final Pattern PREFIX_DECLARATION =
             Pattern.compile("public static final String PREFIX = \"([^\"]+)\";");
 
-    /** The generated listing of this holder, from the module directory the tests run in. */
-    private static final Path GENERATED = Path.of("..", "doc", "log-messages", "pm-core.adoc");
+    /** The generated listing of this holder, resolved from the repository root above the module. */
+    private static final Path GENERATED = repositoryRoot().resolve("doc").resolve("log-messages").resolve("pm-core.adoc");
 
     /** Setting this system property regenerates the committed listing instead of only comparing it. */
     private static final String REGENERATE = "planmarshall.log-messages.regenerate";
