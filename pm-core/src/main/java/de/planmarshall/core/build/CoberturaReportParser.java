@@ -17,8 +17,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
@@ -26,9 +24,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * The native Cobertura coverage report parser ({@code coverage.xml}, as written by {@code coverage.py} for pytest).
  * <p>
- * The reader walks the report once with the hardened StAX reader of {@link CoverageXmlReader} and takes the root
- * {@code line-rate} and {@code branch-rate} as the overall percentages. Per class it takes the class {@code line-rate} (and
- * the {@code branch-rate} where present) and the methods whose {@code line-rate} is zero as the {@code missed_methods}
+ * The reader walks the report once through {@link CoverageXmlReader} and takes the root {@code line-rate} and
+ * {@code branch-rate} as the overall percentages. Per class it takes the class {@code line-rate} (and the
+ * {@code branch-rate} where present) and the methods whose {@code line-rate} is zero as the {@code missed_methods}
  * detail. A missing root {@code line-rate}, a rate that is not a finite number and a document that is not a
  * {@code coverage} report are refusals; a missing {@code branch-rate} leaves the branch metric absent.
  * <p>
@@ -64,11 +62,7 @@ public class CoberturaReportParser {
      */
     public static CoverageParseResult parse(String xml) {
         Objects.requireNonNull(xml, "xml");
-        try (CoverageXmlReader.Reader source = CoverageXmlReader.open(xml)) {
-            return parse(source.stream());
-        } catch (XMLStreamException | IllegalArgumentException e) {
-            return refusal(e);
-        }
+        return CoverageXmlReader.parse(xml, FORMAT, new Walk());
     }
 
     /**
@@ -79,37 +73,17 @@ public class CoberturaReportParser {
      */
     public static CoverageParseResult parse(Path reportFile) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try (CoverageXmlReader.Reader source = CoverageXmlReader.open(Files.readAllBytes(reportFile))) {
-            return parse(source.stream());
-        } catch (IOException | XMLStreamException | IllegalArgumentException e) {
-            return refusal(e);
+        try {
+            return CoverageXmlReader.parse(Files.readAllBytes(reportFile), FORMAT, new Walk());
+        } catch (IOException e) {
+            return CoverageRefusals.of(FORMAT, e);
         }
-    }
-
-    private static CoverageParseResult parse(XMLStreamReader reader) throws XMLStreamException {
-        Walk walk = new Walk();
-        while (reader.hasNext()) {
-            int event = reader.next();
-            if (event == XMLStreamConstants.ENTITY_REFERENCE) {
-                return walk.entityRefused();
-            }
-            if (event == XMLStreamConstants.START_ELEMENT) {
-                walk.start(reader);
-            } else if (event == XMLStreamConstants.END_ELEMENT) {
-                walk.end(reader);
-            }
-        }
-        return walk.result();
-    }
-
-    private static CoverageParseResult refusal(Exception cause) {
-        return CoverageRefusals.of(FORMAT, cause);
     }
 
     /**
      * The state of one walk over a report.
      */
-    private static final class Walk {
+    private static final class Walk implements CoverageXmlReader.Handler {
 
         private final List<CoverageItem> items = new ArrayList<>();
         private final Deque<String> path = new ArrayDeque<>();
@@ -118,21 +92,43 @@ public class CoberturaReportParser {
         private double lineRate;
         private @Nullable Double branchRate;
 
-        private void start(XMLStreamReader reader) {
+        @Override
+        public void start(XMLStreamReader reader) {
             String local = reader.getLocalName();
             if (path.isEmpty() && !COVERAGE.equals(local)) {
                 throw new IllegalArgumentException("the root element is " + local + ", not a coverage");
             }
-            switch (local) {
-                case COVERAGE -> readRoot(reader);
-                case CLASS -> current = new ClassState(requiredName(reader), file(reader),
-                        requireRate(reader, LINE_RATE), rate(reader, BRANCH_RATE));
-                case METHOD -> current.readMethod(CoverageXmlReader.attribute(reader, NAME),
-                        rate(reader, LINE_RATE));
-                default -> {
-                }
+            if (COVERAGE.equals(local)) {
+                readRoot(reader);
+            } else if (CLASS.equals(local)) {
+                current = new ClassState(requiredName(reader), file(reader), requireRate(reader, LINE_RATE),
+                        rate(reader, BRANCH_RATE));
+            } else if (METHOD.equals(local)) {
+                current.readMethod(CoverageXmlReader.attribute(reader, NAME), rate(reader, LINE_RATE));
             }
             path.push(local);
+        }
+
+        @Override
+        public void end(XMLStreamReader reader) {
+            String local = reader.getLocalName();
+            path.pop();
+            if (CLASS.equals(local) && current != ClassState.NONE) {
+                items.add(current.item());
+                current = ClassState.NONE;
+            }
+        }
+
+        @Override
+        public CoverageParseResult result() {
+            if (!rootSeen) {
+                throw new IllegalArgumentException("the report carries no coverage root");
+            }
+            CoverageMetrics metrics = CoverageMetrics.builder()
+                    .line(CoveragePercentages.percentageOfRate(lineRate))
+                    .branch(branchRate == null ? null : CoveragePercentages.percentageOfRate(branchRate))
+                    .build();
+            return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, metrics, items));
         }
 
         private void readRoot(XMLStreamReader reader) {
@@ -143,55 +139,31 @@ public class CoberturaReportParser {
             }
         }
 
-        private void end(XMLStreamReader reader) {
-            String local = reader.getLocalName();
-            path.pop();
-            if (CLASS.equals(local) && current != ClassState.NONE) {
-                items.add(current.item());
-                current = ClassState.NONE;
+        private String requiredName(XMLStreamReader reader) {
+            String name = CoverageXmlReader.attribute(reader, NAME);
+            if (name.isBlank()) {
+                throw new IllegalArgumentException("a class carries no name");
             }
+            return name;
         }
 
-        private CoverageParseResult entityRefused() {
-            return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": external entity reference refused");
+        private @Nullable String file(XMLStreamReader reader) {
+            String file = CoverageXmlReader.attribute(reader, FILENAME);
+            return file.isBlank() ? null : file;
         }
 
-        private CoverageParseResult result() {
-            if (!rootSeen) {
-                throw new IllegalArgumentException("the report carries no coverage root");
+        private @Nullable Double rate(XMLStreamReader reader, String name) {
+            String value = CoverageXmlReader.attribute(reader, name);
+            return value.isBlank() ? null : Double.valueOf(value);
+        }
+
+        private double requireRate(XMLStreamReader reader, String name) {
+            Double value = rate(reader, name);
+            if (value == null) {
+                throw new IllegalArgumentException("the " + name + " is absent");
             }
-            CoverageMetrics metrics = CoverageMetrics.builder()
-                    .line(CoveragePercentages.percentageOfRate(lineRate))
-                    .branch(branchRate == null ? null : CoveragePercentages.percentageOfRate(branchRate))
-                    .build();
-            return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, metrics, items));
+            return value;
         }
-    }
-
-    private static String requiredName(XMLStreamReader reader) {
-        String name = CoverageXmlReader.attribute(reader, NAME);
-        if (name.isBlank()) {
-            throw new IllegalArgumentException("a class carries no name");
-        }
-        return name;
-    }
-
-    private static @Nullable String file(XMLStreamReader reader) {
-        String file = CoverageXmlReader.attribute(reader, FILENAME);
-        return file.isBlank() ? null : file;
-    }
-
-    private static @Nullable Double rate(XMLStreamReader reader, String name) {
-        String value = CoverageXmlReader.attribute(reader, name);
-        return value.isBlank() ? null : Double.valueOf(value);
-    }
-
-    private static double requireRate(XMLStreamReader reader, String name) {
-        Double value = rate(reader, name);
-        if (value == null) {
-            throw new IllegalArgumentException("the " + name + " is absent");
-        }
-        return value;
     }
 
     /**

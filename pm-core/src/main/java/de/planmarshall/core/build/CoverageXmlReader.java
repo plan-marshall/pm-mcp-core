@@ -12,19 +12,20 @@ package de.planmarshall.core.build;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
 
 /**
- * Opens the hardened StAX reader the JaCoCo and Cobertura parsers share.
+ * Opens the hardened StAX reader the JaCoCo and Cobertura parsers share, and walks it for them.
  * <p>
  * The XML formats are read as untrusted input: a document may declare a DTD (JaCoCo writes a {@code DOCTYPE} with a
  * system identifier) and that declaration is tolerated without resolution, but an external entity is never resolved.
  * The factory keeps DTD support on so the declaration parses, turns external entities off, keeps entity references from
  * being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file
- * or a URL reads nothing; the parsers refuse an {@code ENTITY_REFERENCE} event as well. A document that uses an entity
- * defined outside it is therefore refused, never expanded. The decisions are recorded in {@code core-build/005}.
+ * or a URL reads nothing. The walk refuses an {@code ENTITY_REFERENCE} event, so a document that uses an entity defined
+ * outside it is refused, never expanded. The decisions are recorded in {@code core-build/005}.
  *
  * @since 0.1
  */
@@ -32,34 +33,80 @@ import lombok.experimental.UtilityClass;
 class CoverageXmlReader {
 
     /**
-     * Opens a reader over the given XML text.
+     * The format-specific part of a walk: what to do at each element and what the walk produced.
      *
-     * @param xml the XML text
-     * @return the configured reader, to be closed by the caller
-     * @throws XMLStreamException if the text is not well-formed XML
+     * @since 0.1
      */
-    static Reader open(String xml) throws XMLStreamException {
-        return new Reader(factory().createXMLStreamReader(new StringReader(xml)));
+    interface Handler {
+
+        /**
+         * Handles a start element.
+         *
+         * @param reader the reader positioned on the element
+         */
+        void start(XMLStreamReader reader);
+
+        /**
+         * Handles an end element.
+         *
+         * @param reader the reader positioned on the element
+         */
+        void end(XMLStreamReader reader);
+
+        /**
+         * Returns the result of the completed walk.
+         *
+         * @return the parsed report, or a refusal
+         */
+        CoverageParseResult result();
     }
 
     /**
-     * Opens a reader over the given XML bytes, honouring the document's own encoding declaration.
+     * Walks the given XML text with the given handler.
      *
-     * @param xml the XML bytes
-     * @return the configured reader, to be closed by the caller
-     * @throws XMLStreamException if the bytes are not well-formed XML
+     * @param xml     the XML text
+     * @param format  the format whose refusal names the parser
+     * @param handler the format-specific walk
+     * @return the handler's result, or a refusal naming the format
      */
-    static Reader open(byte[] xml) throws XMLStreamException {
-        return new Reader(factory().createXMLStreamReader(new ByteArrayInputStream(xml)));
+    static CoverageParseResult parse(String xml, CoverageFormat format, Handler handler) {
+        try (Reader source = open(xml)) {
+            return walk(source.stream(), format, handler);
+        } catch (XMLStreamException | IllegalArgumentException e) {
+            return CoverageRefusals.of(format, e);
+        }
     }
 
-    private static XMLInputFactory factory() {
-        XMLInputFactory factory = XMLInputFactory.newFactory();
-        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.TRUE);
-        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
-        factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.FALSE);
-        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> new ByteArrayInputStream(new byte[0]));
-        return factory;
+    /**
+     * Walks the given XML bytes with the given handler, honouring the document's own encoding declaration.
+     *
+     * @param xml     the XML bytes
+     * @param format  the format whose refusal names the parser
+     * @param handler the format-specific walk
+     * @return the handler's result, or a refusal naming the format
+     */
+    static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler) {
+        try (Reader source = open(xml)) {
+            return walk(source.stream(), format, handler);
+        } catch (XMLStreamException | IllegalArgumentException e) {
+            return CoverageRefusals.of(format, e);
+        }
+    }
+
+    private static CoverageParseResult walk(XMLStreamReader reader, CoverageFormat format, Handler handler)
+            throws XMLStreamException {
+        while (reader.hasNext()) {
+            int event = reader.next();
+            if (event == XMLStreamConstants.ENTITY_REFERENCE) {
+                return new CoverageParseResult.Refused(format, format.id() + ": external entity reference refused");
+            }
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                handler.start(reader);
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                handler.end(reader);
+            }
+        }
+        return handler.result();
     }
 
     /**
@@ -72,6 +119,23 @@ class CoverageXmlReader {
     static String attribute(XMLStreamReader reader, String name) {
         String value = reader.getAttributeValue(null, name);
         return value == null ? "" : value;
+    }
+
+    static Reader open(String xml) throws XMLStreamException {
+        return new Reader(factory().createXMLStreamReader(new StringReader(xml)));
+    }
+
+    private static Reader open(byte[] xml) throws XMLStreamException {
+        return new Reader(factory().createXMLStreamReader(new ByteArrayInputStream(xml)));
+    }
+
+    private static XMLInputFactory factory() {
+        XMLInputFactory factory = XMLInputFactory.newFactory();
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.TRUE);
+        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
+        factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.FALSE);
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> new ByteArrayInputStream(new byte[0]));
+        return factory;
     }
 
     /**
