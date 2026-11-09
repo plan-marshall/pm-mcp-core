@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One remembered consent of {@code consents.json} (PM-SEC-8, Store Schemas § Consent Before Acting): the kind the
@@ -25,15 +26,15 @@ import java.util.regex.Pattern;
  * device; a {@code web} entry may name one.
  *
  * @param kind      the kind the operator allowed
- * @param projectId the project, for a kind remembered for a project
+ * @param projectId the project, for a kind remembered for a project; {@code null} for a machine kind
  * @param scripts   the scripts a {@code run_checkout_scripts} entry covers
  * @param grantedAt when the consent was granted
  * @param channel   the channel it was granted through
- * @param deviceId  the paired device, for a {@code web} entry
+ * @param deviceId  the paired device, for a {@code web} entry; {@code null} when none is named
  * @since 0.1
  */
-public record Consent(ConsentKind kind, Optional<String> projectId, List<ConsentScript> scripts, Instant grantedAt,
-Channel channel, Optional<String> deviceId) {
+public record Consent(ConsentKind kind, @Nullable String projectId, List<ConsentScript> scripts, Instant grantedAt,
+Channel channel, @Nullable String deviceId) {
 
     private static final Pattern PROJECT_ID = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
 
@@ -77,11 +78,9 @@ Channel channel, Optional<String> deviceId) {
      */
     public Consent {
         Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(projectId, "projectId");
         scripts = List.copyOf(scripts);
         Objects.requireNonNull(grantedAt, "grantedAt");
         Objects.requireNonNull(channel, "channel");
-        Objects.requireNonNull(deviceId, "deviceId");
         if (!kind.rememberable()) {
             throw new IllegalArgumentException(
                     "The consent kind '%s' is never remembered, so no entry of it exists".formatted(kind.wireName()));
@@ -91,19 +90,21 @@ Channel channel, Optional<String> deviceId) {
         requireDevice(channel, deviceId);
     }
 
-    private static void requireProject(ConsentKind kind, Optional<String> projectId) {
+    private static void requireProject(ConsentKind kind, @Nullable String projectId) {
         if (!kind.projectScoped()) {
-            if (projectId.isPresent()) {
+            if (projectId != null) {
                 throw new IllegalArgumentException(
                         "The consent kind '%s' is not remembered for a project: %s".formatted(kind.wireName(),
-                                projectId.get()));
+                                projectId));
             }
             return;
         }
-        var project = projectId.orElseThrow(() -> new IllegalArgumentException(
-                "The consent kind '%s' is remembered for a project and names none".formatted(kind.wireName())));
-        if (!PROJECT_ID.matcher(project).matches()) {
-            throw new IllegalArgumentException("Not a valid project id of a consent: " + project);
+        if (projectId == null) {
+            throw new IllegalArgumentException(
+                    "The consent kind '%s' is remembered for a project and names none".formatted(kind.wireName()));
+        }
+        if (!PROJECT_ID.matcher(projectId).matches()) {
+            throw new IllegalArgumentException("Not a valid project id of a consent: " + projectId);
         }
     }
 
@@ -116,26 +117,27 @@ Channel channel, Optional<String> deviceId) {
                         scripts.size()));
     }
 
-    private static void requireDevice(Channel channel, Optional<String> deviceId) {
-        deviceId.ifPresent(device -> {
-            if (channel != Channel.WEB) {
-                throw new IllegalArgumentException("Only a consent granted through web names a paired device: " + device);
-            }
-            if (!DEVICE_ID.matcher(device).matches()) {
-                throw new IllegalArgumentException("Not a paired device id of a consent: " + device);
-            }
-        });
+    private static void requireDevice(Channel channel, @Nullable String deviceId) {
+        if (deviceId == null) {
+            return;
+        }
+        if (channel != Channel.WEB) {
+            throw new IllegalArgumentException("Only a consent granted through web names a paired device: " + deviceId);
+        }
+        if (!DEVICE_ID.matcher(deviceId).matches()) {
+            throw new IllegalArgumentException("Not a paired device id of a consent: " + deviceId);
+        }
     }
 
     /**
      * @param kind      a kind remembered for the machine
      * @param grantedAt when the operator granted it
      * @param channel   the channel it was granted through
-     * @param deviceId  the paired device, for a {@code web} entry
+     * @param deviceId  the paired device, for a {@code web} entry; may be {@code null}
      * @return the entry of the machine-wide kind
      */
-    public static Consent machine(ConsentKind kind, Instant grantedAt, Channel channel, Optional<String> deviceId) {
-        return new Consent(kind, Optional.empty(), List.of(), grantedAt, channel, deviceId);
+    public static Consent machine(ConsentKind kind, Instant grantedAt, Channel channel, @Nullable String deviceId) {
+        return new Consent(kind, null, List.of(), grantedAt, channel, deviceId);
     }
 
     /**
@@ -143,12 +145,12 @@ Channel channel, Optional<String> deviceId) {
      * @param projectId the project
      * @param grantedAt when the operator granted it
      * @param channel   the channel it was granted through
-     * @param deviceId  the paired device, for a {@code web} entry
+     * @param deviceId  the paired device, for a {@code web} entry; may be {@code null}
      * @return the entry of the project-wide kind
      */
     public static Consent project(ConsentKind kind, String projectId, Instant grantedAt, Channel channel,
-            Optional<String> deviceId) {
-        return new Consent(kind, Optional.of(projectId), List.of(), grantedAt, channel, deviceId);
+            @Nullable String deviceId) {
+        return new Consent(kind, projectId, List.of(), grantedAt, channel, deviceId);
     }
 
     /**
@@ -156,13 +158,12 @@ Channel channel, Optional<String> deviceId) {
      * @param scripts   every script the consent covers, with its digest
      * @param grantedAt when the operator granted it
      * @param channel   the channel it was granted through
-     * @param deviceId  the paired device, for a {@code web} entry
+     * @param deviceId  the paired device, for a {@code web} entry; may be {@code null}
      * @return the entry of {@code run_checkout_scripts}
      */
     public static Consent checkoutScripts(String projectId, List<ConsentScript> scripts, Instant grantedAt,
-            Channel channel, Optional<String> deviceId) {
-        return new Consent(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(projectId), scripts, grantedAt, channel,
-                deviceId);
+            Channel channel, @Nullable String deviceId) {
+        return new Consent(ConsentKind.RUN_CHECKOUT_SCRIPTS, projectId, scripts, grantedAt, channel, deviceId);
     }
 
     /**
@@ -170,6 +171,6 @@ Channel channel, Optional<String> deviceId) {
      * @return whether the entry belongs to the project
      */
     public boolean belongsTo(String projectId) {
-        return this.projectId.filter(projectId::equals).isPresent();
+        return this.projectId != null && this.projectId.equals(projectId);
     }
 }

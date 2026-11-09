@@ -11,6 +11,8 @@ package de.planmarshall.core.store;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -44,10 +46,8 @@ class HarnessUsageEndpointTest {
                         "An answer reports no tool uses"),
                 () -> assertEquals(prompt + completion, usage.totalTokens().orElseThrow(),
                         "The total sums prompt and completion counts"),
-                () -> assertTrue(usage.unmeasuredReason().isEmpty(),
-                        "A fully measured answer has no reason"),
-                () -> assertTrue(usage.costUsd().isEmpty(),
-                        "An endpoint answer carries no cost figure"));
+                () -> assertNull(usage.unmeasuredReason(), "A fully measured answer has no reason"),
+                () -> assertNull(usage.costUsd(), "An endpoint answer carries no cost figure"));
     }
 
     @Test
@@ -63,8 +63,8 @@ class HarnessUsageEndpointTest {
                         "A missing completion count is unmeasured"),
                 () -> assertTrue(usage.totalTokens().isEmpty(),
                         "A partial figure has no measured total"),
-                () -> assertEquals(Optional.of(HarnessUsage.UnmeasuredReason.NOT_REPORTED_BY_HARNESS),
-                        usage.unmeasuredReason(), "The reason names the harness omission"));
+                () -> assertEquals(HarnessUsage.UnmeasuredReason.NOT_REPORTED_BY_HARNESS, usage.unmeasuredReason(),
+                        "The reason names the harness omission"));
     }
 
     @Test
@@ -77,7 +77,6 @@ class HarnessUsageEndpointTest {
                         "Without a usage object no prompt count is known"),
                 () -> assertEquals(Measurement.unmeasured(), usage.outputTokens(),
                         "Without a usage object no completion count is known"),
-                () -> assertTrue(usage.unmeasuredReason().isPresent(),
-                        "The absence carries an unmeasured reason"));
+                () -> assertNotNull(usage.unmeasuredReason(), "The absence carries an unmeasured reason"));
     }
 }

@@ -74,19 +74,18 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
      * One role's default.
      *
      * @param tier             the model tier of the closed list {@code frontier}, {@code standard}, {@code fast}
-     * @param effort           the effort, or empty for the profile's default effort
+     * @param effort           the effort, or {@code null} for the profile's default effort
      * @param preferredHarness the client id of the harness the release graded the role on
      * @param advisory         the message key of the advisory shown beside the value
      * @since 0.1
      */
-    public record DefaultRole(String tier, Optional<EffortValue> effort, String preferredHarness, String advisory) {
+    public record DefaultRole(String tier, @Nullable EffortValue effort, String preferredHarness, String advisory) {
 
         private static final Set<String> TIERS = Set.of("frontier", "standard", "fast");
 
         /** @throws IllegalArgumentException if a value is missing or the tier is outside the closed list */
         public DefaultRole {
             Objects.requireNonNull(tier, "tier");
-            Objects.requireNonNull(effort, "effort");
             Objects.requireNonNull(preferredHarness, "preferredHarness");
             Objects.requireNonNull(advisory, "advisory");
             if (!TIERS.contains(tier)) {
@@ -167,14 +166,14 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
         requireObject(parser, name);
         var seen = new HashSet<String>();
         @Nullable String tier = null;
-        Optional<EffortValue> effort = Optional.empty();
+        @Nullable EffortValue effort = null;
         @Nullable String preferredHarness = null;
         @Nullable String advisory = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_TIER -> tier = string(parser, field);
-                case FIELD_EFFORT -> effort = nullableString(parser, field).map(EffortValue::new);
+                case FIELD_EFFORT -> effort = nullableString(parser, field).map(EffortValue::new).orElse(null);
                 case FIELD_PREFERRED_HARNESS -> preferredHarness = string(parser, field);
                 case FIELD_ADVISORY -> advisory = string(parser, field);
                 default -> throw undeclared(field);

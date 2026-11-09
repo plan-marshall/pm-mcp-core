@@ -427,7 +427,7 @@ final class ScenarioFixtures {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, NoParams parameters) {
-            return new PrimitiveResult<>(outcome, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcome, Map.of(), null);
         }
 
         @Override
@@ -468,7 +468,7 @@ final class ScenarioFixtures {
         @Override
         public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
             notes.add(parameters.note());
-            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), null);
         }
 
         @Override

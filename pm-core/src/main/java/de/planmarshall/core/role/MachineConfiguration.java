@@ -9,20 +9,14 @@
  */
 package de.planmarshall.core.role;
 
-import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The facts of the machine configuration a role reads (PM-WORK-1, Steward Role): today the default harness,
  * {@code harnesses.default} of {@code machine-config.json}, on which the steward runs.
  *
- * @param defaultHarness the client id of the machine's default harness, or empty before one is chosen
+ * @param defaultHarness the client id of the machine's default harness, or {@code null} before one is chosen
  * @since 0.1
  */
-public record MachineConfiguration(Optional<String> defaultHarness) {
-
-    /** Rejects a {@code null} component. */
-    public MachineConfiguration {
-        Objects.requireNonNull(defaultHarness, "defaultHarness");
-    }
+public record MachineConfiguration(@Nullable String defaultHarness) {
 }

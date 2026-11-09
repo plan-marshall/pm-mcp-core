@@ -220,16 +220,6 @@ public sealed interface ToonValue
             }
 
             /**
-             * @param key   the key
-             * @param value the optional value; omitted when empty
-             * @return this builder
-             */
-            public Builder add(String key, Optional<? extends ToonValue> value) {
-                value.ifPresent(v -> add(key, v));
-                return this;
-            }
-
-            /**
              * @return the object
              */
             public ToonObject build() {

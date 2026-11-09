@@ -48,7 +48,7 @@ class PlanTokensTest {
     private static HarnessUsage usage(long input, long output, long cacheRead, long cacheCreation, long reasoning) {
         return new HarnessUsage(Measurement.measured(input), Measurement.measured(output),
                 Measurement.measured(cacheRead), Measurement.measured(cacheCreation), Measurement.measured(reasoning),
-                Measurement.measured(1), Optional.empty(), Optional.empty());
+                Measurement.measured(1), null, null);
     }
 
     private static MetricsRow row(String task, HarnessUsage usage) {

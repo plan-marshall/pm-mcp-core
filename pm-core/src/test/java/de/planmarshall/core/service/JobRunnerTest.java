@@ -11,6 +11,7 @@ package de.planmarshall.core.service;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -81,7 +82,7 @@ class JobRunnerTest {
     }
 
     private static StartRequest<String> request(JobId.Kind kind, String budgetKey, long budgetSeconds) {
-        return new StartRequest<>(kind, PLAN, budgetKey, budgetSeconds, FLOOR, REQUEST_TEXT, Optional.empty());
+        return new StartRequest<>(kind, PLAN, budgetKey, budgetSeconds, FLOOR, REQUEST_TEXT, null);
     }
 
     private static List<String> implementations(JavaClasses classes) {
@@ -100,12 +101,14 @@ class JobRunnerTest {
             var requestText = Generators.letterStrings(3, 10).next();
             var payload = Generators.letterStrings(1, 30).next();
             var request = new StartRequest<>(JobId.Kind.BUILD, PLAN, "build:verify", budgetSeconds, FLOOR,
-                    requestText, Optional.of(payload));
+                    requestText, payload);
 
             assertAll(
                     () -> assertEquals(JobId.Kind.BUILD, request.kind()),
                     () -> assertEquals(budgetSeconds, request.budgetSeconds()),
-                    () -> assertEquals(Optional.of(payload), request.stdin()));
+                    () -> assertEquals(payload, request.stdin()),
+                    () -> assertNull(request(JobId.Kind.BUILD, "build:verify", budgetSeconds).stdin(),
+                            "an absent standard input stays null"));
         }
 
         @Test
@@ -113,17 +116,15 @@ class JobRunnerTest {
         void missing() {
             assertAll(
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, Optional.empty())),
+                            () -> new StartRequest<>(null, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, null)),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, null,
-                            "build:verify", 1, FLOOR, REQUEST_TEXT, Optional.empty())),
+                            "build:verify", 1, FLOOR, REQUEST_TEXT, null)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, REQUEST_TEXT, Optional.empty())),
+                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, null, 1, FLOOR, REQUEST_TEXT, null)),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<>(JobId.Kind.BUILD, PLAN,
-                            "build:verify", 1, null, "r", Optional.empty())),
+                            "build:verify", 1, null, "r", null)),
                     () -> assertThrows(NullPointerException.class, () -> new StartRequest<String>(JobId.Kind.BUILD,
-                            PLAN, "build:verify", 1, FLOOR, null, Optional.empty())),
-                    () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest<>(JobId.Kind.BUILD, PLAN, "build:verify", 1, FLOOR, REQUEST_TEXT, null)));
+                            PLAN, "build:verify", 1, FLOOR, null, null)));
         }
 
         @Test

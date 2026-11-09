@@ -70,8 +70,8 @@ public final class ModelCaller {
     public ModelCallResult call(ModelJob job) {
         var resolution = resolver(job.role()).resolve(job.role());
         if (resolution instanceof RoleResolution.Undefined undefined) {
-            // pm-core boundary: RoleResolution.Undefined.reason() returns Optional; it is unwrapped here, once
-            return close(job, ModelCallResult.ROLE_UNDEFINED, undefined.reason().orElse(null), undefined.detail());
+            // pm-core boundary: RoleResolution.Undefined.reason() is nullable and passed through as-is
+            return close(job, ModelCallResult.ROLE_UNDEFINED, undefined.reason(), undefined.detail());
         }
         var role = ((RoleResolution.Defined) resolution).role();
         if (!job.accepts(role.roleClass())) {

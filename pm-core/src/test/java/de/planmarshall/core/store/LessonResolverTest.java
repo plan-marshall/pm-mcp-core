@@ -335,7 +335,7 @@ class LessonResolverTest {
             assertAll(
                     "A changed byte is store_tampered under the lock",
                     () -> assertEquals(expectedPath(lessonId), tampered.path(), "the refusal names the file"),
-                    () -> assertEquals(StoreDigest.ofFile(expectedPath(lessonId)),
+                    () -> assertEquals(StoreDigest.ofFile(expectedPath(lessonId)).orElseThrow(),
                             tampered.current(), "the refusal carries the current digest"),
                     () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, found.integrity(),
                             "a lock-free read is unverified, never a decision"),

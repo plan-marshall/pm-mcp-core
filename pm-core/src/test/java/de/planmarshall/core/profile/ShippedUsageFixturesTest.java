@@ -120,7 +120,7 @@ class ShippedUsageFixturesTest {
     }
 
     private static Long cost(HarnessUsage row) {
-        return row.costUsd().map(BigDecimal::longValueExact).orElse(null);
+        return row.costUsd() == null ? null : row.costUsd().longValueExact();
     }
 
     private static OptionalLong totalOrEmpty(Map<String, Long> assigned, Set<String> notApplicable) {

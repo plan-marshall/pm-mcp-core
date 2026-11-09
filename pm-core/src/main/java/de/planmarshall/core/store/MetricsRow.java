@@ -448,7 +448,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
 
     /** @return why a figure of the row is unmeasured, empty when every applicable figure is measured */
     public Optional<UnmeasuredReason> unmeasuredReason() {
-        return usage.unmeasuredReason();
+        return Optional.ofNullable(usage.unmeasuredReason());
     }
 
     /**

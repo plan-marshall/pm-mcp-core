@@ -76,7 +76,10 @@ public final class RoleDigests {
         configuration.put("skill_digests", skillDigests(role.skills()));
         var input = new LinkedHashMap<String, JsonNode>();
         input.put("configuration", JsonNode.object(configuration));
-        role.weightsIdentity().ifPresent(identity -> input.put("weights_identity", JsonNode.string(identity)));
+        var identity = role.weightsIdentity();
+        if (identity != null) {
+            input.put("weights_identity", JsonNode.string(identity));
+        }
         return digest(JsonNode.object(input));
     }
 

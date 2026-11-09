@@ -188,8 +188,7 @@ class RoleEffectiveConfigurationTest {
         var resolution = new RoleCatalog(RoleFixtures.shippedValid(), environment)
                 .resolve(RoleFixtures.ROLE, RoleAssignment.none());
 
-        assertEquals(Optional.of(RoleValidationReason.HARNESS_UNKNOWN),
-                ((RoleResolution.Undefined) resolution).reason());
+        assertEquals(RoleValidationReason.HARNESS_UNKNOWN, ((RoleResolution.Undefined) resolution).reason());
     }
 
     @Test
@@ -205,7 +204,7 @@ class RoleEffectiveConfigurationTest {
         assertAll(
                 () -> assertEquals(RoleFixtures.MODEL, withoutProject.model(), "the machine's catalogue applies"),
                 () -> assertEquals(RoleValidationReason.MODEL_NOT_ALLOWED,
-                        ((RoleResolution.Undefined) withRefusingProject).reason().orElseThrow(),
+                        ((RoleResolution.Undefined) withRefusingProject).reason(),
                         "the project's catalogue replaces the machine's"));
     }
 
@@ -218,7 +217,7 @@ class RoleEffectiveConfigurationTest {
 
         assertAll(
                 () -> assertInstanceOf(RoleResolution.Undefined.class, resolution),
-                () -> assertEquals(Optional.empty(), ((RoleResolution.Undefined) resolution).reason()));
+                () -> assertNull(((RoleResolution.Undefined) resolution).reason()));
     }
 
     @Test
@@ -230,8 +229,7 @@ class RoleEffectiveConfigurationTest {
         var resolution = new RoleCatalog(sets, RoleFixtures.environment())
                 .resolve(RoleFixtures.ROLE, RoleAssignment.none());
 
-        assertEquals(Optional.of(RoleValidationReason.SCHEMA_INVALID),
-                ((RoleResolution.Undefined) resolution).reason());
+        assertEquals(RoleValidationReason.SCHEMA_INVALID, ((RoleResolution.Undefined) resolution).reason());
     }
 
     @Nested
@@ -278,14 +276,12 @@ class RoleEffectiveConfigurationTest {
         @Test
         @DisplayName("is undefined without a default harness")
         void stewardNeedsADefaultHarness() {
-            var environment = RoleFixtures.environment()
-                    .machineConfiguration(new MachineConfiguration(Optional.empty()));
+            var environment = RoleFixtures.environment().machineConfiguration(new MachineConfiguration(null));
             var sets = RoleFixtures.shipped(Map.of(RoleCatalog.STEWARD, stewardArtifact()));
 
             var resolution = new RoleCatalog(sets, environment).resolveSteward();
 
-            assertEquals(Optional.of(RoleValidationReason.HARNESS_UNKNOWN),
-                    ((RoleResolution.Undefined) resolution).reason());
+            assertEquals(RoleValidationReason.HARNESS_UNKNOWN, ((RoleResolution.Undefined) resolution).reason());
         }
     }
 
@@ -315,7 +311,7 @@ class RoleEffectiveConfigurationTest {
 
     private static RoleValidationReason definedRisky(RoleResolution resolution) {
         assertInstanceOf(RoleResolution.Undefined.class, resolution, resolution::toString);
-        return ((RoleResolution.Undefined) resolution).reason().orElseThrow();
+        return ((RoleResolution.Undefined) resolution).reason();
     }
 
     private static RoleAssignments assignments(String role, RoleAssignment assignment) {
@@ -325,7 +321,6 @@ class RoleEffectiveConfigurationTest {
     }
 
     private static RoleAssignment assignment(String harness, String model, EffortValue effort) {
-        return new RoleAssignment(Optional.ofNullable(harness), Optional.ofNullable(model),
-                Optional.ofNullable(effort));
+        return new RoleAssignment(harness, model, effort);
     }
 }

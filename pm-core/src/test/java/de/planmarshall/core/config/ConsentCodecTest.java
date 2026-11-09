@@ -120,7 +120,7 @@ class ConsentCodecTest {
         var device = "dev-" + "%012x".formatted(Generators.longs(0L, 0xFFFF_FFFF_FFFFL).next());
         var revision = Generators.longs(0L, 1_000L).next();
         var consent = Consent.checkoutScripts(project, List.of(new ConsentScript(script, digest)),
-                granted, Consent.Channel.WEB, Optional.of(device));
+                granted, Consent.Channel.WEB, device);
 
         var document = ConsentCodec.write(List.of(consent), revision);
         var read = ConsentCodec.read(file(), document);
@@ -145,7 +145,6 @@ class ConsentCodecTest {
     void invalidProjectId() {
         var granted = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
         assertThrows(IllegalArgumentException.class,
-                () -> Consent.project(ConsentKind.INSPECT_CHECKOUT, "Upper", granted, Consent.Channel.CLI,
-                        Optional.empty()));
+                () -> Consent.project(ConsentKind.INSPECT_CHECKOUT, "Upper", granted, Consent.Channel.CLI, null));
     }
 }

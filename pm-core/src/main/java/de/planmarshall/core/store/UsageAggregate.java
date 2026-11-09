@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -49,7 +48,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * a set of rows of different populations is refused rather than silently mixed. An epic's figure is the sum of its
  * plans' aggregates and its own rows, formed with {@link #plus(UsageAggregate)}.
  *
- * @param population         the population the figures count; empty for an aggregate over no row
+ * @param population         the population the figures count; {@code null} for an aggregate over no row
  * @param totalTokens        the summed total tokens, empty when the population is empty
  * @param tokensIn           the summed input split, empty when the population is empty or a component is unmeasured
  * @param tokensOut          the summed output split, empty when the population is empty or a component is unmeasured
@@ -61,7 +60,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * @param totalIsFloor       whether the figure is a lower bound because a row of the population is unmeasured
  * @since 0.1
  */
-public record UsageAggregate(Optional<Population> population, OptionalLong totalTokens, OptionalLong tokensIn,
+public record UsageAggregate(@Nullable Population population, OptionalLong totalTokens, OptionalLong tokensIn,
 OptionalLong tokensOut, long rows, long rowsUnmeasured, Map<UnmeasuredReason, Long> unmeasuredReasons,
 long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
 
@@ -190,7 +189,10 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
                 total += rowTotal.getAsLong();
             } else {
                 unmeasured++;
-                usage.unmeasuredReason().ifPresent(reason -> reasons.merge(reason, 1L, Long::sum));
+                var reason = usage.unmeasuredReason();
+                if (reason != null) {
+                    reasons.merge(reason, 1L, Long::sum);
+                }
             }
             var rowIn = usage.tokensIn();
             var rowOut = usage.tokensOut();
@@ -208,7 +210,7 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
         var populationCount = counted;
         var floor = unmeasured > 0;
         var measured = populationCount - unmeasured;
-        return new UsageAggregate(Optional.of(population),
+        return new UsageAggregate(population,
                 measured == 0 ? OptionalLong.empty() : OptionalLong.of(total),
                 populationCount == 0 || !inMeasured ? OptionalLong.empty() : OptionalLong.of(in),
                 populationCount == 0 || !outMeasured ? OptionalLong.empty() : OptionalLong.of(out),
@@ -242,9 +244,10 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
      */
     public UsageAggregate plus(UsageAggregate other) {
         Objects.requireNonNull(other, "other");
-        if (!population.equals(other.population)) {
+        if (!Objects.equals(population, other.population())) {
             throw new IllegalArgumentException(
-                    "Sums are formed only between figures of one population: %s and %s".formatted(population, other.population));
+                    "Sums are formed only between figures of one population: %s and %s".formatted(population,
+                            other.population()));
         }
         if (populationCount == 0) {
             return other;

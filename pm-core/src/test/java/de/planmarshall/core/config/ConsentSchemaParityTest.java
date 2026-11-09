@@ -105,9 +105,9 @@ class ConsentSchemaParityTest {
     void writtenStoreIsValid() {
         var recorded = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
         var machine = Consent.machine(ConsentKind.SCAN_HARNESSES, recorded, Consent.Channel.WEB,
-                Optional.of("dev-0123456789ab"));
+                "dev-0123456789ab");
         var scripts = Consent.checkoutScripts("project-a", List.of(new ConsentScript("scripts/build.sh", SHA256)),
-                recorded, Consent.Channel.CLI, Optional.empty());
+                recorded, Consent.Channel.CLI, null);
         var written = ConsentCodec.write(List.of(machine, scripts), 2);
 
         assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),

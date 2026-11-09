@@ -75,6 +75,7 @@ public final class RecordedQualification implements QualificationLookup {
         }
         var level = settings.read().settings();
         var check = new QualificationCheck(topics.apply(roleName), corpus.get(), level);
-        return check.check(roleName, entry, qualificationDigest, corpusRevision, artifactForm).qualifiedForm();
+        return Optional.ofNullable(
+                check.check(roleName, entry, qualificationDigest, corpusRevision, artifactForm).qualifiedForm());
     }
 }

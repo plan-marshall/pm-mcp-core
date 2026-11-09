@@ -10,8 +10,8 @@
 package de.planmarshall.core.spi;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The engine port that creates the queue task of a {@code job llm} state (PM-IMPL-5, bullet 1: model work is an
@@ -38,20 +38,19 @@ public interface QueueTaskCreator {
     /**
      * What the engine asks the port to create: one task of one role for one entity of one state.
      *
-     * @param scopeId the identifier of the plan or epic the state belongs to; empty for the workspace scope
+     * @param scopeId the identifier of the plan or epic the state belongs to; {@code null} for the workspace scope
      * @param stateId the identifier of the task state the task is created for
      * @param entityKey the identifier of the entity the task works on, the key of the task in {@code active_tasks}
      * @param role the name of the role whose worker takes the task
      * @since 0.1
      */
-    record CreateRequest(Optional<String> scopeId, String stateId, String entityKey, String role) {
+    record CreateRequest(@Nullable String scopeId, String stateId, String entityKey, String role) {
 
         /**
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if a component other than {@code scopeId} is {@code null}
          * @throws IllegalArgumentException if the state identifier, the entity key or the role is blank
          */
         public CreateRequest {
-            Objects.requireNonNull(scopeId, "scopeId");
             requireNonBlank(stateId, "stateId");
             requireNonBlank(entityKey, "entityKey");
             requireNonBlank(role, "role");

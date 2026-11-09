@@ -174,7 +174,8 @@ class RoleDigestTest {
 
     private static EffectiveRole role(RoleArtifact artifact, String harness, String model, EffortValue effort,
             List<RoleSkill> skills, String version, Optional<String> weights) {
-        return EffectiveRole.of(artifact, harness, model, effort, skills, version, weights, RoleFixtures.harness());
+        return EffectiveRole.of(artifact, harness, model, effort, skills, version, weights.orElse(null),
+                RoleFixtures.harness());
     }
 
     private static List<RoleSkill> skills() {

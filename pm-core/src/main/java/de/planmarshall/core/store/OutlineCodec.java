@@ -331,7 +331,7 @@ public class OutlineCodec {
             switch (field) {
                 case FIELD_SUMMARY -> summary = string(parser, field);
                 case FIELD_OVERVIEW -> overview = nullableString(parser, field).orElse(null);
-                case FIELD_SCOPE_ESTIMATE -> scope = required(ScopeEstimate.fromWireName(string(parser, field)), field);
+                case FIELD_SCOPE_ESTIMATE -> scope = required(ScopeEstimate.fromWireName(string(parser, field)).orElse(null), field);
                 case FIELD_DELIVERABLES -> deliverables = array(parser, field, OutlineCodec::readDeliverable);
                 default -> throw undeclared(field);
             }
@@ -370,9 +370,9 @@ public class OutlineCodec {
                 case FIELD_NUMBER -> number = integer(parser, field);
                 case FIELD_TITLE -> title = string(parser, field);
                 case FIELD_INTENT_GLOSS -> intentGloss = string(parser, field);
-                case FIELD_CHANGE_TYPE -> changeType = required(ChangeType.fromWireName(string(parser, field)), field);
+                case FIELD_CHANGE_TYPE -> changeType = required(ChangeType.fromWireName(string(parser, field)).orElse(null), field);
                 case FIELD_EXECUTION_MODE ->
-                    executionMode = required(ExecutionMode.fromWireName(string(parser, field)), field);
+                    executionMode = required(ExecutionMode.fromWireName(string(parser, field)).orElse(null), field);
                 case FIELD_DOMAIN -> domain = string(parser, field);
                 case FIELD_MODULE -> module = string(parser, field);
                 case FIELD_DEPENDS -> depends = array(parser, field, OutlineCodec::readNumber);
@@ -411,7 +411,7 @@ public class OutlineCodec {
     }
 
     private static Profile readProfile(JsonParser parser, String name) throws IOException {
-        return required(Profile.fromWireName(string(parser, name)), name);
+        return required(Profile.fromWireName(string(parser, name)).orElse(null), name);
     }
 
     private static AffectedFile readAffectedFile(JsonParser parser, String name) throws IOException {
@@ -424,7 +424,7 @@ public class OutlineCodec {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_PATH -> path = string(parser, field);
-                case FIELD_INTENT -> intent = required(FileIntent.fromWireName(string(parser, field)), field);
+                case FIELD_INTENT -> intent = required(FileIntent.fromWireName(string(parser, field)).orElse(null), field);
                 case FIELD_GATE -> gate = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
@@ -490,7 +490,7 @@ public class OutlineCodec {
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
-                case FIELD_DIRECTION -> direction = required(Direction.fromWireName(string(parser, field)), field);
+                case FIELD_DIRECTION -> direction = required(Direction.fromWireName(string(parser, field)).orElse(null), field);
                 case FIELD_SYMBOL -> symbol = string(parser, field);
                 case FIELD_SIGNATURE -> signature = string(parser, field);
                 default -> throw undeclared(field);
@@ -527,8 +527,11 @@ public class OutlineCodec {
         }
     }
 
-    private static <T> T required(Optional<T> value, String field) {
-        return value.orElseThrow(() -> unreadable("'%s' names no known value".formatted(field)));
+    private static <T> T required(@Nullable T value, String field) {
+        if (value == null) {
+            throw unreadable("'%s' names no known value".formatted(field));
+        }
+        return value;
     }
 
     private static Map<Integer, DeliveryStatus> byNumber(Map<String, DeliveryStatus> byKey) {

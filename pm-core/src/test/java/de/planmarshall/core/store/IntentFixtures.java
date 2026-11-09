@@ -107,12 +107,12 @@ final class IntentFixtures {
 
     static Context context(Path treeRoot) {
         return new Context(PLAN_ID, questionId -> Optional.empty(), (capability, requirement) -> Optional.empty(),
-                Optional.empty(), treeRoot);
+                null, treeRoot);
     }
 
     static Context answered(Path treeRoot, String questionId, String planId, AnswerChannel channel) {
         return new Context(PLAN_ID, asked -> questionId.equals(asked)
                 ? Optional.of(new AnsweredPart(planId, channel))
-                : Optional.empty(), (capability, requirement) -> Optional.empty(), Optional.empty(), treeRoot);
+                : Optional.empty(), (capability, requirement) -> Optional.empty(), null, treeRoot);
     }
 }

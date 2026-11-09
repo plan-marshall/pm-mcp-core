@@ -2644,3 +2644,5 @@ changes no fingerprint.
 `CapabilityIndex.read(projectRoot)` reads the tree's specs, refuses a file whose name is not its capability, and serves
 both the planning roles' `facts.capability_index` (`facts()`) and the acceptance's capability checks
 (`fingerprint(capability, requirement)`).
+
+A store record carries its absent state as `@Nullable`: `ScopeIntegrity.Mismatch.current`, `LessonResolution.StoreTampered.current`, `ProjectResolver.Match.refusal`, `HarnessUsage.costUsd` and `HarnessUsage.unmeasuredReason`, `UsageAggregate.population`, `IntentAcceptance.Context.epic` and the builder fields of `MetricsCodec` are nullable, and a codec writes the absent member exactly as it wrote `Optional.empty()` (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019]). The codec's `required(...)` helper takes a nullable value and refuses it with the same `StoreRefusal` as before.

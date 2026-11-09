@@ -266,6 +266,11 @@ is `1`), and a split that does not sum to the total is refused at construction.
 link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005]: the token total of a grading record carries its
 split.
 
+== The Null Contract of This Package
+
+A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
+stays the type of the absence a method returns (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is an `OptionalInt` (link:../../../doc/adr/020-the-effective-idle-wakeups-are-an-optionalint.adoc[repository ADR 020]).
+
 == Related
 
 * link:core-profile.adoc[Harness Profiles Developer Guide] — the harness and its profile.

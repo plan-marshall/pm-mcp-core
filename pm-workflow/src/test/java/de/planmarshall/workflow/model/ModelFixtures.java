@@ -64,8 +64,7 @@ final class ModelFixtures {
      */
     static EffectiveRole roleIn(String name, RoleClass roleClass, RoleForm form, String harness, String model) {
         return EffectiveRole.of(artifact(name, roleClass, form), harness, model, new EffortValue(null),
-                List.of(new RoleSkill("skill://pm/role/" + name + "/SKILL.md", DIGEST)), VERSION, Optional.empty(),
-                profile());
+                List.of(new RoleSkill("skill://pm/role/" + name + "/SKILL.md", DIGEST)), VERSION, null, profile());
     }
 
     /** @return the profile of the harness, which runs every class */
@@ -102,7 +101,7 @@ final class ModelFixtures {
     static RoleResolver resolver(Map<String, EffectiveRole> roles) {
         return name -> roles.containsKey(name)
                 ? new RoleResolution.Defined(roles.get(name))
-                : new RoleResolution.Undefined(name, Optional.empty(), Generators.letterStrings(5, 30).next());
+                : new RoleResolution.Undefined(name, null, Generators.letterStrings(5, 30).next());
     }
 
     /** The qualification lookup of the tests; a lookup of a skipped role fails the test. */

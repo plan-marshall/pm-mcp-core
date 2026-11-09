@@ -12,6 +12,7 @@ package de.planmarshall.core.config;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,47 +62,47 @@ class ConsentGateTest {
     private static ConsentGate remembered(ConsentKind kind, String project, List<ConsentScript> scripts) {
         if (kind.projectScoped()) {
             return gate(kind.scriptScoped()
-                    ? Consent.checkoutScripts(project, scripts, NOW, Consent.Channel.CLI, Optional.empty())
-                    : Consent.project(kind, project, NOW, Consent.Channel.CLI, Optional.empty()));
+                    ? Consent.checkoutScripts(project, scripts, NOW, Consent.Channel.CLI, null)
+                    : Consent.project(kind, project, NOW, Consent.Channel.CLI, null));
         }
-        return gate(Consent.machine(kind, NOW, Consent.Channel.CLI, Optional.empty()));
+        return gate(Consent.machine(kind, NOW, Consent.Channel.CLI, null));
     }
 
     @Test
     @DisplayName("yes runs the action and records nothing")
     void yes() {
         var decision = empty().answer(ConsentGate.Request.machine(ConsentKind.SCAN_HARNESSES),
-                ConsentGate.Answer.YES, Consent.Channel.CLI, Optional.empty());
+                ConsentGate.Answer.YES, Consent.Channel.CLI, null);
 
         assertAll(
                 () -> assertTrue(decision.runs()),
-                () -> assertTrue(decision.toRecord().isEmpty()));
+                () -> assertNull(decision.toRecord()));
     }
 
     @Test
     @DisplayName("no records nothing and leaves the scope in the consent state")
     void no() {
         var decision = empty().answer(ConsentGate.Request.machine(ConsentKind.CHECK_CREDENTIAL_STORE),
-                ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty());
+                ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
                 () -> assertFalse(decision.runs()),
-                () -> assertTrue(decision.toRecord().isEmpty()));
+                () -> assertNull(decision.toRecord()));
     }
 
     @Test
     @DisplayName("yes_remember records the entry the store keeps")
     void yesRemember() {
         var decision = empty().answer(ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS),
-                ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, Optional.empty());
+                ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, null);
 
-        var recorded = decision.toRecord().orElseThrow();
+        var recorded = decision.toRecord();
         assertAll(
                 () -> assertTrue(decision.runs()),
                 () -> assertEquals(ConsentKind.VERIFY_PROVIDERS, recorded.kind()),
                 () -> assertEquals(NOW, recorded.grantedAt()),
                 () -> assertEquals(Consent.Channel.CLI, recorded.channel()),
-                () -> assertTrue(recorded.projectId().isEmpty()));
+                () -> assertNull(recorded.projectId()));
     }
 
     @Test
@@ -110,11 +111,11 @@ class ConsentGateTest {
         var request = ConsentGate.Request.machine(ConsentKind.CHECK_CREDENTIAL_STORE);
 
         var decision = remembered(ConsentKind.CHECK_CREDENTIAL_STORE, "", List.of())
-                .answer(request, ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty());
+                .answer(request, ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
                 () -> assertTrue(decision.runs()),
-                () -> assertTrue(decision.toRecord().isEmpty()));
+                () -> assertNull(decision.toRecord()));
     }
 
     @Test
@@ -124,9 +125,9 @@ class ConsentGateTest {
 
         assertAll(
                 () -> assertTrue(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, PROJECT),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()),
+                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()),
                 () -> assertFalse(gate.answer(ConsentGate.Request.project(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()));
+                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()));
     }
 
     @Test
@@ -137,10 +138,10 @@ class ConsentGateTest {
 
         assertAll(
                 () -> assertTrue(gate.answer(ConsentGate.Request.checkoutScripts(PROJECT, List.of(granted)),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()),
+                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()),
                 () -> assertFalse(gate.answer(ConsentGate.Request.checkoutScripts(PROJECT,
                                 List.of(new ConsentScript(SCRIPT, OTHER_SHA))),
-                        ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty()).runs()));
+                        ConsentGate.Answer.NO, Consent.Channel.CLI, null).runs()));
     }
 
     @Test
@@ -149,7 +150,7 @@ class ConsentGateTest {
         var gate = empty();
         var verifyProfileRequest = ConsentGate.Request.machine(ConsentKind.VERIFY_HARNESS_PROFILE);
         var autoRunRequest = ConsentGate.Request.machine(ConsentKind.AUTO_RUN);
-        var noDevice = Optional.<String>empty();
+        String noDevice = null;
         var harnessProfile = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(verifyProfileRequest, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI,
                         noDevice));
@@ -168,10 +169,10 @@ class ConsentGateTest {
     void scope() {
         var gate = empty();
         var inspect = ConsentGate.Request.machine(ConsentKind.INSPECT_CHECKOUT);
-        var withProject = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.of(PROJECT), List.of());
-        var withScripts = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, Optional.empty(),
+        var withProject = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, PROJECT, List.of());
+        var withScripts = new ConsentGate.Request(ConsentKind.SCAN_HARNESSES, null,
                 List.of(new ConsentScript(OTHER_SCRIPT, SHA)));
-        var noProject = Optional.<String>empty();
+        String noProject = null;
         var machineKindWithProject = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(inspect, ConsentGate.Answer.YES, Consent.Channel.CLI, noProject));
         var projectKindWithoutProject = assertThrows(IllegalArgumentException.class,
@@ -193,10 +194,10 @@ class ConsentGateTest {
     void device() {
         var gate = empty();
         var request = ConsentGate.Request.machine(ConsentKind.SCAN_PROVIDERS);
-        var paired = Optional.of(DEVICE);
-        var laptop = Optional.of(NOT_A_DEVICE);
+        String paired = DEVICE;
+        String laptop = NOT_A_DEVICE;
         var remembered = gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.WEB, paired);
-        var device = remembered.toRecord().orElseThrow().deviceId();
+        var device = remembered.toRecord().deviceId();
         var deviceOnCli = assertThrows(IllegalArgumentException.class,
                 () -> gate.answer(request, ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI, paired));
         var notADevice = assertThrows(IllegalArgumentException.class,
@@ -217,7 +218,7 @@ class ConsentGateTest {
 
         assertAll(
                 () -> assertTrue(decision.runs()),
-                () -> assertTrue(decision.toRecord().isEmpty()));
+                () -> assertNull(decision.toRecord()));
     }
 
     @Test

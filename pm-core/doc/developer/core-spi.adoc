@@ -428,4 +428,8 @@ previous section. They return the accepted value or a refusal that names the ite
   the reason-to-condition table is total and closed, link:../adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR 011]
   reasons are data only and never routable, link:../adr/core-spi/012-a-skip-with-an-optional-input-is-skipped-plus-a-reason.adoc[ADR 012]
   a skip with an optional input is skipped plus a reason
+* The null contract of the ports: `PrimitiveResult.spawnedJobId` and `PrimitiveResult.reason`, the `scopeId` of
+  `JobStarter.StartRequest`, `QueueTaskCreator.CreateRequest` and `QuestionRecordReader.ReadRequest` are `@Nullable`; a
+  reason is present exactly when the outcome declares a reason type, and the builder defaults both optional components to
+  `null` (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019], link:../adr/core-spi/008-the-result-carries-an-optional-reason-as-its-fourth-component.adoc[ADR 008]).
 * The store that binds the ports: link:core-store.adoc[`core.store`]

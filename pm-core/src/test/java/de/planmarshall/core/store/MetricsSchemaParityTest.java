@@ -58,8 +58,7 @@ class MetricsSchemaParityTest {
 
     private static MetricsRow row() {
         var usage = new HarnessUsage(Measurement.measured(1), Measurement.measured(2), Measurement.measured(3),
-                Measurement.measured(4), Measurement.measured(5), Measurement.measured(6), Optional.empty(),
-                Optional.empty());
+                Measurement.measured(4), Measurement.measured(5), Measurement.measured(6), null, null);
         return MetricsRow.builder().queueTaskId(QUEUE_TASK_ID).attempt(1).role("implementer").jobId(ID)
                 .generationId(ID).harness("opencode").harnessVersion("1").model("model").effort("high")
                 .form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step").envelopeId(null).predictedCost(null)

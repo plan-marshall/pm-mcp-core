@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -210,8 +211,8 @@ class WorkerJobTest {
                         .Questions(0, 0), Map.of());
         return new EffectiveRole(artifact, "claude", "frontier",
                 new EffortValue("high"), List.of(), Generators.integers(0, 99).next() + "."
-                + Generators.integers(0, 99).next(), Optional.empty(),
-                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
+                + Generators.integers(0, 99).next(), null,
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
     }
 
     /** The environment of the test worker: the allowlist of the fixture. */

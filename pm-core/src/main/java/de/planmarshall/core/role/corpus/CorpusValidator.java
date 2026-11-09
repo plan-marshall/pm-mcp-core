@@ -237,27 +237,27 @@ public final class CorpusValidator {
         private void identity(JsonObject item, String id) {
             var itemId = item.get("id");
             if (!itemId.map(value -> value instanceof JsonString(var named) && named.equals(id)).orElse(false)) {
-                add(id, Rule.ID_PATH, "id %s differs from the path '%s'".formatted(text(itemId), id));
+                add(id, Rule.ID_PATH, "id %s differs from the path '%s'".formatted(text(itemId.orElse(null)), id));
             }
             var directory = id.contains("/") ? id.substring(0, id.lastIndexOf('/')) : id;
-            if (!string(Optional.of(item), "topic").filter(directory::equals).isPresent()) {
+            if (!string(item, "topic").filter(directory::equals).isPresent()) {
                 add(id, Rule.TOPIC_DIRECTORY, "topic differs from the directory");
             }
-            if (!string(Optional.of(item), "canary").filter(ItemGenerator.CANARY::equals).isPresent()) {
+            if (!string(item, "canary").filter(ItemGenerator.CANARY::equals).isPresent()) {
                 add(id, Rule.CANARY, "missing or wrong canary");
             }
         }
 
         /** Checks that a closed answer is one of the choices and a rubric has items unless the item is a control. */
         private void grading(JsonObject item, String id) {
-            var method = string(object(item, "grading"), "method").orElse("");
+            var method = string(object(item, "grading").orElse(null), "method").orElse("");
             var target = object(item, "target");
             var input = object(item, "input");
-            if (CLOSED_METHODS.contains(method) && !answerAmongChoices(target, input)) {
+            if (CLOSED_METHODS.contains(method) && !answerAmongChoices(target.orElse(null), input.orElse(null))) {
                 add(id, Rule.CLOSED_ANSWER, "a closed answer must be one of the choices");
             }
-            if (RUBRIC_METHODS.contains(method) && !truthy(target.flatMap(value -> value.get("items")))
-                    && !truthy(target.flatMap(value -> value.get("expected_empty")))) {
+            if (RUBRIC_METHODS.contains(method) && !truthy(target.flatMap(value -> value.get("items")).orElse(null))
+                    && !truthy(target.flatMap(value -> value.get("expected_empty")).orElse(null))) {
                 add(id, Rule.RUBRIC_ITEMS, "a rubric needs items, or expected_empty for a control");
             }
         }
@@ -287,13 +287,13 @@ public final class CorpusValidator {
             }
         }
 
-        private boolean answerAmongChoices(Optional<JsonObject> target, Optional<JsonObject> input) {
-            if (!(input.flatMap(value -> value.get("choices")).orElse(null) instanceof JsonList(var choices))
-                    || choices.isEmpty()) {
+        private boolean answerAmongChoices(@Nullable JsonObject target, @Nullable JsonObject input) {
+            var choices = input == null ? null : input.get("choices").orElse(null);
+            if (!(choices instanceof JsonList(var list)) || list.isEmpty()) {
                 return false;
             }
-            var answer = target.flatMap(value -> value.get("answer")).orElse(new JsonNull());
-            return choices.stream().anyMatch(choice -> SchemaSubset.same(choice, answer));
+            var answer = target == null ? new JsonNull() : target.get("answer").orElse(new JsonNull());
+            return list.stream().anyMatch(choice -> SchemaSubset.same(choice, answer));
         }
 
         private boolean isFile(String path) {
@@ -331,12 +331,16 @@ public final class CorpusValidator {
                 var manifest = format(directory.resolve(CorpusImport.MANIFEST), manifestSubject, Schemas.MANIFEST,
                         Rule.MANIFEST, SourceManifestCodec::read);
                 manifest.ifPresent(document -> hashes.addAll(fileHashes(document.value())));
-                var manifestRead = manifest.flatMap(Document::decoded);
-                manifestRead.ifPresent(read -> manifest(read, manifestSubject, name));
+                var manifestRead = manifest.map(Document::decoded).orElse(null);
+                if (manifestRead != null) {
+                    manifest(manifestRead, manifestSubject, name);
+                }
                 var overlaySubject = prefix + CorpusImport.OVERLAY;
-                format(directory.resolve(CorpusImport.OVERLAY), overlaySubject, Schemas.OVERLAY, Rule.OVERLAY,
-                        SourceOverlayCodec::read).flatMap(Document::decoded)
-                        .ifPresent(read -> overlay(read, overlaySubject, name, manifestRead));
+                var overlayRead = format(directory.resolve(CorpusImport.OVERLAY), overlaySubject, Schemas.OVERLAY,
+                        Rule.OVERLAY, SourceOverlayCodec::read).map(Document::decoded).orElse(null);
+                if (overlayRead != null) {
+                    overlay(overlayRead, overlaySubject, name, manifestRead);
+                }
             }
             attribution(names);
             return hashes;
@@ -349,12 +353,12 @@ public final class CorpusValidator {
             }
         }
 
-        private void overlay(SourceOverlay overlay, String subject, String name, Optional<SourceManifest> manifest) {
+        private void overlay(SourceOverlay overlay, String subject, String name, @Nullable SourceManifest manifest) {
             if (!overlay.source().equals(name)) {
                 add(subject, Rule.OVERLAY, "the overlay names the source '%s' in the directory '%s'"
                         .formatted(overlay.source(), name));
             }
-            if (manifest.isPresent() && manifest.get().file(overlay.file()).isEmpty()) {
+            if (manifest != null && manifest.file(overlay.file()).isEmpty()) {
                 add(subject, Rule.OVERLAY,
                         "the overlay reads the file '%s' the manifest does not name".formatted(overlay.file()));
             }
@@ -376,7 +380,7 @@ public final class CorpusValidator {
                 var value = JsonValue.parse(bytes);
                 var errors = SchemaSubset.validate(value, schema);
                 errors.forEach(error -> add(subject, rule, error));
-                var decoded = errors.isEmpty() ? decode(file, bytes, subject, rule, codec) : Optional.<T>empty();
+                var decoded = errors.isEmpty() ? decode(file, bytes, subject, rule, codec).orElse(null) : null;
                 return Optional.of(new Document<>(value, decoded));
             } catch (IOException e) {
                 add(subject, Rule.UNREADABLE, describe(e));
@@ -477,11 +481,11 @@ public final class CorpusValidator {
      * A document of a source, read and checked against its schema.
      *
      * @param value   the JSON value
-     * @param decoded the document read with its codec; empty if the value is not valid against its schema or the codec
-     *                refuses it
+     * @param decoded the document read with its codec; {@code null} if the value is not valid against its schema or the
+     *                codec refuses it
      * @param <T>     the type the codec reads
      */
-    private record Document<T>(JsonValue value, Optional<T> decoded) {
+    private record Document<T>(JsonValue value, @Nullable T decoded) {
     }
 
     /** The schema resources of this package, read on first use. */
@@ -526,7 +530,7 @@ public final class CorpusValidator {
     private static boolean isImported(JsonObject item) {
         var provenance = object(item, "provenance");
         var origin = provenance.flatMap(value -> object(value, "origin"));
-        return string(provenance, "kind").filter(ImportedItem.Provenance.KIND::equals).isPresent()
+        return string(provenance.orElse(null), "kind").filter(ImportedItem.Provenance.KIND::equals).isPresent()
                 && origin.flatMap(value -> value.get("commit")).isPresent()
                 && origin.flatMap(value -> value.get("line")).isPresent();
     }
@@ -556,19 +560,20 @@ public final class CorpusValidator {
         return parent.get(name).filter(JsonObject.class::isInstance).map(JsonObject.class::cast);
     }
 
-    private static Optional<String> string(Optional<JsonObject> parent, String name) {
-        return parent.flatMap(value -> value.get(name)).filter(JsonString.class::isInstance)
-                .map(value -> ((JsonString) value).value());
+    private static Optional<String> string(@Nullable JsonObject parent, String name) {
+        return parent == null ? Optional.empty()
+                : parent.get(name).filter(JsonString.class::isInstance)
+                        .map(value -> ((JsonString) value).value());
     }
 
-    private static String text(Optional<JsonValue> value) {
-        return value.map(present -> present instanceof JsonString(var string) ? "'" + string + "'"
-                : present.toJson()).orElse("None");
+    private static String text(@Nullable JsonValue value) {
+        return value == null ? "None"
+                : value instanceof JsonString(var string) ? "'" + string + "'" : value.toJson();
     }
 
     /** @return {@code true} for a value Python reads as true: present, and not null, false, zero or empty */
-    private static boolean truthy(Optional<JsonValue> value) {
-        return switch (value.orElse(null)) {
+    private static boolean truthy(@Nullable JsonValue value) {
+        return switch (value) {
             case null -> false;
             case JsonNull _ -> false;
             case JsonBoolean(var bool) -> bool;

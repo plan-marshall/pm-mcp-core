@@ -58,7 +58,7 @@ class ToonEncoderTest {
                     .add("attempt", 2)
                     .add("blocked", false)
                     .add("summary", (String) null)
-                    .add("note", Optional.empty())
+                    .add("note", (ToonValue) null)
                     .add("tags", ToonValue.ofStrings(List.of("a", "b c")))
                     .add("links", new ToonArray(List.of(link("next", "pm://p/1"), link("self", "pm://p/1/s"))))
                     .add("failures", new ToonArray(List.of()))
@@ -279,7 +279,7 @@ class ToonEncoderTest {
         @DisplayName("exposes keys, lookups and primitive classification")
         void accessors() {
             var object = ToonObject.builder().add("a", true).add("b", ToonValue.of(false))
-                    .add("c", Optional.of(new ToonNumber(BigDecimal.TEN))).build();
+                    .add("c", new ToonNumber(BigDecimal.TEN)).build();
 
             assertEquals(List.of("a", "b", "c"), object.keys());
             assertTrue(object.get("c").isPresent());

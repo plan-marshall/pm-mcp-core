@@ -112,3 +112,5 @@ specification release, read through the test helper `JsonTree`.
 * Specification: the official TOON specification, version 4.1, release `v4.1.3`
   (`github.com/toon-format/spec`), sections 1 to 13 as cited above; the records whose answers it encodes are specified
   in link:../../../doc/Specification.adoc[Specification]
+
+`ToonObject.Builder.add(String, ToonValue)` takes a `@Nullable ToonValue` and omits the field for `null`, which replaces the former `Optional`-taking overload (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019]).

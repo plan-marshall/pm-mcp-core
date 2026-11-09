@@ -124,8 +124,8 @@ public class ConsentCodec {
     private static void writeConsent(JsonGenerator generator, Consent consent) throws IOException {
         generator.writeStartObject();
         generator.writeStringField(FIELD_KIND, consent.kind().wireName());
-        if (consent.projectId().isPresent()) {
-            generator.writeStringField(FIELD_PROJECT_ID, consent.projectId().get());
+        if (consent.projectId() != null) {
+            generator.writeStringField(FIELD_PROJECT_ID, consent.projectId());
         }
         if (consent.kind().scriptScoped()) {
             generator.writeArrayFieldStart(FIELD_SCRIPTS);
@@ -139,13 +139,9 @@ public class ConsentCodec {
         }
         generator.writeStringField(FIELD_GRANTED_AT, consent.grantedAt().toString());
         generator.writeStringField(FIELD_CHANNEL, consent.channel().wireName());
-        consent.deviceId().ifPresent(device -> {
-            try {
-                generator.writeStringField(FIELD_DEVICE_ID, device);
-            } catch (IOException e) {
-                throw new IllegalStateException("The consent store cannot be written", e);
-            }
-        });
+        if (consent.deviceId() != null) {
+            generator.writeStringField(FIELD_DEVICE_ID, consent.deviceId());
+        }
         generator.writeEndObject();
     }
 
@@ -188,7 +184,7 @@ public class ConsentCodec {
     private static void requireUnique(List<Consent> consents) {
         var keys = new HashSet<String>();
         for (var consent : consents) {
-            var key = consent.kind().wireName() + "|" + consent.projectId().orElse("");
+            var key = consent.kind().wireName() + "|" + (consent.projectId() == null ? "" : consent.projectId());
             if (!keys.add(key)) {
                 throw unreadable("the consent '%s' is recorded twice".formatted(key));
             }
@@ -199,20 +195,20 @@ public class ConsentCodec {
         requireObject(parser, name);
         var seen = new HashSet<String>();
         @Nullable ConsentKind kind = null;
-        Optional<String> projectId = Optional.empty();
+        @Nullable String projectId = null;
         var scripts = List.<ConsentScript>of();
         @Nullable Instant grantedAt = null;
         Consent.@Nullable Channel channel = null;
-        Optional<String> deviceId = Optional.empty();
+        @Nullable String deviceId = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_KIND -> kind = kind(parser);
-                case FIELD_PROJECT_ID -> projectId = Optional.of(string(parser, field));
+                case FIELD_PROJECT_ID -> projectId = string(parser, field);
                 case FIELD_SCRIPTS -> scripts = array(parser, field, ConsentCodec::script);
                 case FIELD_GRANTED_AT -> grantedAt = instant(parser, field);
                 case FIELD_CHANNEL -> channel = channel(parser);
-                case FIELD_DEVICE_ID -> deviceId = nullableString(parser, field);
+                case FIELD_DEVICE_ID -> deviceId = nullableString(parser, field).orElse(null);
                 default -> throw undeclared(field);
             }
         }

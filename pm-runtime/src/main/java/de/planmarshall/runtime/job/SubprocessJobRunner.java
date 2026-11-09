@@ -943,7 +943,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         var running = job.get();
         return run(running, log -> Launch.of(verified, environment.of(verified, running.latest.jobId()),
-                request.stdin(), log,
+                Optional.ofNullable(request.stdin()), log,
                 confinementComposer.forJob(verified.enrolment(), running.latest.jobId(), List.of(), false)));
     }
 

@@ -284,7 +284,7 @@ final class DiagramFixtures {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, P parameters) {
-            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
         }
 
         @Override

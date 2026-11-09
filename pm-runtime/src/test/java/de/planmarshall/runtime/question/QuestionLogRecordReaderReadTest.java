@@ -94,7 +94,7 @@ class QuestionLogRecordReaderReadTest {
     }
 
     private ReadRequest request(String scopeId, String questionId) {
-        return new ReadRequest(Optional.of(scopeId), questionId);
+        return new ReadRequest(scopeId, questionId);
     }
 
     @Nested

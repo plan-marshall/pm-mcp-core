@@ -168,25 +168,24 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
      * The scope a request addresses: the workspace scope for an empty id, else the plan or epic of that id. The store
      * directory of the scope tells the two apart; an id that names both is refused rather than guessed.
      */
-    private Resolution resolve(Optional<String> scopeId) {
-        if (scopeId.isEmpty()) {
+    private Resolution resolve(@Nullable String scopeId) {
+        if (scopeId == null) {
             return Resolution.of(JournalScope.workspace(base, projectId));
         }
         try {
-            var id = scopeId.get();
-            var plan = JournalScope.plan(base, projectId, id);
-            var epic = JournalScope.epic(base, projectId, id);
+            var plan = JournalScope.plan(base, projectId, scopeId);
+            var epic = JournalScope.epic(base, projectId, scopeId);
             var planExists = Files.isDirectory(plan.pathBase());
             var epicExists = Files.isDirectory(epic.pathBase());
             if (planExists && epicExists) {
-                return Resolution.refused("the scope " + id + " names a plan and an epic");
+                return Resolution.refused("the scope " + scopeId + " names a plan and an epic");
             }
             if (!planExists && !epicExists) {
                 return Resolution.refused("no question log for the scope");
             }
             return Resolution.of(planExists ? plan : epic);
         } catch (IllegalArgumentException _) {
-            return Resolution.refused("the scope is not an identifier: " + scopeId.get());
+            return Resolution.refused("the scope is not an identifier: " + scopeId);
         }
     }
 

@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,10 +60,10 @@ class DefaultAssignmentTest {
         var implement = defaults.of("implement").orElseThrow();
         assertAll(
                 () -> assertEquals("standard", implement.tier()),
-                () -> assertEquals(Optional.of(new EffortValue("high")), implement.effort()),
+                () -> assertEquals(new EffortValue("high"), implement.effort()),
                 () -> assertEquals(HARNESS, implement.preferredHarness()),
                 () -> assertEquals("Implements the tasks of a plan.", implement.advisory()),
-                () -> assertTrue(defaults.of("screener").orElseThrow().effort().isEmpty()),
+                () -> assertNull(defaults.of("screener").orElseThrow().effort()),
                 () -> assertTrue(defaults.of("outline").isEmpty()));
     }
 
@@ -91,7 +92,7 @@ class DefaultAssignmentTest {
         var missing = "{\"format_version\":1,\"roles\":{\"implement\":{\"tier\":\"standard\"}}}".getBytes(UTF_8);
         var withoutRoles = "{\"format_version\":1}".getBytes(UTF_8);
         var badTier = assertThrows(IllegalArgumentException.class,
-                () -> new DefaultAssignment.DefaultRole("enormous", Optional.empty(), HARNESS, ADVISORY));
+                () -> new DefaultAssignment.DefaultRole("enormous", null, HARNESS, ADVISORY));
         var newerVersion = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, newer));
         var missingMember = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, missing));
         var noRoles = assertThrows(StoreRefusal.class, () -> DefaultAssignment.read(file, withoutRoles));

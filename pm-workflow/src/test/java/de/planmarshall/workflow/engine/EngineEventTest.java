@@ -124,7 +124,7 @@ class EngineEventTest {
 
             assertAll(
                     () -> assertEquals("b-0000000000000001", started.activeJobBinding().orElseThrow().jobId()),
-                    () -> assertEquals(new JobStarter.StartRequest(Optional.of(PLAN_ID), "execute.build", "test.fate"),
+                    () -> assertEquals(new JobStarter.StartRequest(PLAN_ID, "execute.build", "test.fate"),
                             fixtures.jobStarter.requests.getFirst()),
                     () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, refused)
                             .status().state()));
