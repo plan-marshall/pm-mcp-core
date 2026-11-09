@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!DOCTYPE coverage [
+  <!ENTITY probe SYSTEM "http://127.0.0.1:1/xxe">
+]>
+<coverage version="7.4.0" line-rate="&probe;" branch-rate="0.0">
+    <packages>
+        <package name="probe" line-rate="1.0" branch-rate="1.0">
+            <classes/>
+        </package>
+    </packages>
+</coverage>
