@@ -322,6 +322,6 @@ The runtime owns every value of this section: it serves web access itself, on it
 |fixed (compiled constant)
 |—
 |the transcript of a chat read by a client; the reply `chat.reply` writes
-|A longer reply ends its job; the turn ends `failed` with the reason.
+|A longer reply ends its job; the turn ends `failed` with the reason `too_long`.
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]
 |===
