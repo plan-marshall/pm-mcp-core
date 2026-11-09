@@ -73,7 +73,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Expected Surface
 
 - OBSERVED: `doc/specification/model-work/01-roles-and-configuration.adoc` — specification part; implemented prose condensed, the validation table untouched (read by tests)
-- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; implemented prose only
+- OBSERVED: `doc/specification/harness-profiles/01-profile-schema.adoc` — specification part; implemented prose only
 - OBSERVED: `doc/specification/store-schemas/12-machine-stores.adoc` — specification part; the role-assignment prose only, blocks untouched (read by tests)
 - OBSERVED: `doc/specification/store-schemas/16-task-queue.adoc` — specification part; the qualification-record prose only, blocks untouched (read by tests)
 - OBSERVED: `doc/implementation-watch/model-work.adoc` — watch document; the covered items decided
