@@ -54,9 +54,12 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: ADR `core-store/024` Context: 'JsonlStoreFile closes its channel after every append, and closing a channel releases every lock of the operating system the process holds on that file'; Decision: 'The lost OS lock is accepted ... Neither the lock manager nor JsonlStoreFile changes for the audit log'
+  - verdict: corroborated | checked_at: 7c87ef4fa753dcac99d8c0d8b58ad8fb8a47b4d5 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: ADR core-store/024 Context line 19 and Decision line 30 read as the spec quotes them; ADR 068 supersedes it in part (landing leaf, re-read at 7c87ef4f)
 - OBSERVED: `JsonlStoreFile.java` (`pm-core/.../core/store/`), `LockManager.java` (`pm-core/.../core/service/`), `FileLockManager.java` and `RuntimeLock.java` (`pm-runtime/.../runtime/lock/` and `.../start/`)
 - OBSERVED: `PLAN-V2-07` builds `EpicInbox` and `EpicRegisterStore` on `JsonlStoreFile.append` under the epic lock (its Deliverables 2 and 4)
+  - verdict: unverifiable | checked_at: 7c87ef4fa753dcac99d8c0d8b58ad8fb8a47b4d5 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: the spec says EpicInbox and EpicRegisterStore append under the epic lock; no PLAN-V2-07 spec in the ledger and LockKey.mailbox has no production caller on main, so the dependency on a leaf key cannot be read
 - HYPOTHESIS: the other file-locked JSONL stores (`WaiverLog`, `ChangeLedger`, `QuestionLog`) append through the same path — list them with `git grep -l 'JsonlStoreFile'` at the outline
+  - verdict: contradicted | checked_at: 7c87ef4fa753dcac99d8c0d8b58ad8fb8a47b4d5 | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: no | evidence: WaiverLog:127, ChangeLedger:78, QuestionLog:237 and :426 lock under scope.lockKey(); the only LockLevel.LEAF constructions in src/main are LockKey.auditLog (:314), LockKey.mailbox (:327) and ActivityJournal (:198,269,291); only the audit log used a leaf key with JsonlStoreFile in production (re-read at 7c87ef4f)
 - Verify-first clause: before editing, list the open pull requests for one that touches the packages of the Expected Surface and re-run the counting commands of the claims above at the head of `main` (a plan of the family may have landed since the audit); keep only what is still open; a refutation loops back to re-scope.
 
 ## Expected Surface

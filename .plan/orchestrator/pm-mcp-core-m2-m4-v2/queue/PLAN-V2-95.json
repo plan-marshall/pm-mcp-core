@@ -2,10 +2,10 @@
   "id": "PLAN-V2-95",
   "slug": "lock-manager-channel-close",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-95-lock-manager-channel-close",
+  "pr": "#328",
+  "landing": "landings/PLAN-V2-95.md",
   "seq": -12
 }
