@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -111,10 +112,10 @@ public class IstanbulSummaryParser {
             String field = parser.currentName();
             parser.nextToken();
             switch (field) {
-                case "lines" -> lines = readPct(parser, "total.lines");
-                case "statements" -> statements = readPct(parser, "total.statements");
-                case "functions" -> functions = readPct(parser, "total.functions");
-                case "branches" -> branches = readPct(parser, "total.branches");
+                case "lines" -> lines = readPct(parser, "total.lines").orElse(null);
+                case "statements" -> statements = readPct(parser, "total.statements").orElse(null);
+                case "functions" -> functions = readPct(parser, "total.functions").orElse(null);
+                case "branches" -> branches = readPct(parser, "total.branches").orElse(null);
                 default -> skip(parser);
             }
         }
@@ -136,8 +137,8 @@ public class IstanbulSummaryParser {
             String field = parser.currentName();
             parser.nextToken();
             switch (field) {
-                case "lines" -> lines = readPct(parser, file + ".lines");
-                case "branches" -> branches = readPct(parser, file + ".branches");
+                case "lines" -> lines = readPct(parser, file + ".lines").orElse(null);
+                case "branches" -> branches = readPct(parser, file + ".branches").orElse(null);
                 default -> skip(parser);
             }
         }
@@ -150,7 +151,7 @@ public class IstanbulSummaryParser {
                 .build();
     }
 
-    private static @Nullable Double readPct(JsonParser parser, String metric) throws IOException {
+    private static Optional<Double> readPct(JsonParser parser, String metric) throws IOException {
         if (parser.currentToken() != JsonToken.START_OBJECT) {
             throw new IOException(metric + " is not an object");
         }
@@ -167,7 +168,7 @@ public class IstanbulSummaryParser {
                 skip(parser);
             }
         }
-        return pct;
+        return pct == null ? Optional.empty() : Optional.of(pct);
     }
 
     private static double requireMetric(@Nullable Double value, String metric) throws IOException {

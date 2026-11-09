@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
@@ -101,10 +102,10 @@ public class CoberturaReportParser {
             if (COVERAGE.equals(local)) {
                 readRoot(reader);
             } else if (CLASS.equals(local)) {
-                current = new ClassState(requiredName(reader), file(reader), requireRate(reader, LINE_RATE),
-                        rate(reader, BRANCH_RATE));
-            } else if (METHOD.equals(local)) {
-                current.readMethod(CoverageXmlReader.attribute(reader, NAME), rate(reader, LINE_RATE));
+                current = new ClassState(requiredName(reader), file(reader).orElse(null), requireRate(reader, LINE_RATE),
+                        rate(reader, BRANCH_RATE).orElse(null));
+            } else if (METHOD.equals(local) && current != ClassState.NONE) {
+                current.readMethod(CoverageXmlReader.attribute(reader, NAME), rate(reader, LINE_RATE).orElse(null));
             }
             path.push(local);
         }
@@ -135,7 +136,7 @@ public class CoberturaReportParser {
             if (path.isEmpty()) {
                 rootSeen = true;
                 lineRate = requireRate(reader, LINE_RATE);
-                branchRate = rate(reader, BRANCH_RATE);
+                branchRate = rate(reader, BRANCH_RATE).orElse(null);
             }
         }
 
@@ -147,22 +148,19 @@ public class CoberturaReportParser {
             return name;
         }
 
-        private @Nullable String file(XMLStreamReader reader) {
+        private Optional<String> file(XMLStreamReader reader) {
             String file = CoverageXmlReader.attribute(reader, FILENAME);
-            return file.isBlank() ? null : file;
+            return file.isBlank() ? Optional.empty() : Optional.of(file);
         }
 
-        private @Nullable Double rate(XMLStreamReader reader, String name) {
+        private Optional<Double> rate(XMLStreamReader reader, String name) {
             String value = CoverageXmlReader.attribute(reader, name);
-            return value.isBlank() ? null : Double.valueOf(value);
+            return value.isBlank() ? Optional.empty() : Optional.of(Double.valueOf(value));
         }
 
         private double requireRate(XMLStreamReader reader, String name) {
-            Double value = rate(reader, name);
-            if (value == null) {
-                throw new IllegalArgumentException("the " + name + " is absent");
-            }
-            return value;
+            return rate(reader, name)
+                    .orElseThrow(() -> new IllegalArgumentException("the " + name + " is absent"));
         }
     }
 

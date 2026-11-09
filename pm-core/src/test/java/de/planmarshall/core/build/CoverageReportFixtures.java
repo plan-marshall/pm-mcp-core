@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
+import lombok.experimental.UtilityClass;
 
 /**
  * The class-path location of the coverage fixtures and the parsed report of a result.
@@ -24,12 +25,10 @@ import java.nio.file.Path;
  *
  * @since 0.1
  */
+@UtilityClass
 final class CoverageReportFixtures {
 
     private static final String DIRECTORY = "ported/coverage";
-
-    private CoverageReportFixtures() {
-    }
 
     /**
      * Resolves a fixture file on the test class path.

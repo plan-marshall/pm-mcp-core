@@ -19,9 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The native JaCoCo coverage report parser ({@code jacoco.xml}).
@@ -107,7 +107,7 @@ public class JacocoReportParser {
             }
             if (CLASS.equals(local)) {
                 current = new ClassState(requiredName(reader));
-            } else if (METHOD.equals(local)) {
+            } else if (METHOD.equals(local) && current != ClassState.NONE) {
                 current.startMethod(CoverageXmlReader.attribute(reader, NAME));
             } else if (COUNTER.equals(local)) {
                 counter(reader, parent);
@@ -119,7 +119,7 @@ public class JacocoReportParser {
         public void end(XMLStreamReader reader) {
             String local = reader.getLocalName();
             path.pop();
-            if (METHOD.equals(local)) {
+            if (METHOD.equals(local) && current != ClassState.NONE) {
                 current.endMethod();
             } else if (CLASS.equals(local) && current != ClassState.NONE) {
                 items.add(current.item());
@@ -134,9 +134,9 @@ public class JacocoReportParser {
             }
             CoverageMetrics metrics = CoverageMetrics.builder()
                     .line(percentage(LINE))
-                    .instruction(optionalPercentage(INSTRUCTION))
-                    .branch(optionalPercentage(BRANCH))
-                    .function(optionalPercentage(METHOD_COUNTER))
+                    .instruction(optionalPercentage(INSTRUCTION).orElse(null))
+                    .branch(optionalPercentage(BRANCH).orElse(null))
+                    .function(optionalPercentage(METHOD_COUNTER).orElse(null))
                     .build();
             return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, metrics, items));
         }
@@ -147,7 +147,7 @@ public class JacocoReportParser {
             int covered = count(reader, "covered");
             if (REPORT.equals(parent)) {
                 overall.put(type, new int[]{missed, covered});
-            } else {
+            } else if (current != ClassState.NONE) {
                 current.readCounter(parent, type, missed, covered);
             }
         }
@@ -157,9 +157,11 @@ public class JacocoReportParser {
             return CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
         }
 
-        private @Nullable Double optionalPercentage(String type) {
+        private Optional<Double> optionalPercentage(String type) {
             int[] counter = overall.get(type);
-            return counter == null ? null : CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
+            return counter == null
+                    ? Optional.empty()
+                    : Optional.of(CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]));
         }
 
         private String requiredName(XMLStreamReader reader) {
