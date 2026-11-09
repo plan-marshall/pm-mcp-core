@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The native LCOV coverage report parser ({@code lcov.info}).
@@ -80,7 +81,7 @@ public class LcovReportParser {
         private long functionsHit;
         private boolean branchesSeen;
         private boolean functionsSeen;
-        private Record current;
+        private @Nullable Record current;
 
         private CoverageParseResult parse(String report) throws IOException {
             for (String raw : report.split("\n", -1)) {
@@ -160,17 +161,17 @@ public class LcovReportParser {
                     .build();
             return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, overall, items));
         }
-    }
 
-    private static int number(String line, int prefixLength) throws IOException {
-        try {
-            int value = Integer.parseInt(line.substring(prefixLength).strip());
-            if (value < 0) {
-                throw new IOException("the counter " + line.substring(0, prefixLength) + " is negative");
+        private int number(String line, int prefixLength) throws IOException {
+            try {
+                int value = Integer.parseInt(line.substring(prefixLength).strip());
+                if (value < 0) {
+                    throw new IOException("the counter " + line.substring(0, prefixLength) + " is negative");
+                }
+                return value;
+            } catch (NumberFormatException _) {
+                throw new IOException("the counter " + line.substring(0, prefixLength) + " is not a number");
             }
-            return value;
-        } catch (NumberFormatException _) {
-            throw new IOException("the counter " + line.substring(0, prefixLength) + " is not a number");
         }
     }
 
