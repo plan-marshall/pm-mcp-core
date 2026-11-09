@@ -16,7 +16,6 @@ import java.nio.file.LinkOption;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 

@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

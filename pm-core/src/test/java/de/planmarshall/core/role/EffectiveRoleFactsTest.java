@@ -11,7 +11,6 @@ package de.planmarshall.core.role;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +19,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -123,7 +121,7 @@ class EffectiveRoleFactsTest {
                                 Generators.integers(200_000, 800_000).next(), idleWakeups)).idleWakeups(),
                         "the host's value applies"),
                 () -> assertTrue(role(warm, profile(new HarnessProfile.Resumability(false, null, false, null),
-                        Generators.integers(200_000, 800_000).next(), null)).idleWakeups().isEmpty(),
+                                Generators.integers(200_000, 800_000).next(), null)).idleWakeups().isEmpty(),
                         "neither sets it"));
     }
 

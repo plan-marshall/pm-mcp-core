@@ -12,7 +12,6 @@ package de.planmarshall.core.store;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 

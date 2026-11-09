@@ -563,7 +563,7 @@ public final class CorpusValidator {
     private static Optional<String> string(@Nullable JsonObject parent, String name) {
         return parent == null ? Optional.empty()
                 : parent.get(name).filter(JsonString.class::isInstance)
-                        .map(value -> ((JsonString) value).value());
+                .map(value -> ((JsonString) value).value());
     }
 
     private static String text(@Nullable JsonValue value) {

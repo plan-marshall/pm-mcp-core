@@ -35,7 +35,6 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 

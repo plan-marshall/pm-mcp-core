@@ -22,7 +22,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -103,10 +102,10 @@ class UsagePointersTest {
                             "the reasoning should be read from the output"),
                     () -> assertEquals(Measurement.measured(7), usage.toolUses(),
                             "the tool uses should be read from the output"),
-                    () -> assertEquals(null, usage.costUsd(), "opencode should report no cost"),
+                    () -> assertNull(usage.costUsd(), "opencode should report no cost"),
                     () -> assertEquals(OptionalLong.of(7490), usage.totalTokens(),
                             "the total should sum the five components"),
-                    () -> assertEquals(null, usage.unmeasuredReason(),
+                    () -> assertNull(usage.unmeasuredReason(),
                             "no unmeasured reason should be given"));
         }
 
@@ -120,7 +119,7 @@ class UsagePointersTest {
                             "the reasoning should be not_applicable"),
                     () -> assertEquals(OptionalLong.of(900 + 410 + 3000 + 700), usage.totalTokens(),
                             "not_applicable should count zero in the total"),
-                    () -> assertEquals(null, usage.unmeasuredReason(),
+                    () -> assertNull(usage.unmeasuredReason(),
                             "no unmeasured reason should be given"));
         }
 
@@ -249,7 +248,7 @@ class UsagePointersTest {
                             "the tool uses should be summed"),
                     () -> assertEquals(Measurement.notApplicable(), sum.reasoningTokens(),
                             "the reasoning should stay not_applicable"),
-                    () -> assertEquals(null, sum.unmeasuredReason(),
+                    () -> assertNull(sum.unmeasuredReason(),
                             "no unmeasured reason should be given"),
                     () -> assertEquals(OptionalLong.of(input1 + input2 + output1 + output2), sum.totalTokens(),
                             "the total should sum both turns"),

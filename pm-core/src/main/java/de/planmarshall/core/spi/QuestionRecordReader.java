@@ -10,7 +10,6 @@
 package de.planmarshall.core.spi;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 

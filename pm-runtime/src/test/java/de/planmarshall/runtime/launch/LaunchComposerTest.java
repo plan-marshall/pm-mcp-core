@@ -328,7 +328,7 @@ class LaunchComposerTest {
         var roleSkills = List.of(new RoleSkill(LaunchFixtures.ROLE_SKILL, skills.resolve(LaunchFixtures.ROLE_SKILL)
                 .orElseThrow().digest()));
         return new EffectiveRole(LaunchFixtures.artifact(roleClass, "frontier", "max", RoleForm.FRESH, List.of(
-                LaunchFixtures.ROLE_SKILL)), "claude", "frontier", new EffortValue("max"), roleSkills, "1.5", null,
+                        LaunchFixtures.ROLE_SKILL)), "claude", "frontier", new EffortValue("max"), roleSkills, "1.5", null,
                 new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
     }
 

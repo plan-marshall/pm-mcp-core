@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.FreeParam;
