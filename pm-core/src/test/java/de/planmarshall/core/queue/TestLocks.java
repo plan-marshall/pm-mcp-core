@@ -10,17 +10,22 @@
 package de.planmarshall.core.queue;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.LockKey;
 
 /**
- * A lock manager for the tests of the queue: it takes no lock of the operating system and answers
- * {@link LockTransaction#holds(LockKey)} for the keys a transaction acquired until it closes.
+ * A lock manager for the tests of the queue: it takes no lock of the operating system, records every key a
+ * transaction acquires, and answers {@link LockTransaction#holds(LockKey)} for the keys a transaction acquired until
+ * it closes.
  */
 final class TestLocks implements LockManager {
+
+    private final List<LockKey> acquisitions = new CopyOnWriteArrayList<>();
 
     @Override
     public LockTransaction openTransaction() {
@@ -31,6 +36,7 @@ final class TestLocks implements LockManager {
             @Override
             public void acquire(LockKey key) {
                 own.add(key);
+                acquisitions.add(key);
             }
 
             @Override
@@ -43,5 +49,10 @@ final class TestLocks implements LockManager {
                 own.clear();
             }
         };
+    }
+
+    /** @return the keys acquired so far, in acquisition order */
+    List<LockKey> acquisitions() {
+        return List.copyOf(acquisitions);
     }
 }

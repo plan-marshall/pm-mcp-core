@@ -11,8 +11,6 @@ package de.planmarshall.core;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
-import org.jspecify.annotations.Nullable;
-
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -27,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Loads a JSON schema file from the class path of a test (test helper, published in the {@code tests} artifact of

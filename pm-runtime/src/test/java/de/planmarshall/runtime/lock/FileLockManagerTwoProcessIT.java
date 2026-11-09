@@ -22,9 +22,12 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -48,8 +51,8 @@ import de.planmarshall.core.store.LockKey;
  * The other process is ended after every test, also after a failed one, and never waited for without a bound.
  * <p>
  * The project and plan ids are generated and passed to the other process. The literals that stay are the contract:
- * the child-process protocol (its arguments and the {@link LockHolderProcess#HELD} line), its exit code 0 and the
- * process and observation bounds.
+ * the child-process protocol (its arguments, the {@link LockHolderProcess#HELD} line and the
+ * {@link LockHolderProcess#LEAF} mode), its exit code 0 and the process and observation bounds.
  */
 @EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
@@ -88,11 +91,14 @@ class FileLockManagerTwoProcessIT {
         }
     }
 
-    /** Starts the other process and returns once it has said that it holds the lock of the plan. */
-    private void startHolder() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+    /** Starts the other process and returns once it has said that it holds its key. */
+    private void startHolder(String... extra) throws IOException, InterruptedException, ExecutionException,
+            TimeoutException {
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-        holder = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
-                LockHolderProcess.class.getName(), base.toString(), projectId, planId)
+        var command = new ArrayList<>(List.of(java, "-cp", System.getProperty("java.class.path"),
+                LockHolderProcess.class.getName(), base.toString(), projectId, planId));
+        command.addAll(List.of(extra));
+        holder = new ProcessBuilder(command)
                 .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .start();
         var reader = new BufferedReader(new InputStreamReader(holder.getInputStream(), StandardCharsets.UTF_8));
@@ -113,6 +119,14 @@ class FileLockManagerTwoProcessIT {
         assertTrue(holder.waitFor(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS),
                 "the other process ends once its input is closed");
         return holder.exitValue();
+    }
+
+    /**
+     * The sidecar a leaf key's OS lock is taken on (ADR 068), derived from the layout alone: the guarded file's name
+     * with {@code .lock} appended, beside it.
+     */
+    private static Path sidecar(LockKey key) {
+        return key.lockFile().resolveSibling(key.lockFile().getFileName() + ".lock");
     }
 
     /** @return whether a lock of the operating system on the file is refused to this process */
@@ -141,6 +155,33 @@ class FileLockManagerTwoProcessIT {
                 () -> assertTrue(lockedWhileHeld, "locked while the other process holds the key"),
                 () -> assertEquals(0, exitCode, "exit code of the other process"),
                 () -> assertFalse(lockedAfterRelease, "locked after the other process released the key"));
+    }
+
+    /**
+     * The defect PLAN-V2-95 fixes: on POSIX a close of any channel on a file drops every OS lock the process holds on
+     * it, and a JSONL append closes the store's channel. If the leaf key's OS lock were taken on the store, the other
+     * process's append would release it. Seen from this process, the guarded store stays unlocked and the sidecar
+     * carries the lock (ADR 068).
+     */
+    @Test
+    @DisplayName("an append on a leaf key in another process keeps that key's OS lock against this process")
+    void leafAppendKeepsTheOsLock() throws Exception {
+        Files.createDirectories(base.resolve("logs"));
+        var key = LockKey.auditLog(base);
+        startHolder(LockHolderProcess.LEAF);
+
+        var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+        var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
+        var exitCode = releaseHolder();
+        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+
+        assertAll(
+                () -> assertTrue(sidecarLockedWhileHeld,
+                        "the sidecar is locked while the other process holds the key"),
+                () -> assertFalse(storeLockedWhileHeld, "the guarded store itself is not locked"),
+                () -> assertEquals(0, exitCode, "exit code of the other process"),
+                () -> assertFalse(sidecarLockedAfterRelease,
+                        "the sidecar is free after the other process released the key"));
     }
 
     @Test

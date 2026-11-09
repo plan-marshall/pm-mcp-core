@@ -15,8 +15,10 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * The canonical key of one transaction lock (PM-IMPL-7): its level in the total lock order, the file the lock is
- * taken on, and the id that orders keys within a level. One factory exists per lock of the runtime; each takes the
+ * The canonical key of one transaction lock (PM-IMPL-7): its level in the total lock order, the file the lock
+ * guards, and the id that orders keys within a level. The OS lock of a leaf key is taken on the sidecar
+ * {@code <lockFile>.lock}, so a write of the guarded file does not release it (ADR 068). One factory exists per lock
+ * of the runtime; each takes the
  * instance directory of the runtime (its base directory) and the identifiers of the lock and returns the fixed lock
  * path.
  * <p>
@@ -25,8 +27,8 @@ import java.util.regex.Pattern;
  * {@code projects/<project_id>/locks/} and those of the machine stores below {@code locks/}, outside the directories
  * they protect, so archiving a plan directory or working on an epic in a worktree never splits a lock. The queue lock
  * of the machine scope lies below {@code machine/locks/} and the lock of an onboarding entry below
- * {@code onboardings/locks/}. Only the two leaf keys name the guarded file: an append-only file is never replaced by
- * rename.
+ * {@code onboardings/locks/}. Only the leaf keys name the guarded file (the audit log, a plan's mailbox, a task's
+ * activity journal): an append-only file is never replaced by rename.
  * <p>
  * Keys are ordered by level, then by {@link #id()}, then by lock path. The id is the plan id of a plan lock and the
  * epic id of an epic lock, so several of them sort lexicographically by that id. The id of a machine store lock is
@@ -36,7 +38,8 @@ import java.util.regex.Pattern;
  * consistent with {@link #equals(Object)}.
  *
  * @param level    the level of the lock in the total order
- * @param lockFile the absolute, normalized path of the file the lock is taken on
+ * @param lockFile the absolute, normalized path of the file the lock guards; the OS lock of a leaf key is taken on
+ *                 the sidecar {@code <lockFile>.lock}
  * @param id       what orders this key among the keys of its level
  * @since 0.1
  */
@@ -304,7 +307,8 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
 
     /**
      * @param base the base directory of the runtime
-     * @return the leaf key of the audit log, which is taken on the append-only log itself
+     * @return the leaf key of the audit log; its OS lock is taken on the sidecar beside the append-only log, so a
+     *         write of the log does not release it
      */
     public static LockKey auditLog(Path base) {
         return new LockKey(LockLevel.LEAF, canonical(base).resolve("logs").resolve("audit.jsonl"), "audit");
@@ -314,7 +318,8 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
      * @param base      the base directory of the runtime
      * @param projectId the project
      * @param planId    the plan
-     * @return the leaf key of the plan's mailbox, which is taken on the append-only mailbox itself
+     * @return the leaf key of the plan's mailbox; its OS lock is taken on the sidecar beside the append-only mailbox,
+     *         so a write of the mailbox does not release it
      */
     public static LockKey mailbox(Path base, String projectId, String planId) {
         var mailbox = projectStore(base, projectId).resolve("plans").resolve(identifier(planId, "planId"))

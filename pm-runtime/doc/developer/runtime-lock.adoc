@@ -62,9 +62,12 @@ before it waits, so a lock is never replaced under a waiting thread.
 `InternalFaultException`. `pm-core` names no wire error; mapping the exception to `internal_fault` is the assembly's job.
 
 A lock file below `locks/` is created with mode `0600`, its directories with mode `0700`. A leaf key names the
-append-only file itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`); the manager creates that file where it is
-absent, but never its directory, which belongs to the store. Opening an existing lock file changes neither its content
-nor its modification time.
+guarded file — the append-only store itself (`logs/audit.jsonl`, a plan's `mcp/mailbox.jsonl`) or a task's activity
+journal. Its OS lock is taken on the sidecar `<lock file>.lock` beside it, which no store channel opens, so the
+append, the tail repair and the predecessor read of the store do not release it
+(link:../../../pm-core/doc/adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]); the manager
+creates the sidecar where it is absent, but never its directory, which belongs to the store. Opening an existing lock
+file changes neither its content nor its modification time.
 
 The process locks of the runtime, its singleton lock `locks/runtime.lock` and the start lock `locks/runtime-start.lock`,
 are held for a process, not a transaction. They have no `LockKey` and do not go through the lock manager.
@@ -97,7 +100,9 @@ when it closes.
 * *The lock object of a key is not stable.* The manager drops the in-process lock of a key when nobody uses it, so a
   later acquisition gets a new object. Never keep a reference to it.
 * *Never lock a store that is replaced by rename.* The rename replaces the inode, and a lock on the old file excludes
-  nobody. Such a store has a sibling lock file; only the append-only leaf files are locked directly.
+  nobody. Such a store has a sibling lock file. An append-only leaf file is not locked directly either: its OS lock is
+  taken on the sidecar `<file>.lock`, because a store write closes a channel on the store and would release a lock
+  taken on it (link:../../../pm-core/doc/adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]).
 * *Holding a lease is not holding a lock.* A lease can be held across any lock acquisition; a lock is held for one
   transaction only.
 

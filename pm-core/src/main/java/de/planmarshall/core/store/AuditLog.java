@@ -39,10 +39,11 @@ import de.planmarshall.core.service.LockTransaction;
  * to the checkpoint line.
  * <p>
  * <em>Appends</em> run under the audit lock ({@link LockKey#auditLog(Path)}, the leaf of the lock order) through the
- * one append path of a JSONL store ({@link JsonlStoreFile}), which closes its channel: only the in-process lock of the
- * key remains, and the runtime lock excludes a second runtime. The read of the last line, the append and the calls of
- * the {@link AuditAnchor} run in the one transaction that holds the key, so no second appender comes between the hash
- * and the line it chains.
+ * one append path of a JSONL store ({@link JsonlStoreFile}). The OS lock of the leaf key is taken on the sidecar
+ * {@code audit.jsonl.lock} beside the log, which no append, repair or read of the log opens, so the lock is held for
+ * the whole append, and the runtime lock excludes a second runtime besides (ADR 068). The read of the last line, the
+ * append and the calls of the {@link AuditAnchor} run in the one transaction that holds the key, so no second
+ * appender comes between the hash and the line it chains.
  * <p>
  * <em>The write paths</em>: every record of a producer goes through {@link #append(LockTransaction, AuditRecord)},
  * which calls the anchor. A rotation, which runs inside that call, writes through two members that never call the
@@ -66,8 +67,8 @@ import de.planmarshall.core.service.LockTransaction;
  * the anchor of the runtime ({@code AuditRotation} of {@code pm-runtime}) documents that consequence.
  * <p>
  * The directory {@code logs/} must exist before the first append, and the caller that builds the log creates it: the
- * audit lock is a leaf key, whose lock file is the log itself, and the lock manager creates that file where it is
- * absent but never its directory.
+ * audit lock is a leaf key, whose OS lock the manager takes on the sidecar beside the log, and the manager creates
+ * that sidecar where it is absent but never its directory.
  *
  * @since 0.1
  */
