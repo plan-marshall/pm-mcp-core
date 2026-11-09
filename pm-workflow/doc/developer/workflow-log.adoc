@@ -15,8 +15,9 @@ Package `de.planmarshall.workflow.log` of `pm-workflow` holds `WorkflowLogMessag
 INFO, WARN and ERROR records. Its prefix is `PM_WORKFLOW`; the module logs through this holder and, where the event
 belongs to the foundation, through `CoreLogMessages` of `pm-core`, and through no other module's holder.
 
-The rules of the layout and the current roster with each record's component, template and description are in
-link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]; this guide states how the holder is built and extended.
+The rules of the layout and the current roster of identifiers and templates are in
+link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`], which includes the listing generated from this holder; the
+purpose and the component of each record are its Javadoc. This guide states how the holder is built and extended.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -40,8 +41,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
 
 Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template.
 A `LogRecord` is a constant; a caller logs it with the `CuiLogger` of its class and passes the arguments in the order of
-the template's `%s` placeholders. The roster in `doc/LogMessages.adoc` is the reference; do not copy it into a second
-place.
+the template's `%s` placeholders. The listing generated from this holder and included by `doc/LogMessages.adoc` is the
+reference; do not copy it into a second place.
 
 == Using the Holder
 
@@ -60,14 +61,15 @@ message is a record of a holder, never a literal at the call site.
 
 . Find the next free identifier of the level in `doc/LogMessages.adoc` and in the holder: INFO 001-099, WARN 100-199,
    ERROR 200-299. There are no workstream blocks and nothing is renumbered.
-. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component, the
-   template with its placeholders, and what each placeholder names.
-3. Add the row to the holder's table in `doc/LogMessages.adoc` with the same identifier, component, template and
-   description.
+. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component that
+   logs it, the template with its placeholders, and what each placeholder names.
+. The listing `doc/log-messages/pm-workflow.adoc` is generated from the holder; do not edit it by hand. Regenerate it by
+   running `WorkflowLogMessagesTest` with the system property `planmarshall.log-messages.regenerate=true`, and commit the
+   refreshed file with the record. Without the property the test only compares it.
 4. Log it from the class of this module that owns the event. When the event belongs to the foundation, it goes to
    `CoreLogMessages` instead, and this module logs through it.
-5. Run `WorkflowLogMessagesTest`: it refuses an identifier used twice or outside its level's range and derives the expected
-   record set from the holder.
+5. Run `WorkflowLogMessagesTest`: it refuses an identifier used twice or outside its level's range, derives the expected
+   record set from the holder, and compares the committed listing with a fresh generation.
 
 Do not add a message for an event an existing record already states: extend the record's description instead, so the
 log's vocabulary stays closed.
@@ -80,13 +82,14 @@ log's vocabulary stays closed.
   out-of-range identifier.
 * *A record carries no secret and no model-facing content.* A template and its arguments never name a token, a key or a
   credential value, and never paste the text of a workflow unit or a model answer into the message.
-* *The roster has one source.* `doc/LogMessages.adoc` states the current records; the holder is the code side of the
-  same list. A change to one without the other is a documentation defect.
+* *The roster has one source.* The holder is the source of the generated listing that `doc/LogMessages.adoc` includes;
+  a change to a record is a change to the holder, and the test fails until the listing is regenerated.
 
 == Testing
 
 link:{test}/WorkflowLogMessagesTest.java[`WorkflowLogMessagesTest`]:: every identifier is unique and inside its level's
-range, the prefix is `PM_WORKFLOW`, and the expected set of records is derived from the holder at run time.
+range, the prefix is `PM_WORKFLOW`, and the expected set of records is derived from the holder at run time. It compares
+the committed listing `doc/log-messages/pm-workflow.adoc` byte for byte with a fresh generation and names a changed one.
 
 == Specification Tracing
 

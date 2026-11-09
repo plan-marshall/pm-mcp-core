@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="branch-above-line-below">
+  <package name="com/example">
+    <class name="com/example/LowLine" sourcefilename="LowLine.java">
+      <method name="run" desc="()V" line="10">
+        <counter type="METHOD" missed="0" covered="1"/>
+      </method>
+      <counter type="INSTRUCTION" missed="6" covered="4"/>
+      <counter type="BRANCH" missed="1" covered="9"/>
+      <counter type="LINE" missed="6" covered="4"/>
+      <counter type="METHOD" missed="0" covered="1"/>
+    </class>
+  </package>
+  <counter type="INSTRUCTION" missed="6" covered="4"/>
+  <counter type="BRANCH" missed="1" covered="9"/>
+  <counter type="LINE" missed="6" covered="4"/>
+  <counter type="METHOD" missed="0" covered="1"/>
+</report>

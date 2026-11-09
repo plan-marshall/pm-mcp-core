@@ -153,6 +153,18 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`chat`; `worker-activity` (the model's text and the steps as the worker's activity reports them)
 |Milestone 8; the client work of `pm-mcp-clients`
 
+|link:chat-context.adoc[`chat-context`]
+|What a chat knows: one warm `read_only` worker per open chat, re-primed with its subject's core and the transcript window within the chat's budgets, released when idle; the chat skill; the context summary; a paused plan's chat; an act named, never performed; the origin of every change a chat leads to
+|`open`
+|`chat`; `chat-reply-stream` (the turns and their ids); `chat-plan-revision` (the revision's record)
+|Milestone 9; the client work of `pm-mcp-clients`
+
+|link:chat-narrative.adoc[`chat-narrative`]
+|The subject's narrative in the chat: the closed lines derived from its events, written as notice turns between replies, offered as `since_last_turn`, and read from a point on; the queued revision, `lapsed`, and the accept of an outdated proposal refused
+|`open`
+|`chat-context`; `chat-plan-revision` (the revision window and its boundary)
+|Milestone 9; the client work of `pm-mcp-clients`
+
 |link:transcribe.adoc[`transcribe`]
 |The speech role `transcribe`: its methods and consents in the roles step, a project's narrowing, the local model's check, and a transcription of which the runtime keeps nothing
 |`open`
@@ -423,16 +435,10 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`schema-files-foundation`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
-|link:generated-listings.adoc[`generated-listings`]
-|The log message tables generated from the holders and the protocol lists linked to the Javadoc instead of compared with the code by a test
-|`open`
-|`schema-files-foundation`
-|none: the way a specification states a schema, a limit and a list (ADR 009)
-
 |link:adoc-reading-retired.adoc[`adoc-reading-retired`]
 |`SpecificationDocument` and `pm.specification.root` deleted, the `**/doc/**` entry removed from the docs-only include list, the ADRs of the docs-only skip marked superseded
 |`open`
-|`schema-files-tested-records`; `schema-files-other-specifications`; `generated-listings`
+|`schema-files-tested-records`; `schema-files-other-specifications`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |===

@@ -13,21 +13,22 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of a provider operation with its closed outcome.
  *
  * @param outcome  the outcome
- * @param value    the value, present for {@link Outcome#OK}
+ * @param value    the value for {@link Outcome#OK}; {@code null} otherwise
  * @param complete for reads of a collection: whether every page was read; {@code true} otherwise
- * @param resetAt  for {@link Outcome#RATE_LIMITED}: when the operation may be re-issued
+ * @param resetAt  for {@link Outcome#RATE_LIMITED}: when the operation may be re-issued; {@code null} otherwise
  * @param detail   the detail of a non-OK outcome: the provider's own message where it gave one, otherwise the
  *                 failing step; the client adds no token, no credential and no request body. A provider message
  *                 is remote text, to be passed through the secret redactor where it is emitted ({@code PM-CRED-5})
  * @param <V>      the value type
  * @since 0.1
  */
-public record Result<V>(Outcome outcome, Optional<V> value, boolean complete, Optional<Instant> resetAt,
+public record Result<V>(Outcome outcome, @Nullable V value, boolean complete, @Nullable Instant resetAt,
 String detail) {
 
     /** The closed outcome of a provider operation. */
@@ -64,8 +65,6 @@ String detail) {
      */
     public Result {
         Objects.requireNonNull(outcome, "outcome");
-        Objects.requireNonNull(value, "value");
-        Objects.requireNonNull(resetAt, "resetAt");
         detail = detail == null ? "" : detail;
     }
 
@@ -75,7 +74,7 @@ String detail) {
      * @return a complete OK result
      */
     public static <V> Result<V> ok(V value) {
-        return new Result<>(Outcome.OK, Optional.of(value), true, Optional.empty(), "");
+        return new Result<>(Outcome.OK, Objects.requireNonNull(value, "value"), true, null, "");
     }
 
     /**
@@ -85,7 +84,7 @@ String detail) {
      * @return an OK result of a collection read
      */
     public static <V> Result<V> ok(V value, boolean complete) {
-        return new Result<>(Outcome.OK, Optional.of(value), complete, Optional.empty(), "");
+        return new Result<>(Outcome.OK, Objects.requireNonNull(value, "value"), complete, null, "");
     }
 
     /**
@@ -95,7 +94,7 @@ String detail) {
      * @return a result without value
      */
     public static <V> Result<V> of(Outcome outcome, String detail) {
-        return new Result<>(outcome, Optional.empty(), true, Optional.empty(), detail);
+        return new Result<>(outcome, null, true, null, detail);
     }
 
     /**
@@ -117,7 +116,7 @@ String detail) {
     public static <V> Result<V> failed(Response response) {
         String detail = response.detail().isEmpty() ? "HTTP " + response.status() : response.detail();
         return switch (response.outcome()) {
-            case RATE_LIMITED -> new Result<>(Outcome.RATE_LIMITED, Optional.empty(), true, response.resetAt(), detail);
+            case RATE_LIMITED -> new Result<>(Outcome.RATE_LIMITED, null, true, response.resetAt(), detail);
             case HTTP_ERROR -> {
                 Optional<String> reason = reasonOf(response.body());
                 yield of(byStatus(response.status(), reason.isPresent()), detail + reason.map(r -> ": " + r).orElse(""));
@@ -152,7 +151,7 @@ String detail) {
      * @return the result without value
      */
     public <W> Result<W> asFailure() {
-        return new Result<>(outcome, Optional.empty(), complete, resetAt, detail);
+        return new Result<>(outcome, null, complete, resetAt, detail);
     }
 
     /**

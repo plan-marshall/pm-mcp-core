@@ -1031,6 +1031,28 @@ link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/007-head-writable-is-the
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[ADR provider-ci/008],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
 
+[#PM-EXEC-6]
+=== PM-EXEC-6: Adaptive Build Timeouts, Coverage Parsers & Gate Honesty
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
+
+Implementation (in part: the native coverage report parsers of `pm-core` package `core.build` — the shared model with its line-only threshold verdict, and the JaCoCo, Cobertura, LCOV and Istanbul readers, each a pure function of the report text that returns a parsed report or a refusal naming the format, with the two XML readers hardened so a DTD declaration is tolerated without resolution and an external entity is refused; the adaptive timeout learning, the gate honesty verification and the failure evidence per class are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/build/CoverageReport.java[CoverageReport],
+link:../pm-core/src/main/java/de/planmarshall/core/build/JacocoReportParser.java[JacocoReportParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/CoberturaReportParser.java[CoberturaReportParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/LcovReportParser.java[LcovReportParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/IstanbulSummaryParser.java[IstanbulSummaryParser]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/build/JacocoReportParserTest.java[JacocoReportParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/CoberturaReportParserTest.java[CoberturaReportParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/LcovReportParserTest.java[LcovReportParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/IstanbulSummaryParserTest.java[IstanbulSummaryParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/CoverageReportTest.java[CoverageReportTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/CoverageXmlReaderTest.java[CoverageXmlReaderTest]
+
+Documentation: link:../pm-core/doc/developer/core-build.adoc#_the_coverage_reports[Build Output Parsers Developer Guide § The Coverage Reports],
+link:../pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR core-build/005],
+link:../pm-core/src/test/resources/ported/coverage/PROVENANCE.adoc[Fixture provenance of the coverage report parsers]
+
 == link:../../plan-marshall-documentation/doc/requirements/07-credentials.adoc[Credentials]
 
 [#PM-CRED-2]
@@ -1485,6 +1507,23 @@ link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sh
 link:../pm-core/src/test/resources/ported/build/PROVENANCE.adoc[Fixture provenance of the build output parsers],
 link:../pm-core/doc/developer/core-build.adoc#_ported_tests_and_fixture_provenance[Build Output Parsers Developer Guide § Ported Tests and Fixture Provenance],
 link:../pm-core/doc/adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR core-build/003]
+
+Implementation (the ported tests of the four coverage report parsers of package `core.build`: the report fixtures copied byte for byte from the original's own fixture directory at the pinned commit recorded in `ported/coverage/PROVENANCE.adoc`, one `deliberate-` file per behaviour the port decides on, the expected values read by hand out of the report the way the pytest suite derives them, and no Python and no `plan-marshall` checkout at test time): link:../pm-core/src/main/java/de/planmarshall/core/build/CoverageReport.java[CoverageReport],
+link:../pm-core/src/main/java/de/planmarshall/core/build/JacocoReportParser.java[JacocoReportParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/CoberturaReportParser.java[CoberturaReportParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/LcovReportParser.java[LcovReportParser],
+link:../pm-core/src/main/java/de/planmarshall/core/build/IstanbulSummaryParser.java[IstanbulSummaryParser]
+
+Verified by (the ported coverage fixtures): link:../pm-core/src/test/java/de/planmarshall/core/build/JacocoReportParserTest.java[JacocoReportParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/CoberturaReportParserTest.java[CoberturaReportParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/LcovReportParserTest.java[LcovReportParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/IstanbulSummaryParserTest.java[IstanbulSummaryParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/CoverageReportTest.java[CoverageReportTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/CoverageXmlReaderTest.java[CoverageXmlReaderTest]
+
+Documentation: link:../pm-core/src/test/resources/ported/coverage/PROVENANCE.adoc[Fixture provenance of the coverage report parsers],
+link:../pm-core/doc/developer/core-build.adoc#_the_coverage_reports[Build Output Parsers Developer Guide § The Coverage Reports],
+link:../pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR core-build/005]
 
 Implementation (the ported test data of the lesson store: the fifteen plain files of `pm-core/src/test/resources/ported/lessons/` — nine archived process lessons with a YAML front matter whose `lesson_id` is the legacy id the store could not address them by, and six headerless legacy lessons — committed once from the original's `manage-lessons` suite and from the cases of PM-WATCH-STORE-14 and -20, with the legacy mapping in test code only (`LessonFixtures`) and no Python and no `plan-marshall` checkout at test time; the removal buckets and the body-purging cases are not ported yet, because the verbs they exercise are not built): link:../pm-core/src/main/java/de/planmarshall/core/store/LessonStore.java[LessonStore],
 link:../pm-core/src/main/java/de/planmarshall/core/store/LessonResolution.java[LessonResolution]

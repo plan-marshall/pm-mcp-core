@@ -591,7 +591,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @return the record of the remembered consent
      * @throws NullPointerException if the kind is {@code null}
      */
-    public static AuditEvent consentRemembered(String kind, String projectId) {
+    public static AuditEvent consentRemembered(String kind, @Nullable String projectId) {
         return consent(CONSENT_REMEMBERED, kind, projectId);
     }
 
@@ -605,7 +605,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @return the record of the withdrawn consent
      * @throws NullPointerException if the kind is {@code null}
      */
-    public static AuditEvent consentWithdrawn(String kind, String projectId) {
+    public static AuditEvent consentWithdrawn(String kind, @Nullable String projectId) {
         return consent(CONSENT_WITHDRAWN, kind, projectId);
     }
 

@@ -96,8 +96,7 @@ public final class RoleAssignmentValidation {
         }
         if (!effortSupported(harnessFacts, model, effort)) {
             throw invalid(RoleValidationReason.EFFORT_UNSUPPORTED, role, artifact,
-                    "the harness '%s' does not accept the effort %s for '%s'".formatted(harness,
-                            effort == null ? "null" : effort.value(), model));
+                    "the harness '%s' does not accept the effort %s for '%s'".formatted(harness, effort.value(), model));
         }
         if (catalogue == null) {
             throw invalid(RoleValidationReason.MODEL_NOT_ALLOWED, role, artifact,

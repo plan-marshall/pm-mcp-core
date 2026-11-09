@@ -72,7 +72,7 @@ The decision is the question set of one creation: its id is the id of its first 
 |the caller's phase value
 |`call`
 |`decision.answer` (`chat`).
-|`call chat` with the subject the decision's scope and the scope the decision (its question, why now, the evidence, what it blocks, its reversibility, its parts and options, the recommendation and the votes, which the chat may explain); the chat never answers. A revision of the plan it proposes goes through the guards of a plan's chat; the decision stays open, unless the applied revision removes the task or state that asked it, in which case the server closes it `withdrawn` with the reason. The transcript is kept with the decision (link:../state-catalogue.adoc#chat[Chat]).
+|`call chat` with the subject the decision's scope and the scope the decision (its question, why now, the evidence, what it blocks, its reversibility, its parts and options, the recommendation and the votes, which the chat may explain); the chat never answers. A revision of the plan it proposes goes through the guards of a plan's chat; the decision stays open, unless the applied revision removes the task or state that asked it, in which case the server closes it `withdrawn` with the reason. The transcript is kept with the decision (link:../state-catalogue.adoc#chat[Chat]; what its worker is primed with and pulls: link:../state-catalogue.adoc#chat-context[What a Chat Knows]).
 |`proposed` (an answer the operator took from the chat) -> `decision.interpret`; `ended` -> `decision.answer`.
 |link:../state-catalogue.adoc#chat[Chat]
 
@@ -96,7 +96,7 @@ The decision is the question set of one creation: its id is the id of its first 
 |the caller's phase value
 |`auto`
 |`decision.answer` (`complete`, a single reversible part); `decision.confirm` (`confirm`).
-|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision-log record (chosen, interpreted and confirmed, or delegated, and whether it followed a chat; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]); the client that did not answer withdraws what it showed and says where and how it was answered.
+|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision-log record (chosen, interpreted and confirmed, or delegated, and the chat it followed, `after_chat`; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]); the client that did not answer withdraws what it showed and says where and how it was answered.
 |`recorded` -> `decision.closed`.
 |link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision-Log Record]
 

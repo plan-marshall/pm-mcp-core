@@ -150,6 +150,9 @@ class RoleAssignmentsStoreTest {
         var effortWithoutSetting = assertThrows(IllegalArgumentException.class,
                 () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.INHERIT, highEffort,
                         noEscalation));
+        var valueWithoutEffort = assertThrows(IllegalArgumentException.class,
+                () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.VALUE, new EffortValue(null),
+                        noEscalation));
         var upper = Map.of("Upper", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, "high"));
         var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L));
         var roleBytes = Files.readAllBytes(fileWithBadRole);
@@ -157,11 +160,13 @@ class RoleAssignmentsStoreTest {
                 () -> RoleAssignmentsCodec.read(fileWithBadRole, roleBytes));
         var missingMessage = missingEffort.getMessage();
         var settingMessage = effortWithoutSetting.getMessage();
+        var valueMessage = valueWithoutEffort.getMessage();
         var badRoleMessage = badRole.getMessage();
 
         assertAll(
                 () -> assertTrue(missingMessage.contains("effort")),
                 () -> assertTrue(settingMessage.contains("effort")),
+                () -> assertTrue(valueMessage.contains("must not be null")),
                 () -> assertTrue(badRoleMessage.contains("Upper")),
                 () -> assertFalse(Files.exists(file)),
                 () -> assertEquals(fileWithBadRole, readRefused.file()));

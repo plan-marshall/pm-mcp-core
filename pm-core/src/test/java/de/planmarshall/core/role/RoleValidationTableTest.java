@@ -150,8 +150,12 @@ class RoleValidationTableTest {
             RoleValidationReason expected, String why) {
         var effort = artifact.effort();
         var values = new RoleValidation.Values(RoleFixtures.HARNESS, RoleFixtures.MODEL, effort);
-        var refusal = assertThrows(RoleRefusal.class, () -> RoleValidation.check(artifact, values, profile.orElse(null),
-                enrolled.orElse(null), catalogue.orElse(null), environment, steward), why);
+        var harnessProfile = profile.orElse(null);
+        var enrolment = enrolled.orElse(null);
+        var modelCatalogue = catalogue.orElse(null);
+        var refusal = assertThrows(RoleRefusal.class,
+                () -> RoleValidation.check(artifact, values, harnessProfile, enrolment, modelCatalogue, environment,
+                        steward), why);
 
         assertEquals(expected, refusal.reason(), why);
     }

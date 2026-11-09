@@ -177,6 +177,20 @@ class LaunchComposerTest {
                 "the worker block names the generation");
         assertEquals("claude-opus-4-1", launch.workerBlock().member("model").orElseThrow().text().orElseThrow(),
                 "the worker block names the rendered model");
+        assertEquals(3, launch.workerBlock().member("idle_wakeups").orElseThrow().integerValue().orElseThrow(),
+                "the worker block carries the effective idle wake-up bound");
+    }
+
+    @Test
+    @DisplayName("an absent idle-wakeup bound is written as zero")
+    void absentIdleWakeupsWritesZero() {
+        var role = LaunchFixtures.roleWithoutIdleWakeups(RoleClass.WRITER, "frontier", "max", RoleForm.FRESH, skills,
+                List.of(LaunchFixtures.ROLE_SKILL));
+
+        var launch = compose(role, true, false);
+
+        assertEquals(0, launch.workerBlock().member("idle_wakeups").orElseThrow().integerValue().orElseThrow(),
+                "an absent idle wake-up bound is written as zero");
     }
 
     @Test

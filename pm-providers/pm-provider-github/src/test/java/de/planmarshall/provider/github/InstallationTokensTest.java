@@ -202,8 +202,8 @@ class InstallationTokensTest {
         Object claims = Json.parse(TestKeys.verifiedClaims(authorization.substring(7),
                 TestKeys.PAIR.getPublic())).orElseThrow();
         assertAll("the minted token and its request",
-                () -> assertEquals(minted, result.value().orElseThrow().token(), "the minted token is returned"),
-                () -> assertFalse(result.value().orElseThrow().toString().contains(minted),
+                () -> assertEquals(minted, result.value().token(), "the minted token is returned"),
+                () -> assertFalse(result.value().toString().contains(minted),
                         "the token is not printed"),
                 () -> assertEquals(Optional.of(clientId), Json.string(claims, "iss"),
                         "the JWT is issued by the App client"),
@@ -239,11 +239,11 @@ class InstallationTokensTest {
         on(installation, minted(one, now.plusSeconds(3600)));
         on(installation, minted(two, now.plusSeconds(7200)));
 
-        String first = tokens.token(installation, repository, PERMISSIONS).value().orElseThrow().token();
+        String first = tokens.token(installation, repository, PERMISSIONS).value().token();
         clock.now = now.plusSeconds(3600L - REUSE_MARGIN - 1);
         String reused = tokens.tokenSource(installation, repository, PERMISSIONS).token().orElseThrow();
         clock.now = now.plusSeconds(3600L - REUSE_MARGIN);
-        String renewed = tokens.token(installation, repository, PERMISSIONS).value().orElseThrow().token();
+        String renewed = tokens.token(installation, repository, PERMISSIONS).value().token();
 
         assertAll("the reuse window",
                 () -> assertEquals(one, first, "the first token is minted"),
@@ -262,7 +262,7 @@ class InstallationTokensTest {
         on(installation, minted(write, now.plusSeconds(3600)));
 
         tokens.token(installation, repository, Map.of("contents", "read"));
-        String minted = tokens.token(installation, repository, Map.of("contents", "write")).value().orElseThrow()
+        String minted = tokens.token(installation, repository, Map.of("contents", "write")).value()
                 .token();
 
         assertEquals(write, minted, "another permission set mints its own token");

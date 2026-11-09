@@ -200,15 +200,15 @@ public final class TaskProtocol {
         queue.updateAll(records -> {
             pruneDeliveries(records);
             if (jobState.hasEnded(request.generationId())) {
-                answer.set(new WaitAnswer.End("job_ended"));
+                answer.set(new WaitAnswer.End(WaitAnswer.EndReason.JOB_ENDED));
                 return records;
             }
             if (fenced().contains(request.generationId())) {
-                answer.set(new WaitAnswer.End("fenced"));
+                answer.set(new WaitAnswer.End(WaitAnswer.EndReason.FENCED));
                 return records;
             }
             if (!request.generationDigest().equals(request.roleDigest())) {
-                answer.set(new WaitAnswer.End("recycled"));
+                answer.set(new WaitAnswer.End(WaitAnswer.EndReason.RECYCLED));
                 return records;
             }
             var held = heldBy(records, request.generationId());
@@ -217,7 +217,7 @@ public final class TaskProtocol {
             }
             var selected = select(records, request);
             if (selected.isEmpty()) {
-                answer.set(new WaitAnswer.WaitAgain("no_task"));
+                answer.set(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK));
                 return records;
             }
             var offered = lease(selected.get(), request, at);
@@ -237,7 +237,7 @@ public final class TaskProtocol {
     private List<QueueTaskRecord> answerHeld(List<QueueTaskRecord> records, QueueTaskRecord held, WaitRequest request,
             Instant at, AtomicReference<WaitAnswer> answer) {
         if (isPaused(held)) {
-            answer.set(new WaitAnswer.WaitAgain("paused"));
+            answer.set(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.PAUSED));
             return records;
         }
         switch (held.status()) {
@@ -247,26 +247,26 @@ public final class TaskProtocol {
                         ? new WaitAnswer.Answered(held, delivered.answers())
                         : new WaitAnswer.Offered(held));
             }
-            case CONSULTING -> answer.set(new WaitAnswer.WaitAgain("consulting"));
+            case CONSULTING -> answer.set(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.CONSULTING));
             case AWAITING_ANSWER -> {
                 var delivered = answers.get(held.queueTaskId());
                 if (delivered != null) {
                     answer.set(new WaitAnswer.Answered(held, delivered.answers()));
                 } else {
-                    answer.set(new WaitAnswer.WaitAgain("awaiting_answer"));
+                    answer.set(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.AWAITING_ANSWER));
                 }
             }
             case EXECUTING -> {
                 var returned = endAttempt(held, AttemptEnd.WAITED_AGAIN, request.reOfferBudget(), at);
                 if (returned.isClosed()) {
-                    answer.set(new WaitAnswer.WaitAgain("attempts_spent"));
+                    answer.set(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.ATTEMPTS_SPENT));
                     return replace(records, returned);
                 }
                 var reoffered = lease(returned, request, at);
                 answer.set(new WaitAnswer.Offered(reoffered));
                 return replace(records, reoffered);
             }
-            default -> answer.set(new WaitAnswer.WaitAgain("no_task"));
+            default -> answer.set(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK));
         }
         return records;
     }

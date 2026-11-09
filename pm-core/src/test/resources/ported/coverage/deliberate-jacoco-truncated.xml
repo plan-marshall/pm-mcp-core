@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="truncated">
+  <package name="com/example">
+    <class name="com/example/Truncated" sourcefilename="Truncated.java">
+      <counter type="LINE" missed="0" covered="1"/>

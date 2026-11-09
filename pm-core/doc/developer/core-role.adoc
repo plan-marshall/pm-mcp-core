@@ -270,7 +270,7 @@ split.
 == The Null Contract of This Package
 
 A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
-stays the type of the absence a method returns (link:../../../doc/adr/019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 019]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is an `OptionalInt` (link:../../../doc/adr/020-the-effective-idle-wakeups-are-an-optionalint.adoc[repository ADR 020]).
+stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is an `OptionalInt` (link:../../../doc/adr/022-the-effective-idle-wakeups-are-an-optionalint.adoc[repository ADR 022]).
 
 == Related
 

@@ -85,7 +85,7 @@ final class DigestRelations {
         for (var entry : results.entrySet()) {
             GitResult<WorktreeSha> result = entry.getValue();
             if (result.isOk()) {
-                WorktreeSha sha = result.value().orElseThrow();
+                WorktreeSha sha = result.value();
                 checks.add(() -> assertAll(fixture + ": result " + entry.getKey(),
                         () -> assertEquals(VERSION, sha.version(), "hash version of a successful result"),
                         () -> assertTrue(DIGEST_FORM.matcher(sha.digest()).matches(),
@@ -139,6 +139,6 @@ final class DigestRelations {
     private static String digest(String where, String label, GitResult<WorktreeSha> result) {
         assertAll(where + ": result " + label + " is " + result.outcome() + " (" + result.detail() + ")",
                 () -> assertTrue(result.isOk(), "only a successful result enters equality"));
-        return result.value().orElseThrow().digest();
+        return result.value().digest();
     }
 }

@@ -4,7 +4,7 @@
 == Status
 
 Accepted, amended 2026-11-09 by PLAN-V2-97: "the level names nothing" is a `null` component of `RoleAssignment`, not
-an empty `Optional` (repository ADR 019).
+an empty `Optional` (repository ADR 021).
 
 == Date
 

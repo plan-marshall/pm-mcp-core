@@ -92,7 +92,8 @@ class TaskProtocolOfferTest {
                 TaskFixtures.OTHER_DIGEST, TaskFixtures.DIGEST, 3), TaskFixtures.AT);
 
         assertAll(
-                () -> assertEquals(new WaitAnswer.End("recycled"), answer),
+                () -> assertEquals(new WaitAnswer.End(WaitAnswer.EndReason.RECYCLED), answer,
+                        "an outdated digest is answered recycled"),
                 () -> assertEquals(Status.QUEUED, queue.records().getFirst().status()));
     }
 
@@ -112,7 +113,8 @@ class TaskProtocolOfferTest {
         var afterStart = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(1));
 
         assertAll(
-                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), whilePaused),
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), whilePaused,
+                        "a paused plan is answered no task"),
                 () -> assertEquals(Status.QUEUED, queuedWhilePaused),
                 () -> assertInstanceOf(WaitAnswer.Offered.class, afterStart));
     }
@@ -131,7 +133,8 @@ class TaskProtocolOfferTest {
 
         assertAll(
                 () -> assertEquals("qt-0000000000000001", TaskFixtures.task(first).queueTaskId()),
-                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), second));
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), second,
+                        "a second writer is answered no task"));
     }
 
     @Test
@@ -182,7 +185,8 @@ class TaskProtocolOfferTest {
         var answer = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(1));
 
         assertAll(
-                () -> assertEquals(new WaitAnswer.End("fenced"), answer),
+                () -> assertEquals(new WaitAnswer.End(WaitAnswer.EndReason.FENCED), answer,
+                        "a fenced generation is answered end"),
                 () -> assertNull(queue.records().getFirst().lease()));
     }
 }
