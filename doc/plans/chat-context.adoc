@@ -1,0 +1,39 @@
+= What a chat knows
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `chat-context`
+
+[horizontal]
+Roadmap item:: _Give the chat its context and its subject's narrative_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap], Milestone 9): the chat's context
+Where:: pm-runtime (the chat worker bound to its chat, its idle release and re-prime, the offer on a paused plan); pm-workflow (`chat.open` and `chat.reply` over the chat's context, the kind `chat-reply` of class `read_only`, the act named as a reference); pm-core (the pushed core per subject, the context summary, the origin of every change a chat leads to, the chat's bounds)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The chat worker*: one warm generation of the routed role per open chat (fresh per turn for ended work), bound to the chat, released when idle and at once under slot pressure, recycled and re-primed as a warm worker: link:../specification/state-catalogue.adoc#chat-context[State Catalogue § What a Chat Knows]; link:../specification/model-work/03-supervision-and-recycling.adoc#chat-worker[Model Work § The Chat Worker]; link:../specification/model-work/02-task-protocol.adoc#offer[Model Work § Offer].
+. *The class `read_only`* declared by the kind `chat-reply`, a routed `writer` role narrowed to the `read_only` tool set instead of refused: link:../specification/model-work/01-roles-and-configuration.adoc#role-class-fit[Model Work § Composition Check]; link:../specification/model-work/04-worker-launch.adoc#job-tool-sets[Model Work § Tool Sets].
+. *The pushed core per subject*, rendered from the structured store at each re-prime, with the transcript window, within the chat core budget and the chat transcript window, a list over the budget becoming its count with its URI: § What a Chat Knows; link:../specification/model-work/04-worker-launch.adoc#job-prompt[Model Work § Launch Prompt & Contract Envelope]; link:../specification/timeouts/02-runtime-leases-operator-web.adoc#chat-page[Timeouts § Chat Transcript Page and Chat Context].
+. *The chat skill* `skill://pm/chat/SKILL.md` in the required skill set of every chat task: link:../specification/model-work/01-roles-and-configuration.adoc#chat-skill[Model Work § The Chat Skill]; link:../specification/model-work/04-worker-launch.adoc#skill-delivery[Model Work § Skill Delivery Record & Re-Delivery].
+. *The context summary* `context: {knows: [{key, args}], as_of}` on the chat, message keys `chat.knows.*`: § What a Chat Knows.
+. *A paused plan's chat*: its `chat-reply` task offered, its worker holding its own slot, a pause `now` leaving its reply: § What a Chat Knows; link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime Lifecycle § Pausing and Starting].
+. *The act named, never performed*: the reference of the kind `act` in the reply, checked against the acts the subject offers: link:../specification/state-catalogue.adoc#chat-names-acts[State Catalogue § The Role Names an Act].
+. *The origin* `origin: {kind: chat, chat_id, turn_id}` of every change a chat leads to: link:../specification/state-catalogue.adoc#chat-origin[State Catalogue § Origin]; link:../specification/store-schemas/17-re-planning.adoc#replan-record[Store Schemas § Re-Planning Record]; link:../specification/store-schemas/04-epic-and-change-ledger.adoc#epic-drafts[Store Schemas § Epic Drafts]; link:../specification/store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[§ Queue Row]; link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-start.store-description[`start.store-description`]; link:../specification/model-work/11-decision-records.adoc#decision-record-content[Model Work § Decision Log, Content].
+
+Schema changes: `replan-record.schema.json` (`chat` gains `chat_id` and `turn_id`); `decision-record.schema.json` (`after_chat` from a boolean to `null` or `{chat_id, turn_id}`); `decomposition-draft.schema.json`, `review-draft.schema.json`, `queue-row.schema.json`, and the source manifest entry of an entry (`origin`).
+
+Left out: the resources `pm://chat/{chat_id}/turns{?before}`, `pm://entry/{entry_id}/sources[/{source_id}]`, `pm://archive/{plan_id}/record`, and `pm://epic/{epic_id}/record`, their routes and the chat's `context` on the wire (`plan-marshall-mcp`, specified in link:../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#chat-resources[MCP Tools § Resource URIs]); the content of the chat skill (`plan-marshall-mcp`); the client contract, the mock runtime, and the clients' line of what the role knows (`pm-mcp-clients`); the narrative and `since_last_turn` (link:chat-narrative.adoc[`chat-narrative`]).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1]; link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-2[UC-PLN-2] (a decision)
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-24[PM-WF-24]; link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-11[PM-ARCH-11]
+* Specification: the sections the tasks name; link:../specification/model-work/03-supervision-and-recycling.adoc#warm-slots[Model Work § Model Slots & Warm Workers]
+
+== Done When
+
+* Watch: no item is anchored to the sections the tasks name.
+* Tests: a second turn served by the same generation without a re-prime; ended work served fresh per turn; a generation released after the idle release and on slot pressure, the next turn re-primed with the core and the transcript window; a re-prime after the token budget, a loss, and a changed configuration digest; a chat turn offered to no other worker of the role while the chat's generation lives; a `writer` role routed to a chat running with the `read_only` set and never waiting behind the plan's writer; the core per subject rendered fresh at each re-prime, a list over the core budget rendered as its count with its URI; turns beyond the window absent from the core; the chat skill required at submit; the context summary matching the core given; a paused plan's chat answered, a pause `now` leaving its reply; an act named as a reference, an act the subject does not offer refused at submit; the origin recorded on a revision, staged rows, a draft change, an item's disposition, a description, and an answer after a chat.
