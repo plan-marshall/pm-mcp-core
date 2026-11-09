@@ -165,7 +165,11 @@ class ForgeUrlTest {
                 () -> assertEquals(ForgeUrl.Outcome.RESOLVED,
                         ForgeUrl.resolve("https://github.com/%s/%s/pull/%d/files?diff=split#top"
                                 .formatted(owner, name, number)).outcome(),
-                        "a query and a fragment beside the tab are ignored"));
+                        "a query and a fragment beside the tab are ignored"),
+                () -> assertEquals(ForgeUrl.Kind.PULL_REQUEST,
+                        ForgeUrl.resolve("https://gitlab.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v"
+                                + "/-/merge_requests/1/diffs").url().orElseThrow().kind(),
+                        "a tab is accepted at the nesting limit"));
     }
 
     @Test

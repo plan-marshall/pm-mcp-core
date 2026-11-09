@@ -32,7 +32,8 @@ import de.planmarshall.core.findings.FindingSourceKey;
  * {@code commits} and {@code checks} on GitHub ({@code /pull/<n>/{files,commits,checks}}), {@code files} and
  * {@code commits} on Forgejo ({@code /pulls/<n>/{files,commits}}), and {@code diffs}, {@code commits}, {@code pipelines}
  * and {@code changes} on GitLab ({@code /-/merge_requests/<n>/{diffs,commits,pipelines,changes}}); the segments are the
- * routes of those web interfaces. An issue path carries no tab. A host-to-forge table,
+ * routes of those web interfaces and a tab adds the one segment the length bound allows above it. An issue path carries
+ * no tab. A host-to-forge table,
  * passed by the caller or the {@link #BUILT_IN_HOSTS built-in one}, selects the forge and so the grammar. A URL on a host
  * the table does not name is the outcome {@link Outcome#UNKNOWN_FORGE} as a value; a malformed or hostile URL is
  * {@link Outcome#INVALID}. Neither is thrown.
@@ -53,9 +54,9 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     private static final String GITLAB_SEPARATOR = "-";
     /** The longest URL path that is considered. */
     private static final int MAX_PATH_LENGTH = 2048;
-    /** The most path segments that are considered: 21 GitLab group segments, a project and {@code /-/issues/<n>}. */
-    private static final int MAX_SEGMENTS = 25;
-    /** The longest one path segment that is considered. */
+    /** The most path segments that are considered: 21 GitLab group segments, a project and {@code /-/issues/<n>}; a
+     * pull-request tab adds one more. */
+    private static final int MAX_SEGMENTS = 25;    /** The longest one path segment that is considered. */
     private static final int MAX_SEGMENT_LENGTH = 255;
     /** The most digits an issue or pull-request number has. */
     private static final int MAX_NUMBER_DIGITS = 9;
@@ -247,7 +248,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (!segments.isEmpty() && segments.getLast().isEmpty()) {
             segments.removeLast();
         }
-        if (segments.isEmpty() || segments.size() > MAX_SEGMENTS) {
+        if (segments.isEmpty() || segments.size() > MAX_SEGMENTS && !tabOfAny(segments)
+                || segments.size() > MAX_SEGMENTS + 1) {
             return Optional.empty();
         }
         for (String segment : segments) {
@@ -290,6 +292,16 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     /** @return the one tab segment the forge's pull-request web interface puts after the number */
     private static List<String> tabOf(String forge) {
         return GITHUB.equals(forge) ? GITHUB_PULL_REQUEST_TABS : FORGEJO_PULL_REQUEST_TABS;
+    }
+
+    /**
+     * @param segments the path segments
+     * @return whether the path is one segment over the bound and its last segment is a pull-request tab of a forge
+     */
+    private static boolean tabOfAny(List<String> segments) {
+        String last = segments.getLast();
+        return GITHUB_PULL_REQUEST_TABS.contains(last) || FORGEJO_PULL_REQUEST_TABS.contains(last)
+                || GITLAB_PULL_REQUEST_TABS.contains(last);
     }
 
     private static Resolution resolveGitLab(String forge, String origin, List<String> segments) {
