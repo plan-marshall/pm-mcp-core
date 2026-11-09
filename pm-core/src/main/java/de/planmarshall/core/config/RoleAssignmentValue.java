@@ -52,6 +52,10 @@ public record RoleAssignmentValue(String harness, String model, EffortSetting ef
             throw new IllegalArgumentException(
                     "The effort setting '%s' and its value do not belong together: %s".formatted(effort, effortValue));
         }
+        if (effort == EffortSetting.VALUE && effortValue.value() == null) {
+            throw new IllegalArgumentException(
+                    "A named effort value must not be null: " + harness);
+        }
     }
 
     /**

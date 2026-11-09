@@ -114,6 +114,10 @@ class EffectiveRoleFactsTest {
                 .set("/recycling", map("idle_wakeups", null, "token_budget",
                         Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
                 .artifact();
+        var artifactSets = RoleFixtures.valid().set("/form", "warm")
+                .set("/recycling", map("idle_wakeups", 4, "token_budget",
+                        Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
+                .artifact();
 
         assertAll(
                 () -> assertEquals(OptionalInt.of(idleWakeups), role(warm, profile(
@@ -122,7 +126,11 @@ class EffectiveRoleFactsTest {
                         "the host's value applies"),
                 () -> assertTrue(role(warm, profile(new HarnessProfile.Resumability(false, null, false, null),
                                 Generators.integers(200_000, 800_000).next(), null)).idleWakeups().isEmpty(),
-                        "neither sets it"));
+                        "neither sets it"),
+                () -> assertEquals(OptionalInt.of(4), role(artifactSets, profile(
+                                new HarnessProfile.Resumability(false, null, false, null),
+                                Generators.integers(200_000, 800_000).next(), 3)).idleWakeups(),
+                        "the artifact's value wins over the host's"));
     }
 
     @Test
