@@ -36,7 +36,8 @@ import de.planmarshall.core.role.RoleForm;
  * @param promptFile       the composed prompt file
  * @param prompt           the composed prompt with its digest and delivered skills
  * @param mcpConfigFile    the per-call MCP configuration when the profile delivers it as a file; {@code null} otherwise
- * @param mcpConfig        the per-call MCP configuration as JSON; {@code null} for a {@code zero_tool} worker
+ * @param mcpConfig        the per-call MCP configuration as JSON; {@code null} for a {@code zero_tool} worker and for
+ *                         file delivery, where {@link #mcpConfigFile()} carries it instead
  * @param jobToken         the minted job token; never stored
  * @param jobTokenSha256   the digest of the job token, as the job record keeps it
  * @param harness          the client id of the harness
