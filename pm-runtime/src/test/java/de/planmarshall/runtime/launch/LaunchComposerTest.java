@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -176,6 +177,20 @@ class LaunchComposerTest {
                 "the worker block names the generation");
         assertEquals("claude-opus-4-1", launch.workerBlock().member("model").orElseThrow().text().orElseThrow(),
                 "the worker block names the rendered model");
+        assertEquals(3, launch.workerBlock().member("idle_wakeups").orElseThrow().integerValue().orElseThrow(),
+                "the worker block carries the effective idle wake-up bound");
+    }
+
+    @Test
+    @DisplayName("an absent idle-wakeup bound is written as zero")
+    void absentIdleWakeupsWritesZero() {
+        var role = LaunchFixtures.roleWithoutIdleWakeups(RoleClass.WRITER, "frontier", "max", RoleForm.FRESH, skills,
+                List.of(LaunchFixtures.ROLE_SKILL));
+
+        var launch = compose(role, true, false);
+
+        assertEquals(0, launch.workerBlock().member("idle_wakeups").orElseThrow().integerValue().orElseThrow(),
+                "an absent idle wake-up bound is written as zero");
     }
 
     @Test
@@ -327,8 +342,8 @@ class LaunchComposerTest {
         var roleSkills = List.of(new RoleSkill(LaunchFixtures.ROLE_SKILL, skills.resolve(LaunchFixtures.ROLE_SKILL)
                 .orElseThrow().digest()));
         return new EffectiveRole(LaunchFixtures.artifact(roleClass, "frontier", "max", RoleForm.FRESH, List.of(
-                LaunchFixtures.ROLE_SKILL)), "claude", "frontier", new EffortValue("max"), roleSkills, "1.5", Optional
-                .empty(), new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
+                        LaunchFixtures.ROLE_SKILL)), "claude", "frontier", new EffortValue("max"), roleSkills, "1.5", null,
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
     }
 
     private static ContractEnvelope envelope(String planId) {

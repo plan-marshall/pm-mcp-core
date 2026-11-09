@@ -139,3 +139,8 @@ The stores are tested against `@TempDir` roots with a lock manager that records 
 and refuses, the three effort states, the escalation, the drop of an unenrolled harness, the conflict that carries the
 current value, and the gate's answers and scope rules. `RoleAssignmentProposalTest` builds a role set from inline
 artifacts and a default assignment from an inline document, so the proposal is proved without a release.
+
+== The Null Contract of This Package
+
+A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
+stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). `Consent.projectId` and `Consent.deviceId`, `ConsentGate.Request.projectId` and `ConsentGate.Decision.toRecord`, the `projectId`/`effort`/`escalation` parameters and components of the assignments, and `RoleAssignmentValue.effortValue` are `@Nullable`; a codec writes the absent member exactly as it wrote `Optional.empty()`.

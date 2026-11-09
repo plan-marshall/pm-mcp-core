@@ -12,7 +12,7 @@ package de.planmarshall.core.role.qualification;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.role.corpus.ImportResult;
@@ -32,12 +32,13 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  * @param profile        how often each item is offered
  * @param judge          the judge configuration and its instrument-check items
  * @param checkouts      whether a commit of the project's repository is present
- * @param previous       the record of an earlier grading of the same digest and revision; its graded items are reused
+ * @param previous       the record of an earlier grading of the same digest and revision, whose graded items are reused;
+ *                       {@code null} when there is none
  * @since 0.1
  */
 public record GradingPlan(EffectiveRole role, List<ImportedItem> items, ImportResult importResult,
 String corpusRevision, URI projectRepository, GradingProfile profile, JudgeConfiguration judge,
-ItemCheckout checkouts, Optional<QualificationRecord> previous) {
+ItemCheckout checkouts, @Nullable QualificationRecord previous) {
 
     /**
      * @throws IllegalArgumentException if the corpus revision is empty
@@ -54,6 +55,5 @@ ItemCheckout checkouts, Optional<QualificationRecord> previous) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(judge, "judge");
         Objects.requireNonNull(checkouts, "checkouts");
-        Objects.requireNonNull(previous, "previous");
     }
 }

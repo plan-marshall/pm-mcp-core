@@ -124,17 +124,17 @@ public class RoleAssignmentsCodec {
         generator.writeStringField(FIELD_HARNESS, assignment.harness());
         generator.writeStringField(FIELD_MODEL, assignment.model());
         if (assignment.effort() == EffortSetting.VALUE) {
-            generator.writeStringField(FIELD_EFFORT, assignment.effortValue().orElseThrow().value());
+            generator.writeStringField(FIELD_EFFORT, assignment.effortValue().value());
         } else if (assignment.effort() == EffortSetting.DEFAULT) {
             generator.writeNullField(FIELD_EFFORT);
         }
-        if (assignment.escalation().isPresent()) {
-            var escalation = assignment.escalation().get();
+        if (assignment.escalation() != null) {
+            var escalation = assignment.escalation();
             generator.writeObjectFieldStart(FIELD_ESCALATION);
             generator.writeStringField(FIELD_HARNESS, escalation.harness());
             generator.writeStringField(FIELD_MODEL, escalation.model());
-            if (escalation.effort().isPresent()) {
-                generator.writeStringField(FIELD_EFFORT, escalation.effort().get().value());
+            if (escalation.effort() != null) {
+                generator.writeStringField(FIELD_EFFORT, escalation.effort().value());
             } else {
                 generator.writeNullField(FIELD_EFFORT);
             }
@@ -184,19 +184,19 @@ public class RoleAssignmentsCodec {
         @Nullable String harness = null;
         @Nullable String model = null;
         var effort = EffortSetting.INHERIT;
-        Optional<EffortValue> effortValue = Optional.empty();
-        Optional<Escalation> escalation = Optional.empty();
+        @Nullable EffortValue effortValue = null;
+        @Nullable Escalation escalation = null;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
             switch (field) {
                 case FIELD_HARNESS -> harness = string(parser, field);
                 case FIELD_MODEL -> model = string(parser, field);
                 case FIELD_EFFORT -> {
-                    var value = nullableString(parser, field);
-                    effort = value.isPresent() ? EffortSetting.VALUE : EffortSetting.DEFAULT;
-                    effortValue = value.map(EffortValue::new);
+                    var value = nullableString(parser, field).orElse(null);
+                    effort = value != null ? EffortSetting.VALUE : EffortSetting.DEFAULT;
+                    effortValue = value == null ? null : new EffortValue(value);
                 }
-                case FIELD_ESCALATION -> escalation = escalation(parser);
+                case FIELD_ESCALATION -> escalation = escalation(parser).orElse(null);
                 default -> throw undeclared(field);
             }
         }
@@ -228,7 +228,7 @@ public class RoleAssignmentsCodec {
         }
         requireFields(seen, "escalation assignment", FIELD_HARNESS, FIELD_MODEL, FIELD_EFFORT);
         try {
-            return Optional.of(new Escalation(harness, model, effort));
+            return Optional.of(new Escalation(harness, model, effort.orElse(null)));
         } catch (IllegalArgumentException | NullPointerException e) {
             throw unreadable("escalation: %s".formatted(e.getMessage()), e);
         }

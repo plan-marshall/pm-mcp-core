@@ -22,7 +22,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -56,7 +55,7 @@ class QualificationCheckTest {
 
         assertAll(
                 () -> assertTrue(verdict.qualified()),
-                () -> assertEquals(Optional.of(RoleForm.FRESH), verdict.qualifiedForm()),
+                () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
                 () -> assertEquals(List.of(), verdict.reasons()));
     }
 
@@ -254,7 +253,7 @@ class QualificationCheckTest {
             var verdict = check(QualificationFixtures.bothTopics()).check(QualificationFixtures.ROLE, qualification,
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
-            assertEquals(Optional.of(RoleForm.WARM), verdict.qualifiedForm());
+            assertEquals(RoleForm.WARM, verdict.qualifiedForm());
         }
 
         @Test
@@ -269,7 +268,7 @@ class QualificationCheckTest {
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
             assertAll(
-                    () -> assertEquals(Optional.of(RoleForm.FRESH), verdict.qualifiedForm()),
+                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
                     () -> assertFalse(verdict.reasons().isEmpty()));
         }
 
@@ -285,7 +284,7 @@ class QualificationCheckTest {
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
             assertAll(
-                    () -> assertEquals(Optional.of(RoleForm.FRESH), verdict.qualifiedForm()),
+                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
                     () -> assertTrue(codes(verdict).contains(Code.WARM_GAP_EXCEEDED)));
         }
 
@@ -298,7 +297,7 @@ class QualificationCheckTest {
                     QualificationFixtures.DIGEST, QualificationFixtures.CORPUS_REVISION, RoleForm.WARM);
 
             assertAll(
-                    () -> assertEquals(Optional.of(RoleForm.FRESH), verdict.qualifiedForm()),
+                    () -> assertEquals(RoleForm.FRESH, verdict.qualifiedForm()),
                     () -> assertTrue(codes(verdict).contains(Code.MISSING_WARM_FORM)));
         }
     }

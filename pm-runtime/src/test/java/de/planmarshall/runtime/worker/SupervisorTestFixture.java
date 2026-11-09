@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.crypto.SecretKey;
@@ -183,7 +184,7 @@ final class SupervisorTestFixture {
                 new RoleArtifact.Questions(0, 0), offTrack);
         var resolved = List.of(new RoleSkill(ROLE_SKILL, skills().resolve(ROLE_SKILL).orElseThrow().digest()));
         return new EffectiveRole(artifact, CLIENT, "claude-sonnet-4", new EffortValue("high"), resolved, "1.5",
-                Optional.empty(), new RoleArtifact.Questions(0, 0), offTrack, 400_000, 3);
+                null, new RoleArtifact.Questions(0, 0), offTrack, 400_000, OptionalInt.of(3));
     }
 
     /** @return the contract envelope of one fresh task */
