@@ -962,3 +962,20 @@ has `derived_from_untrusted: true`; a harness profile without `tool_call` target
 `node_modules/` marks it as well. Matched controls: reads of `src/` only and a worktree without third-party trees leave
 the plan unmarked and the rule table unrun.
 Source:: Article analysis `secure-architecture-for-ai-agents-owasp-llm` of plan-marshall-documentation.
+
+[#PM-WATCH-DISP-75]
+=== PM-WATCH-DISP-75: A pull request that changes an instruction file waits for the operator before a worker runs on it
+
+Anchor:: link:../specification/model-work/07-untrusted-text-screening.adoc#pr-instruction-files[Model Work § A Pull Request That Changes an Instruction File],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
+Hazard:: The check compares the changed paths with the root-level file names only, so a `CLAUDE.md` in a subdirectory,
+an `Agents.md` on a case-insensitive file system, or the instruction file of a harness other than the one the workers
+run on passes; or a clean screener verdict on the title and body overrides the flag, and the plan's workers load the
+third party's instructions as the project's own.
+Guard:: Scenario tests over recorded pull requests: a pull request by another author that changes `CLAUDE.md`,
+`src/module/CLAUDE.md`, `Agents.md`, or the instruction file of another harness in the table enters
+`source-pr.flagged` with the files named although the screener judged its text `clean`, and no worker is launched on its
+head before `accept` with a reason; `remove` drops it. Matched controls: the same change in a pull request the operator
+authored, and a pull request by another author that changes only `src/` files, proceed on a clean verdict.
+Source:: Article analysis `ai-dfir-toolkit` of plan-marshall-documentation (the rules-file backdoor and a poisoned
+repository configuration among its case studies).

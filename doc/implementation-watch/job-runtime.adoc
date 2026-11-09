@@ -643,8 +643,14 @@ Guard:: Fuzz and corpus tests (cui-http generators, garak and promptfoo corpora 
 validator on its own output changes nothing; no tag-block code point, variation selector, `Cf`, `Co`, or `Cn` code
 point, lone surrogate, or ANSI escape survives; images, raw HTML, and links outside the allowlist are removed or
 neutralized with one reported change each; a rule-table hit is recorded as a finding and never blocks on its own; the
-number of passes is bounded.
-Source:: design review.
+number of passes is bounded. Matched pairs in the shapes of an incident-response detection pack (a tool description with
+an instruction block, CSS-hidden instructions as an HTML block and inline, a rules-file text with coercive directives,
+a data-carrying URL template, a typosquatted package name) each beside the clean control of the same document: the
+attack yields its rule hit or URL flag and no hidden text survives, the control yields no change and no hit. A hidden
+instruction that level 1 removes (a tag-block run, an HTML comment) still appears as a rule hit in removed content;
+matched controls: removed markup without an instruction yields none, and a registered review bot's collapsed section
+and footer yield none.
+Source:: design review; article analysis `ai-dfir-toolkit` of plan-marshall-documentation.
 
 [#PM-WATCH-JOB-29]
 === PM-WATCH-JOB-29: Bot boilerplate is removed before the screener sees a comment
