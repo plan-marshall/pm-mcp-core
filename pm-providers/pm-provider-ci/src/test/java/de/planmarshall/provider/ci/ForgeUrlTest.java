@@ -91,7 +91,10 @@ class ForgeUrlTest {
 
         var url = ForgeUrl.resolve(template.formatted(owner, name, number)).url().orElseThrow();
 
-        assertEquals(expected, url.pullRequest().orElseThrow(), "the accessor names repository and number");
+        assertAll("the pull request URL",
+                () -> assertEquals(expected, url.pullRequest().orElseThrow(),
+                        "the accessor names repository and number"),
+                () -> assertTrue(url.issue().isEmpty(), "a pull-request URL names no issue"));
     }
 
     /**
@@ -172,7 +175,9 @@ class ForgeUrlTest {
                 .url().orElseThrow();
 
         assertAll("the issue URL",
-                () -> assertTrue(url.pullRequest().isEmpty(), "an issue URL names no pull request"));
+                () -> assertTrue(url.pullRequest().isEmpty(), "an issue URL names no pull request"),
+                () -> assertEquals(new IssueRef(url.repository(), url.number()), url.issue().orElseThrow(),
+                        "the accessor names the issue"));
     }
 
     @Test

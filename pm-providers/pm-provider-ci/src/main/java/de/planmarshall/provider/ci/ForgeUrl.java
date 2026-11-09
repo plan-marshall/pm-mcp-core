@@ -175,6 +175,13 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     }
 
     /**
+     * @return the issue the URL names; present exactly when the kind is {@link Kind#ISSUE}
+     */
+    public Optional<IssueRef> issue() {
+        return kind == Kind.ISSUE ? Optional.of(new IssueRef(repository, number)) : Optional.empty();
+    }
+
+    /**
      * Resolves a URL against the {@link #BUILT_IN_HOSTS built-in host table}.
      *
      * @param url the issue or pull-request URL

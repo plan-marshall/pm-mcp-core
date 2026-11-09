@@ -42,7 +42,9 @@ classpath, an unknown id is empty, and `select(ForgeUrl)` finds the provider of 
 tab segment after the number: `files`, `commits` and `checks` on GitHub, `files` and `commits` on Forgejo, `diffs`,
 `commits`, `pipelines` and `changes` on GitLab; an issue path carries no tab. A resolution is `RESOLVED`,
 `UNKNOWN_FORGE` or `INVALID`, always a value. `pullRequest()` returns the `PullRequestRef` of a resolved URL; it is
-present exactly when the kind is `Kind.PULL_REQUEST`.
+present exactly when the kind is `Kind.PULL_REQUEST`. `issue()` returns the `IssueRef`; it is present exactly when the
+kind is `Kind.ISSUE`. A consumer obtains an `IssueRef` from `issue()` and a `PullRequestRef` from `pullRequest()`, never
+from `repository()` and `number()`.
 
 |link:{src}/Identity.java[`Identity`]
 |The identity of the credential: login, user id, `TokenKind`, the operator login beside a GitHub App's bot identity, the
@@ -127,7 +129,8 @@ Plan Source Contracts (`pr`)]_
 
 `prView(PullRequestRef)` reads one pull request of the provider's origin; GitLab calls it a merge request, and the
 contract names both a pull request. A consumer reaches the reference through `ForgeUrl.resolve(url)` and
-`ForgeUrl.pullRequest()`, which is present exactly for a pull-request URL. The read returns, for every state, the state,
+`ForgeUrl.pullRequest()`, which is present exactly for a pull-request URL; an `IssueRef` comes from
+`ForgeUrl.issue()`, which is present exactly for an issue URL. The read returns, for every state, the state,
 the title and body, the base and head branch, the head commit, the head repository, `headWritable` and the changed paths
 with their completeness. The adapters' reads are described in their guides
 (link:../../../pm-provider-github/doc/developer/provider-github.adoc#_the_pull_request_read[GitHub],
