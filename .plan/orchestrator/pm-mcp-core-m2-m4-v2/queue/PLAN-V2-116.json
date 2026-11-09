@@ -2,10 +2,10 @@
   "id": "PLAN-V2-116",
   "slug": "schema-files-tested-records",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-116-schema-files-tested-records",
+  "pr": "#323",
+  "landing": "landings/PLAN-V2-116.md",
   "seq": 104
 }
