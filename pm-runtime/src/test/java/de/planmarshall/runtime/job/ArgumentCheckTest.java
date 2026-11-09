@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -133,7 +134,7 @@ class ArgumentCheckTest {
     }
 
     private static WrapperBuild maven(String verb, String module) {
-        return new WrapperBuild(WrapperName.MVNW, verb, Optional.ofNullable(module));
+        return new WrapperBuild(WrapperName.MVNW, verb, module);
     }
 
     /** Checks a job whose discovered modules are these, so that any module name can reach the flag rule. */
@@ -168,7 +169,7 @@ class ArgumentCheckTest {
         @ValueSource(strings = {"-Dexec=sh", "-fother-pom.xml", "--settings=other.xml"})
         @DisplayName("a forbidden free flag as the module of an npm build is refused as argument_rejected")
         void forbiddenFlagInHostToolBuild(String flag) {
-            var refusal = refused(new HostToolBuild("test", Optional.of(flag)));
+            var refusal = refused(new HostToolBuild("test", flag));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
@@ -242,7 +243,7 @@ class ArgumentCheckTest {
 
             assertAll(
                     () -> assertEquals(expected, arguments.arguments(), "the ordinary arguments pass in their order"),
-                    () -> assertEquals(Optional.empty(), arguments.source(),
+                    () -> assertNull(arguments.source(),
                             "a host tool call has no template source"));
         }
 
@@ -390,7 +391,7 @@ class ArgumentCheckTest {
             assertAll(
                     () -> assertEquals(List.of("verify", "-pl", module), arguments.arguments(),
                             "the enrolled template fills the module group"),
-                    () -> assertEquals(Optional.of(TemplateSource.ENROLLED), arguments.source(),
+                    () -> assertEquals(TemplateSource.ENROLLED, arguments.source(),
                             "the template source is recorded as enrolled"));
         }
 
@@ -402,18 +403,18 @@ class ArgumentCheckTest {
             assertAll(
                     () -> assertEquals(List.of("test", "-pl", module, "-am"), arguments.arguments(),
                             "the default template fills the module group"),
-                    () -> assertEquals(Optional.of(TemplateSource.COMPILED_DEFAULT), arguments.source(),
+                    () -> assertEquals(TemplateSource.COMPILED_DEFAULT, arguments.source(),
                             "the template source is compiled_default"));
         }
 
         @Test
         @DisplayName("the default of npm is used for a build job of npm")
         void npmDefault() {
-            var arguments = passed(new HostToolBuild("test", Optional.empty()));
+            var arguments = passed(new HostToolBuild("test", null));
 
             assertAll(
                     () -> assertEquals(List.of("test"), arguments.arguments(), "the npm default template is used"),
-                    () -> assertEquals(Optional.of(TemplateSource.COMPILED_DEFAULT), arguments.source(),
+                    () -> assertEquals(TemplateSource.COMPILED_DEFAULT, arguments.source(),
                             "the npm template source is compiled_default"));
         }
 
@@ -511,7 +512,7 @@ class ArgumentCheckTest {
 
             assertAll(
                     () -> assertEquals(List.of(), arguments.arguments(), "script arguments add nothing to the argv"),
-                    () -> assertEquals(Optional.empty(), arguments.source(),
+                    () -> assertNull(arguments.source(),
                             "a project script has no template source"));
         }
 
@@ -607,7 +608,7 @@ class ArgumentCheckTest {
             assertAll(
                     () -> assertEquals(List.of(fixture.root.resolve(JobEnrolmentFixture.MVNW).toString(), "verify",
                             "-pl", module), job.argv(), "the argv is the wrapper and the template"),
-                    () -> assertEquals(Optional.of(TemplateSource.ENROLLED), job.templateSource(),
+                    () -> assertEquals(TemplateSource.ENROLLED, job.templateSource(),
                             "the job records the enrolled template"));
         }
     }

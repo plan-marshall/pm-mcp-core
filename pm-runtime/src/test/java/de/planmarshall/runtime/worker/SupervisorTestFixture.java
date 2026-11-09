@@ -198,13 +198,13 @@ final class SupervisorTestFixture {
     WorkerStartRequest freshRequest(EffectiveRole role) {
         return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
                 plan, workdir, envelope(), false, List.of(STATE_SKILL), List.of(DOMAIN_SKILL), "",
-                Optional.empty());
+                null);
     }
 
     /** @return a warm start request in the given plan worktree */
     WorkerStartRequest warmRequest(EffectiveRole role, Path directory) {
         return new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PLAN_WORKTREE,
-                plan, directory, null, false, List.of(), List.of(), "", Optional.empty());
+                plan, directory, null, false, List.of(), List.of(), "", null);
     }
 
     /** @return a supervisor over the fixture environment with an open guard and gate */

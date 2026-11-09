@@ -80,17 +80,15 @@ public final class WorkerRecycling {
      * One {@code wait_again} answer and what it made of the generation.
      *
      * @param idleWakeups  the consecutive bounded waits the generation has ended without a task after this answer
-     * @param recycleCause why the answer recycled the generation; empty when it did not
+     * @param recycleCause why the answer recycled the generation; {@code null} when it did not
      * @since 0.1
      */
-    public record WaitAgainResult(long idleWakeups, Optional<RecycleCause> recycleCause) {
+    public record WaitAgainResult(long idleWakeups, @Nullable RecycleCause recycleCause) {
 
         /**
-         * @throws NullPointerException     if the cause is {@code null}
          * @throws IllegalArgumentException if the count is negative
          */
         public WaitAgainResult {
-            Objects.requireNonNull(recycleCause, "recycleCause");
             if (idleWakeups < 0) {
                 throw new IllegalArgumentException("'idleWakeups' must not be negative: " + idleWakeups);
             }
@@ -109,13 +107,13 @@ public final class WorkerRecycling {
     public synchronized WaitAgainResult waitAgain(WorkerGeneration generation) {
         Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         if (generation.terminal() || generation.leasedTask() != null) {
-            return new WaitAgainResult(generation.idleWakeups(), Optional.empty());
+            return new WaitAgainResult(generation.idleWakeups(), null);
         }
         var idleWakeups = generation.idleWakeups() + 1;
         if (generation.form() != RoleForm.WARM || idleWakeups < idleWakeupsBound(generation.role())) {
-            return new WaitAgainResult(idleWakeups, Optional.empty());
+            return new WaitAgainResult(idleWakeups, null);
         }
-        return new WaitAgainResult(idleWakeups, recycle(generation, RecycleCause.IDLE));
+        return new WaitAgainResult(idleWakeups, recycle(generation, RecycleCause.IDLE).orElse(null));
     }
 
     /**

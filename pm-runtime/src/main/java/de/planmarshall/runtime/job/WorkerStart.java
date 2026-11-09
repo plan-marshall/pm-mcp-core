@@ -12,7 +12,7 @@ package de.planmarshall.runtime.job;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
 import de.planmarshall.core.store.JobRecord;
@@ -32,12 +32,12 @@ import de.planmarshall.runtime.launch.WorkerLaunch;
  * @param budgetSeconds the worker budget of its role in seconds
  * @param budgetDerivation how the budget was derived
  * @param writablePaths the sub-paths the harness's profile declares writable
- * @param egressProxy   the loopback URL of the worker's egress proxy; empty when none
+ * @param egressProxy   the loopback URL of the worker's egress proxy; {@code null} when none
  * @since 0.1
  */
 public record WorkerStart(WorkerLaunch launch, ProjectEnrolment enrolment, JobRecord.Scope scope, String budgetKey,
 long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, List<Path> writablePaths,
-Optional<String> egressProxy) {
+@Nullable String egressProxy) {
 
     /** Copies the writable paths and validates the scope of a worker. */
     public WorkerStart {
@@ -49,7 +49,6 @@ Optional<String> egressProxy) {
                     + scope.type().wireName());
         }
         writablePaths = List.copyOf(Objects.requireNonNull(writablePaths, "writablePaths"));
-        Objects.requireNonNull(egressProxy, "egressProxy");
     }
 
     /**
