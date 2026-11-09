@@ -43,7 +43,7 @@ import de.planmarshall.core.role.EffectiveRole;
  * @param envelope            the contract envelope of a fresh worker; {@code null} for a warm worker
  * @param inBandBoundChars    the in-band bound; {@code 0} for no bound
  * @param zeroToolPrompt      the server-fixed prompt of a {@code zero_tool} role
- * @param resumeSessionId     the stored session a resumed generation continues; empty for a new session
+ * @param resumeSessionId     the stored session a resumed generation continues; {@code null} for a new session
  * @param clock               the clock of the spawn instants
  * @since 0.1
  */
@@ -51,7 +51,7 @@ public record LaunchRequest(EffectiveRole role, HeadlessBlock block, HarnessEnro
 Path runtimeHome, Path jobPrivateDirectory, WorkdirKind workdirKind, @Nullable String planId,
 @Nullable Path workdir, Path relaySocket, String shimParagraph, SkillSource skills, boolean fresh,
 boolean writesFreeText, List<String> stateSkills, List<String> domainSkills, @Nullable ContractEnvelope envelope,
-int inBandBoundChars, String zeroToolPrompt, Optional<String> resumeSessionId, InstantSource clock) {
+int inBandBoundChars, String zeroToolPrompt, @Nullable String resumeSessionId, InstantSource clock) {
 
     /** Copies the lists and validates the working-directory pair. */
     public LaunchRequest {
@@ -68,7 +68,6 @@ int inBandBoundChars, String zeroToolPrompt, Optional<String> resumeSessionId, I
         stateSkills = List.copyOf(Objects.requireNonNull(stateSkills, "stateSkills"));
         domainSkills = List.copyOf(Objects.requireNonNull(domainSkills, "domainSkills"));
         Objects.requireNonNull(zeroToolPrompt, "zeroToolPrompt");
-        Objects.requireNonNull(resumeSessionId, "resumeSessionId");
         Objects.requireNonNull(clock, "clock");
         if (workdirKind == WorkdirKind.JOB_PRIVATE ? workdir != null : workdir == null) {
             throw new IllegalArgumentException("A %s launch %s a working directory".formatted(workdirKind

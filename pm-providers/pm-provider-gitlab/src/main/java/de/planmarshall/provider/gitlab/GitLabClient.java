@@ -100,10 +100,10 @@ public final class GitLabClient {
      * @param userId    the user the token acts as
      * @param scopes    the scopes, empty when GitLab does not report them
      * @param active    whether the token (or, without a token record, its user) is active
-     * @param expiresAt the expiry date, empty when none or unknown
+     * @param expiresAt the expiry date, {@code null} when none or unknown
      */
     public record TokenIdentity(String id, String name, String userId, List<String> scopes, boolean active,
-    Optional<String> expiresAt) {
+    @Nullable String expiresAt) {
     }
 
     /**
@@ -171,7 +171,7 @@ public final class GitLabClient {
      */
     public Result<String> merge(long iid, String sha) {
         Response response = http.send("PUT", project + MERGE_REQUESTS + iid + "/merge",
-                Optional.of(Json.write(Map.of("sha", sha))), Optional.empty());
+                Json.write(Map.of("sha", sha)), null);
         if (!response.isOk()) {
             return Result.failed(response);
         }
@@ -188,7 +188,7 @@ public final class GitLabClient {
      */
     public Result<String> mergeTrainAdd(long iid, String sha) {
         Response response = http.send("POST", project + "/merge_trains/merge_requests/" + iid,
-                Optional.of(Json.write(Map.of("sha", sha))), Optional.empty());
+                Json.write(Map.of("sha", sha)), null);
         return response.isOk() ? Result.ok(response.body()) : Result.failed(response);
     }
 
@@ -222,7 +222,7 @@ public final class GitLabClient {
      */
     public Result<String> reply(long iid, String discussionId, String body) {
         Response response = http.send("POST", discussionPath(iid, discussionId) + "/notes",
-                Optional.of(Json.write(Map.of("body", body))), Optional.empty());
+                Json.write(Map.of("body", body)), null);
         if (!response.isOk()) {
             return Result.failed(response);
         }
@@ -238,8 +238,8 @@ public final class GitLabClient {
      * @return whether the discussion is resolved afterwards
      */
     public Result<Boolean> resolve(long iid, String discussionId) {
-        Response response = http.send("PUT", discussionPath(iid, discussionId) + "?resolved=true", Optional.empty(),
-                Optional.empty());
+        Response response = http.send("PUT", discussionPath(iid, discussionId) + "?resolved=true", null,
+                null);
         if (!response.isOk()) {
             return Result.failed(response);
         }
@@ -276,7 +276,7 @@ public final class GitLabClient {
         var scopes = Json.list(json, "scopes").stream().map(String::valueOf).toList();
         return Result.ok(new TokenIdentity(Json.string(json, "id").orElse(""), Json.string(json, "name").orElse(""),
                 Json.string(json, "user_id").orElse(""), scopes, Json.bool(json, "active"),
-                Json.string(json, "expires_at")));
+                Json.string(json, "expires_at").orElse(null)));
     }
 
     /** The identity of a token without a token record: the user it acts as ({@code GET /user}). */
@@ -288,7 +288,7 @@ public final class GitLabClient {
         Object json = Json.parseOrNull(response.body()).orElse(null);
         return Json.string(json, "id")
                 .map(userId -> Result.ok(new TokenIdentity("", "", userId, List.of(),
-                        "active".equals(Json.string(json, STATE).orElse("")), Optional.empty())))
+                        "active".equals(Json.string(json, STATE).orElse("")), null)))
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "user response without id"));
     }
 
@@ -331,7 +331,7 @@ public final class GitLabClient {
      */
     public Result<String> issueComment(long iid, String body) {
         Response response = http.send("POST", project + "/issues/" + iid + "/notes",
-                Optional.of(Json.write(Map.of("body", body))), Optional.empty());
+                Json.write(Map.of("body", body)), null);
         if (!response.isOk()) {
             return Result.failed(response);
         }

@@ -203,7 +203,7 @@ class GitHubCiProviderTest {
 
         Result<Identity> result = provider.whoami(REPOSITORY);
 
-        Identity identity = result.value().orElseThrow();
+        Identity identity = result.value();
         assertAll("the token identity",
                 () -> assertEquals("octocat", identity.login(), "the login is read from the user"),
                 () -> assertEquals("583231", identity.userId(), "the provider user id is read"),
@@ -222,7 +222,7 @@ class GitHubCiProviderTest {
     void namesFineGrainedToken(MockWebServer server) {
         var provider = tokenProvider(server, FINE_GRAINED_TOKEN);
 
-        var identity = provider.whoami(null).value().orElseThrow();
+        var identity = provider.whoami(null).value();
 
         assertAll("the fine-grained identity",
                 () -> assertEquals(TokenKind.GITHUB_FINE_GRAINED_PAT, identity.tokenKind(), "the token kind is fine-grained"),
@@ -267,7 +267,7 @@ class GitHubCiProviderTest {
                 GitHubClient.GRAPHQL_PATH);
         var provider = GitHubCiProvider.forApp(WEB_ORIGIN, readHttp, appClient, userHttp);
 
-        Identity identity = provider.whoami(REPOSITORY).value().orElseThrow();
+        Identity identity = provider.whoami(REPOSITORY).value();
         var appRequest = server.takeRequest(5, TimeUnit.SECONDS);
         var botRequest = server.takeRequest(5, TimeUnit.SECONDS);
         var operatorRequest = server.takeRequest(5, TimeUnit.SECONDS);
@@ -317,7 +317,7 @@ class GitHubCiProviderTest {
 
         Result<Issue> result = provider.issueView(issue(WEB_ORIGIN, FORGE, 5));
 
-        Issue read = result.value().orElseThrow();
+        Issue read = result.value();
         assertAll("the issue fields",
                 () -> assertEquals("A title", read.title(), "the issue title is read"),
                 () -> assertEquals("A body", read.body(), "the issue body is read"),
@@ -335,7 +335,7 @@ class GitHubCiProviderTest {
                     + "\"html_url\":\"https://github.com/cuioss/pm/issues/11\",\"milestone\":{\"title\":\" \"}}")
     void blankMilestoneIsNoMilestone(MockWebServer server) {
         Issue read = tokenProvider(server, CLASSIC_TOKEN)
-                .issueView(issue(WEB_ORIGIN, FORGE, 11)).value().orElseThrow();
+                .issueView(issue(WEB_ORIGIN, FORGE, 11)).value();
 
         assertNull(read.milestone(), "a blank milestone title is no milestone");
     }
@@ -348,7 +348,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +0000"})
     void readsOffsetExpiryNumeric(MockWebServer server) {
-        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "a numeric offset expiry is the same instant");
@@ -360,7 +360,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01 12:00:00 +00:00"})
     void readsOffsetExpiryColon(MockWebServer server) {
-        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "a colon offset expiry is the same instant");
@@ -372,7 +372,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01T14:00:00+02:00"})
     void readsIsoOffsetExpiry(MockWebServer server) {
-        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "an ISO offset expiry is the same instant");
@@ -384,7 +384,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-11-01T14:00:00+0200"})
     void readsIsoNumericOffsetExpiry(MockWebServer server) {
-        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value();
 
         assertEquals(Instant.parse("2026-11-01T12:00:00Z"), identity.expiresAt(),
                 "a T-separated numeric offset expiry is the same instant");
@@ -396,7 +396,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=2026-02-30 12:00:00 +0000"})
     void dropsInvalidOffsetExpiry(MockWebServer server) {
-        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value();
 
         assertNull(identity.expiresAt(), "an invalid day of month is no expiry");
     }
@@ -447,7 +447,7 @@ class GitHubCiProviderTest {
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
-                () -> assertEquals(1791194400L, result.resetAt().orElseThrow().getEpochSecond(),
+                () -> assertEquals(1791194400L, result.resetAt().getEpochSecond(),
                         "the reset instant is read"));
     }
 
@@ -527,7 +527,7 @@ class GitHubCiProviderTest {
 
         Result<IssueComment> result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment());
 
-        IssueComment comment = result.value().orElseThrow();
+        IssueComment comment = result.value();
         assertAll("the posted comment",
                 () -> assertEquals("9001", comment.id(), "the comment id is read"),
                 () -> assertEquals("https://github.com/cuioss/pm/issues/5#issuecomment-9001", comment.url(),
@@ -588,7 +588,7 @@ class GitHubCiProviderTest {
     @MockResponseConfig(path = "/repos/cuioss/pm", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{}")
     void readsExpiryVariants(MockWebServer server) {
-        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(REPOSITORY).value().orElseThrow();
+        Identity identity = tokenProvider(server, CLASSIC_TOKEN).whoami(REPOSITORY).value();
 
         assertAll("the header variants",
                 () -> assertEquals(List.of("repo", "read:org"), identity.scopes(),
@@ -604,7 +604,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"login\":\"octocat\",\"id\":1}",
             headers = {"github-authentication-token-expiration=not-a-date"})
     void dropsUnreadableExpiry(MockWebServer server) {
-        var identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value().orElseThrow();
+        var identity = tokenProvider(server, CLASSIC_TOKEN).whoami(null).value();
 
         assertNull(identity.expiresAt(), "an unreadable expiry is dropped");
     }
@@ -807,7 +807,7 @@ class GitHubCiProviderTest {
 
         Result<PullRequest> result = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST);
 
-        PullRequest read = result.value().orElseThrow();
+        PullRequest read = result.value();
         assertAll("the open pull request",
                 () -> assertEquals(PullRequest.State.OPEN, read.state(), "an open pull request is OPEN"),
                 () -> assertEquals(fixture.title(), read.title(), "the title is read unchanged"),
@@ -837,7 +837,7 @@ class GitHubCiProviderTest {
 
         assertAll("the state " + state,
                 () -> assertEquals(Result.Outcome.OK, result.outcome(), "a non-open pull request is OK"),
-                () -> assertEquals(expected, result.value().orElseThrow().state(),
+                () -> assertEquals(expected, result.value().state(),
                         "the state is mapped from state and merged"));
     }
 
@@ -850,9 +850,9 @@ class GitHubCiProviderTest {
         primeOpen(fixture, owner, true);
         repositoryResponse.set(permissions(false));
 
-        PullRequest withoutPush = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest withoutPush = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
         repositoryResponse.set(permissions(true));
-        PullRequest withPush = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest withPush = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertAll("the fork without and with push",
                 () -> assertFalse(withoutPush.headWritable(), "a fork without push on the base is not writable"),
@@ -869,7 +869,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, forkOwner(), true);
 
-        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertTrue(read.headWritable(), "maintainer edits and push on the base: writable");
     }
@@ -882,7 +882,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, forkOwner(), false);
 
-        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertAll("the fork without maintainer edits",
                 () -> assertFalse(read.headWritable(), "a fork without maintainer edits is not writable"),
@@ -895,7 +895,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, null, true);
 
-        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertAll("the deleted head repository",
                 () -> assertTrue(read.headRepository().isEmpty(), "a deleted head repository is absent"),
@@ -911,7 +911,7 @@ class GitHubCiProviderTest {
         var fixture = fixture();
         primeOpen(fixture, OWNER, false);
 
-        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertFalse(read.headWritable(), "an absent push member reads as not writable");
     }
@@ -929,7 +929,7 @@ class GitHubCiProviderTest {
                 .addHeader("Link", "<" + next + ">; rel=\"next\"").body(Json.write(filesBody(fixture.paths())))
                 .build());
 
-        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertAll("the capped list",
                 () -> assertEquals(PullRequest.PathCompleteness.PAGE_CAP, read.pathCompleteness(),
@@ -947,7 +947,7 @@ class GitHubCiProviderTest {
         int changedFiles = fixture.paths().size() + Generators.integers(1, 5000).next();
         prime(fixture, pullBody(fixture, "open", false, OWNER, false, changedFiles));
 
-        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value().orElseThrow();
+        PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();
 
         assertAll("the provider-capped list",
                 () -> assertEquals(PullRequest.PathCompleteness.PROVIDER_RESULT_CAP, read.pathCompleteness(),
@@ -982,7 +982,7 @@ class GitHubCiProviderTest {
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
-                () -> assertEquals(reset, result.resetAt().orElseThrow().getEpochSecond(),
+                () -> assertEquals(reset, result.resetAt().getEpochSecond(),
                         "the reset instant is read from the header"));
     }
 
@@ -1068,7 +1068,7 @@ class GitHubCiProviderTest {
 
         var result = appProvider(server).prView(PULL_REQUEST);
 
-        PullRequest read = result.value().orElseThrow();
+        PullRequest read = result.value();
         assertAll("the pull request with a hidden repository",
                 () -> assertEquals(Result.Outcome.OK, result.outcome(), "a 404 permission read is no failure"),
                 () -> assertFalse(read.headWritable(), "a hidden repository is not writable"),
@@ -1089,7 +1089,7 @@ class GitHubCiProviderTest {
 
         assertAll("the fork with a hidden base",
                 () -> assertEquals(Result.Outcome.OK, result.outcome(), "a 404 permission read is no failure"),
-                () -> assertFalse(result.value().orElseThrow().headWritable(),
+                () -> assertFalse(result.value().headWritable(),
                         "a hidden base repository is not writable"));
     }
 
@@ -1172,7 +1172,7 @@ class GitHubCiProviderTest {
         var permission = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the App pull-request read",
-                () -> assertTrue(result.value().orElseThrow().headWritable(), "the user may push to the head"),
+                () -> assertTrue(result.value().headWritable(), "the user may push to the head"),
                 () -> assertEquals(BEARER + INSTALLATION_TOKEN, authorization(pullRequest),
                         "the pull request is read with the installation"),
                 () -> assertEquals(BEARER + INSTALLATION_TOKEN, authorization(files),

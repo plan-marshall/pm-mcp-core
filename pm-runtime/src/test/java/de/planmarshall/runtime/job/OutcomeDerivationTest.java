@@ -61,15 +61,15 @@ import de.planmarshall.runtime.job.OutcomeDerivation.Outcome;
 @DisplayName("Outcome derivation")
 class OutcomeDerivationTest {
 
-    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, Optional.empty());
-    private static final ParseResult NO_MARKER = new ParseResult(false, 0, false, Optional.empty());
-    private static final ParseResult DIAGNOSTICS = new ParseResult(false, 2, true, Optional.empty());
+    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null);
+    private static final ParseResult NO_MARKER = new ParseResult(false, 0, false, null);
+    private static final ParseResult DIAGNOSTICS = new ParseResult(false, 2, true, null);
     private static final ParseResult CONTRADICTED = new ParseResult(true, 0, false,
-            Optional.of(new SelfReportContradiction("passed", 1L, "failed")));
+            new SelfReportContradiction("passed", 1L, "failed"));
 
     private static ProcessEnded process(Kind kind, Termination termination, WaitStatus wait, LogState log,
             ParseResult parse) {
-        return new ProcessEnded(kind, Optional.ofNullable(termination), wait, log, parse, Set.of(), true);
+        return new ProcessEnded(kind, termination, wait, log, parse, Set.of(), true);
     }
 
     private static ProcessEnded exited(Kind kind, int code, ParseResult parse) {
@@ -78,14 +78,14 @@ class OutcomeDerivationTest {
 
     /** @return a parse result with a generated, positive number of diagnostics and contradicting evidence */
     private static ParseResult diagnostics() {
-        return new ParseResult(false, Generators.integers(1, 100).next(), true, Optional.empty());
+        return new ParseResult(false, Generators.integers(1, 100).next(), true, null);
     }
 
     /** @return a parse result with a success marker and a generated self-report contradiction */
     private static ParseResult contradicted() {
-        return new ParseResult(true, 0, false, Optional.of(new SelfReportContradiction(
+        return new ParseResult(true, 0, false, new SelfReportContradiction(
                 Generators.letterStrings(1, 16).next(), Generators.longs(1, 10_000).next(),
-                Generators.letterStrings(1, 16).next())));
+                Generators.letterStrings(1, 16).next()));
     }
 
     /** The closed table: one example evidence per row, the contract of the derivation. */
@@ -105,10 +105,10 @@ class OutcomeDerivationTest {
                 Arguments.of(8, Fate.INDETERMINATE, exited(Kind.BUILD, 0, NO_MARKER)),
                 Arguments.of(9, Fate.FAILED, exited(Kind.BUILD, 1, DIAGNOSTICS)),
                 Arguments.of(10, Fate.FAILED_UNPARSED, exited(Kind.BUILD, 1, NO_MARKER)),
-                Arguments.of(11, Fate.SUCCEEDED, new InProcessEnded(Optional.empty(), InProcessResult.DOMAIN)),
-                Arguments.of(12, Fate.FAILED, new InProcessEnded(Optional.empty(), InProcessResult.TRANSPORT)),
+                Arguments.of(11, Fate.SUCCEEDED, new InProcessEnded(null, InProcessResult.DOMAIN)),
+                Arguments.of(12, Fate.FAILED, new InProcessEnded(null, InProcessResult.TRANSPORT)),
                 Arguments.of(13, Fate.INDETERMINATE,
-                        new InProcessEnded(Optional.empty(), InProcessResult.OUT_OF_CONTRACT)));
+                        new InProcessEnded(null, InProcessResult.OUT_OF_CONTRACT)));
     }
 
     @Nested
@@ -140,7 +140,7 @@ class OutcomeDerivationTest {
                     () -> assertEquals(expected, OutcomeDerivation.derive(process(Kind.GIT, termination,
                             new Exited(0), LogState.READABLE, SUCCESS)), "a terminated process decides by its row"),
                     () -> assertEquals(expected, OutcomeDerivation.derive(
-                                    new InProcessEnded(Optional.of(termination), InProcessResult.DOMAIN)),
+                                    new InProcessEnded(termination, InProcessResult.DOMAIN)),
                             "a terminated operation decides by its row"));
         }
 
@@ -208,7 +208,7 @@ class OutcomeDerivationTest {
         @DisplayName("contradicting evidence keeps exit code 0 with a marker out of succeeded")
         void contradictingEvidence() {
             var evidence = exited(Kind.BUILD, 0, new ParseResult(true, Generators.integers(0, 100).next(), true,
-                    Optional.empty()));
+                    null));
 
             assertEquals(new Outcome(Fate.INDETERMINATE, 8), OutcomeDerivation.derive(evidence),
                     "contradicting evidence keeps it indeterminate");
@@ -224,11 +224,11 @@ class OutcomeDerivationTest {
         void probe() {
             var declaredCode = Generators.integers(1, 100).next();
             var undeclaredCode = declaredCode + Generators.integers(1, 100).next();
-            var declared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(declaredCode),
+            var declared = new ProcessEnded(Kind.PROBE, null, new Exited(declaredCode),
                     LogState.READABLE, NO_MARKER, Set.of(0, declaredCode), true);
-            var undeclared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(undeclaredCode),
+            var undeclared = new ProcessEnded(Kind.PROBE, null, new Exited(undeclaredCode),
                     LogState.READABLE, NO_MARKER, Set.of(0, declaredCode), true);
-            var zeroUndeclared = new ProcessEnded(Kind.PROBE, Optional.empty(), new Exited(0), LogState.READABLE,
+            var zeroUndeclared = new ProcessEnded(Kind.PROBE, null, new Exited(0), LogState.READABLE,
                     SUCCESS, Set.of(declaredCode), true);
 
             assertAll(
@@ -243,9 +243,9 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("a worker with an unreliable exit code is decided by its final result event")
         void unreliableWorker() {
-            var withResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(failures().next()),
+            var withResult = new ProcessEnded(Kind.LLM, null, new Exited(failures().next()),
                     LogState.READABLE, SUCCESS, Set.of(), false);
-            var withoutResult = new ProcessEnded(Kind.LLM, Optional.empty(), new Exited(0), LogState.READABLE,
+            var withoutResult = new ProcessEnded(Kind.LLM, null, new Exited(0), LogState.READABLE,
                     NO_MARKER, Set.of(), false);
 
             assertAll(
@@ -285,11 +285,11 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("evidence outside its kind's shape is refused")
         void invalidEvidence() {
-            Optional<Termination> noTermination = Optional.empty();
+            Termination noTermination = null;
             var exitedZero = new Exited(0);
             var declaredZero = Set.of(0);
             var noDeclaredCodes = Set.<Integer>of();
-            Optional<SelfReportContradiction> noContradiction = Optional.empty();
+            SelfReportContradiction noContradiction = null;
             var negative = -Generators.integers(1, 100).next();
 
             assertAll(

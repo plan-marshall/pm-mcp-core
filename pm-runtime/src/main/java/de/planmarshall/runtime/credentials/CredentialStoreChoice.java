@@ -323,7 +323,7 @@ public final class CredentialStoreChoice {
      * @throws UncheckedIOException                    if the file exists and cannot be read
      */
     public Optional<Store> recorded() {
-        return StoreSnapshot.read(file.store()).content().flatMap(document -> parse(document).store());
+        return StoreSnapshot.read(file.store()).content().map(document -> parse(document).store());
     }
 
     /**
@@ -525,7 +525,7 @@ public final class CredentialStoreChoice {
         var targetKey = readKeyOfStore(keyCarry, store);
         var sourceKey = readKeyOfStore(keyCarry, sourceStore);
         if (!targetKey.readable()) {
-            if (sourceKey.key().isPresent()) {
+            if (sourceKey.key() != null) {
                 throw new SecretStoreException(targetKey.failure().reason(),
                         ("the first recording of '%s' cannot carry the integrity key of '%s' into it: the store cannot "
                                 + "be read: %s; nothing was recorded").formatted(store.value(), sourceStore.value(),
@@ -534,7 +534,7 @@ public final class CredentialStoreChoice {
             }
             return Optional.empty();
         }
-        if (targetKey.key().isEmpty() && sourceKey.key().isEmpty()) {
+        if (targetKey.key() == null && sourceKey.key() == null) {
             return Optional.empty();
         }
         var keptInTarget = reconciles(keyCarry, store, targetKey.key(), sourceStore, sourceKey.key());
@@ -543,9 +543,9 @@ public final class CredentialStoreChoice {
     }
 
     /** What one of the two stores holds of the integrity key, and why it could not be read, if it could not. */
-    private record OtherKey(Optional<SecretKey> key, @Nullable SecretStoreException failure) {
+    private record OtherKey(@Nullable SecretKey key, @Nullable SecretStoreException failure) {
 
-        static OtherKey of(Optional<SecretKey> key) {
+        static OtherKey of(@Nullable SecretKey key) {
             return new OtherKey(key, null);
         }
 
@@ -562,10 +562,10 @@ public final class CredentialStoreChoice {
      */
     private OtherKey readKeyOfStore(IntegrityKeyCarry keyCarry, Store store) {
         try {
-            return OtherKey.of(keyCarry.keyIn(backendOf(store)).read());
+            return OtherKey.of(keyCarry.keyIn(backendOf(store)).read().orElse(null));
         } catch (SecretStoreException e) {
             LOGGER.warn(WARN.CREDENTIAL_STORE_UNREADABLE_WHILE_RECORDING, store.value(), e.getMessage());
-            return new OtherKey(Optional.empty(), e);
+            return new OtherKey(null, e);
         }
     }
 
@@ -576,18 +576,18 @@ public final class CredentialStoreChoice {
      * @return whether the store being recorded holds the kept key already
      */
     private static boolean reconciles(IntegrityKeyCarry keyCarry, Store targetStore,
-            Optional<SecretKey> targetKey, Store sourceStore, Optional<SecretKey> sourceKey) {
-        if (sourceKey.isEmpty()) {
-            return targetKey.isPresent();
+            @Nullable SecretKey targetKey, Store sourceStore, @Nullable SecretKey sourceKey) {
+        if (sourceKey == null) {
+            return targetKey != null;
         }
-        if (targetKey.isEmpty()) {
+        if (targetKey == null) {
             return false;
         }
-        if (IntegrityKeyCarry.sameKey(targetKey.get(), sourceKey.get())) {
+        if (IntegrityKeyCarry.sameKey(targetKey, sourceKey)) {
             return true;
         }
-        var inTarget = keyCarry.failureUnder(targetKey.get());
-        var inSource = keyCarry.failureUnder(sourceKey.get());
+        var inTarget = keyCarry.failureUnder(targetKey);
+        var inSource = keyCarry.failureUnder(sourceKey);
         if (inTarget.isEmpty() != inSource.isEmpty()) {
             return inTarget.isEmpty();
         }
@@ -633,10 +633,10 @@ public final class CredentialStoreChoice {
                                     + "started and holds none now; nothing was recorded")
                                     .formatted(firstRecording.to().value()));
                 }
-                if (sourceKey.key().isPresent()) {
+                if (sourceKey.key() != null) {
                     keyCarry.verifySidecars(targetKey.get());
                 }
-            } else if (sourceKey.key().isPresent()) {
+            } else if (sourceKey.key() != null) {
                 if (targetKey.isPresent()) {
                     keyCarry.keyIn(target).delete();
                 }
@@ -731,9 +731,9 @@ public final class CredentialStoreChoice {
     private void deleteKeyOfSource(CredentialStoreMoveRecord firstRecording, IntegrityKeyCarry keyCarry,
             boolean resume) {
         var targetKey = keyCarry.keyIn(backendOf(firstRecording.to())).read();
-        var sourceKey = resume ? keyCarry.keyIn(backendOf(firstRecording.from())).read()
+        var sourceKey = resume ? keyCarry.keyIn(backendOf(firstRecording.from())).read().orElse(null)
                 : readKeyOfStore(keyCarry, firstRecording.from()).key();
-        if (sourceKey.isEmpty()) {
+        if (sourceKey == null) {
             return;
         }
         if (targetKey.isEmpty()) {
@@ -742,7 +742,7 @@ public final class CredentialStoreChoice {
                     .formatted(moveRecord.store(), firstRecording.to().value(), firstRecording.phase().value(),
                             firstRecording.to().value(), firstRecording.from().value()));
         }
-        if (!IntegrityKeyCarry.sameKey(sourceKey.get(), targetKey.get())
+        if (!IntegrityKeyCarry.sameKey(sourceKey, targetKey.get())
                 && keyCarry.failureUnder(targetKey.get()).isPresent()) {
             throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but '%s' "
                     + "holds a key the sidecars do not verify under, beside another key in '%s'; nothing was deleted "
@@ -778,7 +778,7 @@ public final class CredentialStoreChoice {
         var keyCarry = new IntegrityKeyCarry(base, locks, user);
         var recorded = recorded();
         if (firstRecording.phase() == Phase.SWITCHED || recorded.equals(Optional.of(firstRecording.to()))) {
-            requireTargetRecorded(firstRecording, recorded);
+            requireTargetRecorded(firstRecording, recorded.orElse(null));
             if (firstRecording.phase() == Phase.COPYING) {
                 moveRecord.write(transaction, firstRecording.switched().write());
             }
@@ -798,12 +798,12 @@ public final class CredentialStoreChoice {
     }
 
     /** Refuses to finish a first recording whose store is not recorded; nothing is deleted then. */
-    private void requireTargetRecorded(CredentialStoreMoveRecord firstRecording, Optional<Store> recorded) {
-        if (!recorded.equals(Optional.of(firstRecording.to()))) {
+    private void requireTargetRecorded(CredentialStoreMoveRecord firstRecording, @Nullable Store recorded) {
+        if (recorded != firstRecording.to()) {
             throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but "
                     + "credentials.store names %s; nothing was deleted from '%s' or '%s' and the record is kept")
                     .formatted(moveRecord.store(), firstRecording.to().value(), firstRecording.phase().value(),
-                            recorded.map(store -> "'" + store.value() + "'").orElse("no store"),
+                            recorded != null ? "'" + recorded.value() + "'" : "no store",
                             firstRecording.from().value(), firstRecording.to().value()));
         }
     }
@@ -893,7 +893,7 @@ public final class CredentialStoreChoice {
      * @return the OS store, or empty if it is unavailable now
      */
     Optional<SecretStore> osStore() {
-        return osStoreOrReason().store();
+        return Optional.ofNullable(osStoreOrReason().store());
     }
 
     /**
@@ -904,24 +904,27 @@ public final class CredentialStoreChoice {
      */
     SecretStore requireOsStore() {
         var probe = osStoreOrReason();
-        return probe.store().orElseThrow(() -> new SecretStoreException(SecretStoreException.Reason.UNAVAILABLE,
-                "the OS credential store '%s' is unavailable: %s".formatted(osStoreName(), probe.reason())));
+        if (probe.store() == null) {
+            throw new SecretStoreException(SecretStoreException.Reason.UNAVAILABLE,
+                    "the OS credential store '%s' is unavailable: %s".formatted(osStoreName(), probe.reason()));
+        }
+        return probe.store();
     }
 
     private Probe osStoreOrReason() {
         if (os == MachinePaths.Os.MACOS) {
             try {
-                return new Probe(Optional.of(keychain()), "");
+                return new Probe(keychain(), "");
             } catch (SecretStoreException e) {
-                return new Probe(Optional.empty(), "Keychain: " + e.getMessage());
+                return new Probe(null, "Keychain: " + e.getMessage());
             }
         }
         var socket = DbusConnection.sessionBusSocket(environment);
         if (socket.isEmpty()) {
-            return new Probe(Optional.empty(), "Secret Service: no unix:path session bus address");
+            return new Probe(null, "Secret Service: no unix:path session bus address");
         }
         var store = keyrings.secretService(socket.get(), service);
-        return new Probe(store, store.isPresent() ? ""
+        return new Probe(store.orElse(null), store.isPresent() ? ""
                 : "Secret Service: not reachable, or no unlocked default collection on " + socket.get());
     }
 
@@ -943,11 +946,11 @@ public final class CredentialStoreChoice {
     }
 
     /** The outcome of a probe of the OS store. */
-    private record Probe(Optional<SecretStore> store, String reason) {
+    private record Probe(@Nullable SecretStore store, String reason) {
     }
 
     /** What this class reads of the machine configuration. */
-    private record Document(long revision, Optional<Store> store) {
+    private record Document(long revision, @Nullable Store store) {
     }
 
     private Document parse(byte[] document) {
@@ -964,7 +967,7 @@ public final class CredentialStoreChoice {
                     default -> parser.skipChildren();
                 }
             }
-            return new Document(revision, store);
+            return new Document(revision, store.orElse(null));
         });
     }
 
@@ -1134,8 +1137,8 @@ public final class CredentialStoreChoice {
 
         private SecretStore available(SecretStoreException.Reason reason) {
             var probe = osStoreOrReason();
-            if (probe.store().isPresent()) {
-                return probe.store().get();
+            if (probe.store() != null) {
+                return probe.store();
             }
             throw new SecretStoreException(reason, unavailable(probe.reason()));
         }

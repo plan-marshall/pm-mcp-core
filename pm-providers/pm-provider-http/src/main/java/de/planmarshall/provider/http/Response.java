@@ -12,7 +12,7 @@ package de.planmarshall.provider.http;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of one provider request.
@@ -20,16 +20,17 @@ import java.util.Optional;
  * @param outcome the outcome
  * @param status  the HTTP status, {@code 0} when no response was received
  * @param body    the response body, empty when none
- * @param etag    the {@code ETag} of the response, for the next conditional request
- * @param next    the {@code rel="next"} target of the {@code Link} header
- * @param resetAt for {@link Outcome#RATE_LIMITED}: the instant from which the request may be re-issued
+ * @param etag    the {@code ETag} of the response, for the next conditional request; {@code null} when none
+ * @param next    the {@code rel="next"} target of the {@code Link} header; {@code null} when none
+ * @param resetAt for {@link Outcome#RATE_LIMITED}: the instant from which the request may be re-issued;
+ *                {@code null} otherwise
  * @param detail  the failure detail: the provider's own message where it gave one, otherwise the client's failing
  *                step; no token, credential or request body (a provider message is remote text, to be passed
  *                through the secret redactor where it is emitted; {@code PM-CRED-5})
  * @since 0.1
  */
-public record Response(Outcome outcome, int status, String body, Optional<String> etag, Optional<URI> next,
-Optional<Instant> resetAt, String detail) {
+public record Response(Outcome outcome, int status, String body, @Nullable String etag, @Nullable URI next,
+@Nullable Instant resetAt, String detail) {
 
     /** The closed outcome of a request. */
     public enum Outcome {
@@ -63,7 +64,7 @@ Optional<Instant> resetAt, String detail) {
     }
 
     static Response failure(Outcome outcome, String detail) {
-        return new Response(outcome, 0, "", Optional.empty(), Optional.empty(), Optional.empty(), detail);
+        return new Response(outcome, 0, "", null, null, null, detail);
     }
 
     /**

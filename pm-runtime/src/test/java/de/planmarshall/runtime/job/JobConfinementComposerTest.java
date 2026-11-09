@@ -76,7 +76,7 @@ class JobConfinementComposerTest {
     }
 
     private JobConfinementComposer composer() {
-        return new JobConfinementComposer(base, TMP, DEV, Optional.of(bus));
+        return new JobConfinementComposer(base, TMP, DEV, bus);
     }
 
     private ProjectEnrolment enrolment(ContainerEngine engine, Map<String, String> variables) {
@@ -136,7 +136,7 @@ class JobConfinementComposerTest {
         void probeOfScript() {
             var job = new JobId(jobIds(JobId.Kind.PROBE).next());
 
-            var confinement = composer().forProbe(job, Optional.of(project), List.of(cache), false, List.of());
+            var confinement = composer().forProbe(job, project, List.of(cache), false, List.of());
 
             assertAll(
                     () -> assertTrue(confinement.writePaths().contains(project), "the probed checkout is writable"),
@@ -150,7 +150,7 @@ class JobConfinementComposerTest {
         void harnessProbeData() {
             var job = new JobId(jobIds(JobId.Kind.PROBE).next());
 
-            var confinement = composer().forProbe(job, Optional.empty(), List.of(), true, List.of());
+            var confinement = composer().forProbe(job, null, List.of(), true, List.of());
 
             var data = base.resolve("run/jobs").resolve(job.value()).resolve("data");
             assertAll(
@@ -292,7 +292,7 @@ class JobConfinementComposerTest {
         @DisplayName("a base reached through a parent segment does not hide the protected tree")
         void traversedBase() {
             var traversed = base.resolve("..").resolve(base.getFileName());
-            var confinementComposer = new JobConfinementComposer(traversed, TMP, DEV, Optional.empty());
+            var confinementComposer = new JobConfinementComposer(traversed, TMP, DEV, null);
             var job = new JobId(jobIds(JobId.Kind.BUILD).next());
             var enrolment = ConfinementFixture.enrolment(project, null,
                     List.of(base.resolve(words().next()).toString()), Map.of(), List.of());

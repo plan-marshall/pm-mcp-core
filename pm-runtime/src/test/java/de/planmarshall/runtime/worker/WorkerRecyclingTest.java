@@ -113,7 +113,7 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertEquals(IDLE_WAKEUPS - 1L, result.idleWakeups(), "the leased answer counts no wake-up"),
-                () -> assertTrue(result.recycleCause().isEmpty(), "a consulting or holding worker is not idle"),
+                () -> assertTrue(result.recycleCause() == null, "a consulting or holding worker is not idle"),
                 () -> assertFalse(ending.endRequested(generation.generationId())));
     }
 
@@ -126,7 +126,7 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertEquals(IDLE_WAKEUPS, result.idleWakeups()),
-                () -> assertEquals(Optional.of(RecycleCause.IDLE), result.recycleCause()),
+                () -> assertEquals(RecycleCause.IDLE, result.recycleCause()),
                 () -> assertEquals(Optional.of(EndCause.RECYCLE), ending.requestedCause(generation.generationId())));
     }
 
@@ -144,10 +144,10 @@ class WorkerRecyclingTest {
         var raised = recycling.waitAgain(other);
 
         assertAll(
-                () -> assertEquals(Optional.of(RecycleCause.IDLE), lower.recycleCause(), "the role lowers the bound"),
+                () -> assertEquals(RecycleCause.IDLE, lower.recycleCause(), "the role lowers the bound"),
                 () -> assertEquals(1L, lower.idleWakeups()),
                 () -> assertEquals(2L, raised.idleWakeups(), "the role cannot raise the host's bound"),
-                () -> assertTrue(raised.recycleCause().isEmpty()));
+                () -> assertTrue(raised.recycleCause() == null));
     }
 
     @Test
@@ -282,8 +282,8 @@ class WorkerRecyclingTest {
         var second = recycling.waitAgain(generation);
 
         assertAll(
-                () -> assertEquals(Optional.of(RecycleCause.IDLE), first.recycleCause()),
-                () -> assertTrue(second.recycleCause().isEmpty(), "a generation is recycled once"),
+                () -> assertEquals(RecycleCause.IDLE, first.recycleCause()),
+                () -> assertTrue(second.recycleCause() == null, "a generation is recycled once"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.WORKER_GENERATION_RECYCLED.resolveIdentifierString()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,

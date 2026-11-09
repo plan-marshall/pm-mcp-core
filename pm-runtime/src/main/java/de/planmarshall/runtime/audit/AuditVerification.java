@@ -161,12 +161,12 @@ public final class AuditVerification implements AuditChainVerification {
     /**
      * What one read of the trail found.
      *
-     * @param head      the bytes of the head; empty if it does not exist
+     * @param head      the bytes of the head; {@code null} if it does not exist
      * @param index     the audit index
      * @param log       the current log
      * @param logExists whether the current log exists
      */
-    private record State(Optional<byte[]> head, AuditIndex.Snapshot index, JsonlStoreFile.Content log,
+    private record State(@Nullable byte[] head, AuditIndex.Snapshot index, JsonlStoreFile.Content log,
     boolean logExists) {
     }
 
@@ -174,13 +174,13 @@ public final class AuditVerification implements AuditChainVerification {
     private State stableState() {
         @Nullable State state = null;
         for (var attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
-            var head = headBytes();
+            var head = headBytes().orElse(null);
             var indexSnapshot = index.snapshot();
             var log = new JsonlStoreFile(logFile, lockKey).snapshot();
             var logExists = Files.exists(logFile, LinkOption.NOFOLLOW_LINKS);
             afterLogRead.run();
             state = new State(head, indexSnapshot, log, logExists);
-            if (sameBytes(head, headBytes()) && indexSnapshot.headHash().equals(index.snapshot().headHash())) {
+            if (sameBytes(head, headBytes().orElse(null)) && indexSnapshot.headHash().equals(index.snapshot().headHash())) {
                 return state;
             }
         }
@@ -189,7 +189,7 @@ public final class AuditVerification implements AuditChainVerification {
 
     private Outcome evaluate(SecretKey key, State state, boolean full) {
         var indexSnapshot = state.index();
-        if (state.head().isEmpty() && state.log().lines().isEmpty() && indexSnapshot.entries().isEmpty()
+        if (state.head() == null && state.log().lines().isEmpty() && indexSnapshot.entries().isEmpty()
                 && indexSnapshot.firstBrokenLine().isEmpty()) {
             return new Outcome.NotVerified("no audit chain");
         }
@@ -209,7 +209,7 @@ public final class AuditVerification implements AuditChainVerification {
         }
         var lines = state.log().lines();
         var pending = pendingRotation(lines, indexSnapshot);
-        var entered = pending.flatMap(PendingRotation::entry);
+        var entered = pending.map(PendingRotation::entry);
         var renamed = pending.isEmpty() && lines.isEmpty() ? renamedRotation(head.get(), indexSnapshot)
                 : Optional.<AuditIndexEntry>empty();
         var closing = entered.or(() -> renamed);
@@ -240,9 +240,10 @@ public final class AuditVerification implements AuditChainVerification {
      * still anchors the line before it.
      *
      * @param checkpoint the checkpoint record, the last line of the current log
-     * @param entry      the last index entry when it names that checkpoint line; empty when the entry was not written
+     * @param entry      the last index entry when it names that checkpoint line; {@code null} when the entry was not
+     *                   written
      */
-    private record PendingRotation(AuditRecord checkpoint, Optional<AuditIndexEntry> entry) {
+    private record PendingRotation(AuditRecord checkpoint, @Nullable AuditIndexEntry entry) {
     }
 
     /**
@@ -270,7 +271,7 @@ public final class AuditVerification implements AuditChainVerification {
         }
         var lastHash = AuditCodec.sha256Hex(lastLine);
         return Optional.of(new PendingRotation(last,
-                snapshot.last().filter(entry -> entry.checkpointHash().equals(lastHash))));
+                snapshot.last().filter(entry -> entry.checkpointHash().equals(lastHash)).orElse(null)));
     }
 
     /**
@@ -322,8 +323,8 @@ public final class AuditVerification implements AuditChainVerification {
     private Optional<Outcome> verifyClosed(SecretKey key, List<JsonlStoreFile.Line> lines, PendingRotation pending,
             String firstPredecessor) {
         var name = LOGS + AuditHeadRecord.CURRENT_LOG_FILE;
-        if (pending.entry().isPresent()) {
-            return verifyRotatedFile(key, pending.entry().get(), name, lines, firstPredecessor);
+        if (pending.entry() != null) {
+            return verifyRotatedFile(key, pending.entry(), name, lines, firstPredecessor);
         }
         if (walk(name, lines, firstPredecessor) instanceof Walk.Broken(var broken)) {
             return Optional.of(broken);
@@ -461,9 +462,9 @@ public final class AuditVerification implements AuditChainVerification {
         return new Walk.Intact(expected, last);
     }
 
-    private Optional<AuditHeadRecord> parseHead(Optional<byte[]> bytes) {
+    private Optional<AuditHeadRecord> parseHead(@Nullable byte[] bytes) {
         try {
-            return bytes.map(document -> AuditCodec.readHead(headFile, document));
+            return bytes == null ? Optional.empty() : Optional.of(AuditCodec.readHead(headFile, bytes));
         } catch (StoreRefusal _) {
             return Optional.empty();
         }
@@ -479,8 +480,8 @@ public final class AuditVerification implements AuditChainVerification {
         }
     }
 
-    private static boolean sameBytes(Optional<byte[]> first, Optional<byte[]> second) {
-        return first.isPresent() == second.isPresent()
-                && (first.isEmpty() || Arrays.equals(first.get(), second.get()));
+    private static boolean sameBytes(@Nullable byte[] first, @Nullable byte[] second) {
+        return (first == null) == (second == null)
+                && (first == null || Arrays.equals(first, second));
     }
 }

@@ -93,9 +93,9 @@ class MachineConfigurationStoreTest {
 
     private ProviderDefaults defaults() {
         return new ProviderDefaults(Map.of(
-                Provider.GITHUB, new ProviderDefault(true, Optional.of(ProviderVariant.NATIVE),
-                        Optional.of(githubKey)),
-                Provider.SONAR, new ProviderDefault(false, Optional.of(ProviderVariant.NATIVE), Optional.empty())));
+                Provider.GITHUB, new ProviderDefault(true, ProviderVariant.NATIVE,
+                        githubKey),
+                Provider.SONAR, new ProviderDefault(false, ProviderVariant.NATIVE, null)));
     }
 
     @Test
@@ -124,9 +124,9 @@ class MachineConfigurationStoreTest {
         assertAll(
                 () -> assertEquals(revision, read.revision(), "the revision of the document must be read"),
                 () -> assertTrue(git.available(), "the git provider must be available"),
-                () -> assertEquals(ProviderVariant.CLI, git.variant().orElseThrow(),
+                () -> assertEquals(ProviderVariant.CLI, git.variant(),
                         "the variant of git must be read"),
-                () -> assertEquals(gitKey, git.credentialKey().orElseThrow(),
+                () -> assertEquals(gitKey, git.credentialKey(),
                         "the credential key of git must be read"),
                 () -> assertFalse(read.providers().available(Provider.GITHUB),
                         "an unnamed provider is not available"));
@@ -216,7 +216,7 @@ class MachineConfigurationStoreTest {
     @Test
     @DisplayName("a cli variant is refused for a provider without one")
     void cliVariantOfForgejo() {
-        var cliForgejo = new ProviderDefault(true, Optional.of(ProviderVariant.CLI), Optional.empty());
+        var cliForgejo = new ProviderDefault(true, ProviderVariant.CLI, null);
         var cli = Map.of(Provider.FORGEJO, cliForgejo);
 
         var refused = assertThrows(IllegalArgumentException.class, () -> new ProviderDefaults(cli),

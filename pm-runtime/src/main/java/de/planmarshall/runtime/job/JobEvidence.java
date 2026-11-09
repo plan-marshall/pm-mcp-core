@@ -12,6 +12,7 @@ package de.planmarshall.runtime.job;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord.SelfReportContradiction;
@@ -162,24 +163,22 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      * @param contradictingEvidence   whether the log carries evidence that contradicts a success: parsed errors,
      *                                failing test counts
      * @param selfReportContradiction the contradiction between the status a project script reported and the evidence;
-     *                                empty when there is none
+     *                                {@code null} when there is none
      * @since 0.1
      */
     record ParseResult(boolean successMarker, int diagnostics, boolean contradictingEvidence,
-    Optional<SelfReportContradiction> selfReportContradiction) {
+    @Nullable SelfReportContradiction selfReportContradiction) {
 
         /** What the parser found in a log it could not read: nothing. */
-        public static final ParseResult NOTHING = new ParseResult(false, 0, false, Optional.empty());
+        public static final ParseResult NOTHING = new ParseResult(false, 0, false, null);
 
         /**
-         * @throws NullPointerException     if the contradiction is {@code null}
          * @throws IllegalArgumentException if the number of diagnostics is negative
          */
         public ParseResult {
             if (diagnostics < 0) {
                 throw new IllegalArgumentException("diagnostics must not be negative: " + diagnostics);
             }
-            Objects.requireNonNull(selfReportContradiction, "selfReportContradiction");
         }
     }
 
@@ -187,7 +186,7 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      * The process of a job ended, and the runtime observed it.
      *
      * @param kind               the kind of the job
-     * @param termination        why the runtime sent the termination signal; empty when it sent none
+     * @param termination        why the runtime sent the termination signal; {@code null} when it sent none
      * @param waitStatus         how the process ended
      * @param log                the state of the job log
      * @param parse              what the parser found in the log
@@ -196,17 +195,16 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      *                           profile declares it unreliable, and then the final result event replaces the exit code
      * @since 0.1
      */
-    record ProcessEnded(JobId.Kind kind, Optional<Termination> termination, WaitStatus waitStatus, LogState log,
+    record ProcessEnded(JobId.Kind kind, @Nullable Termination termination, WaitStatus waitStatus, LogState log,
     ParseResult parse, Set<Integer> declaredExitCodes, boolean exitReliable) implements JobEvidence {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if a component other than the termination is {@code null}
          * @throws IllegalArgumentException if a job other than a probe declares exit codes, or a job other than a
          *                                  worker has an unreliable exit code
          */
         public ProcessEnded {
             Objects.requireNonNull(kind, "kind");
-            Objects.requireNonNull(termination, "termination");
             Objects.requireNonNull(waitStatus, "waitStatus");
             Objects.requireNonNull(log, "log");
             Objects.requireNonNull(parse, "parse");
@@ -224,15 +222,14 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
     /**
      * An in-process operation ended.
      *
-     * @param termination why the runtime cancelled the operation; empty when it did not
+     * @param termination why the runtime cancelled the operation; {@code null} when it did not
      * @param result      the class of the operation's result
      * @since 0.1
      */
-    record InProcessEnded(Optional<Termination> termination, InProcessResult result) implements JobEvidence {
+    record InProcessEnded(@Nullable Termination termination, InProcessResult result) implements JobEvidence {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if the result is {@code null} */
         public InProcessEnded {
-            Objects.requireNonNull(termination, "termination");
             Objects.requireNonNull(result, "result");
         }
     }

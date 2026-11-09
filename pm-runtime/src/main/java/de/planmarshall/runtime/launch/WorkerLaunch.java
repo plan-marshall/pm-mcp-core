@@ -36,8 +36,8 @@ import de.planmarshall.core.role.RoleForm;
  * @param jobPrivateDirectory the job-private directory {@code <base>/run/jobs/<job_id>/}
  * @param promptFile       the composed prompt file
  * @param prompt           the composed prompt with its digest and delivered skills
- * @param mcpConfigFile    the per-call MCP configuration when the profile delivers it as a file
- * @param mcpConfig        the per-call MCP configuration as JSON; empty for a {@code zero_tool} worker
+ * @param mcpConfigFile    the per-call MCP configuration when the profile delivers it as a file; {@code null} otherwise
+ * @param mcpConfig        the per-call MCP configuration as JSON; {@code null} for a {@code zero_tool} worker
  * @param jobToken         the minted job token; never stored
  * @param jobTokenSha256   the digest of the job token, as the job record keeps it
  * @param harness          the client id of the harness
@@ -50,7 +50,7 @@ import de.planmarshall.core.role.RoleForm;
  */
 public record WorkerLaunch(String generationId, String role, RoleClass roleClass, RoleForm form, List<String> argv,
 Map<String, String> env, Path workingDirectory, Path jobPrivateDirectory, Path promptFile, LaunchPrompt prompt,
-Optional<Path> mcpConfigFile, Optional<String> mcpConfig, String jobToken, String jobTokenSha256, String harness,
+@Nullable Path mcpConfigFile, @Nullable String mcpConfig, String jobToken, String jobTokenSha256, String harness,
 String harnessVersion, String model, @Nullable String effort, @Nullable String effortNarrowedFrom,
 JsonNode workerBlock) {
 
@@ -69,8 +69,6 @@ JsonNode workerBlock) {
         Objects.requireNonNull(jobPrivateDirectory, "jobPrivateDirectory");
         Objects.requireNonNull(promptFile, "promptFile");
         Objects.requireNonNull(prompt, "prompt");
-        Objects.requireNonNull(mcpConfigFile, "mcpConfigFile");
-        Objects.requireNonNull(mcpConfig, "mcpConfig");
         Objects.requireNonNull(jobToken, "jobToken");
         Objects.requireNonNull(jobTokenSha256, "jobTokenSha256");
         Objects.requireNonNull(harness, "harness");

@@ -195,8 +195,8 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      */
     private SourceFetch confirm(URI revision, String commit) {
         var answer = send(revision, BodyHandlers.ofByteArray());
-        if (answer.failure().isPresent()) {
-            return answer.failure().get();
+        if (answer.failure() != null) {
+            return answer.failure();
         }
         var status = answer.response().statusCode();
         if (status == 200) {
@@ -218,8 +218,8 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      */
     private SourceFetch download(URI raw) {
         var answer = send(raw, info -> new LfsBatchClient.BoundedBody((long) maxRawFileSize + 1));
-        if (answer.failure().isPresent()) {
-            return answer.failure().get();
+        if (answer.failure() != null) {
+            return answer.failure();
         }
         var status = answer.response().statusCode();
         if (status == 404) {
@@ -250,7 +250,7 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
                      .readTimeoutSeconds(readTimeoutSeconds).allowInsecureHttp(HTTP.equals(scheme(uri))).build()) {
             var request = handler.requestBuilder().uri(uri);
             request.GET();
-            return new Answer(handler.send(request.build(), reader), Optional.empty());
+            return new Answer(handler.send(request.build(), reader), null);
         } catch (IOException e) {
             return Answer.failed(SourceFetch.unreachable("%s did not answer: %s".formatted(withoutQuery(uri),
                     e.getClass().getSimpleName())));
@@ -376,10 +376,10 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
     }
 
     /** The response of a request, or the outcome of a request that got none. */
-    private record Answer(@Nullable HttpResponse<byte[]> response, Optional<SourceFetch> failure) {
+    private record Answer(@Nullable HttpResponse<byte[]> response, @Nullable SourceFetch failure) {
 
         static Answer failed(SourceFetch failure) {
-            return new Answer(null, Optional.of(failure));
+            return new Answer(null, failure);
         }
     }
 }

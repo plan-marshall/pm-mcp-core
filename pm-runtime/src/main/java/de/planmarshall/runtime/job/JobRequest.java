@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.ProjectEnrolment.Binding;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
@@ -73,19 +74,18 @@ Target target) {
      *
      * @param wrapper the wrapper
      * @param verb    the canonical verb, as the caller named it
-     * @param module  the module of a module-scoped job; empty for a whole-tree job
+     * @param module  the module of a module-scoped job; {@code null} for a whole-tree job
      * @since 0.1
      */
-    public record WrapperBuild(WrapperName wrapper, String verb, Optional<String> module) implements Target {
+    public record WrapperBuild(WrapperName wrapper, String verb, @Nullable String module) implements Target {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if the wrapper is {@code null}
          * @throws IllegalArgumentException if the verb is empty
          */
         public WrapperBuild {
             Objects.requireNonNull(wrapper, "wrapper");
             nonEmpty(verb, "verb");
-            Objects.requireNonNull(module, "module");
         }
     }
 
@@ -93,18 +93,16 @@ Target target) {
      * A build job of the build system {@code npm}, run by the enrolled host tool {@code npm}.
      *
      * @param verb   the canonical verb, as the caller named it
-     * @param module the module of a module-scoped job; empty for a whole-tree job
+     * @param module the module of a module-scoped job; {@code null} for a whole-tree job
      * @since 0.1
      */
-    public record HostToolBuild(String verb, Optional<String> module) implements Target {
+    public record HostToolBuild(String verb, @Nullable String module) implements Target {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
          * @throws IllegalArgumentException if the verb is empty
          */
         public HostToolBuild {
             nonEmpty(verb, "verb");
-            Objects.requireNonNull(module, "module");
         }
     }
 

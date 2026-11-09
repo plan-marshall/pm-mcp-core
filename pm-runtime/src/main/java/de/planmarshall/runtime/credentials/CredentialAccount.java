@@ -19,10 +19,10 @@ import org.jspecify.annotations.Nullable;
  * enrolment identifier. Both parts are restricted to {@code [a-zA-Z0-9._-]} and are never
  * {@code .} or {@code ..} (PM-CRED-3), so an account is also a safe relative file path.
  *
- * @param project the enrolment identifier, empty for a global entry
+ * @param project the enrolment identifier, {@code null} for a global entry
  * @param key     the credential key
  */
-public record CredentialAccount(Optional<String> project, String key) {
+public record CredentialAccount(@Nullable String project, String key) {
 
     private static final Pattern NAME = Pattern.compile("[a-zA-Z0-9._-]{1,128}");
 
@@ -35,7 +35,9 @@ public record CredentialAccount(Optional<String> project, String key) {
      */
     public CredentialAccount {
         check(key);
-        project.ifPresent(CredentialAccount::check);
+        if (project != null) {
+            check(project);
+        }
     }
 
     /**
@@ -43,7 +45,7 @@ public record CredentialAccount(Optional<String> project, String key) {
      * @return the global entry of the key
      */
     public static CredentialAccount global(String key) {
-        return new CredentialAccount(Optional.empty(), key);
+        return new CredentialAccount(null, key);
     }
 
     /**
@@ -52,7 +54,7 @@ public record CredentialAccount(Optional<String> project, String key) {
      * @return the project entry of the key
      */
     public static CredentialAccount project(String project, String key) {
-        return new CredentialAccount(Optional.of(project), key);
+        return new CredentialAccount(project, key);
     }
 
     /**
@@ -69,7 +71,7 @@ public record CredentialAccount(Optional<String> project, String key) {
 
     /** @return the keyring account: {@code <key>} or {@code <project>/<key>} */
     public String account() {
-        return project.map(p -> p + "/" + key).orElse(key);
+        return project != null ? project + "/" + key : key;
     }
 
     private static void check(@Nullable String name) {

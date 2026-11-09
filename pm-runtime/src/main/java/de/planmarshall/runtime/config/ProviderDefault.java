@@ -12,6 +12,7 @@ package de.planmarshall.runtime.config;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One provider of the machine's defaults (Store Schemas § Machine Provider Defaults): whether it is available, the
@@ -22,24 +23,20 @@ import java.util.regex.Pattern;
  * only for the providers that have one.
  *
  * @param available     whether the provider's verification passed
- * @param variant       the default integration variant, or empty when the provider's only variant applies
- * @param credentialKey the credential entry the provider uses where a project names none
+ * @param variant       the default integration variant, or {@code null} when the provider's only variant applies
+ * @param credentialKey the credential entry the provider uses where a project names none; {@code null} when none
  * @since 0.1
  */
-public record ProviderDefault(boolean available, Optional<ProviderVariant> variant,
-Optional<String> credentialKey) {
+public record ProviderDefault(boolean available, @Nullable ProviderVariant variant,
+@Nullable String credentialKey) {
 
     private static final Pattern CREDENTIAL_KEY = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
 
-    /** Rejects {@code null} components and a credential key outside its grammar. */
+    /** Rejects a credential key outside its grammar. */
     public ProviderDefault {
-        Objects.requireNonNull(variant, "variant");
-        Objects.requireNonNull(credentialKey, "credentialKey");
-        credentialKey.ifPresent(key -> {
-            if (!CREDENTIAL_KEY.matcher(key).matches()) {
-                throw new IllegalArgumentException("Not a valid name of a credential key: " + key);
-            }
-        });
+        if (credentialKey != null && !CREDENTIAL_KEY.matcher(credentialKey).matches()) {
+            throw new IllegalArgumentException("Not a valid name of a credential key: " + credentialKey);
+        }
     }
 
     /**
@@ -48,7 +45,7 @@ Optional<String> credentialKey) {
      * @return the default without a credential key
      */
     public static ProviderDefault of(boolean available, ProviderVariant variant) {
-        return new ProviderDefault(available, Optional.of(variant), Optional.empty());
+        return new ProviderDefault(available, variant, null);
     }
 
     /**
@@ -56,7 +53,7 @@ Optional<String> credentialKey) {
      * @throws IllegalArgumentException if a {@code cli} variant is named for a provider without one
      */
     public void requireVariantOf(Provider provider) {
-        if (variant.isPresent() && variant.get() == ProviderVariant.CLI && !provider.hasCliVariant()) {
+        if (variant == ProviderVariant.CLI && !provider.hasCliVariant()) {
             throw new IllegalArgumentException(
                     "The provider '%s' has no cli variant".formatted(provider.wireName()));
         }

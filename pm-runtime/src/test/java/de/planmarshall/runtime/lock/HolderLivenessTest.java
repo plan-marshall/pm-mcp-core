@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HolderInstance;
 
@@ -52,11 +53,11 @@ class HolderLivenessTest {
     /** @return the observations: the observed start instant is the recorded one shifted by the given milliseconds */
     static Stream<Arguments> observations() {
         return Stream.of(
-                Arguments.of("a process with the recorded start instant", true, Optional.of(0L), true),
-                Arguments.of("a process with another start instant", true, Optional.of(1L), false),
-                Arguments.of("a process whose start instant is not told", true, Optional.empty(), true),
-                Arguments.of("no process, start instant not told", false, Optional.empty(), false),
-                Arguments.of("no process, although a start instant is given", false, Optional.of(0L), false));
+                Arguments.of("a process with the recorded start instant", true, 0L, true),
+                Arguments.of("a process with another start instant", true, 1L, false),
+                Arguments.of("a process whose start instant is not told", true, null, true),
+                Arguments.of("no process, start instant not told", false, null, false),
+                Arguments.of("no process, although a start instant is given", false, 0L, false));
     }
 
     @Test
@@ -99,11 +100,12 @@ class HolderLivenessTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("observations")
     @DisplayName("a holder is alive only with a running process that did not start at another instant")
-    void decision(String observation, boolean processExists, Optional<Long> shiftMillis, boolean alive) {
+    void decision(String observation, boolean processExists, @Nullable Long shiftMillis, boolean alive) {
         var recorded = recorded();
         var holder = new HolderInstance(Generators.integers(2, 4_000_000).next(), recorded);
 
-        assertEquals(alive, HolderLiveness.isAlive(holder, processExists, shiftMillis.map(recorded::plusMillis)),
+        assertEquals(alive, HolderLiveness.isAlive(holder, processExists,
+                shiftMillis == null ? null : recorded.plusMillis(shiftMillis)),
                 "liveness of: " + observation);
     }
 }

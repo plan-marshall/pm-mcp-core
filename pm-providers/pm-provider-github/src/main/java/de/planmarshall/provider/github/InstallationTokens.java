@@ -102,7 +102,7 @@ public final class InstallationTokens implements AutoCloseable {
             return Result.ok(cached);
         }
         Result<InstallationToken> minted = mint(key);
-        minted.value().ifPresent(t -> cache.put(key, t));
+        Optional.ofNullable(minted.value()).ifPresent(t -> cache.put(key, t));
         return minted;
     }
 
@@ -125,7 +125,8 @@ public final class InstallationTokens implements AutoCloseable {
      * @return a token source for {@link HttpClient} that mints or reuses per request
      */
     public TokenSource tokenSource(long installationId, String repository, Map<String, String> permissions) {
-        return () -> token(installationId, repository, permissions).value().map(InstallationToken::token);
+        return () -> Optional.ofNullable(token(installationId, repository, permissions).value())
+                .map(InstallationToken::token);
     }
 
     private Result<InstallationToken> mint(Key key) {
@@ -135,7 +136,7 @@ public final class InstallationTokens implements AutoCloseable {
         Response response;
         try {
             response = http.send("POST", "app/installations/" + key.installationId() + "/access_tokens",
-                    Optional.of(Json.write(body)), Optional.empty());
+                    Json.write(body), null);
         } catch (GitHubAppJwt.JwtSigningException e) {
             return Result.of(Result.Outcome.AUTH_FAILED, e.getMessage());
         }

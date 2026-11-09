@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
@@ -109,15 +110,15 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
      */
     @Override
     public Map<String, String> of(VerifiedJob job, JobId jobId) {
-        return forJob(job.enrolment(), jobId, Map.of(), Optional.empty(), Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty(), Optional.empty(), false);
+        return forJob(job.enrolment(), jobId, Map.of(), null, null, null,
+                null, null, null, false);
     }
 
     @Override
     public Map<String, String> ofWorker(ProjectEnrolment enrolment, JobId jobId, Map<String, String> harnessSwitches,
-            Optional<String> jobToken, Optional<String> workerDataVariable, Optional<String> egressProxy) {
-        return forJob(enrolment, jobId, harnessSwitches, jobToken, workerDataVariable, egressProxy, Optional.empty(),
-                Optional.empty(), Optional.empty(), false);
+            @Nullable String jobToken, @Nullable String workerDataVariable, @Nullable String egressProxy) {
+        return forJob(enrolment, jobId, harnessSwitches, jobToken, workerDataVariable, egressProxy, null,
+                null, null, false);
     }
 
     /**
@@ -127,7 +128,8 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
      */
     @Override
     public Map<String, String> of(ProbeCandidate candidate, JobId jobId) {
-        return forProbe(candidate.executable().path(), candidate.interpreter().map(ProbeCandidate.DigestedFile::path),
+        return forProbe(candidate.executable().path(),
+                candidate.interpreter() == null ? null : candidate.interpreter().path(),
                 candidate.kind() == ProbeCandidate.Kind.LOGIN, new TreeMap<>());
     }
 
@@ -137,12 +139,12 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
      * @param enrolment          the verified enrolment
      * @param jobId              the id of the job
      * @param harnessSwitches    the harness switches a worker's profile declares; ignored for other kinds
-     * @param jobToken           the job token of a worker; empty for other kinds
-     * @param workerDataVariable the data-home variable of a worker's harness; empty for other kinds
-     * @param egressProxy        the loopback URL of a worker's egress proxy; empty for other kinds
+     * @param jobToken           the job token of a worker; {@code null} for other kinds
+     * @param workerDataVariable the data-home variable of a worker's harness; {@code null} for other kinds
+     * @param egressProxy        the loopback URL of a worker's egress proxy; {@code null} for other kinds
      * @param sshAuthSock        the SSH agent socket of a {@code git} job, when the effective remote needs it
-     * @param committerName      the committer name of a commit-creating {@code git} job; empty otherwise
-     * @param committerEmail     the committer email of a commit-creating {@code git} job; empty otherwise
+     * @param committerName      the committer name of a commit-creating {@code git} job; {@code null} otherwise
+     * @param committerEmail     the committer email of a commit-creating {@code git} job; {@code null} otherwise
      * @param runRepositoryHooks whether a {@code git} job runs repository hooks
      * @return the complete environment
      */
@@ -150,9 +152,9 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
     // group; grouping them into a holder would hide which row a caller sets and where its value comes from.
     @SuppressWarnings("java:S107")
     public Map<String, String> forJob(ProjectEnrolment enrolment, JobId jobId,
-            Map<String, String> harnessSwitches, Optional<String> jobToken, Optional<String> workerDataVariable,
-            Optional<String> egressProxy, Optional<String> sshAuthSock, Optional<String> committerName,
-            Optional<String> committerEmail, boolean runRepositoryHooks) {
+            Map<String, String> harnessSwitches, @Nullable String jobToken, @Nullable String workerDataVariable,
+            @Nullable String egressProxy, @Nullable String sshAuthSock, @Nullable String committerName,
+            @Nullable String committerEmail, boolean runRepositoryHooks) {
         Objects.requireNonNull(enrolment, "enrolment");
         Objects.requireNonNull(jobId, "jobId");
         var environment = new TreeMap<String, String>();
@@ -188,17 +190,19 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
      * The probe environment.
      *
      * @param executable  the probed executable
-     * @param interpreter its interpreter, for a script
+     * @param interpreter its interpreter, for a script; {@code null} otherwise
      * @param loginProbe  whether the probe needs the harness's login environment
      * @param captured    the captured enrolment rows of the machine
      * @return the complete environment
      */
-    public Map<String, String> forProbe(Path executable, Optional<Path> interpreter, boolean loginProbe,
+    public Map<String, String> forProbe(Path executable, @Nullable Path interpreter, boolean loginProbe,
             SortedMap<String, String> captured) {
         Objects.requireNonNull(executable, "executable");
         var environment = new TreeMap<String, String>();
         var directories = new ArrayList<String>();
-        interpreter.map(Path::getParent).ifPresent(parent -> directories.add(parent.toString()));
+        if (interpreter != null && interpreter.getParent() != null) {
+            directories.add(interpreter.getParent().toString());
+        }
         directories.add(executable.getParent().toString());
         environment.put("PATH", String.join(":", directories));
         environment.put("HOME", userHome);
@@ -231,14 +235,20 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
         return JobConfinementComposer.daemonStore(base, systemTemp, deviceRoot, enrolment);
     }
 
-    private void git(Map<String, String> environment, Optional<String> sshAuthSock, Optional<String> committerName,
-            Optional<String> committerEmail) {
-        sshAuthSock.ifPresent(socket -> environment.put("SSH_AUTH_SOCK", socket));
+    private void git(Map<String, String> environment, @Nullable String sshAuthSock, @Nullable String committerName,
+            @Nullable String committerEmail) {
+        if (sshAuthSock != null) {
+            environment.put("SSH_AUTH_SOCK", sshAuthSock);
+        }
         environment.put("GIT_TERMINAL_PROMPT", "0");
         environment.put("GCM_INTERACTIVE", "never");
         environment.put("GIT_OPTIONAL_LOCKS", "0");
-        committerName.ifPresent(name -> environment.put("GIT_COMMITTER_NAME", name));
-        committerEmail.ifPresent(email -> environment.put("GIT_COMMITTER_EMAIL", email));
+        if (committerName != null) {
+            environment.put("GIT_COMMITTER_NAME", committerName);
+        }
+        if (committerEmail != null) {
+            environment.put("GIT_COMMITTER_EMAIL", committerEmail);
+        }
     }
 
     private void ci(Map<String, String> environment, ProjectEnrolment enrolment) {
@@ -249,18 +259,22 @@ public final class JobEnvironmentComposer implements SubprocessJobRunner.Environ
     }
 
     private void worker(Map<String, String> environment, JobId jobId, Map<String, String> harnessSwitches,
-            Optional<String> jobToken, Optional<String> workerDataVariable, Optional<String> egressProxy) {
-        jobToken.ifPresent(token -> environment.put(PM_MCP_JOB_TOKEN, token));
+            @Nullable String jobToken, @Nullable String workerDataVariable, @Nullable String egressProxy) {
+        if (jobToken != null) {
+            environment.put(PM_MCP_JOB_TOKEN, jobToken);
+        }
         environment.put(PM_MCP_JOB_ID, jobId.value());
         harnessSwitches.forEach(environment::put);
         var data = base.resolve(JobConfinementComposer.RUN_JOBS).resolve(jobId.value())
                 .resolve(JobConfinementComposer.DATA);
-        workerDataVariable.ifPresent(variable -> environment.put(variable, data.toString()));
-        egressProxy.ifPresent(proxy -> {
-            environment.put(HTTPS_PROXY, proxy);
-            environment.put(HTTP_PROXY, proxy);
+        if (workerDataVariable != null) {
+            environment.put(workerDataVariable, data.toString());
+        }
+        if (egressProxy != null) {
+            environment.put(HTTPS_PROXY, egressProxy);
+            environment.put(HTTP_PROXY, egressProxy);
             environment.put(NO_PROXY, "");
-        });
+        }
     }
 
     private static void locale(Map<String, String> environment, SortedMap<String, String> captured) {

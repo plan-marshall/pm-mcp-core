@@ -134,7 +134,7 @@ class JobDrainParticipantTest {
 
     private JobId start(String seconds) {
         var candidate = new ProbeCandidate(ProbeCandidate.Kind.LOGIN, new DigestedFile(probe, sha256(probe)),
-                Optional.empty(), List.of(seconds), Set.of(0), MACHINE, new JobPrivate());
+                null, List.of(seconds), Set.of(0), MACHINE, new JobPrivate());
         var result = runner.startProbe(new JobRunner.ProbeRequest<>(candidate, true));
         return assertInstanceOf(JobRunner.StartResult.Started.class, result, "the probe should be started").jobId();
     }

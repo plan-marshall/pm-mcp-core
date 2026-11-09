@@ -117,7 +117,7 @@ class WorkerSupervisorLaunchTest {
                 () -> assertEquals(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT,
                         start.budgetDerivation().kind()),
                 () -> assertEquals(block.writablePaths(base.resolve("home")), start.writablePaths()),
-                () -> assertTrue(start.egressProxy().isEmpty()));
+                () -> assertTrue(start.egressProxy() == null));
     }
 
     @Test

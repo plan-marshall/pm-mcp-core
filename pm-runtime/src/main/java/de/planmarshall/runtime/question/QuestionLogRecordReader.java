@@ -121,7 +121,7 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     @Override
     public QuestionRead read(ReadRequest request) {
         Objects.requireNonNull(request, "request");
-        var resolution = resolve(request.scopeId());
+        var resolution = resolve(request.scopeId().orElse(null));
         if (resolution.refused()) {
             return new QuestionRead.Unreadable(resolution.refusal());
         }
@@ -168,12 +168,12 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
      * The scope a request addresses: the workspace scope for an empty id, else the plan or epic of that id. The store
      * directory of the scope tells the two apart; an id that names both is refused rather than guessed.
      */
-    private Resolution resolve(Optional<String> scopeId) {
-        if (scopeId.isEmpty()) {
+    private Resolution resolve(@Nullable String scopeId) {
+        if (scopeId == null) {
             return Resolution.of(JournalScope.workspace(base, projectId));
         }
         try {
-            var id = scopeId.get();
+            var id = scopeId;
             var plan = JournalScope.plan(base, projectId, id);
             var epic = JournalScope.epic(base, projectId, id);
             var planExists = Files.isDirectory(plan.pathBase());
@@ -186,7 +186,7 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             }
             return Resolution.of(planExists ? plan : epic);
         } catch (IllegalArgumentException _) {
-            return Resolution.refused("the scope is not an identifier: " + scopeId.get());
+            return Resolution.refused("the scope is not an identifier: " + scopeId);
         }
     }
 

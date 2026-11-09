@@ -171,7 +171,7 @@ public final class FakePmExec {
         JobLog.Read read = null;
         while (System.nanoTime() < deadline) {
             read = log.readLines(0);
-            if (read instanceof JobLog.Lines found && found.report().isPresent() && found.lines().size() >= lines) {
+            if (read instanceof JobLog.Lines found && found.report() != null && found.lines().size() >= lines) {
                 return found;
             }
             // Waits on the process, not a fixed sleep: it returns at once when the process has ended

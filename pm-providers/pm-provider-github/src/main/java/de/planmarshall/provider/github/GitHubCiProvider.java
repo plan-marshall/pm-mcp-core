@@ -167,7 +167,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (!payload.isOk()) {
             return payload.asFailure();
         }
-        var read = payload.value().orElseThrow();
+        var read = Objects.requireNonNull(payload.value());
         return read.pullRequest() ? Result.of(Result.Outcome.REJECTED, "is a pull request")
                 : Result.ok(read.issue());
     }
@@ -187,7 +187,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (!id.isOk()) {
             return id.asFailure();
         }
-        String commentId = id.value().orElseThrow();
+        String commentId = Objects.requireNonNull(id.value());
         return Result.ok(new IssueComment(commentId, repository.origin() + "/" + repository.ownerOrPath() + "/"
                 + repository.name() + "/issues/" + issue.number() + "#issuecomment-" + commentId));
     }
@@ -206,7 +206,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (!read.isOk()) {
             return read.asFailure();
         }
-        GitHubClient.PullRequestPayload payload = read.value().orElseThrow();
+        GitHubClient.PullRequestPayload payload = Objects.requireNonNull(read.value());
         Result<List<String>> files = client.pullRequestFiles(owner, name, pullRequest.number());
         if (!files.isOk()) {
             // the pull request exists, so a 404 of its files is no NOT_FOUND: it names a missing pull request
@@ -227,10 +227,10 @@ public final class GitHubCiProvider implements CiProvider {
         if (!writable.isOk()) {
             return writable.asFailure();
         }
-        List<String> paths = files.value().orElseThrow();
+        List<String> paths = Objects.requireNonNull(files.value());
         return Result.ok(PullRequest.builder().state(payload.state()).title(payload.title()).body(payload.body())
                 .baseBranch(payload.baseBranch()).headBranch(payload.headBranch()).headSha(payload.headSha())
-                .headRepositoryRef(head.orElse(null)).headWritable(writable.value().orElseThrow())
+                .headRepositoryRef(head.orElse(null)).headWritable(Objects.requireNonNull(writable.value()))
                 .changedPaths(paths).pathCompleteness(completeness(files.complete(), paths.size(),
                 payload.changedFiles()))
                 .build());
@@ -310,7 +310,7 @@ public final class GitHubCiProvider implements CiProvider {
             return permissions.asFailure();
         }
         return Result.ok(Identity.builder().login(login.get()).userId(userId.get()).tokenKind(kind.get())
-                .permissions(permissions.value().orElseThrow())
+                .permissions(Objects.requireNonNull(permissions.value()))
                 .scopes(user.header(SCOPES_HEADER).map(GitHubCiProvider::scopes).orElse(List.of()))
                 .expiresAt(user.header(EXPIRY_HEADER).flatMap(GitHubCiProvider::instantOf).orElse(null)).build());
     }
@@ -320,7 +320,7 @@ public final class GitHubCiProvider implements CiProvider {
         if (!app.isOk()) {
             return app.asFailure();
         }
-        String slug = app.value().orElseThrow().slug();
+        String slug = Objects.requireNonNull(app.value()).slug();
         String botLogin = slug + "[bot]";
         Response bot = http.get("users/" + URLEncoder.encode(botLogin, StandardCharsets.UTF_8));
         if (!bot.isOk()) {
@@ -345,7 +345,7 @@ public final class GitHubCiProvider implements CiProvider {
             return permissions.asFailure();
         }
         return Result.ok(Identity.builder().login(botLogin).userId(botId.get()).tokenKind(TokenKind.GITHUB_APP)
-                .operatorLogin(operatorLogin.get()).permissions(permissions.value().orElseThrow())
+                .operatorLogin(operatorLogin.get()).permissions(Objects.requireNonNull(permissions.value()))
                 .scopes(List.of()).build());
     }
 

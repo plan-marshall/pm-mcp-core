@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
-import java.util.Optional;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.StoredConfig;
@@ -107,16 +106,16 @@ class JGitOperationsTest {
     private CommitInfo commitIn(Path root, String message) {
         GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent));
         assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
-        return result.value().orElseThrow();
+        return result.value();
     }
 
     private String sha(Path root) {
         GitResult<GitOperations.WorktreeSha> result = git.worktreeSha(root);
         assertEquals(GitOutcome.OK, result.outcome(), "the working-tree digest is computed");
         // contract literal: the worktree-sha hash version pinned by the specification is 1
-        assertEquals(1, result.value().orElseThrow().version(),
+        assertEquals(1, result.value().version(),
                 "the digest carries hash version 1");
-        return result.value().orElseThrow().digest();
+        return result.value().digest();
     }
 
     @Nested
@@ -126,12 +125,12 @@ class JGitOperationsTest {
         @Test
         @DisplayName("opens a repository and reports its facts")
         void opens() {
-            var info = git.open(repo).value().orElseThrow();
+            var info = git.open(repo).value();
 
             assertAll(
                     () -> assertEquals(repo.toRealPath(), info.worktreeRoot(), "the worktree root is the real path"),
-                    () -> assertEquals(Optional.of(branch), info.branch(), "the checked-out branch is reported"),
-                    () -> assertTrue(info.head().isPresent(), "the HEAD commit id is reported"),
+                    () -> assertEquals(branch, info.branch(), "the checked-out branch is reported"),
+                    () -> assertTrue(info.head() != null, "the HEAD commit id is reported"),
                     () -> assertFalse(info.linked(), "the main worktree is no linked worktree"),
                     () -> assertEquals(info.gitDir(), info.commonDir(), "the main worktree's git dir is common"));
         }
@@ -188,8 +187,8 @@ class JGitOperationsTest {
             write(file(), text());
             CommitInfo third = commit(text());
 
-            var all = git.log(repo, HEAD, 10).value().orElseThrow();
-            var one = git.log(repo, branch, 1).value().orElseThrow();
+            var all = git.log(repo, HEAD, 10).value();
+            var one = git.log(repo, branch, 1).value();
 
             assertAll(
                     () -> assertEquals(List.of(third.id(), second.id()),
@@ -219,7 +218,7 @@ class JGitOperationsTest {
             write(b, bContent);
             write(a, aContent);
             Files.createSymbolicLink(repo.resolve(link), Path.of(a));
-            String head = git.open(repo).value().orElseThrow().head().orElseThrow();
+            String head = git.open(repo).value().head();
 
             String expected = WorktreeShaDigestTest.independentDigest(head, List.of(
                     WorktreeShaDigestTest.file(a, aContent), WorktreeShaDigestTest.file(b, bContent),
@@ -244,10 +243,10 @@ class JGitOperationsTest {
         }
 
         private Worktree add(String name, String newBranch) {
-            var result = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(name), Optional.of(newBranch),
+            var result = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(name), newBranch,
                     true, HEAD));
             assertEquals(GitOutcome.OK, result.outcome(), "the linked worktree is added");
-            return result.value().orElseThrow();
+            return result.value();
         }
 
         @Test
@@ -256,7 +255,7 @@ class JGitOperationsTest {
             var name = names.next();
             var newBranch = names.next();
             Worktree added = add(name, newBranch);
-            var info = git.open(added.path()).value().orElseThrow();
+            var info = git.open(added.path()).value();
 
             Files.writeString(added.path().resolve(file()), text());
             CommitInfo onBranch = commitIn(added.path(), text());
@@ -265,15 +264,15 @@ class JGitOperationsTest {
                     () -> assertEquals(readme, Files.readString(added.path().resolve("README.md")),
                             "the worktree holds the checked-out files"),
                     () -> assertTrue(info.linked(), "the added worktree is a linked worktree"),
-                    () -> assertEquals(Optional.of(newBranch), info.branch(), "the new branch is checked out"),
-                    () -> assertEquals(git.open(repo).value().orElseThrow().commonDir(), info.commonDir(),
+                    () -> assertEquals(newBranch, info.branch(), "the new branch is checked out"),
+                    () -> assertEquals(git.open(repo).value().commonDir(), info.commonDir(),
                             "the linked worktree shares the common dir"),
                     () -> assertTrue(git.worktreeSha(added.path()).isOk(), "the linked worktree has a digest"),
                     () -> assertFalse(Files.exists(admin(name).resolve("locked")),
                             "the initialization lock is removed"),
-                    () -> assertEquals(onBranch.id(), git.log(repo, newBranch, 1).value().orElseThrow().getFirst()
+                    () -> assertEquals(onBranch.id(), git.log(repo, newBranch, 1).value().getFirst()
                             .id(), "the commit lands on the new branch"),
-                    () -> assertEquals(Optional.of(branch), git.open(repo).value().orElseThrow().branch(),
+                    () -> assertEquals(branch, git.open(repo).value().branch(),
                             "the main worktree's HEAD is untouched"));
         }
 
@@ -285,11 +284,11 @@ class JGitOperationsTest {
             var detachedName = names.next();
             add(onBranch, newBranch);
             var detached = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(detachedName),
-                    Optional.empty(), false, HEAD));
+                    null, false, HEAD));
             assertTrue(detached.isOk(), "the detached worktree is added");
             var detachedFirst = detachedName.compareTo(onBranch) < 0;
 
-            List<Worktree> list = git.worktreeList(repo).value().orElseThrow();
+            List<Worktree> list = git.worktreeList(repo).value();
             var detachedEntry = list.get(detachedFirst ? 1 : 2);
             var branchEntry = list.get(detachedFirst ? 2 : 1);
 
@@ -297,14 +296,14 @@ class JGitOperationsTest {
                     () -> assertEquals(3, list.size(), "the list holds the main and two linked trees"),
                     () -> assertTrue(list.getFirst().main(), "the main worktree comes first"),
                     () -> assertEquals(repo.toRealPath(), list.getFirst().path(), "the main entry is the repository"),
-                    () -> assertEquals(Optional.of(branch), list.getFirst().branch(), "the main entry has its branch"),
-                    () -> assertEquals(Optional.of(detachedName), detachedEntry.name(),
+                    () -> assertEquals(branch, list.getFirst().branch(), "the main entry has its branch"),
+                    () -> assertEquals(detachedName, detachedEntry.name(),
                             "the linked worktrees are ordered by name"),
-                    () -> assertTrue(detachedEntry.branch().isEmpty(), "a detached worktree has no branch"),
-                    () -> assertTrue(detachedEntry.head().isPresent(), "a detached worktree has a HEAD"),
-                    () -> assertEquals(Optional.of(newBranch), branchEntry.branch(),
+                    () -> assertTrue(detachedEntry.branch() == null, "a detached worktree has no branch"),
+                    () -> assertTrue(detachedEntry.head() != null, "a detached worktree has a HEAD"),
+                    () -> assertEquals(newBranch, branchEntry.branch(),
                             "the branch worktree reports its branch"),
-                    () -> assertEquals(list, git.worktreeList(branchEntry.path()).value().orElseThrow(),
+                    () -> assertEquals(list, git.worktreeList(branchEntry.path()).value(),
                             "a linked worktree lists the same worktrees"));
         }
 
@@ -342,28 +341,28 @@ class JGitOperationsTest {
 
             assertAll(
                     () -> assertEquals(GitOutcome.PATH_REFUSED, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    temp.resolve("outside"), Optional.empty(), false, HEAD)).outcome(),
+                                    temp.resolve("outside"), null, false, HEAD)).outcome(),
                             "a target outside the root is refused"),
                     () -> assertEquals(GitOutcome.ALREADY_EXISTS, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(occupied), Optional.empty(), false, HEAD)).outcome(),
+                                    worktrees().resolve(occupied), null, false, HEAD)).outcome(),
                             "an occupied target already exists"),
                     () -> assertEquals(GitOutcome.ALREADY_EXISTS, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), Optional.of(held), true, HEAD)).outcome(),
+                                    worktrees().resolve(again), held, true, HEAD)).outcome(),
                             "a branch to create already exists"),
                     () -> assertEquals(GitOutcome.BRANCH_CHECKED_OUT, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), Optional.of(held), false, HEAD)).outcome(),
+                                    worktrees().resolve(again), held, false, HEAD)).outcome(),
                             "a branch a worktree holds is checked out"),
                     () -> assertEquals(GitOutcome.BRANCH_CHECKED_OUT, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), Optional.of(branch), false, HEAD)).outcome(),
+                                    worktrees().resolve(again), branch, false, HEAD)).outcome(),
                             "the main worktree's branch is checked out"),
                     () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), Optional.of(names.next()), false, HEAD)).outcome(),
+                                    worktrees().resolve(again), names.next(), false, HEAD)).outcome(),
                             "a missing branch is an unknown revision"),
                     () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.worktreeAdd(new WorktreeAddInput(repo,
-                                    worktrees().resolve(again), Optional.empty(), false, names.next())).outcome(),
+                                    worktrees().resolve(again), null, false, names.next())).outcome(),
                             "an unknown start point is refused"),
                     () -> assertEquals(GitOutcome.NOT_A_REPOSITORY, git.worktreeAdd(new WorktreeAddInput(plain,
-                                    plain.resolve("wt"), Optional.empty(), false, HEAD)).outcome(),
+                                    plain.resolve("wt"), null, false, HEAD)).outcome(),
                             "a root outside a repository is refused"));
         }
 
@@ -375,7 +374,7 @@ class JGitOperationsTest {
             assertTrue(git.worktreeRemove(repo, first.path()).isOk(), "the first worktree is removed");
 
             var again = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(names.next()),
-                    Optional.of(existing), false, names.next()));
+                    existing, false, names.next()));
 
             assertEquals(GitOutcome.OK, again.outcome(), "a free existing branch is checked out");
         }
@@ -412,7 +411,7 @@ class JGitOperationsTest {
                     () -> assertEquals(GitOutcome.OK, removed.outcome(), "the clean worktree is removed"),
                     () -> assertFalse(Files.exists(clean.path()), "the clean worktree's directory is gone"),
                     () -> assertFalse(Files.exists(admin(cleanName)), "the clean worktree's admin dir is gone"),
-                    () -> assertEquals(3, git.worktreeList(repo).value().orElseThrow().size(),
+                    () -> assertEquals(3, git.worktreeList(repo).value().size(),
                             "the main and two refused worktrees remain"));
         }
 
@@ -423,7 +422,7 @@ class JGitOperationsTest {
             Worktree gone = add(name, names.next());
             LinkedWorktrees.deleteTree(gone.path());
 
-            Worktree listed = git.worktreeList(repo).value().orElseThrow().get(1);
+            Worktree listed = git.worktreeList(repo).value().get(1);
             var removed = git.worktreeRemove(repo, gone.path());
 
             assertAll(
@@ -452,17 +451,17 @@ class JGitOperationsTest {
         }
 
         private GitResult<GitOperations.RefUpdate> push(Path root, String expected) {
-            return git.push(new PushInput(root, ORIGIN, HEAD, remoteHead, Optional.ofNullable(expected),
-                    Optional.empty()));
+            return git.push(new PushInput(root, ORIGIN, HEAD, remoteHead, expected,
+                    null));
         }
 
         @Test
         @DisplayName("pushes, fetches into a second clone, and rejects a non-fast-forward and a stale lease")
         void pushFetchReject() throws Exception {
-            String head = git.open(repo).value().orElseThrow().head().orElseThrow();
+            String head = git.open(repo).value().head();
             var pushed = push(repo, null);
             assertEquals(GitOutcome.OK, pushed.outcome(), "the first push is accepted");
-            assertEquals(Optional.of(head), pushed.value().orElseThrow().newId(), "the remote now holds the head");
+            assertEquals(head, pushed.value().newId(), "the remote now holds the head");
 
             Path other = temp.resolve("other");
             Git.cloneRepository().setURI(remote.toUri().toString()).setDirectory(other.toFile()).setFs(new RefusingFS())
@@ -477,9 +476,9 @@ class JGitOperationsTest {
                     "a push behind the remote is no fast-forward");
             assertEquals(GitOutcome.REJECTED_LEASE, push(repo, head).outcome(), "a stale lease is rejected");
 
-            var fetched = git.fetch(new RemoteInput(repo, ORIGIN, List.of(), Optional.empty()));
+            var fetched = git.fetch(new RemoteInput(repo, ORIGIN, List.of(), null));
             assertEquals(GitOutcome.OK, fetched.outcome(), "the fetch from the remote succeeds");
-            assertEquals(Optional.of(otherCommit.id()), fetched.value().orElseThrow().stream()
+            assertEquals(otherCommit.id(), fetched.value().stream()
                     .filter(u -> ("refs/remotes/" + ORIGIN + "/" + branch).equals(u.ref())).findFirst().orElseThrow()
                     .newId(), "the tracking ref holds the other clone's commit");
         }
@@ -491,22 +490,22 @@ class JGitOperationsTest {
             var httpsOnly = new JGitOperations(RemotePolicy.httpsOrigin(URI.create("https://github.com")));
             var generated = GitGenerators.credentials().next();
             var secret = new String(generated.secret());
-            var credential = Optional.of(generated);
+            var credential = generated;
 
             assertAll(
                     () -> assertEquals(GitOutcome.REMOTE_ORIGIN_MISMATCH,
                             httpsOnly.fetch(new RemoteInput(repo, ORIGIN, List.of(), credential)).outcome(),
                             "a fetch outside the policy is refused"),
                     () -> assertEquals(GitOutcome.REMOTE_ORIGIN_MISMATCH, httpsOnly.push(new PushInput(repo, ORIGIN,
-                                    HEAD, remoteHead, Optional.empty(), credential)).outcome(),
+                                    HEAD, remoteHead, null, credential)).outcome(),
                             "a push outside the policy is refused"),
                     () -> assertEquals(GitOutcome.UNKNOWN_REVISION,
-                            git.fetch(new RemoteInput(repo, names.next(), List.of(), Optional.empty())).outcome(),
+                            git.fetch(new RemoteInput(repo, names.next(), List.of(), null)).outcome(),
                             "a fetch from an unknown remote is refused"),
                     () -> assertEquals(GitOutcome.UNKNOWN_REVISION, git.push(new PushInput(repo, ORIGIN, names.next(),
-                                    remoteHead, Optional.empty(), Optional.empty())).outcome(),
+                                    remoteHead, null, null)).outcome(),
                             "a push of an unknown ref is refused"),
-                    () -> assertFalse(credential.orElseThrow().toString().contains(secret),
+                    () -> assertFalse(credential.toString().contains(secret),
                             "the credential's text hides the secret"));
         }
 
@@ -544,7 +543,7 @@ class JGitOperationsTest {
             Files.createDirectories(hook.getParent());
             Files.writeString(hook, "#!/bin/sh\ntouch " + marker + "\n");
             Files.setPosixFilePermissions(hook, PosixFilePermissions.fromString("rwxr-xr-x"));
-            String before = git.open(repo).value().orElseThrow().head().orElseThrow();
+            String before = git.open(repo).value().head();
             write(file(), text());
 
             var result = git.commit(new CommitInput(repo, text(), author, agent));
@@ -553,7 +552,7 @@ class JGitOperationsTest {
                     () -> assertEquals(GitOutcome.CAPABILITY_MISSING, result.outcome(),
                             "a present hook is a missing capability"),
                     () -> assertEquals("repository_hook", result.detail(), "the detail names the repository hook"),
-                    () -> assertEquals(before, git.open(repo).value().orElseThrow().head().orElseThrow(),
+                    () -> assertEquals(before, git.open(repo).value().head(),
                             "the refused commit leaves HEAD unchanged"),
                     () -> assertFalse(Files.exists(repo.resolve(marker)), "the hook is never run"));
         }

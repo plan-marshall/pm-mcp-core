@@ -291,7 +291,7 @@ class BuildOutputParserTest {
     }
 
     private static Outcome outcome(ParseResult parse, int exitCode) {
-        return OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.BUILD, Optional.empty(),
+        return OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.BUILD, null,
                 new Exited(exitCode), LogState.READABLE, parse, Set.of(), true));
     }
 

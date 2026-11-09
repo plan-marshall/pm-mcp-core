@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Starts a verified job through the launcher {@code pm-exec} (PM-EXEC-4, PM-EXEC-1, PM-EXEC-5): the process
@@ -94,13 +95,13 @@ public final class PmExecLauncher {
      * @param argv             the verified argument vector; its first element is the verified absolute executable
      * @param environment      the complete environment of the job, the allowlist of its confinement; nothing of the
      *                         runtime's own environment is added
-     * @param stdin            the in-memory input of the job, written as UTF-8; empty for {@code /dev/null}
+     * @param stdin            the in-memory input of the job, written as UTF-8; {@code null} for {@code /dev/null}
      * @param log              the job log, which receives {@code stdout} and {@code stderr}
      * @param confinement      the write set, the extra read paths and the read-denied paths of the job
      * @since 0.1
      */
     public record Launch(Path workingDirectory, List<String> argv, Map<String, String> environment,
-    Optional<String> stdin, Path log, JobConfinement confinement) {
+    @Nullable String stdin, Path log, JobConfinement confinement) {
 
         /**
          * A launch without a composed confinement, for a caller that passes none.
@@ -108,16 +109,16 @@ public final class PmExecLauncher {
          * @param workingDirectory the verified working directory
          * @param argv             the verified argument vector
          * @param environment      the complete environment of the job
-         * @param stdin            the in-memory input of the job
+         * @param stdin            the in-memory input of the job; {@code null} for none
          * @param log              the job log
          */
         public Launch(Path workingDirectory, List<String> argv, Map<String, String> environment,
-                Optional<String> stdin, Path log) {
+                @Nullable String stdin, Path log) {
             this(workingDirectory, argv, environment, stdin, log, JobConfinement.none());
         }
 
         /**
-         * @throws NullPointerException     if a component or an element is {@code null}
+         * @throws NullPointerException     if a component other than the input or an element is {@code null}
          * @throws IllegalArgumentException if the argument vector is empty or its executable is not an absolute path
          */
         public Launch {
@@ -130,7 +131,6 @@ public final class PmExecLauncher {
                 throw new IllegalArgumentException("The executable must be an absolute path: " + argv.getFirst());
             }
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
-            Objects.requireNonNull(stdin, "stdin");
             Objects.requireNonNull(log, "log");
             Objects.requireNonNull(confinement, "confinement");
         }
@@ -138,12 +138,12 @@ public final class PmExecLauncher {
         /**
          * @param job         the verified job
          * @param environment the complete environment of the job
-         * @param stdin       the in-memory input of the job; empty for {@code /dev/null}
+         * @param stdin       the in-memory input of the job; {@code null} for {@code /dev/null}
          * @param log         the job log
          * @param confinement the confinement of the job
          * @return the launch of the verified job
          */
-        public static Launch of(VerifiedJob job, Map<String, String> environment, Optional<String> stdin, Path log,
+        public static Launch of(VerifiedJob job, Map<String, String> environment, @Nullable String stdin, Path log,
                 JobConfinement confinement) {
             Objects.requireNonNull(job, "job");
             return new Launch(job.workingDirectory(), job.argv(), environment, stdin, log, confinement);
@@ -152,11 +152,11 @@ public final class PmExecLauncher {
         /**
          * @param job         the verified job
          * @param environment the complete environment of the job
-         * @param stdin       the in-memory input of the job; empty for {@code /dev/null}
+         * @param stdin       the in-memory input of the job; {@code null} for {@code /dev/null}
          * @param log         the job log
          * @return the launch of the verified job, without a composed confinement
          */
-        public static Launch of(VerifiedJob job, Map<String, String> environment, Optional<String> stdin, Path log) {
+        public static Launch of(VerifiedJob job, Map<String, String> environment, @Nullable String stdin, Path log) {
             return of(job, environment, stdin, log, JobConfinement.none());
         }
     }
@@ -188,7 +188,9 @@ public final class PmExecLauncher {
         var builder = processBuilder(launch);
         createLog(launch.log());
         var process = builder.start();
-        launch.stdin().ifPresent(payload -> writeInput(process, payload.getBytes(StandardCharsets.UTF_8)));
+        if (launch.stdin() != null) {
+            writeInput(process, launch.stdin().getBytes(StandardCharsets.UTF_8));
+        }
         return new Launched(process, process.pid());
     }
 
@@ -207,7 +209,7 @@ public final class PmExecLauncher {
         var environment = builder.environment();
         environment.clear();
         environment.putAll(launch.environment());
-        builder.redirectInput(launch.stdin().isPresent() ? ProcessBuilder.Redirect.PIPE
+        builder.redirectInput(launch.stdin() != null ? ProcessBuilder.Redirect.PIPE
                 : ProcessBuilder.Redirect.from(NO_INPUT));
         builder.redirectOutput(ProcessBuilder.Redirect.appendTo(launch.log().toFile()));
         builder.redirectErrorStream(true);

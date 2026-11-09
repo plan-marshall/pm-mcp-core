@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
@@ -140,21 +141,19 @@ public class StaleLeaseSweep {
      * The result of the sweep of one store.
      *
      * @param decisions       the decision on each lease, in the order of the store
-     * @param emptyPopulation why nothing was removed; empty if a lease was removed
-     * @param refusal         why the store could not be read, as the outcome of its {@link StoreRefusal}; empty
+     * @param emptyPopulation why nothing was removed; {@code null} if a lease was removed
+     * @param refusal         why the store could not be read, as the outcome of its {@link StoreRefusal}; {@code null}
      *                        unless the store was refused
      * @since 0.1
      */
     public record Result(
     List<Decision> decisions,
-    Optional<EmptyPopulation> emptyPopulation,
-    Optional<StoreRefusal.Outcome> refusal) {
+    @Nullable EmptyPopulation emptyPopulation,
+    StoreRefusal.@Nullable Outcome refusal) {
 
-        /** @throws NullPointerException if a component or a decision is {@code null} */
+        /** @throws NullPointerException if a decision is {@code null} */
         public Result {
             decisions = List.copyOf(decisions);
-            Objects.requireNonNull(emptyPopulation, "emptyPopulation");
-            Objects.requireNonNull(refusal, "refusal");
         }
 
         /**
@@ -218,12 +217,12 @@ public class StaleLeaseSweep {
             });
         } catch (StoreRefusal e) {
             LOGGER.debug(e, "Stale lease sweep of '%s' refused the store", store.store());
-            return new Result(List.of(), Optional.of(EmptyPopulation.ROOT_UNREADABLE), Optional.of(e.outcome()));
+            return new Result(List.of(), EmptyPopulation.ROOT_UNREADABLE, e.outcome());
         }
         if (swept.isEmpty()) {
-            return new Result(List.of(), Optional.of(EmptyPopulation.ROOT_ABSENT), Optional.empty());
+            return new Result(List.of(), EmptyPopulation.ROOT_ABSENT, null);
         }
-        var result = new Result(decisions, emptyPopulation(decisions), Optional.empty());
+        var result = new Result(decisions, emptyPopulation(decisions).orElse(null), null);
         log(store, result);
         return result;
     }

@@ -340,22 +340,22 @@ class VerifyNotResolvePipelineTest {
                     new ProjectScriptCall(fixture.scriptId, SCRIPT_BINDING, arguments)));
 
             assertAll(
-                    () -> assertEquals(Optional.of(arguments), job.projectScriptArguments(),
+                    () -> assertEquals(arguments, job.projectScriptArguments(),
                             "the job carries the validated arguments"),
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
                                     fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
                             "the argv holds no script argument"),
-                    () -> assertEquals(Optional.empty(), job.templateSource(),
+                    () -> assertEquals(null, job.templateSource(),
                             "a project script has no template source"));
         }
 
         @Test
         @DisplayName("a wrapper build job carries no project script arguments")
         void wrapperBuild() {
-            var job = verifiedWithDefaults(new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
+            var job = verifiedWithDefaults(new WrapperBuild(WrapperName.MVNW, "verify", null));
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), job.projectScriptArguments(),
+                    () -> assertEquals(null, job.projectScriptArguments(),
                             "a wrapper build carries no script arguments"),
                     () -> assertEquals(fixture.root.resolve(MVNW).toString(), job.argv().getFirst(),
                             "the argv starts with the wrapper"));
@@ -367,7 +367,7 @@ class VerifyNotResolvePipelineTest {
             var job = verified(fixture.gitStatus(fixture.root.toString()));
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), job.projectScriptArguments(),
+                    () -> assertEquals(null, job.projectScriptArguments(),
                             "a host tool call carries no script arguments"),
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), "status"),
                             job.argv(), "the argv is git and the status argument"));

@@ -137,7 +137,7 @@ class ProbeJobTest {
 
     private ProbeCandidate candidate(ProbeCandidate.Kind kind, Set<Integer> success, Scope scope,
             ProbeCandidate.WorkingDirectory workingDirectory, String... arguments) {
-        return new ProbeCandidate(kind, new DigestedFile(probe, sha256(probe)), Optional.empty(), List.of(arguments),
+        return new ProbeCandidate(kind, new DigestedFile(probe, sha256(probe)), null, List.of(arguments),
                 success, scope, workingDirectory);
     }
 

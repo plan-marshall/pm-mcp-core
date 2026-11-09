@@ -112,7 +112,7 @@ public class ProbeVerification {
             return refused(Reason.EXECUTABLE_DIGEST_MISMATCH,
                     "the executable does not match the digest of its candidate record");
         }
-        if (candidate.interpreter().isPresent() && !matches(candidate.interpreter().get())) {
+        if (candidate.interpreter() != null && !matches(candidate.interpreter())) {
             return refused(Reason.EXECUTABLE_DIGEST_MISMATCH,
                     "the interpreter does not match the digest of its candidate record");
         }

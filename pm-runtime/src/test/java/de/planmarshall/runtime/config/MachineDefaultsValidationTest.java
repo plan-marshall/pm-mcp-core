@@ -45,7 +45,7 @@ class MachineDefaultsValidationTest {
 
     private static ProviderDefaults providers(boolean hosting) {
         return new ProviderDefaults(Map.of(Provider.GITHUB, new ProviderDefault(hosting,
-                Optional.of(ProviderVariant.NATIVE), Optional.of(lower() + "-" + lower()))));
+                ProviderVariant.NATIVE, lower() + "-" + lower())));
     }
 
     @Test
@@ -58,12 +58,12 @@ class MachineDefaultsValidationTest {
 
         assertAll(
                 () -> assertFalse(without.valid(), "a pull request without a provider is invalid"),
-                () -> assertTrue(without.reason().orElseThrow().contains("no provider"),
+                () -> assertTrue(without.reason().contains("no provider"),
                         "the reason must name the missing provider"),
                 () -> assertEquals(NO_PROVIDER_KEY, without.messageKey(),
                         "the message key must name the missing provider"),
                 () -> assertTrue(with.valid(), "a pull request with a provider is valid"),
-                () -> assertTrue(with.reason().isEmpty(), "a valid landing carries no reason"));
+                () -> assertTrue(with.reason() == null, "a valid landing carries no reason"));
     }
 
     @Test
@@ -77,7 +77,7 @@ class MachineDefaultsValidationTest {
     @DisplayName("the git transport alone does not open a pull request")
     void gitTransportIsNoForge() {
         var gitOnly = new ProviderDefaults(Map.of(Provider.GIT, new ProviderDefault(true,
-                Optional.of(ProviderVariant.NATIVE), Optional.empty())));
+                ProviderVariant.NATIVE, null)));
 
         assertFalse(MachineDefaultsValidation.landing(MachineDefaultsValidation.LANDING_PULL_REQUEST,
                 gitOnly).valid(), "the git transport alone serves no pull request");

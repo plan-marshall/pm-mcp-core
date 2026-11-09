@@ -369,7 +369,7 @@ class TerminationProtocolTest {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var log = work.resolve("job.log");
             launched = new PmExecLauncher(home).launch(new PmExecLauncher.Launch(work,
-                    List.of(FakePmExec.tool("sh").toString(), "-c", script), Map.of(), Optional.empty(), log));
+                    List.of(FakePmExec.tool("sh").toString(), "-c", script), Map.of(), null, log));
             return new JobLog(log);
         }
 

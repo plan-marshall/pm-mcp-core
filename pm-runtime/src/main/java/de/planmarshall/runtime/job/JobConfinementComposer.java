@@ -49,10 +49,10 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * @param base             the runtime base directory {@code <PM_MCP_BASE>}
  * @param systemTemp       the system temporary directory inside the write set
  * @param deviceRoot       the device nodes directory
- * @param sessionBusSocket the user's session bus socket; empty when the platform has none
+ * @param sessionBusSocket the user's session bus socket; {@code null} when the platform has none
  * @since 0.1
  */
-public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot, Optional<Path> sessionBusSocket) {
+public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot, @Nullable Path sessionBusSocket) {
 
     /** The directory of the job-private directories below the base. */
     public static final String RUN_JOBS = "run/jobs";
@@ -71,28 +71,30 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             List.of("/var/run/docker.sock", "/run/docker.sock", "/run/docker/docker.sock");
 
     /**
-     * @throws NullPointerException     if a component is {@code null}
+     * @throws NullPointerException     if a component other than the session bus socket is {@code null}
      * @throws IllegalArgumentException if a path is not absolute
      */
     public JobConfinementComposer {
         absolute(base, "base");
         absolute(systemTemp, "systemTemp");
         absolute(deviceRoot, "deviceRoot");
-        Objects.requireNonNull(sessionBusSocket, "sessionBusSocket");
-        sessionBusSocket = sessionBusSocket.map(path -> absolute(path, "sessionBusSocket"));
+        if (sessionBusSocket != null) {
+            sessionBusSocket = absolute(sessionBusSocket, "sessionBusSocket");
+        }
     }
 
     /**
      * The composer of a Linux or macOS runtime: {@code /tmp}, {@code /dev} and the caller's session bus socket.
      *
      * @param base             the runtime base directory
-     * @param sessionBusSocket the session bus socket, {@code /run/user/<uid>/bus} on Linux
+     * @param sessionBusSocket the session bus socket, {@code /run/user/<uid>/bus} on Linux; {@code null} when the
+     *                         platform has none
      * @return the composer
      */
     // java:S5443 does not apply: /tmp is the system temporary directory the specification puts in every job's write
     // set; the paths are passed to the launcher as the write set, not used as a place to create trusted files.
     @SuppressWarnings("java:S5443")
-    public static JobConfinementComposer standard(Path base, Optional<Path> sessionBusSocket) {
+    public static JobConfinementComposer standard(Path base, @Nullable Path sessionBusSocket) {
         return new JobConfinementComposer(base, Path.of("/tmp"), Path.of("/dev"), sessionBusSocket);
     }
 
@@ -104,7 +106,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @return the composer
      */
     public static JobConfinementComposer standard(Path base) {
-        return standard(base, currentBusSocket());
+        return standard(base, currentBusSocket().orElse(null));
     }
 
     /**
@@ -233,23 +235,23 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * Composes the confinement of a probe, which is verified against a candidate record and not against an enrolment.
      *
      * @param jobId                the id of the probe job
-     * @param checkoutRoot         the checkout root of a checkout's script; empty for a probe of the machine
+     * @param checkoutRoot         the checkout root of a checkout's script; {@code null} for a probe of the machine
      * @param toolchainCaches      the build write set of a checkout's script; empty otherwise
      * @param harnessProbe         whether the probe is a harness probe
      * @param harnessWritablePaths the sub-paths the harness's client profile declares writable
      * @return the confinement
      */
-    public JobConfinement forProbe(JobId jobId, Optional<Path> checkoutRoot, List<Path> toolchainCaches,
+    public JobConfinement forProbe(JobId jobId, @Nullable Path checkoutRoot, List<Path> toolchainCaches,
             boolean harnessProbe, List<Path> harnessWritablePaths) {
         Objects.requireNonNull(jobId, "jobId");
         var write = new ArrayList<Path>();
         write.add(systemTemp);
         write.add(deviceRoot);
         var jobPrivate = jobPrivate(jobId);
-        checkoutRoot.ifPresent(root -> {
-            write.add(root);
+        if (checkoutRoot != null) {
+            write.add(checkoutRoot);
             write.addAll(toolchainCaches);
-        });
+        }
         if (harnessProbe) {
             write.addAll(harnessWritablePaths);
             var data = jobPrivate.resolve(DATA);
@@ -281,7 +283,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     private List<Path> denied(@Nullable ProjectEnrolment enrolment) {
         var denied = new ArrayList<Path>();
         denied.add(base);
-        sessionBusSocket.ifPresent(denied::add);
+        if (sessionBusSocket != null) {
+            denied.add(sessionBusSocket);
+        }
         if (enrolment == null) {
             denyContainerSockets(denied);
         } else if (enrolment.containerEngine() == null) {
@@ -295,8 +299,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         for (var socket : CONTAINER_SOCKETS) {
             denied.add(Path.of(socket));
         }
-        sessionBusSocket.map(Path::getParent)
-                .ifPresent(parent -> denied.add(parent.resolve("docker.sock")));
+        if (sessionBusSocket != null && sessionBusSocket.getParent() != null) {
+            denied.add(sessionBusSocket.getParent().resolve("docker.sock"));
+        }
     }
 
     private static Optional<Path> unixDockerHost(SortedMap<String, String> environment) {

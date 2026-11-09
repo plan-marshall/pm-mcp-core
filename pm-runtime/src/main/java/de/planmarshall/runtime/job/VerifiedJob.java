@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.ProjectEnrolment;
 
@@ -24,15 +25,16 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * @param workingDirectory       the canonical working directory, as the workspace confinement answered it
  * @param argv                   the verified argument vector; its first element is an enrolled absolute path, the
  *                               interpreter's where one runs the target
- * @param templateSource         where the template of a build job came from; empty for a job that is no build job
+ * @param templateSource         where the template of a build job came from; {@code null} for a job that is no build
+ *                               job
  * @param projectScriptArguments the arguments of a project script job, validated against the script's enrolled
  *                               argument schema; the script receives them as a value, not in the argument vector.
- *                               Empty for a job that is no project script job
+ *                               {@code null} for a job that is no project script job
  * @param enrolment              the verified enrolment the job was checked against
  * @since 0.1
  */
-public record VerifiedJob(Path workingDirectory, List<String> argv, Optional<TemplateSource> templateSource,
-Optional<JobRequest.Value> projectScriptArguments, ProjectEnrolment enrolment) {
+public record VerifiedJob(Path workingDirectory, List<String> argv, @Nullable TemplateSource templateSource,
+JobRequest.@Nullable Value projectScriptArguments, ProjectEnrolment enrolment) {
 
     /**
      * Where the template of a build job came from. The code is the source as it is recorded.
@@ -75,8 +77,6 @@ Optional<JobRequest.Value> projectScriptArguments, ProjectEnrolment enrolment) {
         if (argv.isEmpty()) {
             throw new IllegalArgumentException("A verified argument vector has at least the executable");
         }
-        Objects.requireNonNull(templateSource, "templateSource");
-        Objects.requireNonNull(projectScriptArguments, "projectScriptArguments");
         Objects.requireNonNull(enrolment, "enrolment");
     }
 }

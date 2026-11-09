@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 import javax.crypto.SecretKey;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
@@ -152,26 +153,24 @@ public final class HarnessesSidecarCheck {
      * The outcome of a verification; a failure names the file it concerns and the reason.
      *
      * @param outcome what the verification found
-     * @param file    the file a failure concerns; empty if the verification passed
-     * @param reason  why the verification failed; empty if it passed
+     * @param file    the file a failure concerns; {@code null} if the verification passed
+     * @param reason  why the verification failed; {@code null} if it passed
      * @since 0.1
      */
-    public record Result(Outcome outcome, Optional<Path> file, Optional<String> reason) {
+    public record Result(Outcome outcome, @Nullable Path file, @Nullable String reason) {
 
-        private static final Result VERIFIED = new Result(Outcome.VERIFIED, Optional.empty(), Optional.empty());
-        private static final Result NOTHING = new Result(Outcome.NOTHING_TO_VERIFY, Optional.empty(),
-                Optional.empty());
+        private static final Result VERIFIED = new Result(Outcome.VERIFIED, null, null);
+        private static final Result NOTHING = new Result(Outcome.NOTHING_TO_VERIFY, null,
+                null);
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if the outcome is {@code null}
          * @throws IllegalArgumentException if a failure lacks its file or reason, or a pass carries one
          */
         public Result {
             Objects.requireNonNull(outcome, "outcome");
-            Objects.requireNonNull(file, "file");
-            Objects.requireNonNull(reason, "reason");
             var failure = !passes(outcome);
-            if (failure != file.isPresent() || failure != reason.isPresent()) {
+            if (failure != (file != null) || failure != (reason != null)) {
                 throw new IllegalArgumentException("A failure names its file and reason, a pass neither: " + outcome);
             }
         }
@@ -186,7 +185,7 @@ public final class HarnessesSidecarCheck {
         }
 
         private static Result failed(Outcome outcome, Path file, String reason) {
-            return new Result(outcome, Optional.of(file), Optional.of(reason));
+            return new Result(outcome, file, reason);
         }
     }
 }

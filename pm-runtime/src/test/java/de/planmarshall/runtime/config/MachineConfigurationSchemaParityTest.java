@@ -61,7 +61,7 @@ class MachineConfigurationSchemaParityTest {
     void providersMember() {
         var schema = SchemaResource.load(SCHEMA);
         var defaults = new ProviderDefaults(Map.of(Provider.GITHUB,
-                new ProviderDefault(true, Optional.of(ProviderVariant.CLI), Optional.of("github"))));
+                new ProviderDefault(true, ProviderVariant.CLI, "github")));
         var created = document(MachineConfigurationCodec.create(defaults));
         var providers = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("providers"));
         var written = SchemaResource.object(SchemaResource.object(created.get("providers")).get("github"));

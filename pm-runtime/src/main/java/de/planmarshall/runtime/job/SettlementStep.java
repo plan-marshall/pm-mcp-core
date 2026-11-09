@@ -12,6 +12,7 @@ package de.planmarshall.runtime.job;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JobId;
@@ -125,18 +126,17 @@ public interface SettlementStep {
      * What is settled: the settled record of the job and the slot it held.
      *
      * @param job  the record of the job, {@code refused} or {@code ended}, with its fate
-     * @param slot the slot the job held; empty for a job that needs none or was never admitted
+     * @param slot the slot the job held; {@code null} for a job that needs none or was never admitted
      * @since 0.1
      */
-    record Settled(JobRecord job, Optional<Slot> slot) {
+    record Settled(JobRecord job, @Nullable Slot slot) {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if the job is {@code null}
          * @throws IllegalArgumentException if the record is not settled
          */
         public Settled {
             Objects.requireNonNull(job, "job");
-            Objects.requireNonNull(slot, "slot");
             if (!job.status().isSettled()) {
                 throw new IllegalArgumentException("A settled job has a fate: " + job.jobId());
             }
@@ -235,10 +235,10 @@ public interface SettlementStep {
 
             @Override
             public Outcome run(Settled settled) {
-                if (settled.slot().isEmpty()) {
+                if (settled.slot() == null) {
                     return new Outcome.Done("no slot held");
                 }
-                var slot = settled.slot().get();
+                var slot = settled.slot();
                 LeaseStore.Release release;
                 try {
                     release = slot.store().release(slot.key(), slot.expectedOwner());

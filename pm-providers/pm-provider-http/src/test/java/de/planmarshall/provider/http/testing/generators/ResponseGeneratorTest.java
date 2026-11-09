@@ -38,7 +38,7 @@ class ResponseGeneratorTest {
                 () -> assertNotEquals(first, second, "Two calls yield distinct values"),
                 () -> assertEquals(Response.Outcome.OK, first.outcome(), "The response is a success"),
                 () -> assertEquals(200, first.status(), "The response carries the success status"),
-                () -> assertTrue(first.etag().isPresent(), "The response carries an ETag"));
+                () -> assertNotNull(first.etag(), "The response carries an ETag"));
     }
 
     @Test

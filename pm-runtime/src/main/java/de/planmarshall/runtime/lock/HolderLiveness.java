@@ -12,6 +12,7 @@ package de.planmarshall.runtime.lock;
 import java.time.Instant;
 import java.util.Optional;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HolderInstance;
 
@@ -35,7 +36,8 @@ public class HolderLiveness {
      */
     public static boolean isAlive(HolderInstance holder) {
         var process = ProcessHandle.of(holder.runtimePid()).filter(ProcessHandle::isAlive);
-        return isAlive(holder, process.isPresent(), process.flatMap(running -> running.info().startInstant()));
+        return isAlive(holder, process.isPresent(), process.flatMap(running -> running.info().startInstant())
+                .orElse(null));
     }
 
     /**
@@ -43,10 +45,10 @@ public class HolderLiveness {
      *
      * @param holder        the runtime instance a lease names as its holder
      * @param processExists whether a process with the process id of the holder runs
-     * @param startInstant  the instant that process started; empty if the operating system does not tell
+     * @param startInstant  the instant that process started; {@code null} if the operating system does not tell
      * @return whether the holder is alive
      */
-    static boolean isAlive(HolderInstance holder, boolean processExists, Optional<Instant> startInstant) {
-        return processExists && startInstant.map(holder.runtimeStartedAt()::equals).orElse(true);
+    static boolean isAlive(HolderInstance holder, boolean processExists, @Nullable Instant startInstant) {
+        return processExists && (startInstant == null || holder.runtimeStartedAt().equals(startInstant));
     }
 }
