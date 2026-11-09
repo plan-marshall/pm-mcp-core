@@ -107,6 +107,9 @@ public class CoberturaReportParser {
                 }
             }
         }
+        if (lineRate == null) {
+            throw new IllegalArgumentException("the report carries no coverage root");
+        }
         CoverageMetrics overall = CoverageMetrics.builder()
                 .line(CoveragePercentages.percentageOfRate(lineRate))
                 .branch(branchRate == null ? null : CoveragePercentages.percentageOfRate(branchRate))

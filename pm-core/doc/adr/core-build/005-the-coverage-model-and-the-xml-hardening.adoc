@@ -58,10 +58,10 @@ Two further decisions are forced by the specification and the formats:
 2. *Throw an exception for a refused report.* Not taken: the project forbids throwing generic exceptions, a checked
    exception forces every consumer into a `try`/`catch` for an expected outcome, and the outcome is a value the caller
    has to handle anyway.
-3. *Set `SUPPORT_DTD` to false.* Not taken: DTD support off is the setting under which the JDK StAX reader rejects the
-   `DOCTYPE` that a real `jacoco.xml` always carries, so the parser could not read its own format. Tolerating the
-   declaration while refusing its resolution and its entity references is the only setting that reads the real reports
-   and expands nothing.
+3. *Set `SUPPORT_DTD` to false.* Not taken: the reader must read a real `jacoco.xml`, and that file carries a
+   `DOCTYPE`; DTD support off is the setting that would make the declaration every JaCoCo report writes a refusal
+   instead of data. Tolerating the declaration while refusing its resolution and its entity references keeps the real
+   reports readable and still expands nothing. The DTD-off variant was not measured in this plan.
 4. *Default an absent metric to `0.0`.* Not taken: it makes “the format does not give this metric” and “the metric is
    zero” the same value, which is the defect the build parsers' `TestCounts.Unmeasured` state already avoids.
 5. *Bind the JSON to a tree with `ObjectMapper`.* Not taken: `pm-core` has `jackson-core` and the package's other

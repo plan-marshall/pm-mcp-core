@@ -76,7 +76,8 @@ class CoberturaReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
-                () -> assertTrue(refused.reason().startsWith("cobertura: "), "The reason carries the format id"));
+                () -> assertTrue(refused.reason().contains("external entity reference refused"),
+                        "The reason names the refused entity reference"));
     }
 
     @Test
