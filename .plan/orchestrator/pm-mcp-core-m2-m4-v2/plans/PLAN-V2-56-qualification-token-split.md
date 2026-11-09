@@ -109,3 +109,9 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **Two code residues of the token-usage closure (analysis of #215, 2026-10-28)** (Op12) — store-schemas/16 no longer lists tokens_in/tokens_out on the qualification and judge-check records while QualificationRecordCodec and JudgeCheckCodec still write and require them: change the code to match; and the source comments that still name the deleted sections or the closed package (AttemptEnd, UsageAggregate, UsageAggregateTest, the two codecs, ProfileValidator)
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Rescope (audit, operator 2026-11-09):** run after the Z3 cut of the `store-schemas/16` qualification blocks. D2 reads schema blocks through `SpecificationDocument.jsonBlockAfter` from `store-schemas/16`; PLAN-V2-116 to 118 moved those blocks into schema files, so D2 reads the schema files (`qualification-record.schema.json`, `judge-check-record.schema.json`) through `SchemaResource` instead. Drop the `AttemptEnd` source comment (the class is deleted by PLAN-V2-129). `QualificationRecordCodec` and `JudgeCheckCodec` still write and require `tokens_in`/`tokens_out` while the schema files carry `total_tokens` only (HYPOTHESIS, verify-at-outline).

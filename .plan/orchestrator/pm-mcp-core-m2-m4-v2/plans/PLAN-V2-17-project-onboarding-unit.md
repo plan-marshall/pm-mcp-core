@@ -173,3 +173,7 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Placement of endpoints and default units (operator decision 2026-11-09)
+
+Companion package outside, logic stays here: the `.pmwf` default units of the onboarding unit (model-facing content under `workflows/`) are not built here: `CLAUDE.md` forbids `workflows/` in a JAR of this repository and `pm-workflow` carries no unit. This plan keeps the framework-free parts (primitives, verifier, stores, fixtures); the units are owed to `plan-marshall-mcp` (`default-units-and-drift-tests` or a package of its own), with a dependency edge from there to this plan.
