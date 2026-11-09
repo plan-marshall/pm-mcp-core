@@ -166,7 +166,10 @@ public final class AuditVerification implements AuditChainVerification {
      * @param log       the current log
      * @param logExists whether the current log exists
      */
-    private record State(@Nullable byte[] head, AuditIndex.Snapshot index, JsonlStoreFile.Content log,
+    // java:S6218 does not apply: a private transport holder of one read; its head bytes are compared through
+    // sameBytes by content and never through Object.equals.
+    @SuppressWarnings("java:S6218")
+    private record State(byte @Nullable [] head, AuditIndex.Snapshot index, JsonlStoreFile.Content log,
     boolean logExists) {
     }
 
@@ -462,7 +465,7 @@ public final class AuditVerification implements AuditChainVerification {
         return new Walk.Intact(expected, last);
     }
 
-    private Optional<AuditHeadRecord> parseHead(@Nullable byte[] bytes) {
+    private Optional<AuditHeadRecord> parseHead(byte @Nullable [] bytes) {
         try {
             return bytes == null ? Optional.empty() : Optional.of(AuditCodec.readHead(headFile, bytes));
         } catch (StoreRefusal _) {
@@ -480,7 +483,7 @@ public final class AuditVerification implements AuditChainVerification {
         }
     }
 
-    private static boolean sameBytes(@Nullable byte[] first, @Nullable byte[] second) {
+    private static boolean sameBytes(byte @Nullable [] first, byte @Nullable [] second) {
         return (first == null) == (second == null)
                 && (first == null || Arrays.equals(first, second));
     }

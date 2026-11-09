@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -120,7 +121,7 @@ class LaunchComposerTest {
         assertTrue(launch.argv().contains("claude-sonnet-4"), "the read-only vector renders its tier");
         assertFalse(launch.argv().contains("--effort"), "the read-only vector carries no effort");
         assertNull(launch.effort(), "the read-only launch has no effort");
-        assertTrue(launch.mcpConfig() != null, "the read-only launch still has an MCP config");
+        assertNotNull(launch.mcpConfig(), "the read-only launch still has an MCP config");
     }
 
     @Test

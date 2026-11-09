@@ -185,18 +185,22 @@ class ArgumentCheck {
                                 .formatted(verb, buildSystem.wireName()));
             }
         }
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments(template, module), source));
+    }
+
+    private static List<String> arguments(Argv template, @Nullable String module) {
         var arguments = new ArrayList<String>();
         for (var element : template.elements()) {
             switch (element) {
                 case Argv.Literal(var value) -> arguments.add(value);
-                case Argv.ModuleGroup(var group) -> {
-                    if (module != null) {
+                case Argv.ModuleGroup(var group) when module != null ->
                         group.forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, module)));
-                    }
+                case Argv.ModuleGroup(_) -> {
+                    // a whole-tree job carries no module argument
                 }
             }
         }
-        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments, source));
+        return arguments;
     }
 
     private static VerifyNotResolvePipeline.Stage<Arguments> hostToolCall(ProjectEnrolment enrolment,

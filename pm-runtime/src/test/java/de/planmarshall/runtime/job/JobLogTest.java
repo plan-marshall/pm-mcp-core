@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -123,7 +124,7 @@ class JobLogTest {
                     "the second read answers lines");
 
             assertAll(
-                    () -> assertTrue(first.report() != null, "the first read strips the report"),
+                    () -> assertNotNull(first.report(), "the first read strips the report"),
                     () -> assertEquals(List.of(), first.lines(), "the report is no line of the job"),
                     () -> assertEquals(List.of(report), second.lines(), "a later report-shaped line is kept"),
                     () -> assertNull(second.report(), "a later read strips no report"));

@@ -195,8 +195,9 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      */
     private SourceFetch confirm(URI revision, String commit) {
         var answer = send(revision, BodyHandlers.ofByteArray());
-        if (answer.failure() != null) {
-            return answer.failure();
+        var failure = answer.failure();
+        if (failure != null) {
+            return failure;
         }
         var status = answer.response().statusCode();
         if (status == 200) {
@@ -218,8 +219,9 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      */
     private SourceFetch download(URI raw) {
         var answer = send(raw, info -> new LfsBatchClient.BoundedBody((long) maxRawFileSize + 1));
-        if (answer.failure() != null) {
-            return answer.failure();
+        var failure = answer.failure();
+        if (failure != null) {
+            return failure;
         }
         var status = answer.response().statusCode();
         if (status == 404) {

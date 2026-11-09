@@ -904,11 +904,12 @@ public final class CredentialStoreChoice {
      */
     SecretStore requireOsStore() {
         var probe = osStoreOrReason();
-        if (probe.store() == null) {
+        var store = probe.store();
+        if (store == null) {
             throw new SecretStoreException(SecretStoreException.Reason.UNAVAILABLE,
                     "the OS credential store '%s' is unavailable: %s".formatted(osStoreName(), probe.reason()));
         }
-        return probe.store();
+        return store;
     }
 
     private Probe osStoreOrReason() {
@@ -1137,8 +1138,9 @@ public final class CredentialStoreChoice {
 
         private SecretStore available(SecretStoreException.Reason reason) {
             var probe = osStoreOrReason();
-            if (probe.store() != null) {
-                return probe.store();
+            var store = probe.store();
+            if (store != null) {
+                return store;
             }
             throw new SecretStoreException(reason, unavailable(probe.reason()));
         }

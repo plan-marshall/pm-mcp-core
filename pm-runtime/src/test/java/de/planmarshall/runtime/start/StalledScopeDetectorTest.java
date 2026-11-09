@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -357,7 +358,7 @@ class StalledScopeDetectorTest {
                 () -> assertEquals(List.of("plan.hold_released"), reports, "the release must announce the report"),
                 () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince(),
                         "the released hold is the old episode"),
-                () -> assertTrue(again.hold() != null, "a new stall must be held again"),
+                () -> assertNotNull(again.hold(), "a new stall must be held again"),
                 () -> assertEquals(2, records.size(), "the new episode must append a record"));
     }
 

@@ -79,7 +79,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         absolute(systemTemp, "systemTemp");
         absolute(deviceRoot, "deviceRoot");
         if (sessionBusSocket != null) {
-            sessionBusSocket = absolute(sessionBusSocket, "sessionBusSocket");
+            absolute(sessionBusSocket, "sessionBusSocket");
         }
     }
 

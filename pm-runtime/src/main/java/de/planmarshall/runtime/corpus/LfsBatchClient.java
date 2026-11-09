@@ -137,8 +137,9 @@ public final class LfsBatchClient implements LfsObjectSource {
         }
         var answer = send(batch, Map.of("Accept", MEDIA_TYPE, "Content-Type", MEDIA_TYPE), batchRequest(pointer),
                 BodyHandlers.ofByteArray());
-        if (answer.failure() != null) {
-            return answer.failure();
+        var failure = answer.failure();
+        if (failure != null) {
+            return failure;
         }
         var status = answer.response().statusCode();
         if (status == 404) {
@@ -205,8 +206,9 @@ public final class LfsBatchClient implements LfsObjectSource {
         }
         var location = withoutQuery(download.uri());
         var answer = send(download.uri(), download.headers(), null, info -> new BoundedBody(pointer.size() + 1));
-        if (answer.failure() != null) {
-            return answer.failure();
+        var failure = answer.failure();
+        if (failure != null) {
+            return failure;
         }
         var status = answer.response().statusCode();
         if (status == 404 || status == 410) {

@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -131,7 +132,7 @@ class JGitOperationsTest {
             assertAll(
                     () -> assertEquals(repo.toRealPath(), info.worktreeRoot(), "the worktree root is the real path"),
                     () -> assertEquals(branch, info.branch(), "the checked-out branch is reported"),
-                    () -> assertTrue(info.head() != null, "the HEAD commit id is reported"),
+                    () -> assertNotNull(info.head(), "the HEAD commit id is reported"),
                     () -> assertFalse(info.linked(), "the main worktree is no linked worktree"),
                     () -> assertEquals(info.gitDir(), info.commonDir(), "the main worktree's git dir is common"));
         }
@@ -301,7 +302,7 @@ class JGitOperationsTest {
                     () -> assertEquals(detachedName, detachedEntry.name(),
                             "the linked worktrees are ordered by name"),
                     () -> assertNull(detachedEntry.branch(), "a detached worktree has no branch"),
-                    () -> assertTrue(detachedEntry.head() != null, "a detached worktree has a HEAD"),
+                    () -> assertNotNull(detachedEntry.head(), "a detached worktree has a HEAD"),
                     () -> assertEquals(newBranch, branchEntry.branch(),
                             "the branch worktree reports its branch"),
                     () -> assertEquals(list, git.worktreeList(branchEntry.path()).value(),
