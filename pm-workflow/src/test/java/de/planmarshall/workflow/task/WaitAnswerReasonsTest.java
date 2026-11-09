@@ -9,47 +9,49 @@
  */
 package de.planmarshall.workflow.task;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.Arrays;
+import java.util.List;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The protocol words of the wait-answer reasons: the wire name of each enum constant is the word the transport hands to a
- * worker, so a typo in one changes the protocol silently. The guide no longer lists the reasons; it links these enums, so
- * this test is where the words stay pinned.
+ * The protocol words of the task vocabulary: the wire name of each enum constant is the word the transport hands to a
+ * worker, so a typo in one changes the protocol silently. The developer guide no longer lists the refusals or the reasons;
+ * it links these types, so this test is where the words stay pinned.
  */
 // Every datum in this class is a contract: the protocol words a worker reads.
-@DisplayName("WaitAnswer reasons")
+@DisplayName("Task protocol vocabulary")
 class WaitAnswerReasonsTest {
 
     @Test
     @DisplayName("the wait-again reasons carry their protocol words")
     void waitAgainReasonNames() {
-        assertAll(
-                () -> assertEquals("no_task", WaitAnswer.WaitAgainReason.NO_TASK.wireName(),
-                        "NO_TASK answers no_task"),
-                () -> assertEquals("paused", WaitAnswer.WaitAgainReason.PAUSED.wireName(),
-                        "PAUSED answers paused"),
-                () -> assertEquals("consulting", WaitAnswer.WaitAgainReason.CONSULTING.wireName(),
-                        "CONSULTING answers consulting"),
-                () -> assertEquals("awaiting_answer", WaitAnswer.WaitAgainReason.AWAITING_ANSWER.wireName(),
-                        "AWAITING_ANSWER answers awaiting_answer"),
-                () -> assertEquals("attempts_spent", WaitAnswer.WaitAgainReason.ATTEMPTS_SPENT.wireName(),
-                        "ATTEMPTS_SPENT answers attempts_spent"));
+        var words = Arrays.stream(WaitAnswer.WaitAgainReason.values())
+                .map(WaitAnswer.WaitAgainReason::wireName).toList();
+
+        assertEquals(List.of("no_task", "paused", "consulting", "awaiting_answer", "attempts_spent"), words,
+                "the wait-again reasons carry their protocol words");
     }
 
     @Test
     @DisplayName("the end reasons carry their protocol words")
     void endReasonNames() {
-        assertAll(
-                () -> assertEquals("job_ended", WaitAnswer.EndReason.JOB_ENDED.wireName(),
-                        "JOB_ENDED answers job_ended"),
-                () -> assertEquals("fenced", WaitAnswer.EndReason.FENCED.wireName(),
-                        "FENCED answers fenced"),
-                () -> assertEquals("recycled", WaitAnswer.EndReason.RECYCLED.wireName(),
-                        "RECYCLED answers recycled"));
+        var words = Arrays.stream(WaitAnswer.EndReason.values()).map(WaitAnswer.EndReason::wireName).toList();
+
+        assertEquals(List.of("job_ended", "fenced", "recycled"), words, "the end reasons carry their protocol words");
+    }
+
+    @Test
+    @DisplayName("the task refusals carry their protocol words, in check order")
+    void refusalNames() {
+        var words = Arrays.stream(TaskRefusal.values()).map(TaskRefusal::wireName).toList();
+
+        assertEquals(List.of("job_ended", "generation_fenced", "stale_entity", "job_scope_mismatch",
+                        "link_not_available", "invalid_link_args", "skills_not_loaded"), words,
+                "the task refusals carry their protocol words");
     }
 }
