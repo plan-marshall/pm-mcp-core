@@ -111,7 +111,7 @@ class TaskProtocolReOfferTest {
         var task = queue.read("qt-0000000000000001").orElseThrow();
         assertAll(
                 () -> assertEquals(1, ended),
-                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), whilePaused),
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), whilePaused),
                 () -> assertInstanceOf(WaitAnswer.Offered.class, afterStart),
                 () -> assertEquals(AttemptEnd.PAUSED, task.attempts().getFirst().end()),
                 () -> assertEquals(0L, task.spentReOffers()));

@@ -80,7 +80,7 @@ class TaskProtocolRefusalTest {
 
         var answer = harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT);
 
-        assertEquals(new WaitAnswer.End("job_ended"), answer);
+        assertEquals(new WaitAnswer.End(WaitAnswer.EndReason.JOB_ENDED), answer);
     }
 
     @Test
@@ -95,7 +95,7 @@ class TaskProtocolRefusalTest {
                 TaskFixtures.AT.plusSeconds(2));
 
         assertAll(
-                () -> assertEquals(new WaitAnswer.WaitAgain("paused"), answer),
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.PAUSED), answer),
                 () -> assertEquals(1, harness.queue().read(call.queueTaskId()).orElseThrow().attempts().size()));
     }
 
