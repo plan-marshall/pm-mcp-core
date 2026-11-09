@@ -12,6 +12,7 @@ package de.planmarshall.runtime.enrolment;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -100,8 +100,8 @@ class HarnessesSidecarCheckTest {
         assertAll(
                 () -> assertFalse(result.passed()),
                 () -> assertEquals(outcome, result.outcome()),
-                () -> assertEquals(Optional.of(concerned), result.file()),
-                () -> assertTrue(result.reason().orElseThrow().contains(reason), result.reason().orElseThrow()));
+                () -> assertEquals(concerned, result.file()),
+                () -> assertTrue(result.reason().contains(reason), result.reason()));
     }
 
     @Test
@@ -114,8 +114,8 @@ class HarnessesSidecarCheckTest {
         assertAll(
                 () -> assertTrue(result.passed()),
                 () -> assertEquals(Outcome.VERIFIED, result.outcome()),
-                () -> assertTrue(result.file().isEmpty()),
-                () -> assertTrue(result.reason().isEmpty()));
+                () -> assertNull(result.file()),
+                () -> assertNull(result.reason()));
     }
 
     @Test
@@ -134,7 +134,7 @@ class HarnessesSidecarCheckTest {
         assertAll(
                 () -> assertTrue(result.passed()),
                 () -> assertEquals(Outcome.NOTHING_TO_VERIFY, result.outcome()),
-                () -> assertTrue(result.file().isEmpty()));
+                () -> assertNull(result.file()));
     }
 
     @Test
@@ -227,10 +227,10 @@ class HarnessesSidecarCheckTest {
     @Test
     @DisplayName("a result names a failure's file and reason and a pass's neither")
     void resultShape() {
-        var none = Optional.<Path>empty();
-        var noReason = Optional.<String>empty();
-        var some = Optional.of(file);
-        var reason = Optional.of("reason");
+        Path none = null;
+        String noReason = null;
+        Path some = file;
+        String reason = "reason";
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,

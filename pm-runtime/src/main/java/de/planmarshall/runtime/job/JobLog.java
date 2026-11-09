@@ -19,7 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 
@@ -73,14 +73,14 @@ public record JobLog(Path path) {
      *
      * @param lines      the complete lines, without their line ends; a line still being written is not among them
      * @param nextOffset the byte offset to continue the next read from, just after the last complete line
-     * @param report     the launch report, taken from the first line by a read from offset {@code 0}; empty for a read
-     *                   from a later offset and for a first line that is no report
+     * @param report     the launch report, taken from the first line by a read from offset {@code 0}; {@code null} for
+     *                   a read from a later offset and for a first line that is no report
      * @since 0.1
      */
-    public record Lines(List<String> lines, long nextOffset, Optional<LaunchReport> report) implements Read {
+    public record Lines(List<String> lines, long nextOffset, @Nullable LaunchReport report) implements Read {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if the lines are {@code null}
          * @throws IllegalArgumentException if the offset is negative
          */
         public Lines {
@@ -88,7 +88,6 @@ public record JobLog(Path path) {
             if (nextOffset < 0) {
                 throw new IllegalArgumentException("nextOffset must not be negative: " + nextOffset);
             }
-            Objects.requireNonNull(report, "report");
         }
     }
 
@@ -155,14 +154,14 @@ public record JobLog(Path path) {
         }
         var end = lastLineEnd(bytes);
         if (end < 0) {
-            return new Lines(List.of(), offset, Optional.empty());
+            return new Lines(List.of(), offset, null);
         }
         var text = new String(bytes, 0, end + 1, StandardCharsets.UTF_8);
         var nextOffset = offset + end + 1;
         if (offset == 0 && LaunchReport.read(text) instanceof LaunchReport.Reported(var report, var output)) {
-            return new Lines(output.lines().toList(), nextOffset, Optional.of(report));
+            return new Lines(output.lines().toList(), nextOffset, report);
         }
-        return new Lines(text.lines().toList(), nextOffset, Optional.empty());
+        return new Lines(text.lines().toList(), nextOffset, null);
     }
 
     /**

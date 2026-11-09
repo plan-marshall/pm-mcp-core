@@ -137,8 +137,9 @@ public final class LfsBatchClient implements LfsObjectSource {
         }
         var answer = send(batch, Map.of("Accept", MEDIA_TYPE, "Content-Type", MEDIA_TYPE), batchRequest(pointer),
                 BodyHandlers.ofByteArray());
-        if (answer.failure().isPresent()) {
-            return answer.failure().get();
+        var failure = answer.failure();
+        if (failure != null) {
+            return failure;
         }
         var status = answer.response().statusCode();
         if (status == 404) {
@@ -205,8 +206,9 @@ public final class LfsBatchClient implements LfsObjectSource {
         }
         var location = withoutQuery(download.uri());
         var answer = send(download.uri(), download.headers(), null, info -> new BoundedBody(pointer.size() + 1));
-        if (answer.failure().isPresent()) {
-            return answer.failure().get();
+        var failure = answer.failure();
+        if (failure != null) {
+            return failure;
         }
         var status = answer.response().statusCode();
         if (status == 404 || status == 410) {
@@ -246,7 +248,7 @@ public final class LfsBatchClient implements LfsObjectSource {
             } else {
                 request.POST(BodyPublishers.ofString(body));
             }
-            return new Answer(handler.send(request.build(), reader), Optional.empty());
+            return new Answer(handler.send(request.build(), reader), null);
         } catch (IOException e) {
             return Answer.failed(SourceFetch.unreachable("%s did not answer: %s".formatted(withoutQuery(uri),
                     e.getClass().getSimpleName())));
@@ -356,10 +358,10 @@ public final class LfsBatchClient implements LfsObjectSource {
     }
 
     /** The response of a request, or the outcome of a request that got none. */
-    private record Answer(@Nullable HttpResponse<byte[]> response, Optional<SourceFetch> failure) {
+    private record Answer(@Nullable HttpResponse<byte[]> response, @Nullable SourceFetch failure) {
 
         static Answer failed(SourceFetch failure) {
-            return new Answer(null, Optional.of(failure));
+            return new Answer(null, failure);
         }
     }
 

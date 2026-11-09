@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -75,8 +74,8 @@ class JobEnvironmentComposerTest {
     }
 
     private Map<String, String> buildJob(ProjectEnrolment enrolment) {
-        return composer().forJob(enrolment, new JobId(jobIds(JobId.Kind.BUILD).next()), Map.of(), Optional.empty(),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
+        return composer().forJob(enrolment, new JobId(jobIds(JobId.Kind.BUILD).next()), Map.of(), null,
+                null, null, null, null, null, false);
     }
 
     @Nested
@@ -109,10 +108,10 @@ class JobEnvironmentComposerTest {
             var enrolment = enrolment(null, Map.of());
             var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
-            var environment = composer().forJob(enrolment, job, Map.of(), Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
+            var environment = composer().forJob(enrolment, job, Map.of(), null, null,
+                    null, null, null, null, false);
             var store = Path.of(environment.get("MVND_DAEMON_STORAGE")).getParent();
-            var confinement = new JobConfinementComposer(base, TMP, Path.of("/dev"), Optional.empty())
+            var confinement = new JobConfinementComposer(base, TMP, Path.of("/dev"), null)
                     .forJob(enrolment, job, List.of(), false);
 
             assertAll(
@@ -196,8 +195,8 @@ class JobEnvironmentComposerTest {
             var proxy = "http://127.0.0.1:" + Generators.integers(1024, 65535).next();
 
             var environment = composer().forJob(enrolment(null, Map.of()), job, Map.of(harnessVariable, harnessValue),
-                    Optional.of(token), Optional.of("XDG_DATA_HOME"), Optional.of(proxy), Optional.empty(),
-                    Optional.empty(), Optional.empty(), false);
+                    token, "XDG_DATA_HOME", proxy, null,
+                    null, null, false);
 
             var data = base.resolve("run/jobs").resolve(job.value()).resolve("data");
             assertAll(
@@ -226,8 +225,8 @@ class JobEnvironmentComposerTest {
 
             var environment = composer().forJob(
                     enrolment(null, Map.of("GH_CONFIG_DIR", gh, "GLAB_CONFIG_DIR", glab, "XDG_CONFIG_HOME", xdg)),
-                    new JobId(jobIds(JobId.Kind.CI).next()), Map.of(), Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
+                    new JobId(jobIds(JobId.Kind.CI).next()), Map.of(), null, null,
+                    null, null, null, null, false);
 
             assertAll(
                     () -> assertEquals(gh, environment.get("GH_CONFIG_DIR"), "GH_CONFIG_DIR is the captured one"),
@@ -246,8 +245,8 @@ class JobEnvironmentComposerTest {
             var email = words().next() + "@" + words().next() + ".test";
 
             var environment = composer().forJob(enrolment(null, Map.of()), new JobId(jobIds(JobId.Kind.GIT).next()),
-                    Map.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(agent),
-                    Optional.of(committer), Optional.of(email), false);
+                    Map.of(), null, null, null, agent,
+                    committer, email, false);
 
             assertAll(
                     () -> assertEquals("0", environment.get("GIT_TERMINAL_PROMPT"), "git never prompts for a password"),
@@ -273,7 +272,7 @@ class JobEnvironmentComposerTest {
             var interpreterDirectory = absolute();
 
             var environment = composer().forProbe(executableDirectory.resolve(words().next()),
-                    Optional.of(interpreterDirectory.resolve("python3")), false, new TreeMap<>());
+                    interpreterDirectory.resolve("python3"), false, new TreeMap<>());
 
             assertAll(
                     () -> assertEquals(interpreterDirectory + ":" + executableDirectory, environment.get("PATH"),
@@ -282,6 +281,18 @@ class JobEnvironmentComposerTest {
                     () -> assertFalse(environment.containsKey("DBUS_SESSION_BUS_ADDRESS"),
                             "a probe carries no session bus"),
                     () -> assertFalse(environment.containsKey("PM_MCP_JOB_TOKEN"), "a probe carries no job token"));
+        }
+
+        @Test
+        @DisplayName("has a PATH of the probed executable alone when it has no interpreter")
+        void pathWithoutInterpreter() {
+            var executableDirectory = absolute();
+            var executable = executableDirectory.resolve(words().next());
+
+            var environment = composer().forProbe(executable, null, false, new TreeMap<>());
+
+            assertEquals(executableDirectory.toString(), environment.get("PATH"),
+                    "PATH is the executable alone");
         }
     }
 

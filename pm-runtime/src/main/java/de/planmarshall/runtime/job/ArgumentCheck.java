@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
@@ -94,13 +95,12 @@ class ArgumentCheck {
      * The arguments after the verified executable, and where the template of a build job came from.
      *
      * @param arguments the arguments, in order
-     * @param source    the source of the template of a build job; empty for any other job
+     * @param source    the source of the template of a build job; {@code null} for any other job
      */
-    record Arguments(List<String> arguments, Optional<TemplateSource> source) {
+    record Arguments(List<String> arguments, @Nullable TemplateSource source) {
 
         Arguments {
             arguments = List.copyOf(arguments);
-            Objects.requireNonNull(source, "source");
         }
     }
 
@@ -153,7 +153,7 @@ class ArgumentCheck {
     }
 
     private static VerifyNotResolvePipeline.Stage<Arguments> build(ProjectEnrolment enrolment,
-            DefaultTemplates defaults, BuildSystem buildSystem, String verb, Optional<String> module,
+            DefaultTemplates defaults, BuildSystem buildSystem, String verb, @Nullable String module,
             Set<String> modules) {
         var enrolled = Optional.ofNullable(enrolment.build().canonicalTemplates().get(buildSystem))
                 .map(templates -> templates.get(verb));
@@ -171,12 +171,12 @@ class ArgumentCheck {
             source = TemplateSource.COMPILED_DEFAULT;
             template = fallback.get();
         }
-        if (module.isPresent()) {
-            var rejected = rejectedBuildArgument(module.get());
+        if (module != null) {
+            var rejected = rejectedBuildArgument(module);
             if (rejected.isPresent()) {
                 return refused(Reason.ARGUMENT_REJECTED, "the module " + rejected.get());
             }
-            if (!modules.contains(module.get())) {
+            if (!modules.contains(module)) {
                 return refused(Reason.ARGUMENT_REJECTED, "the module is not a discovered module of the project");
             }
             if (template.elements().stream().noneMatch(Argv.ModuleGroup.class::isInstance)) {
@@ -185,15 +185,22 @@ class ArgumentCheck {
                                 .formatted(verb, buildSystem.wireName()));
             }
         }
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments(template, module), source));
+    }
+
+    private static List<String> arguments(Argv template, @Nullable String module) {
         var arguments = new ArrayList<String>();
         for (var element : template.elements()) {
             switch (element) {
                 case Argv.Literal(var value) -> arguments.add(value);
-                case Argv.ModuleGroup(var group) -> module.ifPresent(name -> group
-                        .forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, name))));
+                case Argv.ModuleGroup(var group) when module != null ->
+                    group.forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, module)));
+                case Argv.ModuleGroup(_) -> {
+                    // a whole-tree job carries no module argument
+                }
             }
         }
-        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments, Optional.of(source)));
+        return arguments;
     }
 
     private static VerifyNotResolvePipeline.Stage<Arguments> hostToolCall(ProjectEnrolment enrolment,
@@ -209,7 +216,7 @@ class ArgumentCheck {
                 return refused(Reason.ARGUMENT_REJECTED, "the argument %d %s".formatted(index + 1, rejected.get()));
             }
         }
-        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments, Optional.empty()));
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments, null));
     }
 
     private static VerifyNotResolvePipeline.Stage<Arguments> projectScript(ProjectEnrolment enrolment,
@@ -228,7 +235,7 @@ class ArgumentCheck {
             return refused(Reason.ARGUMENT_REJECTED,
                     "the arguments violate the argument schema: " + violation.get());
         }
-        return VerifyNotResolvePipeline.Stage.passed(new Arguments(List.of(), Optional.empty()));
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(List.of(), null));
     }
 
     /** Checks every string of the arguments of a project script, the names of the members included. */

@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobRecord.Scope;
 
@@ -36,14 +37,14 @@ import de.planmarshall.core.store.JobRecord.Scope;
  *
  * @param kind             the kind of the probe
  * @param executable       the executable the probe runs
- * @param interpreter      the interpreter that runs the executable, for a script; empty otherwise
+ * @param interpreter      the interpreter that runs the executable, for a script; {@code null} otherwise
  * @param arguments        the declared arguments after the executable
  * @param successExitCodes the exit codes the probe declares as its success; not empty
  * @param scope            the scope that owns the probe job: the machine, or an onboarding entry
  * @param workingDirectory where the probe runs
  * @since 0.1
  */
-public record ProbeCandidate(Kind kind, DigestedFile executable, Optional<DigestedFile> interpreter,
+public record ProbeCandidate(Kind kind, DigestedFile executable, @Nullable DigestedFile interpreter,
 List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirectory workingDirectory) {
 
     /**
@@ -151,14 +152,13 @@ List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirec
     }
 
     /**
-     * @throws NullPointerException     if a component, an argument or an exit code is {@code null}
+     * @throws NullPointerException     if a non-nullable component or an argument is {@code null}
      * @throws IllegalArgumentException if no success exit code is declared, the scope is neither the machine nor an
      *                                  onboarding entry, or a checkout root is named for a probe of the machine
      */
     public ProbeCandidate {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(executable, "executable");
-        Objects.requireNonNull(interpreter, "interpreter");
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         successExitCodes = Set.copyOf(Objects.requireNonNull(successExitCodes, "successExitCodes"));
         if (successExitCodes.isEmpty()) {
@@ -178,7 +178,9 @@ List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirec
     /** @return the argument vector the probe declares: the interpreter, if any, the executable and the arguments */
     public List<String> declaredArgv() {
         var argv = new ArrayList<String>(arguments.size() + 2);
-        interpreter.ifPresent(file -> argv.add(file.path().toString()));
+        if (interpreter != null) {
+            argv.add(interpreter.path().toString());
+        }
         argv.add(executable.path().toString());
         argv.addAll(arguments);
         return List.copyOf(argv);

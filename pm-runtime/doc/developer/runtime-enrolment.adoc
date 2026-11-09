@@ -10,6 +10,8 @@
 
 == Purpose
 
+A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
+
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.enrolment` of `pm-runtime` holds the runtime's side of the enrolment store of
@@ -323,7 +325,7 @@ over. Each write is logged after the transaction closed.
   sweep of every project; it is the operator verbs' replay.
 
 `rebaseline` returns `Enrolments.Rebaseline(file, recorded, current, settled)`, the values the operator's display shows,
-which describe the settled file. `recorded` is empty without a readable old record. `settled` is the list `recoverPair`
+which describe the settled file. `recorded` is `null` without a readable old record. `settled` is the list `recoverPair`
 returned before the signing, copied and never `null`: one `PairRecovery.Completed` or `PairRecovery.Discarded` per
 stopped write, in the order of the transaction ids, empty when nothing was staged, the normal case. A `Completed` entry
 means the signed file is the recovered write, whose bytes may differ from the bytes the operator reviewed in place; the

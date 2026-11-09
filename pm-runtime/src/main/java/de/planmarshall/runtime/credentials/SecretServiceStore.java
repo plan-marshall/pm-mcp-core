@@ -213,7 +213,9 @@ public final class SecretServiceStore implements SecretStore {
         var attributes = new LinkedHashMap<String, String>();
         attributes.put(ATTRIBUTE_SERVICE, serviceName);
         attributes.put(ATTRIBUTE_CREDENTIAL_KEY, account.key());
-        account.project().ifPresent(p -> attributes.put(ATTRIBUTE_PROJECT, p));
+        if (account.project() != null) {
+            attributes.put(ATTRIBUTE_PROJECT, account.project());
+        }
         return attributes;
     }
 
@@ -264,7 +266,7 @@ public final class SecretServiceStore implements SecretStore {
             var reply = call(SERVICE_PATH, SERVICE, "SearchItems", STRING_DICTIONARY, attributes(account));
             var unlocked = strings(reply.get(0));
             var locked = strings(reply.get(1));
-            var exact = account.project().isPresent() ? unlocked
+            var exact = account.project() != null ? unlocked
                     : unlocked.stream().filter(item -> !itemAttributes(item).containsKey(ATTRIBUTE_PROJECT)).toList();
             if (exact.isEmpty() && !locked.isEmpty()) {
                 throw SecretServiceStore.locked("matching items are locked");

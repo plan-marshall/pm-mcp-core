@@ -93,9 +93,9 @@ public final class LeaseRecoveryStep implements RecoveryStep {
             } catch (UncheckedIOException e) {
                 return new Outcome.Failed("lease store " + store.store() + " not swept: " + e.getMessage());
             }
-            if (result.refusal().isPresent()) {
+            if (result.refusal() != null) {
                 // A refused store was never read: its leases are not recovered, so the step is not either
-                return new Outcome.Failed("lease store " + store.store() + " refused: " + result.refusal().get());
+                return new Outcome.Failed("lease store " + store.store() + " refused: " + result.refusal());
             }
             reports.add(report(store, result));
         }
@@ -105,7 +105,7 @@ public final class LeaseRecoveryStep implements RecoveryStep {
     private static String report(LeaseStore store, StaleLeaseSweep.Result result) {
         var counts = "%s kept, %s orphaned, %s removed".formatted(result.count(Action.KEPT),
                 result.count(Action.ORPHANED), result.count(Action.REMOVED));
-        var empty = result.emptyPopulation().map(population -> " (" + population.code() + ")").orElse("");
+        var empty = result.emptyPopulation() != null ? " (" + result.emptyPopulation().code() + ")" : "";
         return store.store() + ": " + counts + empty;
     }
 }

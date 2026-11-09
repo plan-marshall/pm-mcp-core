@@ -12,7 +12,6 @@ package de.planmarshall.runtime.worker;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
@@ -35,12 +34,12 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  * @param stateSkills     the skills of the task's state
  * @param domainSkills    the project's domain skills
  * @param zeroToolPrompt  the server-fixed prompt of a {@code zero_tool} role; {@code ""} for every other role
- * @param resumeSessionId the stored session a resumed generation continues; empty for a new session
+ * @param resumeSessionId the stored session a resumed generation continues; {@code null} for a new session
  * @since 0.1
  */
 public record WorkerStartRequest(EffectiveRole role, LaunchRequest.WorkdirKind workdirKind, @Nullable String planId,
 @Nullable Path workdir, @Nullable ContractEnvelope envelope, boolean writesFreeText, List<String> stateSkills,
-List<String> domainSkills, String zeroToolPrompt, Optional<String> resumeSessionId) {
+List<String> domainSkills, String zeroToolPrompt, @Nullable String resumeSessionId) {
 
     /**
      * @throws NullPointerException     if a required component is {@code null}
@@ -51,7 +50,6 @@ List<String> domainSkills, String zeroToolPrompt, Optional<String> resumeSession
         Objects.requireNonNull(role, "role");
         Objects.requireNonNull(workdirKind, "workdirKind");
         Objects.requireNonNull(zeroToolPrompt, "zeroToolPrompt");
-        Objects.requireNonNull(resumeSessionId, "resumeSessionId");
         stateSkills = List.copyOf(Objects.requireNonNull(stateSkills, "stateSkills"));
         domainSkills = List.copyOf(Objects.requireNonNull(domainSkills, "domainSkills"));
         if ((workdirKind == LaunchRequest.WorkdirKind.PLAN_WORKTREE) != (planId != null)) {
@@ -68,7 +66,7 @@ List<String> domainSkills, String zeroToolPrompt, Optional<String> resumeSession
         if (!fresh && envelope != null) {
             throw new IllegalArgumentException("A warm worker receives its task's contract with the offer");
         }
-        if (fresh && resumeSessionId.isPresent()) {
+        if (fresh && resumeSessionId != null) {
             throw new IllegalArgumentException("A resumed generation is a warm worker's");
         }
     }

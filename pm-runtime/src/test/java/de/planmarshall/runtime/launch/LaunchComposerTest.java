@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -90,7 +91,7 @@ class LaunchComposerTest {
         assertTrue(argv.contains("--mcp-config"), "the writer vector names its MCP config");
         assertTrue(argv.contains("read_file,pm_state,pm_do,resources_list,resources_read"),
                 "the vector carries the role's and resource tools");
-        assertTrue(launch.mcpConfig().orElseThrow().contains("PM_MCP_JOB_TOKEN"),
+        assertTrue(launch.mcpConfig().contains("PM_MCP_JOB_TOKEN"),
                 "the MCP config carries the job token variable");
     }
 
@@ -120,7 +121,7 @@ class LaunchComposerTest {
         assertTrue(launch.argv().contains("claude-sonnet-4"), "the read-only vector renders its tier");
         assertFalse(launch.argv().contains("--effort"), "the read-only vector carries no effort");
         assertNull(launch.effort(), "the read-only launch has no effort");
-        assertTrue(launch.mcpConfig().isPresent(), "the read-only launch still has an MCP config");
+        assertNotNull(launch.mcpConfig(), "the read-only launch still has an MCP config");
     }
 
     @Test
@@ -129,8 +130,8 @@ class LaunchComposerTest {
         var role = LaunchFixtures.role(RoleClass.ZERO_TOOL, "fast", null, RoleForm.FRESH, skills, List.of(
                 LaunchFixtures.ROLE_SKILL));
         var launch = compose(role, true, false);
-        assertTrue(launch.mcpConfig().isEmpty(), "a zero-tool launch has no MCP config");
-        assertTrue(launch.mcpConfigFile().isEmpty(), "a zero-tool launch writes no MCP config file");
+        assertNull(launch.mcpConfig(), "a zero-tool launch has no MCP config");
+        assertNull(launch.mcpConfigFile(), "a zero-tool launch writes no MCP config file");
         assertFalse(launch.argv().contains("--mcp-config"), "the zero-tool vector names no MCP config");
         assertFalse(launch.argv().contains("--allowedTools"), "the zero-tool vector allows no tool");
         assertTrue(launch.argv().contains("--setting-sources"), "the zero-tool vector isolates the settings");
@@ -205,7 +206,7 @@ class LaunchComposerTest {
     @DisplayName("a writer launch carries only the profile's environment and the job relay as an MCP server")
     void extensionIsolation() {
         var launch = compose(LaunchFixtures.writer(skills), true, false);
-        var config = JsonDocument.parse(launch.mcpConfig().orElseThrow().getBytes(
+        var config = JsonDocument.parse(launch.mcpConfig().getBytes(
                 StandardCharsets.UTF_8), "mcp");
         var servers = config.member("mcpServers").orElseThrow();
         var relay = servers.member("pm-job").orElseThrow();
@@ -278,7 +279,7 @@ class LaunchComposerTest {
                         LaunchFixtures.executableDigest(), harnessVersion), generation, root.resolve("runtime"),
                 jobPrivate, LaunchRequest.WorkdirKind.PROJECT_CHECKOUT, null, root.resolve("worktree"),
                 root.resolve("daemon.sock"), LaunchFixtures.SHIM, skills, true, false, List.of(), List.of(), null, 0,
-                "", Optional.empty(), LaunchFixtures.clock());
+                "", null, LaunchFixtures.clock());
         var launch = new LaunchComposer().compose(request);
         assertEquals(client, launch.workerBlock().member("harness").orElseThrow().text().orElseThrow(),
                 "the worker block names the operator's harness");
@@ -320,7 +321,7 @@ class LaunchComposerTest {
                         ? planId : null, workdir, root.resolve("daemon.sock"), LaunchFixtures.SHIM, skills,
                 fresh, freeText, List.of("skill://pm/state/outline/SKILL.md"), List.of(
                         "skill://pm/ext/domain-java/SKILL.md"), envelope(planId), 0, zeroToolPrompt,
-                Optional.empty(), LaunchFixtures.clock());
+                null, LaunchFixtures.clock());
     }
 
     private EffectiveRole roleWithoutResume(RoleClass roleClass) {

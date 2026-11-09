@@ -25,7 +25,6 @@ import java.util.ArrayDeque;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -369,7 +368,7 @@ class TerminationProtocolTest {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var log = work.resolve("job.log");
             launched = new PmExecLauncher(home).launch(new PmExecLauncher.Launch(work,
-                    List.of(FakePmExec.tool("sh").toString(), "-c", script), Map.of(), Optional.empty(), log));
+                    List.of(FakePmExec.tool("sh").toString(), "-c", script), Map.of(), null, log));
             return new JobLog(log);
         }
 
