@@ -45,21 +45,23 @@ class CoverageMetricsTest {
     @Test
     @DisplayName("refuses a line percentage outside the percentage range")
     void refusesALineOutsideTheRange() {
-        assertThrows(IllegalArgumentException.class, () -> CoverageMetrics.builder().line(100.01).build(),
-                "A line above 100 is refused");
-        assertThrows(IllegalArgumentException.class, () -> CoverageMetrics.builder().line(-0.01).build(),
-                "A negative line is refused");
-        assertThrows(IllegalArgumentException.class, () -> CoverageMetrics.builder().line(Double.NaN).build(),
-                "A NaN line is refused");
+        var lineAbove = CoverageMetrics.builder().line(100.01);
+        var lineBelow = CoverageMetrics.builder().line(-0.01);
+        var lineNaN = CoverageMetrics.builder().line(Double.NaN);
+
+        assertThrows(IllegalArgumentException.class, lineAbove::build, "A line above 100 is refused");
+        assertThrows(IllegalArgumentException.class, lineBelow::build, "A negative line is refused");
+        assertThrows(IllegalArgumentException.class, lineNaN::build, "A NaN line is refused");
     }
 
     @Test
     @DisplayName("refuses an optional percentage outside the percentage range")
     void refusesAnOptionalMetricOutsideTheRange() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageMetrics.builder().line(50).branch(101.0).build(), "A branch above 100 is refused");
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageMetrics.builder().line(50).statement(-1.0).build(), "A negative statement is refused");
+        var branchAbove = CoverageMetrics.builder().line(50).branch(101.0);
+        var statementBelow = CoverageMetrics.builder().line(50).statement(-1.0);
+
+        assertThrows(IllegalArgumentException.class, branchAbove::build, "A branch above 100 is refused");
+        assertThrows(IllegalArgumentException.class, statementBelow::build, "A negative statement is refused");
     }
 
     @Test

@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -47,19 +48,22 @@ class CoverageXmlReaderTest {
     @Test
     @DisplayName("raises an error for a document that is not well-formed")
     void raisesAnErrorForMalformedXml() {
-        assertThrows(XMLStreamException.class, () -> {
-            try (CoverageXmlReader.Reader source = CoverageXmlReader.open("<report>")) {
-                XMLStreamReader reader = source.stream();
-                while (reader.hasNext()) {
-                    reader.next();
-                }
+        assertThrows(XMLStreamException.class, this::readUnclosedDocument,
+                "An unclosed document raises an XML error");
+    }
+
+    private void readUnclosedDocument() throws XMLStreamException {
+        try (CoverageXmlReader.Reader source = CoverageXmlReader.open("<report>")) {
+            XMLStreamReader reader = source.stream();
+            while (reader.hasNext()) {
+                reader.next();
             }
-        }, "An unclosed document raises an XML error");
+        }
     }
 
     @Test
     @DisplayName("refuses a document that uses an external entity")
-    void refusesAnExternalEntity() throws Exception {
+    void refusesAnExternalEntity() throws IOException {
         String xml = Files.readString(CoverageReportFixtures.path("deliberate-jacoco-external-entity.xml"));
 
         assertTrue(isRefused(xml), "The external entity is refused, not resolved");
@@ -84,7 +88,7 @@ class CoverageXmlReaderTest {
                 }
             }
             return false;
-        } catch (XMLStreamException e) {
+        } catch (XMLStreamException _) {
             return true;
         }
     }

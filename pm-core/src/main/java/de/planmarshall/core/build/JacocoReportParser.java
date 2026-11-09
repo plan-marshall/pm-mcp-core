@@ -23,13 +23,15 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The native JaCoCo coverage report parser ({@code jacoco.xml}).
  * <p>
  * The reader walks the report once with the hardened StAX reader of {@link CoverageXmlReader} and takes the
  * {@code INSTRUCTION}, {@code BRANCH}, {@code LINE} and {@code METHOD} counters of the report element as the overall
- * percentages, each {@code covered / (missed + covered)}. Per class it takes the {@code LINE} counter (and the
+ * percentages, each {@code covered / (missed + covered)}. A counter the report does not carry leaves its metric absent,
+ * and a report without a {@code LINE} counter is refused. Per class it takes the {@code LINE} counter (and the
  * {@code BRANCH} counter where the class carries one) and the methods whose {@code METHOD} counter has a missed part as
  * the {@code missed_methods} detail. The constructors {@code <init>} and {@code <clinit>} are never part of that detail,
  * because they are not methods a test is expected to call.
@@ -43,6 +45,24 @@ import lombok.experimental.UtilityClass;
 public class JacocoReportParser {
 
     private static final CoverageFormat FORMAT = CoverageFormat.JACOCO;
+
+    private static final String REPORT = "report";
+
+    private static final String CLASS = "class";
+
+    private static final String METHOD = "method";
+
+    private static final String COUNTER = "counter";
+
+    private static final String LINE = "LINE";
+
+    private static final String BRANCH = "BRANCH";
+
+    private static final String INSTRUCTION = "INSTRUCTION";
+
+    private static final String METHOD_COUNTER = "METHOD";
+
+    private static final String NAME = "name";
 
     /**
      * Parses a JaCoCo XML report from its text.
@@ -75,87 +95,105 @@ public class JacocoReportParser {
     }
 
     private static CoverageParseResult parse(XMLStreamReader reader) throws XMLStreamException {
-        Map<String, int[]> overall = new HashMap<>();
-        List<CoverageItem> items = new ArrayList<>();
-        Deque<String> path = new ArrayDeque<>();
-        ClassState current = null;
+        Walk walk = new Walk();
         while (reader.hasNext()) {
             int event = reader.next();
             if (event == XMLStreamConstants.ENTITY_REFERENCE) {
-                return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": external entity reference refused");
+                return walk.entityRefused();
             }
             if (event == XMLStreamConstants.START_ELEMENT) {
-                String parent = path.peek();
-                String local = reader.getLocalName();
-                if (path.isEmpty() && !"report".equals(local)) {
-                    throw new IllegalArgumentException("the root element is " + local + ", not a report");
-                }
-                if ("class".equals(local)) {
-                    current = new ClassState(requiredName(reader, "class"));
-                } else if ("method".equals(local)) {
-                    if (current != null) {
-                        current.startMethod(CoverageXmlReader.attribute(reader, "name"));
-                    }
-                } else if ("counter".equals(local)) {
-                    readCounter(reader, parent, overall, current);
-                }
-                path.push(local);
+                walk.start(reader);
             } else if (event == XMLStreamConstants.END_ELEMENT) {
-                String local = reader.getLocalName();
-                path.pop();
-                if ("method".equals(local)) {
-                    if (current != null) {
-                        current.endMethod();
-                    }
-                } else if ("class".equals(local)) {
-                    if (current != null) {
-                        items.add(current.item());
-                        current = null;
-                    }
-                }
+                walk.end(reader);
             }
         }
-        return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, metrics(overall), items));
+        return walk.result();
     }
 
-    private static CoverageMetrics metrics(Map<String, int[]> overall) {
-        if (!overall.containsKey("LINE")) {
-            throw new IllegalArgumentException("the report carries no LINE counter");
+    private static CoverageParseResult refusal(Exception cause) {
+        return CoverageRefusals.of(FORMAT, cause);
+    }
+
+    /**
+     * The state of one walk over a report.
+     */
+    private static final class Walk {
+
+        private final Map<String, int[]> overall = new HashMap<>();
+        private final List<CoverageItem> items = new ArrayList<>();
+        private final Deque<String> path = new ArrayDeque<>();
+        private ClassState current = ClassState.NONE;
+
+        private void start(XMLStreamReader reader) {
+            String parent = path.peek();
+            String local = reader.getLocalName();
+            if (path.isEmpty() && !REPORT.equals(local)) {
+                throw new IllegalArgumentException("the root element is " + local + ", not a report");
+            }
+            switch (local) {
+                case CLASS -> current = new ClassState(requiredName(reader));
+                case METHOD -> current.startMethod(CoverageXmlReader.attribute(reader, NAME));
+                case COUNTER -> counter(reader, parent);
+                default -> {
+                }
+            }
+            path.push(local);
         }
-        return CoverageMetrics.builder()
-                .line(percentage(overall, "LINE"))
-                .instruction(optionalPercentage(overall, "INSTRUCTION"))
-                .branch(optionalPercentage(overall, "BRANCH"))
-                .function(optionalPercentage(overall, "METHOD"))
-                .build();
-    }
 
-    private static double percentage(Map<String, int[]> counters, String type) {
-        int[] counter = counters.get(type);
-        return CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
-    }
+        private void end(XMLStreamReader reader) {
+            String local = reader.getLocalName();
+            path.pop();
+            if (METHOD.equals(local)) {
+                current.endMethod();
+            } else if (CLASS.equals(local) && current != ClassState.NONE) {
+                items.add(current.item());
+                current = ClassState.NONE;
+            }
+        }
 
-    private static Double optionalPercentage(Map<String, int[]> counters, String type) {
-        int[] counter = counters.get(type);
-        return counter == null ? null : CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
-    }
+        private void counter(XMLStreamReader reader, String parent) {
+            String type = CoverageXmlReader.attribute(reader, "type");
+            int missed = count(reader, "missed");
+            int covered = count(reader, "covered");
+            if (REPORT.equals(parent)) {
+                overall.put(type, new int[] {missed, covered});
+            } else {
+                current.readCounter(parent, type, missed, covered);
+            }
+        }
 
-    private static void readCounter(XMLStreamReader reader, String parent, Map<String, int[]> overall,
-            ClassState current) {
-        String type = CoverageXmlReader.attribute(reader, "type");
-        int missed = count(reader, "missed");
-        int covered = count(reader, "covered");
-        if ("report".equals(parent)) {
-            overall.put(type, new int[]{missed, covered});
-        } else if (current != null) {
-            current.readCounter(parent, type, missed, covered);
+        private CoverageParseResult entityRefused() {
+            return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": external entity reference refused");
+        }
+
+        private CoverageParseResult result() {
+            if (!overall.containsKey(LINE)) {
+                throw new IllegalArgumentException("the report carries no LINE counter");
+            }
+            CoverageMetrics metrics = CoverageMetrics.builder()
+                    .line(percentage(LINE))
+                    .instruction(optionalPercentage(INSTRUCTION))
+                    .branch(optionalPercentage(BRANCH))
+                    .function(optionalPercentage(METHOD_COUNTER))
+                    .build();
+            return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, metrics, items));
+        }
+
+        private double percentage(String type) {
+            int[] counter = overall.get(type);
+            return CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
+        }
+
+        private @Nullable Double optionalPercentage(String type) {
+            int[] counter = overall.get(type);
+            return counter == null ? null : CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
         }
     }
 
-    private static String requiredName(XMLStreamReader reader, String element) {
-        String name = CoverageXmlReader.attribute(reader, "name");
+    private static String requiredName(XMLStreamReader reader) {
+        String name = CoverageXmlReader.attribute(reader, NAME);
         if (name.isBlank()) {
-            throw new IllegalArgumentException("a " + element + " carries no name");
+            throw new IllegalArgumentException("a class carries no name");
         }
         return name;
     }
@@ -165,14 +203,12 @@ public class JacocoReportParser {
         return value.isBlank() ? 0 : Integer.parseInt(value);
     }
 
-    private static CoverageParseResult refusal(Exception cause) {
-        return CoverageRefusals.of(FORMAT, cause);
-    }
-
     /**
      * The counters and methods of the class being walked.
      */
     private static final class ClassState {
+
+        private static final ClassState NONE = new ClassState("");
 
         private final String name;
         private final List<String> missedMethods = new ArrayList<>();
@@ -188,8 +224,8 @@ public class JacocoReportParser {
         }
 
         private void startMethod(String name) {
-            this.methodName = name;
-            this.methodMissed = 0;
+            methodName = name;
+            methodMissed = 0;
         }
 
         private void endMethod() {

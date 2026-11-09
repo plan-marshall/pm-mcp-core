@@ -143,7 +143,7 @@ public class LcovReportParser {
     private static int number(String line, int prefixLength) throws IOException {
         try {
             return Integer.parseInt(line.substring(prefixLength).strip());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             throw new IOException("the counter " + line.substring(0, prefixLength) + " is not a number");
         }
     }

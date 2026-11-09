@@ -48,20 +48,19 @@ class CoverageVerdictTest {
     @Test
     @DisplayName("refuses a threshold outside the percentage range")
     void refusesAThresholdOutsideTheRange() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageVerdict.builder().threshold(101).overallLine(50).lowCoverage(List.of()).build(),
-                "A threshold above 100 is refused");
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageVerdict.builder().threshold(-1).overallLine(50).lowCoverage(List.of()).build(),
-                "A negative threshold is refused");
+        var thresholdAbove = CoverageVerdict.builder().threshold(101).overallLine(50).lowCoverage(List.of());
+        var thresholdBelow = CoverageVerdict.builder().threshold(-1).overallLine(50).lowCoverage(List.of());
+
+        assertThrows(IllegalArgumentException.class, thresholdAbove::build, "A threshold above 100 is refused");
+        assertThrows(IllegalArgumentException.class, thresholdBelow::build, "A negative threshold is refused");
     }
 
     @Test
     @DisplayName("refuses an overall line percentage outside the range")
     void refusesAnOverallLineOutsideTheRange() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageVerdict.builder().threshold(80).overallLine(100.5).lowCoverage(List.of()).build(),
-                "An overall line above 100 is refused");
+        var lineAbove = CoverageVerdict.builder().threshold(80).overallLine(100.5).lowCoverage(List.of());
+
+        assertThrows(IllegalArgumentException.class, lineAbove::build, "An overall line above 100 is refused");
     }
 
     @Test

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The native Istanbul coverage summary parser ({@code coverage-summary.json}).
@@ -149,7 +150,7 @@ public class IstanbulSummaryParser {
                 .build();
     }
 
-    private static Double readPct(JsonParser parser, String metric) throws IOException {
+    private static @Nullable Double readPct(JsonParser parser, String metric) throws IOException {
         if (parser.currentToken() != JsonToken.START_OBJECT) {
             throw new IOException(metric + " is not an object");
         }
@@ -169,7 +170,7 @@ public class IstanbulSummaryParser {
         return pct;
     }
 
-    private static double requireMetric(Double value, String metric) throws IOException {
+    private static double requireMetric(@Nullable Double value, String metric) throws IOException {
         if (value == null) {
             throw new IOException(metric + ".pct is absent");
         }

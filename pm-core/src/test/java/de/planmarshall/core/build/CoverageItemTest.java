@@ -62,30 +62,28 @@ class CoverageItemTest {
     @Test
     @DisplayName("refuses a blank name or a blank file")
     void refusesABlankNameOrFile() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageItem.builder().name(" ").line(50).missedMethods(List.of()).build(),
-                "A blank item name is refused");
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageItem.builder().name("a").file(" ").line(50).missedMethods(List.of()).build(),
-                "A blank item file is refused");
+        var blankName = CoverageItem.builder().name(" ").line(50).missedMethods(List.of());
+        var blankFile = CoverageItem.builder().name("a").file(" ").line(50).missedMethods(List.of());
+
+        assertThrows(IllegalArgumentException.class, blankName::build, "A blank item name is refused");
+        assertThrows(IllegalArgumentException.class, blankFile::build, "A blank item file is refused");
     }
 
     @Test
     @DisplayName("refuses a percentage outside the percentage range")
     void refusesAPercentageOutsideTheRange() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageItem.builder().name("a").line(101).missedMethods(List.of()).build(),
-                "A line above 100 is refused");
-        assertThrows(IllegalArgumentException.class,
-                () -> CoverageItem.builder().name("a").line(50).branch(-1.0).missedMethods(List.of()).build(),
-                "A negative branch is refused");
+        var lineAbove = CoverageItem.builder().name("a").line(101).missedMethods(List.of());
+        var branchBelow = CoverageItem.builder().name("a").line(50).branch(-1.0).missedMethods(List.of());
+
+        assertThrows(IllegalArgumentException.class, lineAbove::build, "A line above 100 is refused");
+        assertThrows(IllegalArgumentException.class, branchBelow::build, "A negative branch is refused");
     }
 
     @Test
     @DisplayName("refuses a null missed-method list")
     void refusesANullMissedMethodList() {
-        assertThrows(NullPointerException.class,
-                () -> CoverageItem.builder().name("a").line(50).missedMethods(null).build(),
-                "A null missed-method list is refused");
+        var nullMethods = CoverageItem.builder().name("a").line(50).missedMethods(null);
+
+        assertThrows(NullPointerException.class, nullMethods::build, "A null missed-method list is refused");
     }
 }
