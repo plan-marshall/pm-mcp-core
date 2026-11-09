@@ -567,8 +567,13 @@ public final class CorpusValidator {
     }
 
     private static String text(@Nullable JsonValue value) {
-        return value == null ? "None"
-                : value instanceof JsonString(var string) ? "'" + string + "'" : value.toJson();
+        if (value == null) {
+            return "None";
+        }
+        if (value instanceof JsonString(var string)) {
+            return "'" + string + "'";
+        }
+        return value.toJson();
     }
 
     /** @return {@code true} for a value Python reads as true: present, and not null, false, zero or empty */
