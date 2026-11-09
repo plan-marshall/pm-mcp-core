@@ -85,8 +85,8 @@ The per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` is the one 
 ├── epics/                               # Non-tracked state of the epics (the ledger itself is git-tracked)
 │   └── <epic_id>/
 │       ├── digests.json                 # Store size/SHA-256 sidecar
-│       ├── decomposition.json           # The decomposition's draft and its decisions until committed
-│       ├── review.json                  # An open review of the epic's registers and its dispositions until done
+│       ├── decomposition.json           # The decomposition's draft and its decisions until committed, a chat's origin on each change it led to
+│       ├── review.json                  # An open review of the epic's registers and its dispositions until done, a chat's origin on each it led to
 │       ├── metrics.json                 # Task and served-content rows of the epic scope (phase null)
 │       ├── questions.jsonl              # Question records of the epic scope
 │       ├── decision-log.jsonl           # Decision-log records of the epic scope, with decision-facts/ beside it

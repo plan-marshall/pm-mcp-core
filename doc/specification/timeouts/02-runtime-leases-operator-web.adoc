@@ -317,11 +317,11 @@ The runtime owns every value of this section: it serves web access itself, on it
 |A larger recording is refused `invalid_arguments`; an expired transcription ends the job (`timed_out`) or the call and answers `transcription_failed`; nothing is kept.
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#transcriptions[Runtime Model, Transcriptions]; link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work, The Speech Role `transcribe`]
 
-|[[chat-page]]Chat transcript page
-|`50` turns per page of `GET …/chat`; a role's reply of at most `64` KiB (the chat reply bound).
-|fixed (compiled constant)
+|[[chat-page]]Chat transcript page and chat context
+|`50` turns per page of `GET …/chat`; a role's reply of at most `64` KiB (the chat reply bound). The chat core budget `chat_core_budget_tokens` `6000` tokens; the chat transcript window `chat_transcript_window_tokens` `12000` tokens; the chat idle release `chat_idle_release_seconds` `600` s.
+|fixed (compiled constants)
 |—
-|the transcript of a chat read by a client; the reply `chat.reply` writes
-|A longer reply ends its job; the turn ends `failed` with the reason `too_long`.
-|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]
+|the transcript of a chat read by a client; the reply `chat.reply` writes; the core and the transcript window a chat's generation is primed with; the chat's warm worker between turns
+|A longer reply ends its job; the turn ends `failed` with the reason `too_long`. A long text of the core (a description, an epic's intent) is given as its start of at most 1 500 characters with its URI, and over the core budget a list of the core becomes its count with its URI, so nothing is lost; turns beyond the window are read by URI. A chat worker idle for the release is recycled, and at once where queued work waits for a slot; the chat never ends by time.
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]; link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]; link:../model-work/03-supervision-and-recycling.adoc#chat-worker[Model Work, The Chat Worker]
 |===
