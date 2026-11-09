@@ -9,8 +9,6 @@
  */
 package de.planmarshall.provider.http.testing.generators;
 
-import java.util.Optional;
-
 import de.planmarshall.provider.http.Response;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.TypedGenerator;
@@ -27,7 +25,7 @@ public final class ResponseGenerator implements TypedGenerator<Response> {
     public Response next() {
         var suffix = Generators.longs(1, Long.MAX_VALUE).next();
         return new Response(Response.Outcome.OK, 200, "{\"value\":\"" + suffix + "\"}",
-                Optional.of("etag-" + suffix), Optional.empty(), Optional.empty(), "");
+                "etag-" + suffix, null, null, "");
     }
 
     @Override

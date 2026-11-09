@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.provider.http.Response.Outcome;
 import de.cuioss.http.client.handler.HttpHandler;
@@ -107,7 +108,7 @@ public final class HttpClient implements AutoCloseable {
      * @return the response
      */
     public Response get(String pathOrUri) {
-        return send("GET", pathOrUri, Optional.empty(), Optional.empty());
+        return send("GET", pathOrUri, null, null);
     }
 
     /**
@@ -118,7 +119,7 @@ public final class HttpClient implements AutoCloseable {
      * @return the response; {@link Outcome#NOT_MODIFIED} when the representation is unchanged
      */
     public Response get(String pathOrUri, String etag) {
-        return send("GET", pathOrUri, Optional.empty(), Optional.of(etag));
+        return send("GET", pathOrUri, null, etag);
     }
 
     /**
@@ -130,7 +131,7 @@ public final class HttpClient implements AutoCloseable {
      * @param etag      the {@code ETag} for {@code If-None-Match}
      * @return the response
      */
-    public Response send(String method, String pathOrUri, Optional<String> jsonBody, Optional<String> etag) {
+    public Response send(String method, String pathOrUri, @Nullable String jsonBody, @Nullable String etag) {
         return exchange(method, pathOrUri, jsonBody, etag).response();
     }
 
@@ -142,21 +143,25 @@ public final class HttpClient implements AutoCloseable {
      * @return the response and the headers it carried
      */
     public ResponseWithHeaders getWithHeaders(String pathOrUri) {
-        return exchange("GET", pathOrUri, Optional.empty(), Optional.empty());
+        return exchange("GET", pathOrUri, null, null);
     }
 
-    private ResponseWithHeaders exchange(String method, String pathOrUri, Optional<String> jsonBody,
-            Optional<String> etag) {
+    private ResponseWithHeaders exchange(String method, String pathOrUri, @Nullable String jsonBody,
+            @Nullable String etag) {
         URI uri = endpoint.resolve(pathOrUri);
         if (!endpoint.sameOrigin(uri)) {
             return new ResponseWithHeaders(Response.failure(Outcome.REFUSED,
                     "outside the origin of " + endpoint.baseUri()), Map.of());
         }
         HttpRequest.Builder builder = handler.requestBuilder().uri(uri)
-                .method(method, jsonBody.map(BodyPublishers::ofString).orElse(BodyPublishers.noBody()));
+                .method(method, jsonBody == null ? BodyPublishers.noBody() : BodyPublishers.ofString(jsonBody));
         defaultHeaders.forEach(builder::header);
-        jsonBody.ifPresent(b -> builder.header("Content-Type", "application/json"));
-        etag.ifPresent(e -> builder.header("If-None-Match", e));
+        if (jsonBody != null) {
+            builder.header("Content-Type", "application/json");
+        }
+        if (etag != null) {
+            builder.header("If-None-Match", etag);
+        }
         tokens.token().ifPresent(t -> builder.header(AUTHORIZATION, "Bearer " + t));
         try {
             HttpResponse<String> answer = handler.send(builder.build(), BodyHandlers.ofString());
@@ -191,7 +196,7 @@ public final class HttpClient implements AutoCloseable {
         Response response = get(path);
         while (response.isOk()) {
             pages.add(response.body());
-            Optional<URI> next = response.next();
+            Optional<URI> next = Optional.ofNullable(response.next());
             if (next.isEmpty()) {
                 return new PagedResult(pages, true, response);
             }
@@ -210,16 +215,16 @@ public final class HttpClient implements AutoCloseable {
         Optional<URI> next = headers.allValues("Link").stream().map(HttpClient::nextLink).flatMap(Optional::stream)
                 .findFirst();
         if (status == 304) {
-            return new Response(Outcome.NOT_MODIFIED, status, "", etag, Optional.empty(), Optional.empty(), "");
+            return new Response(Outcome.NOT_MODIFIED, status, "", etag.orElse(null), null, null, "");
         }
         if (status >= 200 && status < 300) {
-            return new Response(Outcome.OK, status, response.body(), etag, next, Optional.empty(), "");
+            return new Response(Outcome.OK, status, response.body(), etag.orElse(null), next.orElse(null), null, "");
         }
         if (isRateLimited(status, headers)) {
-            return new Response(Outcome.RATE_LIMITED, status, response.body(), etag, Optional.empty(),
-                    Optional.of(resetAt(headers)), "rate limited");
+            return new Response(Outcome.RATE_LIMITED, status, response.body(), etag.orElse(null), null,
+                    resetAt(headers), "rate limited");
         }
-        return new Response(Outcome.HTTP_ERROR, status, response.body(), etag, Optional.empty(), Optional.empty(),
+        return new Response(Outcome.HTTP_ERROR, status, response.body(), etag.orElse(null), null, null,
                 "HTTP " + status);
     }
 

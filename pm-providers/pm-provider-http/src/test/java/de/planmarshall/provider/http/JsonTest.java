@@ -124,10 +124,10 @@ class JsonTest {
         assertEquals(Result.Outcome.FAILED,
                 Result.failed(Response.failure(Response.Outcome.TRANSPORT_FAILED, transport)).outcome(),
                 "a transport failure maps to a failure");
-        var limited = Result.failed(new Response(Response.Outcome.RATE_LIMITED, 429, "", Optional.empty(),
-                Optional.empty(), Optional.of(reset), phrase()));
+        var limited = Result.failed(new Response(Response.Outcome.RATE_LIMITED, 429, "", null,
+                null, reset, phrase()));
         assertEquals(Result.Outcome.RATE_LIMITED, limited.outcome(), "a rate-limited response stays rate limited");
-        assertEquals(Optional.of(reset), limited.resetAt(), "the rate limit keeps its reset instant");
+        assertEquals(reset, limited.resetAt(), "the rate limit keeps its reset instant");
         assertFalse(limited.isOk(), "a rate-limited result is not OK");
         assertTrue(Result.ok(word(), false).isOk(), "an OK result of a partial read is OK");
     }
@@ -160,12 +160,12 @@ class JsonTest {
         assertEquals(outcome, result.outcome(), "the status and body shape decide the outcome");
         assertEquals(reasoned ? "HTTP " + status + ": " + reason : "HTTP " + status, result.detail(),
                 "the detail is the status plus any provider reason");
-        assertTrue(result.value().isEmpty(), "a failed result carries no value");
+        assertNull(result.value(), "a failed result carries no value");
     }
 
     private static Result<Object> failed(int status, String body) {
-        return Result.failed(new Response(Response.Outcome.HTTP_ERROR, status, body, Optional.empty(),
-                Optional.empty(), Optional.empty(), "HTTP " + status));
+        return Result.failed(new Response(Response.Outcome.HTTP_ERROR, status, body, null,
+                null, null, "HTTP " + status));
     }
 
     /** The GitHub and GitLab error body with the provider's reason under {@code message}: a wire contract. */

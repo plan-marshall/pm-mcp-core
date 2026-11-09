@@ -172,7 +172,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"permissions\":{\"project_access\":{\"access_level\":40},"
                     + "\"group_access\":{\"access_level\":50}}}")
     void readsTokenIdentity(MockWebServer server) {
-        Identity identity = provider(server).whoami(REPOSITORY).value().orElseThrow();
+        Identity identity = provider(server).whoami(REPOSITORY).value();
 
         assertAll("the token identity",
                 () -> assertEquals("alice", identity.login(), "the username is read"),
@@ -193,7 +193,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"id\":9,\"username\":\"project_42_bot_abc\",\"state\":\"active\",\"bot\":true}")
     void namesProjectToken(MockWebServer server) {
-        var identity = provider(server).whoami(null).value().orElseThrow();
+        var identity = provider(server).whoami(null).value();
 
         assertAll("the project token",
                 () -> assertEquals(TokenKind.GITLAB_PROJECT_TOKEN, identity.tokenKind(), "the token kind is project"),
@@ -208,7 +208,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"id\":9,\"username\":\"group_5_bot_xyz\",\"state\":\"active\",\"bot\":true}")
     void namesGroupToken(MockWebServer server) {
-        var identity = provider(server).whoami(null).value().orElseThrow();
+        var identity = provider(server).whoami(null).value();
 
         assertEquals(TokenKind.GITLAB_GROUP_TOKEN, identity.tokenKind(), "the token kind is a group token");
     }
@@ -220,7 +220,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"id\":7,\"username\":\"alice\",\"state\":\"active\"}")
     void namesOAuthToken(MockWebServer server) {
-        var identity = provider(server).whoami(null).value().orElseThrow();
+        var identity = provider(server).whoami(null).value();
 
         assertEquals(TokenKind.GITLAB_OAUTH_TOKEN, identity.tokenKind(), "the token kind is an OAuth token");
     }
@@ -237,7 +237,7 @@ class GitLabCiProviderTest {
 
         Result<Issue> result = provider.issueView(issue(WEB_ORIGIN, FORGE, "group/sub", "project", 9));
 
-        Issue read = result.value().orElseThrow();
+        Issue read = result.value();
         assertAll("the issue fields",
                 () -> assertEquals("A title", read.title(), "the issue title is read"),
                 () -> assertEquals("A body", read.body(), "the issue body is read"),
@@ -257,7 +257,7 @@ class GitLabCiProviderTest {
         Instant before = Instant.now();
         var result = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5));
         Instant after = Instant.now();
-        Instant reset = result.resetAt().orElseThrow();
+        Instant reset = result.resetAt();
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
@@ -320,7 +320,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"permissions\":{\"project_access\":{\"access_level\":40}}}")
     void readsSubgroupIdEntity(MockWebServer server) {
         var identity = provider(server)
-                .whoami(new RepositoryRef("gitlab", WEB_ORIGIN, "group/sub", "project")).value().orElseThrow();
+                .whoami(new RepositoryRef("gitlab", WEB_ORIGIN, "group/sub", "project")).value();
 
         assertAll("the subgroup identity",
                 () -> assertEquals("alice", identity.login(), "the username is read"),
@@ -335,7 +335,7 @@ class GitLabCiProviderTest {
     void postsSubgroupComment(MockWebServer server) {
         var comment = provider(server)
                 .issueComment(issue(WEB_ORIGIN, FORGE, "group/sub", "project", 9), comment())
-                .value().orElseThrow();
+                .value();
 
         assertEquals("https://gitlab.com/group/sub/project/-/issues/9#note_9001", comment.url(),
                 "the subgroup comment URL is derived");
@@ -362,7 +362,7 @@ class GitLabCiProviderTest {
         Result<IssueComment> result = provider(server)
                 .issueComment(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 5), comment());
 
-        IssueComment comment = result.value().orElseThrow();
+        IssueComment comment = result.value();
         assertAll("the posted comment",
                 () -> assertEquals("9001", comment.id(), "the comment note id is read"),
                 () -> assertEquals("https://gitlab.com/cuioss/pm/-/issues/5#note_9001", comment.url(),
@@ -459,7 +459,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"id\":\"\",\"username\":\"alice\",\"state\":\"active\"}")
     void blankUserIdFallsBackToTokenUserId(MockWebServer server) {
-        var identity = provider(server).whoami(null).value().orElseThrow();
+        var identity = provider(server).whoami(null).value();
 
         assertAll("the blank user id",
                 () -> assertEquals("alice", identity.login(), "the login is read from the user"),
@@ -486,7 +486,7 @@ class GitLabCiProviderTest {
     @MockResponseConfig(path = "/user", method = HttpMethodMapper.GET, status = 200,
             stringContent = "{\"id\":8,\"username\":\"alice\",\"state\":\"active\"}")
     void userIdPrecedesTokenUserId(MockWebServer server) {
-        var identity = provider(server).whoami(null).value().orElseThrow();
+        var identity = provider(server).whoami(null).value();
 
         assertEquals("8", identity.userId(), "the user body id wins over the token id");
     }
@@ -497,7 +497,7 @@ class GitLabCiProviderTest {
             stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
                     + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/11\",\"milestone\":{\"title\":\" \"}}")
     void blankMilestoneIsNoMilestone(MockWebServer server) {
-        Issue read = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 11)).value().orElseThrow();
+        Issue read = provider(server).issueView(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 11)).value();
 
         assertNull(read.milestone(), "a blank milestone title is no milestone");
     }
@@ -631,7 +631,7 @@ class GitLabCiProviderTest {
 
         Result<PullRequest> result = provider(server).prView(MERGE_REQUEST);
 
-        PullRequest read = result.value().orElseThrow();
+        PullRequest read = result.value();
         assertAll("the open merge request",
                 () -> assertEquals(PullRequest.State.OPEN, read.state(), "an opened merge request is OPEN"),
                 () -> assertEquals(fixture.title(), read.title(), "the title is read unchanged"),
@@ -660,7 +660,7 @@ class GitLabCiProviderTest {
 
         assertAll("the state " + state,
                 () -> assertEquals(Result.Outcome.OK, result.outcome(), "a non-open merge request is OK"),
-                () -> assertEquals(expected, result.value().orElseThrow().state(),
+                () -> assertEquals(expected, result.value().state(),
                         "the GitLab state is mapped to the contract"));
     }
 
@@ -673,7 +673,7 @@ class GitLabCiProviderTest {
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, false));
         primeProject(forkId, projectBody(group + "/" + NAME, MAINTAINER, null));
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertAll("the fork without collaboration",
                 () -> assertFalse(read.headWritable(), "a fork without collaboration is not writable"),
@@ -693,7 +693,7 @@ class GitLabCiProviderTest {
         primeProject(forkId, projectBody(group + "/" + NAME, null, null));
         primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, null, DEVELOPER));
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertAll("the fork with collaboration",
                 () -> assertTrue(read.headWritable(), "collaboration and Developer access: writable"),
@@ -710,7 +710,7 @@ class GitLabCiProviderTest {
         primeProject(forkId, projectBody(forkGroup() + "/" + NAME, MAINTAINER, null));
         primeProject(fixture.targetProjectId(), projectBody(PROJECT_PATH, REPORTER, null));
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertFalse(read.headWritable(), "Reporter access on the target is not writable");
     }
@@ -723,7 +723,7 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         primeSameProject(fixture, level);
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertFalse(read.headWritable(), "an access level below 30 is not writable");
     }
@@ -735,7 +735,7 @@ class GitLabCiProviderTest {
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", fixture.targetProjectId(), false));
         primeProject(fixture.targetProjectId(), Map.of("path_with_namespace", PROJECT_PATH));
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertFalse(read.headWritable(), "an absent access level reads as not writable");
     }
@@ -746,7 +746,7 @@ class GitLabCiProviderTest {
         var fixture = fixture();
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", null, true));
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertAll("the unnamed source project",
                 () -> assertTrue(read.headRepository().isEmpty(), "an unnamed source project is absent"),
@@ -762,7 +762,7 @@ class GitLabCiProviderTest {
         primeMergeRequest(fixture, mergeRequestBody(fixture, "opened", forkId, true));
         prime(PROJECTS_PATH + "/" + forkId, json(404, Map.of("message", remoteText())));
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertAll("the deleted source project",
                 () -> assertTrue(read.headRepository().isEmpty(), "a deleted source project is absent"),
@@ -793,7 +793,7 @@ class GitLabCiProviderTest {
                 .addHeader("Link", "<" + next + ">; rel=\"next\"").body(Json.write(diffsBody(fixture.paths())))
                 .build());
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertAll("the capped list",
                 () -> assertEquals(PullRequest.PathCompleteness.PAGE_CAP, read.pathCompleteness(),
@@ -821,7 +821,7 @@ class GitLabCiProviderTest {
                     .build());
         }
 
-        PullRequest read = provider(server).prView(MERGE_REQUEST).value().orElseThrow();
+        PullRequest read = provider(server).prView(MERGE_REQUEST).value();
 
         assertAll("the completeness of changes_count " + changesCount,
                 () -> assertEquals(expected, read.pathCompleteness(), "the completeness follows the caps"),
@@ -853,7 +853,7 @@ class GitLabCiProviderTest {
         Instant before = Instant.now();
         var result = provider(server).prView(MERGE_REQUEST);
         Instant after = Instant.now();
-        Instant reset = result.resetAt().orElseThrow();
+        Instant reset = result.resetAt();
 
         assertAll("the rate limit",
                 () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is an outcome"),
