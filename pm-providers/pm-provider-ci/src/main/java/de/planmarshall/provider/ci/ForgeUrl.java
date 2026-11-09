@@ -32,7 +32,9 @@ import de.planmarshall.core.findings.FindingSourceKey;
  * {@code commits} and {@code checks} on GitHub ({@code /pull/<n>/{files,commits,checks}}), {@code files} and
  * {@code commits} on Forgejo ({@code /pulls/<n>/{files,commits}}), and {@code diffs}, {@code commits}, {@code pipelines}
  * and {@code changes} on GitLab ({@code /-/merge_requests/<n>/{diffs,commits,pipelines,changes}}); the segments are the
- * routes of those web interfaces and a tab adds the one segment the length bound allows above it. An issue path carries
+ * routes of those web interfaces, GitHub's pull-request reference and GitLab's merge-request changes guide document
+ * them and Forgejo's web interface shows the same files and commits routes, and a tab adds the one segment the length
+ * bound allows above it. An issue path carries
  * no tab. A host-to-forge table,
  * passed by the caller or the {@link #BUILT_IN_HOSTS built-in one}, selects the forge and so the grammar. A URL on a host
  * the table does not name is the outcome {@link Outcome#UNKNOWN_FORGE} as a value; a malformed or hostile URL is
