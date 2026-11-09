@@ -29,8 +29,10 @@ import de.planmarshall.core.findings.FindingSourceKey;
  * {@code /<owner>/<name>/pull/<n>} on GitHub, {@code /<owner>/<name>/pulls/<n>} on Forgejo), GitLab
  * {@code /<group>/…/<project>/-/issues/<n>} (a merge request {@code /-/merge_requests/<n>}). A pull-request URL that
  * was copied from a tab of the forge's web interface carries one trailing tab segment after the number: {@code files},
- * {@code commits} and {@code checks} on GitHub, {@code files} and {@code commits} on Forgejo, and {@code diffs},
- * {@code commits}, {@code pipelines} and {@code changes} on GitLab. An issue path carries no tab. A host-to-forge table,
+ * {@code commits} and {@code checks} on GitHub ({@code /pull/<n>/{files,commits,checks}}), {@code files} and
+ * {@code commits} on Forgejo ({@code /pulls/<n>/{files,commits}}), and {@code diffs}, {@code commits}, {@code pipelines}
+ * and {@code changes} on GitLab ({@code /-/merge_requests/<n>/{diffs,commits,pipelines,changes}}); the segments are the
+ * routes of those web interfaces. An issue path carries no tab. A host-to-forge table,
  * passed by the caller or the {@link #BUILT_IN_HOSTS built-in one}, selects the forge and so the grammar. A URL on a host
  * the table does not name is the outcome {@link Outcome#UNKNOWN_FORGE} as a value; a malformed or hostile URL is
  * {@link Outcome#INVALID}. Neither is thrown.
@@ -292,14 +294,16 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
 
     private static Resolution resolveGitLab(String forge, String origin, List<String> segments) {
         int operation;
-        String tab = null;
+        boolean tabbed;
         if (segments.size() >= 5 && GITLAB_SEPARATOR.equals(segments.get(segments.size() - 3))) {
             operation = segments.size() - 2;
+            tabbed = false;
         } else if (segments.size() >= 6 && GITLAB_SEPARATOR.equals(segments.get(segments.size() - 4))) {
             operation = segments.size() - 3;
-            tab = segments.getLast();
+            tabbed = true;
         } else {
-            return Resolution.invalid("a GitLab source URL ends with /-/issues/<n> or /-/merge_requests/<n>");
+            return Resolution.invalid("a GitLab source URL ends with /-/issues/<n> or /-/merge_requests/<n>, "
+                    + "or with one tab after a merge-request number");
         }
         Kind kind = switch (segments.get(operation)) {
             case "issues" -> Kind.ISSUE;
@@ -309,8 +313,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (kind == null) {
             return Resolution.invalid("the path is neither an issue nor a merge-request path");
         }
-        if (tab != null && (kind != Kind.PULL_REQUEST || !GITLAB_PULL_REQUEST_TABS.contains(tab))) {
-            return Resolution.invalid("the tab is not a tab of the merge request's web interface");
+        if (tabbed && (kind != Kind.PULL_REQUEST || !GITLAB_PULL_REQUEST_TABS.contains(segments.getLast()))) {
+            return Resolution.invalid("an issue path carries no tab and no other tab is a merge-request tab");
         }
         Optional<Integer> number = number(segments.get(operation + 1));
         if (number.isEmpty()) {

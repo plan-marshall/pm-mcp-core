@@ -204,7 +204,8 @@ the declared footprint, never the length of the list.
   brings its own operation and permission set. `issueComment` is the issue write-back: on GitHub it reads the issue with
   the credential that authors the comment and refuses a pull-request number with `REJECTED` "is a pull request", without
   posting; on GitLab it posts to `issues/{iid}/notes`, which cannot tell a merge-request iid from an issue iid, so the
-  reference type a consumer holds is the protection (module ADR 010, which supersedes ADR 009 in part).
+  reference type a consumer holds is the protection (link:../adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[module
+  ADR 010], which supersedes ADR 009 in part).
 
 == Invariants and Failure Modes
 
@@ -243,7 +244,8 @@ link:{test}/ForgeUrlTest.java[`ForgeUrlTest`]:: the grammar of every forge, a tr
 unknown host, a pull-request URL with one of the tab segments its web interface puts after the number, a tab off that
 grammar (an issue path with a tab, an unknown tab, two trailing segments), a hostile URL (user information, a parent
 segment, an encoded parent segment, an over-long path, an over-long segment), an uppercase and a trailing-dot host, the
-value invariants, and `pullRequest()` for the pull-request URL of every forge and empty for an issue URL.
+value invariants, and `pullRequest()` for the pull-request URL of every forge and empty for an issue URL, with `issue()`
+the reverse.
 link:{test}/CiProvidersTest.java[`CiProvidersTest`]:: the lookup by id, the registration order, the selection by a
 resolved URL, and the refusal of a duplicate or malformed id.
 link:{test}/ValueTypesTest.java[`ValueTypesTest`]:: the invariants and the defensive copies of the value types.
@@ -293,5 +295,6 @@ link:../../../../doc/adr/012-generator-artifacts.adoc[repository ADR 012].
   link:../adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[module ADR 007],
   link:../adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[module ADR 008],
   link:../adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[module ADR 009],
+  link:../adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[module ADR 010],
   link:../../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013],
   link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

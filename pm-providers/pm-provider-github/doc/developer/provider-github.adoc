@@ -115,8 +115,9 @@ JWT, the bot user id from `GET /users/{slug}[bot]` and the operator's login from
 `GitHubOperation.ISSUE_READ`, flags the `pull_request` member and refuses a pull request. `issueComment` reads the issue
 with the user access token that authors the comment (the installation token of a token provider is that token), refuses a
 pull-request number with `REJECTED` "is a pull request" before anything is posted, propagates a failed read, and otherwise
-posts through `GitHubClient.postComment` and derives the comment URL. An issue on another origin or of another forge is
-refused before a request is sent.
+posts through `GitHubClient.postComment` and derives the comment URL. The guard read needs the same `issues: read` that
+`issues: write` includes, for a personal access token and for the user access token of a GitHub App, so it adds no
+permission. An issue on another origin or of another forge is refused before a request is sent.
 
 [#_the_pull_request_read]
 === The Pull-Request Read

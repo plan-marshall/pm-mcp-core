@@ -54,8 +54,8 @@ would restore the defect ADR 006 removed.
 
 == Consequences
 
-* A GitHub comment costs two requests per plan, the guard read and the post; a pull-request number costs one and posts
-  nothing.
+* A GitHub comment costs two requests, the guard read and the post (four per plan, which writes back twice); a
+  pull-request number costs one and posts nothing.
 * `CiProvider.issueComment` states both behaviours, and the GitHub and GitLab developer guides repeat them with the
   GitLab limit.
 * ADR 009 is superseded in part: its `issueComment` bullet and its third alternative no longer hold for GitHub. Its

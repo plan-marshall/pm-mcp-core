@@ -119,12 +119,12 @@ class GitHubCiProviderTest {
     private final AtomicReference<MockResponse> issueResponse = new AtomicReference<>();
 
     /**
-     * Answers the pull-request read and the changed-files read with the responses a test primed; the two reads
-     * carry generated titles, bodies, branches and paths, which a static {@code @MockResponseConfig} cannot. The
-     * repository's permission read is answered only when a test primed it, so a test can vary the permission between
-     * two reads; every other path is left to the static configurations. The base URL is the parent of every path it
-     * answers rather than one of them, because a dispatcher whose base URL equals the path of a static configuration
-     * is refused as a conflict.
+     * Answers the pull-request read, the changed-files read and a primed issue read; the two pull-request reads
+     * carry generated titles, bodies, branches and paths, which a static {@code @MockResponseConfig} cannot, and the
+     * issue read is the guard of {@code issueComment}. The repository's permission read is answered only when a test
+     * primed it, so a test can vary the permission between two reads; every other path is left to the static
+     * configurations. The base URL is the parent of every path it answers rather than one of them, because a dispatcher
+     * whose base URL equals the path of a static configuration is refused as a conflict.
      */
     ModuleDispatcherElement getModuleDispatcher() {
         return new ModuleDispatcherElement() {
@@ -562,6 +562,8 @@ class GitHubCiProviderTest {
     @ParameterizedTest(name = "a {0} of the guard read answers the issueView outcome")
     @CsvSource({"404, NOT_FOUND", "403, PERMISSION_DENIED", "429, RATE_LIMITED", "500, FAILED"})
     @DisplayName("propagates a failed guard read and sends no post (the status mapping is the contract)")
+    @MockResponseConfig(path = "/repos/cuioss/pm/issues/7/comments", method = HttpMethodMapper.POST, status = 201,
+            stringContent = "{\"id\":9001}")
     void propagatesFailedGuardRead(int status, Result.Outcome expected, MockWebServer server) {
         var provider = tokenProvider(server, CLASSIC_TOKEN);
         issueResponse.set(new MockResponse.Builder().code(status).addHeader("Content-Type", "application/json")
