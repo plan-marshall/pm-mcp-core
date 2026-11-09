@@ -93,10 +93,10 @@ public class OutcomeDerivation {
                     ? terminated(process.termination()) : ended(process);
             case InProcessEnded(var termination, var result) -> termination != null
                     ? terminated(termination) : switch (result) {
-                        case DOMAIN -> new Outcome(Fate.SUCCEEDED, 11);
-                        case TRANSPORT -> new Outcome(Fate.FAILED, 12);
-                        case OUT_OF_CONTRACT -> new Outcome(Fate.INDETERMINATE, 13);
-                    };
+                case DOMAIN -> new Outcome(Fate.SUCCEEDED, 11);
+                case TRANSPORT -> new Outcome(Fate.FAILED, 12);
+                case OUT_OF_CONTRACT -> new Outcome(Fate.INDETERMINATE, 13);
+            };
         };
     }
 

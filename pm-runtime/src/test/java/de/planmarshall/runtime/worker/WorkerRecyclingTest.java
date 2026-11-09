@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -113,7 +114,7 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertEquals(IDLE_WAKEUPS - 1L, result.idleWakeups(), "the leased answer counts no wake-up"),
-                () -> assertTrue(result.recycleCause() == null, "a consulting or holding worker is not idle"),
+                () -> assertNull(result.recycleCause(), "a consulting or holding worker is not idle"),
                 () -> assertFalse(ending.endRequested(generation.generationId())));
     }
 
@@ -147,7 +148,7 @@ class WorkerRecyclingTest {
                 () -> assertEquals(RecycleCause.IDLE, lower.recycleCause(), "the role lowers the bound"),
                 () -> assertEquals(1L, lower.idleWakeups()),
                 () -> assertEquals(2L, raised.idleWakeups(), "the role cannot raise the host's bound"),
-                () -> assertTrue(raised.recycleCause() == null));
+                () -> assertNull(raised.recycleCause()));
     }
 
     @Test
@@ -283,7 +284,7 @@ class WorkerRecyclingTest {
 
         assertAll(
                 () -> assertEquals(RecycleCause.IDLE, first.recycleCause()),
-                () -> assertTrue(second.recycleCause() == null, "a generation is recycled once"),
+                () -> assertNull(second.recycleCause(), "a generation is recycled once"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.WORKER_GENERATION_RECYCLED.resolveIdentifierString()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,

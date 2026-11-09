@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -105,7 +106,7 @@ class JobLogTest {
                             first.nextOffset(), "the offset follows the complete line"),
                     () -> assertEquals(List.of(secondLine, thirdLine), second.lines(),
                             "the second read joins the split line"),
-                    () -> assertTrue(second.report() == null, "a later read carries no report"),
+                    () -> assertNull(second.report(), "a later read carries no report"),
                     () -> assertEquals(Files.size(path), second.nextOffset(), "the second read reaches the end"),
                     () -> assertEquals(List.of(), third.lines(), "a read at the end answers no line"),
                     () -> assertEquals(second.nextOffset(), third.nextOffset(), "a read at the end keeps the offset"));
@@ -125,7 +126,7 @@ class JobLogTest {
                     () -> assertTrue(first.report() != null, "the first read strips the report"),
                     () -> assertEquals(List.of(), first.lines(), "the report is no line of the job"),
                     () -> assertEquals(List.of(report), second.lines(), "a later report-shaped line is kept"),
-                    () -> assertTrue(second.report() == null, "a later read strips no report"));
+                    () -> assertNull(second.report(), "a later read strips no report"));
         }
 
         @Test
@@ -143,7 +144,7 @@ class JobLogTest {
                     () -> assertEquals(List.of(), incomplete.lines(), "an incomplete line is not answered"),
                     () -> assertEquals(0, incomplete.nextOffset(), "an incomplete line keeps the offset"),
                     () -> assertEquals(List.of(start + end), complete.lines(), "the completed line is answered"),
-                    () -> assertTrue(complete.report() == null, "a first line that is no report is kept"));
+                    () -> assertNull(complete.report(), "a first line that is no report is kept"));
         }
 
         @Test

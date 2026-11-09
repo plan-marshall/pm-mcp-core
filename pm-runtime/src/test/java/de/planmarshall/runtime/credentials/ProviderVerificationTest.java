@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -145,7 +146,7 @@ class ProviderVerificationTest {
                         "expiry:github"), calls),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.PROVIDER_VERIFIED.resolveIdentifierString()),
-                () -> assertTrue(result.toRecord() == null));
+                () -> assertNull(result.toRecord()));
     }
 
     @Test

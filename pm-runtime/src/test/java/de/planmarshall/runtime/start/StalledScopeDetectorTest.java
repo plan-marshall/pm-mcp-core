@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -230,7 +231,7 @@ class StalledScopeDetectorTest {
                 LAST_PROGRESS.plusSeconds(overThreshold()));
 
         assertAll(
-                () -> assertTrue(activity.hold() == null, "a scope awaiting an event must not be held"),
+                () -> assertNull(activity.hold(), "a scope awaiting an event must not be held"),
                 () -> assertEquals(0, activity.needsOperator(), "a scope awaiting an event needs no operator"),
                 () -> assertEquals(List.of(), records, "no plan_stalled record must be appended"),
                 () -> assertEquals(List.of(), released, "no hold must be released"));
@@ -351,7 +352,7 @@ class StalledScopeDetectorTest {
         assertAll(
                 () -> assertEquals("plan.hold_released", StalledScopeDetector.HOLD_RELEASED,
                         "the report must be plan.hold_released"),
-                () -> assertTrue(cleared.hold() == null, "the hold must clear after the progress"),
+                () -> assertNull(cleared.hold(), "the hold must clear after the progress"),
                 () -> assertEquals(1, released.size(), "the cleared hold must be released once"),
                 () -> assertEquals(List.of("plan.hold_released"), reports, "the release must announce the report"),
                 () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince(),
@@ -575,7 +576,7 @@ class StalledScopeDetectorTest {
                 LAST_PROGRESS.plusSeconds(idle + span()));
 
         assertAll(
-                () -> assertTrue(activity.hold() == null, "a paused scope must not be held"),
+                () -> assertNull(activity.hold(), "a paused scope must not be held"),
                 () -> assertEquals(1, released.size(), "the open episode must be released"));
     }
 
@@ -637,7 +638,7 @@ class StalledScopeDetectorTest {
                 () -> assertThrows(NullPointerException.class,
                         () -> new StalledHold(AuditRecord.Scope.PLAN, PLAN_ID, STATE, Cause.NO_PROGRESS, null, idle),
                         "a hold without an idle start must be refused"),
-                () -> assertEquals(null, new Activity(null).hold(),
+                () -> assertNull(new Activity(null).hold(),
                         "an activity without a hold is null"));
     }
 

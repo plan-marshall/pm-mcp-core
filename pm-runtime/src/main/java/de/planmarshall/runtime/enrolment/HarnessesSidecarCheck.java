@@ -12,7 +12,6 @@ package de.planmarshall.runtime.enrolment;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.jspecify.annotations.Nullable;
 

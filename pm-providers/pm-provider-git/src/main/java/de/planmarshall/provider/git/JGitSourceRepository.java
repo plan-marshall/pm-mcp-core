@@ -111,7 +111,7 @@ public final class JGitSourceRepository implements SourceRepository {
         var result = git.readFile(new ReadFileInput(cache(cacheRoot, manifest), manifest.commit(), path));
         return result.isOk()
                 ? SourceFetch.fetched(Objects.requireNonNull(result.value()),
-                        "%s at %s".formatted(path, manifest.commit()))
+                "%s at %s".formatted(path, manifest.commit()))
                 : failed(result, manifest);
     }
 

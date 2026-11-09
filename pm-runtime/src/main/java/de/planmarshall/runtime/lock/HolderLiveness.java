@@ -10,7 +10,6 @@
 package de.planmarshall.runtime.lock;
 
 import java.time.Instant;
-import java.util.Optional;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 

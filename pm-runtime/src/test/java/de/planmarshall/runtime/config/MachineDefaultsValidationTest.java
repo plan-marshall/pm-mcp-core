@@ -12,13 +12,13 @@ package de.planmarshall.runtime.config;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -63,7 +63,7 @@ class MachineDefaultsValidationTest {
                 () -> assertEquals(NO_PROVIDER_KEY, without.messageKey(),
                         "the message key must name the missing provider"),
                 () -> assertTrue(with.valid(), "a pull request with a provider is valid"),
-                () -> assertTrue(with.reason() == null, "a valid landing carries no reason"));
+                () -> assertNull(with.reason(), "a valid landing carries no reason"));
     }
 
     @Test

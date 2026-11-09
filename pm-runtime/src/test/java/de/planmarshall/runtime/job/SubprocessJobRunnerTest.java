@@ -1860,7 +1860,7 @@ class SubprocessJobRunnerTest {
             var late = job.cancel(Termination.ENGINE_CANCEL);
 
             assertAll(
-                    () -> assertEquals(null, awaited.cause(), "nothing decided the end: the exit does"),
+                    () -> assertNull(awaited.cause(), "nothing decided the end: the exit does"),
                     () -> assertFalse(late, "the door is closed, the fate is no longer open to a cancel"));
         }
 
@@ -1911,7 +1911,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertTrue(awaited.interrupted(), "the interrupt of the wait is reported"),
-                    () -> assertEquals(null, awaited.cause(), "the exit ended the wait, no cause did"));
+                    () -> assertNull(awaited.cause(), "the exit ended the wait, no cause did"));
         }
 
         @Test
@@ -1928,7 +1928,7 @@ class SubprocessJobRunnerTest {
             var interruptStatus = Thread.interrupted();
 
             assertAll(
-                    () -> assertTrue(awaited.report() == null, "the interrupted wait ends without a report"),
+                    () -> assertNull(awaited.report(), "the interrupted wait ends without a report"),
                     () -> assertEquals(0L, awaited.observedLength(), "nothing of the empty log was observed"),
                     () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
         }

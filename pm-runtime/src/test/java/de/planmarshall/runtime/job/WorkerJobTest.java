@@ -29,13 +29,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.role.EffectiveRole;
@@ -189,7 +189,7 @@ class WorkerJobTest {
         var launch = new WorkerLaunch(generation, role, RoleClass.WRITER,
                 RoleForm.FRESH, List.of(script.toString(), mode), ENVIRONMENT, script
                         .getParent(), fixture.base.resolve("run/jobs").resolve(generation), script, prompt, null,
-                        null, token, JobTokens.sha256Hex(token), "claude", version(),
+                null, token, JobTokens.sha256Hex(token), "claude", version(),
                 Generators.letterStrings(1, 16).next(), null, null,
                 JsonDocument.parse(workerBlock().getBytes(StandardCharsets.UTF_8), "worker"));
         return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:" + role, budgetSeconds,

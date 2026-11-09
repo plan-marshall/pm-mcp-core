@@ -12,6 +12,7 @@ package de.planmarshall.runtime.enrolment;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -114,8 +114,8 @@ class HarnessesSidecarCheckTest {
         assertAll(
                 () -> assertTrue(result.passed()),
                 () -> assertEquals(Outcome.VERIFIED, result.outcome()),
-                () -> assertTrue(result.file() == null),
-                () -> assertTrue(result.reason() == null));
+                () -> assertNull(result.file()),
+                () -> assertNull(result.reason()));
     }
 
     @Test
@@ -134,7 +134,7 @@ class HarnessesSidecarCheckTest {
         assertAll(
                 () -> assertTrue(result.passed()),
                 () -> assertEquals(Outcome.NOTHING_TO_VERIFY, result.outcome()),
-                () -> assertTrue(result.file() == null));
+                () -> assertNull(result.file()));
     }
 
     @Test

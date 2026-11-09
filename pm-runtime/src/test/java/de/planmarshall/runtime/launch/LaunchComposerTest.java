@@ -129,8 +129,8 @@ class LaunchComposerTest {
         var role = LaunchFixtures.role(RoleClass.ZERO_TOOL, "fast", null, RoleForm.FRESH, skills, List.of(
                 LaunchFixtures.ROLE_SKILL));
         var launch = compose(role, true, false);
-        assertTrue(launch.mcpConfig() == null, "a zero-tool launch has no MCP config");
-        assertTrue(launch.mcpConfigFile() == null, "a zero-tool launch writes no MCP config file");
+        assertNull(launch.mcpConfig(), "a zero-tool launch has no MCP config");
+        assertNull(launch.mcpConfigFile(), "a zero-tool launch writes no MCP config file");
         assertFalse(launch.argv().contains("--mcp-config"), "the zero-tool vector names no MCP config");
         assertFalse(launch.argv().contains("--allowedTools"), "the zero-tool vector allows no tool");
         assertTrue(launch.argv().contains("--setting-sources"), "the zero-tool vector isolates the settings");

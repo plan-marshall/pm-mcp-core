@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -375,7 +376,7 @@ class SupervisorScenarioTest {
 
         assertAll(
                 () -> assertEquals(consulting.idleWakeups(), held.idleWakeups(), "a held task is not idle"),
-                () -> assertTrue(held.recycleCause() == null, "a consulting worker is never recycled as idle"),
+                () -> assertNull(held.recycleCause(), "a consulting worker is never recycled as idle"),
                 () -> assertEquals(parameters.idleWakeups(), recycled.idleWakeups(),
                         "the idle wake-up bound counts the answer"),
                 () -> assertEquals(RecycleCause.IDLE, recycled.recycleCause(),

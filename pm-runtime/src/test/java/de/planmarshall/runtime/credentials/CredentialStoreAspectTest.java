@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -156,7 +157,7 @@ class CredentialStoreAspectTest {
 
         assertAll(
                 () -> assertEquals(State.CHECK, yes.next()),
-                () -> assertTrue(yes.toRecord() == null),
+                () -> assertNull(yes.toRecord()),
                 () -> assertEquals(State.CHECK, remembered.next()),
                 () -> assertEquals(Consent.Channel.CLI, remembered.toRecord().channel()));
     }
@@ -171,7 +172,7 @@ class CredentialStoreAspectTest {
 
         assertAll(
                 () -> assertEquals(State.CHECK, transition.next()),
-                () -> assertTrue(transition.toRecord() == null));
+                () -> assertNull(transition.toRecord()));
     }
 
     @Test
@@ -285,8 +286,8 @@ class CredentialStoreAspectTest {
 
         assertAll(
                 () -> assertTrue(transition.usable()),
-                () -> assertTrue(transition.reason() == null),
-                () -> assertTrue(transition.toRecord() == null));
+                () -> assertNull(transition.reason()),
+                () -> assertNull(transition.toRecord()));
     }
 
     /** A secret store in memory, which a test can make fail. */

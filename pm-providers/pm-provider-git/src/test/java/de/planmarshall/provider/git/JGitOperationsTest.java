@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -299,7 +300,7 @@ class JGitOperationsTest {
                     () -> assertEquals(branch, list.getFirst().branch(), "the main entry has its branch"),
                     () -> assertEquals(detachedName, detachedEntry.name(),
                             "the linked worktrees are ordered by name"),
-                    () -> assertTrue(detachedEntry.branch() == null, "a detached worktree has no branch"),
+                    () -> assertNull(detachedEntry.branch(), "a detached worktree has no branch"),
                     () -> assertTrue(detachedEntry.head() != null, "a detached worktree has a HEAD"),
                     () -> assertEquals(newBranch, branchEntry.branch(),
                             "the branch worktree reports its branch"),

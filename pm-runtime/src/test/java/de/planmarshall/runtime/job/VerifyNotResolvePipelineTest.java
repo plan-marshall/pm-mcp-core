@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -345,7 +346,7 @@ class VerifyNotResolvePipelineTest {
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
                                     fixture.root.resolve(SCRIPT_PATH).toString()), job.argv(),
                             "the argv holds no script argument"),
-                    () -> assertEquals(null, job.templateSource(),
+                    () -> assertNull(job.templateSource(),
                             "a project script has no template source"));
         }
 
@@ -355,7 +356,7 @@ class VerifyNotResolvePipelineTest {
             var job = verifiedWithDefaults(new WrapperBuild(WrapperName.MVNW, "verify", null));
 
             assertAll(
-                    () -> assertEquals(null, job.projectScriptArguments(),
+                    () -> assertNull(job.projectScriptArguments(),
                             "a wrapper build carries no script arguments"),
                     () -> assertEquals(fixture.root.resolve(MVNW).toString(), job.argv().getFirst(),
                             "the argv starts with the wrapper"));
@@ -367,7 +368,7 @@ class VerifyNotResolvePipelineTest {
             var job = verified(fixture.gitStatus(fixture.root.toString()));
 
             assertAll(
-                    () -> assertEquals(null, job.projectScriptArguments(),
+                    () -> assertNull(job.projectScriptArguments(),
                             "a host tool call carries no script arguments"),
                     () -> assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), "status"),
                             job.argv(), "the argv is git and the status argument"));

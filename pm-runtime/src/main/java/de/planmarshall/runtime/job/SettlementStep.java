@@ -11,7 +11,6 @@ package de.planmarshall.runtime.job;
 
 import java.io.UncheckedIOException;
 import java.util.Objects;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.LockManager;

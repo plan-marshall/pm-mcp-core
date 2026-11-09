@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -242,7 +243,7 @@ class ArgumentCheckTest {
 
             assertAll(
                     () -> assertEquals(expected, arguments.arguments(), "the ordinary arguments pass in their order"),
-                    () -> assertEquals(null, arguments.source(),
+                    () -> assertNull(arguments.source(),
                             "a host tool call has no template source"));
         }
 
@@ -511,7 +512,7 @@ class ArgumentCheckTest {
 
             assertAll(
                     () -> assertEquals(List.of(), arguments.arguments(), "script arguments add nothing to the argv"),
-                    () -> assertEquals(null, arguments.source(),
+                    () -> assertNull(arguments.source(),
                             "a project script has no template source"));
         }
 

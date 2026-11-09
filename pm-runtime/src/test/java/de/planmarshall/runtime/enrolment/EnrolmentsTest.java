@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -801,7 +800,7 @@ class EnrolmentsTest {
             var outcome = enrolments.rebaseline(PROJECT);
 
             assertAll(
-                    () -> assertTrue(outcome.recorded() == null),
+                    () -> assertNull(outcome.recorded()),
                     () -> assertFalse(verify().pilot()));
         }
 

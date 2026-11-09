@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +34,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -277,7 +277,7 @@ class StaleLeaseSweepTest {
                             result.decisions(), "the abandoned lease is removed"),
                     () -> assertEquals("abandoned", result.decisions().getFirst().rule().code(),
                             "the rule code names the abandonment"),
-                    () -> assertEquals(null, result.emptyPopulation(),
+                    () -> assertNull(result.emptyPopulation(),
                             "a removal is no empty population"),
                     () -> assertEquals(List.of(), leaseStore.snapshot(), "the store holds no lease any more"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, StaleLeaseSweep.class),
@@ -360,7 +360,7 @@ class StaleLeaseSweepTest {
                     () -> assertEquals(1, result.count(Action.KEPT), "exactly one lease is kept"),
                     () -> assertEquals(1, result.count(Action.ORPHANED), "one lease is orphaned"),
                     () -> assertEquals(1, result.count(Action.REMOVED), "one lease is removed"),
-                    () -> assertEquals(null, result.emptyPopulation(),
+                    () -> assertNull(result.emptyPopulation(),
                             "a mixed store is no empty population"),
                     () -> assertEquals(List.of(live, orphaned), leaseStore.snapshot(),
                             "the kept and the orphaned lease remain"),
@@ -404,7 +404,7 @@ class StaleLeaseSweepTest {
                             "an empty store is reported nothing listed"),
                     () -> assertEquals("nothing_listed", result.emptyPopulation().code(),
                             "the population code is nothing_listed"),
-                    () -> assertEquals(null, result.refusal(), "an empty store is not refused"),
+                    () -> assertNull(result.refusal(), "an empty store is not refused"),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"));
         }
 
@@ -502,7 +502,7 @@ class StaleLeaseSweepTest {
                     () -> assertEquals(List.of(Action.REMOVED),
                             result.decisions().stream().map(Decision::action).toList(),
                             "only the project's lease is removed"),
-                    () -> assertEquals(null, result.emptyPopulation(),
+                    () -> assertNull(result.emptyPopulation(),
                             "a removal is no empty population"),
                     () -> assertEquals(List.of(ownKey), asked.stream().map(LeaseRecord::key).toList(),
                             "the evidence is asked for the selected project only"),

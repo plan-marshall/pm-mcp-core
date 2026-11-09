@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;

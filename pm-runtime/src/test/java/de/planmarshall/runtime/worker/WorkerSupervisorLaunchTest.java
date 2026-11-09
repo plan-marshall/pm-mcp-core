@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -117,7 +118,7 @@ class WorkerSupervisorLaunchTest {
                 () -> assertEquals(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT,
                         start.budgetDerivation().kind()),
                 () -> assertEquals(block.writablePaths(base.resolve("home")), start.writablePaths()),
-                () -> assertTrue(start.egressProxy() == null));
+                () -> assertNull(start.egressProxy()));
     }
 
     @Test
