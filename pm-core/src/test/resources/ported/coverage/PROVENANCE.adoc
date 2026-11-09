@@ -1,0 +1,64 @@
+= Fixture provenance of the native coverage report parsers
+
+Records where the plain-file fixtures below this directory come from, as the Store Schemas specification requires of a
+ported primitive (_Ported-Primitive Tests_, `PM-TEST-2`).
+
+== The original
+
+The original is `plan-marshall`'s format-agnostic coverage parser and its pytest suite, read by hand in the sibling
+checkout `../plan-marshall` at
+
+----
+commit 9cd644892
+----
+
+(the head of the sibling checkout at the time the fixtures were derived). The paths, below the checkout's root:
+
+[cols="2,3",options="header"]
+|===
+|Original |What it supplies
+
+|`marketplace/bundles/plan-marshall/skills/script-shared/scripts/build/_coverage_parse.py`
+|The four adapters (`_parse_jacoco`, `_parse_cobertura`, `_parse_lcov`, `_parse_jest_json`), the percentage arithmetic and
+the threshold and low-coverage rules.
+
+|`marketplace/bundles/plan-marshall/skills/script-shared/scripts/build/_build_coverage_report.py`
+|The default threshold of 80 and the refusal of a report that cannot be read.
+
+|`test/plan-marshall/extension-api/test_coverage_parse.py`
+|The pytest cases and their expected values.
+
+|`test/plan-marshall/extension-api/fixtures/coverage/`
+|The report files `jacoco-high.xml`, `jacoco-low.xml`, `cobertura-high.xml`, `cobertura-low.xml`, `jest-high.json`,
+`jest-low.json` and `sample.lcov`, copied byte for byte.
+|===
+
+== What a copied report file is
+
+A file copied from the original's own fixture directory is test data, never an oracle: no test runs Python, starts a
+`plan-marshall` script, reads the sibling checkout or compares a Java result with a Python result, live or recorded. The
+expected values are read out of the report by hand and written as literals in the Java tests, the way the pytest suite
+derives them (`test_coverage_parse.py`).
+
+== The deliberate fixtures
+
+The files headed `deliberate-` are not the original's; they assert a behaviour the port decides on top of it, recorded in
+`pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc`:
+
+[cols="2,3",options="header"]
+|===
+|Fixture |Behaviour it asserts
+
+|`deliberate-branch-below-line-above.xml`, `deliberate-branch-above-line-below.xml`
+|The threshold verdict and the low-coverage list compare the line percentage only: a branch percentage below the
+threshold neither fails a report whose line is above it nor rescues one whose line is below it.
+
+|`deliberate-jacoco-init-excluded.xml`
+|The constructors `<init>` and `<clinit>` are never part of `missed_methods`.
+
+|`deliberate-jacoco-external-entity.xml`, `deliberate-cobertura-external-entity.xml`
+|A report that references an external entity is refused, never expanded; a `DOCTYPE` declaration alone is tolerated.
+
+|`deliberate-jacoco-truncated.xml`, `deliberate-lcov-truncated.info`, `deliberate-istanbul-malformed.json`
+|An unreadable or truncated report is a refusal naming the format, never a report of zeros.
+|===

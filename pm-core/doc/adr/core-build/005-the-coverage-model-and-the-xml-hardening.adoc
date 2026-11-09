@@ -1,0 +1,87 @@
+= ADR 005: The Coverage Model and the XML Hardening
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-09
+
+== Context
+
+The four coverage report parsers are a port of `plan-marshall`'s format-agnostic
+`script-shared/scripts/build/_coverage_parse.py`, which returns one dictionary whose `status` is `success` or `error`
+and whose `error` field names the reason. A Java port cannot carry that shape without letting a caller read a refused
+report as a report whose figures happen to be zero: the dictionary's other keys are simply absent, and a consumer that
+formats `overall.line` writes `0 %` for a file that was never read.
+
+Two further decisions are forced by the specification and the formats:
+
+* The threshold verdict (`passed`) and the low-coverage list compare the **line** percentage only; every other metric is
+  parsed and rendered and never feeds a threshold. That rule has to be enforced by the model, not re-stated by every
+  consumer.
+* The XML reports are read as untrusted input, and JaCoCo writes a `DOCTYPE` with a system identifier. A reader that
+  rejects every DTD therefore cannot read a real `jacoco.xml`, while a reader that follows the declaration can be made
+  to fetch an external entity.
+
+== Decision
+
+1. **A parse result is two types.** `CoverageParseResult` is a sealed interface of `Parsed(CoverageReport)` and
+   `Refused(CoverageFormat, String reason)`. A refused report carries no percentages at all, so it cannot be read as
+   `0 %`; the reason names the format and what was wrong.
+2. **The model separates what the formats give from what they do not.** `CoverageMetrics` carries `instruction`,
+   `branch`, `line`, `function` and `statement`; only `line` is always present, and every absent metric is `null`, so a
+   format without a statement counter is distinguishable from a measured zero. `CoverageItem` carries the item's line and
+   branch percentages (the branch `null` where the format gives none) and the `missedMethods` detail.
+3. **The verdict is decided once, on the line.** `CoverageReport.evaluate(int threshold)` compares the overall line
+   percentage (`>=` passes) and chooses the low-coverage items by their line percentage. No other metric is consulted.
+4. **The XML readers share one hardened factory.** `CoverageXmlReader` keeps DTD support on (so the declaration parses),
+   turns external entities off, keeps entity references from being replaced, and the parsers refuse an
+   `ENTITY_REFERENCE` event. A document that declares and uses an external entity is refused, never expanded; a
+   `DOCTYPE` declaration alone is tolerated without resolution.
+5. **A file that cannot be read is a refusal.** Every parser offers `parse(String)` and `parse(Path)`; the path overload
+   turns an unreadable file into a `Refused` naming the format. A truncated XML document, an LCOV record that is not
+   terminated (or carries no `LF`/`LH` counter), and a malformed or incomplete Istanbul document are refused the same
+   way.
+6. **The Istanbul summary is streamed with Jackson.** The document is read field by field rather than bound to a tree or
+   a map, so `jackson-core` — already a dependency of `pm-core` — is the only JSON dependency and no new artifact is
+   added.
+
+== Alternatives Considered
+
+1. *One result type with a status field, as the original returns it.* Not taken: a refused report would still expose
+   `overall` and `items` (empty or null), and a consumer that ignores the status writes `0 %` for a file that was never
+   read. The two states as two types make that mistake unrepresentable.
+2. *Throw an exception for a refused report.* Not taken: the project forbids throwing generic exceptions, a checked
+   exception forces every consumer into a `try`/`catch` for an expected outcome, and the outcome is a value the caller
+   has to handle anyway.
+3. *Set `SUPPORT_DTD` to false.* Not taken: the JDK StAX reader then refuses the `DOCTYPE` that a real `jacoco.xml`
+   always carries, so the parser could not read its own format. Tolerating the declaration while refusing its
+   resolution is the only setting that reads the real reports and expands nothing.
+4. *Default an absent metric to `0.0`.* Not taken: it makes “the format does not give this metric” and “the metric is
+   zero” the same value, which is the defect the build parsers' `TestCounts.Unmeasured` state already avoids.
+5. *Bind the JSON to a tree with `ObjectMapper`.* Not taken: `pm-core` has `jackson-core` and the package's other
+   structured reads are streaming; a tree would add `jackson-databind` as a dependency for one document.
+6. *Let the parsers re-state the line-only threshold rule.* Not taken: the rule lives once in `CoverageReport.evaluate`,
+   and the two boundary fixtures (`deliberate-branch-below-line-above.xml`,
+   `deliberate-branch-above-line-below.xml`) pin it from both sides.
+
+== Consequences
+
+A consumer of a coverage report handles two states and cannot read a refusal as a figure. A caller that only needs the
+percentages must decide what a refusal means for its job — the gate renders it as a failure, never as coverage of zero.
+The model carries every metric a format gives, so a later consumer of a metric other than the line reads it without a
+parser change, and changing the threshold rule means changing one method and its two boundary fixtures.
+
+The hardening makes one document class unreadable that a non-validating parser would accept: a report whose content
+depends on an external entity is refused. No build tool in scope writes such a report, and the refusal is the intended
+fail-closed direction.
+
+== Source
+
+Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-18-coverage-report-parsers`; specification
+`doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Coverage Report Parsers; the original
+`marketplace/bundles/plan-marshall/skills/script-shared/scripts/build/_coverage_parse.py` at plan-marshall commit
+`9cd644892`; requirements `PM-EXEC-6` and `PM-TEST-2`.
