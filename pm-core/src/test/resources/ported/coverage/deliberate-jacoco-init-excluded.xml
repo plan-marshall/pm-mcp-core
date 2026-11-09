@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<report name="constructors">
+  <package name="com/example">
+    <class name="com/example/WithConstructors" sourcefilename="WithConstructors.java">
+      <method name="&lt;init&gt;" desc="()V" line="5">
+        <counter type="METHOD" missed="1" covered="0"/>
+      </method>
+      <method name="&lt;clinit&gt;" desc="()V" line="8">
+        <counter type="METHOD" missed="1" covered="0"/>
+      </method>
+      <method name="run" desc="()V" line="10">
+        <counter type="METHOD" missed="1" covered="0"/>
+      </method>
+      <method name="ok" desc="()V" line="20">
+        <counter type="METHOD" missed="0" covered="1"/>
+      </method>
+      <counter type="LINE" missed="1" covered="1"/>
+    </class>
+  </package>
+  <counter type="LINE" missed="1" covered="1"/>
+  <counter type="METHOD" missed="2" covered="2"/>
+</report>
