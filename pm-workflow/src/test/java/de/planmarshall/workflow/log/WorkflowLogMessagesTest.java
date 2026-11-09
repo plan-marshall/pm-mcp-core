@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
@@ -100,7 +99,7 @@ class WorkflowLogMessagesTest {
 
     @Test
     @DisplayName("the committed listing is the holder's current generation")
-    void generatedListingIsCurrent() throws IOException {
+    void generatedListingIsCurrent() throws Exception {
         var expected = LogMessageListing.render(WorkflowLogMessages.class).getBytes(UTF_8);
         if (Boolean.getBoolean(REGENERATE)) {
             Files.write(GENERATED, expected);

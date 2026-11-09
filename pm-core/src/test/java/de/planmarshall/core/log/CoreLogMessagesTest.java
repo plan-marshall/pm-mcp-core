@@ -134,7 +134,7 @@ class CoreLogMessagesTest {
 
     @Test
     @DisplayName("the committed listing is the holder's current generation")
-    void generatedListingIsCurrent() throws IOException {
+    void generatedListingIsCurrent() throws Exception {
         var expected = LogMessageListing.render(CoreLogMessages.class).getBytes(UTF_8);
         if (Boolean.getBoolean(REGENERATE)) {
             Files.write(GENERATED, expected);
