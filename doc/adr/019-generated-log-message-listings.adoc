@@ -1,0 +1,64 @@
+= ADR 019: The Log Message Listings Are Generated from the Holders
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-09
+
+== Context
+
+`doc/LogMessages.adoc` stated the identifier, component, template and description of every record of the three log
+message holders by hand, and `RuntimeLogMessagesTest` compared its rows with `RuntimeLogMessages` by reading the document
+at run time. A record added to a holder without its row, or a row whose template drifted, failed that test; the `pm-core`
+and `pm-workflow` tables had no such check. The documentation was therefore a second source of the identifiers and
+templates, and the two could disagree silently for two of the three holders.
+
+The work package `generated-listings` turns the direction: the holder is the source, and the document includes a listing
+generated from it. The location and the name of the generated files were left to the outline.
+
+== Decision
+
+The listings are committed as `doc/log-messages/pm-core.adoc`, `doc/log-messages/pm-runtime.adoc` and
+`doc/log-messages/pm-workflow.adoc`, one file per holder, so one glob (`doc/log-messages/*.adoc`) names every generated
+document a test reads. Each file is AsciiDoc: a generated-notice comment, then one section per level with a two-column
+table of the identifier and the template, sorted by identifier.
+
+`de.planmarshall.core.log.LogMessageListing` renders a listing from a holder class by reflection and exposes the byte
+comparison the checks use. `doc/LogMessages.adoc` includes one file per holder and keeps only the holder name, the link
+to the holder's Javadoc (which carries the purpose and the component of every record) and the rules of the layout.
+
+Each module's holder test compares its committed file with a fresh rendering byte for byte and parses neither: the
+positive control is the committed file, the negative control a rendering with one identifier changed.
+
+== Alternatives Considered
+
+1. *Keep the hand-written tables and the parity test.* Rejected: it makes the document a second source of the identifiers
+   and templates, and it leaves the `pm-core` and `pm-workflow` tables unchecked.
+2. *One generated file per level.* Rejected: it multiplies the files a test reads and a glob has to name without
+   separating anything the level sections do not already separate.
+3. *Generate the files at build time instead of committing them.* Rejected: the document is read without a build (the
+   web view of a single repository), and a committed file plus a byte check makes drift visible as a red test.
+4. *Generate the tables into `doc/LogMessages.adoc` itself.* Rejected: a generated document cannot also carry the
+   prose rules a reader needs, and rewriting the whole document per generation hides the prose from review.
+
+== Consequences
+
+A new or changed record is documented by changing the holder: the Javadoc carries its purpose and component, and the
+listing is regenerated from the holder, so the test fails until the committed file is refreshed. The document no longer
+states the component or the description; both live in the Javadoc, which the document links per holder.
+
+A test still reads a file below a `doc/` tree — only the three generated listings, which one glob names. The docs-only
+build skip of ADR link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] keeps those files buildable until
+the follow-up narrows the include list to them.
+
+== Source
+
+The work package `doc/plans/generated-listings.adoc` and its staged plan
+`.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-121-generated-listings.md`; ADR
+link:005-one-log-message-holder-per-module.adoc[005] (one log message holder per module); ADR
+link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009] and ADR
+link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] (why a test may read a `doc/` file).

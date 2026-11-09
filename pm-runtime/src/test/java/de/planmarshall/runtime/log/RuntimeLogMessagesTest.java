@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.log;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.tools.logging.LogRecord;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
@@ -36,20 +38,24 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.log.CoreLogMessages;
+import de.planmarshall.core.log.LogMessageListing;
 
 /**
  * The holder numbers every message of {@code pm-runtime} once (PM-IMPL-1): two messages with one identifier cannot be
  * told apart in a log, and an identifier outside the range of its level reads as another level.
  * <p>
- * The identifiers, level ranges, templates and the table form of {@code doc/LogMessages.adoc} are the specified
- * catalogue and stay literal; the lock paths and the filler of the fixture table rows are generated.
+ * The identifiers, level ranges, templates and the generated listing are the specified catalogue and stay literal; the
+ * lock paths and the filler of the fixture rows are generated.
  */
 @EnableGeneratorController
 @DisplayName("RuntimeLogMessages")
 class RuntimeLogMessagesTest {
 
-    /** The documentation of every log message of the repository, from the module directory the tests run in. */
-    private static final Path LOG_MESSAGES = Path.of("..", "doc", "LogMessages.adoc");
+    /** The generated listing of this holder, from the module directory the tests run in. */
+    private static final Path GENERATED = Path.of("..", "doc", "log-messages", "pm-runtime.adoc");
+
+    /** Setting this system property regenerates the committed listing instead of only comparing it. */
+    private static final String REGENERATE = "planmarshall.log-messages.regenerate";
 
     /** Contract literals: the level holders of the catalogue. */
     private static final List<String> LEVELS = List.of("INFO", "WARN", "ERROR");
@@ -288,47 +294,27 @@ class RuntimeLogMessagesTest {
     }
 
     @Test
-    @DisplayName("every record of the three holders is documented in doc/LogMessages.adoc by identifier and template")
-    void everyRecordDocumented() throws Exception {
-        var all = allRecords();
-        var rows = Files.readAllLines(LOG_MESSAGES);
+    @DisplayName("the committed listing is the holder's current generation")
+    void generatedListingIsCurrent() throws IOException {
+        var expected = LogMessageListing.render(RuntimeLogMessages.class).getBytes(UTF_8);
+        if (Boolean.getBoolean(REGENERATE)) {
+            Files.write(GENERATED, expected);
+        }
+        var actual = Files.readAllBytes(GENERATED);
 
-        assertEquals(List.of(), undocumented(rows, all), "every record must have its row in the table");
+        assertTrue(LogMessageListing.same(expected, actual), "the committed listing matches the holder");
     }
 
     @Test
-    @DisplayName("the documentation check names a record without a row and a record whose template differs")
-    void undocumentedRecordsAreFound() {
-        // The identifiers and templates are the catalogue's; the components, notes and the wrong template are filler
-        var component = lower();
-        var rows = List.of(
-                "|PM_RUNTIME-30 |" + component + " |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |"
-                        + lower(),
-                "|PM_RUNTIME-31 |" + component + " |Job '%s' " + lower() + " " + lower() + " |" + lower(),
-                "|PM_RUNTIME-310 |" + lower() + " |Job '%s' settled with fate '%s' (outcome row %s) |" + lower());
-        var records = List.of(RuntimeLogMessages.INFO.JOB_STARTED, RuntimeLogMessages.INFO.JOB_SETTLED,
-                RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED);
+    @DisplayName("the byte check names a listing with one identifier changed")
+    void byteCheckNamesAChangedListing() {
+        var expected = LogMessageListing.render(RuntimeLogMessages.class);
+        var tampered = expected.replace("PM_RUNTIME-1 |", "PM_RUNTIME-99 |");
 
-        assertEquals(List.of("PM_RUNTIME-31", "PM_RUNTIME-132"), undocumented(rows, records),
-                "the check must name the wrong and the missing row");
-    }
-
-    /**
-     * The identifiers of the records that have no row in the table, or whose row does not carry their template. The
-     * component column is not compared, because it differs from record to record; the template is compared literally,
-     * with the table's escape for a pipe character.
-     */
-    private static List<String> undocumented(List<String> rows, List<LogRecord> records) {
-        var missing = new ArrayList<String>();
-        for (LogRecord logRecord : records) {
-            var identifier = logRecord.resolveIdentifierString();
-            var cell = " |" + logRecord.getTemplate().replace("|", "\\|") + " |";
-            var row = rows.stream().filter(line -> line.startsWith("|" + identifier + " |")).findFirst();
-            if (row.isEmpty() || !row.get().contains(cell)) {
-                missing.add(identifier);
-            }
-        }
-        return missing;
+        assertAll(
+                () -> assertNotEquals(expected, tampered, "the control changes one identifier"),
+                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), tampered.getBytes(UTF_8)),
+                        "a changed identifier is a mismatch"));
     }
 
     @Nested
