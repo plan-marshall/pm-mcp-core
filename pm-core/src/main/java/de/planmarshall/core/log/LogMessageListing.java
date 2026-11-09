@@ -71,9 +71,9 @@ public class LogMessageListing {
         table.append(TABLE_HEADER).append('\n');
         table.append("|===\n");
         table.append("|ID |Message\n");
-        for (LogRecord record : records(holder, level)) {
-            table.append('|').append(record.resolveIdentifierString()).append(" |")
-                    .append(record.getTemplate().replace("|", "\\|")).append('\n');
+        for (LogRecord logRecord : records(holder, level)) {
+            table.append('|').append(logRecord.resolveIdentifierString()).append(" |")
+                    .append(logRecord.getTemplate().replace("|", "\\|")).append('\n');
         }
         table.append("|===");
         return "=== " + level + " Level (" + range(level) + ")\n\n" + table;
