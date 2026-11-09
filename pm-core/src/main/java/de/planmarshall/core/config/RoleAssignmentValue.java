@@ -10,7 +10,6 @@
 package de.planmarshall.core.config;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -26,12 +25,12 @@ import de.planmarshall.core.role.RoleAssignment;
  * @param harness    the client id of an enrolled, worker-eligible harness
  * @param model      the model, allowed on that harness by the effective catalogue
  * @param effort     what the level names of the effort
- * @param effortValue the effort value, present exactly for {@link EffortSetting#VALUE}
- * @param escalation  the optional stronger configuration of the role
+ * @param effortValue the effort value, non-{@code null} exactly for {@link EffortSetting#VALUE}
+ * @param escalation  the optional stronger configuration of the role; {@code null} when none is named
  * @since 0.1
  */
 public record RoleAssignmentValue(String harness, String model, EffortSetting effort,
-Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
+@Nullable EffortValue effortValue, @Nullable Escalation escalation) {
 
     private static final Pattern HARNESS_ID = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
@@ -43,15 +42,13 @@ Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
         Objects.requireNonNull(harness, "harness");
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(effort, "effort");
-        Objects.requireNonNull(effortValue, "effortValue");
-        Objects.requireNonNull(escalation, "escalation");
         if (!HARNESS_ID.matcher(harness).matches()) {
             throw new IllegalArgumentException("Not a client id of a role assignment: " + harness);
         }
         if (model.isEmpty() || model.length() > 128) {
             throw new IllegalArgumentException("A role assignment names a model of 1 to 128 characters: " + model);
         }
-        if ((effort == EffortSetting.VALUE) != effortValue.isPresent()) {
+        if ((effort == EffortSetting.VALUE) != (effortValue != null)) {
             throw new IllegalArgumentException(
                     "The effort setting '%s' and its value do not belong together: %s".formatted(effort, effortValue));
         }
@@ -64,9 +61,9 @@ Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
      * @return the assignment the onboarding writes
      */
     public static RoleAssignmentValue of(String harness, String model, @Nullable String effort) {
-        var value = effort == null ? Optional.<EffortValue>empty() : Optional.of(new EffortValue(effort));
+        var value = effort == null ? null : new EffortValue(effort);
         return new RoleAssignmentValue(harness, model, effort == null ? EffortSetting.DEFAULT : EffortSetting.VALUE,
-                value, Optional.empty());
+                value, null);
     }
 
     /**
@@ -75,14 +72,14 @@ Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
      * @return the assignment that keeps the effort of the lower level
      */
     public static RoleAssignmentValue inheritEffort(String harness, String model) {
-        return new RoleAssignmentValue(harness, model, EffortSetting.INHERIT, Optional.empty(), Optional.empty());
+        return new RoleAssignmentValue(harness, model, EffortSetting.INHERIT, null, null);
     }
 
     /**
      * @return the value as the role package reads an assignment
      */
     public RoleAssignment assignment() {
-        return new RoleAssignment(Optional.of(harness), Optional.of(model), effortValue);
+        return new RoleAssignment(harness, model, effortValue);
     }
 
     /**
@@ -90,6 +87,6 @@ Optional<EffortValue> effortValue, Optional<Escalation> escalation) {
      * @return this assignment with the escalation
      */
     public RoleAssignmentValue withEscalation(Escalation escalation) {
-        return new RoleAssignmentValue(harness, model, effort, effortValue, Optional.of(escalation));
+        return new RoleAssignmentValue(harness, model, effort, effortValue, escalation);
     }
 }

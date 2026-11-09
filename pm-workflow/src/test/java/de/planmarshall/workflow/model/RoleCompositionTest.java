@@ -153,7 +153,7 @@ class RoleCompositionTest {
     void invalidRoleCarriesItsReason() {
         var detail = Generators.letterStrings(10, 40).next();
         RoleResolver resolver = name -> new RoleResolution.Undefined(name,
-                Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), detail);
+                RoleValidationReason.MODEL_NOT_ALLOWED, detail);
         var composition = new RoleComposition(resolver);
 
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "task", "implement"));
@@ -232,7 +232,7 @@ class RoleCompositionTest {
     private static RoleComposition composition(Map<String, EffectiveRole> roles) {
         RoleResolver resolver = name -> roles.containsKey(name)
                 ? new RoleResolution.Defined(roles.get(name))
-                : new RoleResolution.Undefined(name, Optional.empty(), Generators.letterStrings(5, 30).next());
+                : new RoleResolution.Undefined(name, null, Generators.letterStrings(5, 30).next());
         return new RoleComposition(resolver);
     }
 

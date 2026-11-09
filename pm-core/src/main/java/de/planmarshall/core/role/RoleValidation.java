@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EnrolledHarness;
 
@@ -77,24 +77,29 @@ public final class RoleValidation {
     /**
      * @param artifact    the validated artifact
      * @param values      the effective harness, model and effort
-     * @param profile     the facts of the harness's profile, or empty when no profile has the harness
-     * @param enrolled    the enrolled build of the harness, or empty when it is not enrolled
-     * @param catalogue   the effective model catalogue
+     * @param profile     the facts of the harness's profile, or {@code null} when no profile has the harness
+     * @param enrolled    the enrolled build of the harness, or {@code null} when it is not enrolled
+     * @param catalogue   the effective model catalogue, or {@code null} when none exists
      * @param environment the port that resolves the project's skills
      * @param steward     whether the role is the steward, for which {@code model_not_allowed} never applies
      * @return the resolved skills of the role
      * @throws RoleRefusal with the reason of the failing row of the table
      */
-    public static List<RoleSkill> check(RoleArtifact artifact, Values values, Optional<HarnessProfile> profile,
-            Optional<EnrolledHarness> enrolled, Optional<ModelCatalogue> catalogue, RoleEnvironment environment,
+    public static List<RoleSkill> check(RoleArtifact artifact, Values values, @Nullable HarnessProfile profile,
+            @Nullable EnrolledHarness enrolled, @Nullable ModelCatalogue catalogue, RoleEnvironment environment,
             boolean steward) {
         var harness = values.harness();
         var model = values.model();
         var effort = values.effort();
-        var facts = profile.orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
-                "no client profile has the client id '%s'".formatted(harness)));
-        enrolled.orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
-                "the harness '%s' is not enrolled".formatted(harness)));
+        if (profile == null) {
+            throw invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
+                    "no client profile has the client id '%s'".formatted(harness));
+        }
+        var facts = profile;
+        if (enrolled == null) {
+            throw invalid(RoleValidationReason.HARNESS_UNKNOWN, artifact,
+                    "the harness '%s' is not enrolled".formatted(harness));
+        }
         if (!facts.eligible()) {
             throw invalid(RoleValidationReason.HARNESS_NOT_ELIGIBLE, artifact,
                     "the profile of '%s' is not worker-eligible".formatted(harness));
@@ -113,9 +118,11 @@ public final class RoleValidation {
                             .formatted(harness, effort.value() == null ? "null" : effort.value(), model));
         }
         if (!steward) {
-            var allowed = catalogue.orElseThrow(() -> invalid(RoleValidationReason.MODEL_NOT_ALLOWED, artifact,
-                    "no effective model catalogue exists"));
-            requireModelAllowed(allowed, artifact, harness, model);
+            if (catalogue == null) {
+                throw invalid(RoleValidationReason.MODEL_NOT_ALLOWED, artifact,
+                        "no effective model catalogue exists");
+            }
+            requireModelAllowed(catalogue, artifact, harness, model);
         }
         tools(artifact, facts);
         if (artifact.zeroTool() && artifact.form() == RoleForm.WARM) {
@@ -173,7 +180,7 @@ public final class RoleValidation {
                         "the role omits the PM-MCP tool '%s'".formatted(required));
             }
         }
-        var askUser = profile.askUserTool() == null ? "" : profile.askUserTool();
+        var askUser = profile.askUserTool();
         for (var tool : tools) {
             requirePermitted(artifact, tool, allowed, askUser);
         }

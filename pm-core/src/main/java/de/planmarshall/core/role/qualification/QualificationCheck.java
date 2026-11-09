@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.corpus.ImportedItem;
@@ -120,7 +121,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
         if (warmReasons.isEmpty()) {
             return Verdict.qualified(RoleForm.WARM);
         }
-        return new Verdict(Optional.of(RoleForm.FRESH), List.copyOf(warmReasons));
+        return new Verdict(RoleForm.FRESH, List.copyOf(warmReasons));
     }
 
     /**
@@ -216,17 +217,16 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
     /**
      * What a check found (Model Work § Qualification Records).
      *
-     * @param qualifiedForm the form the record qualifies; empty when it qualifies none
+     * @param qualifiedForm the form the record qualifies; {@code null} when it qualifies none
      * @param reasons       why the record qualifies no form; empty when it qualifies one
      * @since 0.1
      */
-    public record Verdict(Optional<RoleForm> qualifiedForm, List<Reason> reasons) {
+    public record Verdict(@Nullable RoleForm qualifiedForm, List<Reason> reasons) {
 
         /**
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if {@code reasons} is {@code null}
          */
         public Verdict {
-            Objects.requireNonNull(qualifiedForm, "qualifiedForm");
             reasons = List.copyOf(Objects.requireNonNull(reasons, "reasons"));
         }
 
@@ -235,7 +235,7 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
          * @return a verdict that the record qualifies the form
          */
         static Verdict qualified(RoleForm form) {
-            return new Verdict(Optional.of(form), List.of());
+            return new Verdict(form, List.of());
         }
 
         /**
@@ -243,12 +243,12 @@ public record QualificationCheck(RoleTopics topics, List<ImportedItem> items, Qu
          * @return a verdict that the record qualifies no form
          */
         static Verdict refused(List<Reason> reasons) {
-            return new Verdict(Optional.empty(), reasons);
+            return new Verdict(null, reasons);
         }
 
         /** @return {@code true} if the record qualifies a form */
         public boolean qualified() {
-            return qualifiedForm.isPresent();
+            return qualifiedForm != null;
         }
     }
 

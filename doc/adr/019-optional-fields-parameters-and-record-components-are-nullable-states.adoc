@@ -1,0 +1,66 @@
+= ADR 019: `Optional` Fields, Parameters and Record Components Are Nullable States
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-09
+
+== Context
+
+The null contract of the `@NullMarked` packages (ADR 013) keeps `Optional<T>` for the absence a method returns and models
+an absent state of a field, a parameter or a record component as `@Nullable`. The conformance audit of 2026-10-30 still
+counted ten `Optional` fields and 74 parameters and record components in `pm-core` (`skills-audit-2026-10-30.md` § 2.8),
+because the earlier migration of the null contract changed signatures without removing the wrappers. The operator
+decided on 2026-10-30 (decision 7) to convert all of them.
+
+Two shapes the conversion meets are not a field, a parameter or a record component: a container that holds an `Optional`
+element (`Map<K, Optional<V>>`, `List<Optional<V>>`, `Map.Entry<K, Optional<V>>`) and an `Optional`-typed value such as
+`OptionalInt`. The conversion of `pm-workflow` (PLAN-V2-98) left the container question open, so this plan had to decide
+it for `pm-core`.
+
+== Decision
+
+Every field, parameter and record component of type `Optional<T>` in `pm-core` becomes `@Nullable T`. A record's accessor
+is the generated one and returns the nullable value; a non-record accessor that returned the field returns
+`Optional.ofNullable(field)`, so an absence a method returns stays an `Optional`. A constructor or compact canonical
+constructor accepts `null` for exactly the `@Nullable` components. `Optional` stays the type of an absence a method
+returns and of a closed-list lookup (`Optional.of` / `Optional.empty`).
+
+A container that holds an `Optional` element stays as it is: `Map<K, Optional<V>>` and `List<Optional<V>>` are
+containers, not parameters, fields or components of type `Optional`, and mapping their elements to `null` would put a
+null value into a map that refuses it (`Map.of`, `Map.entry`) and lose the distinction between an absent value and no
+key. The `Document` of the corpus validator, which carried `Optional<T> decoded`, is the exception: its component is a
+single decoded document that may be absent, so it becomes `@Nullable T`.
+
+The codecs map `null` to the absent member exactly as they mapped `Optional.empty()`: no format version changes and no
+stored byte changes (R13).
+
+== Alternatives Considered
+
+1. **Keep `Optional` in containers and fields**: *Rejected*: it leaves the wrapper the operator decided to remove and
+   keeps a second absence vocabulary beside `@Nullable`.
+2. **Map a container's `Optional` elements to `null`**: *Rejected*: `Map.of` and `Map.entry` refuse a null value, and a
+   null element loses the difference between an absent value and a missing key.
+3. **Keep an accessor returning `Optional` for a record component**: *Rejected*: a record's accessor is generated, and a
+   hand-written accessor would have to be kept in step with the component for no benefit.
+4. **Convert only the parameters and leave the fields**: *Rejected*: the operator's decision names all three shapes, and
+   a field kept as `Optional` is the same wrapper the null contract forbids.
+
+== Consequences
+
+* A caller reads an absence from a nullable component or builds `Optional.ofNullable` where it needs the wrapper.
+* A record of a nullable component compares by the component value, so `null` and `Optional.empty()` no longer differ.
+* A new field, parameter or record component of a nullable state is written `@Nullable`, never `Optional`.
+* The stored formats stay at version 1 and byte-identical; a codec test pins the written and read forms.
+
+== Source
+
+* Pull request of `PLAN-V2-97` (`optional-conversion-core`)
+* link:../../pm-core/doc/developer/core-config.adoc[`pm-core` developer documentation]
+* link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
+* ADR link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]
+* `skills-audit-2026-10-30.md` § 2.8; epic decision of 2026-10-30 (decision 7)

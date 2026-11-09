@@ -210,7 +210,7 @@ public final class ProviderVerification {
         Objects.requireNonNull(provider, "provider");
         Objects.requireNonNull(defaults, "defaults");
         var decision = Objects.requireNonNull(gate, "gate").answer(
-                ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, deviceId);
+                ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, deviceId.orElse(null));
         if (!decision.runs()) {
             return new Verification(provider, false, List.of(), Optional.empty());
         }
@@ -231,7 +231,7 @@ public final class ProviderVerification {
                 lines.add(sameIdentity(provider, identity, login));
             }
         }
-        var verification = new Verification(provider, true, lines, decision.toRecord());
+        var verification = new Verification(provider, true, lines, Optional.ofNullable(decision.toRecord()));
         if (verification.passed()) {
             LOGGER.info(INFO.PROVIDER_VERIFIED, provider.wireName(), lines.size());
         } else {

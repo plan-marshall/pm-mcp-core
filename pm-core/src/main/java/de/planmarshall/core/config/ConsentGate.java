@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The consent-before-acting rule of one action (PM-SEC-8, Store Schemas § Consent Before Acting): an action state is
@@ -22,7 +23,7 @@ import java.util.regex.Pattern;
  * where the kind is remembered in {@link ConsentStore}. A {@code no} records nothing and leaves the scope in the consent
  * state, so only an optional action goes on without it. An act of the operator's own needs no consent.
  * <p>
- * The gate decides; it does not write. {@link #answer(Request, Answer, Consent.Channel, Optional)} returns whether the
+ * The gate decides; it does not write. {@link #answer(Request, Answer, Consent.Channel, String)} returns whether the
  * action runs and, for a {@code yes_remember}, the entry the caller records through
  * {@link ConsentStore#grant(Consent, long)} in the same step as the action's state.
  * <p>
@@ -86,16 +87,15 @@ public final class ConsentGate {
      * One action's consent request.
      *
      * @param kind      the kind the action needs
-     * @param projectId the project, for a kind remembered for a project
+     * @param projectId the project, for a kind remembered for a project; {@code null} for a machine kind
      * @param scripts   the scripts the action would run, for {@code run_checkout_scripts}
      * @since 0.1
      */
-    public record Request(ConsentKind kind, Optional<String> projectId, List<ConsentScript> scripts) {
+    public record Request(ConsentKind kind, @Nullable String projectId, List<ConsentScript> scripts) {
 
         /** Rejects {@code null} components and keeps the scripts unmodifiable. */
         public Request {
             Objects.requireNonNull(kind, "kind");
-            Objects.requireNonNull(projectId, "projectId");
             scripts = List.copyOf(scripts);
         }
 
@@ -104,7 +104,7 @@ public final class ConsentGate {
          * @return the request of the kind
          */
         public static Request machine(ConsentKind kind) {
-            return new Request(kind, Optional.empty(), List.of());
+            return new Request(kind, null, List.of());
         }
 
         /**
@@ -113,7 +113,7 @@ public final class ConsentGate {
          * @return the request of the kind
          */
         public static Request project(ConsentKind kind, String projectId) {
-            return new Request(kind, Optional.of(projectId), List.of());
+            return new Request(kind, projectId, List.of());
         }
 
         /**
@@ -122,7 +122,7 @@ public final class ConsentGate {
          * @return the request of {@code run_checkout_scripts}
          */
         public static Request checkoutScripts(String projectId, List<ConsentScript> scripts) {
-            return new Request(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(projectId), scripts);
+            return new Request(ConsentKind.RUN_CHECKOUT_SCRIPTS, projectId, scripts);
         }
     }
 
@@ -131,22 +131,17 @@ public final class ConsentGate {
      *
      * @param runs      whether the action may run
      * @param toRecord  the consent to record through {@link ConsentStore#grant(Consent, long)}, for a
-     *                  {@code yes_remember}
+     *                  {@code yes_remember}; {@code null} when nothing is recorded
      * @since 0.1
      */
-    public record Decision(boolean runs, Optional<Consent> toRecord) {
-
-        /** Rejects a {@code null} entry. */
-        public Decision {
-            Objects.requireNonNull(toRecord, "toRecord");
-        }
+    public record Decision(boolean runs, @Nullable Consent toRecord) {
 
         static Decision pass() {
-            return new Decision(true, Optional.empty());
+            return new Decision(true, null);
         }
 
         static Decision refuse() {
-            return new Decision(false, Optional.empty());
+            return new Decision(false, null);
         }
     }
 
@@ -156,17 +151,16 @@ public final class ConsentGate {
      * @param request  the action's request
      * @param answer   the answer the operator gave
      * @param channel  the channel the answer came through
-     * @param deviceId the paired device, for an answer through the web app
+     * @param deviceId the paired device, for an answer through the web app; may be {@code null}
      * @return whether the action runs, and the consent to record
      * @throws IllegalArgumentException if {@code yes_remember} is answered for a kind that is never remembered, if the
      *                                  request's project does not belong to its kind, or if the device is not a paired
      *                                  device of the web channel
      */
-    public Decision answer(Request request, Answer answer, Consent.Channel channel, Optional<String> deviceId) {
+    public Decision answer(Request request, Answer answer, Consent.Channel channel, @Nullable String deviceId) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(answer, "answer");
         Objects.requireNonNull(channel, "channel");
-        Objects.requireNonNull(deviceId, "deviceId");
         requireScope(request);
         if (snapshot.isRemembered(request.kind(), request.projectId(), request.scripts())) {
             return Decision.pass();
@@ -174,7 +168,7 @@ public final class ConsentGate {
         return switch (answer) {
             case YES -> Decision.pass();
             case NO -> Decision.refuse();
-            case YES_REMEMBER -> new Decision(true, Optional.of(remember(request, channel, deviceId)));
+            case YES_REMEMBER -> new Decision(true, remember(request, channel, deviceId));
         };
     }
 
@@ -193,7 +187,7 @@ public final class ConsentGate {
         return clock.instant();
     }
 
-    private Consent remember(Request request, Consent.Channel channel, Optional<String> deviceId) {
+    private Consent remember(Request request, Consent.Channel channel, @Nullable String deviceId) {
         if (!request.kind().rememberable()) {
             throw new IllegalArgumentException(
                     "The consent kind '%s' is never remembered, so no yes_remember link exists for it"
@@ -204,19 +198,23 @@ public final class ConsentGate {
         if (!request.kind().projectScoped()) {
             return Consent.machine(request.kind(), grantedAt, channel, deviceId);
         }
-        var project = request.projectId().orElseThrow(() -> new IllegalArgumentException(
-                "The consent kind '%s' is remembered for a project and names none"
-                        .formatted(request.kind().wireName())));
+        var project = request.projectId();
+        if (project == null) {
+            throw new IllegalArgumentException(
+                    "The consent kind '%s' is remembered for a project and names none"
+                            .formatted(request.kind().wireName()));
+        }
         return request.kind().scriptScoped()
                 ? Consent.checkoutScripts(project, request.scripts(), grantedAt, channel, deviceId)
                 : Consent.project(request.kind(), project, grantedAt, channel, deviceId);
     }
 
     private static void requireScope(Request request) {
-        if (request.kind().projectScoped() != request.projectId().isPresent()) {
+        var namesProject = request.projectId() != null;
+        if (request.kind().projectScoped() != namesProject) {
             throw new IllegalArgumentException("The consent kind '%s' is %s a project, but the request %s one"
                     .formatted(request.kind().wireName(), request.kind().projectScoped() ? "remembered for" : "not for",
-                            request.projectId().isPresent() ? "names" : "names no"));
+                            namesProject ? "names" : "names no"));
         }
         if (!request.kind().scriptScoped() && !request.scripts().isEmpty()) {
             throw new IllegalArgumentException(
@@ -225,14 +223,15 @@ public final class ConsentGate {
         }
     }
 
-    private static void requireDevice(Consent.Channel channel, Optional<String> deviceId) {
-        deviceId.ifPresent(device -> {
-            if (channel != Consent.Channel.WEB) {
-                throw new IllegalArgumentException("Only an answer through web names a paired device: " + device);
-            }
-            if (!DEVICE_ID.matcher(device).matches()) {
-                throw new IllegalArgumentException("Not a paired device id of an answer: " + device);
-            }
-        });
+    private static void requireDevice(Consent.Channel channel, @Nullable String deviceId) {
+        if (deviceId == null) {
+            return;
+        }
+        if (channel != Consent.Channel.WEB) {
+            throw new IllegalArgumentException("Only an answer through web names a paired device: " + deviceId);
+        }
+        if (!DEVICE_ID.matcher(deviceId).matches()) {
+            throw new IllegalArgumentException("Not a paired device id of an answer: " + deviceId);
+        }
     }
 }

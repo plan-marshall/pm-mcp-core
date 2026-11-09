@@ -1,0 +1,45 @@
+= ADR 020: The Effective Idle Wakeups Are an `OptionalInt`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-09
+
+== Context
+
+`EffectiveRole` carried `Integer idleWakeups`, which is `null` when neither the role artifact nor the harness profile
+declares a value. The null-contract analysis of PLAN-V2-110 found the component unannotated while null reached it
+through `idleWakeups(...).orElse(null)`, so the absence was neither visible nor typed. The plan's own conversion removes
+the `Optional` wrapper of a field, a parameter and a record component; the idle wakeups take that rule one shape
+further, because the absence here is a number, not a reference.
+
+== Decision
+
+`EffectiveRole.idleWakeups` is an `OptionalInt`: `OptionalInt.empty()` when neither level sets it, else
+`OptionalInt.of(value)`. The private resolver answers an `OptionalInt` directly, and the launch composer reads
+`orElse(0)` where it writes the zero-defaulted `idle_wakeups` member of the worker state.
+
+== Alternatives Considered
+
+1. **Annotate the `Integer` as `@Nullable`**: *Rejected*: the analysis of PLAN-V2-110 asks for the absence as a type, not
+   another annotation; an annotated boxed number keeps the null the plan is removing.
+2. **A sentinel `int` (`0` or `-1`)**: *Rejected*: a sentinel is indistinguishable from a declared value and is the
+   ignore-in-disguise the null contract rejects.
+3. **A sealed state (`Unset` / `Every(int)`)**: *Rejected*: `OptionalInt` is the value type the JDK supplies for exactly
+   this absence, and the well-known `OptionalInt column` of `HeaderRefusal` is the accepted precedent.
+
+== Consequences
+
+* A consumer that needs a number reads `orElse(...)`; a consumer that needs the absence checks `isEmpty()`.
+* `OptionalInt` is a value type, not the `Optional<T>` the null contract forbids as a field, parameter or component.
+* The component is no longer boxed and no longer nullable.
+
+== Source
+
+* Pull request of `PLAN-V2-97` (`optional-conversion-core`)
+* `landings/PLAN-V2-110.md` § Layer 3, C2
+* ADR link:019-optional-fields-parameters-and-record-components-are-nullable-states.adoc[019 `Optional` Fields, Parameters and Record Components Are Nullable States]

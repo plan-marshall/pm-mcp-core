@@ -105,7 +105,7 @@ class RoleAssignmentValidationTest {
     private static void require(RoleAssignmentValue value, RoleArtifact artifact, HarnessProfile[] profileList,
             String[] enrolmentList, Optional<ModelCatalogue> catalogue) {
         RoleAssignmentValidation.require(ROLE, value, artifact, new RoleAssignmentValidation.Facts(
-                profiles(profileList), enrolments(enrolmentList), catalogue));
+                profiles(profileList), enrolments(enrolmentList), catalogue.orElse(null)));
     }
 
     private static void require(RoleAssignmentValue value, RoleArtifact artifact) {
@@ -194,7 +194,7 @@ class RoleAssignmentValidationTest {
     @Test
     @DisplayName("the escalation's enrolment is looked up by its own harness")
     void escalationEnrolmentOnItsOwnHarness() {
-        var escalation = new Escalation(ESCALATION_HARNESS, ESCALATION_MODEL, Optional.empty());
+        var escalation = new Escalation(ESCALATION_HARNESS, ESCALATION_MODEL, null);
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var artifact = artifact(RoleClass.READ_ONLY);
         var bothHarnesses = new HarnessProfile[]{profile(), profile(ESCALATION_HARNESS)};
@@ -214,7 +214,7 @@ class RoleAssignmentValidationTest {
     @Test
     @DisplayName("the escalation is validated against its own harness")
     void escalationOnAnotherHarness() {
-        var escalation = new Escalation(ESCALATION_HARNESS, ESCALATION_MODEL, Optional.empty());
+        var escalation = new Escalation(ESCALATION_HARNESS, ESCALATION_MODEL, null);
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var withoutBeta = new HarnessProfile[]{profile()};
         var artifact = artifact(RoleClass.READ_ONLY);
@@ -231,7 +231,7 @@ class RoleAssignmentValidationTest {
     @Test
     @DisplayName("an escalation the catalogue does not allow is refused")
     void escalationNotAllowed() {
-        var escalation = new Escalation(HARNESS, FAST_MODEL, Optional.empty());
+        var escalation = new Escalation(HARNESS, FAST_MODEL, null);
         var value = RoleAssignmentValue.of(HARNESS, MODEL, "high").withEscalation(escalation);
         var artifact = artifact(RoleClass.READ_ONLY);
 
@@ -246,11 +246,9 @@ class RoleAssignmentValidationTest {
         var machine = catalogue();
 
         assertAll(
-                () -> assertEquals(Optional.of(machine), RoleAssignmentValidation.effective(Optional.empty(),
-                        Optional.of(machine))),
+                () -> assertEquals(Optional.of(machine), RoleAssignmentValidation.effective(null, machine)),
                 () -> assertEquals(Optional.of(catalogue()),
-                        RoleAssignmentValidation.effective(Optional.of(catalogue()), Optional.of(machine))),
-                () -> assertEquals(Optional.empty(),
-                        RoleAssignmentValidation.effective(Optional.empty(), Optional.empty())));
+                        RoleAssignmentValidation.effective(catalogue(), machine)),
+                () -> assertEquals(Optional.empty(), RoleAssignmentValidation.effective(null, null)));
     }
 }

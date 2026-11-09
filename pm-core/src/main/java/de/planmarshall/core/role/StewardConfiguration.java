@@ -35,7 +35,7 @@ public record StewardConfiguration(String harness, String model, EffortValue eff
      *         model for the tier
      */
     public static Optional<StewardConfiguration> resolve(RoleEnvironment environment) {
-        var harness = environment.machineConfiguration().flatMap(MachineConfiguration::defaultHarness);
+        var harness = environment.machineConfiguration().map(MachineConfiguration::defaultHarness);
         if (harness.isEmpty()) {
             return Optional.empty();
         }

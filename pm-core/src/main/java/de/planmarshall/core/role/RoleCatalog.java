@@ -9,8 +9,9 @@
  */
 package de.planmarshall.core.role;
 
-import java.util.Optional;
+import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Resolves a named role to its effective configuration at one read (PM-WORK-1, Role Assignment and Validation). The
@@ -75,12 +76,13 @@ public final class RoleCatalog {
         var kind = set.kind(roleName).orElseThrow();
         var values = base(artifact.get());
         if (kind != RoleSetKind.PROJECT) {
-            values = assignment(environment.machineAssignments(), roleName).over(values);
+            values = assignment(environment.machineAssignments().orElse(null), roleName).over(values);
         }
-        values = assignment(environment.projectAssignments(), roleName).over(values);
+        values = assignment(environment.projectAssignments().orElse(null), roleName).over(values);
         var effective = planOverride.over(values);
-        return effective(artifact.get(), effective.harness().orElseThrow(), effective.model().orElseThrow(),
-                effective.effort().orElseThrow(), false);
+        return effective(artifact.get(), Objects.requireNonNull(effective.harness(), "harness"),
+                Objects.requireNonNull(effective.model(), "model"),
+                Objects.requireNonNull(effective.effort(), "effort"), false);
     }
 
     /**
@@ -99,7 +101,7 @@ public final class RoleCatalog {
         }
         var configuration = StewardConfiguration.resolve(environment);
         if (configuration.isEmpty()) {
-            return new RoleResolution.Undefined(STEWARD, Optional.of(RoleValidationReason.HARNESS_UNKNOWN),
+            return new RoleResolution.Undefined(STEWARD, RoleValidationReason.HARNESS_UNKNOWN,
                     "the machine's default harness or its tier 'standard' is not configured");
         }
         var steward = configuration.get();
@@ -108,39 +110,38 @@ public final class RoleCatalog {
 
     private RoleResolution effective(RoleArtifact artifact, String harness, String model, EffortValue effort,
             boolean steward) {
-        var profile = environment.profile(harness);
-        var enrolled = environment.enrolledHarness(harness);
-        var catalogue = environment.projectCatalogue().or(environment::machineCatalogue);
+        var profile = environment.profile(harness).orElse(null);
+        var enrolled = environment.enrolledHarness(harness).orElse(null);
+        var catalogue = environment.projectCatalogue().or(environment::machineCatalogue).orElse(null);
         try {
             var skills = RoleValidation.check(artifact, new RoleValidation.Values(harness, model, effort), profile,
                     enrolled, catalogue, environment, steward);
-            var facts = profile.orElseThrow();
-            var version = majorMinor(enrolled.orElseThrow().version());
-            var weights = environment.weightsIdentity(harness, model);
+            var version = majorMinor(Objects.requireNonNull(enrolled, "enrolled").version());
+            var weights = environment.weightsIdentity(harness, model).orElse(null);
             return new RoleResolution.Defined(EffectiveRole.of(artifact, harness, model, effort, skills, version,
-                    weights, facts));
+                    weights, Objects.requireNonNull(profile, "profile")));
         } catch (RoleRefusal refusal) {
-            return new RoleResolution.Undefined(artifact.name(), Optional.of(refusal.reason()), refusal.detail());
+            return new RoleResolution.Undefined(artifact.name(), refusal.reason(), refusal.detail());
         } catch (IllegalArgumentException invalidVersion) {
-            return new RoleResolution.Undefined(artifact.name(), Optional.of(RoleValidationReason.HARNESS_UNKNOWN),
+            return new RoleResolution.Undefined(artifact.name(), RoleValidationReason.HARNESS_UNKNOWN,
                     invalidVersion.getMessage());
         }
     }
 
-    private static RoleAssignment assignment(Optional<RoleAssignments> assignments, String roleName) {
-        return assignments.flatMap(value -> value.forRole(roleName)).orElse(RoleAssignment.none());
+    private static RoleAssignment assignment(@Nullable RoleAssignments assignments, String roleName) {
+        return assignments == null ? RoleAssignment.none()
+                : assignments.forRole(roleName).orElse(RoleAssignment.none());
     }
 
     private static RoleAssignment base(RoleArtifact artifact) {
-        return new RoleAssignment(Optional.of(artifact.harness()), Optional.of(artifact.model()),
-                Optional.of(artifact.effort()));
+        return new RoleAssignment(artifact.harness(), artifact.model(), artifact.effort());
     }
 
     private static RoleResolution absent(String roleName, RoleSet set) {
         return set.refusal(roleName)
                 .<RoleResolution>map(refusal -> new RoleResolution.Undefined(roleName,
-                        Optional.of(refusal.refusal().reason()), refusal.refusal().detail()))
-                .orElseGet(() -> new RoleResolution.Undefined(roleName, Optional.empty(),
+                        refusal.refusal().reason(), refusal.refusal().detail()))
+                .orElseGet(() -> new RoleResolution.Undefined(roleName, null,
                         "no role set defines the role"));
     }
 

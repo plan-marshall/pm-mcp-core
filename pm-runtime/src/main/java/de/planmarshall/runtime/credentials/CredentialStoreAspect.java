@@ -225,12 +225,13 @@ public final class CredentialStoreAspect {
     public Transition consent(ConsentGate gate, ConsentGate.Answer answer, Consent.Channel channel,
             Optional<String> deviceId) {
         var decision = Objects.requireNonNull(gate, "gate").answer(
-                ConsentGate.Request.machine(ConsentKind.CHECK_CREDENTIAL_STORE), answer, channel, deviceId);
+                ConsentGate.Request.machine(ConsentKind.CHECK_CREDENTIAL_STORE), answer, channel,
+                deviceId.orElse(null));
         if (!decision.runs()) {
             return Transition.to(State.CONSENT);
         }
-        return new Transition(State.CHECK, Optional.empty(), Optional.empty(), decision.toRecord(), List.of(),
-                OptionalInt.empty());
+        return new Transition(State.CHECK, Optional.empty(), Optional.empty(),
+                Optional.ofNullable(decision.toRecord()), List.of(), OptionalInt.empty());
     }
 
     /**

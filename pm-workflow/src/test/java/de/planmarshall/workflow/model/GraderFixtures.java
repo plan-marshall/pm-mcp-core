@@ -240,7 +240,7 @@ final class GraderFixtures {
             ImportResult importResult, GradingProfile profile, Optional<QualificationRecord> previous,
             ItemCheckout checkouts) {
         return new GradingPlan(role, items, importResult, CORPUS_REVISION, PROJECT_REPOSITORY, profile, judge,
-                checkouts, previous);
+                checkouts, previous.orElse(null));
     }
 
     /** @return the read-only fixture role */

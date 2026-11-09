@@ -359,7 +359,7 @@ public final class LaunchComposer {
         members.put("task", JsonNode.nullValue());
         members.put("served_tasks", JsonNode.array(List.of()));
         members.put("worktree_mark", JsonNode.nullValue());
-        members.put("idle_wakeups", JsonNode.integer(role.idleWakeups() == null ? 0 : role.idleWakeups()));
+        members.put("idle_wakeups", JsonNode.integer(role.idleWakeups().orElse(0)));
         members.put("context_tokens", JsonNode.string("unmeasured"));
         members.put("delivered_skills", JsonNode.array(prompt.delivered().stream().map(skill -> JsonNode.object(Map.of(
                 "uri", JsonNode.string(skill.uri()), "digest", JsonNode.string(skill.digest()), "delivered_at",
