@@ -9,10 +9,12 @@
  */
 package de.planmarshall.runtime.log;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -30,26 +32,32 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.log.CoreLogMessages;
+import de.planmarshall.core.log.LogMessageListing;
 
 /**
  * The holder numbers every message of {@code pm-runtime} once (PM-IMPL-1): two messages with one identifier cannot be
  * told apart in a log, and an identifier outside the range of its level reads as another level.
  * <p>
- * The identifiers, level ranges, templates and the table form of {@code doc/LogMessages.adoc} are the specified
- * catalogue and stay literal; the lock paths and the filler of the fixture table rows are generated.
+ * The identifiers, level ranges, templates and the generated listing are the specified catalogue and stay literal; the
+ * lock paths of the lock-order fixture are generated.
  */
 @EnableGeneratorController
 @DisplayName("RuntimeLogMessages")
 class RuntimeLogMessagesTest {
 
-    /** The documentation of every log message of the repository, from the module directory the tests run in. */
-    private static final Path LOG_MESSAGES = Path.of("..", "doc", "LogMessages.adoc");
+    /** The generated listing of this holder, resolved from the repository root above the module. */
+    private static final Path GENERATED = repositoryRoot().resolve("doc").resolve("log-messages")
+            .resolve("pm-runtime.adoc");
+
+    /** Setting this system property regenerates the committed listing instead of only comparing it. */
+    private static final String REGENERATE = "planmarshall.log-messages.regenerate";
 
     /** Contract literals: the level holders of the catalogue. */
     private static final List<String> LEVELS = List.of("INFO", "WARN", "ERROR");
@@ -288,47 +296,29 @@ class RuntimeLogMessagesTest {
     }
 
     @Test
-    @DisplayName("every record of the three holders is documented in doc/LogMessages.adoc by identifier and template")
-    void everyRecordDocumented() throws Exception {
-        var all = allRecords();
-        var rows = Files.readAllLines(LOG_MESSAGES);
+    @DisplayName("the committed listing is the holder's current generation")
+    void generatedListingIsCurrent() throws Exception {
+        var expected = LogMessageListing.render(RuntimeLogMessages.class).getBytes(UTF_8);
+        if (Boolean.getBoolean(REGENERATE)) {
+            Files.write(GENERATED, expected);
+        }
+        var actual = Files.readAllBytes(GENERATED);
 
-        assertEquals(List.of(), undocumented(rows, all), "every record must have its row in the table");
+        assertTrue(LogMessageListing.same(expected, actual), "the committed listing matches the holder");
     }
 
     @Test
-    @DisplayName("the documentation check names a record without a row and a record whose template differs")
-    void undocumentedRecordsAreFound() {
-        // The identifiers and templates are the catalogue's; the components, notes and the wrong template are filler
-        var component = lower();
-        var rows = List.of(
-                "|PM_RUNTIME-30 |" + component + " |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |"
-                        + lower(),
-                "|PM_RUNTIME-31 |" + component + " |Job '%s' " + lower() + " " + lower() + " |" + lower(),
-                "|PM_RUNTIME-310 |" + lower() + " |Job '%s' settled with fate '%s' (outcome row %s) |" + lower());
-        var records = List.of(RuntimeLogMessages.INFO.JOB_STARTED, RuntimeLogMessages.INFO.JOB_SETTLED,
-                RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED);
+    @DisplayName("the byte check names a file with one identifier changed")
+    void byteCheckNamesAChangedListing(@TempDir Path tempDir) throws Exception {
+        var expected = LogMessageListing.render(RuntimeLogMessages.class);
+        var tampered = expected.replace("PM_RUNTIME-1 |", "PM_RUNTIME-99 |");
+        var changed = tempDir.resolve("pm-runtime.adoc");
+        Files.writeString(changed, tampered, UTF_8);
 
-        assertEquals(List.of("PM_RUNTIME-31", "PM_RUNTIME-132"), undocumented(rows, records),
-                "the check must name the wrong and the missing row");
-    }
-
-    /**
-     * The identifiers of the records that have no row in the table, or whose row does not carry their template. The
-     * component column is not compared, because it differs from record to record; the template is compared literally,
-     * with the table's escape for a pipe character.
-     */
-    private static List<String> undocumented(List<String> rows, List<LogRecord> records) {
-        var missing = new ArrayList<String>();
-        for (LogRecord logRecord : records) {
-            var identifier = logRecord.resolveIdentifierString();
-            var cell = " |" + logRecord.getTemplate().replace("|", "\\|") + " |";
-            var row = rows.stream().filter(line -> line.startsWith("|" + identifier + " |")).findFirst();
-            if (row.isEmpty() || !row.get().contains(cell)) {
-                missing.add(identifier);
-            }
-        }
-        return missing;
+        assertAll(
+                () -> assertNotEquals(expected, tampered, "the control changes one identifier"),
+                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), Files.readAllBytes(changed)),
+                        "a changed identifier is a mismatch"));
     }
 
     @Nested
@@ -361,6 +351,17 @@ class RuntimeLogMessagesTest {
                     () -> assertTrue(message.contains(planLock), "the message must name the requested lock"),
                     () -> assertTrue(message.contains(queueLock), "the message must name the held lock"));
         }
+    }
+
+    /** The directory above the working directory that holds {@code pm-core} and the root POM. */
+    private static Path repositoryRoot() {
+        var dir = Path.of("").toAbsolutePath();
+        while (dir != null
+                && !(Files.isDirectory(dir.resolve("pm-core")) && Files.isRegularFile(dir.resolve("pom.xml")))) {
+            dir = dir.getParent();
+        }
+        assertNotNull(dir, "repository root not found above the working directory");
+        return dir;
     }
 
     private static List<LogRecord> allRecords() throws ReflectiveOperationException {

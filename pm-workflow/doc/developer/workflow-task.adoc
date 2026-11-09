@@ -27,13 +27,16 @@ It decides; the runtime transports (link:../adr/workflow-task/001-the-protocol-d
 A wait names the caller's generation, the role, the generation's configuration digest, the role's current digest and
 the re-offer budget of the state. The answer is `Offered` (a task leased to the generation), `Answered` (the answer to
 the question of the task the generation holds, with its `facts.answers` and `ack` as its only link), `WaitAgain` (the
-window ended without a task: `no_task`, `paused`, `consulting`, `awaiting_answer` or `attempts_spent`) or `End`
-(`job_ended`, `fenced`, `recycled`, `drained` or `stopped`).
+window ended without a task; the reasons are the values of
+link:../../src/main/java/de/planmarshall/workflow/task/WaitAnswer.java[`WaitAnswer.WaitAgainReason`]) or `End` (the
+worker is to end; the reasons are the values of
+link:../../src/main/java/de/planmarshall/workflow/task/WaitAnswer.java[`WaitAnswer.EndReason`], and the runtime ends a
+worker `drained` or `stopped` when it drains or the operator stops it).
 
 `TaskCall` and `CallResult`::
 A call names the task and the caller's generation. The result is `Accepted` (the record after the call) or `Refused`
-with a `TaskRefusal`: `job_ended` (the `JobState` port says the generation's job ended), `generation_fenced`,
-`stale_entity`, `job_scope_mismatch`, `link_not_available`, `invalid_link_args`, `skills_not_loaded`, in that order.
+with a `TaskRefusal`; the refusals, in the order the checks run, are the values of
+link:../../src/main/java/de/planmarshall/workflow/task/TaskRefusal.java[`TaskRefusal`].
 This package refuses `invalid_link_args` only for an off-track signal already held for the attempt with another action;
 the arguments of a link against its closed schema are validated by the entity representation.
 

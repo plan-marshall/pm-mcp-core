@@ -100,7 +100,8 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(1, held.attempts().size()),
                 () -> assertEquals(0L, held.spentReOffers()),
                 () -> assertInstanceOf(CallResult.Refused.class, refused),
-                () -> assertEquals(new WaitAnswer.WaitAgain("awaiting_answer"), wait));
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.AWAITING_ANSWER), wait,
+                        "a held task waits for its answer"));
     }
 
     @Test
@@ -161,7 +162,7 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(answer(), answered.answers()),
                 () -> assertEquals(answer(), assertInstanceOf(WaitAnswer.Answered.class, repeated).answers(),
                         "a retried wait answers with the same facts"),
-                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), stray,
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), stray,
                         "a neighbouring wait keeps the answer of the resumed task"),
                 () -> assertEquals(Status.EXECUTING,
                         assertInstanceOf(CallResult.Accepted.class, acknowledged).task().status()),
@@ -257,7 +258,8 @@ class TaskProtocolContinuationTest {
                 () -> assertEquals(0, endedAttempts, "a suspended task holds no attempt to end"),
                 () -> assertEquals(Status.SUSPENDED, afterPause.status()),
                 () -> assertNull(afterPause.lease()),
-                () -> assertEquals(new WaitAnswer.WaitAgain("no_task"), wait));
+                () -> assertEquals(new WaitAnswer.WaitAgain(WaitAnswer.WaitAgainReason.NO_TASK), wait,
+                        "a suspended task is answered no task"));
     }
 
     @Test

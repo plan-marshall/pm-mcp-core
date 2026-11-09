@@ -32,8 +32,11 @@ public final class WorkflowLogMessages {
     public static final class INFO {
 
         /**
-         * Logged when every unit of a project has been loaded and verified (PM-IMPL-5), with the project id and the
-         * number of verified units.
+         * Logged when a load of a project's units from {@code .marshall/config/} found no finding ({@code PM-IMPL-5});
+         * names the project id and the number of verified units, the plan unit and each phase sub-workflow counting as
+         * one.
+         * <p>
+         * The component is {@code ProjectUnitLoader}.
          */
         public static final LogRecord PROJECT_UNITS_VERIFIED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -42,8 +45,12 @@ public final class WorkflowLogMessages {
                 .build();
 
         /**
-         * Logged when a composed plan instance version is recorded in a transaction of its plan (PM-IMPL-5), with the
-         * version, the plan id and the composition event; the version is written when the transaction commits.
+         * Logged when a composed version of a plan instance is staged in the caller's scope transaction
+         * ({@code PM-IMPL-5}), together with its line of {@code instance/composition.jsonl} and the texts of the
+         * sub-units it is the first version to name; names the version, the plan id and the composition event. The
+         * files are written when the caller commits the transaction.
+         * <p>
+         * The component is {@code PlanInstanceStore}.
          */
         public static final LogRecord PLAN_INSTANCE_VERSION_RECORDED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -59,9 +66,14 @@ public final class WorkflowLogMessages {
     public static final class WARN {
 
         /**
-         * Logged for every finding that refuses a unit of a project (PM-IMPL-5), with the unit file, the line and the
-         * rule or invariant id; the plan lifecycle is refused with {@code config_invalid}, and no default unit stands
-         * in for the refused one.
+         * Logged once for every finding of a load of a project's units ({@code PM-IMPL-5}); names the file below the
+         * project (for example {@code .marshall/config/finalize.pmwf}), the line ({@code 0} for a file that could not
+         * be read) and the code of the finding (the parser refusal or verification rule, the wire id of an invariant
+         * such as {@code INV-GEN-1}, {@code format_newer}, {@code declaration_invalid}, a pipeline rule,
+         * {@code project_step_unbound}, {@code unit_missing} or {@code path_traversal_rejected}). The load returns no
+         * unit; no default unit stands in for the refused one.
+         * <p>
+         * The component is {@code ProjectUnitLoader}.
          */
         public static final LogRecord PROJECT_UNIT_REFUSED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -70,8 +82,12 @@ public final class WorkflowLogMessages {
                 .build();
 
         /**
-         * Logged when a refused composition of a plan instance is recorded in the composition log (PM-IMPL-5), with
-         * the composition event, the plan id and the refusal; no version is written and the version in force stays.
+         * Logged when a refused composition attempt is recorded in {@code instance/composition.jsonl}
+         * ({@code PM-IMPL-5}); names the composition event, the plan id and the refusal
+         * ({@code position_not_contained} or {@code invariant_failed}). No version file is written; the version in force
+         * stays.
+         * <p>
+         * The component is {@code PlanInstanceStore}.
          */
         public static final LogRecord PLAN_INSTANCE_COMPOSITION_REFUSED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -87,8 +103,12 @@ public final class WorkflowLogMessages {
     public static final class ERROR {
 
         /**
-         * Logged when a default unit read from the classpath fails to parse or verify (PM-IMPL-5), with the resource,
-         * the line and the rule; a default unit that does not verify is a defect of the build.
+         * Logged once for every finding of a load of the default units from the classpath ({@code PM-IMPL-5}); names
+         * the resource (for example {@code workflows/init.pmwf}), the line ({@code 0} for a resource that is missing or
+         * cannot be read) and the code of the finding ({@code unit_missing}, {@code unit_unreadable}, the parser
+         * refusal or the verification rule). A default unit that does not verify is a defect of the build.
+         * <p>
+         * The component is {@code DefaultUnitLoader}.
          */
         public static final LogRecord DEFAULT_UNIT_REFUSED = LogRecordModel.builder()
                 .prefix(PREFIX)
