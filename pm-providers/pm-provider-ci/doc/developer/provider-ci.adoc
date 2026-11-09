@@ -38,9 +38,11 @@ classpath, an unknown id is empty, and `select(ForgeUrl)` finds the provider of 
 
 |link:{src}/ForgeUrl.java[`ForgeUrl`]
 |The URL grammar of each forge, resolved against a host-to-forge table (the built-in one names `github.com`,
-`gitlab.com` and `codeberg.org`). A resolution is `RESOLVED`, `UNKNOWN_FORGE` or `INVALID`, always a value.
-`pullRequest()` returns the `PullRequestRef` of a resolved URL; it is present exactly when the kind is
-`Kind.PULL_REQUEST`.
+`gitlab.com` and `codeberg.org`). A pull-request URL copied from a tab of the forge's web interface carries one trailing
+tab segment after the number: `files`, `commits` and `checks` on GitHub, `files` and `commits` on Forgejo, `diffs`,
+`commits`, `pipelines` and `changes` on GitLab; an issue path carries no tab. A resolution is `RESOLVED`,
+`UNKNOWN_FORGE` or `INVALID`, always a value. `pullRequest()` returns the `PullRequestRef` of a resolved URL; it is
+present exactly when the kind is `Kind.PULL_REQUEST`.
 
 |link:{src}/Identity.java[`Identity`]
 |The identity of the credential: login, user id, `TokenKind`, the operator login beside a GitHub App's bot identity, the
@@ -233,9 +235,10 @@ the declared footprint, never the length of the list.
 
 [horizontal]
 link:{test}/ForgeUrlTest.java[`ForgeUrlTest`]:: the grammar of every forge, a trailing slash, a query and a fragment, an
-unknown host, a pull-request URL, a hostile URL (user information, a parent segment, an encoded parent segment, an
-over-long path, an over-long segment), an uppercase and a trailing-dot host, the value invariants, and
-`pullRequest()` for the pull-request URL of every forge and empty for an issue URL.
+unknown host, a pull-request URL with one of the tab segments its web interface puts after the number, a tab off that
+grammar (an issue path with a tab, an unknown tab, two trailing segments), a hostile URL (user information, a parent
+segment, an encoded parent segment, an over-long path, an over-long segment), an uppercase and a trailing-dot host, the
+value invariants, and `pullRequest()` for the pull-request URL of every forge and empty for an issue URL.
 link:{test}/CiProvidersTest.java[`CiProvidersTest`]:: the lookup by id, the registration order, the selection by a
 resolved URL, and the refusal of a duplicate or malformed id.
 link:{test}/ValueTypesTest.java[`ValueTypesTest`]:: the invariants and the defensive copies of the value types.
