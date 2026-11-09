@@ -132,3 +132,9 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Rescope (audit, operator 2026-11-09):** `ClientId` becomes `HarnessId`, or this plan runs after the rename package (D16: client profile to harness profile, `client_id` to `harness_id`).

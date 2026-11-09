@@ -114,3 +114,9 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **#169 changed TaskProtocol outside PLAN-32's declaration, and a staged spec declares it (2026-10** (Wa52) — #169 made workflow.task.TaskProtocol refuse a consultation task's generic submit and infeasible with link_not_available (only submit:answer); read the changed protocol and ADR workflow-consult/004 before outlining
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Carried (PLAN-35 residue):** D1 of PLAN-35 (the `pm-scenario` fault directives `kill_worker`, `stall_worker`, `end_turn`, `kill_relay`, `restart_runtime`, `assert_worker_state`, `assert_refused`) is carried by this plan and PLAN-V2-49. D5 is `plan-marshall-mcp` `worker-integration-tests`; D6 and D7 stay in the package `supervision-scenarios` (no plan in this repository).
