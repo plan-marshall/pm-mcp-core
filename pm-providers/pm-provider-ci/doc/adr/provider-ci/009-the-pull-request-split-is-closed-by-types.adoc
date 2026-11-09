@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted.
+Accepted, superseded in part by ADR 010: the `issueComment` bullet and the third alternative below no longer hold for
+GitHub; the reference-type split and the rest of the decision stand.
 
 == Date
 

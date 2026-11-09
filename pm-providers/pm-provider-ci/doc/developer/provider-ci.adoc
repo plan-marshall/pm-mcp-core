@@ -201,8 +201,10 @@ the declared footprint, never the length of the list.
   GitLab `NOT_FOUND` (link:../adr/provider-ci/004-a-pull-request-is-no-issue.adoc[module ADR 004],
   link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006]).
 * *A comment on a pull request is not `issueComment`.* It is an operation of the review and finalize slice, which
-  brings its own operation and permission set; `issueComment` gets no pull-request guard, because `IssueRef` carries
-  no kind (module ADR 009).
+  brings its own operation and permission set. `issueComment` is the issue write-back: on GitHub it reads the issue with
+  the credential that authors the comment and refuses a pull-request number with `REJECTED` "is a pull request", without
+  posting; on GitLab it posts to `issues/{iid}/notes`, which cannot tell a merge-request iid from an issue iid, so the
+  reference type a consumer holds is the protection (module ADR 010, which supersedes ADR 009 in part).
 
 == Invariants and Failure Modes
 
