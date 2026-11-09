@@ -100,3 +100,9 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **Unverified lead (lane report, PLAN-25)** (Op24) — ProfileValidator rejects bounded >= idle_timeout_seconds only, the specification requires the 30-second margin (idle - 30); ConnectionSettings enforces it, so a profile in the narrow band loads and is refused later; not yet checked against the validator
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Owner confirmed (2026-11-09):** `ProfileValidator` still rejects only `bounded >= idle_timeout_seconds` (`ProfileValidator.java`, about line 1135) while the specification requires `idle − 30` (`timeouts/01-job-budgets-and-waits.adoc:199`, `timeouts/03:97`) and `ConnectionSettings` enforces the margin. The lane-report lead of PLAN-25 is carried here.
