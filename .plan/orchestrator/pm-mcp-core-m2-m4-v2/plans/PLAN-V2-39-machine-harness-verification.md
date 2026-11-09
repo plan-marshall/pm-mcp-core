@@ -72,7 +72,7 @@ None beyond the standing rules named in the First Instruction above.
 
 ## Expected Surface
 
-- OBSERVED: `doc/specification/client-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/harness-profiles/01-profile-schema.adoc` — specification part; the implemented sections deleted
 - OBSERVED: `doc/specification/store-schemas/11-enrolment-store.adoc` — specification part; harness_store_unreadable and start_context shown in the harness list
 - OBSERVED: `doc/implementation-watch/client-profiles.adoc` — watch items of the verification (PM-WATCH-CLIENT-16)
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java` — readable_paths and the credential rule; the draft is validated as a profile (D4); shared with job-confinement-and-environment

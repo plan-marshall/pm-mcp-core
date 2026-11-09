@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -78,15 +78,13 @@ class RoleAssignmentsStoreTest {
         assertAll(
                 () -> assertEquals(2L, store.read().revision()),
                 () -> assertEquals(EffortSetting.VALUE, roles.get("implement").effort()),
-                () -> assertEquals(Optional.of(new EffortValue("high")), roles.get("implement").effortValue()),
+                () -> assertEquals(new EffortValue("high"), roles.get("implement").effortValue()),
                 () -> assertEquals(EffortSetting.DEFAULT, roles.get("screener").effort()),
                 () -> assertEquals(EffortSetting.INHERIT, roles.get("outline").effort()),
-                () -> assertEquals(STANDARD_MODEL,
-                        roles.get("screener").escalation().orElseThrow().model()),
-                () -> assertEquals(Optional.of(new EffortValue("medium")),
-                        roles.get("screener").escalation().orElseThrow().effort()),
+                () -> assertEquals(STANDARD_MODEL, roles.get("screener").escalation().model()),
+                () -> assertEquals(new EffortValue("medium"), roles.get("screener").escalation().effort()),
                 () -> assertEquals(3, store.read().assignments().roles().size()),
-                () -> assertEquals(Optional.of(new EffortValue("high")),
+                () -> assertEquals(new EffortValue("high"),
                         store.read().assignments().forRole("implement").orElseThrow().effort()));
     }
 
@@ -95,9 +93,8 @@ class RoleAssignmentsStoreTest {
     void write() {
         var roles = Map.of(
                 "implement", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, "high"),
-                "screener", new RoleAssignmentValue(HARNESS, FAST_MODEL, EffortSetting.DEFAULT, Optional.empty(),
-                        Optional.of(new Escalation(HARNESS, STANDARD_MODEL,
-                                Optional.of(new EffortValue("medium"))))),
+                "screener", new RoleAssignmentValue(HARNESS, FAST_MODEL, EffortSetting.DEFAULT, null,
+                        new Escalation(HARNESS, STANDARD_MODEL, new EffortValue("medium"))),
                 "outline", RoleAssignmentValue.inheritEffort(HARNESS, FRONTIER_MODEL));
 
         store.write(roles, 0L);
@@ -106,8 +103,7 @@ class RoleAssignmentsStoreTest {
         assertAll(
                 () -> assertEquals(1L, read.revision()),
                 () -> assertEquals(roles, read.roles()),
-                () -> assertEquals(Optional.empty(),
-                        read.assignments().forRole("outline").orElseThrow().effort()));
+                () -> assertNull(read.assignments().forRole("outline").orElseThrow().effort()));
     }
 
     @Test
@@ -145,14 +141,17 @@ class RoleAssignmentsStoreTest {
     void refusedValues() throws Exception {
         var fileWithBadRole = base.resolve("other.json");
         Files.writeString(fileWithBadRole, "{\"format_version\":1,\"revision\":1,\"roles\":{\"Upper\":{}}}", UTF_8);
-        var highEffort = Optional.of(new EffortValue("high"));
-        var noEffort = Optional.<EffortValue>empty();
-        var noEscalation = Optional.<Escalation>empty();
+        var highEffort = new EffortValue("high");
+        EffortValue noEffort = null;
+        Escalation noEscalation = null;
         var missingEffort = assertThrows(IllegalArgumentException.class,
                 () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.VALUE, noEffort,
                         noEscalation));
         var effortWithoutSetting = assertThrows(IllegalArgumentException.class,
                 () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.INHERIT, highEffort,
+                        noEscalation));
+        var valueWithoutEffort = assertThrows(IllegalArgumentException.class,
+                () -> new RoleAssignmentValue(HARNESS, STANDARD_MODEL, EffortSetting.VALUE, new EffortValue(null),
                         noEscalation));
         var upper = Map.of("Upper", RoleAssignmentValue.of(HARNESS, STANDARD_MODEL, "high"));
         var badRole = assertThrows(IllegalArgumentException.class, () -> store.write(upper, 0L));
@@ -161,11 +160,13 @@ class RoleAssignmentsStoreTest {
                 () -> RoleAssignmentsCodec.read(fileWithBadRole, roleBytes));
         var missingMessage = missingEffort.getMessage();
         var settingMessage = effortWithoutSetting.getMessage();
+        var valueMessage = valueWithoutEffort.getMessage();
         var badRoleMessage = badRole.getMessage();
 
         assertAll(
                 () -> assertTrue(missingMessage.contains("effort")),
                 () -> assertTrue(settingMessage.contains("effort")),
+                () -> assertTrue(valueMessage.contains("must not be null")),
                 () -> assertTrue(badRoleMessage.contains("Upper")),
                 () -> assertFalse(Files.exists(file)),
                 () -> assertEquals(fileWithBadRole, readRefused.file()));

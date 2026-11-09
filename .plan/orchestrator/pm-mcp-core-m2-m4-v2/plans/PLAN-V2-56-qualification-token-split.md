@@ -49,19 +49,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `store-schemas/16` lists no `tokens_in`/`tokens_out` on the role-qualification item (`required` at line 265, no member), the form result (`required` at line 292) and the judge-check item (`required` at line 415); the three objects are closed; the members appear only in the decision calibration item (lines 353 to 363)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `grep tokens_in doc/specification/store-schemas/16-task-queue.adoc` finds lines 353, 362, 363 only; lines 255 to 275 read
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: qualification-record and judge-check-record schema files carry only total_tokens, closed; tokens_in/out only in decision-calibration-record.schema.json
 - OBSERVED: the codecs still carry them — `QualificationRecordCodec.java` lines 91 to 92 (constants), 113 and 120 (`FORM_MEMBERS`, `ITEM_MEMBERS`), 243 to 245 and 315 to 317 (read), 531 to 535 (write); `JudgeCheckCodec.java` lines 72 to 73, 81 to 82, 163 to 165, 174, 277 to 279; `QualificationRecordCodecTest.java` lines 67 and 68 assert the members in the output
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: read at a8da4104
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: QualificationRecordCodec.java:92-93,114,121-122 and JudgeCheckCodec.java:73-74,82-83 write and require the split
 - OBSERVED: no test reads these two schemas — `grep -rln "16-task-queue" pm-*/src` finds `TaskQueueSchemaParityTest` only, which covers the queue task record and the activity journal; `SpecificationDocument.jsonBlockAfter(document, anchor)` is the reader it uses
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `grep` and the test header read
+  - verdict: contradicted | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: no parity test for the two records holds; readers now via SchemaResource, jsonBlockAfter has no user; covered by the rescope note
 - OBSERVED: `TokenTotal`'s split is used in `src/main` only by the two codecs (`TokenTotal.measured(long,long,long)` has no other caller); `pm-core/doc/developer/core-role.adoc` § Tokens and the Split says the qualification and judge-check records "write the split beside `total_tokens`" and that the calibration record's codec "is owed with the package that builds it"
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `grep "TokenTotal.measured\|new TokenTotal"` over `pm-*/src/main`; the guide read at lines 248 to 262
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no caller of TokenTotal.measured in src/main; split used only by the two codecs
 - OBSERVED: the stale citations — `AttemptEnd.java` line 17 ("item 5"); the invariant list of `model-work/09-completion-usage-and-spend.adoc` has five items since #215 and *One Row per Attempt* (item 4, line 121) carries `attempt_end`; `UsageAggregate.java` line 33 and `UsageAggregateTest.java` line 36 cite "Aggregates", whose bullet `git show 81c51719` deletes from `store-schemas/05-metrics-and-quality-report.adoc`
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: read; the epic names `ProfileValidator.java` too (line 933, "`token-usage`'s"), which this plan leaves to PLAN-V2-68 (`profile-wait-margin`)
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: AttemptEnd.java:17 cites item 5; 09-completion-usage-and-spend.adoc lists 5 invariants; note drops AttemptEnd
 - HYPOTHESIS: the Javadoc of the two codecs and of `QualificationRecord` carries more stale wording than the grep of this draft found (the draft found no section title in them) — confirm/refute at the sweep of Deliverable 3 (verify-at-outline)
-  - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: outline sweep; title grep found no stale section title in the codecs
 - Verify-first clause: before editing, list the open pull requests for one that touches `pm-core/src/main/java/de/planmarshall/core/role/qualification/` or `AttemptEnd`/`UsageAggregate`, re-read the schema blocks and the codecs at the head, and check that `judgment-votes` (parked) has not started a calibration codec that expects the split on the other two records; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: no package file and no index row for this residue; no live spec names a class below
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: PR #344 touches GradingPlan.java and QualificationCheck.java, not the codecs
 
 ## Expected Surface
 

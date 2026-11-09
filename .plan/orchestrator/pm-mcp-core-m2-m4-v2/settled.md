@@ -40,7 +40,7 @@
 
 **Settled 2026-11-09 (orchestrator, read-only relevance check against `main` d1fb719f):** Moot: PLAN-V2-12 (#281, `51f551fc`, ADR 014) re-created `pm-providers/pm-provider-ci`; `origin/main:doc/specification/module-structure.adoc` (lines 115-116, 161-166, 589) lists both `pm-provider-http` and `pm-provider-ci`, matching the code. The #156 correction would now be wrong. Owner-register E5 can be dropped.
 
-## R05 is practised as "condense and point", not "delete" (settled 2026-11-09, resolved)
+## R05 is practised as 'condense and point', not 'delete' (settled 2026-11-09, resolved)
 
 - **R05 is practised as "condense and point", not "delete", and the lane that was told to delete did not (PLAN-29, #172, 2026-10-25; `landings/PLAN-29.md`).** R05 says the plan's pull request carries "the deletion of the implemented specification sections and watch items". #172 replaced the implemented launch prose of `model-work/04-worker-launch.adoc` (40 lines out, 83 in) by paragraphs that open "Implemented by `…`", link the new guide and say "Remaining: …", kept every section anchor (the PR body: many xrefs in other specification parts and watch items target them), and removed **no** line of any watch document (`implementation-watch/model-work.adoc` +6, `client-profiles.adoc` and `job-runtime.adoc` untouched although declared). The operator's instruction to the lane for this landing was to delete only what was implemented; the landing's rule check names R05 without reporting the departure, the PR body does report it. PLAN-25 (#145) also kept its rows and watch items (see its annotation). So at least two landings read R05 the same way, and an anchor-preserving deletion has no recipe. **PLAN-32 (#169, 2026-10-25) is a third reading: it touched no specification and no watch document at all** (`05-consultation.adoc` and `PM-WATCH-DISP-55` left in place because their remaining halves belong to the server assembly; the lane cites PLAN-28 as its precedent, which I did not re-check), so three landings now show three practices (keep the rows, condense and point, leave untouched). **PLAN-31 (#164) kept the specification sections and watch items too, deliberately** (`PM-WATCH-DISP-31` still guards the warm-worker recycling), which makes four landings without a deletion. The decision is already owed ("whether the instruction to delete implemented specification sections and covered watch items stands"): it now needs a choice between (a) deleting and rewiring the inbound xrefs, (b) amending R05 to "condense and point, delete the watch item when covered", (c) leaving it. Until decided, a landing that keeps the prose reads R05 as not met. Also found: `harness_store_unreadable`, a refusal code the production code emits, is named in no specification text at `4806a304`.
 
@@ -274,12 +274,272 @@
 
 - **Ten staged specs place HTTP endpoints in `pm-runtime`, whose `web` package holds only the listener state and certificate (found by the re-grounding of 2026-10-25).** PLAN-V2-17, PLAN-V2-29, PLAN-V2-38, PLAN-V2-41, PLAN-V2-73, PLAN-V2-42, PLAN-V2-69, PLAN-V2-26, PLAN-V2-22 and PLAN-V2-27 name `pm-runtime/src/main/java/de/planmarshall/runtime/web/` (or the module root) for routes, streams or endpoints, while `/api/v1` routes are `pm-mcp-server` classes of `plan-marshall-mcp` (module structure; `runtime/web/` holds `Der`, `WebState`, `WebTls`, `WebListenerConflictException`), and every one of those specs also declares the assembly untouched. No package of `plan-marshall-mcp` names these routes. Each spec's `## Re-grounding Record` states its case and its path stays in the declared surface (removing it would hide a real overlap from the gate). The operator decides, per spec or once: a companion package in `plan-marshall-mcp` (and the dependency edge), or the endpoints dropped from the spec and the logic named as a framework-free `pm-runtime` package. Retire when each of the ten is decided.
 
-**Settled 2026-11-09 (operator decision, option 1, confidence 75%):** a companion package outside, the framework-free logic stays here. Rescope notes appended to PLAN-V2-17, 22 and 75 (PLAN-V2-46 names neither routes nor units); the parked plans (24, 26, 27, 29, 32, 38, 41, 42, 54, 64, 69, 73) take the same rule when unparked. The routes and units are owed to `plan-marshall-mcp` (`owner-register.md` E8).
+**Settled 2026-11-09 (operator decision, option 1, confidence 75%):** a companion package outside, the framework-free logic stays here. Rescope notes appended to PLAN-V2-17, 22 and 75 (PLAN-V2-46 names neither routes nor units); the parked plans (24, 26, 27, 29, 32, 38, 41, 42, 54, 64, 69, 73) take the same rule when unparked. The routes and units are owed to `plan-marshall-mcp` (`owner-register.md` E26).
 
 
 ## Eleven staged specs ship default units, roles or fixtures whose home is `plan-marshall-mcp` (settled 2026-11-09, decided by the operator)
 
 - **Eleven staged specs ship default units, roles or fixtures whose home is `plan-marshall-mcp` (found by the re-grounding of 2026-10-25).** PLAN-42, PLAN-V2-17, PLAN-46, PLAN-V2-24, PLAN-V2-54, PLAN-V2-32, PLAN-V2-29, PLAN-V2-69, PLAN-V2-75, PLAN-V2-22 and PLAN-V2-64 build `.pmwf` units (onboarding, bootstrap, source, chat, review, recipe, decomposition) that are model-facing content under `classpath:/workflows/` of `pm-mcp-server`; `pm-workflow` carries no unit (the `DefaultUnitLoader` Javadoc), `CLAUDE.md` forbids `workflows/` in a JAR here, and the specs say the assembly stays untouched, so the units have no stated home (this repository can carry primitives, the verifier, the engine, stores and test fixtures). `plan-marshall-mcp` has a package for default units and drift tests (`default-units-and-drift-tests`), which none of the specs names. The operator decides: a companion package there per spec, or fixtures only here. Retire when decided.
 
-**Settled 2026-11-09 (operator decision, option 1, confidence 75%):** a companion package outside, the framework-free logic stays here. Rescope notes appended to PLAN-V2-17, 22 and 75 (PLAN-V2-46 names neither routes nor units); the parked plans (24, 26, 27, 29, 32, 38, 41, 42, 54, 64, 69, 73) take the same rule when unparked. The routes and units are owed to `plan-marshall-mcp` (`owner-register.md` E8).
+**Settled 2026-11-09 (operator decision, option 1, confidence 75%):** a companion package outside, the framework-free logic stays here. Rescope notes appended to PLAN-V2-17, 22 and 75 (PLAN-V2-46 names neither routes nor units); the parked plans (24, 26, 27, 29, 32, 38, 41, 42, 54, 64, 69, 73) take the same rule when unparked. The routes and units are owed to `plan-marshall-mcp` (`owner-register.md` E26).
+
+## Watch: #169 changed `TaskProtocol` outside PLAN-32's declaration, and a staged spec declares it (settled 2026-11-09, owned)
+
+- **#169 changed `TaskProtocol` outside PLAN-32's declaration, and a staged spec declares it (2026-10-25, `landings/PLAN-32.md`).** `workflow.task.TaskProtocol` now refuses a consultation task's generic `submit` and `infeasible` with `link_not_available` (it offers only `submit:answer`; ADR `workflow-consult/004`), and `workflow-task.adoc` was extended. PLAN-73 `question-continuation` (staged; depends on PLAN-30) declares both paths (`declaration-currency`: 3 shared files with the index), so it reads the changed protocol when it starts; its spec text was written before this change and may state the old behaviour. The one shared file with every other staged spec is the index README. The cross-module cleanup CodeRabbit suggested (one role-name pattern in `pm-core`) was answered and left open; nobody owns it. Retire the first half when PLAN-73 has started and read the protocol.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The `TaskProtocol` shape is read by PLAN-V2-33 and PLAN-V2-77; the role-name pattern duplicated across pm-core is PLAN-V2-06.
+
+## Watch: #172 changed `pm-core` and the shared `runtime.job` seams outside PLAN-29's declaration (settled 2026-11-09, moot)
+
+- **#172 changed `pm-core` and the shared `runtime.job` seams outside PLAN-29's declaration (2026-10-25).** `Finding` gained a suppress reason and a remediation class (`SuppressReason`, `RemediationClass`), `AuditEvent` a record for `harness_updated`, and `FindingSchemaParityTest` now derives its record tree from the types. The lane reports that `main`'s own run was red until then because #171 (a specification-only PR) changed the finding schema ahead of the record; I did not read that run. Staged specs that declare the changed paths and have not started: PLAN-36 and PLAN-37 (the `findings` types and tests), PLAN-46, PLAN-V2-23, PLAN-V2-38, PLAN-V2-41 and PLAN-V2-69 (`WorkerStart`, `JobEnvironmentComposer`, `RuntimeLogMessages`), PLAN-39 (`pm-runtime/README.adoc`), PLAN-V2-17 (`11-enrolment-store.adoc`), and the parked PLAN-V2-72 and PLAN-V2-74; each reads the new shape when it starts. The pattern to watch: a specification PR that changes a schema a parity test reads breaks `main` until the record follows. **It recurred on 2026-10-25 (#177, see the Open Defect on `FindingSchemaParityTest`)**: twice in four days; a guard that runs the parity tests in the documentation-side pull request, or a rule that a schema change names its record, is the standing remedy.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The staged specs read the #172 shape from main, and the recurring parity break is closed by the code-tree build rule of #185 (`paths-code-extra`).
+
+## Watch: `pm-provider-ci` still appears where the HTTP move (settled 2026-11-09, moot)
+
+- **`pm-provider-ci` still appears where the HTTP move (PLAN-86, #156) could not reach (2026-10-24).** The module is gone from the build and the code; what remains is stale naming and derived state: `doc/plans/README.adoc:129` (the forgejo row, was `:141` before #167), `doc/plans/forgejo-provider.adoc:14` and `doc/plans/access-grants.adoc:18` name it as a module, and `.plan/project-architecture/pm-provider-ci/enriched.json` still exists (generated). **Updated 2026-10-24 after #167 (`git grep` on `origin/main`):** `doc/plans/module-developer-docs.adoc:8` left with its file, and `forgejo-provider.adoc:39` no longer matches; two ADR mentions that name the module as history remain (`doc/adr/002`, `provider-http/001`) and are correct. Re-ground the package-file mentions with PLAN-V2-72, and regenerate `.plan/project-architecture/`. Retire when a grep of `doc/plans/` and `.plan/project-architecture/` finds no `pm-provider-ci`.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** `pm-provider-ci` is a module again (PLAN-V2-12, #281, ADR 014) and `doc/plans/` no longer names it as stale.
+
+## Watch: Step 3a of the job runtime specification is delivered for a probe only, and the owners of the rest are not cor (settled 2026-11-09, owned and owed)
+
+- **Step 3a of the job runtime specification is delivered for a probe only, and the owners of the rest are not corroborated (found by the analysis of PLAN-84, PLAN-2026-10-22).** `ProcessTreeTracker` (#135) ends a probe's descendants that left the group. Not built: the worker (`llm`) half, the Linux child-subreaper of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, `pm-mcp-clients`) and the specification's sentence "and the runtime status shows it". The landing names the supervisor (PLAN-30) for the worker wiring and the launcher repository for the subreaper, as the spec's Done-when allows ("or its owner is named"); but `doc/plans/supervisor.adoc`, `worker-launch.adoc`, `job-confinement-and-environment.adoc`, the specs PLAN-27, PLAN-29 and PLAN-30, and the packages of `pm-mcp-clients` (`origin/main` `07f2c87`) name no descendant, no subreaper and no step 3a. The nearest packages are `worker-launch` (PLAN-29, which starts `llm` jobs on the runner) and `job-confinement-and-environment` (PLAN-27, which composes the job). **Decided 2026-10-22 (operator, "as proposed"): the worker half is `worker-launch` (PLAN-29)**, carried into its spec (section *Carried From PLAN-84*, a claim stamped); PLAN-30 has a note. Counter-evidence found while carrying it, for the operator to overrule: ADR runtime-job/013 and the Javadoc of `SubprocessJobRunner` say "a worker is started by the supervisor … the supervisor wires the same tracker for a worker", so the PLAN-84 landing's naming of PLAN-30 is backed by merged design text, not by PLAN-30's spec; PLAN-29 is ready to decide at its trace matrix whether the wiring is one condition in the runner for the kind `llm` (its) or sits in the supervisor's start path, and tells PLAN-30 if the latter. Still owed: a package in `pm-mcp-clients` for the Linux child-subreaper of `pm-exec` (outside this ledger), and the place the runtime status shows a survivor (PLAN-29 reports it if none exists). The landing record is `landings/PLAN-84.md`. **Updated 2026-10-25 (PLAN-29, #172, `landings/PLAN-29.md`): the worker half is delivered.** `SubprocessJobRunner` now tracks descendants for `llm` as well as `probe` (the diff changes the runner and not `ProcessTreeTracker.java`, which the spec declared; ADR `runtime-launch/003`), so the PLAN-84 carry is closed in the runner and PLAN-30 owes no wiring. Not corroborated: whether "the runtime status shows a survivor" (the landing is silent). Still owed: the Linux child subreaper in `pm-exec` (`pm-mcp-clients`), outside this ledger; the `pm-mcp-server` wiring that starts a worker, since nothing calls the launch yet.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The worker half is delivered (`SubprocessJobRunner` tracks `llm`); the PID-reuse window is PLAN-V2-66 (Wa40), the launcher subreaper in `pm-exec` is owed to pm-mcp-clients.
+
+## Watch: Specification parts that no work package or staged plan names (settled 2026-11-09, resolved)
+
+- **Specification parts that no work package or staged plan names (found by the coverage read of 2026-10-22; an unverified lead per part).** A script over the 109 files of `doc/specification/` found 26 whose path no live plan spec and no package file under `doc/plans/` names (22 after PLAN-96 to PLAN-V2-78 were staged; the four that left it are `client-profiles/03` and `04`, `domain-extensions/03` and `state-catalogue/10`): `client-profiles/02-placeholders`, `credentials-and-enrolment` (the index and `03-audit-and-outbound-https`), `domain-extensions` (the index and parts `01-four-axis-architecture`, `02-merge-algorithms`, `03-module-discovery`), `filesystem-layout`, `identifiers`, `job-runtime/03-parsers-and-gates`, `phase-workflows/06-finalize-re-entry-and-merge` and `07-questions-waivers-operator-influence`, `state-catalogue/02`, `03`, `05`, `07`, `08`, `10`, `13`, `store-schemas/15-screening-and-grants` and `17-re-planning`, `timeouts`, `workflow-dsl/03-reference-excerpt` and `08-remediation-units`. A path match is not a verdict: some are index parts, some are covered under another name (PLAN-19 may own the placeholders, `credentials-and-enrolment/03` may be delivered by PLAN-09 and PLAN-74), some are implemented in `plan-marshall-mcp` as units. The operator's rule is that every specification is implemented, so each part is to be classified (implemented, owned, unowned) and the unowned ones cut into packages. Evidence that the gap is real: the seven packages that hold only a `package-info.java` and that no plan builds (`core.architecture`, `core.build`, `core.discovery`, `core.domain`, `core.id`, `workflow.envelope`, `workflow.primitive`) name `domain-extensions/01` to `03`, `job-runtime/03`, `identifiers` and the envelopes and primitives specifications; and the roadmap has items with no package for the decision quorum with its calibration (Milestone 8), the Dependency Delta Check and the finalize pipeline (Milestone 10) and the domain extensions with module discovery (Milestone 6). PLAN-V2-76, PLAN-V2-77 and PLAN-V2-78 wait on three of them. **Decided 2026-10-22 (operator: yes): staged as PLAN-103 `spec-coverage-pass`** (plan-marshall lane, WS-10, documents only): it classifies the 22 remaining parts as implemented, owned or unowned with evidence, cuts the packages for the unowned ones and for the three roadmap areas without a package (domain extensions with module discovery, Milestone 6; decision quorum and calibration, Milestone 8; Dependency Delta Check and finalize pipeline, Milestone 10), and replaces the `(no work package)` notes of `judgment-votes`, `own-calls` and `change-map`. It depends on PLAN-96.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Settled by PLAN-103 (#151), which classified the remaining parts and cut the packages (now the PLAN-V2 specs).
+
+## Watch: Owed to the milestone exit by PLAN-72 (settled 2026-11-09, owed outside)
+
+- Owed to the milestone exit by PLAN-72 (listed in the body of #83): in `plan-marshall-documentation`, the roadmap item of the
+  spend removal checked off, and the removal no longer stated as remaining in the roadmap item of `token-usage`. Retire when
+  the Milestone 3 exit batch is written.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E23 Wa33: the Milestone 3 exit batch in plan-marshall-documentation.
+
+## Watch: The `plan-marshall-mcp` package that wires `FileLockManager` must create one instance per runtime (settled 2026-11-09, owed outside)
+
+- The `plan-marshall-mcp` package that wires `FileLockManager` must create one instance per runtime
+  (a second one can release the first holder's OS lock on POSIX); stated only in the Javadoc.
+  Outside this repository — carry to whoever stages that wiring.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E21 Wa27: one `FileLockManager` instance per runtime remains a precondition of plan-marshall-mcp's wiring (`FileLockManager.java:44-48`).
+
+## Watch: Closing a channel on a POSIX file drops the process's OS locks on (settled 2026-11-09, resolved)
+
+- Closing a channel on a POSIX file drops the process's OS locks on
+  it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock. PLAN-09 (#69)
+  accepted the loss for the audit log alone (ADR core-store/024: the per-key in-process lock and
+  `RuntimeLock` serialize appends; a deviation from the specification's "append only under
+  `FileChannel.lock()`", recorded in the ADR). Every other file-locked JSONL store is still affected and no
+  staged plan owns the fix, which belongs in the lock manager.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Fixed by PLAN-V2-95 (#328): a leaf key's OS lock lives on the sidecar `<file>.lock` (`FileLockManager.java:72-80`, ADR core-store/068); the spec and test residues are PLAN-V2-124.
+
+## Watch: Owed outside PLAN-82 (settled 2026-11-09, owed outside)
+
+- **Owed outside PLAN-82 (plan-reported):** the `pm-mcp-server` assembly in `plan-marshall-mcp` has to call `CredentialStoreChoice.record(LockManager, user, store)`;
+  the concept and user documentation and the roadmap check-off belong to the milestone exit in `plan-marshall-documentation`.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E19 Wa24: plan-marshall-mcp calls `CredentialStoreChoice.record(...)`.
+
+## Watch: Install, restore and uninstall share the kept pair with no cross-process owner (settled 2026-11-09, owed outside)
+
+- **Install, restore and uninstall share the kept pair with no cross-process owner (plan-reported, corroborated in the code).** No production caller
+  exists yet. CodeRabbit raised it; the lane answered on the PR. The serialization belongs to the change that wires `pm-operator runtime install|uninstall`
+  and the start.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E17 Wa22: the serialization belongs to the change that wires `pm-operator runtime install|uninstall`.
+
+## Watch: Owed outside PLAN-83 (settled 2026-11-09, owed outside)
+
+- **Owed outside PLAN-83 (plan-reported, accepted by the operator):** `ServiceUnitInstaller.restore()` is implemented and tested, but no production
+  start calls it; the `pm-mcp-server` assembly in `plan-marshall-mcp` must run it first (like `CredentialStoreChoice.record` below). Until then the
+  macOS recovery after an interrupted reinstall does not exist end to end. The concept and user documentation and the roadmap check-off belong to the
+  milestone exit; the rest of the upgrade rollback (staged installation directory, the switch) is not implemented, so the Upgrade section stays.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E16 Wa21 (plan-marshall-mcp calls `ServiceUnitInstaller.restore()`; documentation at the milestone exit).
+
+## Watch: Owed outside PLAN-64 (settled 2026-11-09, owed outside)
+
+- **Owed outside PLAN-64 (plan-reported, corroborated by the Javadoc):** the `pm-mcp-server` assembly in `plan-marshall-mcp` registers `PendingEntryRecordsSweep`
+  and wires `StalledScopeDetector` with an `OperatorPort`; `process-and-overview` serves the `needs_operator` summary; the removed public `JobRefusal` API
+  is a change the clients' build meets. The roadmap `_Remaining_` update and the concept and user documentation belong to the milestone exit.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E15 Wa20 (plan-marshall-mcp; roadmap and concept text to plan-marshall-documentation).
+
+## Watch: Verifier performance on the real merged plan unit (settled 2026-11-09, owned)
+
+- Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Owned by PLAN-V2-58 `verifier-cycle-scale` (Wa17).
+
+## Watch: Specification issue `plan-marshall-documentation` #71 (settled 2026-11-09, owed outside)
+
+- Specification issue `plan-marshall-documentation` #71 ("Workflow DSL: define how a `depends_on_config` value activates a guard") is OPEN (filed by PLAN-56). Rule 3 configuration reachability stays a named seam (ADRs 004, 006) until it is answered; then stage a follow-up package that implements the specified activation.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E14 Wa16: plan-marshall-documentation issue #71 is open; stage the activation plan when it closes.
+
+## Watch: Plan instance code behind its specification (settled 2026-11-09, resolved and owned)
+
+- **Plan instance code behind its specification (after PLAN-24).** The code still ships the prune reasons
+  `recipe_override` and `auto_merge_off` (`PruneReason`, `CompositionCause`, `composition-rules.json`). Since
+  documentation #76, the specification targets `plan_default` and `merge_by_operator`, with the plan axes, the
+  plan's overrides and phase sub-workflows. `PM-IMPL-5` and the roadmap item (`[~]`) name the gap. By operator
+  decision (2026-10-15) the alignment is follow-up work, now staged as PLAN-70 `plan-instance-alignment` (prune
+  reasons, rules, axes, adjudication unit, `diff_summary`) and PLAN-V2-13 `plan-instance-versions` (composition events,
+  version switch, Rules 13 and 14, resources), beside PLAN-65 `lane-route-pruning`. The source is the PLAN-24 landing,
+  checked against `origin/main` on 2026-10-15.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** `plan_default` and `merge_by_operator` are on main since PLAN-70 (#107); composition events, version switch, Rules 13 and 14 and resources are owned by PLAN-V2-13 and PLAN-V2-82; the roadmap line is E6.
+
+## Watch: plan-marshall-mcp also owes (settled 2026-11-09, owed outside)
+
+- plan-marshall-mcp also owes (after PLAN-09, #69): wiring `AuditLogSink` (`new AuditHead(…)` → `new AuditLog(…)` → `new AuditLogSink(locks, log)`) and `AuditVerification` in place of `AuditChainVerification.NONE` and the refusing sink; creating `logs/` before the log is built; breaking the `FileLockManager` ↔ `AuditLogSink` constructor cycle; and the `pm-operator audit verify` command over `AuditVerification.full()` — source: #69 PR body and landing message, corroborated 2026-10-15.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E13 Wa14 (plan-marshall-mcp): the audit sink and verification wiring.
+
+## Watch: plan-marshall-mcp still owes (settled 2026-11-09, owed outside)
+
+- plan-marshall-mcp still owes (after #76): from PLAN-17, `DefaultUnitInvariantTest` over the real default units and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal); taking its 16 log records over from `RuntimeLogMessages` into a holder of its own; wiring a `PeriodicSweep` with `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep` once the daemon runs the periodic sweep (new behaviour — the assembly never used `SweepStep`). The sweep item is void: the package `removed-concepts` (PLAN-64) removes `FencedSessionGenerationsSweep`, and the age sweep of pending entries goes to `start-from-clients` (confirmed by cleanup against `doc/plans/removed-concepts.adoc` at a8a4214). Do not carry it to plan-marshall-mcp.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E12 Wa13 (plan-marshall-mcp); the sweep part is void.
+
+## Watch: A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (settled 2026-11-09, owned and owed)
+
+- A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The pm-runtime reader of a pending entry is delivered by PLAN-V2-22 deliverable 13 (directory form, `runtime.entry`); the daemon wiring is plan-marshall-mcp's (register E11).
+
+## Watch: Owed after PLAN-69 (settled 2026-11-09, resolved and owed)
+
+- Owed after PLAN-69 (#91, 2026-10-18), CORRECTED 2026-10-18 after the operator asked: (1) the landing message said the change is
+  "breaking for the daemon assembly (`pm-mcp-server`)" and the first version of this entry repeated it as a fact. Checked against
+  `plan-marshall-mcp` `origin/main`: it holds no `.pmwf` unit, no module depends on `pm-workflow` and no Java file imports
+  `de.planmarshall.workflow`, so NOTHING breaks today. The statement holds only once the package `default-units-and-drift-tests`
+  (open, not started; its package file in `plan-marshall-mcp` lists "the default workflow units as resources of the assembly") wires
+  `pm-workflow` and adds the default units: those must then carry the frontmatter (`name`, `description`, `type`, entries, exits),
+  `startState` is optional and `CompiledInvariants` takes a new required argument. The fix is one bullet in that package file (a
+  `docs(plans)` change in `plan-marshall-mcp`); no issue was filed and none is needed before the package starts. (2) Two audit
+  anti-pattern findings (info) stay `pending` because each needs a decision in the specification first (Unicode format characters in
+  the frontmatter and a case-sensitive comparison of the reserved author; no size bound on the unit file, the frontmatter lines and
+  the echoed text): staged as PLAN-81 `unit-frontmatter-hardening` — **both closed by pm-mcp-core #114 (`afc918b`, 2026-10-20)**: the frontmatter refuses
+  Cf, Zl and Zp characters with code point and line, the reserved author is compared NFKC-normalised and case-folded, the unit file (1 MiB),
+  the frontmatter (200 lines) and the echoed text (80 characters) are bounded; verified, `landings/PLAN-81.md`. (3) Deliverable 9 landed partly by design: the six
+  specification files keep their anchors `#unit-frontmatter`, `#unit-types`, `#interface-rules` as short sections.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Parts 2 and 3 shipped (#114, `landings/PLAN-81.md`); part 1 is plan-marshall-mcp's (register E10): when `default-units-and-drift-tests` wires `pm-workflow`, its units must carry `name`, `description`, `type`, `icon`, entries and exits.
+
+## Watch: Unverified leads from the review bot on #135 (settled 2026-11-09, owned)
+
+- **Unverified leads from the review bot on #135 (CodeRabbit, 2026-10-22; third-party text, partly corroborated in the code).** (1) The sweep of remembered descendants (`ProcessTreeTracker.sweep`) checks that a member still runs and then signals it by numeric PID (`signals.signalProcess(pid, SIGTERM)`), so a member that exits and whose PID is reused between the check and the signal could be signalled; the bot rates it moderate and inferred, the window exists in the code, exploitability is unproven, and operating-system permissions bound the damage. (2) Where a platform reports no start instant, `SubprocessJobRunner.pidReused` answers true and no PID is signalled; the bot fears a cancelled or over-budget job left running, the code and ADR runtime-job/010 say the process is ended through its handle, and no test of an unreadable instant on the cancel path was read. Re-read both when the supervisor or the launcher subreaper is planned.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Both CodeRabbit leads (numeric-PID signalling after a liveness check; the empty start-instant `pidReused`) are owned by PLAN-V2-66 (staged; Wa10, Wa40).
+
+## Watch: The native build of `pm-mcpd` in `plan-marshall-mcp` against the deployed SNAPSHOT has not run since #90 and # (settled 2026-11-09, owed outside)
+
+- The native build of `pm-mcpd` in `plan-marshall-mcp` against the deployed SNAPSHOT has not run since #90 and #92. It is the only check of
+  the `kill` downcall descriptor of PLAN-20 and of the Keychain and Secret Service paths of PLAN-74, and `SecretStoreProducer` there compiles
+  again since plan-marshall-mcp #88 (8137c9e), but no native build has run. PLAN-84 asks to run it or to name the plan that does.
+  **Answered 2026-10-22 (PLAN-84, #135):** reported not run, owner repository `plan-marshall-mcp` (PLAN-78 Deliverable 3); no plan of `plan-marshall-mcp` is named (`git grep` of its `doc/plans` finds none), and the checks of #135 list no native build. The watch stays open until the build runs. **2026-10-27: the package exists** (`native-build-verification`, `open`, plan-marshall-mcp#109, `landings/PLAN-102.md`); the native build itself has still not run. **Decided 2026-10-22 (operator): a plan in `plan-marshall-mcp` owns it** — staged as PLAN-102 `native-build-package-in-plan-marshall-mcp` (runbook, launched from that repository, documents only: it writes the package `native-build-verification` and its row, and drops the dangling cross-repository links of that index: four packages of `pm-mcp-core` and four of `pm-mcp-clients` that are done).
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Owned by plan-marshall-mcp's package `native-build-verification` (register E9 Wa9); it reports the native build of `pm-mcpd` against the deployed SNAPSHOT.
+
+## Watch: #150 (settled 2026-11-09, resolved)
+
+- **#150 (`ac34703`, 2026-10-23, outside the epic): `icon` is a required key of the `.pmwf` unit frontmatter** (grammar `[a-z][a-z0-9._-]{0,63}`, no `..` segment, within format 1, no compatibility path; `UnitFrontmatter` gains a non-optional `String icon` after `type`; `UnitFrontmatterReader`, `WorkflowPrinter`, `PlanUnitMerger`, `PlanInstanceComposer` change; 212 files, ADR `workflow-dsl/008`; the visual language and icons are a `pm-mcp-clients` plan and the default-unit `icon:` lines wait for plan-marshall-mcp `default-units-and-drift-tests`, which is `blocked`). Read 2026-10-23 against the corpus (`corpus declaration-currency`, 39 specs declare a touched path, 17 of them live) and the specs' text. **Running plans:** PLAN-94 declares `UnitFrontmatterReader.java` and its test with Sonar issue lines that moved (it re-lists first, D8, and merges the base); PLAN-26, PLAN-87 and PLAN-103 are not touched. **Staged plans that write or change units or their grammar, and must carry `icon`:** PLAN-43 (the six phase sub-workflow units, `plan.pmwf`, `land.pmwf`; 8 declared paths touched), PLAN-42 (`onboarding.pmwf` and the wait grammar in the reader and printer), PLAN-73 (question states in the DSL tests), PLAN-V2-54 (recipe units), PLAN-V2-69 (the designer's validate and catalogue name the frontmatter fields), PLAN-V2-13 (stored unit text and 18 migrated test fixtures). The `workflow-dsl` ADR directory exists (001 to 008): the hypothesis of PLAN-42 and PLAN-73 "new directory if absent" is moot, next free number 009 (R11). Not yet folded into any spec; the operator decides.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** #150 made `icon` a required unit-frontmatter key (`UnitFrontmatter.icon`, `UnitFrontmatterReader.REQUIRED_KEYS`, ADR `workflow-dsl/008`); the staged units (PLAN-V2-13, 54, 69) carry it, the default-unit `icon:` lines ride with plan-marshall-mcp `default-units-and-drift-tests` (E26).
+
+## Watch: Filed 2026-10-21 in plan-marshall's `live-blockers` inbox (settled 2026-11-09, owed outside)
+
+- Filed 2026-10-21 in plan-marshall's `live-blockers` inbox (`pm-mcp-core-m2-m4-001` to `-004`, queued and uncommitted in that ledger worktree until its `land`): the executor-skew evidence of five runbook landings, the `total_tokens=unknown` recurrence (seven landings), the lane edit of the main checkout and the bot silence on a merge head (PLAN-81, the two unfiled lane-contract lessons), and the `ci` abstraction's lack of a repository selector. **Filed 2026-10-22 (`pm-mcp-core-m2-m4-005`, high priority, same inbox, same condition):** the runbook lane leaves SonarCloud issues open at the merge (38 over eight pull requests, none of its steps reads them; the quality gate passes with open issues) and a lane step plus an optional landing fact `sonar_open_issues` are asked for. The spec half is the epic's own and is not done yet (Standing Constraint and Done-when clause; the operator's word is owed).
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E7 Wa3: the filings are owed to plan-marshall's `live-blockers` inbox; the epic's own spec half is standing rule R18 (clear Sonar issues before ready).
+
+## Watch: Owed to the milestone exit after PLAN-70 (settled 2026-11-09, owed outside)
+
+- Owed to the milestone exit after PLAN-70 (#107, 2026-10-19) and PLAN-91 (#131, 2026-10-21: the concept and user documentation of the slice and the roadmap check-off), written in plan-marshall-documentation and not by any plan here: the roadmap check-off of the plan-instance item (`roadmap.adoc` line 233 still lists the prune reasons `plan_default` and `merge_by_operator`, the override event and `diff_summary` under "Remaining") and the documentation parts of PM-IMPL-5. The plan's statement that its change breaks `plan-marshall-mcp` was REFUTED on 2026-10-19 (`grep` finds no Java file there naming `CompositionRecord`, `CompiledInvariants`, `PlanFacts` or `RECIPE_ID_FACT` at `91b60d5`); it holds only for whoever first wires the composer into the assembly. Retire this watch when the roadmap line is updated.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Register E6 Wa2: the roadmap line (now `roadmap.adoc:236`, was 233) of plan-marshall-documentation still lists the PLAN-70 and 91 pieces under Remaining; the check-off is that repository's at the milestone exit.
+
+## Watch: Audit identity of `judgment_task_completed` (settled 2026-11-09, owned)
+
+- **Audit identity of `judgment_task_completed` (operator decision 10 of 18, 2026-10-29: deferred).** The record (`AuditEvent.judgmentTaskCompleted`, category `operator`) carries endpoint, model, status, tokens and duration and no identity; the Identity rule of `store-schemas/12` (line 955) has three shapes (operator act, worker's call, machine-level) and a judgment task fits none cleanly; the writer's `actor` was not confirmed. Decide after PLAN-46 (running) has landed, because `store-schemas/12` is its ground: machine-level `os_principal`, or the worker-call shape.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** Decided 2026-10-30 (D1 Wa1): the event takes the machine-level `os_principal` identity, implemented by PLAN-V2-81 (staged); moot if PLAN-V2-129 deletes `AuditEvent.judgmentTaskCompleted` (its ask A2).
+
+## Watch: ADR `doc/adr/002` still reads 'Accepted' while R20 replaces its dispatcher rule (settled 2026-11-09, resolved)
+
+- **ADR `doc/adr/002` still reads "Accepted" while R20 replaces its dispatcher rule (flagged by the lane at the landing of PLAN-V2-83, outside its surface).** Retire when PLAN-V2-93 (`http-tests-annotations`) lands and its ADR step sets the status of 002 to superseded, naming ADR 010; if it lands without, stage the one-line fix.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** ADR `doc/adr/002` is Superseded by ADR 017 (PLAN-V2-93, #316).
+
+## Watch: A ledger-only pull request runs the full Maven build (settled 2026-11-09, moot)
+
+- **A ledger-only pull request runs the full Maven build (ADR 009), 27 minutes of checks plus about 12 in the merge queue for #288 (2026-11-04).** The shared build workflow (`cuioss-organization` v0.43.0) already ignores `.plan/**`, `doc/**` and `**/*.adoc` in its docs-only gate, but ADR 009 sets `skip-on-docs-only: false` so the gate is off, and a project can only add ignore patterns. Operator decision 2026-11-04: ask the shared workflow for an include list (re-include `doc/specification/**` as code) so the gate can be turned back on and `.plan/**` skips; emitted as a `/plan-marshall` command for `cuioss-organization`. Follow-up in this repository after it ships: pin the new version, set `skip-on-docs-only: true` with the include, supersede ADR 009. Until then the ledger is landed once per session.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** ADR 015 (#300, `cuioss-organization` v0.44.0 `paths-code-extra`) re-enabled the docs-only skip: the ledger land #341 skipped `build / build` and its checks ended in about 45 s (the rest was the merge queue). ADR 009 is superseded and this watch is retired.
+
+## Watch: PM-WATCH-STORE-43 was deleted by PLAN-V2-05 on tests that do not exercise its guard (settled 2026-11-09, resolved)
+
+- **PM-WATCH-STORE-43 was deleted by PLAN-V2-05 on tests that do not exercise its guard (three-layer analysis of 2026-11-01, `landings/PLAN-V2-05.md` S1, I1, I2, C2).** `FileLockManager` asserts the lock order within one transaction only and `DerivedFactStore.refresh` opens its own, so a refresh made inside a scope transaction is never order-checked; the lock test substitutes a direct `LockOrder.check` call, and the "no update lost" tests race two threads with no forced interleaving. The structure is safe (one lock, no foreign code under it), but spec 09 line 15 and the guide (`core-store.adoc` 1218 to 1220) read as enforced. Also open: the schema-violation text of an enum or const echoes the value into `failure.reason`, and so into the guard reason, for an operator-only kind. Owner: PLAN-V2-111 (`derived-facts-guard-coverage`, staged 2026-11-01, registered as Wa54 in `owner-register.md`): deterministic tests, the redaction, the item restored under its own id (which also heals the sibling link to PM-WATCH-STORE-43), the specification and guide corrected. It must run before the conformance plans that declare the same test classes (PLAN-V2-85, 86, 97, 101, 106). Retire when PLAN-V2-111 has landed.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** PLAN-V2-111 (#283) restored PM-WATCH-STORE-43 (`doc/implementation-watch/store-schemas.adoc:709`) with deterministic tests; the residues are under the PLAN-V2-111 entry and PLAN-V2-114 D3.
+
+## Watch: PLAN-V2-111 landed (settled 2026-11-09, owned)
+
+- **PLAN-V2-111 landed (#283, `02ef2cdb`, 2026-11-02); the guard of PM-WATCH-STORE-43 is restored and the redaction is narrower than the plan's objective (`landings/PLAN-V2-111.md`).** (S1) the spec's "failure wins" premise is false and the lane's correction is imprecise (a failure on a valued entry becomes `stale` and keeps the old `derivedAt`); (S2) D1(b) asks for a violation its scenario cannot produce; (I1) the lock test proves "no deadlock", not "no update lost"; (C1) a consumer `Failed` reason and the derivation identifier (`DerivedFactStore.java:281`) still reach a reason unredacted. Owners: Wa61; the `SchemaSubset` general fix stays PLAN-V2-65's.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The residues (identifier echoed at `DerivedFactStore.java:280`, the lock-test weakness, ADR 056 wording, the spec 09 sentence) are PLAN-V2-114 D3 (staged); the general `SchemaSubset` fix is PLAN-V2-65.
+
+## Watch: Operator decisions of 2026-11-04 on the analysis findings: three fix plans staged (settled 2026-11-09, resolved)
+
+- **Operator decisions of 2026-11-04 on the analysis findings: three fix plans staged.** PLAN-V2-112 (`main-green-reliability-bugs`, WS-11: the two open S2637 bugs `Scoring.java:80` and `UnitFrontmatterReader.java:191`; the proof is `main` after the merge, not the pull request), PLAN-V2-113 (`ci-contract-defects-and-hardening`, WS-09: the PLAN-V2-12 defects and gaps; PLAN-V2-62 now waits for it) and PLAN-V2-114 (`analysis-findings-fixes`, WS-11: the findings of PLAN-V2-11, 110 and 111 that had no owner, and the duplicate ADR numbers 063 and 064 of `core-store`, Wa62). Emit 112 first; 114 waits for PLAN-V2-16's landing. Owners: Wa56, Wa57, Wa58, Wa60, Wa61, Wa62.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** PLAN-V2-112 (#293) and 113 (#296) shipped; PLAN-V2-114 is staged and no longer waits (#289 merged), so the emit order of 2026-11-04 is moot.
+
+## Watch: PLAN-V2-16 landed (settled 2026-11-09, owned)
+
+- **PLAN-V2-16 landed (#284, `70bc999f`, merged by the operator's own session after a rebase, 2026-11-04); the follow-up #289 is open and carries the second review's fixes (`landings/PLAN-V2-16.md`).** D1 to D5 shipped; the findings of PLAN-V2-11 (retirement rules, empty-shell wording, round trip) are resolved. Open: (C1, C2) sequence comparison by digit count and the outcome id are fixed only in #289; (C3, C4) a blank body strands a claim and the untrusted mark fails open for unreadable cited lessons; (I2) DEL breaks the round trip; (I5) an `Optional` record component and about 76 assertions without a message; (C-ADR) duplicate ADR numbers 063 and 064 (Wa62). PLAN-V2-114 D4 and D5 take them after #289 merges. Owners: Wa63.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** #289 merged (`c8bb0d64`); the duplicate core-store ADR numbers 063 and 064 are PLAN-V2-114 D4, the other findings D5 (staged).
+
+## Watch: PLAN-V2-110 landed completely (settled 2026-11-09, owned)
+
+- **PLAN-V2-110 landed completely (#264, #268, #274, #282 `65ee72ac`, 2026-11-02) but did not reach its goal (`landings/PLAN-V2-110.md`).** Sonar `main` at `70bc999f`: S2583/S2589 are gone, **two S2637 bugs remain** (`Scoring.java:80`, `UnitFrontmatterReader.java:191`), the gate stays ERROR on `new_reliability_rating`; 21 issues open in all. The three-layer analysis found annotations that are not true and a null that still arrives (C2 `EffectiveRole.idleWakeups` via `.orElse(null)`, C3 `SubprocessJobRunner.latest` annotated `@Nullable` but never null, C4 `QuestionRecord`), a measurement that cannot see untouched lines (S1) and a test of "no behaviour change" that cannot see an annotation (S2). Owners: Wa58 (the two open bugs, operator), Wa60.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The two open S2637 bugs were fixed by PLAN-V2-112 (#293, gate OK, 0 BUGs); the false null contracts (`EffectiveRole.idleWakeups`, `SubprocessJobRunner.latest`, `QuestionRecord`) are owned by PLAN-V2-114 D2 (staged), the `Optional` conversions by PLAN-V2-97, 98 and 99.
+
+## Watch: PLAN-V2-11 landed (settled 2026-11-09, owned)
+
+- **PLAN-V2-11 landed (#279, `89c2e2a7`, 2026-11-02); the three-layer analysis found a possible round-trip break and a lossy reduction (`landings/PLAN-V2-11.md`).** (C1, not run) front-matter strings with U+0085, C1 controls, U+FFFE/U+FFFF or U+2028/U+2029 may not read back as written because the writer is Jackson's default and the reader is SnakeYAML, and no test uses such a character (I1); (C2) the format-version message has its arguments swapped; (S1) the R05 reduction dropped the YAML-restriction sentence and `invalid_link_args`; (S3) `Retired` enforces none of the retirement rules the specification says it states. Owner PLAN-V2-16 for C1 and S3 (Wa57); C2 and S1 have no owner and wait for the operator. Retire when each is answered.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** PLAN-V2-16 resolved C1 and S3 (#284); C2 (the swapped message, `LessonFrontMatter.java:151`) and S1 (the restriction sentence of `store-schemas/10`) are owned by PLAN-V2-114 D1 (staged).
+
+## Watch: PLAN-V2-12 landed (settled 2026-11-09, owned)
+
+- **PLAN-V2-12 landed (#281, `51f551fc`, 2026-11-02); the three-layer analysis found one defect and several gaps (`landings/PLAN-V2-12.md`).** (C1) `GitLabCiProvider.issueView` answers `REJECTED` for a missing issue N when a merge request N exists, although GitLab numbers them apart; (S2) `IssueRef` has no kind and `issueComment` on a pull request number is unguarded on both forges; (S4) PLAN-V2-62 names a `PullRequestRef` PLAN-V2-12 did not build; (I1) the App identity test cannot detect swapped credentials; the `@Nullable` returns of `refusalFor` and `kindOf` break CLAUDE.md; the lane's `verify -Ppre-commit` rewrote continuation indentation non-idempotently (the known pre-commit defect, E22). Owner PLAN-V2-62 (Wa56), which extends the same classes and now carries the list in its Standing Constraints. Retire when PLAN-V2-62 has landed and answered each, or when the operator stages a fix plan first.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** PLAN-V2-12's C1 (#296) and S4 (#299) are fixed (PLAN-V2-113, 62); the remaining S2 (`issueComment` on a pull-request number, `IssueRef` without a kind) is owned by PLAN-V2-128 (staged; Wa56, Wa67, Wa71).
+
+## Watch: PLAN-V2-01 landed (settled 2026-11-09, owned)
+
+- **PLAN-V2-01 landed (#271, `44cfe8d7`, 2026-11-01); one item stays open (`landings/PLAN-V2-01.md`).** (1) The documentation PR `plan-marshall/plan-marshall-documentation#138` (three hunks) was merged on the operator's word on 2026-11-01 (squash through the merge queue, merge commit `3b04f805`, read with `ci pr queue-state`); it was the only open documentation PR of this epic. Closed. The open item (the three-layer analysis, C2): the change keeps `@SuppressWarnings` for `java:S2583`, `S2789`, `S1905`, `S2589` and `S2637` around defensive checks against a raw-typed caller in a `@NullMarked` package (`PrimitiveResult` lines 57 and 121, `PrimitiveRegistry` lines 214, 273, 290); these five are the only suppressions of these rules in the repository, every other site was fixed by PLAN-V2-110. The operator decided on 2026-11-01 to fix them later, inside an existing plan: owner **PLAN-V2-67** (`main-hygiene-leftovers`, Deliverable 4; registered as Wa55). The fix keeps the named refusals (pattern match on an `Object`, `@Nullable` builder field); it runs after PLAN-V2-110, 97 and 100, which rewrite the same sites. Retire when PLAN-V2-67 has landed Deliverable 4. The earlier Watch on the unmerged PR #267 is closed: #267 was replaced by #271 under the quota policy's fresh-PR step.
+
+**Settled 2026-11-09 (orchestrator, read-only check against main 363ecb48):** The five null-rule suppressions in `core.spi` remain on main (`PrimitiveRegistry.java:213, 272, 289`, `PrimitiveResult.java:57, 121`) and are owned by PLAN-V2-67 D4 (Wa55); the documentation PR #138 is merged.
+
+## Watch: Eight broken cross-repo links (history of the condensed entry, 2026-11-09)
+
+- **Eight broken cross-repo links against documentation `origin/main` `f5fb97b` (seen by the R17 run of PLAN-V2-83: anchors `#fix-proof`, `#repaired-landings` and `PM-WATCH-PHASE-124` that documentation `main` does not carry; none from that change).** Every later plan's links check will report the same eight; they are the documentation repository's to resolve (or the specs of #244 and #247 that point there). Retire when a links run against documentation `origin/main` reports `BROKEN LINKS 0`; until then a plan's report names only counts above the baseline. **Baseline moved:** PLAN-V2-109's run, after fast-forwarding the sibling checkout to documentation `origin/main`, saw one broken link, `pm-runtime/doc/developer/runtime-config.adoc:10` to `plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-EXT-6` (missing anchor); the eight above were drift against an older documentation head. The count to hold a plan to is therefore the one measured against the freshest documentation `origin/main`, currently 1. **Baseline moved again (PLAN-V2-05 analysis, 2026-11-01):** a broken link is `requirements/14-implementation.adoc` line 135 to `store-schemas.adoc#PM-WATCH-STORE-43` (missing anchor, because PLAN-V2-05 deleted the watch item as its spec required). Checked two ways: `git show origin/main:doc/requirements/14-implementation.adoc` of documentation (`10a81d5`) still carries the link, and a `trace.py` run reports `REFERENCED BUT UNDEFINED WATCH IDS ['PM-WATCH-STORE-43']`. That run used the local documentation checkout, which is seven commits behind `origin/main`, so its total of 3 is not the baseline (two `missing-file` links to an article that exists only upstream); the PM-EXT-6 anchor link recorded above was not re-measured against the fresh head. The fix is one documentation PR that drops the link from line 135; it is the operator's to open or to stage.
+
+## Watch: PLAN-V2-08 landed (settled 2026-11-09, decided by the operator)
+
+- **PLAN-V2-08 landed (#277, `685fdb38`, 2026-11-02); the three-layer analysis found no count-corrupting defect and several gaps (`landings/PLAN-V2-08.md`).** (C1) an ambiguous Maven count line makes the whole population `Unmeasured` (owner PLAN-V2-36); (S3) a log with no count line yields an empty `Optional`; (I1) the Gradle count line is whole-line anchored where the original searches a substring; (I2) the overflow paths have no parser-level fixture; (C3) two polynomial regexes and no size cap on `BuildLogText.read`; (S1, S2) the spec's "deliberate changes" and "positive marker" wording is loose. CLAUDE.md conformance is clean. Owners: Wa59.
+
+**Settled 2026-11-09 (operator decision, option 1, confidence 65%):** the size cap of `BuildLogText.read`/`JobLog.readWhole` and the polynomial regexes are PLAN-V2-131 `build-log-bounds` (staged, WS-07, after 127). C1/S3/I1/I2/C5 went through PLAN-V2-28 and 36 (shipped); S1 and S2 (spec wording) are read by PLAN-V2-127.
 

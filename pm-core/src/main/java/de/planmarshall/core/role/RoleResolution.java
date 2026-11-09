@@ -9,7 +9,7 @@
  */
 package de.planmarshall.core.role;
 
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What the effective role set says about one role name at one read (PM-WORK-1, Composition Check): the effective
@@ -40,11 +40,11 @@ public sealed interface RoleResolution {
      * A role that is absent or invalid.
      *
      * @param roleName the role name
-     * @param reason   the reason of the validation table; empty when the role is absent
+     * @param reason   the reason of the validation table; {@code null} when the role is absent
      * @param detail   what is wrong, naming the value where one exists
      * @since 0.1
      */
-    record Undefined(String roleName, Optional<RoleValidationReason> reason, String detail)
+    record Undefined(String roleName, @Nullable RoleValidationReason reason, String detail)
             implements RoleResolution {
     }
 }

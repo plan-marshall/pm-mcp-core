@@ -318,7 +318,7 @@ final class RoleFixtures {
             profiles.put(HARNESS, harness());
             enrolled.put(HARNESS, RoleFixtures.enrolled());
             machineCatalogue = RoleFixtures.catalogue();
-            machineConfiguration = new MachineConfiguration(Optional.of(HARNESS));
+            machineConfiguration = new MachineConfiguration(HARNESS);
             defaultEfforts.put("steward", new EffortValue("medium"));
         }
 

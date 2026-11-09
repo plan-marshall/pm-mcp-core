@@ -109,7 +109,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerTest.java` — D3: worker and non-worker records
 - HYPOTHESIS: `pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryStepTest.java`, `ProjectRecoveryTest.java`, `RuntimeChildProcess.java` — adapted by one builder call only if they build a worker record (compile decides)
 - Not surface (R19, shared bookkeeping): `doc/Traceability.adoc`, `doc/plans/README.adoc`, the ADR directories `pm-core/doc/adr/core-store/` and `pm-core/doc/adr/core-queue/`, the guides `pm-core/doc/developer/core-store.adoc`, `core-queue.adoc` and `pm-runtime/doc/developer/runtime-job.adoc` (additive sections)
-- NOT touched (named so that nobody adds them): `WorkerEgressProxy.java`, `WorkerSupervisor.java`, `LaunchReport.java`, `JobConfinementComposer.java`, `AuditEvent.java`, `doc/specification/client-profiles/01-profile-schema.adoc`, `doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc`
+- NOT touched (named so that nobody adds them): `WorkerEgressProxy.java`, `WorkerSupervisor.java`, `LaunchReport.java`, `JobConfinementComposer.java`, `AuditEvent.java`, `doc/specification/harness-profiles/01-profile-schema.adoc`, `doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc`
 
 ## Dependencies and Sequencing
 

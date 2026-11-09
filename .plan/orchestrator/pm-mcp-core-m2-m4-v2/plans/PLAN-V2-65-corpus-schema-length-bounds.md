@@ -49,19 +49,19 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `imported-item.schema.json` has `pattern` at lines 26, 31, 49, 163, 177, 182, 187, 226 and 235 (nine) and `maxLength` once, at line 38 on `title`; `source-overlay.schema.json` has patterns at lines 21, 26, 34, 39, 68, 73, 78, 98, 242 and 257 and one `maxLength` (line 85, `title`); `source-manifest.schema.json` has six patterns (lines 22, 27, 32, 37, 61, 66) and no `maxLength`
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `grep -n '"pattern"\|"maxLength"'` over the three files at a8da4104
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: imported-item.schema.json nine patterns, one maxLength at 38; source-overlay ten patterns, maxLength 85; source-manifest six patterns none
 - OBSERVED: `SchemaSubset.checkString` tests `maxLength` before `pattern` since #144 (`3cc15854`), ADR `core-role-corpus/008`; the enrolled path bounds with `ArgumentSchema.PATTERN_MAX_LENGTH_CEILING = 256` (`ProjectEnrolment.java` line 684)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `git log` of `SchemaSubset.java`; the ADR and the constant read
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SchemaSubset.java:141-153 tests maxLength then pattern; PATTERN_MAX_LENGTH_CEILING=256 at ProjectEnrolment.java:686
 - OBSERVED: the records copy the patterns as `PythonRegex.compile(...)` constants (`ImportedItem.ID_PATTERN`, `TOPIC_PATTERN`, `SLUG_PATTERN`, `SourceManifest.NAME_PATTERN`, `COMMIT_PATTERN`, `LICENCE_PATTERN`, line numbers 46 to 70 of the two classes) and the only length check in them is `TITLE_MAX_LENGTH` (`ImportedItem.java` line 73, check at 331; `SourceOverlay.java` line 95); `CorpusPatternParityTest` pins patterns record against schema and has no `maxLength` case
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `grep -n "MAX_\|Pattern.compile\|PythonRegex.compile"` over the records; the test header read
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ImportedItem.java:65-74 constants, title check 333; SourceOverlay title check 98-100; CorpusPatternParityTest has no maxLength
 - OBSERVED: the three schemas exist only in `pm-core` (`find /home/oliver/git/plan-marshall-mcp -name "*.schema.json"` finds `test/model/verification/schema/verification-item.schema.json` alone)
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: `find` over the sibling checkout, which may be behind its `origin/main`
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: plan-marshall-mcp has only test/model/verification/schema/verification-item.schema.json
 - HYPOTHESIS: the nine patterns are linear or constant-time, so the unbounded path is a consistency gap rather than a hang (the lane of PLAN-95 read them as linear; the path pattern with its lookahead `(?!.*(^|/)\.{1,2}(/|$))` was not measured) — confirm/refute at the trace matrix; the plan is wanted either way
-  - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: hypothesis, verify-at-outline by the executing plan
+  - verdict: unverifiable | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: hypothesis about regex running time; needs measurement; lookahead still at schema line 187
 - HYPOTHESIS: the ceilings (256, 2048, 1024, 64) clear every id, topic, repository and path of the shipped sources and of the product corpus — confirm/refute by running the corpus check (Deliverable 1) before the figures are fixed
-  - verdict: unverifiable | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: hypothesis
+  - verdict: unverifiable | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: hypothesis; needs a corpus run over the shipped sources
 - Verify-first clause: before editing, list the open pull requests for one that touches `pm-core/src/main/java/de/planmarshall/core/role/corpus/` or its resources (the parked `judgment-votes` reads `ImportedItem`), re-read the three schemas and `CorpusPatternParityTest` at the head; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: a8da4104 | by: pm-mcp-core-m2-m4/spec-residues-draft | evidence: no package file and no index row; no staged plan edits a corpus resource
+  - verdict: corroborated | checked_at: 363ecb48 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no open PR touches the corpus schema files or SchemaSubset; #344 touches CorpusValidator and core-role-corpus.adoc, #343 touches HuggingFaceSourceRepository and LfsBatchClient (class-level overlap, sequence after them)
 
 ## Expected Surface
 

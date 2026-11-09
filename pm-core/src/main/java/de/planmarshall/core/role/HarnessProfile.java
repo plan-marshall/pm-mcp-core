@@ -47,7 +47,7 @@ import de.planmarshall.core.profile.ProfileValidator;
 public record HarnessProfile(String clientId, boolean eligible, boolean restrictedModelsDeclared,
 Set<String> restrictedModels, Map<RoleClass, ToolSet> classes, Map<String, List<String>> modelEfforts,
 Map<String, String> modelTiers, @Nullable Integer contextBudgetTokens, @Nullable Integer idleWakeups,
-Resumability resumability, @Nullable String askUserTool) {
+Resumability resumability, String askUserTool) {
 
     /** Copies the collections. */
     public HarnessProfile {

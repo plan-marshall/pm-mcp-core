@@ -166,8 +166,7 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("a remembered consent passes the consent state without a question")
     void consentRemembered() {
-        consents.grant(Consent.machine(ConsentKind.CHECK_CREDENTIAL_STORE, NOW,
-                Consent.Channel.CLI, Optional.empty()), 0L);
+        consents.grant(Consent.machine(ConsentKind.CHECK_CREDENTIAL_STORE, NOW, Consent.Channel.CLI, null), 0L);
 
         var transition = aspect.consent(gate(), ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 

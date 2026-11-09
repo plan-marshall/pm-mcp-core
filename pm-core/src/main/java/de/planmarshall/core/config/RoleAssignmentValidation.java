@@ -12,6 +12,7 @@ package de.planmarshall.core.config;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EnrolledHarness;
 import de.planmarshall.core.role.EffortValue;
@@ -45,17 +46,16 @@ public final class RoleAssignmentValidation {
      *
      * @param profiles   the facts of a harness's profile by client id
      * @param enrolments the enrolled build of a harness by client id
-     * @param catalogue  the effective model catalogue
+     * @param catalogue  the effective model catalogue; {@code null} when none exists
      * @since 0.1
      */
     public record Facts(Function<String, Optional<HarnessProfile>> profiles,
-    Function<String, Optional<EnrolledHarness>> enrolments, Optional<ModelCatalogue> catalogue) {
+    Function<String, Optional<EnrolledHarness>> enrolments, @Nullable ModelCatalogue catalogue) {
 
-        /** Rejects {@code null} components. */
+        /** Rejects {@code null} lookup components. */
         public Facts {
             Objects.requireNonNull(profiles, "profiles");
             Objects.requireNonNull(enrolments, "enrolments");
-            Objects.requireNonNull(catalogue, "catalogue");
         }
     }
 
@@ -69,11 +69,13 @@ public final class RoleAssignmentValidation {
     public static void require(String role, RoleAssignmentValue value, RoleArtifact artifact, Facts facts) {
         Objects.requireNonNull(facts, "facts");
         check(role, value.harness(), value.model(), value.effortValue(), artifact, facts);
-        value.escalation().ifPresent(escalation -> check(role, escalation.harness(), escalation.model(),
-                escalation.effort(), artifact, facts));
+        var escalation = value.escalation();
+        if (escalation != null) {
+            check(role, escalation.harness(), escalation.model(), escalation.effort(), artifact, facts);
+        }
     }
 
-    private static void check(String role, String harness, String model, Optional<EffortValue> effort,
+    private static void check(String role, String harness, String model, @Nullable EffortValue effort,
             RoleArtifact artifact, Facts facts) {
         var profile = facts.profiles();
         var enrolments = facts.enrolments();
@@ -94,12 +96,13 @@ public final class RoleAssignmentValidation {
         }
         if (!effortSupported(harnessFacts, model, effort)) {
             throw invalid(RoleValidationReason.EFFORT_UNSUPPORTED, role, artifact,
-                    "the harness '%s' does not accept the effort %s for '%s'".formatted(harness,
-                            effort.map(EffortValue::value).orElse("null"), model));
+                    "the harness '%s' does not accept the effort %s for '%s'".formatted(harness, effort.value(), model));
         }
-        var allowed = catalogue.orElseThrow(() -> invalid(RoleValidationReason.MODEL_NOT_ALLOWED, role, artifact,
-                "no effective model catalogue exists"));
-        if (!allowed.allows(harness, model)) {
+        if (catalogue == null) {
+            throw invalid(RoleValidationReason.MODEL_NOT_ALLOWED, role, artifact,
+                    "no effective model catalogue exists");
+        }
+        if (!catalogue.allows(harness, model)) {
             throw invalid(RoleValidationReason.MODEL_NOT_ALLOWED, role, artifact,
                     "the effective model catalogue does not allow '%s' on '%s'".formatted(model, harness));
         }
@@ -109,12 +112,12 @@ public final class RoleAssignmentValidation {
      * The effort is supported when the harness lists it, when it is the absence of an effort flag, or when it is above
      * the lowest value the harness lists — the same rule the role validation applies to an artifact's own effort.
      */
-    private static boolean effortSupported(HarnessProfile profile, String model, Optional<EffortValue> effort) {
-        if (effort.isEmpty() || effort.get().value() == null) {
+    private static boolean effortSupported(HarnessProfile profile, String model, @Nullable EffortValue effort) {
+        if (effort == null || effort.value() == null) {
             return true;
         }
         var values = profile.efforts(model);
-        var value = effort.get().value();
+        var value = effort.value();
         if (values.isEmpty()) {
             return false;
         }
@@ -132,8 +135,8 @@ public final class RoleAssignmentValidation {
      * @param machine   the machine's catalogue
      * @return the effective catalogue
      */
-    public static Optional<ModelCatalogue> effective(Optional<ModelCatalogue> project,
-            Optional<ModelCatalogue> machine) {
-        return project.or(() -> machine);
+    public static Optional<ModelCatalogue> effective(@Nullable ModelCatalogue project,
+            @Nullable ModelCatalogue machine) {
+        return Optional.ofNullable(project != null ? project : machine);
     }
 }
