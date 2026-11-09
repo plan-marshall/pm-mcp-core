@@ -50,8 +50,11 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: the eight tests of Deliverable 2 name `SpecificationDocument` today (grep, `main` of 2026-11-06); `PendingEntrySchemaParityTest` is `@Disabled` with a reason.
+  - verdict: corroborated | checked_at: 81b023dd | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: the eight tests named SpecificationDocument at 81b023dd^1 (10 jsonBlockAfter calls); PendingEntrySchemaParityTest was Disabled with a reason
 - HYPOTHESIS: the resource package of each file is the package of its codec (`core/store/`, `core/findings/`, `core/analysis/`, `core/queue/` below `pm-core/src/main/resources/de/planmarshall/core/`) — confirm at the outline against the trace matrix (verify-at-outline).
+  - verdict: contradicted | checked_at: 81b023dd | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: no | evidence: 5 of 27 files lie elsewhere: 3 in pm-core core/role/qualification and 2 in pm-workflow workflow/plan (ADR 018, operator decision 2026-11-07); the other 22 sit in the codec package
 - Verify-first clause: count the `[source,json]` blocks of the seven documents at the head of `main` (the package says 27); a refutation loops back to re-scope.
+  - verdict: corroborated | checked_at: 81b023dd | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: n/a | evidence: 27 blocks counted at 81b023dd^1: 01:1, 02:2, 03:6, 09:4, 10:2, 14:7, 16:5
 
 ## Expected Surface
 
