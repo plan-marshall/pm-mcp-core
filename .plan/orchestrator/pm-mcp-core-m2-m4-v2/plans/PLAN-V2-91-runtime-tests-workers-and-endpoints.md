@@ -57,6 +57,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 ## Claim Labels
 
 - OBSERVED: `WorkerGeneration.java` declares `equals`/`hashCode`, no contract test; `UUID` suffixes in `EnrolmentStoreTest` (lines 984, 1131), `SecretServiceIT` (39) and `KeychainSecretStoreTest` (34) are test data to be generated (`skills-audit-2026-10-30.md` §§ 2.3, 2.4)
+  - verdict: contradicted | checked_at: 5f0e74be | by: pm-mcp-core-m2-m4-v2/analyze | rescoped: no | evidence: Partly refuted at 5f0e74be^: WorkerGeneration has hand-written equals/hashCode and no ShouldHandleObjectContracts test in pm-runtime, and UUID.randomUUID() is at SecretServiceIT:39 and KeychainSecretStoreTest:34 (confirmed); but EnrolmentStoreTest lies in pm-core (outside the six scope directories) and pm-core/src/test holds no randomUUID at all, so the lines 984 and 1131 do not exist as UUID sites. The in-scope sites are CredentialStoreMoveTest:164 and EnrolmentSidecarsTest:115, which the audit did not name. The plan re-scoped to the four sites itself.
 - Verify-first clause: before editing, list the open pull requests for one that touches the packages of the Expected Surface and re-run the counting commands of the claims above at the head of `main` (a plan of the family may have landed since the audit); keep only what is still open; a refutation loops back to re-scope.
 
 ## Expected Surface
