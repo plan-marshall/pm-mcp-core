@@ -12,6 +12,7 @@ package de.planmarshall.provider.sonar;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -201,7 +202,7 @@ class SonarClientTest {
 
             var request = requests.getFirst();
             assertAll("the read",
-                    () -> assertEquals(Optional.of(issues), result.value(), "the issues are read field by field"),
+                    () -> assertEquals(issues, result.value(), "the issues are read field by field"),
                     () -> assertTrue(result.complete(), "a single page read is complete"),
                     () -> assertEquals(target(1), request.getTarget(), "the query names project, PR and page"),
                     () -> assertEquals("GET", request.getMethod(), "the issue search is a GET request"),
@@ -219,7 +220,7 @@ class SonarClientTest {
             var result = client.openIssues(projectKey, pullRequest);
 
             assertAll("the empty read",
-                    () -> assertEquals(Optional.of(List.of()), result.value(), "no open issue is read"),
+                    () -> assertEquals(List.of(), result.value(), "no open issue is read"),
                     () -> assertTrue(result.complete(), "the empty read is complete"),
                     () -> assertEquals(1, requests.size(), "one page is asked for"));
         }
@@ -264,7 +265,7 @@ class SonarClientTest {
             var all = new ArrayList<>(first);
             all.addAll(second);
             assertAll("the paged read",
-                    () -> assertEquals(Optional.of(all), result.value(), "the issues of both pages are read"),
+                    () -> assertEquals(all, result.value(), "the issues of both pages are read"),
                     () -> assertTrue(result.complete(), "a read to the last page is complete"),
                     () -> assertEquals(List.of(target(1), target(2)),
                             requests.stream().map(RecordedRequest::getTarget).toList(),
@@ -290,7 +291,7 @@ class SonarClientTest {
             assertAll("the capped read",
                     () -> assertEquals(Result.Outcome.OK, result.outcome(), "a capped read is still OK"),
                     () -> assertFalse(result.complete(), "a read stopped at the cap is incomplete"),
-                    () -> assertEquals(Optional.of(issues), result.value(), "the issues of the 20 pages are kept"),
+                    () -> assertEquals(issues, result.value(), "the issues of the 20 pages are kept"),
                     () -> assertEquals(SonarClient.MAX_PAGES, requests.size(), "no page past the cap is asked"));
         }
 
@@ -305,7 +306,7 @@ class SonarClientTest {
 
             assertAll("the failed later page",
                     () -> assertEquals(Result.Outcome.FAILED, result.outcome(), "a failed later page fails the read"),
-                    () -> assertTrue(result.value().isEmpty(), "a failed read carries no issues"));
+                    () -> assertNull(result.value(), "a failed read carries no issues"));
         }
     }
 
@@ -328,7 +329,7 @@ class SonarClientTest {
 
             assertAll("the refused read",
                     () -> assertEquals(outcome, result.outcome(), "the status maps to its outcome"),
-                    () -> assertTrue(result.value().isEmpty(), "a refused read carries no issues"));
+                    () -> assertNull(result.value(), "a refused read carries no issues"));
         }
 
         @Test
@@ -364,7 +365,7 @@ class SonarClientTest {
 
             var result = client.openIssues(projectKey, pullRequest);
 
-            var resetAt = result.resetAt().orElseThrow();
+            var resetAt = result.resetAt();
             assertAll("the rate limit",
                     () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "a 429 is a rate limit"),
                     () -> assertFalse(resetAt.isBefore(before.plusSeconds(seconds)),

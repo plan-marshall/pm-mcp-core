@@ -116,7 +116,7 @@ public final class GitLabCiProvider implements CiProvider {
         if (!permissions.isOk()) {
             return permissions.asFailure();
         }
-        GitLabClient.TokenIdentity identity = token.value().orElseThrow();
+        GitLabClient.TokenIdentity identity = Objects.requireNonNull(token.value());
         Optional<String> userId = Json.string(json, "id").filter(value -> !value.isBlank())
                 .or(() -> Optional.of(identity.userId()).filter(value -> !value.isBlank()));
         if (userId.isEmpty()) {
@@ -125,9 +125,10 @@ public final class GitLabCiProvider implements CiProvider {
         return Result.ok(Identity.builder().login(login.get())
                 .userId(userId.get())
                 .tokenKind(kindOf(identity, login.get(), Json.bool(json, "bot")))
-                .permissions(permissions.value().orElseThrow())
+                .permissions(Objects.requireNonNull(permissions.value()))
                 .scopes(identity.scopes())
-                .expiresAt(identity.expiresAt().flatMap(GitLabCiProvider::instantOf).orElse(null)).build());
+                .expiresAt(Optional.ofNullable(identity.expiresAt()).flatMap(GitLabCiProvider::instantOf).orElse(null))
+                .build());
     }
 
     @Override
@@ -153,7 +154,7 @@ public final class GitLabCiProvider implements CiProvider {
         if (!id.isOk()) {
             return id.asFailure();
         }
-        String noteId = id.value().orElseThrow();
+        String noteId = Objects.requireNonNull(id.value());
         return Result.ok(new IssueComment(noteId, repository.origin() + "/" + repository.ownerOrPath() + "/"
                 + repository.name() + WEB_ISSUE_PATH + issue.number() + "#note_" + noteId));
     }
@@ -170,7 +171,7 @@ public final class GitLabCiProvider implements CiProvider {
         if (!read.isOk()) {
             return read.asFailure();
         }
-        GitLabClient.MergeRequestPayload payload = read.value().orElseThrow();
+        GitLabClient.MergeRequestPayload payload = Objects.requireNonNull(read.value());
         Result<List<String>> diffs = client.mergeRequestDiffs(pullRequest.number());
         if (!diffs.isOk()) {
             return afterMergeRequestRead(diffs, DIFFS_UNAVAILABLE);
@@ -179,11 +180,11 @@ public final class GitLabCiProvider implements CiProvider {
         if (!head.isOk()) {
             return afterMergeRequestRead(head, PROJECT_UNAVAILABLE);
         }
-        Head resolved = head.value().orElseThrow();
+        Head resolved = Objects.requireNonNull(head.value());
         return Result.ok(PullRequest.builder().state(payload.state()).title(payload.title()).body(payload.body())
                 .baseBranch(payload.baseBranch()).headBranch(payload.headBranch()).headSha(payload.headSha())
                 .headRepositoryRef(resolved.repositoryRef()).headWritable(resolved.writable())
-                .changedPaths(diffs.value().orElseThrow())
+                .changedPaths(Objects.requireNonNull(diffs.value()))
                 .pathCompleteness(completeness(diffs.complete(), payload.providerResultCap()))
                 .build());
     }
@@ -231,7 +232,8 @@ public final class GitLabCiProvider implements CiProvider {
     private Result<Head> head(RepositoryRef base, GitLabClient client, GitLabClient.MergeRequestPayload payload) {
         if (!payload.fork()) {
             Result<GitLabClient.Project> project = client.project(payload.targetProjectId());
-            return project.isOk() ? Result.ok(new Head(base, project.value().orElseThrow().developerAccess()))
+            return project.isOk()
+                    ? Result.ok(new Head(base, Objects.requireNonNull(project.value()).developerAccess()))
                     : project.asFailure();
         }
         Optional<String> sourceId = payload.sourceProject();
@@ -245,7 +247,7 @@ public final class GitLabCiProvider implements CiProvider {
         if (!source.isOk()) {
             return source.asFailure();
         }
-        Optional<RepositoryRef> sourceRepository = repositoryOf(source.value().orElseThrow().path());
+        Optional<RepositoryRef> sourceRepository = repositoryOf(Objects.requireNonNull(source.value()).path());
         if (sourceRepository.isEmpty()) {
             return Result.of(Result.Outcome.FAILED, "the source project path is no repository path");
         }
@@ -256,7 +258,8 @@ public final class GitLabCiProvider implements CiProvider {
         if (!target.isOk()) {
             return target.asFailure();
         }
-        return Result.ok(new Head(sourceRepository.get(), target.value().orElseThrow().developerAccess()));
+        return Result.ok(new Head(sourceRepository.get(),
+                Objects.requireNonNull(target.value()).developerAccess()));
     }
 
     private Optional<String> refusalFor(@Nullable RepositoryRef repository) {

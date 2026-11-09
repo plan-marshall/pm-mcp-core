@@ -16,8 +16,9 @@ ERROR records. Every module that logs has exactly one holder in its own `log` pa
 prefix `PM_CORE`. It is also the holder another module may log through: a module logs through its own holder and that of
 `pm-core`, and through no other.
 
-The rules of the layout and the current roster with each record's component, template and description are in
-link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]; this guide states how a holder is built and extended.
+The rules of the layout and the current roster of identifiers and templates are in
+link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`], which includes the listing generated from this holder; the
+purpose and the component of each record are its Javadoc. This guide states how a holder is built and extended.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -44,8 +45,9 @@ Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefi
 the template's `%s` placeholders. The `LogRecord` names the identifier, the template and the description of the message;
 the logger names the class that logged it.
 
-The roster of the module is in `doc/LogMessages.adoc`, which is the one place that states the identifiers in use; this
-guide does not repeat it. The ranges are fixed per level, and a new record takes the next free identifier of its level.
+The roster of the module is the listing generated from this holder and included by `doc/LogMessages.adoc`, which is the
+one place that states the identifiers in use; this guide does not repeat it. The ranges are fixed per level, and a new
+record takes the next free identifier of its level.
 
 == Using the Holder
 
@@ -64,14 +66,15 @@ message is a record of the holder, never a literal at the call site.
 
 . Find the next free identifier of the level in `doc/LogMessages.adoc` and in the holder: INFO 001-099, WARN 100-199,
    ERROR 200-299. There are no workstream blocks and nothing is renumbered.
-. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component, the
-   template with its placeholders, and what each placeholder names.
-3. Add the row to the holder's table in `doc/LogMessages.adoc` with the same identifier, component, template and
-   description.
+. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component that
+   logs it, the template with its placeholders, and what each placeholder names.
+. The listing `doc/log-messages/pm-core.adoc` is generated from the holder; do not edit it by hand. Regenerate it by
+   running `CoreLogMessagesTest` with the system property `planmarshall.log-messages.regenerate=true`, and commit the
+   refreshed file with the record. Without the property the test only compares it.
 4. Log it from the class of the module that owns the event. When two modules log one event, the record goes to the lower
    module's holder (`pm-core`), and the other module logs through it.
-5. Run `CoreLogMessagesTest`: it refuses an identifier used twice or outside its level's range and pins the prefix and the
-   records.
+5. Run `CoreLogMessagesTest`: it refuses an identifier used twice or outside its level's range, pins the prefix and the
+   records, and compares the committed listing with a fresh generation.
 
 Do not add a message for an event an existing record already states: extend the record's description instead, so the
 log's vocabulary stays closed.
@@ -84,14 +87,15 @@ log's vocabulary stays closed.
   duplicate and an out-of-range identifier.
 * *A record carries no secret.* A template and its arguments never name a token, a key or a credential value. A
   provider's message that may quote one passes through the runtime's redaction before it is logged.
-* *The roster has one source.* `doc/LogMessages.adoc` states the current records; the holder is the code side of the
-  same list. A change to one without the other is a documentation defect.
+* *The roster has one source.* The holder is the source of the generated listing that `doc/LogMessages.adoc` includes;
+  a change to a record is a change to the holder, and the test fails until the listing is regenerated.
 
 == Testing
 
 link:{test}/CoreLogMessagesTest.java[`CoreLogMessagesTest`]:: every identifier is unique and inside its level's range, the
-prefix is `PM_CORE`, and the records are pinned with their identifiers and templates. The test is the build's guard for
-<<_adding_a_record,adding a record>>.
+prefix is `PM_CORE`, and the records are pinned with their identifiers and templates. It compares the committed listing
+`doc/log-messages/pm-core.adoc` byte for byte with a fresh generation and names a changed one, so it is the build's guard
+for <<_adding_a_record,adding a record>>.
 
 == Specification Tracing
 

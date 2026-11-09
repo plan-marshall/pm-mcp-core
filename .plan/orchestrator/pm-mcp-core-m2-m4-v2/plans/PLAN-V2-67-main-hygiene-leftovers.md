@@ -107,3 +107,9 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 - **PLAN-98 residues (analysis of #222, 2026-10-29)** (Op1) — the repository-wide architecture rule and the recording-test-network test of the Closed List of Outbound Calls belong to V2-53; the small residues (the two limits bisections as one helper, a WARN for a pre-send refusal, a negative fixture for a 400 without max_tokens_exceeded, the unused TASK_INVALID.wireName()) go to V2-67
 - **Two SonarCloud items of PLAN-94 are unsettled, and 2 further issues of main are owned by no pla** (Op27) — main: java:S112 at MacSecurity (the downcall must declare throws Throwable: dismissal is the only settlement), java:S5778 at ProfileValidatorTest, java:S9428 at StoreDigest; re-query before editing
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Narrowed (2026-11-09):** the SonarCloud item `java:S9428` at `StoreDigest.java:96` is settled on main (`@SuppressWarnings("java:S9428")` with a reason, commit `03f182c9`, #250); remove it from the scope and from the Done-when. What remains is `java:S112` at `MacSecurity.java:305` (`T call() throws Throwable;` mirrors `MethodHandle.invokeExact`; a code-side `@SuppressWarnings` with its reason) and the note that `sonar` is `not_configured` for the lane. Live Sonar state was not queried (HYPOTHESIS, verify-at-outline).

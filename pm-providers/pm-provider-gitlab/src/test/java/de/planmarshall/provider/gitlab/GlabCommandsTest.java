@@ -11,7 +11,7 @@ package de.planmarshall.provider.gitlab;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -86,7 +86,7 @@ class GlabCommandsTest {
                 () -> assertEquals(argv(List.of("--method", "PUT"), concat(BODY_FLAGS,
                         "projects/" + encodedProject + "/merge_requests/" + mergeRequest + "/merge")), merge.argv(),
                         "the merge is a PUT on the merge endpoint"),
-                () -> assertEquals(Optional.of("{\"sha\":\"" + sha + "\"}"), merge.stdin(),
+                () -> assertEquals("{\"sha\":\"" + sha + "\"}", merge.stdin(),
                         "the merge pins the sha on standard input"),
                 () -> assertEquals(argv(List.of("--method", "POST"), concat(BODY_FLAGS,
                         "projects/" + encodedProject + "/merge_trains/merge_requests/" + mergeRequest)), train.argv(),
@@ -111,7 +111,7 @@ class GlabCommandsTest {
                 () -> assertTrue(invocation.argv().stream().noneMatch(a -> a.contains("rm -rf") || a.contains("heading")),
                         "no line of the reply reaches the argv"),
                 () -> assertEquals(Optional.of(reply),
-                        Json.string(Json.parse(invocation.stdin().orElseThrow()).orElseThrow(), "body"),
+                        Json.string(Json.parse(invocation.stdin()).orElseThrow(), "body"),
                         "the reply travels as the body on stdin"),
                 () -> assertEquals("projects/" + encodedProject + "/merge_requests/" + mergeRequest + "/discussions/"
                         + discussion + "/notes", invocation.argv().getLast(),
@@ -119,10 +119,10 @@ class GlabCommandsTest {
                 () -> assertTrue(create.argv().stream().noneMatch(a -> a.contains(secondLine)),
                         "no line of the description reaches argv"),
                 () -> assertEquals(Optional.of(description),
-                        Json.string(Json.parse(create.stdin().orElseThrow()).orElseThrow(), "description"),
+                        Json.string(Json.parse(create.stdin()).orElseThrow(), "description"),
                         "the description travels on stdin"),
                 () -> assertEquals(Optional.of(sourceBranch),
-                        Json.string(Json.parse(create.stdin().orElseThrow()).orElseThrow(), "source_branch"),
+                        Json.string(Json.parse(create.stdin()).orElseThrow(), "source_branch"),
                         "the source branch travels on stdin"));
     }
 
@@ -143,7 +143,7 @@ class GlabCommandsTest {
                         glab.jobTrace(job).argv(), "a job trace is a plain read"),
                 () -> assertEquals(argv(List.of(), List.of("personal_access_tokens/self")),
                         glab.tokenIdentity().argv(), "the token identity is a plain read"),
-                () -> assertFalse(glab.tokenIdentity().stdin().isPresent(), "a read carries no standard input"));
+                () -> assertNull(glab.tokenIdentity().stdin(), "a read carries no standard input"));
     }
 
     @ParameterizedTest

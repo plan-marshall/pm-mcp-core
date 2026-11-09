@@ -204,7 +204,7 @@ class GitLabClientTest {
             Result<String> result = client.merge(iid, head);
 
             assertAll("the merge",
-                    () -> assertEquals(Optional.of(mergeCommit), result.value(), "the merge commit is returned"),
+                    () -> assertEquals(mergeCommit, result.value(), "the merge commit is returned"),
                     () -> assertEquals(Optional.of(head), Json.string(body(0), "sha"), "the expected head is sent"),
                     () -> assertEquals("Bearer " + token, requests.getFirst().getHeaders().get("Authorization"),
                             "the token is sent as a bearer token"));
@@ -302,7 +302,7 @@ class GitLabClientTest {
 
             var result = client.discussions(iid);
 
-            var discussions = result.value().orElseThrow();
+            var discussions = result.value();
             assertAll("the discussions",
                     () -> assertTrue(result.complete(), "every page is read"),
                     () -> assertEquals(List.of(first, second),
@@ -341,11 +341,11 @@ class GitLabClientTest {
             var resolved = client.resolve(iid, id);
 
             assertAll("the reply and the resolve",
-                    () -> assertEquals(Optional.of(String.valueOf(noteId)), replied.value(),
+                    () -> assertEquals(String.valueOf(noteId), replied.value(),
                             "the note id is returned"),
                     () -> assertEquals(Optional.of(reply), Json.string(body(0), "body"),
                             "the reply body is sent unchanged"),
-                    () -> assertEquals(Optional.of(true), resolved.value(), "the discussion is resolved"));
+                    () -> assertEquals(true, resolved.value(), "the discussion is resolved"));
         }
 
         @Test
@@ -390,7 +390,7 @@ class GitLabClientTest {
                     + "\"labels\":[\"" + label + "\"],\"milestone\":{\"title\":\" \"},"
                     + "\"assignees\":[{\"username\":\"" + assignee + "\"}]}"));
 
-            var issue = client.issue(iid).value().orElseThrow();
+            var issue = client.issue(iid).value();
 
             assertAll("the issue fields",
                     () -> assertEquals(title, issue.title(), "the issue title is read"),
@@ -413,7 +413,7 @@ class GitLabClientTest {
             var result = client.issueComment(iid, comment);
 
             assertAll("the posted note",
-                    () -> assertEquals(Optional.of(String.valueOf(noteId)), result.value(),
+                    () -> assertEquals(String.valueOf(noteId), result.value(),
                             "the posted note id is read"),
                     () -> assertEquals(Optional.of(comment), Json.string(body(0), "body"),
                             "the comment body travels in memory"));
@@ -439,7 +439,7 @@ class GitLabClientTest {
             on("GET", project() + "/jobs/" + missing + "/trace", json(404, NOT_FOUND));
 
             assertAll("the job traces",
-                    () -> assertEquals(Optional.of(trace), client.jobTrace(job).value(), "the trace is read verbatim"),
+                    () -> assertEquals(trace, client.jobTrace(job).value(), "the trace is read verbatim"),
                     () -> assertEquals(Result.Outcome.NOT_FOUND, client.jobTrace(missing).outcome(),
                             "a missing job is not found"));
         }
@@ -453,13 +453,13 @@ class GitLabClientTest {
             on("GET", SELF, json(200, "{\"id\":" + tokenId + ",\"name\":\"" + name + "\",\"user_id\":" + userId
                     + ",\"scopes\":[\"api\",\"read_repository\"],\"active\":true,\"expires_at\":null}"));
 
-            var identity = client.tokenIdentity().value().orElseThrow();
+            var identity = client.tokenIdentity().value();
 
             assertAll("the token identity",
                     () -> assertEquals(String.valueOf(userId), identity.userId(), "the user id is read"),
                     () -> assertEquals(List.of("api", "read_repository"), identity.scopes(), "the scopes are read"),
                     () -> assertTrue(identity.active(), "the token is active"),
-                    () -> assertTrue(identity.expiresAt().isEmpty(), "a null expiry is no expiry"),
+                    () -> assertNull(identity.expiresAt(), "a null expiry is no expiry"),
                     () -> assertEquals(name, identity.name(), "the token name is read"));
         }
 
@@ -473,7 +473,7 @@ class GitLabClientTest {
 
             var result = client.tokenIdentity();
 
-            var identity = result.value().orElseThrow();
+            var identity = result.value();
             assertAll("the fallback identity",
                     () -> assertEquals(Result.Outcome.OK, result.outcome(), "the fallback read succeeds"),
                     () -> assertEquals(String.valueOf(userId), identity.userId(), "the user id is read"),
@@ -481,7 +481,7 @@ class GitLabClientTest {
                     () -> assertEquals("", identity.id(), "no token id is known"),
                     () -> assertEquals("", identity.name(), "no token name is known"),
                     () -> assertEquals(List.of(), identity.scopes(), "no scopes are known"),
-                    () -> assertTrue(identity.expiresAt().isEmpty(), "no expiry is known"),
+                    () -> assertNull(identity.expiresAt(), "no expiry is known"),
                     () -> assertEquals(List.of("GET " + SELF, "GET " + USER),
                             requests.stream().map(r -> r.getMethod() + " " + r.getTarget()).toList(),
                             "the token is read first, then the user"),
@@ -505,7 +505,7 @@ class GitLabClientTest {
             var refused = client.tokenIdentity();
 
             assertAll("the fallback failures",
-                    () -> assertFalse(blocked.value().orElseThrow().active(), "a blocked user is inactive"),
+                    () -> assertFalse(blocked.value().active(), "a blocked user is inactive"),
                     () -> assertEquals(Result.Outcome.FAILED, unreadable.outcome(), "an empty user is a failure"),
                     () -> assertEquals(Result.Outcome.AUTH_FAILED, refused.outcome(),
                             "a refused user read is an auth failure"),
