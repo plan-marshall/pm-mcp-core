@@ -32,137 +32,11 @@ One record per task. A `job llm <entity_kind> role <role> [each <primitive>]` st
 * *Off-Track Signals*: every signal the runtime raised on the task's worker and the action it took (`show`, `nudge`, `yield`, `restart`) are listed in `signals[]` with the attempt, the measurement, and when (link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work Specification, A Worker Off Track]); the same entry is written to the task's activity journal (<<activity-journal>>). A `yield` closes the attempt as the worker's own yield of its envelope would; a `restart` ends the attempt with `end: off_track`.
 * *Consultations*: The asking task lists its consultations in `consultations[]` (their limits: link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]); the consultation task names its asker in `consultation_of`. The answer is recorded on the asker's entry when the consultation closes and delivered once, to the asking generation's next wait, or to the successor in the task's facts after a fence (`delivered_to`).
 
+The schema of a queue task record is the file `queue-task.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/queue/`, beside the codec of the record, `QueueTaskRecordCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/queue-task.json",
-  "title": "QueueTaskRecord",
-  "type": "object",
-  "required": ["format_version", "queue_task_id", "kind", "role", "class", "scope", "entity", "state_id", "form_downgraded", "status", "lease", "continuation", "attempts", "signals", "consultations", "consultation_of", "outcome", "reason", "question_id", "created_at", "closed_at"],
-  "additionalProperties": false,
-  "$defs": {
-    "generation": { "type": "string", "pattern": "^l-[0-9a-f]{16}$" }
-  },
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "queue_task_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$", "description": "identifiers.adoc, queue_task_id; the name of the file." },
-    "kind": { "type": "string", "enum": ["work", "consultation"] },
-    "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The role the state (or the consult link) names (identifiers.adoc, role name)." },
-    "class": { "type": ["string", "null"], "enum": ["writer", "read_only", "zero_tool", null], "description": "The role's class at creation; null for a task closed role_undefined." },
-    "scope": {
-      "type": "object",
-      "required": ["type", "id"],
-      "additionalProperties": false,
-      "properties": {
-        "type": { "type": "string", "enum": ["plan", "epic", "workspace", "machine"] },
-        "id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "plan_id or epic_id; null for the workspace and the machine scope." }
-      }
-    },
-    "entity": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$", "description": "The entity of the scope the task works on (for example envelope-3, enrich-<module_id>, or an entry_id hosted by the workspace scope); for a consultation task its consultation_id, equal to queue_task_id. The offer names it, and the worker passes it as entity to pm_state and pm_do with the scope; the key of the task in active_tasks." },
-    "state_id": { "type": "string", "description": "The job llm state that created the task, or the asking task's state for a consultation." },
-    "form_downgraded": { "type": "boolean" },
-    "status": { "type": "string", "enum": ["queued", "offered", "executing", "consulting", "awaiting_answer", "suspended", "closed"] },
-    "continuation": {
-      "type": ["object", "null"],
-      "description": "The continuation after the task's last question (model-work/06, Continuing after a Question); null when the task never asked or did not continue.",
-      "required": ["question_id", "form", "hold_until", "session_id", "suspended_at", "resume_until", "suspended_digest", "suspended_head", "fallback_reason"],
-      "additionalProperties": false,
-      "properties": {
-        "question_id": { "type": "string", "pattern": "^Q-[0-9]{3,6}$" },
-        "form": { "type": "string", "enum": ["hold", "resume"] },
-        "hold_until": { "type": ["string", "null"], "format": "date-time" },
-        "session_id": { "type": ["string", "null"], "maxLength": 256, "description": "The harness session id read from the worker's structured result at the suspension." },
-        "suspended_at": { "type": ["string", "null"], "format": "date-time" },
-        "resume_until": { "type": ["string", "null"], "format": "date-time" },
-        "suspended_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "suspended_head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
-        "fallback_reason": { "type": ["string", "null"], "enum": ["not_allowed", "hold_expired", "resume_expired", "session_missing", "configuration_changed", "harness_changed", "worktree_moved", "resume_unacknowledged", null] }
-      }
-    },
-    "lease": {
-      "type": ["object", "null"],
-      "description": "The current lease; null while queued or closed.",
-      "required": ["generation_id", "job_id", "leased_at", "acknowledged_at"],
-      "additionalProperties": false,
-      "properties": {
-        "generation_id": { "$ref": "#/$defs/generation" },
-        "job_id": { "type": "string", "pattern": "^l-[0-9a-f]{16}$", "description": "The worker holding the lease." },
-        "leased_at": { "type": "string", "format": "date-time" },
-        "acknowledged_at": { "type": ["string", "null"], "format": "date-time", "description": "The ack link followed on the offered entity; null until then." }
-      }
-    },
-    "attempts": {
-      "type": "array",
-      "description": "One entry per offer, in order; the generation of every attempt is recorded (PM-WORK-2).",
-      "items": {
-        "type": "object",
-        "required": ["attempt", "generation_id", "job_id", "configuration_digest", "offered_at", "acknowledged_at", "ended_at", "end", "counts"],
-        "additionalProperties": false,
-        "properties": {
-          "attempt": { "type": "integer", "minimum": 1 },
-          "generation_id": { "$ref": "#/$defs/generation" },
-          "job_id": { "type": "string", "pattern": "^l-[0-9a-f]{16}$" },
-          "configuration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The configuration digest the worker generation was started with (its job record's worker.configuration_digest), the role's current digest at the offer." },
-          "offered_at": { "type": "string", "format": "date-time" },
-          "acknowledged_at": { "type": ["string", "null"], "format": "date-time" },
-          "ended_at": { "type": ["string", "null"], "format": "date-time" },
-          "end": { "type": ["string", "null"], "enum": ["closed", "worker_lost", "exited_without_submit", "waited_again", "budget", "start_failure", "restart", "drain", "paused", "off_track", "withdrawn", "deadline_expired", "suspended", null], "description": "closed: the attempt closed the task; suspended: the worker ended with its harness session stored and the task waits for its answer; paused: the operator paused the plan now; off_track: the server restarted a worker off track; withdrawn and deadline_expired: the task closed lost (reason withdrawn or deadline_expired) while the attempt held it; every other value returned the task to queued; null while it runs." },
-          "counts": { "type": "boolean", "description": "Whether the attempt spent a re-offer of the state's job_incomplete budget." }
-        }
-      }
-    },
-    "signals": {
-      "type": "array",
-      "description": "The off-track signals raised on the task's workers, with the action taken (model-work/03, A Worker Off Track); empty when none was raised.",
-      "items": {
-        "type": "object",
-        "required": ["signal", "attempt", "action", "measurement", "threshold", "at"],
-        "additionalProperties": false,
-        "properties": {
-          "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] },
-          "attempt": { "type": "integer", "minimum": 1 },
-          "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] },
-          "measurement": { "type": "number", "description": "The measured value: repeated calls in a row, turns without a link followed, the tokens spent on the plan task as a multiple of its predicted_cost_tokens, or the unplanned changes recorded." },
-          "threshold": { "type": "number", "description": "The threshold in force: the compiled one, or the lower one of the role artifact." },
-          "at": { "type": "string", "format": "date-time" }
-        },
-        "if": { "properties": { "signal": { "const": "agent_started" } } },
-        "then": { "properties": { "action": { "const": "restart" } } }
-      }
-    },
-    "consultations": {
-      "type": "array",
-      "description": "Consultations this task asked through a consult:<role> link of its state.",
-      "items": {
-        "type": "object",
-        "required": ["consultation_id", "role", "asked_by", "asked_at", "status", "answer", "closed_at", "delivered_at", "delivered_to"],
-        "additionalProperties": false,
-        "properties": {
-          "consultation_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$", "description": "The consultation task's queue_task_id." },
-          "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-          "asked_by": { "$ref": "#/$defs/generation" },
-          "asked_at": { "type": "string", "format": "date-time" },
-          "status": { "type": "string", "enum": ["open", "answered", "unavailable"], "description": "unavailable: the consultation closed lost; its reason is on the consultation task." },
-          "answer": { "type": ["string", "null"], "maxLength": 4000 },
-          "closed_at": { "type": ["string", "null"], "format": "date-time" },
-          "delivered_at": { "type": ["string", "null"], "format": "date-time" },
-          "delivered_to": { "type": ["string", "null"], "enum": ["wait", "facts", null], "description": "wait: the asking generation's next pm_wait; facts: the successor's offer after the asker was fenced." }
-        }
-      }
-    },
-    "consultation_of": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$", "description": "kind consultation: the asking task; null otherwise." },
-    "outcome": { "type": ["string", "null"], "enum": ["submitted", "asked", "infeasible", "lost", null], "description": "null while not closed." },
-    "reason": { "type": ["string", "null"], "enum": ["attempts_spent", "role_undefined", "class_mismatch", "role_unqualified", "role_unavailable", "deadline_expired", "withdrawn", null], "description": "lost only." },
-    "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "asked only: the question record the task filed." },
-    "created_at": { "type": "string", "format": "date-time" },
-    "closed_at": { "type": ["string", "null"], "format": "date-time" }
-  },
-  "allOf": [
-    { "if": { "properties": { "status": { "const": "closed" } } }, "then": { "properties": { "lease": { "const": null }, "outcome": { "type": "string" }, "closed_at": { "type": "string" } } } },
-    { "if": { "properties": { "outcome": { "const": "lost" } } }, "then": { "properties": { "reason": { "type": "string" } } }, "else": { "properties": { "reason": { "const": null } } } }
-  ]
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/queue/queue-task.schema.json[]
 ----
 
 [#activity-journal]
@@ -178,36 +52,11 @@ What a worker does while it serves a task, one entry per activity, in an append-
 * *Served to both clients*: the entries from a cursor and a live stream that a client opens only while it shows the task (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#process-resource[Runtime & Interaction Model Specification, The Plan's Process as a Structure]).
 * *Kept with the plan*: the journal is archived with its plan and deleted with it, by `delete-plan` or by the cleanup (link:../timeouts/03-retention-harness-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]); an epic's go with its machine store.
 
+The schema of an activity journal entry is the file `activity-entry.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/queue/`, beside the codec of the entry, `ActivityEntryCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/activity-entry.json",
-  "title": "ActivityEntry",
-  "type": "object",
-  "required": ["format_version", "seq", "attempt", "source", "kind", "at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "seq": { "type": "integer", "minimum": 1, "description": "Position in the task's journal, one above the last ever written; never reused." },
-    "attempt": { "type": "integer", "minimum": 1, "description": "The attempt of the queue task (Queue Task Record, attempts[])." },
-    "source": { "type": "string", "enum": ["harness", "server"] },
-    "kind": { "type": "string", "enum": ["text", "tool_call", "tool_result", "file_changed", "turn", "link", "question", "answer_ack", "signal", "attempt_end"], "description": "harness: text, tool_call, tool_result, file_changed, turn; server: the others." },
-    "text": { "type": ["string", "null"], "maxLength": 2000, "description": "text only: what the model wrote, masked and cut; untrusted." },
-    "truncated": { "type": "boolean", "description": "text only: the text was cut to the bound." },
-    "tool": { "type": ["object", "null"], "required": ["name", "target"], "additionalProperties": false, "description": "tool_call only.", "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 128 }, "target": { "type": ["string", "null"], "maxLength": 1000, "description": "A path, a command line, or a server link with its id; masked; untrusted." } } },
-    "result": { "type": ["object", "null"], "required": ["bytes", "failed"], "additionalProperties": false, "description": "tool_result only.", "properties": { "bytes": { "type": "integer", "minimum": 0 }, "failed": { "type": "boolean" } } },
-    "path": { "type": ["string", "null"], "maxLength": 1000, "description": "file_changed only: a path relative to the worktree." },
-    "stop_reason": { "type": ["string", "null"], "enum": ["end_turn", "tool_use", "max_tokens", "refusal", "other", null], "description": "turn only: the turn's stop reason as the profile maps it (harness-profiles/01, What a Worker Does); null where the profile maps none. Recorded only; no rule reads it." },
-    "usage": { "type": ["object", "null"], "description": "turn only: the turn's usage figures read through the profile's pointers — the five token components and tool_uses as measured integers, unmeasured or not_applicable, and cost_usd as the number the harness reports or unmeasured (store-schemas/05, Metrics Store)." },
-    "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
-    "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
-    "signal": { "type": ["object", "null"], "required": ["signal", "action"], "additionalProperties": false, "description": "signal only: the same entry as the queue task record's signals[].", "properties": { "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] }, "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] } }, "if": { "properties": { "signal": { "const": "agent_started" } } }, "then": { "properties": { "action": { "const": "restart" } } } },
-    "end": { "type": ["string", "null"], "description": "attempt_end only: the attempt's end (Queue Task Record, attempts[].end)." },
-    "unmapped_lines": { "type": ["integer", "null"], "minimum": 0, "description": "attempt_end only: output lines of the attempt that matched no mapping." },
-    "at": { "type": "string", "format": "date-time" }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/queue/activity-entry.schema.json[]
 ----
 
 [#qualification-record]
@@ -215,102 +64,11 @@ What a worker does while it serves a task, one entry per activity, in an append-
 
 The record of one grading of a role's configuration by the operator's grading in either client (`pm-operator roles qualify` in the terminal client) or the setup run's `setup.qualify-roles`, behind its consent to the model cost (`PM-WORK-6`; grading, validity, and invalidation: link:../model-work/01-roles-and-configuration.adoc#qualification[Model Work Specification, Role Qualification]). Every record the operator makes lies in the project role set (`<PM_MCP_BASE>/projects/<project_id>/roles/qualification/<role>.json`), whichever set holds the role's effective artifact; the shipped set carries the release's records, and the machine set holds none (lookup: project set first, then the set of the artifact; paths: link:../filesystem-layout/03-project-store.adoc#role-sets[Filesystem Layout Specification, Role Sets & Task Queue]). Written only by the runtime, by atomic write-and-rename; a new grading replaces the record. The record holds the measurements only and no pass flag: whether it qualifies a form is evaluated at every check against the project's current levels (`qualification.agreement_level`, `qualification.allowed_gap`, operator configuration, xref:08-project-configuration-local.adoc#local-config[Operator Local Configuration]). A record with an ungraded item (its judge task closed `lost`) qualifies no form; the next grading re-grades only those items while `qualification_digest` and `corpus_revision` are unchanged. A record graded on a partial corpus, one whose import of the corpus sources missed a source that did not answer or is absent at its pin, names the missed sources in `missed_sources` beside `corpus_revision`; the list is empty for a complete corpus (link:../model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work Specification, Corpus Sources]). No record is graded on a failed import.
 
+The schema of a role qualification record is the file `qualification-record.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/role/qualification/`, beside the codec of the record, `QualificationRecordCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/qualification-record.json",
-  "title": "QualificationRecord",
-  "type": "object",
-  "required": ["format_version", "role", "qualification_digest", "configuration", "corpus_revision", "missed_sources", "forms", "warm_fresh_gap", "ungraded", "graded_at", "items"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-    "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The qualification digest of the graded artifact (model-work/01, Role Qualification): the SHA-256 over exactly the graded members recorded in configuration; the record is valid only for an artifact with the same qualification digest. Members outside it (count, form, recycling, off-track thresholds and actions, budget_floor_seconds, context_budget_tokens, description) never invalidate the record." },
-    "configuration": {
-      "type": "object",
-      "required": ["harness", "harness_version", "model", "effort", "tools", "class", "skill_digests"],
-      "additionalProperties": false,
-      "description": "The graded members the qualification digest covers (PM-WORK-6).",
-      "properties": {
-        "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "harness_id of the graded harness (identifiers.adoc, harness_id), an operator-added harness included; worker eligibility of its harness profile gates a launch." },
-        "harness_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$", "description": "major.minor of the enrolled harness version; a patch change keeps the record valid." },
-        "model": { "type": "string", "minLength": 1 },
-        "effort": { "type": ["string", "null"] },
-        "tools": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" } },
-        "class": { "type": "string", "enum": ["writer", "read_only", "zero_tool"] },
-        "skill_digests": { "type": "object", "propertyNames": { "pattern": "^skill://pm/" }, "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
-      }
-    },
-    "corpus_revision": { "type": "string", "minLength": 1, "description": "Revision of the model verification corpus the release ships." },
-    "missed_sources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }, "description": "The corpus sources the import missed, by name; empty when the grading ran on the complete corpus (model-work/01, Corpus Sources)." },
-    "forms": {
-      "type": "object",
-      "required": ["fresh"],
-      "additionalProperties": false,
-      "description": "The measurements per graded form; warm is absent for a zero_tool role.",
-      "properties": {
-        "fresh": { "$ref": "#/$defs/formResult" },
-        "warm": { "$ref": "#/$defs/formResult" }
-      }
-    },
-    "warm_fresh_gap": { "type": ["number", "null"], "description": "The largest, over the topics, of the topic's fresh agreement minus its warm agreement in percentage points; null when only one form was graded." },
-    "ungraded": { "type": "integer", "minimum": 0, "description": "Items whose judge task closed lost, or whose item task ended for a reason of the runtime (role_unavailable, withdrawn); excluded from the agreement. A record with ungraded > 0 qualifies no form." },
-    "judge_check": { "type": "string", "enum": ["passed", "failed"], "description": "The result of the judge instrument check the grading's judge ran (model-work/01, Judge Instrument Check); absent where no check ran (while the corpus holds no topic judge/), and in every record written before this member existed. It blocks no grading." },
-    "graded_at": { "type": "string", "format": "date-time" },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["item_id", "form", "checkout", "answer", "score", "total_tokens", "duration_ms"],
-        "additionalProperties": false,
-        "properties": {
-          "item_id": { "type": "string", "minLength": 1 },
-          "form": { "type": "string", "enum": ["fresh", "warm"] },
-          "checkout": { "type": "string", "enum": ["item_commit", "current", "corpus_context"], "description": "Where the item ran (model-work/01, Grading): item_commit for an item of the project's own repository run at its origin commit, current for one run in the project checkout, corpus_context for one run in an empty directory with its own context files." },
-          "answer": { "type": ["string", "object", "null"], "description": "The submitted answer; null when the task closed lost." },
-          "score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "ungraded" } ], "description": "The grade a task of the judge role gave the answer (model-work/01, Role Qualification); 0 when the item task ended without an answer for a reason of the model; ungraded when that judge task closed lost or the item task ended for a reason of the runtime." },
-          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the answer used (store-schemas/05, Metrics Store)." },
-          "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
-        }
-      }
-    }
-  },
-  "$defs": {
-    "topicResult": {
-      "type": "object",
-      "required": ["agreement", "constant_baseline", "items", "thin"],
-      "additionalProperties": false,
-      "properties": {
-        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (ungraded items excluded) answered right in this form." },
-        "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "The agreement of the best constant answerer over the same items (model-work/01, Constant Baseline); the topic qualifies only when agreement exceeds it by the qualification margin." },
-        "items": { "type": "integer", "minimum": 1 },
-        "thin": { "type": "boolean", "description": "true when items is below the compiled 20." }
-      }
-    },
-    "formResult": {
-      "type": "object",
-      "required": ["topics", "items", "total_tokens", "duration_ms"],
-      "additionalProperties": false,
-      "properties": {
-        "topics": {
-          "type": "object",
-          "minProperties": 1,
-          "additionalProperties": false,
-          "description": "The agreement per topic. The topics of a role, own and generic, are defined by model-work/01, Corpus Topics of a Role; this object holds exactly the topics that definition gives the role and a topic without items is absent. There is no pooled agreement.",
-          "properties": {
-            "own": { "$ref": "#/$defs/topicResult" },
-            "generic": { "$ref": "#/$defs/topicResult" }
-          }
-        },
-        "items": { "type": "integer", "minimum": 0, "description": "The graded items of all topics of this form." },
-        "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the form's items used, unmeasured when an item's are." },
-        "duration_ms": { "type": "integer", "minimum": 0 }
-      }
-    }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/role/qualification/qualification-record.schema.json[]
 ----
 
 [#decision-calibration-record]
@@ -318,71 +76,11 @@ The record of one grading of a role's configuration by the operator's grading in
 
 The record of one calibration of a quorum declaration by the operator's calibration in either client (`pm-operator roles qualify --decisions` in the terminal client) or the setup run's role grading (`PM-WORK-6`; run, measurements, and validity: link:../model-work/10-decision-quorum.adoc#quorum-calibration[Model Work Specification, Quorum Calibration]), one file per declaration digest, so identical declarations of the project's adjudication unit and of the binary's default unit share one record. It lies in the project role set (`<PM_MCP_BASE>/projects/<project_id>/roles/qualification/decisions/<declaration-digest>.json`); the shipped set carries the release's records for the quorum declarations of the default unit (`classpath:/roles/qualification/decisions/<declaration-digest>.json`). Adjudication reads the record of the declaration's digest from the project set, else from the shipped set. The subdirectory keeps the records apart from the role qualification records `qualification/<role>.json`. Written only by the runtime, by atomic write-and-rename; a new calibration of the declaration replaces the record. It holds measurements and no pass flag: whether the declaration decides is evaluated at every check against the declaration `max_false_auto_percent` of the unit whose declaration applies.
 
+The schema of a decision calibration record is the file `decision-calibration-record.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/role/qualification/`; the record has no codec of its own, so its schema lies beside the codecs of the other qualification records, `QualificationRecordCodec` and `JudgeCheckCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decision-calibration-record.json",
-  "title": "DecisionCalibrationRecord",
-  "type": "object",
-  "required": ["format_version", "decision_kind", "declaration_digest", "declaration", "roles", "corpus_revision", "items_graded", "auto_share", "false_auto_share", "constant_baseline", "graded_at", "items"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "decision_kind": { "type": "string", "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"], "description": "The calibrated decision kind, covered by declaration_digest." },
-    "declaration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 over the decision kind, the listed roles in their declared order with their qualification digests and forms, and the score; equals the file name, and the record is valid only while they are unchanged." },
-    "declaration": {
-      "type": "object",
-      "required": ["roles", "score"],
-      "additionalProperties": false,
-      "description": "The calibrated declaration decide <kind> -> quorum(<roles>, <score>).",
-      "properties": {
-        "roles": { "type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" } },
-        "score": { "type": "integer", "minimum": 50, "maximum": 100 }
-      }
-    },
-    "roles": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/roleConfig" }, "description": "The configuration of every listed role at the calibration, in declared order." },
-    "corpus_revision": { "type": "string", "minLength": 1 },
-    "items_graded": { "type": "integer", "minimum": 0, "description": "The corpus items tagged decision-kind:<kind> that were graded." },
-    "auto_share": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items the declaration would decide automatically." },
-    "false_auto_share": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the automatically decided items that disagree with the reference; 0 when none was decided automatically." },
-    "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items whose target is the most frequent target option (model-work/10, Quorum Calibration)." },
-    "graded_at": { "type": "string", "format": "date-time" },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["item_id", "votes", "decided", "agreed_option", "false_auto", "total_tokens", "tokens_in", "tokens_out", "duration_ms"],
-        "additionalProperties": false,
-        "properties": {
-          "item_id": { "type": "string", "minLength": 1 },
-          "votes": { "type": "array", "items": { "type": "object", "required": ["role", "branch_key", "confidence"], "additionalProperties": false, "properties": { "role": { "type": "string" }, "branch_key": { "type": ["string", "null"] }, "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 } } } },
-          "decided": { "type": "boolean" },
-          "agreed_option": { "type": ["string", "null"] },
-          "false_auto": { "type": "boolean", "description": "decided and the agreed option is neither the item's target answer nor an accepted alternative." },
-          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the item used (store-schemas/05, Metrics Store)." },
-          "tokens_in": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: input, cache read and cache creation; measured as a pair with tokens_out summing to total_tokens, or unmeasured when the item's split is." },
-          "tokens_out": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The split the view shows: output and reasoning; measured as a pair with tokens_in summing to total_tokens, or unmeasured when the item's split is." },
-          "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
-        }
-      }
-    }
-  },
-  "$defs": {
-    "roleConfig": {
-      "type": "object",
-      "required": ["role", "form", "qualification_digest", "harness", "model"],
-      "additionalProperties": false,
-      "properties": {
-        "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-        "form": { "type": "string", "enum": ["warm", "fresh"], "description": "The form the role's vote tasks ran in at the calibration." },
-        "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The role's qualification digest at the calibration (Role Qualification Record)." },
-        "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The harness of the qualification record the digest names." },
-        "model": { "type": "string" }
-      }
-    }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/role/qualification/decision-calibration-record.schema.json[]
 ----
 
 [#judge-check-record]
@@ -390,42 +88,9 @@ The record of one calibration of a quorum declaration by the operator's calibrat
 
 The record of one instrument check of a judge configuration, run before the first grading on that configuration (`PM-WORK-6`; method and validity: link:../model-work/01-roles-and-configuration.adoc#judge-instrument-check[Model Work Specification, Judge Instrument Check]). It stores measurements, never a pass flag; the grading compares them with the qualification margin at every check.
 
+The schema of a judge check record is the file `judge-check-record.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/role/qualification/`, beside the codec of the record, `JudgeCheckCodec`:
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/judge-check-record.json",
-  "title": "JudgeCheckRecord",
-  "type": "object",
-  "required": ["format_version", "qualification_digest", "harness", "model", "corpus_revision", "oracle_accuracy", "blind_accuracy", "constant_baseline", "unscored", "checked_at", "items"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "qualification_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The qualification digest of the judge configuration checked; the record is valid only for a judge with the same digest." },
-    "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-    "model": { "type": "string", "minLength": 1 },
-    "corpus_revision": { "type": "string", "minLength": 1 },
-    "oracle_accuracy": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the scored answers judged as their label says, with the reference given." },
-    "blind_accuracy": { "type": "number", "minimum": 0, "maximum": 100, "description": "The same with the reference withheld." },
-    "constant_baseline": { "type": "number", "minimum": 0, "maximum": 100, "description": "The larger of the shares of right and wrong answers in the topic judge/." },
-    "unscored": { "type": "integer", "minimum": 0, "description": "Answers whose judge task closed lost; a record with unscored > 0 has no verdict." },
-    "checked_at": { "type": "string", "format": "date-time" },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["item_id", "label", "oracle_score", "blind_score", "total_tokens", "duration_ms"],
-        "additionalProperties": false,
-        "properties": {
-          "item_id": { "type": "string", "minLength": 1 },
-          "label": { "type": "string", "enum": ["right", "wrong"] },
-          "oracle_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
-          "blind_score": { "oneOf": [ { "type": "number", "minimum": 0, "maximum": 1 }, { "type": "string", "const": "unscored" } ] },
-          "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ] },
-          "duration_ms": { "type": ["integer", "null"], "minimum": 0 }
-        }
-      }
-    }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/role/qualification/judge-check-record.schema.json[]
 ----

@@ -112,3 +112,9 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **The record's stage and platform gate had no owner (found by the analysis of PLAN-19, PLAN-2026-** (Wa41) — PM-WATCH-CLIENT-13: the load-time gate (refuse worker.eligible: true and a non-null zero_tool when the record's stages did not pass on the runtime's platform) was carried into PLAN-30 and is open; V2-43 and V2-50 name it as well
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Rescope (audit, operator 2026-11-09):** drop the remote `system_one` dependency (deleted by PLAN-V2-129; run after it). PLAN-V2-63, 68 and 71 depend on this plan, so it stays staged. Settle at the outline whether the `readable_paths` check stage (profile verification stages `faults` and `egress` exist; `ProfileWorkerEligibility`) is a deliverable here (HYPOTHESIS, verify-at-outline).

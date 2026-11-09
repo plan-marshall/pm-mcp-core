@@ -149,7 +149,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`machine`
 |`composite_job`
 |`roles.speech-consent` (`answered`); `roles.speech` (`allow`).
-|The local speech model looked for on the login `PATH` and checked with a fixed sample, each a probe job; a line ending in ✓ or ✗ with its cause.
+|The local speech model, a `whisper.cpp` program the operator installed, looked for on the login `PATH` and checked with a fixed sample, each a probe job; a line ending in ✓ or ✗ with its cause.
 |`found` -> `roles.speech-write`; `not_found`, `check_failed`, `cancelled` -> `roles.speech` (the reason shown).
 |link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]
 

@@ -11,6 +11,7 @@ package de.planmarshall.core;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,8 +22,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -30,7 +34,7 @@ import org.opentest4j.AssertionFailedError;
 
 /**
  * The schema loader returns a present schema file unchanged and fails, never skips, on an absent resource or a file
- * that is not JSON (ADR {@code doc/adr/016-schemas-are-files-of-the-implementing-module.adoc}).
+ * that is not JSON, and its casts fail on a value of another JSON type (ADR {@code doc/adr/016-schemas-are-files-of-the-implementing-module.adoc}).
  * <p>
  * The resource paths are fixture paths and the {@code $id} is the contract literal of the fixture written for this
  * test; both stay literal by the rule for fixture paths and schema strings.
@@ -96,5 +100,67 @@ class SchemaResourceTest {
     void refusesDocumentsThatAreNoSingleSchemaObject(String document) {
         assertThrows(UncheckedIOException.class, () -> SchemaResource.parse(document),
                 "An empty, trailing or duplicate-member document is refused");
+    }
+
+    /** The failure texts "not a JSON object" and "not a JSON array" are the contract literals of the casts. */
+    @Nested
+    @DisplayName("casts a parsed value")
+    class Casts {
+
+        @Test
+        @DisplayName("returns a JSON object as the same map")
+        void objectReturnsMap() {
+            var object = Map.of(Generators.letterStrings(1, 12).next(), Generators.integers().next());
+
+            assertSame(object, SchemaResource.object(object), "The object cast returns the same map");
+        }
+
+        @Test
+        @DisplayName("returns a JSON array as the same list")
+        void arrayReturnsList() {
+            var array = Generators.asCollectionGenerator(Generators.letterStrings(1, 12)).list(3);
+
+            assertSame(array, SchemaResource.array(array), "The array cast returns the same list");
+        }
+
+        @Test
+        @DisplayName("fails the object cast for an array, a string and null instead of skipping")
+        void objectFailsOnOtherType() {
+            var array = List.of(Generators.integers().next());
+            var string = Generators.letterStrings(1, 12).next();
+
+            assertAll(
+                    () -> assertTrue(objectFailure(array).contains("not a JSON object"),
+                            "An array fails the object cast"),
+                    () -> assertTrue(objectFailure(string).contains("not a JSON object"),
+                            "A string fails the object cast"),
+                    () -> assertTrue(objectFailure(null).contains("not a JSON object"),
+                            "A JSON null fails the object cast"));
+        }
+
+        @Test
+        @DisplayName("fails the array cast for an object, a string and null instead of skipping")
+        void arrayFailsOnOtherType() {
+            var object = Map.of(Generators.letterStrings(1, 12).next(), Generators.integers().next());
+            var string = Generators.letterStrings(1, 12).next();
+
+            assertAll(
+                    () -> assertTrue(arrayFailure(object).contains("not a JSON array"),
+                            "An object fails the array cast"),
+                    () -> assertTrue(arrayFailure(string).contains("not a JSON array"),
+                            "A string fails the array cast"),
+                    () -> assertTrue(arrayFailure(null).contains("not a JSON array"),
+                            "A JSON null fails the array cast"));
+        }
+
+        private static String objectFailure(@Nullable Object value) {
+            return assertThrows(AssertionFailedError.class, () -> SchemaResource.object(value),
+                    "A value of another type fails the object cast").getMessage();
+        }
+
+        private static String arrayFailure(@Nullable Object value) {
+            return assertThrows(AssertionFailedError.class, () -> SchemaResource.array(value),
+                    "A value of another type fails the array cast").getMessage();
+        }
     }
 }

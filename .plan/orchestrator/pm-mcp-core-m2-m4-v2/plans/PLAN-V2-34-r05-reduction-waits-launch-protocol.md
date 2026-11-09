@@ -115,3 +115,10 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 - **PLAN-25's package bookkeeping is partial (landing, checked)** (Op23) — PLAN-25 kept the implemented rows of Timeouts § Waits and PM-WATCH-JOB-5 where R05 says delete; this reduction owns them (PM-WATCH-JOB-30 stays open)
 - **R05 is practised as "condense and point", not "delete", and the lane that was told to delete di** (Op32) — R05 was practised as condense-and-point, not delete (#172): this reduction applies the same rule to the launch protocol part and removes no watch item without a reason
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Rescope (audit, operator 2026-11-09):** no "Implemented by … Remaining:" paragraphs; run after the documentation batches.
+- **Carried (R05 residue, PLAN-25/26):** R05 r3 (operator 2026-10-29) is "condense and point, anchors kept"; the implemented rows of Timeouts § Waits (`timeouts/01-job-budgets-and-waits.adoc:196-221`) and the covered watch items (`PM-WATCH-JOB-5` at `doc/implementation-watch/job-runtime.adoc:93`; `-30` stays open by the lane's statement) are condensed here. A watch item is deleted only when a named test covers its guard.

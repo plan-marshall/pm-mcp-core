@@ -26,7 +26,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 import de.planmarshall.core.store.LessonFrontMatter.Audience;
 import de.planmarshall.core.store.LessonFrontMatter.Category;
 import de.planmarshall.core.store.LessonFrontMatter.LastFilingFailure;
@@ -41,15 +41,15 @@ import de.planmarshall.core.store.LessonFrontMatter.Status;
  * The codec of the lesson file keeps parity with the schema of Store Schemas § Lesson Record (PM-IMPL-2): the members
  * of the record and of its typed objects in schema order, the required members, the values of every enumeration, the
  * {@code lesson_id} pattern at all three places it occurs, the format version and the bounds of the record. A member,
- * an enumeration value or a bound changed in the schema block without the code fails here, which is why the block is
- * test input and stays byte-stable (R10).
+ * an enumeration value or a bound changed in the schema without the code fails here. The schema is the file
+ * {@code de/planmarshall/core/store/lesson-front-matter.schema.json} beside the codec, read from the class path; the
+ * file is test input and stays byte-stable (R10).
  */
-// Every datum in this class is a contract: the schema path, heading and its member/enum/bound names.
+// Every datum in this class is a contract: the schema file and its member/enum/bound names.
 @DisplayName("Lesson front matter schema parity")
 class LessonFrontMatterSchemaParityTest {
 
-    private static final String DOCUMENT = "store-schemas/10-job-and-lesson-records.adoc";
-    private static final String HEADING = "== Lesson Record";
+    private static final String SCHEMA = "de/planmarshall/core/store/lesson-front-matter.schema.json";
 
     private static Map<?, ?> schema;
     private static Map<?, ?> properties;
@@ -57,10 +57,9 @@ class LessonFrontMatterSchemaParityTest {
 
     @BeforeAll
     static void readSchema() {
-        schema = SpecificationDocument.object(
-                SpecificationDocument.parse(SpecificationDocument.jsonBlockAfter(DOCUMENT, HEADING)));
-        properties = SpecificationDocument.object(schema.get("properties"));
-        definitions = SpecificationDocument.object(schema.get("$defs"));
+        schema = SchemaResource.load(SCHEMA);
+        properties = SchemaResource.object(schema.get("properties"));
+        definitions = SchemaResource.object(schema.get("$defs"));
     }
 
     @Test
@@ -72,7 +71,7 @@ class LessonFrontMatterSchemaParityTest {
                 () -> assertEquals("LessonFrontMatter", schema.get("title"), "The schema title is the record's"),
                 () -> assertEquals(LessonCodec.MEMBERS, MEMBERS(), "The root members are the schema members"),
                 () -> assertEquals(Set.copyOf(LessonCodec.REQUIRED_MEMBERS),
-                        Set.copyOf(names(SpecificationDocument.array(schema.get("required")))),
+                        Set.copyOf(names(SchemaResource.array(schema.get("required")))),
                         "The required members are the schema's"));
     }
 
@@ -119,10 +118,10 @@ class LessonFrontMatterSchemaParityTest {
     @Test
     @DisplayName("the values of every enumeration are those of the schema")
     void enumerationsEqualSchema() {
-        var source = SpecificationDocument.object(member(definitions, "source").get("properties"));
-        var remedy = SpecificationDocument.object(member(properties, "remedy").get("properties"));
-        var promotion = SpecificationDocument.object(item(properties, "promotions").get("properties"));
-        var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
+        var source = SchemaResource.object(member(definitions, "source").get("properties"));
+        var remedy = SchemaResource.object(member(properties, "remedy").get("properties"));
+        var promotion = SchemaResource.object(item(properties, "promotions").get("properties"));
+        var retired = SchemaResource.object(member(properties, "retired").get("properties"));
 
         assertAll(
                 "Every enumeration equals the schema values",
@@ -156,8 +155,8 @@ class LessonFrontMatterSchemaParityTest {
     @Test
     @DisplayName("the lesson id grammar is the schema's at every place it occurs")
     void lessonIdGrammarEqualsSchema() {
-        var mergedFrom = SpecificationDocument.object(item(properties, "merged_from").get("properties"));
-        var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
+        var mergedFrom = SchemaResource.object(item(properties, "merged_from").get("properties"));
+        var retired = SchemaResource.object(member(properties, "retired").get("properties"));
 
         assertAll(
                 "The lesson id grammar equals the schema's",
@@ -174,25 +173,25 @@ class LessonFrontMatterSchemaParityTest {
     @Test
     @DisplayName("the format version, the bounds and the patterns are those of the schema")
     void boundsEqualSchema() {
-        var remedy = SpecificationDocument.object(member(properties, "remedy").get("properties"));
-        var revision = SpecificationDocument.object(item(properties, "revisions").get("properties"));
-        var retired = SpecificationDocument.object(member(properties, "retired").get("properties"));
+        var remedy = SchemaResource.object(member(properties, "remedy").get("properties"));
+        var revision = SchemaResource.object(item(properties, "revisions").get("properties"));
+        var retired = SchemaResource.object(member(properties, "retired").get("properties"));
 
         assertAll(
                 "The format version and bounds equal the schema",
                 () -> assertEquals(LessonCodec.FORMAT_VERSION, number(member(properties, "format_version").get("const")),
                         "The format version is the codec constant"),
                 () -> assertEquals(LessonFrontMatter.MIN_REMEDY_STATEMENT,
-                        number(SpecificationDocument.object(remedy.get("statement")).get("minLength")),
+                        number(SchemaResource.object(remedy.get("statement")).get("minLength")),
                         "The shortest remedy statement is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MAX_REMEDY_STATEMENT,
-                        number(SpecificationDocument.object(remedy.get("statement")).get("maxLength")),
+                        number(SchemaResource.object(remedy.get("statement")).get("maxLength")),
                         "The longest remedy statement is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_REMEDY_CHECK,
-                        number(SpecificationDocument.object(remedy.get("check")).get("minLength")),
+                        number(SchemaResource.object(remedy.get("check")).get("minLength")),
                         "The shortest remedy check is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MAX_REMEDY_CHECK,
-                        number(SpecificationDocument.object(remedy.get("check")).get("maxLength")),
+                        number(SchemaResource.object(remedy.get("check")).get("maxLength")),
                         "The longest remedy check is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_RECURRENCE_COUNT,
                         number(member(properties, "recurrence_count").get("minimum")),
@@ -206,22 +205,22 @@ class LessonFrontMatterSchemaParityTest {
                         number(member(properties, "revisions").get("minItems")),
                         "The revision count bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_REVISION,
-                        number(SpecificationDocument.object(revision.get("n")).get("minimum")),
+                        number(SchemaResource.object(revision.get("n")).get("minimum")),
                         "The revision counter bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.MIN_SOURCES,
-                        number(SpecificationDocument.object(revision.get("sources")).get("minItems")),
+                        number(SchemaResource.object(revision.get("sources")).get("minItems")),
                         "The revision source bound is the schema's"),
                 () -> assertEquals(LessonFrontMatter.DIGEST_PATTERN, patternOf(
-                        SpecificationDocument.object(member(definitions, "source").get("properties")), "digest"),
+                        SchemaResource.object(member(definitions, "source").get("properties")), "digest"),
                         "The source digest pattern is the schema's"),
                 () -> assertEquals(LessonFrontMatter.DIGEST_PATTERN, patternOf(revision, "body_sha256"),
                         "The body digest pattern is the schema's"),
                 () -> assertEquals(LessonFrontMatter.PLAN_ID_PATTERN, patternOf(
-                        SpecificationDocument.object(member(properties, "claim").get("properties")), "plan_id"),
+                        SchemaResource.object(member(properties, "claim").get("properties")), "plan_id"),
                         "The plan id pattern is the schema's"),
-                () -> assertEquals(1, number(SpecificationDocument.object(retired.get("by")).get("minLength")),
+                () -> assertEquals(1, number(SchemaResource.object(retired.get("by")).get("minLength")),
                         "The retirement author bound is the schema's"),
-                () -> assertEquals(1, number(SpecificationDocument.object(retired.get("reason")).get("minLength")),
+                () -> assertEquals(1, number(SchemaResource.object(retired.get("reason")).get("minLength")),
                         "The retirement reason bound is the schema's"));
     }
 
@@ -237,28 +236,28 @@ class LessonFrontMatterSchemaParityTest {
     }
 
     private static Map<?, ?> member(Map<?, ?> owner, String name) {
-        return SpecificationDocument.object(owner.get(name));
+        return SchemaResource.object(owner.get(name));
     }
 
     private static Map<?, ?> item(Map<?, ?> owner, String name) {
-        return SpecificationDocument.object(member(owner, name).get("items"));
+        return SchemaResource.object(member(owner, name).get("items"));
     }
 
     private static List<String> keys(Map<?, ?> object) {
-        return names(SpecificationDocument.object(object.get("properties")).keySet());
+        return names(SchemaResource.object(object.get("properties")).keySet());
     }
 
     private static List<String> required(Map<?, ?> object) {
-        return names(SpecificationDocument.array(object.get("required")));
+        return names(SchemaResource.array(object.get("required")));
     }
 
     private static Set<String> enumOf(Map<?, ?> owner, String name) {
-        return SpecificationDocument.array(SpecificationDocument.object(owner.get(name)).get("enum")).stream()
+        return SchemaResource.array(SchemaResource.object(owner.get(name)).get("enum")).stream()
                 .filter(Objects::nonNull).map(String::valueOf).collect(Collectors.toUnmodifiableSet());
     }
 
     private static String patternOf(Map<?, ?> owner, String name) {
-        return String.valueOf(SpecificationDocument.object(owner.get(name)).get("pattern"));
+        return String.valueOf(SchemaResource.object(owner.get(name)).get("pattern"));
     }
 
     private static <E> Set<String> wireNames(E[] values, Function<E, String> wireName) {

@@ -103,3 +103,9 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **The verify-not-resolve validation of a composed worker vector has no owner (found at the PLAN-2** (Op33) — the verify-not-resolve argument-schema validation of a composed worker vector is not run by the worker start path; Model Work § Launch Contract says "Remaining: ..."
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Refresh at the outline (2026-11-09):** this spec quotes a "Remaining:" sentence of Model Work § Launch Contract that no longer exists on main; `model-work/04-worker-launch.adoc:46-48` now states the validation as fact while `VerifyNotResolvePipeline` has no reference under `pm-runtime/.../runtime/worker`. The specification over-claims against the code: this plan makes the code true.

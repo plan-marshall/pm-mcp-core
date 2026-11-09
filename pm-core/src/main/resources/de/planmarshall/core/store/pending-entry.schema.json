@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/pending-entry.json",
+  "title": "PendingEntryRecord",
+  "type": "object",
+  "required": ["format_version", "entry_id", "kind", "from_epic", "created_at", "updated_at", "bootstrap"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "entry_id": { "type": "string", "pattern": "^ent-[0-9a-f]{8,32}$", "description": "Identifier of the entry, answered by the entry endpoint, and the entity id of the bootstrap (identifiers.adoc, entry_id)." },
+    "kind": { "type": "string", "enum": ["plan", "epic"], "description": "Selects the bootstrap unit: bootstrap-plan or bootstrap-epic." },
+    "from_epic": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
+      "description": "kind plan only: the parent epic of a plan the server starts for a launchable epic row (never set by the operator's entry); the start.create-scope transaction copies it into mcp/status.json origin.epic_id."
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "bootstrap": {
+      "type": "object",
+      "required": ["state", "call_stack", "facts", "recipe", "options", "pending_condition", "last_refusal"],
+      "additionalProperties": false,
+      "properties": {
+        "state": { "type": "string", "description": "Fully qualified state id of the bootstrap entity (for example start.sources, or source-issue.screen inside a called source unit)." },
+        "call_stack": { "type": "array", "maxItems": 5, "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/status.json#/properties/call_stack/items" }, "description": "Call frames of a called source unit or chat (same frame shape as the Workflow State Store)." },
+        "facts": { "type": "object", "description": "State facts of the bootstrap (local listings, setup state, premise evidence, flagged spans)." },
+        "recipe": {
+          "type": ["object", "null"],
+          "description": "The recipe chosen in start.choose, whose workflow becomes the plan's process; null for a plan from sources and for an epic.",
+          "required": ["recipe_key", "params"],
+          "additionalProperties": false,
+          "properties": {
+            "recipe_key": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "maxLength": 37 },
+            "params": { "type": "object", "description": "The recipe's parameters, validated against its descriptor." }
+          }
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "What start.ready or start-epic.ready shows, proposed from the sources: the slug that derives the id and the title. A recipe plan's id is derived from its recipe key and not changeable; its title is.",
+          "properties": {
+            "plan_slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+){0,7}$", "minLength": 3, "maxLength": 64 },
+            "epic_slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+){0,7}$", "minLength": 3, "maxLength": 64 },
+            "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[^\\n]+$" }
+          }
+        },
+        "pending_condition": { "type": ["object", "null"], "description": "Condition overlay of the bootstrap entity (same shape as the Workflow State Store's pending_condition)." },
+        "last_refusal": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "Reason of the last refused re-check of the start.create-scope transaction (for example plan_id_taken, lifecycle_closed, config_invalid, config_dirty, no_local_changes, lesson_unavailable); rendered in the facts of start.ready as commit_refused; null otherwise." }
+      }
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "kind": { "const": "epic" } } }, "then": { "properties": { "from_epic": { "const": null } } } }
+  ]
+}

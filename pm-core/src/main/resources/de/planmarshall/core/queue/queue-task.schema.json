@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/queue-task.json",
+  "title": "QueueTaskRecord",
+  "type": "object",
+  "required": ["format_version", "queue_task_id", "kind", "role", "class", "scope", "entity", "state_id", "form_downgraded", "status", "lease", "continuation", "attempts", "signals", "consultations", "consultation_of", "outcome", "reason", "question_id", "created_at", "closed_at"],
+  "additionalProperties": false,
+  "$defs": {
+    "generation": { "type": "string", "pattern": "^l-[0-9a-f]{16}$" }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "queue_task_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$", "description": "identifiers.adoc, queue_task_id; the name of the file." },
+    "kind": { "type": "string", "enum": ["work", "consultation"] },
+    "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The role the state (or the consult link) names (identifiers.adoc, role name)." },
+    "class": { "type": ["string", "null"], "enum": ["writer", "read_only", "zero_tool", null], "description": "The role's class at creation; null for a task closed role_undefined." },
+    "scope": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["plan", "epic", "workspace", "machine"] },
+        "id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "plan_id or epic_id; null for the workspace and the machine scope." }
+      }
+    },
+    "entity": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$", "description": "The entity of the scope the task works on (for example envelope-3, enrich-<module_id>, or an entry_id hosted by the workspace scope); for a consultation task its consultation_id, equal to queue_task_id. The offer names it, and the worker passes it as entity to pm_state and pm_do with the scope; the key of the task in active_tasks." },
+    "state_id": { "type": "string", "description": "The job llm state that created the task, or the asking task's state for a consultation." },
+    "form_downgraded": { "type": "boolean" },
+    "status": { "type": "string", "enum": ["queued", "offered", "executing", "consulting", "awaiting_answer", "suspended", "closed"] },
+    "continuation": {
+      "type": ["object", "null"],
+      "description": "The continuation after the task's last question (model-work/06, Continuing after a Question); null when the task never asked or did not continue.",
+      "required": ["question_id", "form", "hold_until", "session_id", "suspended_at", "resume_until", "suspended_digest", "suspended_head", "fallback_reason"],
+      "additionalProperties": false,
+      "properties": {
+        "question_id": { "type": "string", "pattern": "^Q-[0-9]{3,6}$" },
+        "form": { "type": "string", "enum": ["hold", "resume"] },
+        "hold_until": { "type": ["string", "null"], "format": "date-time" },
+        "session_id": { "type": ["string", "null"], "maxLength": 256, "description": "The harness session id read from the worker's structured result at the suspension." },
+        "suspended_at": { "type": ["string", "null"], "format": "date-time" },
+        "resume_until": { "type": ["string", "null"], "format": "date-time" },
+        "suspended_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "suspended_head": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+        "fallback_reason": { "type": ["string", "null"], "enum": ["not_allowed", "hold_expired", "resume_expired", "session_missing", "configuration_changed", "harness_changed", "worktree_moved", "resume_unacknowledged", null] }
+      }
+    },
+    "lease": {
+      "type": ["object", "null"],
+      "description": "The current lease; null while queued or closed.",
+      "required": ["generation_id", "job_id", "leased_at", "acknowledged_at"],
+      "additionalProperties": false,
+      "properties": {
+        "generation_id": { "$ref": "#/$defs/generation" },
+        "job_id": { "type": "string", "pattern": "^l-[0-9a-f]{16}$", "description": "The worker holding the lease." },
+        "leased_at": { "type": "string", "format": "date-time" },
+        "acknowledged_at": { "type": ["string", "null"], "format": "date-time", "description": "The ack link followed on the offered entity; null until then." }
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "description": "One entry per offer, in order; the generation of every attempt is recorded (PM-WORK-2).",
+      "items": {
+        "type": "object",
+        "required": ["attempt", "generation_id", "job_id", "configuration_digest", "offered_at", "acknowledged_at", "ended_at", "end", "counts"],
+        "additionalProperties": false,
+        "properties": {
+          "attempt": { "type": "integer", "minimum": 1 },
+          "generation_id": { "$ref": "#/$defs/generation" },
+          "job_id": { "type": "string", "pattern": "^l-[0-9a-f]{16}$" },
+          "configuration_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The configuration digest the worker generation was started with (its job record's worker.configuration_digest), the role's current digest at the offer." },
+          "offered_at": { "type": "string", "format": "date-time" },
+          "acknowledged_at": { "type": ["string", "null"], "format": "date-time" },
+          "ended_at": { "type": ["string", "null"], "format": "date-time" },
+          "end": { "type": ["string", "null"], "enum": ["closed", "worker_lost", "exited_without_submit", "waited_again", "budget", "start_failure", "restart", "drain", "paused", "off_track", "withdrawn", "deadline_expired", "suspended", null], "description": "closed: the attempt closed the task; suspended: the worker ended with its harness session stored and the task waits for its answer; paused: the operator paused the plan now; off_track: the server restarted a worker off track; withdrawn and deadline_expired: the task closed lost (reason withdrawn or deadline_expired) while the attempt held it; every other value returned the task to queued; null while it runs." },
+          "counts": { "type": "boolean", "description": "Whether the attempt spent a re-offer of the state's job_incomplete budget." }
+        }
+      }
+    },
+    "signals": {
+      "type": "array",
+      "description": "The off-track signals raised on the task's workers, with the action taken (model-work/03, A Worker Off Track); empty when none was raised.",
+      "items": {
+        "type": "object",
+        "required": ["signal", "attempt", "action", "measurement", "threshold", "at"],
+        "additionalProperties": false,
+        "properties": {
+          "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] },
+          "attempt": { "type": "integer", "minimum": 1 },
+          "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] },
+          "measurement": { "type": "number", "description": "The measured value: repeated calls in a row, turns without a link followed, the tokens spent on the plan task as a multiple of its predicted_cost_tokens, or the unplanned changes recorded." },
+          "threshold": { "type": "number", "description": "The threshold in force: the compiled one, or the lower one of the role artifact." },
+          "at": { "type": "string", "format": "date-time" }
+        },
+        "if": { "properties": { "signal": { "const": "agent_started" } } },
+        "then": { "properties": { "action": { "const": "restart" } } }
+      }
+    },
+    "consultations": {
+      "type": "array",
+      "description": "Consultations this task asked through a consult:<role> link of its state.",
+      "items": {
+        "type": "object",
+        "required": ["consultation_id", "role", "asked_by", "asked_at", "status", "answer", "closed_at", "delivered_at", "delivered_to"],
+        "additionalProperties": false,
+        "properties": {
+          "consultation_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$", "description": "The consultation task's queue_task_id." },
+          "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+          "asked_by": { "$ref": "#/$defs/generation" },
+          "asked_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string", "enum": ["open", "answered", "unavailable"], "description": "unavailable: the consultation closed lost; its reason is on the consultation task." },
+          "answer": { "type": ["string", "null"], "maxLength": 4000 },
+          "closed_at": { "type": ["string", "null"], "format": "date-time" },
+          "delivered_at": { "type": ["string", "null"], "format": "date-time" },
+          "delivered_to": { "type": ["string", "null"], "enum": ["wait", "facts", null], "description": "wait: the asking generation's next pm_wait; facts: the successor's offer after the asker was fenced." }
+        }
+      }
+    },
+    "consultation_of": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$", "description": "kind consultation: the asking task; null otherwise." },
+    "outcome": { "type": ["string", "null"], "enum": ["submitted", "asked", "infeasible", "lost", null], "description": "null while not closed." },
+    "reason": { "type": ["string", "null"], "enum": ["attempts_spent", "role_undefined", "class_mismatch", "role_unqualified", "role_unavailable", "deadline_expired", "withdrawn", null], "description": "lost only." },
+    "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "asked only: the question record the task filed." },
+    "created_at": { "type": "string", "format": "date-time" },
+    "closed_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "allOf": [
+    { "if": { "properties": { "status": { "const": "closed" } } }, "then": { "properties": { "lease": { "const": null }, "outcome": { "type": "string" }, "closed_at": { "type": "string" } } } },
+    { "if": { "properties": { "outcome": { "const": "lost" } } }, "then": { "properties": { "reason": { "type": "string" } } }, "else": { "properties": { "reason": { "const": null } } } }
+  ]
+}

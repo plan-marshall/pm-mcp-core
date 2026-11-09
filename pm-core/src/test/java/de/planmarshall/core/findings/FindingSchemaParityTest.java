@@ -34,20 +34,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.SchemaResource;
 
 /**
- * The finding record keeps parity with the schema {@code FindingRecord} of the specification (PM-IMPL-2): its record
- * components and those of its nested records are the schema's members in schema order, and every enumeration of
- * the record equals the schema's {@code enum} of its member. The schema is read from the specification of this repository
- * below {@value SpecificationDocument#ROOT_PROPERTY}.
+ * The finding record keeps parity with the schema {@code FindingRecord} of Store Schemas § Findings Ledger Record
+ * (PM-IMPL-2): its record components and those of its nested records are the schema's members in schema order, and
+ * every enumeration of the record equals the schema's {@code enum} of its member. The schema is the file
+ * {@code de/planmarshall/core/findings/finding-record.schema.json} beside the record, read from the class path.
  */
-// Every datum in this class is a contract: schema document paths, JSON member names and document anchors.
+// Every datum in this class is a contract: the schema file and its JSON member names.
 @DisplayName("Finding schema parity")
 class FindingSchemaParityTest {
 
-    private static final String DOCUMENT = "store-schemas/03-findings-and-review-records.adoc";
-    private static final String HEADING = "== Findings Ledger Record";
+    private static final String SCHEMA = "de/planmarshall/core/findings/finding-record.schema.json";
     private static final Pattern SNAKE = Pattern.compile("_([a-z0-9])");
     /** The members whose name is a Java keyword, and the component that carries them. */
     private static final Map<String, String> KEYWORD_MEMBERS = Map.of("class", "evidenceClass");
@@ -56,8 +55,7 @@ class FindingSchemaParityTest {
 
     @BeforeAll
     static void readSchema() {
-        schema = SpecificationDocument.object(
-                SpecificationDocument.parse(SpecificationDocument.jsonBlockAfter(DOCUMENT, HEADING)));
+        schema = SchemaResource.load(SCHEMA);
     }
 
     /** One member of the schema with an {@code enum}, and the enumeration of the record that must equal it. */
@@ -82,7 +80,7 @@ class FindingSchemaParityTest {
     }
 
     private static Map<?, ?> properties(Map<?, ?> object) {
-        return SpecificationDocument.object(object.get("properties"));
+        return SchemaResource.object(object.get("properties"));
     }
 
     /** Walks the record and its nested records along the schema, collecting the objects and the enum members. */
@@ -90,7 +88,7 @@ class FindingSchemaParityTest {
         objects.add(object);
         var components = componentsOf(object.type());
         properties(object.schemaObject()).forEach((name, value) -> {
-            var member = SpecificationDocument.object(value);
+            var member = SchemaResource.object(value);
             var path = object.path().isEmpty() ? String.valueOf(name) : object.path() + "." + name;
             var component = components.get(componentName(String.valueOf(name)));
             if (component == null) {
@@ -98,7 +96,7 @@ class FindingSchemaParityTest {
             }
             var type = component.getType();
             if (member.get("enum") != null) {
-                enums.add(new EnumMember(path, type, SpecificationDocument.array(member.get("enum"))));
+                enums.add(new EnumMember(path, type, SchemaResource.array(member.get("enum"))));
             } else if (type.isRecord() && member.get("properties") != null) {
                 walk(new RecordObject(path, type, member), objects, enums);
             } else if (List.class.equals(type) && member.get("items") instanceof Map<?, ?> items
@@ -164,7 +162,7 @@ class FindingSchemaParityTest {
         assertAll(objects.stream().filter(object -> object.schemaObject().get("required") != null)
                 .map(object -> (Executable) () -> {
                     var components = componentsOf(object.type()).keySet();
-                    var missing = SpecificationDocument.array(object.schemaObject().get("required")).stream()
+                    var missing = SchemaResource.array(object.schemaObject().get("required")).stream()
                             .map(name -> componentName(String.valueOf(name)))
                             .filter(name -> !components.contains(name)).toList();
                     assertEquals(List.of(), missing, () -> "required members missing at '" + object.path() + "'");

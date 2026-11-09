@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Reads the JSON schemas the specification states, from {@code doc/specification} of this repository (test helper).
@@ -108,24 +109,24 @@ public final class SpecificationDocument {
     }
 
     /**
+     * Casts a parsed JSON value that must be an object; delegates to {@link SchemaResource#object(Object)}, so the
+     * cast exists once.
+     *
      * @param value a parsed JSON value that must be an object
      * @return the object as a map in member order
      */
-    public static Map<?, ?> object(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            return map;
-        }
-        return fail("not a JSON object: " + value);
+    public static Map<?, ?> object(@Nullable Object value) {
+        return SchemaResource.object(value);
     }
 
     /**
+     * Casts a parsed JSON value that must be an array; delegates to {@link SchemaResource#array(Object)}, so the cast
+     * exists once.
+     *
      * @param value a parsed JSON value that must be an array
      * @return the array as a list
      */
-    public static List<?> array(Object value) {
-        if (value instanceof List<?> list) {
-            return list;
-        }
-        return fail("not a JSON array: " + value);
+    public static List<?> array(@Nullable Object value) {
+        return SchemaResource.array(value);
     }
 }

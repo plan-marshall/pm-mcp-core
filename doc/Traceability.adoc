@@ -574,6 +574,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java[PlanHistorySchemaParityTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest]
 
@@ -1949,7 +1950,8 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComp
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanProcessStatesTest.java[PlanProcessStatesTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/PlanHistoryEngineTest.java[PlanHistoryEngineTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistoryTest.java[PlanHistoryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java[PlanHistorySchemaParityTest]
 
 Implementation (the named parameter schemas `intent-record` and `outline-record` of the registry, and the simplify step's descriptor in the finalize roster): link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/SchemaRegistry.java[SchemaRegistry],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/SimplifyStep.java[SimplifyStep],

@@ -121,3 +121,10 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 - **PLAN-97 shipped 9 of 10; three residues (analysis of #214, 2026-10-28)** (Op3) — Sonar: java:S3776 in AnswerSchema.check (complexity 25 against 15) is a refactor of this plan's surface; the six java:S1135 issues are the generated TODO comments above the six catch (RuntimeException _) clauses that Deliverable 3 replaces: they disappear with it (decision 6, closed 2026-10-30: no parent-POM change); the unwired seams EndpointEnrolment, EndpointHarness and EndpointVerification are wired by the assembly (external E3)
 - **HarnessEnrolmentStore.decode reads a missing, null or non-object top-level harnesses member as** (Op43) — HarnessEnrolmentStore.decode reads a missing, null or non-object top-level harnesses member as an empty map although store-schemas/11 requires it; refuse with harness_store_unreadable
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Rescope against PLAN-V2-129 (deferred-code removal).** `JudgmentVerification`, `JudgmentEndpoint` and `SystemOneRequest` are deleted by PLAN-V2-129 (audit: "loopback and harness classes after the system_one deletion"). Run this plan AFTER PLAN-V2-129. D1 and D4 need re-scoping then: the two limits bisections (`EndpointVerification`, `JudgmentVerification`), the review nits and D4(a), (b), (c) become moot where they test `JudgmentVerification` (HYPOTHESIS, verify-at-outline against the tree after 129).
+- **Carried from the PLAN-98 and PLAN-97 residues (Open Defects of 2026-10-28/29, settled into this plan 2026-11-09):** the six generated TODO comments (`java:S1135`) and `AnswerSchema.check` complexity (`java:S3776`) are D2/D3; `HarnessEnrolmentStore.decode` is D5. The outbound-call architecture rule belongs to PLAN-V2-53.

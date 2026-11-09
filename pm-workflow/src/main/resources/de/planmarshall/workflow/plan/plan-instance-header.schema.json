@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json",
+  "title": "PlanInstanceHeader",
+  "type": "object",
+  "required": ["format_version", "plan_id", "version", "event", "composed_at", "inputs", "lane", "steps", "pruned", "policy_calls", "waived_gates"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "plan_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+    "version": { "type": "integer", "minimum": 1, "description": "instance_version (identifiers.adoc, instance version)." },
+    "event": { "$ref": "#/$defs/composition_event" },
+    "composed_at": { "type": "string", "format": "date-time" },
+    "inputs": {
+      "type": "object",
+      "required": ["config_hash", "templates", "sub_units", "composition_rules", "plan_facts_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "config_hash": { "type": "string", "description": "SHA-256 over the effective configuration (Project Configuration, item 6), read from the plan's worktree while worktree_path is set, else from the main checkout. Re-computed at every phase handshake and at Phase 6 entry: a differing value yields a candidate version that is adopted only when identical, else the config_drift condition (adopt / keep)." },
+        "templates": { "type": "array", "items": { "$ref": "#/$defs/unit_ref" }, "description": "The plan unit, the phase sub-workflows, and the bound axis variants the instance was composed from, each with its composed file of the version." },
+        "sub_units": { "type": "array", "items": { "$ref": "#/$defs/unit_ref" }, "description": "Every sub-unit a call site of the composed units calls, other than the composed phases and variants." },
+        "composition_rules": { "type": "object", "required": ["revision", "digest"], "additionalProperties": false, "properties": { "revision": { "type": "string" }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } },
+        "plan_facts_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest over the plan facts read (lane, posture, deliverables, tasks, declared footprint, waivers.jsonl up to the composing event, overrides.json in force)." },
+        "realized_footprint_digest": { "type": ["string", "null"] },
+        "change_type": { "type": ["string", "null"] },
+        "providers_digest": { "type": ["string", "null"] }
+      }
+    },
+    "lane": { "type": ["string", "null"], "enum": ["light", "deep", "land", "adopt", null], "description": "null only in version 1 of a plan whose lane is not yet known (both lanes open)." },
+    "posture": { "type": ["string", "null"], "enum": ["minimal", "standard", "full", null], "description": "The posture chosen where the plan's lane is chosen (an operator wait unless the plan, the project, or the machine sets it), else the projection; a plan fact whose effect is the posture prunes, composed from the version that binds it on; null before." },
+    "steps": {
+      "type": "object",
+      "required": ["phase_5_verification", "phase_6"],
+      "additionalProperties": false,
+      "properties": {
+        "phase_5_verification": { "type": "array", "items": { "type": "string" } },
+        "phase_6": { "type": "array", "items": { "type": "string", "pattern": "^(default|project):[a-z][a-z0-9-]{0,63}$" } }
+      }
+    },
+    "pruned": {
+      "type": "array",
+      "description": "Every template element the composition left out, with the rule and the fact that pruned it.",
+      "items": {
+        "type": "object",
+        "required": ["element", "id", "reason", "source_fact"],
+        "additionalProperties": false,
+        "properties": {
+          "element": { "type": "string", "enum": ["step", "state", "link", "policy_action", "call"], "description": "call: a call of a phase sub-workflow or of an axis variant the composition left out (a pruned phase is a pruned call)." },
+          "id": { "type": "string", "description": "step_id, state_id, <state_id>/<action>, <call_site>/<action>, or <call_site>/<subworkflow_id> for a call." },
+          "reason": { "$ref": "#/$defs/prune_reason" },
+          "source_fact": { "type": "string", "description": "Effective configuration key, derived fact kind, plan fact, or composition event that caused the prune." }
+        }
+      }
+    },
+    "policy_calls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["call_site", "unit", "args"],
+        "additionalProperties": false,
+        "properties": {
+          "call_site": { "type": "string", "description": "state_id of the calling state." },
+          "unit": { "type": "string", "enum": ["remediation.ci-failure", "remediation.review-findings", "remediation.build-failure", "remediation.merge-conflict", "remediation.qgate-findings", "remediation.analysis"] },
+          "args": {
+            "type": "object",
+            "description": "Effective bound arguments: retry_budget, fix_budget (integers) and actions (the allowed decide actions); each value carries its provenance.",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["value", "source"],
+              "additionalProperties": false,
+              "properties": {
+                "value": {},
+                "source": { "type": "string", "enum": ["template", "composition_rule", "waiver", "override"] },
+                "file": { "type": ["string", "null"], "description": "template: the unit file whose call argument is the value." },
+                "waiver_id": { "type": ["string", "null"], "pattern": "^W-[0-9]+$", "description": "waiver: the raise waiver that set the ceiling." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "waived_gates": {
+      "type": "array",
+      "items": { "type": "object", "required": ["gate", "waiver_id"], "additionalProperties": false, "properties": { "gate": { "type": "string" }, "waiver_id": { "type": "string", "pattern": "^W-[0-9]+$" } } }
+    }
+  },
+  "$defs": {
+    "unit_ref": { "type": "object", "required": ["unit", "digest", "origin"], "additionalProperties": false, "properties": { "unit": { "type": "string" }, "file": { "type": ["string", "null"] }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "origin": { "type": "string", "enum": ["default", "machine", "project"], "description": "The level the unit resolved at." } } },
+    "composition_event": { "type": "string", "enum": ["start", "outline", "plan", "config_adopted", "waiver", "override", "fallback", "empty_harvest", "replan"] },
+    "prune_reason": { "type": "string", "enum": ["posture", "provider_unconfigured", "footprint_disjoint", "change_type_exempt", "local_only", "land_lane", "adopt", "other_lane", "merge_by_operator", "plan_default", "returned", "handed_back", "empty_harvest", "no_code_delta", "no_production_delta"] }
+  }
+}

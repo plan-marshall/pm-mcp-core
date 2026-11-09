@@ -2,9 +2,9 @@
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (operator decision 2026-11-05: plans are run with Claude Code through the plan lifecycle).
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again; the operator asked for this plan in the runbook form on 2026-11-09).
 > Lives at `plans/PLAN-V2-121-generated-listings.md` and is queued as one row file, `queue/PLAN-V2-121.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names and the package file
@@ -42,12 +42,12 @@ The code is the source of two lists that tests compare today with a hand-written
 
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
-- **Operator word before the emit:** the schema-transition orchestrating session asks that nothing of this plan is emitted without the operator's word (`schema-transition-002.md`, the standing instruction of 2026-11-07).
+- **Operator word before the emit:** the schema-transition orchestrating session asks that nothing of this plan is emitted without the operator's word (`schema-transition-002.md`, the standing instruction of 2026-11-07); given on 2026-11-09, when the operator asked for this plan's emit.
 - **No stored or wire format changes:** the text of a log record (identifier and template) does not change; only its place in the document does.
 - **The generated files are the only files below a `doc/` tree that a test reads;** `PLAN-V2-122` narrows the `**/doc/**` entry of the docs-only include list to them, so the files must be easy to name by one glob.
 - **Sonar:** where the plan lifecycle's Sonar step cannot scan, read the pull request over plain HTTP (`pullRequest=N`, never `branch=<feature>`); an open issue is fixed in a pushed commit or dismissed with a reason recorded in the progress record.
 - **No dependency or plugin is added.**
-- **The landing message:** this plan is started with a spec path, so no `emit-landing` runs; write the landing message to the epic inbox by hand as the last step (`inbox write --kind landing`), with the `landing-facts` block, the standing-rule revision and rule ids, and the open items.
+- **The landing message:** the lane files it (`landing-check`); it carries the standing-rule revision and rule ids and the open items, and names `spec_source` and `spec_differ`.
 
 ## Claim Labels
 
@@ -91,7 +91,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-121-generated-listings.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-121-generated-listings.md
 ```
 
 ## Write-Boundary

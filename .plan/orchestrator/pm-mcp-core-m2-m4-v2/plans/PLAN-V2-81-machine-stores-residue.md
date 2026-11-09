@@ -147,3 +147,9 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **Audit identity of `judgment_task_completed`** (Wa1, decided 2026-10-30: machine-level `os_principal`) — `AuditEvent.judgmentTaskCompleted` (category `operator`) carries endpoint, model, status, tokens and duration and no identity; give it the machine-level identity of the Identity rule of `store-schemas/12` (line 955) with a test, and state the rule's choice in the part
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Owner confirmed (2026-11-09):** `ConsentGate.answer` calls `requireDevice` only in `remember` (`ConsentGate.java:165-179`); the S1192 and coverage parts of the PLAN-46/105 landing residue are D4 and D6 (live Sonar not queried).

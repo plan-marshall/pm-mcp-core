@@ -138,6 +138,10 @@ the contracts through fixture implementations, registration by key, a duplicate 
 other-provider key empty.
 link:{test}/FindingSchemaParityTest.java[`FindingSchemaParityTest`]:: the record components of `Finding` and its nested
 records are the members of the ledger schema in schema order, and every enumeration equals the `enum` of its member.
+The schema is the file beside the record,
+link:../../src/main/resources/de/planmarshall/core/findings/finding-record.schema.json[`de/planmarshall/core/findings/finding-record.schema.json`],
+read from the class path through `SchemaResource` of `pm-core:tests`; document 03 of the store schemas includes it
+(link:../../../doc/adr/016-schemas-are-files-of-the-implementing-module.adoc[ADR 016]).
 link:../../src/test/java/de/planmarshall/core/guard/ProviderNeutralityArchTest.java[`ProviderNeutralityArchTest`]:: the
 neutrality rule on the main classes, the exemption as one constant of the test, the proof that without it the rule fails
 on exactly the two exempt constants, and the controls.

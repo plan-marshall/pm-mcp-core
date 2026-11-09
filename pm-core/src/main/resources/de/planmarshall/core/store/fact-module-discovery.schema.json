@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/fact-module-discovery.json",
+  "title": "ModuleDiscoveryFactValue",
+  "type": "object",
+  "required": ["descriptor_tree_hash", "modules", "diagnostics"],
+  "additionalProperties": false,
+  "properties": {
+    "descriptor_tree_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Equals the entry's input_digest." },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["module_id", "build_system", "path", "facts"],
+        "additionalProperties": false,
+        "properties": {
+          "module_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,56}$", "description": "identifiers.adoc, module_id" },
+          "build_system": { "type": "string", "enum": ["maven", "gradle", "npm", "pyproject", "documentation", "marshall-plugin"] },
+          "path": { "type": "string", "description": "Repository-relative module directory; '.' for the root." },
+          "parent": { "type": ["string", "null"], "description": "module_id of the reactor parent, if any." },
+          "facts": { "type": "object", "description": "Extracted module facts of the build system's descriptor parser (Domain Extensions, Server-Owned Module Discovery)." },
+          "job_facts": {
+            "type": "object",
+            "description": "Facts from lazy enrolled discovery jobs, keyed by discovery template name (enrolment build.discovery_templates).",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["job_id", "value"],
+              "additionalProperties": false,
+              "properties": {
+                "job_id": { "type": "string", "pattern": "^[bcgp]-[0-9a-f]{16}$" },
+                "value": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "description": "Per-descriptor parse failures; a failure never aborts discovery of the other modules.",
+      "items": {
+        "type": "object",
+        "required": ["path", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "message": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    }
+  }
+}

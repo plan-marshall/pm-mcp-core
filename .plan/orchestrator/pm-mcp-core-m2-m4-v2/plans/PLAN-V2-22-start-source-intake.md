@@ -219,3 +219,14 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **The port `QuestionRecordReader` cannot address a pending entry** (Op18, decided 2026-10-30: this plan owns it) — `ReadRequest(Optional<String> scopeId, String questionId)` names a plan, an epic or the workspace, nothing else, so a `question` state of a pending entry (an entity of the workspace scope) cannot be resolved through the adapter PLAN-88 shipped; the port change belongs to `pm-core` `core.spi`, its adapter to `pm-runtime`; with the `Optional` conversion (PLAN-V2-97) the scope parameter becomes `@Nullable`
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Rescope (audit, operator 2026-11-09):** only the Milestone 3 part, with the D13 names (decision log). It depends on PLAN-V2-17, which stays staged.
+- **Carried:** the port `QuestionRecordReader` cannot address a pending entry (`ReadRequest(Optional<String> scopeId, String questionId)` at `pm-core/.../spi/QuestionRecordReader.java`; operator decision 2026-10-30: this plan owns it; PLAN-V2-97 makes `scopeId` `@Nullable`) and the `unscreened` clause of PLAN-97 residue (3).
+
+## Placement of endpoints and default units (operator decision 2026-11-09)
+
+Companion package outside, logic stays here: the routes and endpoints named under `pm-runtime/.../web/` are not built here (`/api/v1` routes are `pm-mcp-server` classes of `plan-marshall-mcp`; `runtime/web` holds listener state and certificate only), and the `.pmwf` default units are owed to `plan-marshall-mcp` as for PLAN-V2-17. This plan keeps the framework-free logic as a `pm-runtime` package (forge fetch, intake, the `QuestionRecordReader` addressing of item 13). Its declared surface keeps the `web` path until the outline decides which files are real, so the gate still sees the overlap.

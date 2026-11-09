@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/fact-cost-calibration.json",
+  "title": "CostCalibrationFactValue",
+  "type": "object",
+  "required": ["table", "population_count", "calibrated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "table": {
+      "type": "object",
+      "required": ["XS", "S", "M", "L", "XL", "XXL"],
+      "additionalProperties": false,
+      "properties": {
+        "XS": { "type": "integer", "minimum": 1 },
+        "S": { "type": "integer", "minimum": 1 },
+        "M": { "type": "integer", "minimum": 1 },
+        "L": { "type": "integer", "minimum": 1 },
+        "XL": { "type": "integer", "minimum": 1 },
+        "XXL": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "population_count": { "type": "integer", "minimum": 1, "description": "Envelopes with measured token components the table was calibrated from." },
+    "calibrated_at": { "type": "string", "format": "date-time" }
+  }
+}

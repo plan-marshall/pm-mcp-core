@@ -110,3 +110,13 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **PLAN-43 open items the lane recorded, not fixed (message -004, 2026-10-28)** (Op6) — handed_back/returned end with phase aborted (WorkflowEngine.ended) is V2-57; the cross-unit duplicate state ids in CallGraphExpansion are V2-82; the end-to-end default-plan test and the unmodelled adopt/land lanes are to be named by V2-57
+
+## Rescope and carries (2026-11-09)
+
+Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
+
+- **Carried (PLAN-43 residues, Open Defects 2026-10-28):** (a) `WorkflowEngine.ended` (`pm-workflow`, about line 547) maps every FAILURE-class terminal to phase `aborted`, so `handed_back` and `returned` end `aborted`; the specification does not say which phase those terminals take, so settle the phase value in the specification first or ask the operator at refine (R07); (b) `CallGraphExpansion.collect` (about line 132) uses `putIfAbsent` and silently drops a cross-unit duplicate state id: refuse or flag the duplicate; (c) the end-to-end default-plan test and the adopt and land lanes are this plan's own. HYPOTHESIS, verify-at-outline: this plan's text says (a) is "Not taken"; the owner register had assigned (a) here and (b) to PLAN-V2-82, which covers `InstancePosition` and the composer only.
+
+### Operator decision 2026-11-09: the phase of the delivery ends
+
+`WorkflowEngine.ended` sets phase `completed` for all three delivery terminals (`completed`, `handed_back`, `returned`); `aborted` stays reserved for `plan.aborted` and `epic.aborted` (operator-initiated ends, `workflow-dsl/01-grammar.adoc` Ends of a scope). The `outcome` of the status and landing record tells the three apart (`03-reference-excerpt.adoc`, Ends). The fix is in the class the terminal reports, with an `ended` test per terminal; the spec sentence is added where it is missing (confidence at decision: about 60%, options 2 `phase = terminal name` and 3 `keep aborted` were declined).

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/plan-overrides.json",
+  "title": "PlanOverrides",
+  "type": "object",
+  "required": ["format_version", "revision", "roles", "axes", "integrations", "providers", "updated_at", "updated_by"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 1, "description": "Raised by one with every write." },
+    "roles": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+          "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "effort": { "type": "string", "minLength": 1, "maxLength": 32 }
+        }
+      }
+    },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "landing": { "type": "string", "pattern": "^landing\\.[a-z][a-z0-9-]*$" },
+        "method": { "type": "string", "pattern": "^method\\.[a-z][a-z0-9-]*$" },
+        "asking": { "type": "string", "pattern": "^ask\\.[a-z][a-z0-9-]*$" }
+      }
+    },
+    "posture": { "type": "string", "enum": ["minimal", "standard", "full"], "description": "The plan's posture, written by the answer of init.options or from the plan's settings; absent defers to plan_defaults.posture of the project and the machine." },
+    "base_branch": { "type": "string", "minLength": 1, "maxLength": 255, "description": "The plan's base branch, written by the answer of init.options or from the plan's settings before the base is stamped; absent defers to the project's base branch." },
+    "integrations": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" }, "additionalProperties": { "type": "string", "enum": ["native", "cli"] }, "description": "Per integration the variant the plan uses." },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code_analysis": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" } },
+        "review_bots": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" } }
+      }
+    },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "updated_by": {
+      "type": "object",
+      "required": ["channel", "device_id"],
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "type": "string", "enum": ["cli", "web"] },
+        "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" }
+      }
+    }
+  }
+}
