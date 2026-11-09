@@ -38,7 +38,8 @@ Two further decisions are forced by the specification and the formats:
 3. **The verdict is decided once, on the line.** `CoverageReport.evaluate(int threshold)` compares the overall line
    percentage (`>=` passes) and chooses the low-coverage items by their line percentage. No other metric is consulted.
 4. **The XML readers share one hardened factory.** `CoverageXmlReader` keeps DTD support on (so the declaration parses),
-   turns external entities off, keeps entity references from being replaced, and the parsers refuse an
+   turns external entities off, keeps entity references from being replaced, and resolves every external reference to an
+   empty stream, so a DTD or entity that tries to reach a file or a URL reads nothing. The parsers refuse an
    `ENTITY_REFERENCE` event. A document that declares and uses an external entity is refused, never expanded; a
    `DOCTYPE` declaration alone is tolerated without resolution.
 5. **A file that cannot be read is a refusal.** Every parser offers `parse(String)` and `parse(Path)`; the path overload
@@ -57,9 +58,10 @@ Two further decisions are forced by the specification and the formats:
 2. *Throw an exception for a refused report.* Not taken: the project forbids throwing generic exceptions, a checked
    exception forces every consumer into a `try`/`catch` for an expected outcome, and the outcome is a value the caller
    has to handle anyway.
-3. *Set `SUPPORT_DTD` to false.* Not taken: the JDK StAX reader then refuses the `DOCTYPE` that a real `jacoco.xml`
-   always carries, so the parser could not read its own format. Tolerating the declaration while refusing its
-   resolution is the only setting that reads the real reports and expands nothing.
+3. *Set `SUPPORT_DTD` to false.* Not taken: DTD support off is the setting under which the JDK StAX reader rejects the
+   `DOCTYPE` that a real `jacoco.xml` always carries, so the parser could not read its own format. Tolerating the
+   declaration while refusing its resolution and its entity references is the only setting that reads the real reports
+   and expands nothing.
 4. *Default an absent metric to `0.0`.* Not taken: it makes “the format does not give this metric” and “the metric is
    zero” the same value, which is the defect the build parsers' `TestCounts.Unmeasured` state already avoids.
 5. *Bind the JSON to a tree with `ObjectMapper`.* Not taken: `pm-core` has `jackson-core` and the package's other
@@ -84,4 +86,4 @@ fail-closed direction.
 Work package `doc/plans/build-parsers-and-gate-honesty.adoc`; plan `PLAN-V2-18-coverage-report-parsers`; specification
 `doc/specification/job-runtime/03-parsers-and-gates.adoc` § Native Coverage Report Parsers; the original
 `marketplace/bundles/plan-marshall/skills/script-shared/scripts/build/_coverage_parse.py` at plan-marshall commit
-`9cd644892`; requirements `PM-EXEC-6` and `PM-TEST-2`.
+`9cd6448921e3a7026df0427af65137c3ccca8037`; requirements `PM-EXEC-6` and `PM-TEST-2`.

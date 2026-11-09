@@ -183,8 +183,6 @@ public class IstanbulSummaryParser {
     }
 
     private static CoverageParseResult refusal(Exception cause) {
-        String message = cause.getMessage();
-        String detail = message == null ? cause.getClass().getSimpleName() : message;
-        return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": " + detail);
+        return CoverageRefusals.of(FORMAT, cause);
     }
 }

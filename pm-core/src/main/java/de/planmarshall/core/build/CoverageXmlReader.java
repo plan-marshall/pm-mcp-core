@@ -22,8 +22,9 @@ import lombok.experimental.UtilityClass;
  * The XML formats are read as untrusted input: a document may declare a DTD (JaCoCo writes a {@code DOCTYPE} with a
  * system identifier) and that declaration is tolerated without resolution, but an external entity is never resolved.
  * The factory keeps DTD support on so the declaration parses, turns external entities off, keeps entity references from
- * being replaced, and the parsers refuse an {@code ENTITY_REFERENCE} event themselves — so a document that uses an
- * entity defined outside it is refused, never expanded. The decisions are recorded in {@code core-build/005}.
+ * being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file
+ * or a URL reads nothing; the parsers refuse an {@code ENTITY_REFERENCE} event as well. A document that uses an entity
+ * defined outside it is therefore refused, never expanded. The decisions are recorded in {@code core-build/005}.
  *
  * @since 0.1
  */
@@ -57,7 +58,20 @@ class CoverageXmlReader {
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.TRUE);
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.FALSE);
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> new ByteArrayInputStream(new byte[0]));
         return factory;
+    }
+
+    /**
+     * Returns the value of an attribute, or an empty string when the element does not carry it.
+     *
+     * @param reader the reader positioned on a start element
+     * @param name   the attribute name
+     * @return the attribute value, never null
+     */
+    static String attribute(XMLStreamReader reader, String name) {
+        String value = reader.getAttributeValue(null, name);
+        return value == null ? "" : value;
     }
 
     /**

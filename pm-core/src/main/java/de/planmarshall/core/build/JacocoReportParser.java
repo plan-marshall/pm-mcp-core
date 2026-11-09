@@ -87,11 +87,14 @@ public class JacocoReportParser {
             if (event == XMLStreamConstants.START_ELEMENT) {
                 String parent = path.peek();
                 String local = reader.getLocalName();
+                if (path.isEmpty() && !"report".equals(local)) {
+                    throw new IllegalArgumentException("the root element is " + local + ", not a report");
+                }
                 if ("class".equals(local)) {
                     current = new ClassState(requiredName(reader, "class"));
                 } else if ("method".equals(local)) {
                     if (current != null) {
-                        current.startMethod(attribute(reader, "name"));
+                        current.startMethod(CoverageXmlReader.attribute(reader, "name"));
                     }
                 } else if ("counter".equals(local)) {
                     readCounter(reader, parent, overall, current);
@@ -116,22 +119,30 @@ public class JacocoReportParser {
     }
 
     private static CoverageMetrics metrics(Map<String, int[]> overall) {
+        if (!overall.containsKey("LINE")) {
+            throw new IllegalArgumentException("the report carries no LINE counter");
+        }
         return CoverageMetrics.builder()
-                .instruction(percentage(overall, "INSTRUCTION"))
-                .branch(percentage(overall, "BRANCH"))
                 .line(percentage(overall, "LINE"))
-                .function(percentage(overall, "METHOD"))
+                .instruction(optionalPercentage(overall, "INSTRUCTION"))
+                .branch(optionalPercentage(overall, "BRANCH"))
+                .function(optionalPercentage(overall, "METHOD"))
                 .build();
     }
 
     private static double percentage(Map<String, int[]> counters, String type) {
         int[] counter = counters.get(type);
-        return counter == null ? 0.0 : CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
+        return CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
+    }
+
+    private static Double optionalPercentage(Map<String, int[]> counters, String type) {
+        int[] counter = counters.get(type);
+        return counter == null ? null : CoveragePercentages.percentage(counter[1], counter[0] + (long) counter[1]);
     }
 
     private static void readCounter(XMLStreamReader reader, String parent, Map<String, int[]> overall,
             ClassState current) {
-        String type = attribute(reader, "type");
+        String type = CoverageXmlReader.attribute(reader, "type");
         int missed = count(reader, "missed");
         int covered = count(reader, "covered");
         if ("report".equals(parent)) {
@@ -142,27 +153,20 @@ public class JacocoReportParser {
     }
 
     private static String requiredName(XMLStreamReader reader, String element) {
-        String name = attribute(reader, "name");
+        String name = CoverageXmlReader.attribute(reader, "name");
         if (name.isBlank()) {
             throw new IllegalArgumentException("a " + element + " carries no name");
         }
         return name;
     }
 
-    private static String attribute(XMLStreamReader reader, String name) {
-        String value = reader.getAttributeValue(null, name);
-        return value == null ? "" : value;
-    }
-
     private static int count(XMLStreamReader reader, String name) {
-        String value = attribute(reader, name);
+        String value = CoverageXmlReader.attribute(reader, name);
         return value.isBlank() ? 0 : Integer.parseInt(value);
     }
 
     private static CoverageParseResult refusal(Exception cause) {
-        String message = cause.getMessage();
-        String detail = message == null ? cause.getClass().getSimpleName() : message;
-        return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": " + detail);
+        return CoverageRefusals.of(FORMAT, cause);
     }
 
     /**

@@ -10,6 +10,7 @@
 package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -43,6 +44,13 @@ class CoveragePercentagesTest {
     void convertsARate() {
         assertEquals(87.5, CoveragePercentages.percentageOfRate(0.875), "The rate 0.875 is 87.5 percent");
         assertEquals(90.0, CoveragePercentages.percentageOfRate(0.9), "The rate 0.9 is 90 percent");
+    }
+
+    @Test
+    @DisplayName("refuses a rate that is not a finite number")
+    void refusesANonFiniteRate() {
+        assertThrows(IllegalArgumentException.class, () -> CoveragePercentages.percentageOfRate(Double.NaN),
+                "A NaN rate is refused");
     }
 
     @Test

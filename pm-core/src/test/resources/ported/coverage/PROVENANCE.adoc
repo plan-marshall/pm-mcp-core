@@ -9,7 +9,7 @@ The original is `plan-marshall`'s format-agnostic coverage parser and its pytest
 checkout `../plan-marshall` at
 
 ----
-commit 9cd644892
+commit 9cd6448921e3a7026df0427af65137c3ccca8037
 ----
 
 (the head of the sibling checkout at the time the fixtures were derived). The paths, below the checkout's root:
@@ -56,9 +56,13 @@ threshold neither fails a report whose line is above it nor rescues one whose li
 |`deliberate-jacoco-init-excluded.xml`
 |The constructors `<init>` and `<clinit>` are never part of `missed_methods`.
 
-|`deliberate-jacoco-external-entity.xml`, `deliberate-cobertura-external-entity.xml`
-|A report that references an external entity is refused, never expanded; a `DOCTYPE` declaration alone is tolerated.
+|`deliberate-jacoco-external-entity.xml`, `deliberate-jacoco-external-entity-content.xml`, `deliberate-cobertura-external-entity.xml`
+|A report that references an external entity is refused, never expanded, whether the entity sits in an attribute or in
+element content; a `DOCTYPE` declaration alone is tolerated.
 
-|`deliberate-jacoco-truncated.xml`, `deliberate-lcov-truncated.info`, `deliberate-istanbul-malformed.json`
+|`deliberate-jacoco-truncated.xml`, `deliberate-cobertura-truncated.xml`, `deliberate-lcov-truncated.info`, `deliberate-istanbul-malformed.json`
 |An unreadable or truncated report is a refusal naming the format, never a report of zeros.
+
+|`deliberate-lcov-inconsistent.info`
+|A covered count above its total is a refusal, never a percentage above 100.
 |===

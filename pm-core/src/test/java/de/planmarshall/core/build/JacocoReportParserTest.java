@@ -143,6 +143,60 @@ class JacocoReportParserTest {
         assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
     }
 
+    @Test
+    @DisplayName("refuses an entity that is referenced in the element content")
+    void refusesAContentEntity() {
+        CoverageParseResult result = JacocoReportParser
+                .parse(CoverageReportFixtures.path("deliberate-jacoco-external-entity-content.xml"));
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A content entity is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertTrue(refused.reason().contains("external entity reference refused"),
+                        "The reason names the refused entity reference"));
+    }
+
+    @Test
+    @DisplayName("keeps the metrics the report does not carry absent")
+    void keepsTheAbsentMetricsNull() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="line-only">
+                  <counter type="LINE" missed="1" covered="1"/>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(50.0, report.overall().line(), "The line counter is 1 of 2"),
+                () -> assertNull(report.overall().instruction(), "An absent instruction counter is null"),
+                () -> assertNull(report.overall().branch(), "An absent branch counter is null"),
+                () -> assertNull(report.overall().function(), "An absent method counter is null"));
+    }
+
+    @Test
+    @DisplayName("refuses a document that is not a JaCoCo report")
+    void refusesANonReportDocument() {
+        CoverageParseResult result =
+                JacocoReportParser.parse("<coverage line-rate=\"0.5\" branch-rate=\"0.5\"/>");
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "Another root element is refused");
+
+        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+    }
+
+    @Test
+    @DisplayName("refuses a report without a line counter")
+    void refusesAReportWithoutLineCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("<report name=\"empty\"/>");
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A report without a LINE counter is refused");
+
+        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+    }
+
     private static CoverageParseResult.Refused assertRefused(CoverageParseResult result, String message) {
         return assertInstanceOf(CoverageParseResult.Refused.class, result, message);
     }

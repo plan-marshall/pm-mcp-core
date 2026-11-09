@@ -80,6 +80,42 @@ class CoberturaReportParserTest {
     }
 
     @Test
+    @DisplayName("refuses a truncated report")
+    void refusesATruncatedReport() {
+        CoverageParseResult result =
+                CoberturaReportParser.parse(CoverageReportFixtures.path("deliberate-cobertura-truncated.xml"));
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A truncated report is refused");
+
+        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+    }
+
+    @Test
+    @DisplayName("refuses a document that is not a Cobertura report")
+    void refusesANonReportDocument() {
+        CoverageParseResult result = CoberturaReportParser.parse("<report name=\"other\"/>");
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "Another root element is refused");
+
+        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+    }
+
+    @Test
+    @DisplayName("refuses a root without a line rate")
+    void refusesARootWithoutLineRate() {
+        CoverageParseResult result = CoberturaReportParser.parse("""
+                <coverage version="7.4.0" branch-rate="0.5"/>
+                """);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing line rate is refused");
+
+        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+    }
+
+    @Test
     @DisplayName("refuses an unreadable report file")
     void refusesAnUnreadableFile() {
         CoverageParseResult result = CoberturaReportParser

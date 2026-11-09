@@ -254,8 +254,8 @@ format and the reason. A report that cannot be read is never a report of zeros.
 === The model and the verdict
 
 `CoverageReport` carries the `CoverageFormat`, the `CoverageMetrics` of the overall percentages and the `CoverageItem`
-list. `CoverageMetrics` keeps an absent metric `null`, so a format that carries no statement counter (JaCoCo) is
-distinguishable from a measured zero; the line percentage is always present. `CoverageItem` carries the name (a class or
+list. `CoverageMetrics` keeps an absent metric `null`, so a format that carries no branch or statement counter is
+distinguishable from a measured zero; only the line percentage is required. `CoverageItem` carries the name (a class or
 a file), the optional source file, the line and branch percentages and the `missedMethods` detail.
 
 `CoverageReport.evaluate(threshold)` decides the verdict from the **overall line percentage only** and builds the
@@ -266,23 +266,26 @@ above it, and a high branch percentage does not rescue a low line.
 === JaCoCo
 
 `JacocoReportParser.parse` walks the report once with StAX. The report element's `INSTRUCTION`, `BRANCH`, `LINE` and
-`METHOD` counters are the overall percentages, each `covered / (missed + covered)`. Per class it takes the `LINE` counter
+`METHOD` counters are the overall percentages, each `covered / (missed + covered)`; a counter the report does not carry
+leaves its metric `null`, and a report without a `LINE` counter is refused. Per class it takes the `LINE` counter
 (and the `BRANCH` counter where present); each method whose `METHOD` counter has a missed part contributes its name to
 `missedMethods`, and `<init>` and `<clinit>` are excluded because they are not methods a test is expected to call. The
 class name is dotted (`com/example/A` becomes `com.example.A`).
 
 === Cobertura
 
-`CoberturaReportParser.parse` takes the root `line-rate` and `branch-rate` as the overall percentages and each class's
-`line-rate` as an item, naming its `filename`. A method whose `line-rate` is zero contributes its name to
-`missedMethods`.
+`CoberturaReportParser.parse` takes the root `line-rate` and `branch-rate` as the overall percentages — a missing root
+`line-rate` is a refusal and a missing `branch-rate` leaves the branch metric `null` — and each class's `line-rate` as
+an item, naming its `filename`. A method whose `line-rate` is zero contributes its name to `missedMethods`. A rate that
+is not a finite number is refused.
 
 === LCOV
 
 `LcovReportParser.parse` reads the line-oriented records from `SF:` to `end_of_record` and sums every record into the
 overall percentages: `line` from `LH/LF`, `branch` from `BRH/BRF`, `function` from `FNH/FNF`, and `statement` equals
-`line` because LCOV has no statement counter. Each record is an item. A `DA:` record is per-line detail and never enters a
-percentage. A record that is not terminated, or carries no `LF/LH` counter, is a truncation and is refused.
+`line` because LCOV has no statement counter. A metric no record carries is `null`, not a zero. Each record is an item. A
+`DA:` record is per-line detail and never enters a percentage. A record that is not terminated, or carries no `LF/LH`
+counter, is a truncation and is refused, as is a covered count above its total.
 
 === Istanbul
 
@@ -295,9 +298,10 @@ without a numeric `pct` and a document without `total` are refused.
 
 Both XML parsers read their report as untrusted input through `CoverageXmlReader`. The factory keeps DTD support on — so
 JaCoCo's own `DOCTYPE` with a system identifier parses — turns external entities off, keeps entity references from being
-replaced, and the parsers refuse an `ENTITY_REFERENCE` event. A report that declares and uses an external entity is
-therefore refused, never expanded; a `DOCTYPE` declaration alone is tolerated without resolution. The decision is
-recorded in link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
+replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file or a
+URL reads nothing. The parsers refuse an `ENTITY_REFERENCE` event, so a report that declares and uses an external entity
+is refused, never expanded; a `DOCTYPE` declaration alone is tolerated without resolution. The decision is recorded in
+link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
 
 == Adding a Parser
 
@@ -361,10 +365,10 @@ The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the or
 `original:` header and every `suite:` line with it, because the loader refuses any other commit.
 
 The coverage fixtures follow the same convention without the scenario grammar: they are plain report files below
-`src/test/resources/ported/coverage/`, copied byte for byte from the original's own fixture directory at the pin recorded
-in link:{coverage-data}/PROVENANCE.adoc[`ported/coverage/PROVENANCE.adoc`], plus one `deliberate-` file per behaviour
-the port decides on top of the original. A coverage parser test reads its fixture through the class path and compares the
-figures with literals read out of the report by hand; no test runs Python.
+`src/test/resources/ported/coverage/`, copied byte for byte from the original's own fixture directory at the full pin
+recorded in link:{coverage-data}/PROVENANCE.adoc[`ported/coverage/PROVENANCE.adoc`], plus one `deliberate-` file per
+behaviour the port decides on top of the original. A coverage parser test reads its fixture through the class path and
+compares the figures with literals read out of the report by hand; no test runs Python.
 
 == The Unparsed Evidence
 

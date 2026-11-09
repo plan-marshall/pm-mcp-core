@@ -83,15 +83,18 @@ public class CoberturaReportParser {
             }
             if (event == XMLStreamConstants.START_ELEMENT) {
                 String local = reader.getLocalName();
+                if (path.isEmpty() && !"coverage".equals(local)) {
+                    throw new IllegalArgumentException("the root element is " + local + ", not a coverage");
+                }
                 if ("coverage".equals(local) && path.isEmpty()) {
-                    lineRate = rate(reader, "line-rate");
+                    lineRate = requireRate(reader, "line-rate");
                     branchRate = rate(reader, "branch-rate");
                 } else if ("class".equals(local)) {
-                    current = new ClassState(requiredName(reader), file(reader), rate(reader, "line-rate"),
+                    current = new ClassState(requiredName(reader), file(reader), requireRate(reader, "line-rate"),
                             rate(reader, "branch-rate"));
                 } else if ("method".equals(local)) {
                     if (current != null) {
-                        current.readMethod(attribute(reader, "name"), rate(reader, "line-rate"));
+                        current.readMethod(CoverageXmlReader.attribute(reader, "name"), rate(reader, "line-rate"));
                     }
                 }
                 path.push(local);
@@ -105,14 +108,14 @@ public class CoberturaReportParser {
             }
         }
         CoverageMetrics overall = CoverageMetrics.builder()
-                .line(CoveragePercentages.percentageOfRate(lineRate == null ? 0.0 : lineRate))
-                .branch(CoveragePercentages.percentageOfRate(branchRate == null ? 0.0 : branchRate))
+                .line(CoveragePercentages.percentageOfRate(lineRate))
+                .branch(branchRate == null ? null : CoveragePercentages.percentageOfRate(branchRate))
                 .build();
         return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, overall, items));
     }
 
     private static String requiredName(XMLStreamReader reader) {
-        String name = attribute(reader, "name");
+        String name = CoverageXmlReader.attribute(reader, "name");
         if (name.isBlank()) {
             throw new IllegalArgumentException("a class carries no name");
         }
@@ -120,24 +123,25 @@ public class CoberturaReportParser {
     }
 
     private static String file(XMLStreamReader reader) {
-        String file = attribute(reader, "filename");
+        String file = CoverageXmlReader.attribute(reader, "filename");
         return file.isBlank() ? null : file;
     }
 
     private static Double rate(XMLStreamReader reader, String name) {
-        String value = attribute(reader, name);
+        String value = CoverageXmlReader.attribute(reader, name);
         return value.isBlank() ? null : Double.valueOf(value);
     }
 
-    private static String attribute(XMLStreamReader reader, String name) {
-        String value = reader.getAttributeValue(null, name);
-        return value == null ? "" : value;
+    private static double requireRate(XMLStreamReader reader, String name) {
+        Double value = rate(reader, name);
+        if (value == null) {
+            throw new IllegalArgumentException("the " + name + " is absent");
+        }
+        return value;
     }
 
     private static CoverageParseResult refusal(Exception cause) {
-        String message = cause.getMessage();
-        String detail = message == null ? cause.getClass().getSimpleName() : message;
-        return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": " + detail);
+        return CoverageRefusals.of(FORMAT, cause);
     }
 
     /**

@@ -46,7 +46,7 @@ public class LcovReportParser {
         Objects.requireNonNull(report, "report");
         try {
             return parseRecords(report);
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             return refusal(e);
         }
     }
@@ -61,7 +61,7 @@ public class LcovReportParser {
         Objects.requireNonNull(reportFile, "reportFile");
         try {
             return parseRecords(Files.readString(reportFile));
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             return refusal(e);
         }
     }
@@ -74,6 +74,8 @@ public class LcovReportParser {
         long branchesHit = 0;
         long functionsFound = 0;
         long functionsHit = 0;
+        boolean branchesSeen = false;
+        boolean functionsSeen = false;
         Record current = null;
         for (String raw : report.split("\n", -1)) {
             String line = raw.strip();
@@ -89,8 +91,10 @@ public class LcovReportParser {
                 items.add(current.item());
                 linesFound += current.linesFound;
                 linesHit += current.linesHit;
+                branchesSeen |= current.branchesSeen;
                 branchesFound += current.branchesFound;
                 branchesHit += current.branchesHit;
+                functionsSeen |= current.functionsSeen;
                 functionsFound += current.functionsFound;
                 functionsHit += current.functionsHit;
                 current = null;
@@ -107,8 +111,8 @@ public class LcovReportParser {
         double line = CoveragePercentages.percentage(linesHit, linesFound);
         CoverageMetrics overall = CoverageMetrics.builder()
                 .line(line)
-                .branch(CoveragePercentages.percentage(branchesHit, branchesFound))
-                .function(CoveragePercentages.percentage(functionsHit, functionsFound))
+                .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound) : null)
+                .function(functionsSeen ? CoveragePercentages.percentage(functionsHit, functionsFound) : null)
                 .statement(line)
                 .build();
         return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, overall, items));
@@ -123,12 +127,16 @@ public class LcovReportParser {
             current.linesHitSeen = true;
         } else if (line.startsWith("BRF:")) {
             current.branchesFound = number(line, 4);
+            current.branchesSeen = true;
         } else if (line.startsWith("BRH:")) {
             current.branchesHit = number(line, 4);
+            current.branchesSeen = true;
         } else if (line.startsWith("FNF:")) {
             current.functionsFound = number(line, 4);
+            current.functionsSeen = true;
         } else if (line.startsWith("FNH:")) {
             current.functionsHit = number(line, 4);
+            current.functionsSeen = true;
         }
     }
 
@@ -141,9 +149,7 @@ public class LcovReportParser {
     }
 
     private static CoverageParseResult refusal(Exception cause) {
-        String message = cause.getMessage();
-        String detail = message == null ? cause.getClass().getSimpleName() : message;
-        return new CoverageParseResult.Refused(FORMAT, FORMAT.id() + ": " + detail);
+        return CoverageRefusals.of(FORMAT, cause);
     }
 
     /**
@@ -158,8 +164,10 @@ public class LcovReportParser {
         private boolean linesHitSeen;
         private int branchesFound;
         private int branchesHit;
+        private boolean branchesSeen;
         private int functionsFound;
         private int functionsHit;
+        private boolean functionsSeen;
 
         private Record(String file) {
             this.file = file;
@@ -176,7 +184,7 @@ public class LcovReportParser {
                     .name(file)
                     .file(file)
                     .line(CoveragePercentages.percentage(linesHit, linesFound))
-                    .branch(CoveragePercentages.percentage(branchesHit, branchesFound))
+                    .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound) : null)
                     .missedMethods(List.of())
                     .build();
         }

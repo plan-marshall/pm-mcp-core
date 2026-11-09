@@ -12,6 +12,7 @@ package de.planmarshall.core.build;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -82,6 +83,36 @@ class LcovReportParserTest {
                 () -> assertEquals(80.0, report.overall().line(), "The DA records do not change the line"),
                 () -> assertEquals(50.0, report.overall().branch(), "The DA records do not change the branch"),
                 () -> assertEquals(80.0, report.items().getFirst().line(), "The file line stays eight of ten"));
+    }
+
+    @Test
+    @DisplayName("refuses counters that disagree with each other")
+    void refusesAnInconsistentCounter() {
+        CoverageParseResult result =
+                LcovReportParser.parse(CoverageReportFixtures.path("deliberate-lcov-inconsistent.info"));
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A covered count above the total is refused");
+
+        assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV");
+    }
+
+    @Test
+    @DisplayName("keeps an absent branch and function metric null")
+    void keepsAnAbsentMetricNull() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertEquals(80.0, report.overall().line(), "The line percentage is eight of ten"),
+                () -> assertNull(report.overall().branch(), "A report without BRF has no branch metric"),
+                () -> assertNull(report.overall().function(), "A report without FNF has no function metric"),
+                () -> assertEquals(80.0, report.overall().statement(), "The statement equals the line"),
+                () -> assertNull(report.items().getFirst().branch(), "The record without BRF has no branch"));
     }
 
     @Test
