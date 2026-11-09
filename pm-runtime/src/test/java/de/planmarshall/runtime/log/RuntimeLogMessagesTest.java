@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -44,7 +45,7 @@ import de.planmarshall.core.log.LogMessageListing;
  * told apart in a log, and an identifier outside the range of its level reads as another level.
  * <p>
  * The identifiers, level ranges, templates and the generated listing are the specified catalogue and stay literal; the
- * lock paths and the filler of the fixture rows are generated.
+ * lock paths of the lock-order fixture are generated.
  */
 @EnableGeneratorController
 @DisplayName("RuntimeLogMessages")
@@ -305,14 +306,16 @@ class RuntimeLogMessagesTest {
     }
 
     @Test
-    @DisplayName("the byte check names a listing with one identifier changed")
-    void byteCheckNamesAChangedListing() {
+    @DisplayName("the byte check names a file with one identifier changed")
+    void byteCheckNamesAChangedListing(@TempDir Path tempDir) throws Exception {
         var expected = LogMessageListing.render(RuntimeLogMessages.class);
         var tampered = expected.replace("PM_RUNTIME-1 |", "PM_RUNTIME-99 |");
+        var changed = tempDir.resolve("pm-runtime.adoc");
+        Files.writeString(changed, tampered, UTF_8);
 
         assertAll(
                 () -> assertNotEquals(expected, tampered, "the control changes one identifier"),
-                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), tampered.getBytes(UTF_8)),
+                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), Files.readAllBytes(changed)),
                         "a changed identifier is a mismatch"));
     }
 

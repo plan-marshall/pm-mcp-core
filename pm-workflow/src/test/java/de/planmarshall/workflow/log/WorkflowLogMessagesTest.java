@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -110,14 +111,16 @@ class WorkflowLogMessagesTest {
     }
 
     @Test
-    @DisplayName("the byte check names a listing with one identifier changed")
-    void byteCheckNamesAChangedListing() {
+    @DisplayName("the byte check names a file with one identifier changed")
+    void byteCheckNamesAChangedListing(@TempDir Path tempDir) throws Exception {
         var expected = LogMessageListing.render(WorkflowLogMessages.class);
         var tampered = expected.replace("PM_WORKFLOW-1 |", "PM_WORKFLOW-99 |");
+        var changed = tempDir.resolve("pm-workflow.adoc");
+        Files.writeString(changed, tampered, UTF_8);
 
         assertAll(
                 () -> assertNotEquals(expected, tampered, "the control changes one identifier"),
-                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), tampered.getBytes(UTF_8)),
+                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), Files.readAllBytes(changed)),
                         "a changed identifier is a mismatch"));
     }
 

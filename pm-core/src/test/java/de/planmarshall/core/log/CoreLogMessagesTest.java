@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -145,14 +146,16 @@ class CoreLogMessagesTest {
     }
 
     @Test
-    @DisplayName("the byte check names a listing with one identifier changed")
-    void byteCheckNamesAChangedListing() {
+    @DisplayName("the byte check names a file with one identifier changed")
+    void byteCheckNamesAChangedListing(@TempDir Path tempDir) throws Exception {
         var expected = LogMessageListing.render(CoreLogMessages.class);
         var tampered = expected.replace("PM_CORE-1 |", "PM_CORE-99 |");
+        var changed = tempDir.resolve("pm-core.adoc");
+        Files.writeString(changed, tampered, UTF_8);
 
         assertAll(
                 () -> assertNotEquals(expected, tampered, "the control changes one identifier"),
-                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), tampered.getBytes(UTF_8)),
+                () -> assertFalse(LogMessageListing.same(expected.getBytes(UTF_8), Files.readAllBytes(changed)),
                         "a changed identifier is a mismatch"));
     }
 

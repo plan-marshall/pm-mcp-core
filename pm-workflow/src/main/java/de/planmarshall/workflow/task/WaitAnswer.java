@@ -96,15 +96,21 @@ public sealed interface WaitAnswer permits WaitAnswer.Offered, WaitAnswer.Answer
      */
     enum WaitAgainReason {
 
-        /** Nothing in the role's queue was offered: no queued task, or the held task is not in a waiting state. */
+        /**
+         * Nothing in the role's queue was offered: no queued task, or the held task is not in a waiting state. Answered
+         * as {@code no_task}.
+         */
         NO_TASK("no_task"),
-        /** The held task belongs to a plan that is paused. */
+        /** The held task belongs to a plan that is paused. Answered as {@code paused}. */
         PAUSED("paused"),
-        /** The held task is consulting. */
+        /** The held task is consulting. Answered as {@code consulting}. */
         CONSULTING("consulting"),
-        /** The held task waits for the answer to its question, which has not arrived. */
+        /**
+         * The held task waits for the answer to its question, which has not arrived. Answered as
+         * {@code awaiting_answer}.
+         */
         AWAITING_ANSWER("awaiting_answer"),
-        /** The attempt ended without a result and the re-offer budget is spent. */
+        /** The attempt ended without a result and the re-offer budget is spent. Answered as {@code attempts_spent}. */
         ATTEMPTS_SPENT("attempts_spent");
 
         private final String wireName;
@@ -127,11 +133,11 @@ public sealed interface WaitAnswer permits WaitAnswer.Offered, WaitAnswer.Answer
      */
     enum EndReason {
 
-        /** The worker's job ended before the wait. */
+        /** The worker's job ended before the wait. Answered as {@code job_ended}. */
         JOB_ENDED("job_ended"),
-        /** The caller's generation was fenced. */
+        /** The caller's generation was fenced. Answered as {@code fenced}. */
         FENCED("fenced"),
-        /** The worker's configuration digest changed, so it is recycled. */
+        /** The worker's configuration digest changed, so it is recycled. Answered as {@code recycled}. */
         RECYCLED("recycled");
 
         private final String wireName;

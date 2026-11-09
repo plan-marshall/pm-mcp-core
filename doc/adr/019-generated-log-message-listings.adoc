@@ -57,8 +57,7 @@ the follow-up narrows the include list to them.
 
 == Source
 
-The work package `doc/plans/generated-listings.adoc` and its staged plan
-`.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-121-generated-listings.md`; ADR
-link:005-one-log-message-holder-per-module.adoc[005] (one log message holder per module); ADR
+The staged plan `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-121-generated-listings.md` and its pull
+request; ADR link:005-one-log-message-holder-per-module.adoc[005] (one log message holder per module); ADR
 link:009-no-build-skip-for-a-specification-only-pull-request.adoc[009] and ADR
 link:015-the-docs-only-build-skip-with-a-code-include-list.adoc[015] (why a test may read a `doc/` file).

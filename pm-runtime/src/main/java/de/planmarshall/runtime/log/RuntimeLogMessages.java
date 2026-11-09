@@ -804,7 +804,8 @@ public final class RuntimeLogMessages {
          * handed over by a later enrolment operation of the project or {@code Enrolments.replayOwedAudit()} as outcome
          * {@code failed} with the reason {@code not_confirmed}; the message names the event, its transaction id and
          * the project. The record is never handed over as {@code succeeded}. The enrolment file and its sidecar show
-         * what became of the write (Concepts § Store Integrity, Audit Records of a Store Change).
+         * what became of the write (Concepts § Store Integrity, Audit Records of a Store Change,
+         * {@code doc/concepts/store-integrity.adoc#audit-delivery} of {@code plan-marshall-documentation}).
          * <p>
          * The component is {@code Enrolments}.
          */
