@@ -145,7 +145,7 @@ public class JacocoReportParser {
             String type = CoverageXmlReader.attribute(reader, "type");
             int missed = count(reader, "missed");
             int covered = count(reader, "covered");
-            if (REPORT.equals(parent)) {
+            if (REPORT.equals(parent) && path.size() == 1) {
                 overall.put(type, new int[]{missed, covered});
             } else if (current != ClassState.NONE) {
                 current.readCounter(parent, type, missed, covered);
@@ -174,7 +174,11 @@ public class JacocoReportParser {
 
         private int count(XMLStreamReader reader, String name) {
             String value = CoverageXmlReader.attribute(reader, name);
-            return value.isBlank() ? 0 : Integer.parseInt(value);
+            int count = value.isBlank() ? 0 : Integer.parseInt(value);
+            if (count < 0) {
+                throw new IllegalArgumentException("a negative counter: " + count);
+            }
+            return count;
         }
     }
 
@@ -189,6 +193,7 @@ public class JacocoReportParser {
         private final List<String> missedMethods = new ArrayList<>();
         private int lineMissed;
         private int lineCovered;
+        private boolean lineSeen;
         private int branchMissed = -1;
         private int branchCovered;
         private String methodName = "";
@@ -215,6 +220,7 @@ public class JacocoReportParser {
             if (CLASS.equals(parent) && LINE.equals(type)) {
                 lineMissed = missed;
                 lineCovered = covered;
+                lineSeen = true;
             } else if (CLASS.equals(parent) && BRANCH.equals(type)) {
                 branchMissed = missed;
                 branchCovered = covered;
@@ -224,6 +230,9 @@ public class JacocoReportParser {
         }
 
         private CoverageItem item() {
+            if (!lineSeen) {
+                throw new IllegalArgumentException("a class carries no LINE counter");
+            }
             return CoverageItem.builder()
                     .name(name.replace('/', '.'))
                     .line(CoveragePercentages.percentage(lineCovered, lineMissed + (long) lineCovered))

@@ -37,6 +37,9 @@ public record CoverageVerdict(boolean passed, int threshold, double overallLine,
         if (!Double.isFinite(overallLine) || overallLine < 0 || overallLine > 100) {
             throw new IllegalArgumentException("overall line must be within 0..100: " + overallLine);
         }
+        if (passed != (overallLine >= threshold)) {
+            throw new IllegalArgumentException("passed must match the overall line threshold comparison");
+        }
         lowCoverage = List.copyOf(lowCoverage);
     }
 }

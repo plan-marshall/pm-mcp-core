@@ -102,6 +102,9 @@ public class CoberturaReportParser {
             if (COVERAGE.equals(local)) {
                 readRoot(reader);
             } else if (CLASS.equals(local)) {
+                if (current != ClassState.NONE) {
+                    throw new IllegalArgumentException("a class is nested in another class");
+                }
                 current = new ClassState(requiredName(reader), file(reader).orElse(null), requireRate(reader, LINE_RATE),
                         rate(reader, BRANCH_RATE).orElse(null));
             } else if (METHOD.equals(local) && current != ClassState.NONE) {
@@ -185,7 +188,13 @@ public class CoberturaReportParser {
         }
 
         private void readMethod(String name, @Nullable Double lineRate) {
-            if (lineRate != null && lineRate == 0.0 && !name.isBlank()) {
+            if (lineRate == null) {
+                return;
+            }
+            if (!Double.isFinite(lineRate) || lineRate < 0 || lineRate > 1) {
+                throw new IllegalArgumentException("a method line-rate must be within 0..1: " + lineRate);
+            }
+            if (lineRate == 0.0 && !name.isBlank()) {
                 missedMethods.add(name);
             }
         }

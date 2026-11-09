@@ -39,13 +39,15 @@ Two further decisions are forced by the specification and the formats:
    percentage (`>=` passes) and chooses the low-coverage items by their line percentage. No other metric is consulted.
 4. **The XML readers share one hardened factory.** `CoverageXmlReader` keeps DTD support on (so the declaration parses),
    turns external entities off, keeps entity references from being replaced, and resolves every external reference to an
-   empty stream, so a DTD or entity that tries to reach a file or a URL reads nothing. The parsers refuse an
-   `ENTITY_REFERENCE` event. A document that declares and uses an external entity is refused, never expanded; a
-   `DOCTYPE` declaration alone is tolerated without resolution.
+   empty stream, so a DTD or entity that tries to reach a file or a URL reads nothing. A document whose DTD carries an
+   internal subset is refused before it is read, because that is where a general or parameter entity is declared, and the
+   parsers refuse an `ENTITY_REFERENCE` event as a backstop. A document that declares and uses an external entity is
+   refused, never expanded; a `DOCTYPE` declaration alone is tolerated without resolution.
 5. **A file that cannot be read is a refusal.** Every parser offers `parse(String)` and `parse(Path)`; the path overload
-   turns an unreadable file into a `Refused` naming the format. A truncated XML document, an LCOV record that is not
-   terminated (or carries no `LF`/`LH` counter), and a malformed or incomplete Istanbul document are refused the same
-   way.
+   turns an unreadable file into a `Refused` naming the format. A truncated XML document, a malformed or incomplete
+   Istanbul document, and an LCOV record that is not terminated, carries an incomplete counter pair or covers more than
+   it found are refused the same way. A rate outside `0..1`, a percentage outside `0..100`, a negative counter and a
+   class without its line counter are refusals, so no malformed report is rounded into a plausible figure.
 6. **The Istanbul summary is streamed with Jackson.** The document is read field by field rather than bound to a tree or
    a map, so `jackson-core` — already a dependency of `pm-core` — is the only JSON dependency and no new artifact is
    added.

@@ -40,11 +40,11 @@ class CoveragePercentages {
      *
      * @param rate the rate the format printed
      * @return the percentage rounded to two decimals
-     * @throws IllegalArgumentException if the rate is not a finite number
+     * @throws IllegalArgumentException if the rate is not a finite number within {@code 0..1}
      */
     static double percentageOfRate(double rate) {
-        if (!Double.isFinite(rate)) {
-            throw new IllegalArgumentException("the coverage rate is not a number: " + rate);
+        if (!Double.isFinite(rate) || rate < 0 || rate > 1) {
+            throw new IllegalArgumentException("the coverage rate must be within 0..1: " + rate);
         }
         return round2(rate * 100.0);
     }

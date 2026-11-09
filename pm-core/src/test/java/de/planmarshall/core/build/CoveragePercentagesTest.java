@@ -51,6 +51,8 @@ class CoveragePercentagesTest {
     void refusesANonFiniteRate() {
         assertThrows(IllegalArgumentException.class, () -> CoveragePercentages.percentageOfRate(Double.NaN),
                 "A NaN rate is refused");
+        assertThrows(IllegalArgumentException.class, () -> CoveragePercentages.percentageOfRate(1.5),
+                "A rate above 1 is refused");
     }
 
     @Test

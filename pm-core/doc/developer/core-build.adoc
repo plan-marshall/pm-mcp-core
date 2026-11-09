@@ -299,8 +299,10 @@ without a numeric `pct` and a document without `total` are refused.
 Both XML parsers read their report as untrusted input through `CoverageXmlReader`. The factory keeps DTD support on — so
 JaCoCo's own `DOCTYPE` with a system identifier parses — turns external entities off, keeps entity references from being
 replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file or a
-URL reads nothing. The parsers refuse an `ENTITY_REFERENCE` event, so a report that declares and uses an external entity
-is refused, never expanded; a `DOCTYPE` declaration alone is tolerated without resolution. The decision is recorded in
+URL reads nothing. A document whose DTD carries an internal subset is refused before it is read, because that is where
+a general or parameter entity is declared; the parsers also refuse an `ENTITY_REFERENCE` event as a backstop. A report
+that declares and uses an external entity is therefore refused, never expanded; a `DOCTYPE` declaration alone is
+tolerated without resolution. The decision is recorded in
 link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
 
 == Adding a Parser

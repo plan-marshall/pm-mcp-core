@@ -126,6 +126,36 @@ class IstanbulSummaryParserTest {
     }
 
     @Test
+    @DisplayName("refuses a file branch metric without a pct")
+    void refusesAFileBranchWithoutPct() {
+        CoverageParseResult result = IstanbulSummaryParser.parse("""
+                {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
+                 "functions": {"pct": 90}, "branches": {"pct": 90}},
+                 "src/a.js": {"lines": {"pct": 90}, "branches": {}}}
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A branches object without pct is refused");
+
+        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
+    }
+
+    @Test
+    @DisplayName("refuses content after the document")
+    void refusesContentAfterTheDocument() {
+        CoverageParseResult result = IstanbulSummaryParser.parse("""
+                {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
+                 "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                {}
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "Content after the document is refused");
+
+        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
+    }
+
+    @Test
     @DisplayName("refuses an unreadable report file")
     void refusesAnUnreadableFile() {
         CoverageParseResult result = IstanbulSummaryParser

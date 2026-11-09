@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -70,8 +71,11 @@ class CoverageXmlReader {
      * @return the handler's result, or a refusal naming the format
      */
     static CoverageParseResult parse(String xml, CoverageFormat format, Handler handler) {
-        try (Reader source = open(xml)) {
-            return walk(source.stream(), format, handler);
+        try {
+            refuseInternalSubset(xml);
+            try (Reader source = open(xml)) {
+                return walk(source.stream(), format, handler);
+            }
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
         }
@@ -86,10 +90,36 @@ class CoverageXmlReader {
      * @return the handler's result, or a refusal naming the format
      */
     static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler) {
-        try (Reader source = open(xml)) {
-            return walk(source.stream(), format, handler);
+        try {
+            refuseInternalSubset(new String(xml, StandardCharsets.UTF_8));
+            try (Reader source = open(xml)) {
+                return walk(source.stream(), format, handler);
+            }
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
+        }
+    }
+
+    /**
+     * Refuses a document whose DTD carries an internal subset.
+     * <p>
+     * The declaration a real JaCoCo report writes is external (a system identifier, no subset), and that is tolerated.
+     * An internal subset is where an entity is declared, general or parameter, so a document that carries one is refused
+     * before the parser reads it — an external parameter entity can otherwise be referenced without ever being fetched
+     * and without a refusal.
+     *
+     * @param xml the document text
+     * @throws IllegalArgumentException if the document declares a DTD with an internal subset
+     */
+    private static void refuseInternalSubset(String xml) {
+        int doctype = xml.indexOf("<!DOCTYPE");
+        if (doctype < 0) {
+            return;
+        }
+        int subset = xml.indexOf('[', doctype);
+        int end = xml.indexOf('>', doctype);
+        if (subset >= 0 && (end < 0 || subset < end)) {
+            throw new IllegalArgumentException("a DTD with an internal subset is refused");
         }
     }
 

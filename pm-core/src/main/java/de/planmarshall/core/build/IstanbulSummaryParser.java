@@ -97,6 +97,9 @@ public class IstanbulSummaryParser {
         if (overall == null) {
             throw new IOException("the document carries no total");
         }
+        if (parser.nextToken() != null) {
+            throw new IOException("content after the document");
+        }
         return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, overall, items));
     }
 
@@ -138,7 +141,8 @@ public class IstanbulSummaryParser {
             parser.nextToken();
             switch (field) {
                 case "lines" -> lines = readPct(parser, file + ".lines").orElse(null);
-                case "branches" -> branches = readPct(parser, file + ".branches").orElse(null);
+                case "branches" -> branches = requireMetric(readPct(parser, file + ".branches").orElse(null),
+                        file + ".branches");
                 default -> skip(parser);
             }
         }
@@ -164,6 +168,9 @@ public class IstanbulSummaryParser {
                     throw new IOException(metric + ".pct is not a number");
                 }
                 pct = parser.getDoubleValue();
+                if (!Double.isFinite(pct) || pct < 0 || pct > 100) {
+                    throw new IOException(metric + ".pct is outside 0..100: " + pct);
+                }
             } else {
                 skip(parser);
             }

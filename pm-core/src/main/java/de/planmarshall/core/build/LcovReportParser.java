@@ -91,10 +91,10 @@ public class LcovReportParser {
                 items.add(current.item());
                 linesFound += current.linesFound;
                 linesHit += current.linesHit;
-                branchesSeen |= current.branchesSeen;
+                branchesSeen |= current.branchesFoundSeen || current.branchesHitSeen;
                 branchesFound += current.branchesFound;
                 branchesHit += current.branchesHit;
-                functionsSeen |= current.functionsSeen;
+                functionsSeen |= current.functionsFoundSeen || current.functionsHitSeen;
                 functionsFound += current.functionsFound;
                 functionsHit += current.functionsHit;
                 current = null;
@@ -127,22 +127,26 @@ public class LcovReportParser {
             current.linesHitSeen = true;
         } else if (line.startsWith("BRF:")) {
             current.branchesFound = number(line, 4);
-            current.branchesSeen = true;
+            current.branchesFoundSeen = true;
         } else if (line.startsWith("BRH:")) {
             current.branchesHit = number(line, 4);
-            current.branchesSeen = true;
+            current.branchesHitSeen = true;
         } else if (line.startsWith("FNF:")) {
             current.functionsFound = number(line, 4);
-            current.functionsSeen = true;
+            current.functionsFoundSeen = true;
         } else if (line.startsWith("FNH:")) {
             current.functionsHit = number(line, 4);
-            current.functionsSeen = true;
+            current.functionsHitSeen = true;
         }
     }
 
     private static int number(String line, int prefixLength) throws IOException {
         try {
-            return Integer.parseInt(line.substring(prefixLength).strip());
+            int value = Integer.parseInt(line.substring(prefixLength).strip());
+            if (value < 0) {
+                throw new IOException("the counter " + line.substring(0, prefixLength) + " is negative");
+            }
+            return value;
         } catch (NumberFormatException _) {
             throw new IOException("the counter " + line.substring(0, prefixLength) + " is not a number");
         }
@@ -164,10 +168,12 @@ public class LcovReportParser {
         private boolean linesHitSeen;
         private int branchesFound;
         private int branchesHit;
-        private boolean branchesSeen;
+        private boolean branchesFoundSeen;
+        private boolean branchesHitSeen;
         private int functionsFound;
         private int functionsHit;
-        private boolean functionsSeen;
+        private boolean functionsFoundSeen;
+        private boolean functionsHitSeen;
 
         private Record(String file) {
             this.file = file;
@@ -180,11 +186,28 @@ public class LcovReportParser {
             if (!linesFoundSeen || !linesHitSeen) {
                 throw new IOException("the record " + file + " carries no LF/LH counters");
             }
+            if (linesHit > linesFound) {
+                throw new IOException("the record " + file + " covers more lines than it found");
+            }
+            if (branchesFoundSeen != branchesHitSeen) {
+                throw new IOException("the record " + file + " carries an incomplete branch counter pair");
+            }
+            if (branchesHit > branchesFound) {
+                throw new IOException("the record " + file + " covers more branches than it found");
+            }
+            if (functionsFoundSeen != functionsHitSeen) {
+                throw new IOException("the record " + file + " carries an incomplete function counter pair");
+            }
+            if (functionsHit > functionsFound) {
+                throw new IOException("the record " + file + " covers more functions than it found");
+            }
             return CoverageItem.builder()
                     .name(file)
                     .file(file)
                     .line(CoveragePercentages.percentage(linesHit, linesFound))
-                    .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound) : null)
+                    .branch(branchesFoundSeen
+                            ? CoveragePercentages.percentage(branchesHit, branchesFound)
+                            : null)
                     .missedMethods(List.of())
                     .build();
         }

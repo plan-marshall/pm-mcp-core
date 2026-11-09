@@ -76,8 +76,8 @@ class CoberturaReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
-                () -> assertTrue(refused.reason().contains("external entity reference refused"),
-                        "The reason names the refused entity reference"));
+                () -> assertTrue(refused.reason().contains("internal subset"),
+                        "The reason names the refused internal subset"));
     }
 
     @Test
@@ -112,6 +112,25 @@ class CoberturaReportParserTest {
 
         CoverageParseResult.Refused refused =
                 assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing line rate is refused");
+
+        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+    }
+
+    @Test
+    @DisplayName("refuses a method line rate outside the rate range")
+    void refusesAnOutOfRangeMethodRate() {
+        CoverageParseResult result = CoberturaReportParser.parse("""
+                <coverage line-rate="0.5" branch-rate="0.5">
+                  <packages><package name="p"><classes>
+                    <class name="a" filename="a" line-rate="0.5">
+                      <methods><method name="m" line-rate="1.5"/></methods>
+                    </class>
+                  </classes></package></packages>
+                </coverage>
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A method rate above 1 is refused");
 
         assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
     }

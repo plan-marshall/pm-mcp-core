@@ -116,6 +116,23 @@ class LcovReportParserTest {
     }
 
     @Test
+    @DisplayName("refuses an incomplete branch counter pair")
+    void refusesAnIncompleteBranchPair() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                BRF:4
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A BRF without BRH is refused");
+
+        assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV");
+    }
+
+    @Test
     @DisplayName("refuses a report that ends inside a record")
     void refusesATruncatedReport() {
         CoverageParseResult result =

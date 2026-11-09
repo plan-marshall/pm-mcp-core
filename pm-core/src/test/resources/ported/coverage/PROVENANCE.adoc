@@ -57,8 +57,8 @@ threshold neither fails a report whose line is above it nor rescues one whose li
 |The constructors `<init>` and `<clinit>` are never part of `missed_methods`.
 
 |`deliberate-jacoco-external-entity.xml`, `deliberate-jacoco-external-entity-content.xml`, `deliberate-cobertura-external-entity.xml`
-|A report that references an external entity is refused, never expanded, whether the entity sits in an attribute or in
-element content; a `DOCTYPE` declaration alone is tolerated.
+|A report whose DTD carries an internal subset (where an entity is declared) is refused, never expanded, whether the
+entity sits in an attribute or in element content; a `DOCTYPE` declaration alone is tolerated.
 
 |`deliberate-jacoco-truncated.xml`, `deliberate-cobertura-truncated.xml`, `deliberate-lcov-truncated.info`, `deliberate-istanbul-malformed.json`
 |An unreadable or truncated report is a refusal naming the format, never a report of zeros.

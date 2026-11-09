@@ -154,8 +154,8 @@ class JacocoReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
-                () -> assertTrue(refused.reason().contains("external entity reference refused"),
-                        "The reason names the refused entity reference"));
+                () -> assertTrue(refused.reason().contains("internal subset"),
+                        "The reason names the refused internal subset"));
     }
 
     @Test
@@ -193,6 +193,39 @@ class JacocoReportParserTest {
 
         CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
                 "A report without a LINE counter is refused");
+
+        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+    }
+
+    @Test
+    @DisplayName("refuses a negative counter")
+    void refusesANegativeCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="negative">
+                  <counter type="LINE" missed="-1" covered="1"/>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A negative counter is refused");
+
+        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+    }
+
+    @Test
+    @DisplayName("refuses a class without a line counter")
+    void refusesAClassWithoutLineCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="class-lines">
+                  <counter type="LINE" missed="0" covered="1"/>
+                  <package name="p">
+                    <class name="p/A"/>
+                  </package>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A class without a LINE counter is refused");
 
         assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
     }
