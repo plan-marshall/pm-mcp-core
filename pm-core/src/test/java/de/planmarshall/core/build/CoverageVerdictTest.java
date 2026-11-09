@@ -67,9 +67,15 @@ class CoverageVerdictTest {
     @DisplayName("refuses a passed flag that contradicts the line")
     void refusesAPassedFlagThatContradictsTheLine() {
         var inconsistent = CoverageVerdict.builder().passed(true).threshold(80).overallLine(50).lowCoverage(List.of());
+        var atThreshold = CoverageVerdict.builder().passed(false).threshold(80).overallLine(80).lowCoverage(List.of());
+        var aboveThreshold = CoverageVerdict.builder().passed(false).threshold(80).overallLine(90).lowCoverage(List.of());
 
         assertThrows(IllegalArgumentException.class, inconsistent::build,
                 "A passed flag below the threshold is refused");
+        assertThrows(IllegalArgumentException.class, atThreshold::build,
+                "A failing flag at the threshold is refused");
+        assertThrows(IllegalArgumentException.class, aboveThreshold::build,
+                "A failing flag above the threshold is refused");
     }
 
     @Test

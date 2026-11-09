@@ -106,6 +106,9 @@ public class JacocoReportParser {
                 throw new IllegalArgumentException("the root element is " + local + ", not a report");
             }
             if (CLASS.equals(local)) {
+                if (current != ClassState.NONE) {
+                    throw new IllegalArgumentException("a class is nested in another class");
+                }
                 current = new ClassState(requiredName(reader));
             } else if (METHOD.equals(local) && current != ClassState.NONE) {
                 current.startMethod(CoverageXmlReader.attribute(reader, NAME));
@@ -122,7 +125,9 @@ public class JacocoReportParser {
             if (METHOD.equals(local) && current != ClassState.NONE) {
                 current.endMethod();
             } else if (CLASS.equals(local) && current != ClassState.NONE) {
-                items.add(current.item());
+                if (current.isMeasured()) {
+                    items.add(current.item());
+                }
                 current = ClassState.NONE;
             }
         }
@@ -229,10 +234,11 @@ public class JacocoReportParser {
             }
         }
 
+        private boolean isMeasured() {
+            return lineSeen;
+        }
+
         private CoverageItem item() {
-            if (!lineSeen) {
-                throw new IllegalArgumentException("a class carries no LINE counter");
-            }
             return CoverageItem.builder()
                     .name(name.replace('/', '.'))
                     .line(CoveragePercentages.percentage(lineCovered, lineMissed + (long) lineCovered))

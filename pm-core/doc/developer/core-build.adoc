@@ -265,12 +265,13 @@ above it, and a high branch percentage does not rescue a low line.
 
 === JaCoCo
 
-`JacocoReportParser.parse` walks the report once with StAX. The report element's `INSTRUCTION`, `BRANCH`, `LINE` and
-`METHOD` counters are the overall percentages, each `covered / (missed + covered)`; a counter the report does not carry
-leaves its metric `null`, and a report without a `LINE` counter is refused. Per class it takes the `LINE` counter
-(and the `BRANCH` counter where present); each method whose `METHOD` counter has a missed part contributes its name to
-`missedMethods`, and `<init>` and `<clinit>` are excluded because they are not methods a test is expected to call. The
-class name is dotted (`com/example/A` becomes `com.example.A`).
+`JacocoReportParser.parse` walks the report once through {@link CoverageXmlReader} and takes the {@code INSTRUCTION},
+{@code BRANCH}, {@code LINE} and {@code METHOD} counters of the report element as the overall percentages, each
+{@code covered / (missed + covered)}; a counter the report does not carry leaves its metric `null`, a report without a
+`LINE` counter is refused, and a class without one is left out of the measured items. Per class it takes the `LINE`
+counter (and the `BRANCH` counter where present); each method whose `METHOD` counter has a missed part contributes its
+name to `missedMethods`, and `<init>` and `<clinit>` are excluded because they are not methods a test is expected to call.
+The class name is dotted (`com/example/A` becomes `com.example.A`).
 
 === Cobertura
 

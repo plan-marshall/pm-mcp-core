@@ -133,6 +133,43 @@ class LcovReportParserTest {
     }
 
     @Test
+    @DisplayName("refuses a hit counter without its found counter")
+    void refusesAHitWithoutFound() {
+        CoverageParseResult branch = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                BRH:0
+                end_of_record
+                """);
+        CoverageParseResult function = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                FNH:0
+                end_of_record
+                """);
+        CoverageParseResult functionFound = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                FNF:2
+                end_of_record
+                """);
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV,
+                        assertInstanceOf(CoverageParseResult.Refused.class, branch, "BRH alone is refused").format(),
+                        "The refusal names LCOV"),
+                () -> assertEquals(CoverageFormat.LCOV,
+                        assertInstanceOf(CoverageParseResult.Refused.class, function, "FNH alone is refused").format(),
+                        "The refusal names LCOV"),
+                () -> assertEquals(CoverageFormat.LCOV,
+                        assertInstanceOf(CoverageParseResult.Refused.class, functionFound, "FNF alone is refused").format(),
+                        "The refusal names LCOV"));
+    }
+
+    @Test
     @DisplayName("refuses a report that ends inside a record")
     void refusesATruncatedReport() {
         CoverageParseResult result =

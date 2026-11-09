@@ -53,6 +53,10 @@ class CoveragePercentagesTest {
                 "A NaN rate is refused");
         assertThrows(IllegalArgumentException.class, () -> CoveragePercentages.percentageOfRate(1.5),
                 "A rate above 1 is refused");
+        assertThrows(IllegalArgumentException.class, () -> CoveragePercentages.percentageOfRate(1.000001),
+                "A rate just above 1 is refused");
+        assertThrows(IllegalArgumentException.class, () -> CoveragePercentages.percentageOfRate(-0.000001),
+                "A rate just below 0 is refused");
     }
 
     @Test

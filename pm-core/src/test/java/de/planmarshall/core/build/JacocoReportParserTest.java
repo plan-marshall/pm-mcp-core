@@ -213,21 +213,39 @@ class JacocoReportParserTest {
     }
 
     @Test
-    @DisplayName("refuses a class without a line counter")
-    void refusesAClassWithoutLineCounter() {
-        CoverageParseResult result = JacocoReportParser.parse("""
+    @DisplayName("leaves a class without a line counter out of the measured items")
+    void skipsAClassWithoutLineCounter() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
                 <report name="class-lines">
                   <counter type="LINE" missed="0" covered="1"/>
                   <package name="p">
                     <class name="p/A"/>
                   </package>
                 </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(100.0, report.overall().line(), "The overall line stays measured"),
+                () -> assertTrue(report.items().isEmpty(), "The unmeasured class is not listed as an item"));
+    }
+
+    @Test
+    @DisplayName("refuses an internal subset behind a comment that mentions a DOCTYPE")
+    void refusesAnInternalSubsetBehindAComment() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <?xml version="1.0"?>
+                <!-- <!DOCTYPE fake > -->
+                <!DOCTYPE report [<!ENTITY probe SYSTEM "file:///nonexistent">]>
+                <report name="a"><counter type="LINE" missed="0" covered="1"/></report>
                 """);
 
         CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
-                "A class without a LINE counter is refused");
+                "The real DOCTYPE's internal subset is refused");
 
-        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertTrue(refused.reason().contains("internal subset"),
+                        "The reason names the refused internal subset"));
     }
 
     private static CoverageParseResult.Refused assertRefused(CoverageParseResult result, String message) {

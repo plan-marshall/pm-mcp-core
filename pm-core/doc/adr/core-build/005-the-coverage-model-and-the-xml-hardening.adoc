@@ -46,8 +46,9 @@ Two further decisions are forced by the specification and the formats:
 5. **A file that cannot be read is a refusal.** Every parser offers `parse(String)` and `parse(Path)`; the path overload
    turns an unreadable file into a `Refused` naming the format. A truncated XML document, a malformed or incomplete
    Istanbul document, and an LCOV record that is not terminated, carries an incomplete counter pair or covers more than
-   it found are refused the same way. A rate outside `0..1`, a percentage outside `0..100`, a negative counter and a
-   class without its line counter are refusals, so no malformed report is rounded into a plausible figure.
+   it found are refused the same way. A rate outside `0..1`, a percentage outside `0..100` and a negative counter are
+   refusals, so no malformed report is rounded into a plausible figure; a class without its line counter is left out of
+   the measured items instead of being reported as 0 %.
 6. **The Istanbul summary is streamed with Jackson.** The document is read field by field rather than bound to a tree or
    a map, so `jackson-core` — already a dependency of `pm-core` — is the only JSON dependency and no new artifact is
    added.
@@ -79,9 +80,10 @@ percentages must decide what a refusal means for its job — the gate renders it
 The model carries every metric a format gives, so a later consumer of a metric other than the line reads it without a
 parser change, and changing the threshold rule means changing one method and its two boundary fixtures.
 
-The hardening makes one document class unreadable that a non-validating parser would accept: a report whose content
-depends on an external entity is refused. No build tool in scope writes such a report, and the refusal is the intended
-fail-closed direction.
+The hardening makes two document classes unreadable that a non-validating parser would accept: a report whose content
+depends on an external entity, and a report whose DTD carries an internal subset — even one that declares no entity,
+because the subset is where a general or parameter entity is declared. No build tool in scope writes either, and both
+refusals are the intended fail-closed direction.
 
 == Source
 

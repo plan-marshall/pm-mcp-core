@@ -91,7 +91,7 @@ class CoverageXmlReader {
      */
     static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler) {
         try {
-            refuseInternalSubset(new String(xml, StandardCharsets.UTF_8));
+            refuseInternalSubset(decode(xml));
             try (Reader source = open(xml)) {
                 return walk(source.stream(), format, handler);
             }
@@ -106,13 +106,13 @@ class CoverageXmlReader {
      * The declaration a real JaCoCo report writes is external (a system identifier, no subset), and that is tolerated.
      * An internal subset is where an entity is declared, general or parameter, so a document that carries one is refused
      * before the parser reads it — an external parameter entity can otherwise be referenced without ever being fetched
-     * and without a refusal.
+     * and without a refusal. A comment that mentions a DOCTYPE is skipped, so it cannot hide the real declaration.
      *
      * @param xml the document text
      * @throws IllegalArgumentException if the document declares a DTD with an internal subset
      */
     private static void refuseInternalSubset(String xml) {
-        int doctype = xml.indexOf("<!DOCTYPE");
+        int doctype = doctypeIndex(xml);
         if (doctype < 0) {
             return;
         }
@@ -121,6 +121,36 @@ class CoverageXmlReader {
         if (subset >= 0 && (end < 0 || subset < end)) {
             throw new IllegalArgumentException("a DTD with an internal subset is refused");
         }
+    }
+
+    private static int doctypeIndex(String xml) {
+        int from = 0;
+        while (true) {
+            int doctype = xml.indexOf("<!DOCTYPE", from);
+            if (doctype < 0) {
+                return -1;
+            }
+            int comment = xml.indexOf("<!--", from);
+            if (comment >= 0 && comment < doctype) {
+                int end = xml.indexOf("-->", comment + 4);
+                if (end < 0) {
+                    return doctype;
+                }
+                from = end + 3;
+            } else {
+                return doctype;
+            }
+        }
+    }
+
+    private static String decode(byte[] xml) {
+        if (xml.length >= 2 && xml[0] == (byte) 0xFE && xml[1] == (byte) 0xFF) {
+            return new String(xml, 2, xml.length - 2, StandardCharsets.UTF_16BE);
+        }
+        if (xml.length >= 2 && xml[0] == (byte) 0xFF && xml[1] == (byte) 0xFE) {
+            return new String(xml, 2, xml.length - 2, StandardCharsets.UTF_16LE);
+        }
+        return new String(xml, StandardCharsets.UTF_8);
     }
 
     private static CoverageParseResult walk(XMLStreamReader reader, CoverageFormat format, Handler handler)
