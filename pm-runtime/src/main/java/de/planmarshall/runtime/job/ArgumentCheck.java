@@ -194,7 +194,7 @@ class ArgumentCheck {
             switch (element) {
                 case Argv.Literal(var value) -> arguments.add(value);
                 case Argv.ModuleGroup(var group) when module != null ->
-                        group.forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, module)));
+                    group.forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, module)));
                 case Argv.ModuleGroup(_) -> {
                     // a whole-tree job carries no module argument
                 }
