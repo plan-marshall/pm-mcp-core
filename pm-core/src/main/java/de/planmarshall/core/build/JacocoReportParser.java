@@ -156,7 +156,7 @@ public class JacocoReportParser {
             int missed = count(reader, "missed");
             int covered = count(reader, "covered");
             if (REPORT.equals(parent)) {
-                overall.put(type, new int[] {missed, covered});
+                overall.put(type, new int[]{missed, covered});
             } else {
                 current.readCounter(parent, type, missed, covered);
             }

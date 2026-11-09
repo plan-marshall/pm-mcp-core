@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -63,7 +62,7 @@ class CoverageXmlReaderTest {
 
     @Test
     @DisplayName("refuses a document that uses an external entity")
-    void refusesAnExternalEntity() throws IOException {
+    void refusesAnExternalEntity() throws Exception {
         String xml = Files.readString(CoverageReportFixtures.path("deliberate-jacoco-external-entity.xml"));
 
         assertTrue(isRefused(xml), "The external entity is refused, not resolved");
