@@ -182,8 +182,16 @@ public final class GitHubCiProvider implements CiProvider {
             return Result.of(Result.Outcome.REJECTED, "a comment body is never blank");
         }
         RepositoryRef repository = issue.repository();
-        Result<String> id = userClient().postComment(repository.ownerOrPath(), repository.name(), issue.number(),
-                body);
+        GitHubClient reader = userClient();
+        Result<GitHubClient.IssuePayload> read = reader.issue(repository.ownerOrPath(), repository.name(),
+                issue.number());
+        if (!read.isOk()) {
+            return read.asFailure();
+        }
+        if (Objects.requireNonNull(read.value()).pullRequest()) {
+            return Result.of(Result.Outcome.REJECTED, "is a pull request");
+        }
+        Result<String> id = reader.postComment(repository.ownerOrPath(), repository.name(), issue.number(), body);
         if (!id.isOk()) {
             return id.asFailure();
         }

@@ -1,0 +1,75 @@
+= ADR 010: The GitHub Issue Comment Reads the Issue Before It Posts
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-09.
+
+== Context
+
+ADR 009 ("The Pull-Request Split Is Closed by Types",
+link:009-the-pull-request-split-is-closed-by-types.adoc[`009-the-pull-request-split-is-closed-by-types.adoc`]) decided that
+`issueComment` gets no pull-request guard, on the reasoning that GitHub would need a read before every comment, GitLab's
+issue-notes endpoint addresses an issue and never a merge request, and `IssueRef` carries no kind.
+
+The split is now closed by the reference types at the consumer: a consumer obtains an `IssueRef` from
+`ForgeUrl.issue()` and a `PullRequestRef` from `ForgeUrl.pullRequest()`. The specification still writes back to an issue
+twice per plan (after Phase 2 and after Phase 3, State Catalogue 09 § Issues by Number or URL), and an `IssueRef` whose
+number names a pull request is still accepted by `issueComment`. On GitHub the comment reaches the pull request through
+the issues endpoint, although `ci.issue-comment` is specified as the write-back to an issue of the project's own
+repository. On GitLab `issues/{iid}/notes` addresses an issue by GitLab's own numbering, and GitLab numbers issues and
+merge requests apart, so the same number is both an issue iid and a merge-request iid; a merge-request probe would
+restore the second request ADR 006 removed.
+
+== Decision
+
+`GitHubCiProvider.issueComment` reads `GET /repos/{owner}/{repo}/issues/{n}` with the credential that authors the
+comment, before it posts. When the read flags the `pull_request` member, the operation answers `REJECTED` "is a pull
+request" and sends no post. A failed read is propagated as its own outcome (`NOT_FOUND`, `PERMISSION_DENIED`,
+`RATE_LIMITED`, `AUTH_FAILED` or `FAILED`), and no post is sent. The read is made with the same credential as the post,
+so an App provider reads with its user access token, not with the installation token.
+
+`GitLabCiProvider.issueComment` keeps its behaviour: it posts to `POST /projects/{id}/issues/{iid}/notes` with no
+merge-request read. The protection there is the reference type a consumer holds, not a probe from the number: on GitLab a
+merge-request iid is by definition the iid of some issue, so a `merge_requests/{iid}` read cannot tell the two apart and
+would restore the defect ADR 006 removed.
+
+`ForgeUrl.issue()` is the accessor of the issue side, present exactly when the resolved kind is `Kind.ISSUE`, mirroring
+`pullRequest()`.
+
+== Alternatives Considered
+
+* *Keep ADR 009 and leave `issueComment` unguarded.* A comment on a pull-request number still posts on GitHub, and
+  nothing in the contract stops it; the defect is known and reported rather than guarded.
+* *Read the issue with the installation token on GitHub.* The comment posts with the user access token of an App
+  provider, so a read with another credential answers a different permission question than the post does.
+* *Probe `merge_requests/{iid}` on GitLab.* It restores the second request ADR 006 removed and cannot distinguish an
+  issue iid from a merge-request iid, because GitLab numbers the two apart.
+* *Carry the kind on `IssueRef`.* The reference type would then hold state its two callers do not share, and the split
+  is already carried by `ForgeUrl.issue()` and `ForgeUrl.pullRequest()`.
+
+== Consequences
+
+* A GitHub comment costs two requests per plan, the guard read and the post; a pull-request number costs one and posts
+  nothing.
+* `CiProvider.issueComment` states both behaviours, and the GitHub and GitLab developer guides repeat them with the
+  GitLab limit.
+* ADR 009 is superseded in part: its `issueComment` bullet and its third alternative no longer hold for GitHub. Its
+  reference-type split and the rest of its decision stand.
+* A caller that comments on a pull request still uses the review and finalize slice's operation; `issueComment` is the
+  issue write-back and now refuses a GitHub pull-request number.
+
+== Source
+
+* Work package: PLAN-V2-128 `ci-contract-pull-request-numbers` of the epic `pm-mcp-core-m2-m4-v2`; refine finding R07.
+* Decisions: link:009-the-pull-request-split-is-closed-by-types.adoc[ADR 009],
+  link:006-a-missing-gitlab-issue-is-not-found.adoc[ADR 006], link:004-a-pull-request-is-no-issue.adoc[ADR 004].
+* Specification: State Catalogue 09 § Issues by Number or URL and § `source-pr.observe`.
+* `pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java`,
+  `pm-providers/pm-provider-gitlab/src/main/java/de/planmarshall/provider/gitlab/GitLabCiProvider.java`,
+  `pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java` and
+  `pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/ForgeUrl.java`.

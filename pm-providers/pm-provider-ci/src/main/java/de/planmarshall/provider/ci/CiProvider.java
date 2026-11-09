@@ -66,10 +66,17 @@ public interface CiProvider {
 
     /**
      * The operation {@code ci.issue-comment}: one comment on an issue.
+     * <p>
+     * GitHub reads the issue with the credential that authors the comment and answers {@code REJECTED} "is a pull
+     * request" without posting when its number names a pull request; a failed read is its outcome, never a post.
+     * GitLab posts to {@code issues/{iid}/notes}, which addresses an issue by GitLab's own numbering: a merge-request
+     * iid is also the iid of some issue there, so the adapter posts and the reference type is the protection (module
+     * ADR 010).
      *
      * @param issue the issue
      * @param body  the comment body
-     * @return the posted comment; {@code REJECTED} when the issue is on another origin
+     * @return the posted comment; {@code REJECTED} when the issue is on another origin, when the body is blank, or on
+     *         GitHub when the number names a pull request
      */
     Result<IssueComment> issueComment(IssueRef issue, String body);
 
