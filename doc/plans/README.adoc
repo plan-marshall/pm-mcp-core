@@ -423,16 +423,10 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`schema-files-foundation`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
-|link:generated-listings.adoc[`generated-listings`]
-|The log message tables generated from the holders and the protocol lists linked to the Javadoc instead of compared with the code by a test
-|`open`
-|`schema-files-foundation`
-|none: the way a specification states a schema, a limit and a list (ADR 009)
-
 |link:adoc-reading-retired.adoc[`adoc-reading-retired`]
 |`SpecificationDocument` and `pm.specification.root` deleted, the `**/doc/**` entry removed from the docs-only include list, the ADRs of the docs-only skip marked superseded
 |`open`
-|`schema-files-tested-records`; `schema-files-other-specifications`; `generated-listings`
+|`schema-files-tested-records`; `schema-files-other-specifications`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |===
