@@ -58,7 +58,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     private static final int MAX_PATH_LENGTH = 2048;
     /** The most path segments that are considered: 21 GitLab group segments, a project and {@code /-/issues/<n>}; a
      * pull-request tab adds one more. */
-    private static final int MAX_SEGMENTS = 25;    /** The longest one path segment that is considered. */
+    private static final int MAX_SEGMENTS = 25;
+    /** The longest one path segment that is considered. */
     private static final int MAX_SEGMENT_LENGTH = 255;
     /** The most digits an issue or pull-request number has. */
     private static final int MAX_NUMBER_DIGITS = 9;
@@ -250,7 +251,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (!segments.isEmpty() && segments.getLast().isEmpty()) {
             segments.removeLast();
         }
-        if (segments.isEmpty() || segments.size() > MAX_SEGMENTS && !tabOfAny(segments)
+        if (segments.isEmpty() || (segments.size() > MAX_SEGMENTS && !tabOfAny(segments))
                 || segments.size() > MAX_SEGMENTS + 1) {
             return Optional.empty();
         }
@@ -298,7 +299,7 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
 
     /**
      * @param segments the path segments
-     * @return whether the path is one segment over the bound and its last segment is a pull-request tab of a forge
+     * @return whether the last segment is a pull-request tab of one of the forges
      */
     private static boolean tabOfAny(List<String> segments) {
         String last = segments.getLast();
