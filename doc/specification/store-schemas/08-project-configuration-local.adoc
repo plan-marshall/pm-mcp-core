@@ -59,7 +59,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/config/local-c
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_ +
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
 
-The machine sets defaults, not final values. Every value the machine's onboarding records is the default of every project, and a project may set its own; one rule decides for every key and aspect: *the nearest level wins, and a level that says nothing defers to the next*. The levels, from the farthest: the compiled default, the derived value (xref:09-derived-facts-and-build-timings.adoc#derived-facts[Derived Facts Store]), the machine's value, the team's value (`.marshall/config/`), the project's operator value, and a plan's own value (link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]). A key belongs to the team or to the operator, never to both, so the team and the project's operator level never compete for one key.
+The machine sets defaults, not final values. Every value the machine's onboarding records is the default of every project, and a project may set its own; one rule decides for every key and aspect: *the nearest level wins, and a level that says nothing defers to the next*. The one exception is the speech role's methods, which a project may only narrow (the table below). The levels, from the farthest: the compiled default, the derived value (xref:09-derived-facts-and-build-timings.adoc#derived-facts[Derived Facts Store]), the machine's value, the team's value (`.marshall/config/`), the project's operator value, and a plan's own value (link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]). A key belongs to the team or to the operator, never to both, so the team and the project's operator level never compete for one key.
 
 [cols="2,3,3,2"]
 |===
@@ -73,6 +73,11 @@ The machine sets defaults, not final values. Every value the machine's onboardin
 |Diagram format in model text
 |`machine-config.json` `diagrams.format`
 |`local-config.json` `diagrams.format`
+|operator
+
+|Speech methods (the one value a project may only narrow: a method the machine does not allow is refused `invalid_arguments`)
+|`machine-config.json` `transcribe.methods`
+|`local-config.json` `transcribe.methods`, a subset of the machine's (link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work Specification, The Speech Role `transcribe`])
 |operator
 
 |Allowed models

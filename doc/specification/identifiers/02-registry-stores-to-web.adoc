@@ -92,6 +92,20 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |Monotonic; never reused
 |link:../store-schemas/04-epic-and-change-ledger.adoc#epic-registers[Store Schemas, Findings and Watches Registers]; link:../model-work/08-epic-coordination.adoc[Model Work, Epic Coordination]
 
+|[[id-chat-id]]`chat_id`
+|`^chat-[0-9a-f]{16}$` (21).
+|server (minted at `chat.open`)
+|Machine (random, unique across every chat; held by its subject: a plan, an epic, an entry, a decision, or ended work)
+|Never reused; kept with the transcript as long as its subject keeps it
+|link:../state-catalogue.adoc#chat[State Catalogue, Chatting with the Planning Role]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]
+
+|[[id-turn-id]]`turn_id`
+|`^t-[0-9]{4,}$`, at most 32.
+|server (minted when the turn is recorded)
+|The chat
+|Monotonic within its chat; turns are ordered by the number, never by the text of the id; never reused
+|link:../state-catalogue.adoc#chat-reply-stream[State Catalogue, The Reply as It Is Written]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#chat-routes[Runtime Model, The Chat's Routes]
+
 |[[id-report-id]]`report_id`
 |`^rep-[0-9]{4,}$`, at most 64.
 |server (store-assigned on the `report` event of `state/reports.jsonl`)

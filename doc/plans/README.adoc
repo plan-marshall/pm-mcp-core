@@ -147,6 +147,18 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`chat`; `re-planning` (the re-planning of a running plan, its unit `replan` and its guards)
 |Milestone 9; the client work of `pm-mcp-clients`
 
+|link:chat-reply-stream.adoc[`chat-reply-stream`]
+|The chat's reply as it is written: the operator's message recorded at once, the reply's pieces and steps, its stop, the turns read in pages
+|`open`
+|`chat`; `worker-activity` (the model's text and the steps as the worker's activity reports them)
+|Milestone 8; the client work of `pm-mcp-clients`
+
+|link:transcribe.adoc[`transcribe`]
+|The speech role `transcribe`: its methods and consents in the roles step, a project's narrowing, the local model's check, and a transcription of which the runtime keeps nothing
+|`open`
+|`machine-onboarding-unit` (the roles step, the consent store); `job-confinement-and-environment` (the probe and the job without network)
+|Milestone 11; the client work of `pm-mcp-clients`
+
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`

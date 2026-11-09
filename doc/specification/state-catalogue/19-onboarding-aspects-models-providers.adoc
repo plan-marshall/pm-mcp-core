@@ -92,9 +92,9 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |[[state-roles.review]]`roles.review`
 |`machine`
 |`operator_wait`
-|`roles.default`; `roles.consent` (`no`); `roles.propose`; `roles.validate` (`invalid`).
+|`roles.default`; `roles.consent` (`no`); `roles.propose`; `roles.validate` (`invalid`); `roles.speech` (`back`); `roles.speech-write`.
 |The overview: the default applied to every role, grouped, with what departs from it and each advisory beside it; the steward's departures marked, each to accept or reject; after a refused validation the role and the reason. `accept`; `change` (single roles or groups: harness, model, effort); `ask_steward`.
-|`accept` -> `roles.validate`; `change` -> this state; `ask_steward` -> `roles.consent`.
+|`accept` -> `roles.validate`; `change` -> this state; `ask_steward` -> `roles.consent`; `speech` -> `roles.speech` (the machine's run only).
 |link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
 
 |[[state-roles.consent]]`roles.consent`
@@ -128,6 +128,38 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |Writes per role only `harness`, `model`, and `effort` into the role assignment of the run's level; the qualification of a changed role becomes stale per project.
 |`written` -> `roles.done`.
 |link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
+
+|[[state-roles.speech]]`roles.speech`
+|`machine`
+|`operator_wait`
+|`roles.review` (`speech`); `roles.speech-check` (`not_found`, `check_failed`, `cancelled`).
+|The methods of the speech role `transcribe`, each with where its audio goes, the ones allowed marked; after a failed check the local model with its reason. `allow` (the methods, the provider with its base URL, model id, and credential key; in the first run the provider's token is asked later, in `providers.credentials`); `back`.
+|`allow` -> `roles.speech-consent` where a chosen method's consent is not remembered, else `roles.speech-check` where the local model is chosen and not yet checked, else `roles.speech-write`; `back` -> `roles.review`.
+|link:../model-work/01-roles-and-configuration.adoc#transcribe-role[Model Work Specification, The Speech Role `transcribe`]
+
+|[[state-roles.speech-consent]]`roles.speech-consent`
+|`machine`
+|`operator_wait`
+|`roles.speech` (`allow`).
+|Consent kinds `transcribe_browser`, `transcribe_provider` (each answered alone with `yes_remember` or `no`), and `scan_speech_model` (`yes`, `yes_remember`, or `no`), one per chosen method; a method answered `no` is not allowed.
+|`answered` -> `roles.speech-check` where the local model is consented and not yet checked, else `roles.speech-write`.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-roles.speech-check]]`roles.speech-check`
+|`machine`
+|`composite_job`
+|`roles.speech-consent` (`answered`); `roles.speech` (`allow`).
+|The local speech model looked for on the login `PATH` and checked with a fixed sample, each a probe job; a line ending in ✓ or ✗ with its cause.
+|`found` -> `roles.speech-write`; `not_found`, `check_failed`, `cancelled` -> `roles.speech` (the reason shown).
+|link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]
+
+|[[state-roles.speech-write]]`roles.speech-write`
+|`machine`
+|`auto`
+|`roles.speech-consent`, `roles.speech-check` (`found`), `roles.speech` (`allow`).
+|Writes `transcribe` of `machine-config.json`: the methods allowed, the local model with the path and digest of its command, the provider with its credential key.
+|`written` -> `roles.review`.
+|link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]
 |===
 
 [#state-catalogue-store]
