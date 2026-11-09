@@ -9,6 +9,7 @@
 == Purpose
 
 A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
+
 _Requirements: link:{req}/15-extensions-and-recipes.adoc#PM-EXT-6[PM-EXT-6], link:{req}/07-credentials.adoc#PM-CRED-1[PM-CRED-1]_
 
 Package `de.planmarshall.runtime.config` of `pm-runtime` owns one member of the machine's operator document:
