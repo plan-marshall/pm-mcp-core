@@ -60,7 +60,7 @@ stored byte changes (R13).
 == Source
 
 * Pull request of `PLAN-V2-97` (`optional-conversion-core`)
-* link:../pm-core/doc/developer/core-config.adoc[`pm-core` developer documentation]
+* link:../../pm-core/doc/developer/core-config.adoc[`pm-core` developer documentation]
 * link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons]
 * ADR link:013-the-null-contract-of-the-null-marked-packages.adoc[013 The Null Contract of the `@NullMarked` Packages]
 * `skills-audit-2026-10-30.md` § 2.8; epic decision of 2026-10-30 (decision 7)
