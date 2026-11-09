@@ -13,7 +13,6 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.Consent;
@@ -211,7 +210,7 @@ public final class ProviderVerification {
         Objects.requireNonNull(provider, "provider");
         Objects.requireNonNull(defaults, "defaults");
         var decision = Objects.requireNonNull(gate, "gate").answer(
-                ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, Optional.ofNullable(deviceId));
+                ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, deviceId);
         if (!decision.runs()) {
             return new Verification(provider, false, List.of(), null);
         }
@@ -232,7 +231,7 @@ public final class ProviderVerification {
                 lines.add(sameIdentity(provider, identity, login));
             }
         }
-        var verification = new Verification(provider, true, lines, decision.toRecord().orElse(null));
+        var verification = new Verification(provider, true, lines, decision.toRecord());
         if (verification.passed()) {
             LOGGER.info(INFO.PROVIDER_VERIFIED, provider.wireName(), lines.size());
         } else {
