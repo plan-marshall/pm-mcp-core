@@ -145,9 +145,10 @@ public final class RoleGrader {
             forms.put(form, formResult.get());
             results.addAll(formResults);
         }
-        var entry = new QualificationRecord(name, role.qualificationDigest(), GradedConfiguration.of(role),
-                plan.corpusRevision(), missedSources(plan), forms, warmFreshGap(forms).orElse(null), ungraded(results),
-                clock.instant(), results);
+        var entry = QualificationRecord.builder().role(name).qualificationDigest(role.qualificationDigest())
+                .configuration(GradedConfiguration.of(role)).corpusRevision(plan.corpusRevision())
+                .missedSources(missedSources(plan)).forms(forms).warmFreshGap(warmFreshGap(forms).orElse(null))
+                .ungraded(ungraded(results)).gradedAt(clock.instant()).items(results).build();
         records.write(entry);
         return new GradingOutcome.Graded(entry);
     }
@@ -202,13 +203,15 @@ public final class RoleGrader {
     private QualificationRecord.ItemResult offer(ImportedItem item, RoleForm form, Checkout checkout, int run) {
         var answered = harness.answer(new GradingHarness.Offered(item, form, checkout, run));
         if (answered.isEmpty()) {
-            return new QualificationRecord.ItemResult(item.id(), form, checkout, JsonNode.nullValue(),
-                    Grade.ungraded(), TokenTotal.unmeasured(), null);
+            return QualificationRecord.ItemResult.builder().itemId(item.id()).form(form).checkout(checkout)
+                    .answer(JsonNode.nullValue()).score(Grade.ungraded()).totalTokens(TokenTotal.unmeasured())
+                    .build();
         }
         var answer = answered.get();
         if (!Scoring.judged(item)) {
-            return new QualificationRecord.ItemResult(item.id(), form, checkout, JsonNode.string(answer.answer()),
-                    Scoring.closed(item, answer.answer()), answer.totalTokens(), answer.durationMs());
+            return QualificationRecord.ItemResult.builder().itemId(item.id()).form(form).checkout(checkout)
+                    .answer(JsonNode.string(answer.answer())).score(Scoring.closed(item, answer.answer()))
+                    .totalTokens(answer.totalTokens()).durationMs(answer.durationMs()).build();
         }
         var judged = scorer.score(prompt(item, answer.answer()));
         var grade = judged.map(score -> Grade.scored(score.score())).orElseGet(Grade::ungraded);
@@ -259,12 +262,14 @@ public final class RoleGrader {
         if (judged.isEmpty()) {
             return Optional.of(Scoring.judged(item)
                     ? result
-                    : new QualificationRecord.ItemResult(item.id(), form, checkout, result.answer(),
-                    Scoring.closed(item, text), result.totalTokens(), result.durationMs()));
+                    : QualificationRecord.ItemResult.builder().itemId(item.id()).form(form).checkout(checkout)
+                    .answer(result.answer()).score(Scoring.closed(item, text))
+                    .totalTokens(result.totalTokens()).durationMs(result.durationMs()).build());
         }
-        return Optional.of(new QualificationRecord.ItemResult(item.id(), form, checkout, result.answer(),
-                Grade.scored(judged.get().score()), result.totalTokens().plus(judged.get().totalTokens()),
-                result.durationMs()));
+        return Optional.of(QualificationRecord.ItemResult.builder().itemId(item.id()).form(form).checkout(checkout)
+                .answer(result.answer()).score(Grade.scored(judged.get().score()))
+                .totalTokens(result.totalTokens().plus(judged.get().totalTokens()))
+                .durationMs(result.durationMs()).build());
     }
 
     private Optional<QualificationRecord.FormResult> formResult(GradingPlan plan, RoleTopics topics,
@@ -304,7 +309,8 @@ public final class RoleGrader {
         var totalTokens = tokens == null || !tokens.measured() || tokens.tokens() == 0
                 ? TokenTotal.unmeasured()
                 : tokens;
-        return Optional.of(new QualificationRecord.FormResult(measured, graded, totalTokens, duration));
+        return Optional.of(QualificationRecord.FormResult.builder().topics(measured).items(graded)
+                .totalTokens(totalTokens).durationMs(duration).build());
     }
 
     private static boolean right(@Nullable ImportedItem item, QualificationRecord.ItemResult result) {

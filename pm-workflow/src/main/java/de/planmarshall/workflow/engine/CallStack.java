@@ -153,21 +153,16 @@ public record CallStack(List<CallFrame> frames) {
     private static WorkflowStatus.CallFrame toStoreFrame(CallFrame frame) {
         var args = new LinkedHashMap<String, BoundArg>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toBoundArg(value)));
-        return new WorkflowStatus.CallFrame(frame.callerWorkflowId(), frame.callerStateId(),
-                frame.subWorkflowId(), frame.entry(), args, Instant.parse(frame.pushedAt()));
+        return WorkflowStatus.CallFrame.builder().callerWorkflowId(frame.callerWorkflowId())
+                .callerStateId(frame.callerStateId()).subworkflowId(frame.subWorkflowId()).entry(frame.entry())
+                .boundArgs(args).pushedAt(Instant.parse(frame.pushedAt())).build();
     }
 
     private static CallFrame fromStoreFrame(WorkflowStatus.CallFrame frame) {
         var args = new LinkedHashMap<String, CallValue>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toCallValue(value)));
-        return CallFrame.builder()
-                .callerWorkflowId(frame.callerWorkflowId())
-                .callerStateId(frame.callerStateId())
-                .subWorkflowId(frame.subworkflowId())
-                .entry(frame.entry())
-                .boundArgs(args)
-                .pushedAt(frame.pushedAt().toString())
-                .build();
+        return new CallFrame(frame.callerWorkflowId(), frame.callerStateId(),
+                frame.subworkflowId(), frame.entry(), args, frame.pushedAt().toString());
     }
 
     private static BoundArg toBoundArg(CallValue value) {

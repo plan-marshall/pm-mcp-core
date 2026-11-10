@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
-import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -297,12 +296,7 @@ public final class Enrolments {
             current = sidecar.digest();
         }
         LOGGER.info(INFO.ENROLMENT_REBASELINED, projectId);
-        return Rebaseline.builder()
-                .file(file)
-                .recorded(recorded.orElse(null))
-                .current(current)
-                .settled(settled)
-                .build();
+        return new Rebaseline(file, recorded.orElse(null), current, settled);
     }
 
     /**
@@ -478,10 +472,13 @@ public final class Enrolments {
     }
 
     private static ProjectEnrolment asEnrolled(ProjectEnrolment enrolment, boolean pilot) {
-        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(), pilot,
-                enrolment.containerEngine(), null, enrolment.wrappers(), enrolment.hostTools(), enrolment.build(),
-                enrolment.providers(), enrolment.projectScripts(), enrolment.languageServers(),
-                enrolment.commandBudgets(), enrolment.writePaths(), enrolment.buildEnvironment());
+        return ProjectEnrolment.builder().projectId(enrolment.projectId()).projectRoot(enrolment.projectRoot())
+                .enrolledAt(enrolment.enrolledAt()).pilot(pilot).containerEngine(enrolment.containerEngine())
+                .releasedAt(null).wrappers(enrolment.wrappers()).hostTools(enrolment.hostTools())
+                .build(enrolment.build()).providers(enrolment.providers())
+                .projectScripts(enrolment.projectScripts()).languageServers(enrolment.languageServers())
+                .commandBudgets(enrolment.commandBudgets()).writePaths(enrolment.writePaths())
+                .buildEnvironment(enrolment.buildEnvironment()).build();
     }
 
     /**
@@ -496,7 +493,6 @@ public final class Enrolments {
      *                 bytes may differ from the bytes the operator reviewed
      * @since 0.1
      */
-    @Builder
     public record Rebaseline(Path file, @Nullable StoreDigest recorded, StoreDigest current,
     List<PairRecovery> settled) {
 

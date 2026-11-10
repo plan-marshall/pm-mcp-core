@@ -496,9 +496,12 @@ public final class CredentialStoreMove {
         keyIn(moveRecord.from()).delete();
         hook.after(Step.OLD_DELETED);
         var entries = tokenLaneEntries(choice.backendOf(moveRecord.to())).size();
-        auditSink.append(new AuditEvent(EVENT, AuditEvent.CATEGORY_OPERATOR, AuditEvent.OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_FROM, moveRecord.from().value(), DETAIL_TO, moveRecord.to().value(), DETAIL_ENTRIES,
-                        (long) entries, AuditEvent.DETAIL_TRANSACTION_ID, moveRecord.transactionId().value())));
+        auditSink.append(AuditEvent.builder().event(EVENT).category(AuditEvent.CATEGORY_OPERATOR)
+                .outcome(AuditEvent.OUTCOME_SUCCEEDED)
+                .details(Map.of(DETAIL_FROM, moveRecord.from().value(), DETAIL_TO, moveRecord.to().value(),
+                        DETAIL_ENTRIES, (long) entries, AuditEvent.DETAIL_TRANSACTION_ID,
+                        moveRecord.transactionId().value()))
+                .build());
         hook.after(Step.AUDITED);
         deleteRecord(transaction);
         LOGGER.info(INFO.CREDENTIAL_STORE_MOVED, moveRecord.from().value(), moveRecord.to().value(), entries);

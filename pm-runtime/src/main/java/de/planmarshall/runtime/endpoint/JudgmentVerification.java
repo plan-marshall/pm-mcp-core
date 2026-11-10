@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -106,10 +105,12 @@ public final class JudgmentVerification {
         if (!ownsTheNamedProgram(profile, lookup)) {
             // No request leaves the runtime and no probe runs: the program on the port is not the one the draft names.
             return ProfileStages.EndpointVerification.judgment(
-                    new ProfileStages.EndpointIdentity(false, lookup.isFound() ? lookup.executablePath() : null, null,
-                            List.of(), Map.of()),
-                    new ProfileStages.EndpointLaunch(false, false, NONE, false), new ProfileStages.EndpointLimits(false,
-                            0));
+                    ProfileStages.EndpointIdentity.builder().passed(false)
+                            .executablePath(lookup.isFound() ? lookup.executablePath() : null).version(null)
+                            .models(List.of()).weights(Map.of()).build(),
+                    ProfileStages.EndpointLaunch.builder().passed(false).readiness(false).resultSchema(NONE)
+                            .streamingOff(false).probes(Map.of()).build(),
+                    new ProfileStages.EndpointLimits(false, 0));
         }
         return ProfileStages.EndpointVerification.judgment(identity(profile, model, lookup), launch(profile, model),
                 limits(profile, model, bisectLimits));
@@ -143,7 +144,8 @@ public final class JudgmentVerification {
             }
         }
         var passed = listed && weightsSettled && (!loopback || version.isPresent());
-        return new ProfileStages.EndpointIdentity(passed, executablePath, version.orElse(null), models, identities);
+        return ProfileStages.EndpointIdentity.builder().passed(passed).executablePath(executablePath)
+                .version(version.orElse(null)).models(models).weights(identities).build();
     }
 
     private ProfileStages.EndpointLaunch launch(EndpointProfile profile, String model) {
@@ -164,8 +166,8 @@ public final class JudgmentVerification {
                         "The only option of the question", null))), true);
         probes.put("one_option", describe(oneOption));
         var passed = ready && sameOptions;
-        return new ProfileStages.EndpointLaunch(passed, ready, passed ? ENFORCED : NONE, ascending.valid(),
-                probes);
+        return ProfileStages.EndpointLaunch.builder().passed(passed).readiness(ready)
+                .resultSchema(passed ? ENFORCED : NONE).streamingOff(ascending.valid()).probes(probes).build();
     }
 
     private ProfileStages.EndpointLimits limits(EndpointProfile profile, String model, boolean bisectLimits) {
@@ -201,21 +203,11 @@ public final class JudgmentVerification {
         var body = SystemOneRequest.body(model, state, List.of(question), ascending);
         var response = client.post(profile, SystemOneRequest.PATH, body);
         if (!response.successful()) {
-            return Probe.builder()
-                    .valid(false)
-                    .answer(null)
-                    .status(response.status())
-                    .body(response.body())
-                    .build();
+            return new Probe(false, null, response.status(), response.body());
         }
         var read = SystemOneAnswer.read(response.body(), model,
                 Map.of(question.questionId(), question.ascendingKeys()));
-        return Probe.builder()
-                .valid(read.isValid())
-                .answer(read.answer())
-                .status(response.status())
-                .body(response.body())
-                .build();
+        return new Probe(read.isValid(), read.answer(), response.status(), response.body());
     }
 
     private static boolean sameOptions(SystemOneAnswer.Answer left, SystemOneAnswer.Answer right) {
@@ -285,7 +277,6 @@ public final class JudgmentVerification {
     }
 
     /** The reading of one probe request: whether it validated, its answer, the status and the body of the answer. */
-    @Builder
     private record Probe(boolean valid, SystemOneAnswer.@Nullable Answer answer, int status, String body) {
 
         Probe {

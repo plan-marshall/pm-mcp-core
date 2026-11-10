@@ -15,7 +15,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.util.HashMap;
-import lombok.Builder;
 
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.AuditEvent;
@@ -50,7 +49,6 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * @param auditSink  where step 4 hands over the record of a broken audit chain
  * @since 0.1
  */
-@Builder
 public record StartupSequence(MachinePaths paths, String user, AuditChainVerification auditChain,
 AuditSink auditSink) {
 
@@ -169,7 +167,8 @@ AuditSink auditSink) {
         details.put(DETAIL_REASON, broken.reason().wireName());
         broken.firstBrokenLine().ifPresent(line -> details.put(DETAIL_FIRST_BROKEN_LINE, line));
         details.put(DETAIL_OS_PRINCIPAL, user);
-        var event = new AuditEvent(AUDIT_CHAIN_BROKEN, CATEGORY_SECURITY, OUTCOME_FAILED, details);
+        var event = AuditEvent.builder().event(AUDIT_CHAIN_BROKEN).category(CATEGORY_SECURITY)
+                .outcome(OUTCOME_FAILED).details(details).build();
         try {
             auditSink.append(event);
         } catch (UncheckedIOException e) {

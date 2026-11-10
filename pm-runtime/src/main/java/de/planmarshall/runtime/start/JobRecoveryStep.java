@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -178,7 +177,6 @@ public final class JobRecoveryStep implements RecoveryStep {
      * @param terminated whether a live group was terminated
      * @param failure    why the job cannot be settled; {@code null} when it can
      */
-    @Builder
     private record Handling(Rule rule, @Nullable String signal, boolean terminated, @Nullable String failure) {
 
         static Handling failed(Rule rule, String reason) {
@@ -284,19 +282,10 @@ public final class JobRecoveryStep implements RecoveryStep {
                 case GROUP_EXITED -> Signal.SIGTERM.name();
                 case GROUP_NOT_REACHED, SIGNAL_REFUSED -> RUNTIME_RESTART;
             };
-            return Handling.builder()
-                    .rule(rule)
-                    .signal(signal)
-                    .terminated(true)
-                    .failure(null)
-                    .build();
+            return new Handling(rule, signal, true, null);
         }
-        return Handling.builder()
-                .rule(rule)
-                .signal(job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART)
-                .terminated(false)
-                .failure(null)
-                .build();
+        return new Handling(rule, job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART, false,
+                null);
     }
 
     /** @return the rule that settles a job left unsettled, the first that matches */
@@ -348,9 +337,11 @@ public final class JobRecoveryStep implements RecoveryStep {
      * @return the audit record that notes {@value #ORPHAN_UNIDENTIFIABLE}
      */
     static AuditEvent orphanNote(String projectId, JobId jobId) {
-        return new AuditEvent(JOB_RECOVERED, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
-                Map.of(AuditEvent.DETAIL_PROJECT_ID, projectId, DETAIL_JOB_ID, jobId.value(), DETAIL_NOTE,
-                        ORPHAN_UNIDENTIFIABLE));
+        return AuditEvent.builder().event(JOB_RECOVERED).category(AuditEvent.CATEGORY_STORE)
+                .outcome(AuditEvent.OUTCOME_SUCCEEDED)
+                .details(Map.of(AuditEvent.DETAIL_PROJECT_ID, projectId, DETAIL_JOB_ID, jobId.value(), DETAIL_NOTE,
+                        ORPHAN_UNIDENTIFIABLE))
+                .build();
     }
 
     private static String report(Map<Rule, Integer> counts, int terminated, int workers) {
