@@ -649,8 +649,10 @@ a data-carrying URL template, a typosquatted package name) each beside the clean
 attack yields its rule hit or URL flag and no hidden text survives, the control yields no change and no hit. A hidden
 instruction that level 1 removes (a tag-block run, an HTML comment) still appears as a rule hit in removed content;
 matched controls: removed markup without an instruction yields none, and a registered review bot's collapsed section
-and footer yield none.
-Source:: design review; article analysis `ai-dfir-toolkit` of plan-marshall-documentation.
+and footer yield none. An instruction encoded as a Base64 run yields a rule hit in encoded content and is delivered
+unchanged; matched controls: a Base64 run of the same length that decodes to binary data or to text without an
+instruction yields none, an eleventh run is not decoded, and a run that decodes to another Base64 run is decoded once.
+Source:: design review; article analyses `ai-dfir-toolkit` and `argus` of plan-marshall-documentation.
 
 [#PM-WATCH-JOB-29]
 === PM-WATCH-JOB-29: Bot boilerplate is removed before the screener sees a comment
