@@ -67,7 +67,8 @@ class PromptComposerRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing shim paragraph like the constructor")
     void promptRequestBuilderRefusesMissingShimParagraph() {
-        var refusal = assertThrows(NullPointerException.class, () -> PromptComposer.PromptRequest.builder().build());
+        var builder = PromptComposer.PromptRequest.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("shimParagraph", refusal.getMessage(), "the refusal names the shim paragraph");
     }

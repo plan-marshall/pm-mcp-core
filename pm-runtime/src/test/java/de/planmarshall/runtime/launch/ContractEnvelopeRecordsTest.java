@@ -58,7 +58,8 @@ class ContractEnvelopeRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing scope kind like the constructor")
     void contractEnvelopeBuilderRefusesMissingScopeKind() {
-        var refusal = assertThrows(NullPointerException.class, () -> ContractEnvelope.builder().build());
+        var builder = ContractEnvelope.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("scopeKind", refusal.getMessage(), "the refusal names the scope kind");
     }

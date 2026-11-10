@@ -56,7 +56,8 @@ class EnrolmentsRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing file like the constructor")
     void rebaselineBuilderRefusesMissingFile() {
-        var refusal = assertThrows(NullPointerException.class, () -> Enrolments.Rebaseline.builder().build());
+        var builder = Enrolments.Rebaseline.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("file", refusal.getMessage(), "the refusal names the enrolment file");
     }

@@ -51,7 +51,8 @@ class LaunchPromptRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing text like the constructor")
     void launchPromptBuilderRefusesMissingText() {
-        var refusal = assertThrows(NullPointerException.class, () -> LaunchPrompt.builder().build());
+        var builder = LaunchPrompt.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("text", refusal.getMessage(), "the refusal names the prompt text");
     }

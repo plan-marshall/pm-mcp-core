@@ -48,7 +48,8 @@ class EndpointClientRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing body like the constructor")
     void responseBuilderRefusesMissingBody() {
-        var refusal = assertThrows(NullPointerException.class, () -> EndpointClient.Response.builder().build());
+        var builder = EndpointClient.Response.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("body", refusal.getMessage(), "the refusal names the response body");
     }

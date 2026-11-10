@@ -66,7 +66,8 @@ class HarnessEnrolmentRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing client id like the constructor")
     void harnessEnrolmentBuilderRefusesMissingClientId() {
-        var refusal = assertThrows(NullPointerException.class, () -> HarnessEnrolment.builder().build());
+        var builder = HarnessEnrolment.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("clientId", refusal.getMessage(), "the refusal names the client id");
     }

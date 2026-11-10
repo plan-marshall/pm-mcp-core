@@ -80,7 +80,8 @@ class StalledScopeDetectorRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing project id like the constructor")
     void viewBuilderRefusesMissingProjectId() {
-        var refusal = assertThrows(NullPointerException.class, () -> View.builder().build());
+        var builder = View.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("projectId", refusal.getMessage(), "the refusal names the project id");
     }
@@ -111,7 +112,8 @@ class StalledScopeDetectorRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing scope type like the constructor")
     void stalledHoldBuilderRefusesMissingScopeType() {
-        var refusal = assertThrows(NullPointerException.class, () -> StalledHold.builder().build());
+        var builder = StalledHold.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("scopeType", refusal.getMessage(), "the refusal names the scope type");
     }

@@ -89,7 +89,8 @@ class WorkerLaunchRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing generation id like the constructor")
     void workerLaunchBuilderRefusesMissingGenerationId() {
-        var refusal = assertThrows(NullPointerException.class, () -> WorkerLaunch.builder().build());
+        var builder = WorkerLaunch.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("generationId", refusal.getMessage(), "the refusal names the generation id");
     }

@@ -89,7 +89,8 @@ class LaunchRequestRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing role like the constructor")
     void launchRequestBuilderRefusesMissingRole() {
-        var refusal = assertThrows(NullPointerException.class, () -> LaunchRequest.builder().build());
+        var builder = LaunchRequest.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("role", refusal.getMessage(), "the refusal names the effective role");
     }

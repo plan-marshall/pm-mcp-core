@@ -50,7 +50,8 @@ class ActivitySignalRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing signal like the constructor")
     void activitySignalBuilderRefusesMissingSignal() {
-        var refusal = assertThrows(NullPointerException.class, () -> ActivitySignal.builder().build());
+        var builder = ActivitySignal.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("signal", refusal.getMessage(), "the refusal names the off-track signal");
     }

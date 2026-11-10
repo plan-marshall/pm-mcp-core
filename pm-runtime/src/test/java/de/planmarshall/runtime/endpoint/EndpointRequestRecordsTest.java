@@ -55,7 +55,8 @@ class EndpointRequestRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing model like the constructor")
     void endpointRequestBuilderRefusesMissingModel() {
-        var refusal = assertThrows(NullPointerException.class, () -> EndpointRequest.builder().build());
+        var builder = EndpointRequest.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("model", refusal.getMessage(), "the refusal names the model");
     }

@@ -52,7 +52,8 @@ class EndpointOutcomeRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing fate like the constructor")
     void endpointOutcomeBuilderRefusesMissingFate() {
-        var refusal = assertThrows(NullPointerException.class, () -> EndpointOutcome.builder().build());
+        var builder = EndpointOutcome.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("fate", refusal.getMessage(), "the refusal names the fate");
     }

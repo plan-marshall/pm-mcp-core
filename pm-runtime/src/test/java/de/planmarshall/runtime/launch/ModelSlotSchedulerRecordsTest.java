@@ -61,7 +61,8 @@ class ModelSlotSchedulerRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing owner like the constructor")
     void requestBuilderRefusesMissingOwner() {
-        var refusal = assertThrows(NullPointerException.class, () -> ModelSlotScheduler.Request.builder().build());
+        var builder = ModelSlotScheduler.Request.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("owner", refusal.getMessage(), "the refusal names the lease owner");
     }

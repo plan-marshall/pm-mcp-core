@@ -113,7 +113,8 @@ class SupervisorEnvironmentRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing project id like the constructor")
     void supervisorEnvironmentBuilderRefusesMissingProjectId() {
-        var refusal = assertThrows(NullPointerException.class, () -> SupervisorEnvironment.builder().build());
+        var builder = SupervisorEnvironment.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("projectId", refusal.getMessage(), "the refusal names the project id");
     }

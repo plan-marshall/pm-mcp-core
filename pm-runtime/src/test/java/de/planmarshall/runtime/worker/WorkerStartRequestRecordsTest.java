@@ -68,7 +68,8 @@ class WorkerStartRequestRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing role like the constructor")
     void workerStartRequestBuilderRefusesMissingRole() {
-        var refusal = assertThrows(NullPointerException.class, () -> WorkerStartRequest.builder().build());
+        var builder = WorkerStartRequest.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("role", refusal.getMessage(), "the refusal names the effective role");
     }

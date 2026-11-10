@@ -56,7 +56,8 @@ class AnswerFactRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing question id like the constructor")
     void answerFactBuilderRefusesMissingQuestionId() {
-        var refusal = assertThrows(NullPointerException.class, () -> AnswerFact.builder().build());
+        var builder = AnswerFact.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("questionId", refusal.getMessage(), "the refusal names the question id");
     }

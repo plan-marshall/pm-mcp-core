@@ -47,7 +47,8 @@ class QuestionContinuationRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing form like the constructor")
     void decisionBuilderRefusesMissingForm() {
-        var refusal = assertThrows(NullPointerException.class, () -> QuestionContinuation.Decision.builder().build());
+        var builder = QuestionContinuation.Decision.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("form", refusal.getMessage(), "the refusal names the decision form");
     }

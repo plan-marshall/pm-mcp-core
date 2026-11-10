@@ -91,7 +91,8 @@ class HeadlessBlockRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing executable like the constructor")
     void headlessBlockBuilderRefusesMissingExecutable() {
-        var refusal = assertThrows(NullPointerException.class, () -> HeadlessBlock.builder().build());
+        var builder = HeadlessBlock.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("executable", refusal.getMessage(), "the refusal names the executable");
     }

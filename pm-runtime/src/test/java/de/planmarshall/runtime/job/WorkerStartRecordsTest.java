@@ -78,7 +78,8 @@ class WorkerStartRecordsTest {
     @Test
     @DisplayName("the worker start builder refuses a missing launch like the constructor")
     void workerStartBuilderRefusesMissingLaunch() {
-        var refusal = assertThrows(NullPointerException.class, () -> WorkerStart.builder().build());
+        var builder = WorkerStart.builder();
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("launch", refusal.getMessage(), "the refusal names the missing launch");
     }
