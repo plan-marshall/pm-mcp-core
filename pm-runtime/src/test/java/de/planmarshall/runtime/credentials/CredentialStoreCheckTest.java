@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -93,7 +94,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals(Outcome.FAILED, line.outcome()),
                 () -> assertEquals("failed", line.outcome().code()),
                 () -> assertEquals("credential_store_check.write.failed", line.messageKey()),
-                () -> assertEquals(Optional.of("credential_store_locked: put refused"), line.answer()),
+                () -> assertEquals("credential_store_locked: put refused", line.answer()),
                 () -> assertEquals(List.of("put", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
@@ -110,7 +111,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals(List.of(Outcome.OK, Outcome.FAILED),
                         result.lines().stream().map(CheckLine::outcome).toList()),
                 () -> assertEquals("credential_store_check.read_back.differs", result.lines().get(1).messageKey()),
-                () -> assertEquals(Optional.empty(), result.lines().get(1).answer()),
+                () -> assertNull(result.lines().get(1).answer(), "a differing read back carries no answer"),
                 () -> assertEquals(List.of("put", "get", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
@@ -136,7 +137,7 @@ class CredentialStoreCheckTest {
 
         assertAll(
                 () -> assertEquals("credential_store_check.read_back.failed", result.lines().get(1).messageKey()),
-                () -> assertEquals(Optional.of("credential_store_locked: get refused"), result.lines().get(1).answer()),
+                () -> assertEquals("credential_store_locked: get refused", result.lines().get(1).answer()),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
 
@@ -154,7 +155,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals(Step.DELETE, line.step()),
                 () -> assertEquals(Outcome.FAILED, line.outcome()),
                 () -> assertEquals("credential_store_check.delete.failed", line.messageKey()),
-                () -> assertEquals(Optional.of("credential_store_locked: delete refused"), line.answer()),
+                () -> assertEquals("credential_store_locked: delete refused", line.answer()),
                 () -> assertEquals(List.of("put", "get", "delete", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
@@ -203,8 +204,8 @@ class CredentialStoreCheckTest {
                 () -> assertFalse(result.passed()),
                 () -> assertEquals(1, result.lines().size()),
                 () -> assertEquals("credential_store_check.write.unavailable", line.messageKey()),
-                () -> assertTrue(line.answer().orElseThrow().startsWith("credential_store_unavailable: "),
-                        line.answer().orElseThrow()),
+                () -> assertTrue(line.answer().startsWith("credential_store_unavailable: "),
+                        line.answer()),
                 () -> assertTrue(store.calls.isEmpty()));
     }
 

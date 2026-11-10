@@ -370,6 +370,25 @@ class GitLabCiProviderTest {
     }
 
     @Test
+    @DisplayName("posts on the issue endpoint and never reads a merge-request path (the issue grammar is the contract)")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/9", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{\"title\":\"An issue\",\"description\":\"\",\"state\":\"opened\","
+                    + "\"web_url\":\"https://gitlab.com/cuioss/pm/-/issues/9\"}")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/merge_requests/9", method = HttpMethodMapper.GET, status = 200,
+            stringContent = "{}")
+    @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/9/notes", method = HttpMethodMapper.POST, status = 201,
+            stringContent = "{\"id\":9001}")
+    void postsCommentWithoutReadingAMergeRequest(MockWebServer server) {
+        var result = provider(server).issueComment(issue(WEB_ORIGIN, FORGE, OWNER, NAME, 9), comment());
+
+        assertAll("the issue-comment path",
+                () -> assertTrue(result.isOk(), "the comment is posted"),
+                () -> assertEquals("/projects/cuioss%2Fpm/issues/9/notes", server.takeRequest().getTarget(),
+                        "the comment posts on the issue notes endpoint"),
+                () -> assertEquals(1, server.getRequestCount(), "no merge-request path is read"));
+    }
+
+    @Test
     @DisplayName("maps a refused comment and refuses a blank body")
     @MockResponseConfig(path = "/projects/cuioss%2Fpm/issues/5/notes", method = HttpMethodMapper.POST, status = 404,
             stringContent = "{\"message\":\"404 Not found\"}")

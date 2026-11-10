@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -24,7 +25,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -126,12 +126,11 @@ class ProviderVerificationTest {
     }
 
     private static ProviderDefault defaults(ProviderVariant variant, String credentialKey) {
-        return new ProviderDefault(true, Optional.of(variant),
-                credentialKey == null ? Optional.empty() : Optional.of(credentialKey));
+        return new ProviderDefault(true, variant, credentialKey);
     }
 
     private ProviderVerification.Verification verify(ProviderDefault defaults, ConsentGate.Answer answer) {
-        return verification.verify(gate(), answer, Consent.Channel.CLI, Optional.empty(), Provider.GITHUB, defaults);
+        return verification.verify(gate(), answer, Consent.Channel.CLI, null, Provider.GITHUB, defaults);
     }
 
     @Test
@@ -147,7 +146,7 @@ class ProviderVerificationTest {
                         "expiry:github"), calls),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.PROVIDER_VERIFIED.resolveIdentifierString()),
-                () -> assertTrue(result.toRecord().isEmpty()));
+                () -> assertNull(result.toRecord()));
     }
 
     @Test
@@ -210,9 +209,9 @@ class ProviderVerificationTest {
         assertAll(
                 () -> assertFalse(result.passed()),
                 () -> assertEquals("provider_verification.origin.failed", result.lines().getFirst().messageKey()),
-                () -> assertEquals(Optional.of("503"), result.lines().getFirst().answer()),
+                () -> assertEquals("503", result.lines().getFirst().answer()),
                 () -> assertEquals("provider_verification.whoami.failed", result.lines().get(1).messageKey()),
-                () -> assertEquals(Optional.of("401 Bad credentials"), result.lines().get(1).answer()),
+                () -> assertEquals("401 Bad credentials", result.lines().get(1).answer()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
     }
@@ -226,6 +225,7 @@ class ProviderVerificationTest {
                 () -> assertFalse(result.passed()),
                 () -> assertEquals(2, result.lines().size()),
                 () -> assertEquals("provider_verification.credential.missing", result.lines().getLast().messageKey()),
+                () -> assertNull(result.lines().getLast().answer(), "a missing key line carries no answer"),
                 () -> assertEquals(List.of("origin:github"), calls));
     }
 
@@ -248,7 +248,7 @@ class ProviderVerificationTest {
 
         assertAll(
                 () -> assertTrue(result.passed()),
-                () -> assertEquals(NOW, result.toRecord().orElseThrow().grantedAt()),
-                () -> assertEquals(Consent.Channel.CLI, result.toRecord().orElseThrow().channel()));
+                () -> assertEquals(NOW, result.toRecord().grantedAt()),
+                () -> assertEquals(Consent.Channel.CLI, result.toRecord().channel()));
     }
 }

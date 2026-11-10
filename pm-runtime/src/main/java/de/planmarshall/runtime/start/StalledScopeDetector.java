@@ -13,11 +13,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.service.AuditEvent;
@@ -158,18 +158,13 @@ public final class StalledScopeDetector {
     /**
      * What the detection found: the hold, when the scope is stalled.
      *
-     * @param hold the hold of a stalled scope; empty otherwise
+     * @param hold the hold of a stalled scope; {@code null} otherwise
      */
-    public record Activity(Optional<StalledHold> hold) {
-
-        /** @throws NullPointerException if the hold is {@code null} */
-        public Activity {
-            Objects.requireNonNull(hold, "hold");
-        }
+    public record Activity(@Nullable StalledHold hold) {
 
         /** @return how many items of {@code needs_operator} the scope has */
         public int needsOperator() {
-            return hold.isPresent() ? 1 : 0;
+            return hold != null ? 1 : 0;
         }
     }
 
@@ -207,12 +202,12 @@ public final class StalledScopeDetector {
         if (!stallable(status) || view.paused() || view.operatorWait() || view.otherHold()
                 || view.awaitsExternalEvent() || !awaitsNoEvent(status)) {
             release(key);
-            return new Activity(Optional.empty());
+            return new Activity(null);
         }
         var idleSeconds = Duration.between(status.updatedAt(), now).toSeconds();
         if (idleSeconds < THRESHOLD.toSeconds()) {
             release(key);
-            return new Activity(Optional.empty());
+            return new Activity(null);
         }
         var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(), Cause.NO_PROGRESS,
                 status.updatedAt(), idleSeconds);
@@ -229,7 +224,7 @@ public final class StalledScopeDetector {
             return new Episode(hold, false);
         });
         announcePending(key);
-        return new Activity(Optional.of(hold));
+        return new Activity(hold);
     }
 
     /** Ends the episode of the scope, if one is open, and announces that the hold cleared by itself. */

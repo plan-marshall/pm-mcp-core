@@ -979,9 +979,9 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-5[PM-EXEC-5
 Implementation (in part: the cache repository operations of the git contract that the corpus sources use, served natively in process on JGit with typed inputs and closed outcomes; the CLI variants and the integration variants are not traced here, and the provider operations are traced by the paragraph below): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/GitOperations.java[GitOperations],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
 
-Implementation (the CI contract's provider operations on the native variant: `ci.whoami`, `ci.issue-view` and
-`ci.issue-comment`, each returning the closed outcome; the CLI variant, the four cross-repository reads, the grant check
-and the pull-request read are not implemented yet): module link:../pm-providers/pm-provider-ci/pom.xml[pm-provider-ci] with
+Implementation (the CI contract's provider operations on the native variant: `ci.whoami`, `ci.issue-view`,
+`ci.issue-comment` and `ci.pr-view`, each returning the closed outcome; the CLI variant, the four cross-repository reads
+and the grant check are not implemented yet): module link:../pm-providers/pm-provider-ci/pom.xml[pm-provider-ci] with
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProviders.java[CiProviders],
 link:../pm-providers/pm-provider-github/src/main/java/de/planmarshall/provider/github/GitHubCiProvider.java[GitHubCiProvider],
@@ -994,8 +994,9 @@ link:../pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/g
 Implementation (the pull-request read `ci.pr-view` of the CI contract on the native variant: the pull request, a merge
 request on GitLab, in every state as a value, with its title and body, branches, head commit, head repository, the
 credential's push fact `headWritable` and the changed paths with their closed completeness, and the installation-token
-permission set of the GitHub read; the `Primitive` wrapper with its outcomes belongs to the assembly and is not
-implemented here):
+permission set of the GitHub read; a pull-request URL may carry one trailing tab segment of its web interface, and an
+issue reference comes from `ForgeUrl.issue()`; the `Primitive` wrapper with its outcomes belongs to the assembly and is
+not implemented here):
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider],
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequest.java[PullRequest],
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/PullRequestRef.java[PullRequestRef],
@@ -1770,7 +1771,8 @@ link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/Pu
 link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java[ForgeUrlTest]
 
 Documentation (the CI contract): link:../pm-providers/pm-provider-ci/doc/developer/provider-ci.adoc[CI Provider Contract Developer Guide], link:../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[ADR 014],
-link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009]
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[ADR provider-ci/009],
+link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010]
 
 Verified by (the findings and code-analysis contracts): link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingTest.java[FindingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingScopeTest.java[FindingScopeTest],

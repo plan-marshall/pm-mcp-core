@@ -89,7 +89,7 @@ class ProbeVerificationTest {
 
     private ProbeCandidate candidate(Scope scope, ProbeCandidate.WorkingDirectory workingDirectory) {
         return new ProbeCandidate(ProbeCandidate.Kind.VERSION, new DigestedFile(executable, sha256(executable)),
-                Optional.of(new DigestedFile(interpreter, sha256(interpreter))), arguments, Set.of(0), scope,
+                new DigestedFile(interpreter, sha256(interpreter)), arguments, Set.of(0), scope,
                 workingDirectory);
     }
 
@@ -265,7 +265,7 @@ class ProbeVerificationTest {
         void scope() {
             var digested = new DigestedFile(executable, sha256(executable));
             var workspace = new Scope(Scope.Type.WORKSPACE, null);
-            Optional<DigestedFile> noInterpreter = Optional.empty();
+            DigestedFile noInterpreter = null;
             List<String> noArguments = List.of();
             var successExitZero = Set.of(0);
             var noSuccessExitCodes = Set.<Integer>of();
@@ -305,7 +305,7 @@ class ProbeVerificationTest {
         @DisplayName("declares its vector without an interpreter for a program that runs by itself")
         void declaredArgv() {
             var candidate = new ProbeCandidate(ProbeCandidate.Kind.LOGIN, new DigestedFile(executable,
-                    sha256(executable)), Optional.empty(), arguments, Set.of(0), MACHINE, new JobPrivate());
+                    sha256(executable)), null, arguments, Set.of(0), MACHINE, new JobPrivate());
 
             assertEquals(executable.toString(), candidate.declaredArgv().getFirst(),
                     "the vector starts with the program");

@@ -209,8 +209,8 @@ public final class HarnessEnrolmentStore {
                 return new TreeMap<>();
             }
             throw new StoreException(result.outcome() == HarnessesSidecarCheck.Outcome.INSECURE
-                    ? Refusal.INSECURE : Refusal.TAMPERED, result.reason().orElse("the harness enrolment store "
-                    + "does not match its sidecar"));
+                    ? Refusal.INSECURE : Refusal.TAMPERED, result.reason() == null ? "the harness enrolment store "
+                    + "does not match its sidecar" : result.reason());
         }
         if (result.outcome() == HarnessesSidecarCheck.Outcome.NOTHING_TO_VERIFY) {
             return new TreeMap<>();

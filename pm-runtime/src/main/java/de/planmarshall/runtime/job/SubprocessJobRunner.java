@@ -407,14 +407,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
          * @param enrolment          the verified enrolment of the project
          * @param jobId              the id of the worker
          * @param harnessSwitches    the switches of the harness's profile
-         * @param jobToken           the minted job token
-         * @param workerDataVariable the data-home variable of the harness; empty when it shares one store
-         * @param egressProxy        the loopback URL of the worker's egress proxy; empty when none
+         * @param jobToken           the minted job token; {@code null} when none
+         * @param workerDataVariable the data-home variable of the harness; {@code null} when it shares one store
+         * @param egressProxy        the loopback URL of the worker's egress proxy; {@code null} when none
          * @return the complete environment of the worker
          */
         default Map<String, String> ofWorker(ProjectEnrolment enrolment, JobId jobId,
-                Map<String, String> harnessSwitches, Optional<String> jobToken, Optional<String> workerDataVariable,
-                Optional<String> egressProxy) {
+                Map<String, String> harnessSwitches, @Nullable String jobToken, @Nullable String workerDataVariable,
+                @Nullable String egressProxy) {
             throw new UnsupportedOperationException("This environment composes no worker launch");
         }
     }
@@ -572,7 +572,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         var token = launch.jobToken().isEmpty() ? Optional.<String>empty() : Optional.of(launch.jobToken());
         return run(job.get(), log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
-                        .enrolment(), jobId, launch.env(), token, Optional.empty(), request.egressProxy()), Optional.empty(),
+                        .enrolment(), jobId, launch.env(), token.orElse(null), null, request.egressProxy()), null,
                 log, confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(), false)));
     }
 
@@ -690,10 +690,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         var verified = (ProbeVerification.Verified) verification;
         var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot(Path root)
-                ? Optional.of(root)
-                : Optional.<Path>empty();
+                ? root
+                : null;
         return run(job.get(), log -> new Launch(verified.workingDirectory(), verified.argv(),
-                probeEnvironment.of(candidate, first.jobId()), Optional.empty(), log,
+                probeEnvironment.of(candidate, first.jobId()), null, log,
                 confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
                         candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of())));
     }
@@ -943,7 +943,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         var running = job.get();
         return run(running, log -> Launch.of(verified, environment.of(verified, running.latest.jobId()),
-                Optional.ofNullable(request.stdin()), log,
+                request.stdin(), log,
                 confinementComposer.forJob(verified.enrolment(), running.latest.jobId(), List.of(), false)));
     }
 
@@ -1003,8 +1003,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             var awaited = awaitReport(job, launched.process(), log, spawnedAt.plus(reportWait(job.budget)));
             observedLength = awaited.observedLength();
-            if (awaited.report().isPresent()) {
-                reported = postSpawnRecord(job.latest, awaited.report().get(), spawnedAt);
+            if (awaited.report() != null) {
+                reported = postSpawnRecord(job.latest, awaited.report(), spawnedAt);
                 writePostSpawn(job, reported);
             }
             var length = observedLength;
@@ -1093,7 +1093,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var endedAt = clock.instant();
         auditSurvivors(job, job.sweepTree());
         // the end of the process is observed: the cancel door closes here and the cause it returns is the one read
-        settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), job.closeCancelDoor(),
+        settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), job.closeCancelDoor().orElse(null),
                 cancelBeforeGroup), observedLength);
         return exit.interrupted();
     }
@@ -1165,7 +1165,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var details = new HashMap<String, Object>();
             details.put(DETAIL_JOB_ID, job.latest.jobId().value());
             details.put(DETAIL_PID, survivor.pid());
-            survivor.command().ifPresent(command -> details.put(DETAIL_EXECUTABLE, command));
+            if (survivor.command() != null) {
+                details.put(DETAIL_EXECUTABLE, survivor.command());
+            }
             try {
                 audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
                         AuditEvent.OUTCOME_FAILED, details));
@@ -1191,7 +1193,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /** The launch report and how much of the log was read for it. */
-    record AwaitedReport(Optional<LaunchReport> report, long observedLength) {
+    record AwaitedReport(@Nullable LaunchReport report, long observedLength) {
     }
 
     /**
@@ -1218,11 +1220,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     nextRefresh = clock.instant().plus(ProcessTreeTracker.REFRESH_INTERVAL);
                 }
                 if (log.readLines(0) instanceof JobLog.Lines(var lines, var nextOffset, var report)
-                        && (report.isPresent() || !lines.isEmpty())) {
+                        && (report != null || !lines.isEmpty())) {
                     return new AwaitedReport(report, nextOffset);
                 }
                 if (!alive || interrupted || job.cause.isDone() || !clock.instant().isBefore(deadline)) {
-                    return new AwaitedReport(Optional.empty(), 0);
+                    return new AwaitedReport(null, 0);
                 }
                 try {
                     Thread.sleep(REPORT_POLL_INTERVAL);
@@ -1263,8 +1265,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             TerminationProtocol.@Nullable Report report = null;
             var awaited = awaitEndOrCause(job, process, deadline);
             interrupted = awaited.interrupted();
-            if (awaited.cause().isPresent()) {
-                cause = awaited.cause().get();
+            if (awaited.cause() != null) {
+                cause = awaited.cause();
                 // the handle's PID, never the one a launch report names: this path ends the process the runner started
                 var pid = launched.pid();
                 // a PID reused by another process is not signalled; a group that outlived its leader is still the job's
@@ -1286,7 +1288,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var endedAt = clock.instant();
             auditSurvivors(job, job.sweepTree());
             ended = true;
-            settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), Optional.ofNullable(cause),
+            settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), cause,
                     report != null && report.cancelBeforeGroup()), observedLength);
         } finally {
             try {
@@ -1303,10 +1305,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * What ended the wait for a job: its exit, or the cause of its termination.
      *
      * @param cause       the termination that decides the fate: the cause of a cancel that was answered {@code true},
-     *                    or of the budget that expired; empty for a job nothing decided, which is settled by its exit
+     *                    or of the budget that expired; {@code null} for a job nothing decided, which is settled by its
+     *                    exit
      * @param interrupted whether the waiting thread was interrupted meanwhile
      */
-    record Awaited(Optional<Termination> cause, boolean interrupted) {
+    record Awaited(@Nullable Termination cause, boolean interrupted) {
     }
 
     /**
@@ -1328,10 +1331,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 job.refreshTree();
             }
             if (exit.isDone()) {
-                return new Awaited(job.closeCancelDoor(), interrupted);
+                return new Awaited(job.closeCancelDoor().orElse(null), interrupted);
             }
             if (job.cause.isDone()) {
-                return new Awaited(Optional.of(job.cause.join()), interrupted);
+                return new Awaited(job.cause.join(), interrupted);
             }
             var remaining = Duration.between(clock.instant(), deadline);
             if (!remaining.isPositive()) {
@@ -1392,10 +1395,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param spawnedAt         the instant the job was spawned
      * @param endedAt           the instant the runner observed the exit
      * @param exitValue         the exit value of the process as Java reports it
-     * @param termination       why the runner terminated the job; empty when it did not
+     * @param termination       why the runner terminated the job; {@code null} when it did not
      * @param cancelBeforeGroup whether the termination reached the job before its group existed
      */
-    private record Ended(Instant spawnedAt, Instant endedAt, int exitValue, Optional<Termination> termination,
+    private record Ended(Instant spawnedAt, Instant endedAt, int exitValue, @Nullable Termination termination,
     boolean cancelBeforeGroup) {
     }
 
@@ -1487,7 +1490,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 .signal(waitStatus instanceof Signalled(var signal) ? signal : null)
                 .childWallMs(childWallMs(current.processStartedAt(), ended.spawnedAt(), ended.endedAt()).orElse(null))
                 .cancelBeforeGroup(ended.cancelBeforeGroup())
-                .selfReportContradiction(outcome.row() == 6 ? parse.selfReportContradiction().orElse(null) : null)
+                .selfReportContradiction(outcome.row() == 6 ? parse.selfReportContradiction() : null)
                 .build();
         settle(job, settled);
     }
@@ -1506,7 +1509,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     private void settleUnlaunched(RunningJob job, JobLog log) {
         try {
-            var cause = job.closeCancelDoor();
+            var cause = job.closeCancelDoor().orElse(null);
             var current = job.latest;
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
@@ -1538,7 +1541,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     private boolean settleRecord(JobRecordStore store, JobRecord settled) {
         var report = JobSettlement.of(store, lockManager, settlementSteps).settle(new Settled(settled,
-                Optional.empty()));
+                null));
         var steps = report.steps();
         var recorded = !steps.isEmpty() && steps.getFirst().outcome() instanceof Outcome.Done;
         if (recorded) {
