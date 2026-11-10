@@ -13,6 +13,7 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -108,11 +109,11 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
             try {
                 unit.remove();
             } catch (ServiceUnitException e) {
-                throw firstOf(failure, Optional.of(e)).orElseThrow();
+                throw firstOf(failure.orElse(null), e).orElseThrow();
             }
             var unloadFailure = callManager("unload", () -> manager.unload(path));
             if (failure.isPresent() || unloadFailure.isPresent()) {
-                throw firstOf(failure, unloadFailure).orElseThrow();
+                throw firstOf(failure.orElse(null), unloadFailure.orElse(null)).orElseThrow();
             }
         }
         LOGGER.info(INFO.SERVICE_UNIT_UNINSTALLED, path);
@@ -229,12 +230,14 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     /**
      * @return {@code first} with {@code later} suppressed, or {@code later} when there is no first failure
      */
-    private static Optional<ServiceUnitException> firstOf(Optional<ServiceUnitException> first,
-            Optional<ServiceUnitException> later) {
-        if (first.isEmpty()) {
-            return later;
+    private static Optional<ServiceUnitException> firstOf(@Nullable ServiceUnitException first,
+            @Nullable ServiceUnitException later) {
+        if (first == null) {
+            return Optional.ofNullable(later);
         }
-        later.ifPresent(first.get()::addSuppressed);
-        return first;
+        if (later != null) {
+            first.addSuppressed(later);
+        }
+        return Optional.of(first);
     }
 }

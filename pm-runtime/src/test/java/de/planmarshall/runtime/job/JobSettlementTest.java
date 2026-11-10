@@ -153,7 +153,7 @@ class JobSettlementTest {
         }
         assertTrue(slots.claim(new LeaseRecord(SLOT_KEY, owner, createdAt, null)).granted(),
                 "the job's build slot is granted");
-        return new Settled(ended(), Optional.of(new Slot(slots, SLOT_KEY, owner)));
+        return new Settled(ended(), new Slot(slots, SLOT_KEY, owner));
     }
 
     private boolean fateRecorded() {
@@ -209,7 +209,7 @@ class JobSettlementTest {
             var ran = new ArrayList<Name>();
             var settlement = new JobSettlement(names.stream().map(name -> recording(name, ran)).toList());
 
-            var report = settlement.settle(new Settled(ended(), Optional.empty()));
+            var report = settlement.settle(new Settled(ended(), null));
 
             var order = List.of(Name.values());
             assertAll(
@@ -232,7 +232,7 @@ class JobSettlementTest {
             var duplicate = new ArrayList<>(Arrays.stream(Name.values()).map(name -> recording(name, ran)).toList());
             duplicate.add(recording(Name.FATE, ran));
             var running = postSpawn();
-            Optional<Slot> noSlot = Optional.empty();
+            Slot noSlot = null;
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(missing),
@@ -354,7 +354,7 @@ class JobSettlementTest {
         @Test
         @DisplayName("releases nothing for a job without a slot")
         void noSlot() {
-            var outcome = SettlementStep.slotRelease().run(new Settled(ended(), Optional.empty()));
+            var outcome = SettlementStep.slotRelease().run(new Settled(ended(), null));
 
             assertEquals(new Outcome.Done("no slot held"), outcome, "a job without a slot releases nothing");
         }
@@ -368,7 +368,7 @@ class JobSettlementTest {
                     "the other owner's slot is granted");
 
             var outcome = SettlementStep.slotRelease().run(new Settled(ended(),
-                    Optional.of(new Slot(slots, SLOT_KEY, owner))));
+                    new Slot(slots, SLOT_KEY, owner)));
 
             assertAll(
                     () -> assertEquals(new Outcome.Done("slot " + SLOT_KEY + " not held by the job"), outcome,

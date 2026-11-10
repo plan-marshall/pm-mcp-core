@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +34,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -193,7 +193,7 @@ class StaleLeaseSweepTest {
             assertAll(
                     () -> assertEquals(List.of(new Decision(lease, Action.KEPT, Rule.HOLDER_ALIVE)),
                             result.decisions(), "the live holder's lease is kept"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.ALL_KEPT, result.emptyPopulation(),
                             "the population is reported all kept"),
                     () -> assertArrayEquals(bytesBefore, Files.readAllBytes(store),
                             "the store is left byte-identical"),
@@ -249,7 +249,7 @@ class StaleLeaseSweepTest {
                             result.decisions(), "the dead holder's lease is orphaned"),
                     () -> assertEquals("skipped_no_evidence", result.decisions().getFirst().rule().code(),
                             "the rule code names the missing evidence"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.ALL_KEPT, result.emptyPopulation(),
                             "the population is reported all kept"),
                     () -> assertEquals(List.of(orphaned), leaseStore.snapshot(),
                             "the store holds the orphaned lease"),
@@ -277,7 +277,7 @@ class StaleLeaseSweepTest {
                             result.decisions(), "the abandoned lease is removed"),
                     () -> assertEquals("abandoned", result.decisions().getFirst().rule().code(),
                             "the rule code names the abandonment"),
-                    () -> assertEquals(Optional.empty(), result.emptyPopulation(),
+                    () -> assertNull(result.emptyPopulation(),
                             "a removal is no empty population"),
                     () -> assertEquals(List.of(), leaseStore.snapshot(), "the store holds no lease any more"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, StaleLeaseSweep.class),
@@ -360,7 +360,7 @@ class StaleLeaseSweepTest {
                     () -> assertEquals(1, result.count(Action.KEPT), "exactly one lease is kept"),
                     () -> assertEquals(1, result.count(Action.ORPHANED), "one lease is orphaned"),
                     () -> assertEquals(1, result.count(Action.REMOVED), "one lease is removed"),
-                    () -> assertEquals(Optional.empty(), result.emptyPopulation(),
+                    () -> assertNull(result.emptyPopulation(),
                             "a mixed store is no empty population"),
                     () -> assertEquals(List.of(live, orphaned), leaseStore.snapshot(),
                             "the kept and the orphaned lease remain"),
@@ -400,11 +400,11 @@ class StaleLeaseSweepTest {
 
             assertAll(
                     () -> assertEquals(List.of(), result.decisions(), "an empty store yields no decision"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.NOTHING_LISTED), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.NOTHING_LISTED, result.emptyPopulation(),
                             "an empty store is reported nothing listed"),
-                    () -> assertEquals("nothing_listed", result.emptyPopulation().orElseThrow().code(),
+                    () -> assertEquals("nothing_listed", result.emptyPopulation().code(),
                             "the population code is nothing_listed"),
-                    () -> assertEquals(Optional.empty(), result.refusal(), "an empty store is not refused"),
+                    () -> assertNull(result.refusal(), "an empty store is not refused"),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"));
         }
 
@@ -415,9 +415,9 @@ class StaleLeaseSweepTest {
 
             assertAll(
                     () -> assertEquals(List.of(), result.decisions(), "an absent store yields no decision"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_ABSENT), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.ROOT_ABSENT, result.emptyPopulation(),
                             "an absent store is reported root absent"),
-                    () -> assertEquals("root_absent", result.emptyPopulation().orElseThrow().code(),
+                    () -> assertEquals("root_absent", result.emptyPopulation().code(),
                             "the population code is root_absent"),
                     () -> assertFalse(Files.exists(store), "the absent store is not created"),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, StaleLeaseSweep.class));
@@ -434,11 +434,11 @@ class StaleLeaseSweepTest {
 
             assertAll(
                     () -> assertEquals(List.of(), result.decisions(), "a refused store yields no decision"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.ROOT_UNREADABLE, result.emptyPopulation(),
                             "a refused store is reported root unreadable"),
-                    () -> assertEquals("root_unreadable", result.emptyPopulation().orElseThrow().code(),
+                    () -> assertEquals("root_unreadable", result.emptyPopulation().code(),
                             "the population code is root_unreadable"),
-                    () -> assertEquals(Optional.of(outcome), result.refusal(), "the result names the refusal"),
+                    () -> assertEquals(outcome, result.refusal(), "the result names the refusal"),
                     () -> assertArrayEquals(refused, Files.readAllBytes(store),
                             "the refused store is left byte-identical"),
                     () -> assertFalse(isLocked(storeKey.lockFile()), "the store lock is released after"),
@@ -477,7 +477,7 @@ class StaleLeaseSweepTest {
                             result.decisions(), "only the project's lease is decided"),
                     () -> assertEquals(1, result.count(Action.ORPHANED), "the project's lease is orphaned"),
                     () -> assertEquals(0, result.count(Action.KEPT), "a lease of another project is not counted"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.ALL_KEPT), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.ALL_KEPT, result.emptyPopulation(),
                             "the population is reported all kept"),
                     () -> assertEquals(List.of(orphaned, foreign), leaseStore.snapshot(),
                             "the other project's lease is unchanged"),
@@ -502,7 +502,7 @@ class StaleLeaseSweepTest {
                     () -> assertEquals(List.of(Action.REMOVED),
                             result.decisions().stream().map(Decision::action).toList(),
                             "only the project's lease is removed"),
-                    () -> assertEquals(Optional.empty(), result.emptyPopulation(),
+                    () -> assertNull(result.emptyPopulation(),
                             "a removal is no empty population"),
                     () -> assertEquals(List.of(ownKey), asked.stream().map(LeaseRecord::key).toList(),
                             "the evidence is asked for the selected project only"),
@@ -521,7 +521,7 @@ class StaleLeaseSweepTest {
 
             assertAll(
                     () -> assertEquals(List.of(), result.decisions(), "no lease of the project is decided"),
-                    () -> assertEquals(Optional.of(EmptyPopulation.NOTHING_LISTED), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.NOTHING_LISTED, result.emptyPopulation(),
                             "the project's population is nothing listed"),
                     () -> assertEquals(List.of(foreign), leaseStore.snapshot(),
                             "the other project's lease remains"),
@@ -539,9 +539,9 @@ class StaleLeaseSweepTest {
             var result = StaleLeaseSweep.sweep(leaseStore, project, ABANDONED, now);
 
             assertAll(
-                    () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation(),
+                    () -> assertEquals(EmptyPopulation.ROOT_UNREADABLE, result.emptyPopulation(),
                             "a refused store is reported root unreadable"),
-                    () -> assertEquals(Optional.of(Outcome.UNREADABLE), result.refusal(),
+                    () -> assertEquals(Outcome.UNREADABLE, result.refusal(),
                             "the refusal names the unreadable store"),
                     () -> assertArrayEquals(refused, Files.readAllBytes(store),
                             "the refused store is left byte-identical"));

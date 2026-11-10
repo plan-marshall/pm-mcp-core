@@ -20,6 +20,7 @@ The specification sections named are the single statement of what each task buil
 . *Documents, copy or move*, and the short landing of a removal: link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue § Documents as a Source].
 . *Screened once stored*, and nothing screened that is on this machine: link:../specification/model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work § Screened Once Stored]; link:../specification/model-work/07-untrusted-text-screening.adoc#local-trusted[§ What Is on This Machine Is Trusted]; link:../specification/model-work/07-untrusted-text-screening.adoc#two-level-guard[§ Two-Level Guard].
 . *Fail closed*, the wait `source-<kind>.unscreened`: § Screened Once Stored.
+. *A pull request that changes an instruction file* flagged at its screening: link:../specification/model-work/07-untrusted-text-screening.adoc#pr-instruction-files[Model Work § A Pull Request That Changes an Instruction File].
 . *A claimed lesson ends with the landing*: link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas § A Claimed Lesson Ends with the Landing].
 . *Entries addressed like plans and epics*, `POST /api/v1/entries` removed: link:../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#event-streams[Runtime Model § Events per Scope].
 . *Loopback only* for the listing of files, a move, and documents outside the checkout: § Documents as a Source.
@@ -37,5 +38,5 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 == Done When
 
-* Watch: link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-42[PM-WATCH-STORE-42], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-58[PM-WATCH-STORE-58].
+* Watch: link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-42[PM-WATCH-STORE-42], link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-58[PM-WATCH-STORE-58], link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-75[PM-WATCH-DISP-75].
 * Tests: an entry opened as its directory and its creation moving sources, transcript and decision logs, the directory deleted last; a tampered entry; a manifest entry per stored source; a failed screening, a failing screener and a screener without qualified configuration; a rate-limited issue and pull request; an entry older than a day still offered, and a cut-off directory swept; documents with each mode; a claimed lesson on a merge, a push and every other end; `PendingEntrySchemaParityTest` and `AuditSchemaParityTest.enums` without `@Disabled`.
