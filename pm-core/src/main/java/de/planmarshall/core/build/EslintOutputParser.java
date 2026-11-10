@@ -77,8 +77,8 @@ public class EslintOutputParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         boolean failed = diagnostics.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR);
         BuildStatus status = failed ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
-        ParsedBuild build = new ParsedBuild(diagnostics, status, false, null,
-                ParsedBuild.noTestsRanFrom(status, false, null, false));
+        ParsedBuild build = ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false)
+                .testCounts(null).noTestsRan(ParsedBuild.noTestsRanFrom(status, false, null, false)).build();
         return new EslintResult(build, problemCounts(lines).orElse(null));
     }
 

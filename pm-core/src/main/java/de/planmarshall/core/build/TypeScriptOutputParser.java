@@ -68,8 +68,8 @@ public class TypeScriptOutputParser {
         List<String> lines = List.of(logText.split("\n", -1));
         List<Diagnostic> diagnostics = DiagnosticCollector.collect(lines, TypeScriptOutputParser::filedDiagnostic);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return new ParsedBuild(diagnostics, status, false, null,
-                ParsedBuild.noTestsRanFrom(status, false, null, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false).testCounts(null)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, false, null, false)).build();
     }
 
     private static Optional<Diagnostic> filedDiagnostic(String rawLine) {

@@ -84,8 +84,9 @@ public class JestOutputParser {
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = diagnostics.isEmpty() && !printsFailedSummary(lines)
                 ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return new ParsedBuild(diagnostics, status, false, testCounts,
-                ParsedBuild.noTestsRanFrom(status, false, testCounts, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false)
+                .testCounts(testCounts)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, false, testCounts, false)).build();
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

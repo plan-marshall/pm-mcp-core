@@ -99,8 +99,9 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         var cost = cost(turn, unparsed).orElse(null);
         var reason = reason(unparsed, input, output, cacheReadTokens, cacheCreationTokens, reasoningValues, tools)
                 .orElse(null);
-        return new HarnessUsage(input, output, cacheReadTokens, cacheCreationTokens, reasoningValues, tools, cost,
-                reason);
+        return HarnessUsage.builder().inputTokens(input).outputTokens(output).cacheReadInputTokens(cacheReadTokens)
+                .cacheCreationInputTokens(cacheCreationTokens).reasoningTokens(reasoningValues).toolUses(tools)
+                .costUsd(cost).unmeasuredReason(reason).build();
     }
 
     private static Optional<String> member(JsonNode usage, String name) {

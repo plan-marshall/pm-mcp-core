@@ -97,8 +97,9 @@ public class TapOutputParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
-        return new ParsedBuild(diagnostics, status, false, testCounts,
-                ParsedBuild.noTestsRanFrom(status, false, testCounts, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false)
+                .testCounts(testCounts)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, false, testCounts, false)).build();
     }
 
     /**

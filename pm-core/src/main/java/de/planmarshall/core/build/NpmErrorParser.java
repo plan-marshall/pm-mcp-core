@@ -83,8 +83,8 @@ public class NpmErrorParser {
     private static ParsedBuild parseStripped(String logText) {
         List<Diagnostic> diagnostics = extractDiagnostics(logText);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return new ParsedBuild(diagnostics, status, false, null,
-                ParsedBuild.noTestsRanFrom(status, false, null, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false).testCounts(null)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, false, null, false)).build();
     }
 
     private static List<Diagnostic> extractDiagnostics(String logText) {

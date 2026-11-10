@@ -174,6 +174,6 @@ public final class RoleAssignmentProposal {
     }
 
     private static Proposal unresolved(String role, String tier, String advisory, String reason) {
-        return new Proposal(role, tier, advisory, null, reason);
+        return Proposal.builder().role(role).tier(tier).advisory(advisory).unresolved(reason).build();
     }
 }

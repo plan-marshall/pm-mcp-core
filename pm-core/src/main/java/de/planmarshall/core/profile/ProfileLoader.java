@@ -181,8 +181,8 @@ public final class ProfileLoader {
             if (ProfileValidator.isEndpoint(profile)) {
                 // An endpoint profile declares no supported_versions range: another build of the serving program cannot
                 // be judged against one, so the record keeps its state and launches go on.
-                return new LoadedProfile(clientId, kind, profile, document,
-                        LoadedProfile.State.VERIFIED_ON_OTHER_BUILD, verification);
+                return LoadedProfile.builder().clientId(clientId).kind(kind).document(profile).bytes(document)
+                        .state(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD).verificationRecord(verification).build();
             }
             var supported = profile.member("headless")
                     .filter(headless -> !headless.isNull())

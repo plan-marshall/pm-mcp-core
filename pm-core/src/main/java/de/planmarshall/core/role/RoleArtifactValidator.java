@@ -146,8 +146,10 @@ public final class RoleArtifactValidator {
             var contextBudget = contextBudget(optional(artifact, "context_budget_tokens").orElse(null)).orElse(null);
             var questions = questions(optional(artifact, "questions").orElse(null), roleClass).orElse(null);
             var offTrack = offTrack(optional(artifact, "off_track").orElse(null), roleClass);
-            return new RoleArtifact(formatVersion, name, description, roleClass, tools, harness, model, effort, form,
-                    count, skills, recycling, budgetFloor, contextBudget, questions, offTrack);
+            return RoleArtifact.builder().formatVersion(formatVersion).name(name).description(description)
+                    .roleClass(roleClass).tools(tools).harness(harness).model(model).effort(effort).form(form)
+                    .count(count).skills(skills).recycling(recycling).budgetFloorSeconds(budgetFloor)
+                    .contextBudgetTokens(contextBudget).questions(questions).offTrack(offTrack).build();
         }
 
         private RoleClass roleClass(JsonNode node) {

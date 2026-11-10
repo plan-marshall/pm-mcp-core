@@ -1169,8 +1169,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 details.put(DETAIL_EXECUTABLE, survivor.command());
             }
             try {
-                audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
-                        AuditEvent.OUTCOME_FAILED, details));
+                audit.append(AuditEvent.builder().event(JOB_DESCENDANT_SURVIVED)
+                        .category(AuditEvent.CATEGORY_SECURITY).outcome(AuditEvent.OUTCOME_FAILED).details(details)
+                        .build());
                 // cui-rewrite:disable InvalidExceptionUsageRecipe
             } catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());

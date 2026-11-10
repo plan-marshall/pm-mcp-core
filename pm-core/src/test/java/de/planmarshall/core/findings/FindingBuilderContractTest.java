@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
  * required component is refused with the same refusal.
  */
 @EnableGeneratorController
-@DisplayName("Finding member builders")
-class FindingMemberBuilderContractTest {
+@DisplayName("Finding builders")
+class FindingBuilderContractTest {
 
     private static final String FINDING_ID = "F-1";
 
