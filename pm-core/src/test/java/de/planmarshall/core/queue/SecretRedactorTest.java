@@ -99,6 +99,53 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an npm access token is redacted")
+    void npmAccessToken() {
+        var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+
+        assertEquals("the token is " + SecretRedactor.REDACTED, redactValue("the token is " + token));
+    }
+
+    @Test
+    @DisplayName("user information in a URL keeps the scheme and the user")
+    void urlUserInformation() {
+        assertEquals("request to https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg failed",
+                redactValue("request to https://deploy:s3cr3t-value@registry.example/pkg failed"));
+    }
+
+    @Test
+    @DisplayName("a credential flag with a space is redacted and keeps the flag")
+    void spacedCredentialFlags() {
+        assertAll(
+                () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
+                        redactValue("npm login --password hunter22")),
+                () -> assertEquals("publish --token " + SecretRedactor.REDACTED,
+                        redactValue("publish --token abc12345")));
+    }
+
+    @Test
+    @DisplayName("a PEM private key block is redacted")
+    void pemPrivateKeyBlock() {
+        var block = String.join("\n", "-----BEGIN RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA7v0x",
+                "-----END RSA PRIVATE KEY-----");
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue("key:\n" + block));
+    }
+
+    @Test
+    @DisplayName("shapes that merely resemble a credential stay readable")
+    void shapeNegativeControls() {
+        assertAll(
+                () -> assertEquals("see https://github.com/org/repo",
+                        redactValue("see https://github.com/org/repo")),
+                () -> assertEquals("--password-file notes.txt", redactValue("--password-file notes.txt")),
+                () -> assertEquals("the word token appears here", redactValue("the word token appears here")),
+                () -> assertEquals("npm_" + "A".repeat(20), redactValue("npm_" + "A".repeat(20))),
+                () -> assertEquals("-----BEGIN RSA PRIVATE KEY----- without an end",
+                        redactValue("-----BEGIN RSA PRIVATE KEY----- without an end")));
+    }
+
+    @Test
     @DisplayName("prose, a path and a commit id are not secrets")
     void keepsOrdinaryText() {
         assertAll(
