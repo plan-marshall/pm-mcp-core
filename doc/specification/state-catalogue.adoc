@@ -159,7 +159,7 @@ _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc
 |`replan_triggered` |a re-planning trigger raised for the plan (its `replan_pending` set, link:store-schemas/17-re-planning.adoc#replan-record[Store Schemas Specification, Re-Planning Record])
 |`pr_opened`, `pr_merged`, `pr_closed` |the plan's pull request opened, merged, or closed
 |`row_staged`, `row_cancelled` |an epic's row staged or cancelled (its queue row written `staged` or `cancelled`, link:store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[Store Schemas Specification, Queue Row])
-|`row_started`, `row_landed`, `row_failed` |an epic's row started, landed, or failed; `row_failed` carries the ended plan's `outcome` (`cancelled`, `abandoned`, `aborted`, `returned`), the plan outcome that mapped onto the row, never the row's status
+|`row_started`, `row_landed`, `row_failed` |an epic's row started, landed, or failed; `row_failed` carries the ended plan's `outcome` (`cancelled`, `abandoned`, `aborted`, `returned`, and `handed_back` where the landing reconciliation closes a handed-back row `abandoned`, its pull request closed unmerged), the plan outcome that mapped onto the row, never the row's status
 |`auto_changed` |an epic's automatic mode switched
 |`register_added` |a finding or a watch added to the epic's register (a new item of its `register.jsonl`, link:store-schemas/04-epic-and-change-ledger.adoc#epic-registers[Store Schemas Specification, Findings and Watches Registers])
 |`item_disposed` |an item of the epic's review disposed outside the chat (its disposition in `review.json`, link:store-schemas/04-epic-and-change-ledger.adoc#epic-review-draft[Store Schemas Specification, Review Dispositions])
