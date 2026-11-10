@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.HeaderJson.ArrayNode;
@@ -23,7 +25,6 @@ import de.planmarshall.workflow.plan.HeaderJson.Node;
 import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code diff_summary} of a line of the composition log (PM-IMPL-5, PM-WF-1): a composed version relative to the
@@ -39,6 +40,7 @@ import org.jspecify.annotations.Nullable;
  * @param gatesUnwaived   waived in the previous version, not in this one
  * @since 0.1
  */
+@Builder
 public record DiffSummary(List<PrunedElement> prunedAdded, List<PrunedElement> prunedRemoved,
 List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGate> gatesUnwaived) {
 
@@ -112,7 +114,12 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
                 var was = previousArgument == null ? null : previousArgument.value();
                 var is = currentArgument == null ? null : currentArgument.value();
                 if (!Objects.equals(was, is)) {
-                    changes.add(new CeilingChange(callSite, name, was, is));
+                    changes.add(CeilingChange.builder()
+                            .callSite(callSite)
+                            .argument(name)
+                            .previous(was)
+                            .value(is)
+                            .build());
                 }
             }
         }
@@ -135,6 +142,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
      * @param value    the value in this version; {@code null} where it does not bind the argument
      * @since 0.1
      */
+    @Builder
     public record CeilingChange(String callSite, String argument, @Nullable CallValue previous,
     @Nullable CallValue value) {
 

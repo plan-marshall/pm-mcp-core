@@ -92,8 +92,15 @@ final class LinkedWorktrees {
                     ? Optional.of(shortBranch(head.substring(REF_PREFIX.length())))
                     : Optional.empty();
             Optional<String> id = ObjectId.isId(head) ? Optional.of(head) : Optional.empty();
-            result.add(new Worktree(gitFile.getParent(), admin.getFileName().toString(), branch.orElse(null),
-                    id.orElse(null), false, Files.exists(admin.resolve(LOCKED)), !Files.exists(gitFile)));
+            result.add(Worktree.builder()
+                    .path(gitFile.getParent())
+                    .name(admin.getFileName().toString())
+                    .branch(branch.orElse(null))
+                    .head(id.orElse(null))
+                    .main(false)
+                    .locked(Files.exists(admin.resolve(LOCKED)))
+                    .prunable(!Files.exists(gitFile))
+                    .build());
         }
         return result;
     }

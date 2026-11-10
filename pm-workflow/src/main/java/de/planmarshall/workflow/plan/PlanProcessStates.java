@@ -14,6 +14,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.PlanHistoryLine;
@@ -21,7 +23,6 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The state of every node of a plan's process, derived from the plan's append-only history and the instance version in
@@ -96,30 +97,53 @@ public final class PlanProcessStates {
     private static NodeState nodeState(StateNode state, @Nullable PlanHistoryLine line, boolean ended,
             @Nullable String current) {
         if (line == null) {
-            return new NodeState(state.id(), ended ? State.NOT_TAKEN : State.PLANNED, null, null);
+            return NodeState.builder()
+                    .node(state.id())
+                    .state(ended ? State.NOT_TAKEN : State.PLANNED)
+                    .outcome(null)
+                    .reason(null)
+                    .build();
         }
         var terminalOutcome = state.terminalOutcome();
         if (line.event() == PlanHistoryLine.Event.LEFT) {
             return left(state, line, terminalOutcome);
         }
         if (terminalOutcome != null) {
-            return new NodeState(state.id(), isFailure(terminalOutcome) ? State.FAILED : State.DONE,
-                    terminalOutcome.id(), null);
+            return NodeState.builder()
+                    .node(state.id())
+                    .state(isFailure(terminalOutcome) ? State.FAILED : State.DONE)
+                    .outcome(terminalOutcome.id())
+                    .reason(null)
+                    .build();
         }
         var waiting = (state.behavior() instanceof StateBehavior.QuestionWait
                 || state.behavior() instanceof StateBehavior.InteractiveLinks)
                 && state.id().equals(current);
-        return new NodeState(state.id(), waiting ? State.WAITING_FOR_OPERATOR : State.RUNNING, null, null);
+        return NodeState.builder()
+                .node(state.id())
+                .state(waiting ? State.WAITING_FOR_OPERATOR : State.RUNNING)
+                .outcome(null)
+                .reason(null)
+                .build();
     }
 
     /** @return the node state of a state whose last history line is {@code left}: {@code failed} or {@code done} */
     private static NodeState left(StateNode state, PlanHistoryLine line, @Nullable TerminalOutcome terminalOutcome) {
         var lineOutcome = line.outcome();
         if (terminalOutcome != null && isFailure(terminalOutcome)) {
-            return new NodeState(state.id(), State.FAILED, lineOutcome != null ? lineOutcome : terminalOutcome.id(),
-                    null);
+            return NodeState.builder()
+                    .node(state.id())
+                    .state(State.FAILED)
+                    .outcome(lineOutcome != null ? lineOutcome : terminalOutcome.id())
+                    .reason(null)
+                    .build();
         }
-        return new NodeState(state.id(), State.DONE, lineOutcome, null);
+        return NodeState.builder()
+                .node(state.id())
+                .state(State.DONE)
+                .outcome(lineOutcome)
+                .reason(null)
+                .build();
     }
 
     private static boolean isFailure(TerminalOutcome outcome) {
@@ -134,12 +158,21 @@ public final class PlanProcessStates {
         var nodes = new ArrayList<NodeState>();
         instance.header().pruned().forEach(pruned -> {
             switch (pruned.element()) {
-                case STATE -> nodes.add(new NodeState(pruned.id(), State.NOT_IN_THIS_PLAN, null,
-                        pruned.reason().wireName()));
+                case STATE -> nodes.add(NodeState.builder()
+                        .node(pruned.id())
+                        .state(State.NOT_IN_THIS_PLAN)
+                        .outcome(null)
+                        .reason(pruned.reason().wireName())
+                        .build());
                 case CALL -> {
                     var slash = pruned.id().indexOf('/');
                     var callSite = slash > 0 ? pruned.id().substring(0, slash) : pruned.id();
-                    nodes.add(new NodeState(callSite, State.NOT_IN_THIS_PLAN, null, pruned.reason().wireName()));
+                    nodes.add(NodeState.builder()
+                            .node(callSite)
+                            .state(State.NOT_IN_THIS_PLAN)
+                            .outcome(null)
+                            .reason(pruned.reason().wireName())
+                            .build());
                 }
                 default -> {
                     // a pruned step, link or policy action is no node of the process
@@ -158,6 +191,7 @@ public final class PlanProcessStates {
      * @param reason  the prune reason of a {@link State#NOT_IN_THIS_PLAN} node; {@code null} for every other node
      * @since 0.1
      */
+    @Builder
     public record NodeState(String node, State state, @Nullable String outcome, @Nullable String reason) {
 
         /** @throws NullPointerException if the node or the state is {@code null} */

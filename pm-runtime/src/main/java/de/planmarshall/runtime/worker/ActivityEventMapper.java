@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
@@ -114,7 +115,16 @@ public final class ActivityEventMapper {
         var cut = truncated
                 ? text.substring(0, text.offsetByCodePoints(0, ActivityEntry.TEXT_BOUND))
                 : text;
-        return Optional.of(new Mapped(ActivityEntry.Kind.TEXT, cut, truncated, null, null, null, null, null));
+        return Optional.of(Mapped.builder()
+                .kind(ActivityEntry.Kind.TEXT)
+                .text(cut)
+                .truncated(truncated)
+                .tool(null)
+                .result(null)
+                .path(null)
+                .stopReason(null)
+                .usage(null)
+                .build());
     }
 
     private Optional<Mapped> toolCall(JsonNode root, KindMapping declaration) {
@@ -130,8 +140,16 @@ public final class ActivityEventMapper {
                 break;
             }
         }
-        return Optional.of(new Mapped(ActivityEntry.Kind.TOOL_CALL, null, false,
-                new ActivityEntry.Tool(tool, target), null, null, null, null));
+        return Optional.of(Mapped.builder()
+                .kind(ActivityEntry.Kind.TOOL_CALL)
+                .text(null)
+                .truncated(false)
+                .tool(new ActivityEntry.Tool(tool, target))
+                .result(null)
+                .path(null)
+                .stopReason(null)
+                .usage(null)
+                .build());
     }
 
     private Optional<Mapped> toolResult(JsonNode root, KindMapping declaration) {
@@ -147,8 +165,16 @@ public final class ActivityEventMapper {
         if (declaration.isErrorPointer() != null) {
             failed = resolve(root, declaration.isErrorPointer()).flatMap(JsonNode::booleanValue).orElse(false);
         }
-        return Optional.of(new Mapped(ActivityEntry.Kind.TOOL_RESULT, null, false, null,
-                new ActivityEntry.Result((int) size, failed), null, null, null));
+        return Optional.of(Mapped.builder()
+                .kind(ActivityEntry.Kind.TOOL_RESULT)
+                .text(null)
+                .truncated(false)
+                .tool(null)
+                .result(new ActivityEntry.Result((int) size, failed))
+                .path(null)
+                .stopReason(null)
+                .usage(null)
+                .build());
     }
 
     private Optional<Mapped> fileChanged(JsonNode root, KindMapping declaration) {
@@ -156,8 +182,16 @@ public final class ActivityEventMapper {
         if (path == null) {
             return Optional.empty();
         }
-        return Optional.of(new Mapped(ActivityEntry.Kind.FILE_CHANGED, null, false, null, null,
-                cutChars(path, 1000), null, null));
+        return Optional.of(Mapped.builder()
+                .kind(ActivityEntry.Kind.FILE_CHANGED)
+                .text(null)
+                .truncated(false)
+                .tool(null)
+                .result(null)
+                .path(cutChars(path, 1000))
+                .stopReason(null)
+                .usage(null)
+                .build());
     }
 
     /** Cuts by UTF-16 units, never splitting a surrogate pair: a target's or path's bound is its {@code length()}. */
@@ -174,8 +208,16 @@ public final class ActivityEventMapper {
                 ? null
                 : resolve(root, declaration.stopReasonPointer()).flatMap(JsonNode::text)
                 .map(ActivityEventMapper::stopReason).orElse(null);
-        return Optional.of(new Mapped(ActivityEntry.Kind.TURN, null, false, null, null, null,
-                stopReason, usage(root)));
+        return Optional.of(Mapped.builder()
+                .kind(ActivityEntry.Kind.TURN)
+                .text(null)
+                .truncated(false)
+                .tool(null)
+                .result(null)
+                .path(null)
+                .stopReason(stopReason)
+                .usage(usage(root))
+                .build());
     }
 
     /**
@@ -272,6 +314,7 @@ public final class ActivityEventMapper {
      * @param usage     the usage object as raw JSON text; {@code turn} only
      * @since 0.1
      */
+    @Builder
     public record Mapped(ActivityEntry.Kind kind, @Nullable String text, boolean truncated,
     ActivityEntry.@Nullable Tool tool, ActivityEntry.@Nullable Result result, @Nullable String path,
     ActivityEntry.@Nullable StopReason stopReason, @Nullable String usage) {

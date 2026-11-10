@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
 
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.Lane;
@@ -65,23 +66,46 @@ public final class SimplifyStep {
      * @return the descriptor of the step, read-only at order 5
      */
     public static FinalizeStepDescriptor descriptor() {
-        return new FinalizeStepDescriptor(NAME, FinalizeStepDescriptor.SIMPLIFY_ORDER, true, Set.of(),
-                "Reviews the touched code for simplifications and proposes them, read-only",
-                false, true, InputScope.PLAN_FOOTPRINT, List.of(),
-                false, false,
-                List.of("worktree", "outline", "intent"),
-                List.of(),
-                List.of("work_performed", CLONE_CANDIDATES, PROPOSALS),
-                new Lane(LaneClass.PRUNABLE, null, "land_lane", "M"),
-                List.of(), List.of(), REVIEW_ROLE, List.of(),
-                null, List.of());
+        return FinalizeStepDescriptor.builder()
+                .name(NAME)
+                .order(FinalizeStepDescriptor.SIMPLIFY_ORDER)
+                .defaultOn(true)
+                .presets(Set.of())
+                .description("Reviews the touched code for simplifications and proposes them, read-only")
+                .mutatesSource(false)
+                .headDependent(true)
+                .inputScope(InputScope.PLAN_FOOTPRINT)
+                .verdictInputs(List.of())
+                .advancesMainViaRebase(false)
+                .postRunReview(false)
+                .reads(List.of("worktree", "outline", "intent"))
+                .destroys(List.of())
+                .recordsFacts(List.of("work_performed", CLONE_CANDIDATES, PROPOSALS))
+                .lane(Lane.builder()
+                        .laneClass(LaneClass.PRUNABLE)
+                        .tier(null)
+                        .prunableWhen("land_lane")
+                        .costSize("M")
+                        .build())
+                .requires(List.of())
+                .configurable(List.of())
+                .persona(REVIEW_ROLE)
+                .requiresPromptFields(List.of())
+                .cannotReach(null)
+                .filesFindings(List.of())
+                .build();
     }
 
     /**
      * @return the review task, which carries no write tool and never takes the plan's writer slot
      */
     public static ReviewTask reviewTask() {
-        return new ReviewTask(REVIEW_ROLE, SKILL, false, false);
+        return ReviewTask.builder()
+                .role(REVIEW_ROLE)
+                .skill(SKILL)
+                .carriesWriteTool(false)
+                .takesWriterSlot(false)
+                .build();
     }
 
     /**
@@ -166,6 +190,7 @@ public final class SimplifyStep {
      * @param takesWriterSlot whether the task takes the plan's writer slot
      * @since 0.1
      */
+    @Builder
     public record ReviewTask(String role, String skill, boolean carriesWriteTool, boolean takesWriterSlot) {
 
         /**

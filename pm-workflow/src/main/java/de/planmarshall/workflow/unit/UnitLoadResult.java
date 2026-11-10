@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
@@ -85,7 +86,12 @@ public record UnitLoadResult(Map<String, WorkflowDefinition> units, List<UnitFin
      */
     public Optional<Refusal> refusal() {
         return findings.stream().findFirst()
-                .map(first -> new Refusal(CONFIG_INVALID, first.file(), first.line(), first.message()));
+                .map(first -> Refusal.builder()
+                        .code(CONFIG_INVALID)
+                        .file(first.file())
+                        .line(first.line())
+                        .message(first.message())
+                        .build());
     }
 
     /**
@@ -96,6 +102,7 @@ public record UnitLoadResult(Map<String, WorkflowDefinition> units, List<UnitFin
      * @param line    the line of the first finding
      * @param message the message of the first finding
      */
+    @Builder
     public record Refusal(String code, String file, int line, String message) {
     }
 }

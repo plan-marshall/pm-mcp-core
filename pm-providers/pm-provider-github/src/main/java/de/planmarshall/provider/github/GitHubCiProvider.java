@@ -226,8 +226,12 @@ public final class GitHubCiProvider implements CiProvider {
         // address a request, and the refusal names no remote text.
         Optional<RepositoryRef> head;
         try {
-            head = payload.headRepository().map(headRepository -> new RepositoryRef(PROVIDER_ID, origin,
-                    headRepository.owner(), headRepository.name()));
+            head = payload.headRepository().map(headRepository -> RepositoryRef.builder()
+                    .forge(PROVIDER_ID)
+                    .origin(origin)
+                    .ownerOrPath(headRepository.owner())
+                    .name(headRepository.name())
+                    .build());
         } catch (IllegalArgumentException _) {
             return Result.of(Result.Outcome.FAILED, "the head repository is no repository name");
         }

@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * The token-based clone detection the server runs before the {@code finalize.simplify} task, in-process and without a
@@ -114,8 +115,13 @@ public final class CloneDetector {
                     .normalized())) {
                 length++;
             }
-            candidates.add(new CloneCandidate(file.path(), range(added, start, length), occurrence.path(),
-                    range(occurrence.tokens(), occurrence.start(), length), length));
+            candidates.add(CloneCandidate.builder()
+                    .addedPath(file.path())
+                    .addedRange(range(added, start, length))
+                    .existingPath(occurrence.path())
+                    .existingRange(range(occurrence.tokens(), occurrence.start(), length))
+                    .tokens(length)
+                    .build());
             start += length;
         }
         return candidates;
@@ -153,6 +159,7 @@ public final class CloneDetector {
     }
 
     /** Where a normalized run repeats in the tree. */
+    @Builder
     private record Occurrence(String path, List<Token> tokens, int start) {
     }
 

@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
@@ -39,7 +41,6 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Composes one version of a plan instance and verifies it before anyone may write it (PM-IMPL-5, PM-WF-1, PM-EXT-7,
@@ -151,16 +152,31 @@ public final class PlanInstanceComposer {
                     .map(state -> "position: version %d does not contain the state '%s'".formatted(version, state))
                     .toList());
         }
-        var header = new PlanInstanceHeader(request.planId(), version, request.event(), clock.instant(),
-                inputs(request, composed, version), facts.lane(), facts.posture(), pruned.steps(),
-                prunedElements(pruned.pruned(), composed.pruned()), pruned.policyCalls(), pruned.waivedGates());
+        var header = PlanInstanceHeader.builder()
+                .planId(request.planId())
+                .version(version)
+                .event(request.event())
+                .composedAt(clock.instant())
+                .inputs(inputs(request, composed, version))
+                .lane(facts.lane())
+                .posture(facts.posture())
+                .steps(pruned.steps())
+                .pruned(prunedElements(pruned.pruned(), composed.pruned()))
+                .policyCalls(pruned.policyCalls())
+                .waivedGates(pruned.waivedGates())
+                .build();
         var unit = unit(request.template(), header, pruned.states());
         var violations = verify(request, header, unit, lanePruned, pruned.settled());
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
-        return new CompositionResult.Composed(new PlanInstance(version, header, unit, WorkflowPrinter.print(unit),
-                composed.units()));
+        return new CompositionResult.Composed(PlanInstance.builder()
+                .version(version)
+                .header(header)
+                .unit(unit)
+                .text(WorkflowPrinter.print(unit))
+                .units(composed.units())
+                .build());
     }
 
     /**
@@ -219,7 +235,13 @@ public final class PlanInstanceComposer {
         }
         var ordered = request.subUnits().stream().map(subUnit -> subUnit.definition().id())
                 .filter(units::containsKey).distinct().map(units::get).toList();
-        return new Composed(ordered, states, bound, prunes, unresolved);
+        return Composed.builder()
+                .units(ordered)
+                .positionStates(states)
+                .subUnits(bound)
+                .pruned(prunes)
+                .unresolved(unresolved)
+                .build();
     }
 
     /**
@@ -255,6 +277,7 @@ public final class PlanInstanceComposer {
      * @param pruned        every element a composed unit's composition left out
      * @param unresolved    the ids a kept call names that the request supplies no sub-unit for
      */
+    @Builder
     private record Composed(List<ComposedUnit> units, Set<String> positionStates, Set<String> subUnits,
     List<PrunedElement> pruned, Set<String> unresolved) {
     }
@@ -278,11 +301,25 @@ public final class PlanInstanceComposer {
             int version) {
         var pruned = InstancePruner.prune(definition, effects, bound, request.waivers(), request.verificationSteps(),
                 request.finalizeSteps(), lane);
-        var composed = new WorkflowDefinition(definition.frontmatter(), definition.id(), version, definition.scope(),
-                definition.params(), definition.resultSchema(), null, definition.declarations(),
-                definition.decisions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
-                definition.startState(), definition.entryBindings(), definition.migrations(), pruned.states(),
-                definition.location());
+        var composed = WorkflowDefinition.builder()
+                .frontmatter(definition.frontmatter())
+                .id(definition.id())
+                .version(version)
+                .scope(definition.scope())
+                .params(definition.params())
+                .resultSchema(definition.resultSchema())
+                .instance(null)
+                .declarations(definition.declarations())
+                .decisions(definition.decisions())
+                .formatVersion(definition.formatVersion())
+                .origin(definition.origin())
+                .derivedFrom(definition.derivedFrom())
+                .startState(definition.startState())
+                .entryBindings(definition.entryBindings())
+                .migrations(definition.migrations())
+                .states(pruned.states())
+                .location(definition.location())
+                .build();
         return new UnitComposition(ComposedUnit.of(definition.id(), composed), pruned.pruned());
     }
 
@@ -312,8 +349,12 @@ public final class PlanInstanceComposer {
         composed.units().forEach(unit -> composedIds.add(unit.unit()));
         var templates = new ArrayList<UnitReference>();
         for (var reference : request.templates()) {
-            templates.add(new UnitReference(reference.unit(), PlanInstanceStore.versionPath(version),
-                    reference.digest(), reference.origin()));
+            templates.add(UnitReference.builder()
+                    .unit(reference.unit())
+                    .file(PlanInstanceStore.versionPath(version))
+                    .digest(reference.digest())
+                    .origin(reference.origin())
+                    .build());
         }
         for (var unit : composed.units()) {
             var source = request.subUnits().stream()
@@ -326,9 +367,17 @@ public final class PlanInstanceComposer {
                 .filter(reference -> composed.subUnits().contains(reference.unit())
                         || DeclarationBounds.ADJUDICATION_UNIT.equals(reference.unit()))
                 .toList();
-        return new CompositionInputs(request.configHash(), templates, subUnits, rules.revision(),
-                rules.digest(), request.facts().digest(), request.realizedFootprintDigest(),
-                request.facts().changeType(), request.providersDigest());
+        return CompositionInputs.builder()
+                .configHash(request.configHash())
+                .templates(templates)
+                .subUnits(subUnits)
+                .compositionRulesRevision(rules.revision())
+                .compositionRulesDigest(rules.digest())
+                .planFactsDigest(request.facts().digest())
+                .realizedFootprintDigest(request.realizedFootprintDigest())
+                .changeType(request.facts().changeType())
+                .providersDigest(request.providersDigest())
+                .build();
     }
 
     private static Optional<String> callee(StateNode state) {
@@ -339,29 +388,68 @@ public final class PlanInstanceComposer {
     private static WorkflowDefinition unit(WorkflowDefinition template, PlanInstanceHeader header,
             Map<String, StateNode> states) {
         var inputs = header.inputs();
-        var instance = new InstanceHeader(header.planId(), header.version(), header.event().wireName(),
-                new InstanceInputs(inputs.configHash(), unitRefs(inputs.templates()), unitRefs(inputs.subUnits()),
-                        new InstanceInputs.CompositionRules(inputs.compositionRulesRevision(),
-                                inputs.compositionRulesDigest()), inputs.planFactsDigest(),
-                        inputs.realizedFootprintDigest(), inputs.changeType(), inputs.providersDigest()),
-                HeaderJson.write(header));
-        return new WorkflowDefinition(instanceFrontmatter(template.frontmatter()), PLAN_UNIT, header.version(),
-                template.scope(), template.params(), template.resultSchema(), instance,
-                template.declarations(), template.decisions(), template.formatVersion(), template.origin(),
-                Map.<String, Integer>of(), template.startState(), template.entryBindings(), template.migrations(),
-                states, template.location());
+        var instance = InstanceHeader.builder()
+                .planId(header.planId())
+                .version(header.version())
+                .event(header.event().wireName())
+                .inputs(InstanceInputs.builder()
+                        .configHash(inputs.configHash())
+                        .templates(unitRefs(inputs.templates()))
+                        .subUnits(unitRefs(inputs.subUnits()))
+                        .compositionRules(new InstanceInputs.CompositionRules(inputs.compositionRulesRevision(),
+                                inputs.compositionRulesDigest()))
+                        .planFactsDigest(inputs.planFactsDigest())
+                        .realizedFootprintDigest(inputs.realizedFootprintDigest())
+                        .changeType(inputs.changeType())
+                        .providersDigest(inputs.providersDigest())
+                        .build())
+                .json(HeaderJson.write(header))
+                .build();
+        return WorkflowDefinition.builder()
+                .frontmatter(instanceFrontmatter(template.frontmatter()))
+                .id(PLAN_UNIT)
+                .version(header.version())
+                .scope(template.scope())
+                .params(template.params())
+                .resultSchema(template.resultSchema())
+                .instance(instance)
+                .declarations(template.declarations())
+                .decisions(template.decisions())
+                .formatVersion(template.formatVersion())
+                .origin(template.origin())
+                .derivedFrom(Map.<String, Integer>of())
+                .startState(template.startState())
+                .entryBindings(template.entryBindings())
+                .migrations(template.migrations())
+                .states(states)
+                .location(template.location())
+                .build();
     }
 
     /** The frontmatter of a composed version: the template's, with the type {@link UnitType#INSTANCE}. */
     private static UnitFrontmatter instanceFrontmatter(UnitFrontmatter template) {
-        return new UnitFrontmatter(template.name(), template.description(), UnitType.INSTANCE, template.icon(),
-                template.entries(), template.exits(), template.modificationDate(), template.version(),
-                template.author(), template.signature(), template.location());
+        return UnitFrontmatter.builder()
+                .name(template.name())
+                .description(template.description())
+                .type(UnitType.INSTANCE)
+                .icon(template.icon())
+                .entries(template.entries())
+                .exits(template.exits())
+                .modificationDate(template.modificationDate())
+                .version(template.version())
+                .author(template.author())
+                .signature(template.signature())
+                .location(template.location())
+                .build();
     }
 
     private static List<InstanceInputs.UnitRef> unitRefs(List<UnitReference> references) {
-        return references.stream().map(reference -> new InstanceInputs.UnitRef(reference.unit(),
-                reference.file(), reference.digest(), UnitReference.wireName(reference.origin())))
+        return references.stream().map(reference -> InstanceInputs.UnitRef.builder()
+                .unit(reference.unit())
+                .file(reference.file())
+                .digest(reference.digest())
+                .origin(UnitReference.wireName(reference.origin()))
+                .build())
                 .toList();
     }
 

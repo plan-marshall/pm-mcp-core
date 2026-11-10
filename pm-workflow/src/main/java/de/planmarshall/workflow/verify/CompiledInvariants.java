@@ -208,8 +208,12 @@ public final class CompiledInvariants {
         var reference = defaultUnits.get(unit.id());
         if (reference == null) {
             var found = new ArrayList<>(ruleViolations(unit, rules));
-            found.add(new InvariantViolation(InvariantId.INV_GEN_1, unit.id(), unit.location(),
-                    "there is no default unit '%s' to compare the unit with".formatted(unit.id())));
+            found.add(InvariantViolation.builder()
+                    .id(InvariantId.INV_GEN_1)
+                    .stateId(unit.id())
+                    .location(unit.location())
+                    .message("there is no default unit '%s' to compare the unit with".formatted(unit.id()))
+                    .build());
             return ordered(unit, found);
         }
         var context = new Context(unit, reference, defaultUnits, callable, rules, List.copyOf(pipeline), registry,
@@ -255,8 +259,13 @@ public final class CompiledInvariants {
             var id = (PLAN_UNIT.equals(unit.id()) || Phase.FINALIZE.unitId().equals(unit.id()))
                     && violation.rule() == VerificationRule.STEP_COMPLETION
                     ? InvariantId.INV_FIN_3 : InvariantId.INV_GEN_1;
-            return new InvariantViolation(id, violation.stateId(), violation.location(), "Rule %d (%s): %s".formatted(
-                    violation.rule().specificationRule(), violation.rule(), violation.message()));
+            return InvariantViolation.builder()
+                    .id(id)
+                    .stateId(violation.stateId())
+                    .location(violation.location())
+                    .message("Rule %d (%s): %s".formatted(violation.rule().specificationRule(), violation.rule(),
+                            violation.message()))
+                    .build();
         }).toList();
     }
 
@@ -295,9 +304,13 @@ public final class CompiledInvariants {
             return List.of();
         }
         return DeclarationBounds.check(unit).stream()
-                .map(finding -> new InvariantViolation(id, unit.id(), finding.location(),
-                        "%s '%s' (bound %s): %s".formatted(finding.code(), finding.name(), finding.bound(),
-                                finding.message())))
+                .map(finding -> InvariantViolation.builder()
+                        .id(id)
+                        .stateId(unit.id())
+                        .location(finding.location())
+                        .message("%s '%s' (bound %s): %s".formatted(finding.code(), finding.name(), finding.bound(),
+                                finding.message()))
+                        .build())
                 .toList();
     }
 

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleSkill;
@@ -54,8 +55,12 @@ public final class PromptComposer {
             if (request.zeroToolPrompt().isEmpty()) {
                 throw new CompositionException("the zero_tool prompt of the role is empty");
             }
-            return new LaunchPrompt(request.zeroToolPrompt(), ResolvedSkill.sha256(request.zeroToolPrompt()), List.of(),
-                    request.zeroToolPrompt().length());
+            return LaunchPrompt.builder()
+                    .text(request.zeroToolPrompt())
+                    .digest(ResolvedSkill.sha256(request.zeroToolPrompt()))
+                    .delivered(List.of())
+                    .prefixLength(request.zeroToolPrompt().length())
+                    .build();
         }
         var prefix = new StringBuilder();
         prefix.append(request.shimParagraph().strip()).append("\n\n");
@@ -70,7 +75,12 @@ public final class PromptComposer {
             perLaunch.append(request.envelope().render());
         }
         text.append(perLaunch);
-        return new LaunchPrompt(text.toString(), ResolvedSkill.sha256(text.toString()), delivered, prefix.length());
+        return LaunchPrompt.builder()
+                .text(text.toString())
+                .digest(ResolvedSkill.sha256(text.toString()))
+                .delivered(delivered)
+                .prefixLength(prefix.length())
+                .build();
     }
 
     private static void appendPrefixSkills(StringBuilder out, PromptRequest request, List<ResolvedSkill> delivered) {
@@ -146,6 +156,7 @@ public final class PromptComposer {
      * @param inBandBoundChars the in-band bound; {@code 0} for no bound
      * @since 0.1
      */
+    @Builder
     public record PromptRequest(String shimParagraph, boolean zeroTool, String zeroToolPrompt, SkillSource skills,
     List<RoleSkill> roleSkills, boolean fresh, boolean writesFreeText, List<String> stateSkills,
     List<String> domainSkills, @Nullable ContractEnvelope envelope, int inBandBoundChars) {

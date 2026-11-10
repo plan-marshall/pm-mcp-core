@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -91,6 +92,7 @@ public final class CredentialStoreCheck {
      * @param answer     the store's own answer where there is one: the reason code and message of its failure;
      *                   {@code null} when none
      */
+    @Builder
     public record CheckLine(Step step, Outcome outcome, String messageKey, List<String> arguments,
     @Nullable String answer) {
 
@@ -166,9 +168,13 @@ public final class CredentialStoreCheck {
         try {
             var read = store.get(account);
             if (read.isEmpty() || !read.get().equals(value)) {
-                lines.add(new CheckLine(Step.READ_BACK, Outcome.FAILED,
-                        key(Step.READ_BACK, read.isEmpty() ? "missing" : "differs"), arguments(store.name()),
-                        null));
+                lines.add(CheckLine.builder()
+                        .step(Step.READ_BACK)
+                        .outcome(Outcome.FAILED)
+                        .messageKey(key(Step.READ_BACK, read.isEmpty() ? "missing" : "differs"))
+                        .arguments(arguments(store.name()))
+                        .answer(null)
+                        .build());
                 cleanUp(store, account);
                 return new Result(lines);
             }
@@ -180,8 +186,13 @@ public final class CredentialStoreCheck {
         lines.add(ok(Step.READ_BACK, store.name()));
         try {
             if (!store.delete(account)) {
-                lines.add(new CheckLine(Step.DELETE, Outcome.FAILED, key(Step.DELETE, "missing"),
-                        arguments(store.name()), null));
+                lines.add(CheckLine.builder()
+                        .step(Step.DELETE)
+                        .outcome(Outcome.FAILED)
+                        .messageKey(key(Step.DELETE, "missing"))
+                        .arguments(arguments(store.name()))
+                        .answer(null)
+                        .build());
                 return new Result(lines);
             }
         } catch (SecretStoreException e) {
@@ -209,12 +220,23 @@ public final class CredentialStoreCheck {
     }
 
     private static CheckLine ok(Step step, String store) {
-        return new CheckLine(step, Outcome.OK, key(step, "ok"), arguments(store), null);
+        return CheckLine.builder()
+                .step(step)
+                .outcome(Outcome.OK)
+                .messageKey(key(step, "ok"))
+                .arguments(arguments(store))
+                .answer(null)
+                .build();
     }
 
     private static CheckLine failed(Step step, String what, String store, SecretStoreException e) {
-        return new CheckLine(step, Outcome.FAILED, key(step, what), arguments(store),
-                e.reason().code() + ": " + e.getMessage());
+        return CheckLine.builder()
+                .step(step)
+                .outcome(Outcome.FAILED)
+                .messageKey(key(step, what))
+                .arguments(arguments(store))
+                .answer(e.reason().code() + ": " + e.getMessage())
+                .build();
     }
 
     private static String key(Step step, String what) {

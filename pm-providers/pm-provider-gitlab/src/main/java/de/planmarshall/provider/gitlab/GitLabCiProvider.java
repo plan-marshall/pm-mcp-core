@@ -291,8 +291,12 @@ public final class GitLabCiProvider implements CiProvider {
             return Optional.empty();
         }
         try {
-            return Optional.of(new RepositoryRef(PROVIDER_ID, origin, path.substring(0, slash),
-                    path.substring(slash + 1)));
+            return Optional.of(RepositoryRef.builder()
+                    .forge(PROVIDER_ID)
+                    .origin(origin)
+                    .ownerOrPath(path.substring(0, slash))
+                    .name(path.substring(slash + 1))
+                    .build());
         } catch (IllegalArgumentException _) {
             return Optional.empty();
         }

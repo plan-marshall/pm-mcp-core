@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.Consent;
@@ -126,6 +127,7 @@ public final class CredentialStoreAspect {
      * @param moveEntries the count of entries a move would carry, for {@code store.confirm-move}
      * @since 0.1
      */
+    @Builder
     public record Transition(State next, @Nullable String reason, @Nullable String detail,
     @Nullable Consent toRecord, List<CheckLine> lines, OptionalInt moveEntries) {
 
@@ -229,7 +231,14 @@ public final class CredentialStoreAspect {
         if (!decision.runs()) {
             return Transition.to(State.CONSENT);
         }
-        return new Transition(State.CHECK, null, null, decision.toRecord(), List.of(), OptionalInt.empty());
+        return Transition.builder()
+                .next(State.CHECK)
+                .reason(null)
+                .detail(null)
+                .toRecord(decision.toRecord())
+                .lines(List.of())
+                .moveEntries(OptionalInt.empty())
+                .build();
     }
 
     /**
@@ -246,18 +255,35 @@ public final class CredentialStoreAspect {
         var result = check.check(choice.backendOf(store));
         if (!result.passed()) {
             var last = result.lines().getLast();
-            return new Transition(State.UNAVAILABLE, last.messageKey(),
-                    String.join(" ", last.arguments()), null, result.lines(),
-                    OptionalInt.empty());
+            return Transition.builder()
+                    .next(State.UNAVAILABLE)
+                    .reason(last.messageKey())
+                    .detail(String.join(" ", last.arguments()))
+                    .toRecord(null)
+                    .lines(result.lines())
+                    .moveEntries(OptionalInt.empty())
+                    .build();
         }
         LOGGER.info(INFO.CREDENTIAL_STORE_CHECK_PASSED, store.value());
         var recorded = choice.recorded();
         if (recorded.isPresent() && recorded.get() != store) {
-            return new Transition(State.CONFIRM_MOVE, null, null, null,
-                    result.lines(), OptionalInt.empty());
+            return Transition.builder()
+                    .next(State.CONFIRM_MOVE)
+                    .reason(null)
+                    .detail(null)
+                    .toRecord(null)
+                    .lines(result.lines())
+                    .moveEntries(OptionalInt.empty())
+                    .build();
         }
-        return new Transition(State.RECORD, null, null, null, result.lines(),
-                OptionalInt.empty());
+        return Transition.builder()
+                .next(State.RECORD)
+                .reason(null)
+                .detail(null)
+                .toRecord(null)
+                .lines(result.lines())
+                .moveEntries(OptionalInt.empty())
+                .build();
     }
 
     /**
@@ -268,8 +294,14 @@ public final class CredentialStoreAspect {
      */
     public Transition confirmMove() {
         try {
-            return new Transition(State.MOVE, null, null, null, List.of(),
-                    OptionalInt.of(move.recordedEntries()));
+            return Transition.builder()
+                    .next(State.MOVE)
+                    .reason(null)
+                    .detail(null)
+                    .toRecord(null)
+                    .lines(List.of())
+                    .moveEntries(OptionalInt.of(move.recordedEntries()))
+                    .build();
         } catch (Refusal | SecretStoreException | StoreRefusal | UncheckedIOException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
         }
