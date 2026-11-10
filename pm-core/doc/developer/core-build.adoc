@@ -217,7 +217,9 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   is `NPM_ERROR` and names the quoted package specification it could not find; every other code is `NPM_ERROR` with the
   block's first reportable line, which is the code line itself. Both named forms point into `package.json` without a line.
   A log with no error block whose install completion line reads `added|removed|changed N packages` or
-  `up to date, audited N packages` is a clean install: it files no diagnostic and sets the success marker.
+  `up to date, audited N packages` is a clean install: it files no diagnostic and sets the success marker. The generic
+  block's message is redacted through `SecretRedactor` before it is cut to the stored length, so a truncated message
+  cannot keep half a secret; the `ERESOLVE` and `E404` messages are built from dependency names and need no redaction.
 * *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
   `TSnnnn: message`. Both forms are scanned over every line, so a log that mixes them keeps all of its diagnostics.
 * *ESLint* — a file-header line sets the file and each `line:col severity message rule` row below it is a `LINT_ERROR`

@@ -19,6 +19,8 @@ import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
  * The native parse of an npm error log, ported from {@code build-npm/_npm_parse_errors.py}.
  * <p>
@@ -26,8 +28,9 @@ import org.jspecify.annotations.Nullable;
  * {@code npm error } prefix of npm 12 on — and classifies each block by its code. An
  * {@code ERESOLVE} block is {@link Category#NPM_DEPENDENCY} and names the conflicting peer dependency when the
  * {@code Could not resolve dependency:} trailer names one; an {@code E404} block is {@link Category#NPM_ERROR} and names
- * the package the registry does not hold; every other code is {@link Category#NPM_ERROR} with the first line of the block
- * as its message. Both named forms point into {@code package.json} without a line, as in the original.
+ * the package the registry does not hold; every other code is {@link Category#NPM_ERROR} whose message is the code and the
+ * first line of the block, redacted through {@link SecretRedactor} before the stored-length cut so a truncated message
+ * cannot keep half a secret. Both named forms point into {@code package.json} without a line, as in the original.
  * <p>
  * The install family prints no error block; its completion line ({@code added 150 packages in 10s},
  * {@code up to date, audited 5 packages}) is the tool's positive success marker ({@link #printsInstallSummary}), so a
@@ -150,9 +153,22 @@ public class NpmErrorParser {
                     Severity.ERROR, null);
             case E404 -> new Diagnostic(PACKAGE_JSON, null, null, e404Message(block), Category.NPM_ERROR, Severity.ERROR,
                     null);
-            default -> new Diagnostic(null, null, null, DiagnosticCollector.stored(code + ": " + firstLine(block)),
+            default -> new Diagnostic(null, null, null,
+                    storedRedacted(code + ": " + firstLine(block)),
                     Category.NPM_ERROR, Severity.ERROR, null);
         };
+    }
+
+    /**
+     * Redacts a generic block's composed message before the stored-length cut, so a cut value cannot keep a prefix the
+     * redactor would have matched whole. The dedicated `ERESOLVE` and `E404` messages are built from dependency names and
+     * need no redaction.
+     *
+     * @param message the composed message
+     * @return the redacted message, cut to the stored length
+     */
+    private static String storedRedacted(String message) {
+        return DiagnosticCollector.stored(SecretRedactor.redactText(message).orElseThrow());
     }
 
     private static String eresolveMessage(List<String> block) {

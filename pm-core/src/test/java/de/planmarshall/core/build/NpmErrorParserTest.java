@@ -19,6 +19,8 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
  * The ported tests of {@link NpmErrorParser} (PM-TEST-2): one case per plain-file fixture below
  * {@code ported/build/npm-errors}, derived by hand from the original's log and its pytest case.
@@ -93,6 +95,23 @@ class NpmErrorParserTest extends ParsedBuildPortedTest {
         ParsedBuild build = NpmErrorParser.parse("some unrelated output\n");
 
         assertFalse(build.successMarker(), "an unrecognised log is no marker");
+    }
+
+    @Test
+    @DisplayName("a generic message that carries a URL secret is redacted")
+    void redactsTheGenericMessage() {
+        // The generic message is the code token plus the first reportable line. The code token carries the
+        // user-information shape here, so the redaction of the filed message is exercised at its source.
+        var log = "npm ERR! code https://deploy:s3cr3t-value@registry.example/pkg\n";
+
+        ParsedBuild build = NpmErrorParser.parse(log);
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "the block files one diagnostic"),
+                () -> assertFalse(build.diagnostics().getFirst().message().contains("s3cr3t-value"),
+                        "the URL secret is not in the message"),
+                () -> assertTrue(build.diagnostics().getFirst().message().contains(SecretRedactor.REDACTED),
+                        "the message names the mask"));
     }
 
     @Override
