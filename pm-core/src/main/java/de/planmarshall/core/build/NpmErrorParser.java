@@ -53,8 +53,8 @@ import de.planmarshall.core.queue.SecretRedactor;
 public class NpmErrorParser {
 
     /**
-     * The two error prefixes npm prints: `npm ERR! ` up to npm 11 and `npm error ` from npm 12 on. The same failure
-     * carries the same block under either prefix.
+     * The two error prefixes npm prints: {@code npm ERR!} up to npm 11 and {@code npm error} from npm 12 on. The same
+     * failure carries the same block under either prefix.
      */
     private static final Pattern ERROR_PREFIX = Pattern.compile("^(?:npm ERR!|npm error) ");
 
@@ -165,8 +165,8 @@ public class NpmErrorParser {
 
     /**
      * Redacts a generic block's composed message before the stored-length cut, so a cut value cannot keep a prefix the
-     * redactor would have matched whole. The dedicated `ERESOLVE` and `E404` messages are built from dependency names and
-     * need no redaction.
+     * redactor would have matched whole. The dedicated {@code ERESOLVE} and {@code E404} messages are built from
+     * dependency names and need no redaction.
      *
      * @param message the composed message
      * @return the redacted message, cut to the stored length
