@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -44,6 +45,7 @@ import de.planmarshall.core.profile.ProfileValidator;
  * @param askUserTool             the harness tool that asks the user, which no role may name
  * @since 0.1
  */
+@Builder
 public record HarnessProfile(String clientId, boolean eligible, boolean restrictedModelsDeclared,
 Set<String> restrictedModels, Map<RoleClass, ToolSet> classes, Map<String, List<String>> modelEfforts,
 Map<String, String> modelTiers, @Nullable Integer contextBudgetTokens, @Nullable Integer idleWakeups,
@@ -76,6 +78,7 @@ Resumability resumability, String askUserTool) {
      * @param maxResumeAgeSeconds  the oldest stored session measured to resume; {@code null} when resume is false
      * @since 0.1
      */
+    @Builder
     public record Resumability(boolean hold, @Nullable Integer maxHoldSeconds, boolean resume,
     @Nullable Integer maxResumeAgeSeconds) {
     }
@@ -175,7 +178,9 @@ Resumability resumability, String askUserTool) {
         var endpoint = EndpointProfile.of(document);
         return new HarnessProfile(profile.clientId(), true, false, Set.of(),
                 Map.of(RoleClass.ZERO_TOOL, ToolSet.ENFORCED), Map.of(), endpoint.modelTiers(),
-                endpoint.endpoint().contextBudgetTokens(), null, new Resumability(false, null, false, null), "");
+                endpoint.endpoint().contextBudgetTokens(), null,
+                Resumability.builder().hold(false).maxHoldSeconds(null).resume(false).maxResumeAgeSeconds(null).build(),
+                "");
     }
 
     private static Map<RoleClass, ToolSet> classes(JsonNode headless) {
@@ -228,7 +233,8 @@ Resumability resumability, String askUserTool) {
 
     private static Resumability resumability(JsonNode headless) {
         if (headless.isNull()) {
-            return new Resumability(false, null, false, null);
+            return Resumability.builder().hold(false).maxHoldSeconds(null).resume(false).maxResumeAgeSeconds(null)
+                    .build();
         }
         var declared = headless.member("resumability").orElse(JsonNode.nullValue());
         var hold = declared.member("hold").flatMap(JsonNode::booleanValue).orElse(false);
@@ -236,7 +242,8 @@ Resumability resumability, String askUserTool) {
         var resume = declared.member("resume").orElse(JsonNode.nullValue());
         var canResume = !resume.isNull();
         var maxResume = canResume ? integer(resume, "max_age_seconds").orElse(null) : null;
-        return new Resumability(hold, maxHold, canResume, maxResume);
+        return Resumability.builder().hold(hold).maxHoldSeconds(maxHold).resume(canResume)
+                .maxResumeAgeSeconds(maxResume).build();
     }
 
     private static Optional<Integer> integer(JsonNode node, String member) {

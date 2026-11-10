@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 
 /**
  * The operator's level for role qualification (Store Schemas § Operator Local Configuration,
@@ -31,6 +32,7 @@ import java.util.regex.Pattern;
  * @param skipDecisions  whether the setup run calibrates no quorum declaration
  * @since 0.1
  */
+@Builder
 public record QualificationSettings(int agreementLevel, int allowedGap, List<String> skipRoles,
 boolean skipDecisions) {
 

@@ -12,6 +12,7 @@ package de.planmarshall.core.role.qualification;
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
@@ -36,6 +37,7 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  *                       {@code null} when there is none
  * @since 0.1
  */
+@Builder
 public record GradingPlan(EffectiveRole role, List<ImportedItem> items, ImportResult importResult,
 String corpusRevision, URI projectRepository, GradingProfile profile, JudgeConfiguration judge,
 ItemCheckout checkouts, @Nullable QualificationRecord previous) {

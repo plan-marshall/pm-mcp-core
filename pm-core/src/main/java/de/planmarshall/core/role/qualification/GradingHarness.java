@@ -11,6 +11,7 @@ package de.planmarshall.core.role.qualification;
 
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.corpus.ImportedItem;
@@ -45,6 +46,7 @@ public interface GradingHarness {
      * @param run      the run of the item, from {@code 1}; above one for the screener's repeated runs
      * @since 0.1
      */
+    @Builder
     record Offered(ImportedItem item, RoleForm form, Checkout checkout, int run) {
 
         /**

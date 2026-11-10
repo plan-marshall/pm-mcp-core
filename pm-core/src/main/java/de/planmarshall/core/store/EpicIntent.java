@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * The intent of an epic (Store Schemas § Epic Header; {@code epic-intent}): what the epic is for, the checks that say
@@ -27,6 +28,7 @@ import java.util.Objects;
  * @param notYetSpecified  questions that can be stated but are not yet answered
  * @since 0.1
  */
+@Builder
 public record EpicIntent(String destination, List<String> doneWhen, List<String> nonGoals,
 List<String> notYetSpecified) {
 

@@ -12,6 +12,7 @@ package de.planmarshall.core.role.qualification;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 /**
  * The port through which a grading run sends a rubric answer to a task of the judge role (Model Work § Grading): the
@@ -39,6 +40,7 @@ public interface JudgeScorer {
      * @param answer    the answer to score
      * @since 0.1
      */
+    @Builder
     record JudgePrompt(String itemId, String question, String facts, String reference, String answer) {
 
         /**

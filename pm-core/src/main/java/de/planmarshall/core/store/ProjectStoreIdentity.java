@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @param unenrolledAt when the project was unenrolled; {@code null} while it is enrolled
  * @since 0.1
  */
+@Builder
 public record ProjectStoreIdentity(String projectId, String projectRoot, String displayName, Instant createdAt,
 @Nullable Instant unenrolledAt) {
 
