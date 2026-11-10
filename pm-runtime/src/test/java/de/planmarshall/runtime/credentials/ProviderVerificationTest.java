@@ -213,17 +213,44 @@ class ProviderVerificationTest {
 
         var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
 
-        var origin = result.lines().getFirst().answer();
-        var credential = result.lines().get(1).answer();
+        var origin = result.lines().getFirst();
+        var credential = result.lines().get(1);
         assertAll(
-                () -> assertFalse(origin.contains("abcdefgh12345678"),
+                () -> assertFalse(origin.answer().contains("abcdefgh12345678"),
                         "the bearer value must not reach the line"),
-                () -> assertTrue(origin.contains("[redacted]"),
+                () -> assertTrue(origin.answer().contains("[redacted]"),
                         "the answer keeps its label with the value redacted"),
-                () -> assertFalse(credential.contains("sk-abcdefghijklmnopqrst"),
+                () -> assertFalse(credential.answer().contains("sk-abcdefghijklmnopqrst"),
                         "the token must not reach the line"),
-                () -> assertTrue(credential.contains("[redacted]"),
-                        "the token's label stays in the answer"));
+                () -> assertTrue(credential.answer().contains("[redacted]"),
+                        "the token's label stays in the answer"),
+                () -> assertFalse(origin.toString().contains("abcdefgh12345678"),
+                        "nor an argument of the line"),
+                () -> assertFalse(credential.toString().contains("sk-abcdefghijklmnopqrst"),
+                        "nor an argument of the other line"),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
+    }
+
+    @Test
+    @DisplayName("both identities of the CLI variant are redacted where the line carries them, and still compared")
+    void toolIdentityRedacted() {
+        credentialIdentity = "token=sk-credentialabcdefghijkl";
+        toolIdentity = "token=sk-tooldifferentabcdefghijkl";
+
+        var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
+
+        var identity = result.lines().getLast();
+        assertAll(
+                () -> assertFalse(result.passed(), "two different secrets are still different identities"),
+                () -> assertEquals("provider_verification.tool_identity.differs", identity.messageKey(),
+                        "the comparison runs on the answers as given"),
+                () -> assertFalse(identity.toString().contains("sk-credentialabcdefghijkl"),
+                        "the credential identity must not reach the line or its arguments"),
+                () -> assertFalse(identity.toString().contains("sk-tooldifferentabcdefghijkl"),
+                        "the tool identity must not reach the line or its arguments"),
+                () -> assertTrue(identity.answer().contains("[redacted]"),
+                        "the carried identity is redacted"));
     }
 
     @Test

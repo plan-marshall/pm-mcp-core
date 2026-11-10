@@ -148,6 +148,24 @@ class MachineConfigurationCodecTest {
     }
 
     @Test
+    @DisplayName("a document that omits the variant of a provider with a cli variant is refused")
+    void omittedVariant() {
+        var document = """
+                {"format_version":1,"revision":%d,"max_build_slots":2,"lsp_idle_timeout_seconds":900,
+                 "providers":{"git":{"available":false}}}""".formatted(revision);
+
+        var read = readRefused(document);
+        var written = writeRefused(document);
+
+        assertAll(
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, read.outcome(),
+                        "a provider without its variant makes the document unreadable"),
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, written.outcome(),
+                        "a write refuses a provider without its variant"),
+                () -> assertEquals(file, read.file(), "the refusal names the document"));
+    }
+
+    @Test
     @DisplayName("a write keeps an unknown member byte-identical and replaces providers alone")
     void keepsUnknownMember() {
         var unknown = "\"harnesses\":{\"default\":\"" + harness + "\"}";

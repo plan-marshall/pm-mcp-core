@@ -79,6 +79,9 @@ public class MachineConfigurationCodec {
     /** The lowest {@code lsp_idle_timeout_seconds} the schema admits. */
     private static final int MIN_LSP_IDLE_TIMEOUT_SECONDS = 60;
 
+    /** The form of a refusal that names the member and the reason. */
+    private static final String DETAIL_FORMAT = "%s: %s";
+
     /** The schema default of {@code max_build_slots}. */
     static final int DEFAULT_MAX_BUILD_SLOTS = 2;
 
@@ -232,9 +235,6 @@ public class MachineConfigurationCodec {
                             default -> copyMember(parser, generator, field);
                         }
                     }
-                    if (parser.currentToken() != JsonToken.END_OBJECT) {
-                        throw unreadable("the machine configuration is not a JSON object");
-                    }
                     requireFields(seen, "machine configuration", FIELD_FORMAT_VERSION, FIELD_REVISION,
                             FIELD_MAX_BUILD_SLOTS, FIELD_LSP_IDLE_TIMEOUT_SECONDS);
                     if (replacement != null && !seen.contains(FIELD_PROVIDERS)) {
@@ -307,7 +307,11 @@ public class MachineConfigurationCodec {
                         .orElseThrow(() -> unreadable("not a provider of the machine: " + key));
                 defaults.put(provider, providerDefault(parser, provider));
             }
-            return new ProviderDefaults(defaults);
+            try {
+                return new ProviderDefaults(defaults);
+            } catch (IllegalArgumentException e) {
+                throw unreadable(DETAIL_FORMAT.formatted(FIELD_PROVIDERS, e.getMessage()), e);
+            }
         }
 
         private static ProviderDefault providerDefault(JsonParser parser, Provider provider) throws IOException {
@@ -332,7 +336,7 @@ public class MachineConfigurationCodec {
                 return new ProviderDefault(available, variant.orElse(null), credentialKey.orElse(null),
                         verification);
             } catch (IllegalArgumentException | NullPointerException e) {
-                throw unreadable("%s: %s".formatted(provider.wireName(), e.getMessage()), e);
+                throw unreadable(DETAIL_FORMAT.formatted(provider.wireName(), e.getMessage()), e);
             }
         }
 
@@ -383,7 +387,7 @@ public class MachineConfigurationCodec {
                     default -> throw undeclared(field);
                 }
             }
-            requireFields(seen, "check", FIELD_CHECK, FIELD_OK);
+            requireFields(seen, "verification check", FIELD_CHECK, FIELD_OK);
             return new VerificationResult.Check(check, ok);
         }
 

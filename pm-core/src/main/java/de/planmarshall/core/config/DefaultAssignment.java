@@ -85,7 +85,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
 
         /** @throws IllegalArgumentException if a value is missing or the tier is outside the closed list */
         public DefaultRole {
-            Objects.requireNonNull(tier, "tier");
+            Objects.requireNonNull(tier, FIELD_TIER);
             Objects.requireNonNull(preferredHarness, "preferredHarness");
             Objects.requireNonNull(advisory, FIELD_ADVISORY);
             if (!TIERS.contains(tier)) {
