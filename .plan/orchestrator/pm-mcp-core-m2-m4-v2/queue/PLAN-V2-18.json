@@ -2,10 +2,10 @@
   "id": "PLAN-V2-18",
   "slug": "coverage-report-parsers",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-18-coverage-report-parsers",
+  "pr": "#336",
+  "landing": "landings/PLAN-V2-18.md",
   "seq": 18
 }
