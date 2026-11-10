@@ -51,9 +51,9 @@ class JobRunnerBuilderContractTest {
                             () -> new JobRunner.StartRequest<String>(null, scope, budgetKey, 60L, derivation, request,
                                     null),
                             "the constructor refuses a null kind");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JobRunner.StartRequest.<String>builder().scope(scope).budgetKey(budgetKey)
-                                    .budgetSeconds(60L).budgetDerivation(derivation).request(request).build(),
+                    var incomplete = JobRunner.StartRequest.<String>builder().scope(scope).budgetKey(budgetKey)
+                            .budgetSeconds(60L).budgetDerivation(derivation).request(request);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing kind");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent kind with the same message");

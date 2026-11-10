@@ -53,9 +53,9 @@ class ProfileStagesBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new ProfileStages.EndpointLaunch(true, true, null, true, probes),
                             "the constructor refuses a null resultSchema");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ProfileStages.EndpointLaunch.builder().passed(true).readiness(true)
-                                    .streamingOff(true).probes(probes).build(),
+                    var incomplete = ProfileStages.EndpointLaunch.builder().passed(true).readiness(true)
+                            .streamingOff(true).probes(probes);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing resultSchema");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent resultSchema with the same message");
@@ -84,9 +84,9 @@ class ProfileStagesBuilderContractTest {
                             () -> new ProfileStages.EndpointVerification(null, launch, classes, limits,
                                     ProfileStages.ENDPOINT_STAGES),
                             "the constructor refuses a null identity");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ProfileStages.EndpointVerification.builder().launch(launch).classes(classes)
-                                    .limits(limits).stages(ProfileStages.ENDPOINT_STAGES).build(),
+                    var incomplete = ProfileStages.EndpointVerification.builder().launch(launch).classes(classes)
+                            .limits(limits).stages(ProfileStages.ENDPOINT_STAGES);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing identity");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent identity with the same message");

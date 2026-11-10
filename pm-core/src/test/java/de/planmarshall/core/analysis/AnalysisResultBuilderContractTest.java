@@ -55,11 +55,11 @@ class AnalysisResultBuilderContractTest {
                                     AnalysisStatus.RUNNING, null, AnalysisResult.CountStatus.MEASURED, 0L, 0L,
                                     false, null, Instant.EPOCH),
                             "the constructor refuses a null provider");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> AnalysisResult.builder().formatVersion(AnalysisResult.FORMAT_VERSION)
-                                    .target(target).status(AnalysisStatus.RUNNING)
-                                    .countStatus(AnalysisResult.CountStatus.MEASURED).issuesFetched(0L)
-                                    .observedAt(Instant.EPOCH).build(),
+                    var incomplete = AnalysisResult.builder().formatVersion(AnalysisResult.FORMAT_VERSION)
+                            .target(target).status(AnalysisStatus.RUNNING)
+                            .countStatus(AnalysisResult.CountStatus.MEASURED).issuesFetched(0L)
+                            .observedAt(Instant.EPOCH);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing provider");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent provider with the same message");
@@ -85,9 +85,9 @@ class AnalysisResultBuilderContractTest {
                             () -> new AnalysisResult.Condition(null, AnalysisResult.Comparator.LT, threshold, null,
                                     AnalysisResult.GateResult.PASSED),
                             "the constructor refuses a null metric");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> AnalysisResult.Condition.builder().comparator(AnalysisResult.Comparator.LT)
-                                    .threshold(threshold).result(AnalysisResult.GateResult.PASSED).build(),
+                    var incomplete = AnalysisResult.Condition.builder().comparator(AnalysisResult.Comparator.LT)
+                            .threshold(threshold).result(AnalysisResult.GateResult.PASSED);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing metric");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent metric with the same message");

@@ -41,10 +41,10 @@ class WorkerParametersBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new WorkerParameters(true, null, false, 30, 3, 240, true),
                             "the constructor refuses a null ackDeadlineSeconds");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> WorkerParameters.builder().eligible(true).ackInformational(false)
-                                    .silenceGraceSeconds(30).idleWakeups(3).boundedWaitSeconds(240)
-                                    .progressResetsTimeout(true).build(),
+                    var incomplete = WorkerParameters.builder().eligible(true).ackInformational(false)
+                            .silenceGraceSeconds(30).idleWakeups(3).boundedWaitSeconds(240)
+                            .progressResetsTimeout(true);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing ackDeadlineSeconds");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent ack deadline with the same message");

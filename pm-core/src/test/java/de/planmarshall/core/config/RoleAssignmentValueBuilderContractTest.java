@@ -44,8 +44,8 @@ class RoleAssignmentValueBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new RoleAssignmentValue(null, model, EffortSetting.INHERIT, null, null),
                             "the constructor refuses a null harness");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> RoleAssignmentValue.builder().model(model).effort(EffortSetting.INHERIT).build(),
+                    var incomplete = RoleAssignmentValue.builder().model(model).effort(EffortSetting.INHERIT);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing harness");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent harness with the same message");

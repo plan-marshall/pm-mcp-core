@@ -35,12 +35,12 @@ class BuilderCheckBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var items = List.of("CN-1");
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new BuilderCheck.Question(null, "Which constraint holds?", List.of("CN-1"), null),
+                            () -> new BuilderCheck.Question(null, "Which constraint holds?", items, null),
                             "the constructor refuses a null sort");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> BuilderCheck.Question.builder().text("Which constraint holds?")
-                                    .items(List.of("CN-1")).build(),
+                    var incomplete = BuilderCheck.Question.builder().text("Which constraint holds?").items(items);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing sort");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent sort with the same message");
