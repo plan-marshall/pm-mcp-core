@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -203,11 +204,21 @@ public final class JudgmentVerification {
         var body = SystemOneRequest.body(model, state, List.of(question), ascending);
         var response = client.post(profile, SystemOneRequest.PATH, body);
         if (!response.successful()) {
-            return new Probe(false, null, response.status(), response.body());
+            return Probe.builder()
+                    .valid(false)
+                    .answer(null)
+                    .status(response.status())
+                    .body(response.body())
+                    .build();
         }
         var read = SystemOneAnswer.read(response.body(), model,
                 Map.of(question.questionId(), question.ascendingKeys()));
-        return new Probe(read.isValid(), read.answer(), response.status(), response.body());
+        return Probe.builder()
+                .valid(read.isValid())
+                .answer(read.answer())
+                .status(response.status())
+                .body(response.body())
+                .build();
     }
 
     private static boolean sameOptions(SystemOneAnswer.Answer left, SystemOneAnswer.Answer right) {
@@ -277,6 +288,7 @@ public final class JudgmentVerification {
     }
 
     /** The reading of one probe request: whether it validated, its answer, the status and the body of the answer. */
+    @Builder
     private record Probe(boolean valid, SystemOneAnswer.@Nullable Answer answer, int status, String body) {
 
         Probe {

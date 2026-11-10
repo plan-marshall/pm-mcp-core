@@ -571,9 +571,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             jobTokens.register(jobId.value(), launch.jobTokenSha256());
         }
         var token = launch.jobToken().isEmpty() ? Optional.<String>empty() : Optional.of(launch.jobToken());
-        return run(job.get(), log -> new Launch(launch.workingDirectory(), launch.argv(), environment.ofWorker(request
-                        .enrolment(), jobId, launch.env(), token.orElse(null), null, request.egressProxy()), null,
-                log, confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(), false)));
+        return run(job.get(), log -> Launch.builder()
+                .workingDirectory(launch.workingDirectory())
+                .argv(launch.argv())
+                .environment(environment.ofWorker(request.enrolment(), jobId, launch.env(), token.orElse(null),
+                        null, request.egressProxy()))
+                .stdin(null)
+                .log(log)
+                .confinement(confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(),
+                        false))
+                .build());
     }
 
     /**
@@ -692,10 +699,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var checkoutRoot = candidate.workingDirectory() instanceof ProbeCandidate.CheckoutRoot(Path root)
                 ? root
                 : null;
-        return run(job.get(), log -> new Launch(verified.workingDirectory(), verified.argv(),
-                probeEnvironment.of(candidate, first.jobId()), null, log,
-                confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
-                        candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of())));
+        return run(job.get(), log -> Launch.builder()
+                .workingDirectory(verified.workingDirectory())
+                .argv(verified.argv())
+                .environment(probeEnvironment.of(candidate, first.jobId()))
+                .stdin(null)
+                .log(log)
+                .confinement(confinementComposer.forProbe(first.jobId(), checkoutRoot, List.of(),
+                        candidate.kind() != ProbeCandidate.Kind.SCRIPT, List.of()))
+                .build());
     }
 
     /**
@@ -1093,8 +1105,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var endedAt = clock.instant();
         auditSurvivors(job, job.sweepTree());
         // the end of the process is observed: the cancel door closes here and the cause it returns is the one read
-        settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), job.closeCancelDoor().orElse(null),
-                cancelBeforeGroup), observedLength);
+        settleEnded(job, Ended.builder()
+                .spawnedAt(spawnedAt)
+                .endedAt(endedAt)
+                .exitValue(exit.value())
+                .termination(job.closeCancelDoor().orElse(null))
+                .cancelBeforeGroup(cancelBeforeGroup)
+                .build(), observedLength);
         return exit.interrupted();
     }
 
@@ -1289,8 +1306,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var endedAt = clock.instant();
             auditSurvivors(job, job.sweepTree());
             ended = true;
-            settleEnded(job, new Ended(spawnedAt, endedAt, exit.value(), cause,
-                    report != null && report.cancelBeforeGroup()), observedLength);
+            settleEnded(job, Ended.builder()
+                    .spawnedAt(spawnedAt)
+                    .endedAt(endedAt)
+                    .exitValue(exit.value())
+                    .termination(cause)
+                    .cancelBeforeGroup(report != null && report.cancelBeforeGroup())
+                    .build(), observedLength);
         } finally {
             try {
                 if (!ended) {
@@ -1399,6 +1421,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param termination       why the runner terminated the job; {@code null} when it did not
      * @param cancelBeforeGroup whether the termination reached the job before its group existed
      */
+    @Builder
     private record Ended(Instant spawnedAt, Instant endedAt, int exitValue, @Nullable Termination termination,
     boolean cancelBeforeGroup) {
     }
@@ -1483,8 +1506,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         // A launcher that failed before it started the command has no exit of its own: the exit codes the probe
         // declares are codes of a probe that ran, so they do not apply to a launcher failure (127 included).
         var declaredExitCodes = launcherFailure ? Set.<Integer>of() : job.successExitCodes;
-        var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), ended.termination(), waitStatus,
-                logState, parse, declaredExitCodes, true));
+        var outcome = OutcomeDerivation.derive(ProcessEnded.builder()
+                .kind(current.kind())
+                .termination(ended.termination())
+                .waitStatus(waitStatus)
+                .log(logState)
+                .parse(parse)
+                .declaredExitCodes(declaredExitCodes)
+                .exitReliable(true)
+                .build());
         var settled = current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                 .spawnedAt(ended.spawnedAt()).endedAt(ended.endedAt())
                 .exitCode(waitStatus instanceof Exited(var code) ? Long.valueOf(code) : null)
@@ -1514,8 +1544,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var current = job.latest;
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
-            var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), cause,
-                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, Set.of(), true));
+            var outcome = OutcomeDerivation.derive(ProcessEnded.builder()
+                    .kind(current.kind())
+                    .termination(cause)
+                    .waitStatus(new Exited(EXECVE_FAILED))
+                    .log(logState)
+                    .parse(ParseResult.NOTHING)
+                    .declaredExitCodes(Set.of())
+                    .exitReliable(true)
+                    .build());
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                     .endedAt(clock.instant()).build());
         } finally {

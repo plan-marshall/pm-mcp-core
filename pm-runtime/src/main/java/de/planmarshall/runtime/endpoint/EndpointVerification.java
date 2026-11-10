@@ -170,8 +170,14 @@ public final class EndpointVerification {
 
     private ProfileStages.EndpointClasses classes(EndpointProfile profile, String model, String toolTask,
             @Nullable String decoyResult) {
-        var request = new EndpointRequest(model, "", toolTask, null, null,
-                profile.endpoint().answerReserveTokens());
+        var request = EndpointRequest.builder()
+                .model(model)
+                .system("")
+                .user(toolTask)
+                .resultSchema(null)
+                .schemaName(null)
+                .maxAnswerTokens(profile.endpoint().answerReserveTokens())
+                .build();
         var response = client.post(profile, EndpointClient.CHAT_PATH, request.bodyWithTools(PROBE_TOOL));
         var body = response.body();
         var toolCall = body.contains("\"tool_calls\"") || body.contains("\"function_call\"");
@@ -191,8 +197,14 @@ public final class EndpointVerification {
         while (low <= high && probes < MAXIMUM_BISECTION_PROBES) {
             var middle = low + (high - low) / 2;
             probes++;
-            var request = new EndpointRequest(model, "", filler(baseTask, middle), null, null,
-                    profile.endpoint().answerReserveTokens());
+            var request = EndpointRequest.builder()
+                    .model(model)
+                    .system("")
+                    .user(filler(baseTask, middle))
+                    .resultSchema(null)
+                    .schemaName(null)
+                    .maxAnswerTokens(profile.endpoint().answerReserveTokens())
+                    .build();
             var outcome = EndpointOutcome.accept(client.post(profile, EndpointClient.CHAT_PATH, request.body()), null);
             if (outcome.fate() == EndpointOutcome.Fate.ANSWERED) {
                 var figure = outcome.usage().totalTokens().orElse(middle);
@@ -212,8 +224,14 @@ public final class EndpointVerification {
     private String measureSchema(EndpointProfile profile, String model, String baseTask) {
         var contradicted = JsonNode.object(Map.of("type", JsonNode.string("object"), "required",
                 JsonNode.array(List.of(JsonNode.string(CONTRADICTED_POINTER)))));
-        var request = new EndpointRequest(model, "", baseTask, contradicted, profile.endpoint().resultSchema(),
-                profile.endpoint().answerReserveTokens());
+        var request = EndpointRequest.builder()
+                .model(model)
+                .system("")
+                .user(baseTask)
+                .resultSchema(contradicted)
+                .schemaName(profile.endpoint().resultSchema())
+                .maxAnswerTokens(profile.endpoint().answerReserveTokens())
+                .build();
         var response = client.post(profile, EndpointClient.CHAT_PATH, request.body());
         if (response.failure() != EndpointClient.Failure.NONE || !response.successful()) {
             return NONE;
@@ -237,8 +255,14 @@ public final class EndpointVerification {
      *         answered with something that is not a JSON document
      */
     private Optional<String> content(EndpointProfile profile, String model, String task, @Nullable JsonNode schema) {
-        var request = new EndpointRequest(model, "", task, schema,
-                schema == null ? null : profile.endpoint().resultSchema(), profile.endpoint().answerReserveTokens());
+        var request = EndpointRequest.builder()
+                .model(model)
+                .system("")
+                .user(task)
+                .resultSchema(schema)
+                .schemaName(schema == null ? null : profile.endpoint().resultSchema())
+                .maxAnswerTokens(profile.endpoint().answerReserveTokens())
+                .build();
         return contentOf(client.post(profile, EndpointClient.CHAT_PATH, request.body()));
     }
 
