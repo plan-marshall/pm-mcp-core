@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -49,7 +48,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * a set of rows of different populations is refused rather than silently mixed. An epic's figure is the sum of its
  * plans' aggregates and its own rows, formed with {@link #plus(UsageAggregate)}.
  *
- * @param population         the population the figures count; empty for an aggregate over no row
+ * @param population         the population the figures count
  * @param totalTokens        the summed total tokens, empty when the population is empty
  * @param tokensIn           the summed input split, empty when the population is empty or a component is unmeasured
  * @param tokensOut          the summed output split, empty when the population is empty or a component is unmeasured
@@ -61,7 +60,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * @param totalIsFloor       whether the figure is a lower bound because a row of the population is unmeasured
  * @since 0.1
  */
-public record UsageAggregate(Optional<Population> population, OptionalLong totalTokens, OptionalLong tokensIn,
+public record UsageAggregate(Population population, OptionalLong totalTokens, OptionalLong tokensIn,
 OptionalLong tokensOut, long rows, long rowsUnmeasured, Map<UnmeasuredReason, Long> unmeasuredReasons,
 long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
 
@@ -175,44 +174,64 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
     public static UsageAggregate of(Population population, List<HarnessUsage> usages) {
         Objects.requireNonNull(population, "population");
         Objects.requireNonNull(usages, "usages");
-        long total = 0;
-        long in = 0;
-        long out = 0;
-        var unmeasured = 0;
-        var counted = 0;
-        var inMeasured = true;
-        var outMeasured = true;
-        var reasons = new EnumMap<UnmeasuredReason, Long>(UnmeasuredReason.class);
+        var tally = tally(usages);
+        var measured = tally.counted - tally.unmeasured;
+        return new UsageAggregate(population,
+                measured == 0 ? OptionalLong.empty() : OptionalLong.of(tally.total),
+                tally.counted == 0 || !tally.inMeasured ? OptionalLong.empty() : OptionalLong.of(tally.in),
+                tally.counted == 0 || !tally.outMeasured ? OptionalLong.empty() : OptionalLong.of(tally.out),
+                measured, tally.unmeasured, tally.reasons, tally.counted, new TreeMap<>(), tally.unmeasured > 0);
+    }
+
+    private static Tally tally(List<HarnessUsage> usages) {
+        var tally = new Tally();
         for (var usage : usages) {
+            tally.add(usage);
+        }
+        return tally;
+    }
+
+    /** The running sums of one aggregate; one mutable cell per figure, so the loop stays one branch per figure. */
+    private static final class Tally {
+
+        private long total;
+        private long in;
+        private long out;
+        private int unmeasured;
+        private int counted;
+        private boolean inMeasured = true;
+        private boolean outMeasured = true;
+        private final EnumMap<UnmeasuredReason, Long> reasons = new EnumMap<>(UnmeasuredReason.class);
+
+        private void add(HarnessUsage usage) {
             counted++;
             var rowTotal = usage.totalTokens();
             if (rowTotal.isPresent()) {
                 total += rowTotal.getAsLong();
             } else {
-                unmeasured++;
-                usage.unmeasuredReason().ifPresent(reason -> reasons.merge(reason, 1L, Long::sum));
+                addUnmeasured(usage);
             }
             var rowIn = usage.tokensIn();
-            var rowOut = usage.tokensOut();
             if (rowIn.isPresent()) {
                 in += rowIn.getAsLong();
             } else {
                 inMeasured = false;
             }
+            var rowOut = usage.tokensOut();
             if (rowOut.isPresent()) {
                 out += rowOut.getAsLong();
             } else {
                 outMeasured = false;
             }
         }
-        var populationCount = counted;
-        var floor = unmeasured > 0;
-        var measured = populationCount - unmeasured;
-        return new UsageAggregate(Optional.of(population),
-                measured == 0 ? OptionalLong.empty() : OptionalLong.of(total),
-                populationCount == 0 || !inMeasured ? OptionalLong.empty() : OptionalLong.of(in),
-                populationCount == 0 || !outMeasured ? OptionalLong.empty() : OptionalLong.of(out),
-                measured, unmeasured, reasons, populationCount, new TreeMap<>(), floor);
+
+        private void addUnmeasured(HarnessUsage usage) {
+            unmeasured++;
+            var reason = usage.unmeasuredReason();
+            if (reason != null) {
+                reasons.merge(reason, 1L, Long::sum);
+            }
+        }
     }
 
     /**
@@ -242,9 +261,10 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
      */
     public UsageAggregate plus(UsageAggregate other) {
         Objects.requireNonNull(other, "other");
-        if (!population.equals(other.population)) {
+        if (!population.equals(other.population())) {
             throw new IllegalArgumentException(
-                    "Sums are formed only between figures of one population: %s and %s".formatted(population, other.population));
+                    "Sums are formed only between figures of one population: %s and %s".formatted(population,
+                            other.population()));
         }
         if (populationCount == 0) {
             return other;

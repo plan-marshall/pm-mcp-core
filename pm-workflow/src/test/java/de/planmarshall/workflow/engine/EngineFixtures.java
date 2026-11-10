@@ -489,7 +489,7 @@ final class EngineFixtures {
         @Override
         public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
             notes.add(parameters.note());
-            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), null);
         }
 
         @Override
@@ -686,7 +686,7 @@ final class EngineFixtures {
          * @return this primitive
          */
         Scripted<R> then(R outcome, Map<String, Object> facts) {
-            script.add(new PrimitiveResult<>(outcome, facts, Optional.empty()));
+            script.add(new PrimitiveResult<>(outcome, facts, null));
             return this;
         }
 
@@ -696,7 +696,7 @@ final class EngineFixtures {
          * @return this primitive
          */
         Scripted<R> thenSpawning(R outcome, String jobId) {
-            script.add(new PrimitiveResult<>(outcome, Map.of(), Optional.of(jobId)));
+            script.add(new PrimitiveResult<>(outcome, Map.of(), jobId));
             return this;
         }
 
@@ -735,7 +735,7 @@ final class EngineFixtures {
             scopes.add(context.scopeId());
             var next = script.poll();
             return next != null ? next
-                    : new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+                    : new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
         }
 
         @Override

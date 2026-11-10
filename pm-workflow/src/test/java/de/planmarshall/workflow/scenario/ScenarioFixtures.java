@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -427,7 +426,7 @@ final class ScenarioFixtures {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, NoParams parameters) {
-            return new PrimitiveResult<>(outcome, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcome, Map.of(), null);
         }
 
         @Override
@@ -468,7 +467,7 @@ final class ScenarioFixtures {
         @Override
         public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
             notes.add(parameters.note());
-            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), null);
         }
 
         @Override

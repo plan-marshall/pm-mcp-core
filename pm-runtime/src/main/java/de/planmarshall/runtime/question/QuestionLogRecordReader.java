@@ -120,7 +120,7 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     @Override
     public QuestionRead read(ReadRequest request) {
         Objects.requireNonNull(request, "request");
-        var resolution = resolve(request.scopeId().orElse(null));
+        var resolution = resolve(request.scopeId());
         if (resolution.refused()) {
             return new QuestionRead.Unreadable(resolution.refusal());
         }
@@ -172,13 +172,12 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             return Resolution.of(JournalScope.workspace(base, projectId));
         }
         try {
-            var id = scopeId;
-            var plan = JournalScope.plan(base, projectId, id);
-            var epic = JournalScope.epic(base, projectId, id);
+            var plan = JournalScope.plan(base, projectId, scopeId);
+            var epic = JournalScope.epic(base, projectId, scopeId);
             var planExists = Files.isDirectory(plan.pathBase());
             var epicExists = Files.isDirectory(epic.pathBase());
             if (planExists && epicExists) {
-                return Resolution.refused("the scope " + id + " names a plan and an epic");
+                return Resolution.refused("the scope " + scopeId + " names a plan and an epic");
             }
             if (!planExists && !epicExists) {
                 return Resolution.refused("no question log for the scope");

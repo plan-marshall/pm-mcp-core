@@ -11,6 +11,7 @@ package de.planmarshall.core.spi;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,17 +34,16 @@ class PrimitiveResultTest {
     @Test
     @DisplayName("a result carries the reason its outcome declares")
     void acceptsDeclaredReason() {
-        var result = new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty(),
-                Optional.of(TestReason.FOOTPRINT));
+        var result = new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, TestReason.FOOTPRINT);
 
-        assertEquals(Optional.of(TestReason.FOOTPRINT), result.reason(), "the declared reason is carried");
+        assertEquals(TestReason.FOOTPRINT, result.reason(), "the declared reason is carried");
     }
 
     @Test
     @DisplayName("an outcome that declares reasons refuses a result without one")
     void refusesMissingReason() {
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty(), Optional.empty()));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, null));
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the missing reason");
     }
@@ -51,9 +51,9 @@ class PrimitiveResultTest {
     @Test
     @DisplayName("a reason of another enum is refused")
     void refusesForeignReason() {
-        var foreignReason = Optional.<OutcomeReason>of(OtherReason.OTHER);
+        var foreignReason = OtherReason.OTHER;
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty(), foreignReason));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null, foreignReason));
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the foreign reason");
     }
@@ -61,9 +61,9 @@ class PrimitiveResultTest {
     @Test
     @DisplayName("an outcome that declares no reason refuses one")
     void refusesReasonOnUnadmittedOutcome() {
-        var unadmittedReason = Optional.<OutcomeReason>of(TestReason.FOOTPRINT);
+        var unadmittedReason = TestReason.FOOTPRINT;
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), Optional.empty(), unadmittedReason));
+                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), null, unadmittedReason));
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the unadmitted reason");
     }
@@ -75,12 +75,12 @@ class PrimitiveResultTest {
         var factValue = Generators.nonEmptyStrings().next();
         var facts = new HashMap<String, Object>();
         facts.put(factName, factValue);
-        var result = new PrimitiveResult<>(PlainOutcome.DONE, facts, Optional.empty());
+        var result = new PrimitiveResult<>(PlainOutcome.DONE, facts, null);
 
         facts.remove(factName);
 
         assertAll(
-                () -> assertEquals(Optional.empty(), result.reason(), "the three-component form carries no reason"),
+                () -> assertNull(result.reason(), "the three-component form carries no reason"),
                 () -> assertEquals(Map.of(factName, factValue), result.updatedFacts(), "the facts are copied"));
     }
 
@@ -88,19 +88,19 @@ class PrimitiveResultTest {
     @DisplayName("the three-component form refuses an outcome that declares a reason")
     void threeComponentFormRefusesMissingReason() {
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), Optional.empty()));
+                () -> new PrimitiveResult<>(ReasonedOutcome.FAILED, Map.of(), null));
 
         assertTrue(thrown.getMessage().contains("reason"), "the refusal names the missing reason");
     }
 
     @Test
-    @DisplayName("the builder defaults both optional components to empty")
+    @DisplayName("the builder defaults both optional components to null")
     void builderDefaultsOptionalComponents() {
         var result = PrimitiveResult.<PlainOutcome>builder().outcome(PlainOutcome.DONE).build();
 
         assertAll(
-                () -> assertEquals(Optional.empty(), result.reason(), "the builder defaults the reason to empty"),
-                () -> assertEquals(Optional.empty(), result.spawnedJobId(), "the builder defaults the job id to empty"),
+                () -> assertNull(result.reason(), "the builder defaults the reason to null"),
+                () -> assertNull(result.spawnedJobId(), "the builder defaults the job id to null"),
                 () -> assertEquals(Map.of(), result.updatedFacts(), "the builder defaults the facts to empty"));
     }
 
@@ -111,39 +111,37 @@ class PrimitiveResultTest {
         var factValue = Generators.nonEmptyStrings().next();
         var jobId = Generators.nonEmptyStrings().next();
         var result = PrimitiveResult.<PlainOutcome>builder().outcome(PlainOutcome.DONE)
-                .updatedFacts(Map.of(factName, factValue)).spawnedJobId(Optional.of(jobId)).build();
+                .updatedFacts(Map.of(factName, factValue)).spawnedJobId(jobId).build();
 
         assertAll(
                 () -> assertEquals(Map.of(factName, factValue), result.updatedFacts(), "the builder keeps the facts"),
-                () -> assertEquals(Optional.of(jobId), result.spawnedJobId(), "the builder keeps the job id"));
+                () -> assertEquals(jobId, result.spawnedJobId(), "the builder keeps the job id"));
     }
 
     @Test
     @DisplayName("the builder carries a reason the outcome declares")
     void builderCarriesDeclaredReason() {
         var result = PrimitiveResult.<ReasonedOutcome>builder().outcome(ReasonedOutcome.FAILED)
-                .reason(Optional.of(TestReason.FOOTPRINT)).build();
+                .reason(TestReason.FOOTPRINT).build();
 
-        assertEquals(Optional.of(TestReason.FOOTPRINT), result.reason(), "the builder carries the reason");
+        assertEquals(TestReason.FOOTPRINT, result.reason(), "the builder carries the reason");
     }
 
     @Test
     @DisplayName("a reason type that is no class is refused instead of a ClassCastException")
     void refusesNonClassReasonType() {
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveResult<>(NonClassReasonOutcome.FAILED, Map.of(), Optional.empty(),
-                        Optional.empty()));
+                () -> new PrimitiveResult<>(NonClassReasonOutcome.FAILED, Map.of(), null, null));
 
         assertTrue(thrown.getMessage().contains("reason type"), "the refusal names the malformed reason type");
     }
 
     @Test
-    @DisplayName("a null reason component is refused")
-    void refusesNullReason() {
-        var thrown = assertThrows(NullPointerException.class,
-                () -> new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), Optional.empty(), null));
+    @DisplayName("a null reason component means the outcome declares none")
+    void nullReasonComponentIsAbsence() {
+        var result = new PrimitiveResult<>(PlainOutcome.DONE, Map.of(), null, null);
 
-        assertEquals("reason", thrown.getMessage(), "the refusal names the null component");
+        assertNull(result.reason(), "the null component is the absent reason");
     }
 
     /**

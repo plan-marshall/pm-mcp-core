@@ -11,8 +11,8 @@ package de.planmarshall.core.spi;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The engine port that starts the job of a {@code job} state (PM-IMPL-5, bullet 1: a job is an explicit side effect
@@ -89,19 +89,18 @@ public interface JobStarter {
     /**
      * What the engine asks the port to start: the job of one state of one scope.
      *
-     * @param scopeId the identifier of the plan or epic the state belongs to; empty for the workspace scope
+     * @param scopeId the identifier of the plan or epic the state belongs to; {@code null} for the workspace scope
      * @param stateId the identifier of the job state the job is started for
      * @param primitiveId the canonical name of the state's job primitive, which decides the kind of the job
      * @since 0.1
      */
-    record StartRequest(Optional<String> scopeId, String stateId, String primitiveId) {
+    record StartRequest(@Nullable String scopeId, String stateId, String primitiveId) {
 
         /**
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if a component other than {@code scopeId} is {@code null}
          * @throws IllegalArgumentException if the state or primitive identifier is blank
          */
         public StartRequest {
-            Objects.requireNonNull(scopeId, "scopeId");
             requireNonBlank(stateId, "stateId");
             requireNonBlank(primitiveId, "primitiveId");
         }

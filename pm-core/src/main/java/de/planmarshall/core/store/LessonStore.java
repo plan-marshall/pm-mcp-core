@@ -250,8 +250,8 @@ public final class LessonStore {
         return switch (verification) {
             case ScopeIntegrity.Verified verified -> verified(lessonId, file, verified);
             case ScopeIntegrity.Absent _ -> new LessonResolution.Absent(lessonId);
-            case ScopeIntegrity.Mismatch(_, StoreDigest recorded, Optional<StoreDigest> current)
-                -> current.isPresent()
+            case ScopeIntegrity.Mismatch(_, StoreDigest recorded, var current)
+                -> current != null
                     ? new LessonResolution.StoreTampered(lessonId, file, recorded, current)
                     : new LessonResolution.DeletedOutOfBand(lessonId);
             case ScopeIntegrity.Untracked _ -> new LessonResolution.Untracked(lessonId, file);
@@ -266,8 +266,7 @@ public final class LessonStore {
         var content = read(file);
         var current = StoreDigest.of(content);
         if (!current.equals(verified.digest())) {
-            return new LessonResolution.StoreTampered(lessonId, file, verified.digest(),
-                    Optional.of(current));
+            return new LessonResolution.StoreTampered(lessonId, file, verified.digest(), current);
         }
         return decode(lessonId, file, content, StoreIntegrity.VERIFIED);
     }

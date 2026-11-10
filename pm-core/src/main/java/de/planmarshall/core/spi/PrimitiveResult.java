@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What one execution of a primitive returns (PM-IMPL-5): one of its closed outcomes, the facts it changed, the job it
@@ -23,10 +24,10 @@ import java.util.Optional;
  * @param updatedFacts the facts the execution changed, by name; empty when it changed none. The record keeps an
  *        unmodifiable copy in the order of the argument, so a later change of the argument does not reach it. A
  *        fact has no {@code null} name and no {@code null} value.
- * @param spawnedJobId the identifier of the job the execution started; empty when it started none
- * @param reason the reason of the outcome; empty when the outcome declares none, and present exactly when it does.
- *        A present reason is a constant of the enum {@link PrimitiveOutcome#reasonType()} declares. The pairing and
- *        the closed table to conditions are stated in
+ * @param spawnedJobId the identifier of the job the execution started; {@code null} when it started none
+ * @param reason the reason of the outcome; {@code null} when the outcome declares none, and non-{@code null} exactly
+ *        when it does. A non-{@code null} reason is a constant of the enum {@link PrimitiveOutcome#reasonType()}
+ *        declares. The pairing and the closed table to conditions are stated in
  *        {@code doc/specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons}.
  * @param <R> the closed outcome enum of the primitive
  * @since 0.1
@@ -34,19 +35,19 @@ import java.util.Optional;
 public record PrimitiveResult<R extends Enum<R> & PrimitiveOutcome>(
 R outcome,
 Map<String, Object> updatedFacts,
-Optional<String> spawnedJobId,
-Optional<OutcomeReason> reason) {
+@Nullable String spawnedJobId,
+@Nullable OutcomeReason reason) {
 
     /**
      * The form every existing call site uses: a result whose outcome declares no reason.
      *
      * @param outcome the outcome of the execution
      * @param updatedFacts the facts the execution changed
-     * @param spawnedJobId the identifier of the job the execution started, if any
+     * @param spawnedJobId the identifier of the job the execution started, if any; may be {@code null}
      * @throws IllegalArgumentException if the outcome declares a reason type, because then a reason is required
      */
-    public PrimitiveResult(R outcome, Map<String, Object> updatedFacts, Optional<String> spawnedJobId) {
-        this(outcome, updatedFacts, spawnedJobId, Optional.empty());
+    public PrimitiveResult(R outcome, Map<String, Object> updatedFacts, @Nullable String spawnedJobId) {
+        this(outcome, updatedFacts, spawnedJobId, null);
     }
 
     /**
@@ -58,8 +59,6 @@ Optional<OutcomeReason> reason) {
     public PrimitiveResult {
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(updatedFacts, "updatedFacts");
-        Objects.requireNonNull(spawnedJobId, "spawnedJobId");
-        Objects.requireNonNull(reason, "reason");
         var copy = new LinkedHashMap<String, Object>();
         updatedFacts.forEach((name, value) -> copy.put(
                 Objects.requireNonNull(name, "name of a fact"),
@@ -73,15 +72,15 @@ Optional<OutcomeReason> reason) {
             declared = Optional.empty();
         }
         var declaredType = declared.map(payload -> reasonTypeOf(outcome, payload)).orElse(null);
-        if (reason.isPresent() != (declaredType != null)) {
-            throw new IllegalArgumentException(reason.isPresent()
+        if ((reason != null) != (declaredType != null)) {
+            throw new IllegalArgumentException(reason != null
                     ? "the outcome %s declares no reason type, so it cannot carry a reason".formatted(outcome)
                     : "the outcome %s declares the reason type %s, so it must carry a reason"
                     .formatted(outcome, declaredType.getName()));
         }
-        if (reason.isPresent() && !declaredType.isInstance(reason.get())) {
+        if (reason != null && !declaredType.isInstance(reason)) {
             throw new IllegalArgumentException("the reason %s is not a constant of the declared reason type %s"
-                    .formatted(reason.get(), declaredType.getName()));
+                    .formatted(reason, declaredType.getName()));
         }
     }
 
@@ -94,7 +93,8 @@ Optional<OutcomeReason> reason) {
     }
 
     /**
-     * @return a builder whose optional components default to empty, so a reasonless result names only its outcome
+     * @return a builder whose optional components default to {@code null}, so a reasonless result names only its
+     *         outcome
      * @param <R> the closed outcome enum of the primitive
      */
     public static <R extends Enum<R> & PrimitiveOutcome> Builder<R> builder() {
@@ -102,8 +102,8 @@ Optional<OutcomeReason> reason) {
     }
 
     /**
-     * Builds a result component by component. Both optional components default to empty and the facts to an empty
-     * map, so a caller names only what it has; the canonical constructor still enforces the pairing invariant.
+     * Builds a result component by component. Both optional components default to {@code null} and the facts to an
+     * empty map, so a caller names only what it has; the canonical constructor still enforces the pairing invariant.
      *
      * @param <R> the closed outcome enum of the primitive
      */
@@ -111,8 +111,8 @@ Optional<OutcomeReason> reason) {
 
         private R outcome;
         private Map<String, Object> updatedFacts = Map.of();
-        private Optional<String> spawnedJobId = Optional.empty();
-        private Optional<OutcomeReason> reason = Optional.empty();
+        private @Nullable String spawnedJobId;
+        private @Nullable OutcomeReason reason;
 
         /**
          * The builder collects the required outcome through its {@code outcome} setter before {@link #build()} hands
@@ -141,19 +141,19 @@ Optional<OutcomeReason> reason) {
         }
 
         /**
-         * @param spawnedJobId the identifier of the job the execution started, if any
+         * @param spawnedJobId the identifier of the job the execution started, if any; may be {@code null}
          * @return this builder
          */
-        public Builder<R> spawnedJobId(Optional<String> spawnedJobId) {
+        public Builder<R> spawnedJobId(@Nullable String spawnedJobId) {
             this.spawnedJobId = spawnedJobId;
             return this;
         }
 
         /**
-         * @param reason the reason of the outcome, if the outcome declares one
+         * @param reason the reason of the outcome, if the outcome declares one; may be {@code null}
          * @return this builder
          */
-        public Builder<R> reason(Optional<OutcomeReason> reason) {
+        public Builder<R> reason(@Nullable OutcomeReason reason) {
             this.reason = reason;
             return this;
         }

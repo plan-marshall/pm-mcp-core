@@ -16,8 +16,8 @@ import java.nio.file.LinkOption;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -94,16 +94,16 @@ public class ScopeIntegrity {
      *
      * @param store    the store, relative to the path base of the scope
      * @param recorded the digest the sidecar records
-     * @param current  the digest of the store as it is; empty if the store does not exist
+     * @param current  the digest of the store as it is; {@code null} if the store does not exist
      * @since 0.1
      */
-    public record Mismatch(String store, StoreDigest recorded, Optional<StoreDigest> current) implements Verification {
+    public record Mismatch(String store, StoreDigest recorded, @Nullable StoreDigest current)
+            implements Verification {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if a component other than {@code current} is {@code null} */
         public Mismatch {
             Objects.requireNonNull(store, STORE);
             Objects.requireNonNull(recorded, "recorded");
-            Objects.requireNonNull(current, "current");
         }
     }
 
@@ -251,13 +251,13 @@ public class ScopeIntegrity {
             return Files.exists(scope.resolve(relativePath), LinkOption.NOFOLLOW_LINKS) ? new Untracked(relativePath)
                     : new Absent(relativePath);
         }
-        Optional<StoreDigest> current;
+        @Nullable StoreDigest current;
         try {
-            current = StoreDigest.ofFile(scope.resolve(relativePath));
+            current = StoreDigest.ofFile(scope.resolve(relativePath)).orElse(null);
         } catch (IOException e) {
             throw new UncheckedIOException("Store cannot be read: " + scope.resolve(relativePath), e);
         }
-        if (current.filter(recorded.get()::equals).isPresent()) {
+        if (recorded.get().equals(current)) {
             return new Verified(relativePath, recorded.get());
         }
         return new Mismatch(relativePath, recorded.get(), current);

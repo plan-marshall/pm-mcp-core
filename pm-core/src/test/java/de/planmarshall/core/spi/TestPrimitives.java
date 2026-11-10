@@ -275,7 +275,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, P parameters) {
-            return new PrimitiveResult<>(outcome, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcome, Map.of(), null);
         }
 
         @Override
@@ -296,7 +296,7 @@ final class TestPrimitives {
             var facts = new LinkedHashMap<String, Object>();
             facts.put("subject", parameters.subject());
             context.scopeId().ifPresent(scopeId -> facts.put("scope", scopeId));
-            return new PrimitiveResult<>(CompleteOutcome.DONE, facts, Optional.empty());
+            return new PrimitiveResult<>(CompleteOutcome.DONE, facts, null);
         }
     }
 
@@ -309,7 +309,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<StartJobOutcome> execute(WorkflowExecutionContext context, StartJobParams parameters) {
-            return new PrimitiveResult<>(StartJobOutcome.STARTED, Map.of(), Optional.of(SPAWNED_JOB_ID));
+            return new PrimitiveResult<>(StartJobOutcome.STARTED, Map.of(), SPAWNED_JOB_ID);
         }
 
         @Override

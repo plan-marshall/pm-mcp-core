@@ -271,7 +271,7 @@ class SubprocessJobRunnerTest {
         var request = fixture.request(fixture.root.toString(),
                 new JobRequest.HostToolCall(HostToolName.GIT, List.of(arguments)));
         return new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, budgetSeconds, FLOOR, request,
-                Optional.empty());
+                null);
     }
 
     private JobId started(JobRunner.StartResult result) {
@@ -617,7 +617,7 @@ class SubprocessJobRunnerTest {
             var request = fixture.gitStatus(fixture.beside.toString());
 
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
-                    request, Optional.empty()));
+                    request, null));
 
             var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result,
                     "the start of the job is refused");
@@ -1328,7 +1328,7 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a primitive without a job spec is refused")
         void unknownPrimitive() {
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+            var result = runner.start(new JobStarter.StartRequest(null, "verify",
                     Generators.letterStrings(4, 12).next()));
 
             var refused = assertInstanceOf(JobStarter.StartResult.Refused.class, result,
@@ -1348,7 +1348,7 @@ class SubprocessJobRunnerTest {
             var job = git(30, "ok");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
 
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+            var result = runner.start(new JobStarter.StartRequest(null, "verify",
                     Generators.letterStrings(4, 12).next()));
 
             var started = assertInstanceOf(JobStarter.StartResult.Started.class, result,
@@ -1363,10 +1363,10 @@ class SubprocessJobRunnerTest {
         @DisplayName("the refusal of a job's verification is the refusal of the port")
         void refusedPrimitive() {
             var job = new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
-                    fixture.gitStatus(fixture.beside.toString()), Optional.<String>empty());
+                    fixture.gitStatus(fixture.beside.toString()), null);
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
 
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+            var result = runner.start(new JobStarter.StartRequest(null, "verify",
                     Generators.letterStrings(4, 12).next()));
 
             // path_traversal_rejected is the reason code of the verification
@@ -1383,7 +1383,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a worker is not started by the runner")
         void worker() {
             var request = new JobRunner.StartRequest<>(JobId.Kind.LLM, new Scope(Scope.Type.PROJECT, null),
-                    BUDGET_KEY, 30, FLOOR, fixture.gitStatus(fixture.root.toString()), Optional.<String>empty());
+                    BUDGET_KEY, 30, FLOOR, fixture.gitStatus(fixture.root.toString()), null);
 
             assertThrows(IllegalArgumentException.class, () -> runner.start(request),
                     "a worker job is refused by the runner");
@@ -1969,7 +1969,7 @@ class SubprocessJobRunnerTest {
         private JobId startedBuild(String budgetKey, JobRequest.Target target) {
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.BUILD,
                     new Scope(Scope.Type.PLAN, planId), budgetKey, 30, FLOOR,
-                    fixture.request(fixture.root.toString(), target), Optional.empty()));
+                    fixture.request(fixture.root.toString(), target), null));
             return assertInstanceOf(JobRunner.StartResult.Started.class, result,
                     "the build job of the budget key starts").jobId();
         }

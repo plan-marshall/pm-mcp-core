@@ -500,7 +500,7 @@ public final class InvariantFixtures {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, TestPrimitives.NoParams parameters) {
-            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
         }
 
         @Override

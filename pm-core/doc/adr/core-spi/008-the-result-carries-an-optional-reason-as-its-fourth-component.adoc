@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Accepted, amended 2026-11-09 by PLAN-V2-97: the `reason` component (and the `spawnedJobId` component) are `@Nullable`,
+not `Optional`; the present-or-absent pairing and the builder default are unchanged.
 
 == Date
 

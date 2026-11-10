@@ -98,7 +98,7 @@ class MetricsStoreTest {
     private HarnessUsage usage() {
         return new HarnessUsage(Measurement.measured(input), Measurement.measured(output),
                 Measurement.measured(cacheRead), Measurement.measured(cacheCreation), Measurement.measured(reasoning),
-                Measurement.measured(toolUses), Optional.empty(), Optional.empty());
+                Measurement.measured(toolUses), null, null);
     }
 
     private MetricsRow row(String queueTaskId, HarnessUsage usage) {
@@ -292,8 +292,8 @@ class MetricsStoreTest {
 
             var outcome = verify(MetricsStore.FILE_NAME);
 
-            assertEquals(new ScopeIntegrity.Mismatch(MetricsStore.FILE_NAME, recorded,
-                    Optional.of(StoreDigest.of(edited))), outcome, "an edited store should be a mismatch");
+            assertEquals(new ScopeIntegrity.Mismatch(MetricsStore.FILE_NAME, recorded, StoreDigest.of(edited)), outcome,
+                    "an edited store should be a mismatch");
         }
 
         @Test
