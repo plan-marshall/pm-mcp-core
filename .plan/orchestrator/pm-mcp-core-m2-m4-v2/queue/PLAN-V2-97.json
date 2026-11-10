@@ -2,10 +2,10 @@
   "id": "PLAN-V2-97",
   "slug": "optional-conversion-core",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-97-optional-conversion-core",
+  "pr": "#344, #347",
+  "landing": "landings/PLAN-V2-97.md",
   "seq": -11
 }
