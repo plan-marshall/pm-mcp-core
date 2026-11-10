@@ -48,12 +48,12 @@ Not here: a production use of the validator (ADR `core-profile/001` and `doc/adr
 Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named in the First Instruction above):
 
 - **Ask-at-refine items (R07, CLAUDE.md "never add a dependency or a plugin without asking the user first").** Each is answered by the operator at refine and the answer is recorded in the first progress note and in the ADR; the lane decides none of them:
-  - **B1** Jackson 3 as transitive test-scope libraries of `pm-core` (a family of artifacts the repository has never had).
-  - **B2** parent POM: manage the validator (and the Jackson 3 it needs) in `de.planmarshall:pm-mcp-parent`, or keep the property in `pm-core/pom.xml` (default). A parent change is a pull request in another repository and a deploy before this one can build.
-  - **B3** version: 3.0.8 (the pull request) or newer.
-  - **B4** the 2.x fallback if B1 is declined.
-  - **B5** one shared helper (new file, possibly in the `pm-core:tests` artifact) or the edit per class (default).
-  - **B6** the disposition of #71: closed with a comment after this plan's pull request merges (default), or closed at once.
+  - **B1 (settled 2026-11-10, operator: "a1")** Jackson 3 as transitive test-scope libraries of `pm-core` (a family of artifacts the repository has never had): **accepted**, on the condition that the lane runs `dependency:tree`, reports it, and stops to ask if it shows a managed downgrade (the POMs suggest `jackson-annotations` 2.22 against the 2.21 the Quarkus BOM manages: an inference, not a run) or any artifact outside test scope.
+  - **B2 (settled 2026-11-10, operator: "a1")** parent POM: keep the property in `pm-core/pom.xml`; no pull request in `pm-mcp-parent`. A parent change is a pull request in another repository and a deploy before this one can build.
+  - **B3 (settled 2026-11-10, operator: "a1")** version: 3.0.8 (the pull request's); a newer 3.x only if the lane reads its POM first and reports it.
+  - **B4 (moot 2026-11-10)** the 2.x fallback if B1 is declined: B1 is accepted, so 2.0.1 is not used; it stays the option if the dependency tree of 3.0.8 shows a banned or non-test-scope artifact and the operator declines it then.
+  - **B5 (settled 2026-11-10, operator: "b use helper"; the orchestrator had recommended the edit per class at 75%)** one shared helper for the validator call, a new file in the test tree of `pm-core` next to `SchemaResource` (all nine users are in `pm-core`); it is not added to the published `pm-core:tests` artifact, which carries only the generator package and `SchemaResource` (CLAUDE.md, ADR 012 and 016) and would otherwise hand the library's types to consumers; the nine classes call the helper and keep their negative controls.
+  - **B6 (settled 2026-11-10, operator: "c: close")** the disposition of #71: closed, not kept open until this plan's pull request merges; the comment names this plan and its pull request. #71 fails only on the test-compile errors of the renamed API (`cannot find symbol` for `JsonSchema`, `JsonSchemaFactory`, `SpecVersion` in the job `build / quarkus-alignment`), so it cannot merge as it is.
   Anything else that adds a coordinate, a plugin, an exclusion or a version override is a stop-and-ask.
 - **No schema file, specification block, codec or expected value is changed to make a test pass with the new library.** A difference in what the 3.x line accepts or refuses (a `format` keyword, a `$ref` resolution, a `unevaluatedProperties` reading) is a finding: report it in the ADR and the pull request, mark the affected assertion's reason, and stop for the operator if a schema file would have to change (R10: the schema files are the contract).
 - **The negative controls are the proof (R20, `junit-core`).** The edit never turns a check that can fail into one that cannot: before and after the change the nine classes are run with the schema replaced by `{}` in a scratch run and the result is reported.
@@ -92,8 +92,9 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/AuditSchemaParityTest.java` — the imports and the validator call (D1)
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/PlanHistorySchemaParityTest.java` — the imports and the validator call (D1)
 - HYPOTHESIS: `doc/adr/NNN-the-json-schema-validator-is-on-the-3-line.adoc` — the new ADR, slug and number the lane's (D5, R11)
+- HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/SchemaValidation.java` — the shared helper for the validator call (B5, D1; the name is the outline's; not part of the `pm-core:tests` artifact)
 
-Two more files exist only on an operator answer and are therefore not declared: a shared test helper of `pm-core` for the validator call (B5) and a pull request in the repository `plan-marshall/pm-mcp-parent` (B2).
+One more file is declared since the operator's answer (B5): the shared test helper of `pm-core` for the validator call. No pull request in `plan-marshall/pm-mcp-parent` (B2: the property stays).
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc` (no requirement is implemented), `doc/adr/README.adoc` (the ADR index line, additive bookkeeping), and the four ADRs that name the library (read; changed only if a sentence is false after the upgrade).
 
@@ -135,3 +136,5 @@ Read at the outline, re-check each against `origin/main` and adopt it into a del
 - **The label's description reads "on documentation changes"**; the operator asked for it on this dependency plan. The label is used as the central opt-out of the automatic review (`.coderabbit.yaml`); the landing states which bots honour it.
 - **The release notes of the 3.0.9 line quoted in #71 list a breaking change for `date-time`** with an optional library; if the nine parity tests do not use `format: date-time` (the outline greps the schema files for `"format"`), the breaking change is not exercised and the ADR says so.
 - **The documentation checkout lags `origin`** (memory): fetch `plan-marshall-documentation` before the links check.
+
+**Settled 2026-11-10 (operator, Q7 of the issues pass, answers "a1, b use helper, c: close"):** the plan takes the validator to 3.0.8 and accepts the Jackson 3 family as test-scope transitives (B1, B2, B3), with the dependency tree reported and a stop on a managed downgrade; the nine classes call one shared helper in the test tree of `pm-core` (B5; the orchestrator had recommended the edit per class); #71 is closed (B6) with a comment naming this plan. Whether the orchestrator or the lane closes #71, and when, is not stated by the operator's answer: the orchestrator has not closed it (an outward-facing act) and asks before doing so.

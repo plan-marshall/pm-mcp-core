@@ -149,3 +149,6 @@ sole sanctioned write mechanism are stated in
 Open items of the previous epic that this plan owns (register: `owner-register.md` of the epic; the full text is in the archived ledger `pm-mcp-core-m2-m4/epic.md`). They are not deliverables and extend no Done-when: read each while outlining, re-check it against `origin/main` (Claim Labels) and either adopt it into a deliverable of the outline or say in the landing why not.
 
 - **job-confinement-and-environment (PLAN-27)** (Op29) — in-repo share of PLAN-27 is delivered; missing here: the egress field of the job record and a production caller of WorkerEgressProxy; the Landlock/Seatbelt launcher, the worker network namespace, the egress tunnel and the CLI git variant are pm-exec work (external E1)
+
+**Settled 2026-11-10 (operator, Q17 of the issues pass, answer "1"):** the acceptance of unenforced egress that this plan deliberately does not build will be a machine-remembered `ConsentKind` (`accept_unenforced_egress`) in the existing consent store, with a runtime-status line and an admission check that refuses `egress_unenforced`; it is built as a plan of its own when `pm-exec` reports enforcement, not here (see the Watches entry "Acceptance of unenforced egress" of `epic.md`). This plan's "no admission refusal, no new operator act, no audit event for an acceptance" stands.
+
