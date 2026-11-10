@@ -19,6 +19,7 @@ import static org.easymock.EasyMock.replay;
 import java.io.IOException;
 import java.io.Serial;
 import java.io.UncheckedIOException;
+import lombok.experimental.UtilityClass;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 
@@ -29,10 +30,8 @@ import de.planmarshall.core.service.AuditSink;
  * EasyMock audit sinks for the store tests: the failure script a test asks for, expressed as a mock's expectations,
  * so no hand-written sink carries the behaviour.
  */
-final class AuditSinkDoubles {
-
-    private AuditSinkDoubles() {
-    }
+@UtilityClass
+class AuditSinkDoubles {
 
     /** What the stopping sink throws at its first append, as a killed process stops it. */
     static final class ProcessStopped extends RuntimeException {

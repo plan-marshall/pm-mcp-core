@@ -10,12 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.capture;
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.newCapture;
-import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +29,6 @@ import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serial;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -118,38 +112,7 @@ class JournalRecoveryTest {
         }
     }
 
-    /** What the stopping audit sink throws at its first append, as a killed process stops it. */
-    private static final class ProcessStopped extends RuntimeException {
 
-        @Serial
-        private static final long serialVersionUID = 1L;
-
-        ProcessStopped() {
-            super("process stopped at the audit append");
-        }
-    }
-
-    /** @return an EasyMock audit sink that refuses its first append and captures every later one */
-    private static AuditSink refusingSink(Capture<AuditEvent> captured) {
-        AuditSink sink = createMock(AuditSink.class);
-        sink.append(anyObject(AuditEvent.class));
-        expectLastCall().andThrow(new UncheckedIOException(new IOException("the audit log cannot be written")));
-        sink.append(capture(captured));
-        expectLastCall().anyTimes();
-        replay(sink);
-        return sink;
-    }
-
-    /** @return an EasyMock audit sink that stops the caller at its first append */
-    private static AuditSink stoppingSink() {
-        AuditSink sink = createMock(AuditSink.class);
-        sink.append(anyObject(AuditEvent.class));
-        expectLastCall().andThrow(new ProcessStopped());
-        sink.append(anyObject(AuditEvent.class));
-        expectLastCall().anyTimes();
-        replay(sink);
-        return sink;
-    }
 
     /**
      * Creates a consistent scope: the status and the work log are written by a commit, so the sidecar holds their
@@ -797,7 +760,7 @@ class JournalRecoveryTest {
         void sinkRefuses() {
             var journal = stopAt(Step.JOURNAL, 0);
             Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
-            var refusing = refusingSink(refused);
+            var refusing = AuditSinkDoubles.refusing(refused);
 
             var first = recoverWith(refusing);
 
@@ -844,9 +807,9 @@ class JournalRecoveryTest {
         @DisplayName("a process stopped between the roll-forward and the append delivers the record at the next recovery")
         void stoppedBeforeAppend() throws Exception {
             var journal = stopAt(Step.JOURNAL, 0);
-            var stopping = stoppingSink();
+            var stopping = AuditSinkDoubles.stopping();
 
-            assertThrows(ProcessStopped.class, () -> recoverWith(stopping),
+            assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> recoverWith(stopping),
                     "the recovery stops before the append");
             var afterStop = snapshot(scope.pathBase());
             var outcome = recover();
@@ -866,7 +829,7 @@ class JournalRecoveryTest {
                 + "keeping its own id")
         void owedByTransaction() throws Exception {
             Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
-            var refusing = refusingSink(refused);
+            var refusing = AuditSinkDoubles.refusing(refused);
             TransactionJournal journal;
             String recordId;
             try (var transaction = locks.openTransaction()) {

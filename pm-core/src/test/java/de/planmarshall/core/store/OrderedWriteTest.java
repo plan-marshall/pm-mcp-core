@@ -10,12 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.capture;
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.newCapture;
-import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,7 +23,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.Serial;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -105,38 +99,7 @@ class OrderedWriteTest {
         }
     }
 
-    /** What the stopping audit sink throws at its first append, as a killed process stops it. */
-    private static final class ProcessStopped extends RuntimeException {
 
-        @Serial
-        private static final long serialVersionUID = 1L;
-
-        ProcessStopped() {
-            super("process stopped at the audit append");
-        }
-    }
-
-    /** @return an EasyMock audit sink that refuses its first append and captures every later one */
-    private static AuditSink refusingSink(Capture<AuditEvent> captured) {
-        AuditSink sink = createMock(AuditSink.class);
-        sink.append(anyObject(AuditEvent.class));
-        expectLastCall().andThrow(new UncheckedIOException(new IOException("the audit log cannot be written")));
-        sink.append(capture(captured));
-        expectLastCall().anyTimes();
-        replay(sink);
-        return sink;
-    }
-
-    /** @return an EasyMock audit sink that stops the caller at its first append */
-    private static AuditSink stoppingSink() {
-        AuditSink sink = createMock(AuditSink.class);
-        sink.append(anyObject(AuditEvent.class));
-        expectLastCall().andThrow(new ProcessStopped());
-        sink.append(anyObject(AuditEvent.class));
-        expectLastCall().anyTimes();
-        replay(sink);
-        return sink;
-    }
 
     @BeforeEach
     void createScopes() throws IOException {
@@ -501,7 +464,7 @@ class OrderedWriteTest {
             var write = flow(0, NO_STOP, new ArrayList<>());
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
             Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
-            var refusing = refusingSink(refused);
+            var refusing = AuditSinkDoubles.refusing(refused);
 
             var applied = OrderedWrite.reconcile(locks, List.of(reconciler()), refusing);
             var journalKept = Files.exists(workspace.journalFile());
@@ -539,9 +502,9 @@ class OrderedWriteTest {
             var write = flow(0, NO_STOP, new ArrayList<>());
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
             var reconcilers = List.of(reconciler());
-            var stopping = stoppingSink();
+            var stopping = AuditSinkDoubles.stopping();
 
-            assertThrows(ProcessStopped.class,
+            assertThrows(AuditSinkDoubles.ProcessStopped.class,
                     () -> OrderedWrite.reconcile(locks, reconcilers, stopping),
                     "the sink should stop the reconcile");
             var applied = restart();

@@ -475,8 +475,8 @@ class ConsultationServiceTest {
         var delegate = new ConsultTestLocks();
         LockManager locks = createMock(LockManager.class);
         expect(locks.openTransaction()).andAnswer(delegate::openTransaction).once();
-        expect(locks.openTransaction()).andThrow(new UncheckedIOException(new IOException("the queue lock cannot be taken")))
-                .once();
+        expect(locks.openTransaction())
+                .andThrow(new UncheckedIOException(new IOException(Generators.letterStrings(10, 40).next()))).once();
         expect(locks.openTransaction()).andAnswer(delegate::openTransaction).anyTimes();
         replay(locks);
         var failing = new ConsultationService(QueueStore.ofProject(base, "project-a", locks));
