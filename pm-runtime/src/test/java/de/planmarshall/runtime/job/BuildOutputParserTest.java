@@ -348,6 +348,20 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("an npm error log in the current prefix decides failed")
+    void npmErrorCurrentPrefix() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                npm error code E404
+                npm error 404 'missing' is not in this registry
+                """);
+
+        assertAll(
+                () -> assertEquals(1, parse.diagnostics(), "the new-prefix error block was filed"),
+                () -> assertEquals(FAILED, outcome(parse, failures().next()),
+                        "a new-prefix npm error decides failed rather than unparsed"));
+    }
+
+    @Test
     @DisplayName("a log no parser recognises yields nothing")
     void unrecognisedLog() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "compiling something\n");

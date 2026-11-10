@@ -1,0 +1,17 @@
+deliberate: deliberate-npm-error-old-prefix
+# Recorded on 2026-11-10 with `npm --version` 9.2.0 (the release installed in the lane's
+# environment), from the E404 log of
+# `npm install definitely-not-a-real-package-pm127@1.0.0`. This fixture pins that reading the
+# current `npm error ` prefix does not lose the older `npm ERR! ` one.
+log npm ERR! code E404
+log npm ERR! 404 Not Found - GET https://registry.npmjs.org/missing-package - Not found
+log npm ERR! 404
+log npm ERR! 404  'missing-package@1.0.0' is not in this registry.
+log npm ERR! 404 Note that you can also install from a
+log npm ERR! 404 tarball, folder, http url, or git url.
+status FAILURE
+success-marker false
+tests none
+no-tests-ran false
+diagnostic-count 1
+diagnostic ERROR NPM_ERROR package.json - - E404: Package 'missing-package@1.0.0' not found in registry

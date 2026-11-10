@@ -212,7 +212,7 @@ completion line (`added 150 packages in 10s`, `up to date, audited 5 packages`) 
 pytest summary that reports a passed count is the marker of the pyproject parser. ADR
 link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-success-marker.adoc[`runtime-job/016`] records the decision.
 
-* *npm errors* — every `npm ERR! code` line opens a block. `ERESOLVE` is `NPM_DEPENDENCY`, and its
+* *npm errors* — every `npm ERR! code` line (npm up to 11) or `npm error code` line (npm 12 on) opens a block. `ERESOLVE` is `NPM_DEPENDENCY`, and its
   `Could not resolve dependency:` trailer names the peer dependency and its origin when the trailer carries them; `E404`
   is `NPM_ERROR` and names the quoted package specification it could not find; every other code is `NPM_ERROR` with the
   block's first reportable line, which is the code line itself. Both named forms point into `package.json` without a line.

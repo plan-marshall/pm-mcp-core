@@ -66,7 +66,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
 
     private static final Pattern TAP_MARKER = Pattern.compile("(?m)^(?:TAP version \\d+|1\\.\\.\\d+|(?:not )?ok \\d+)");
 
-    private static final Pattern NPM_MARKER = Pattern.compile("(?m)^npm ERR! ");
+    private static final Pattern NPM_MARKER = Pattern.compile("(?m)^(?:npm ERR!|npm error) ");
 
     /**
      * The install family's completion line, which is its own passing summary: {@code added|removed|changed N packages}

@@ -22,7 +22,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * The native parse of an npm error log, ported from {@code build-npm/_npm_parse_errors.py}.
  * <p>
- * The scanner reads the {@code npm ERR! code <CODE>} blocks of the log and classifies each block by its code. An
+ * The scanner reads the {@code code <CODE>} blocks of the log — the {@code npm ERR! } prefix of npm up to 11 and the
+ * {@code npm error } prefix of npm 12 on — and classifies each block by its code. An
  * {@code ERESOLVE} block is {@link Category#NPM_DEPENDENCY} and names the conflicting peer dependency when the
  * {@code Could not resolve dependency:} trailer names one; an {@code E404} block is {@link Category#NPM_ERROR} and names
  * the package the registry does not hold; every other code is {@link Category#NPM_ERROR} with the first line of the block
@@ -46,7 +47,11 @@ import org.jspecify.annotations.Nullable;
 @UtilityClass
 public class NpmErrorParser {
 
-    private static final String ERROR_PREFIX = "npm ERR! ";
+    /**
+     * The two error prefixes npm prints: `npm ERR! ` up to npm 11 and `npm error ` from npm 12 on. The same failure
+     * carries the same block under either prefix.
+     */
+    private static final Pattern ERROR_PREFIX = Pattern.compile("^(?:npm ERR!|npm error) ");
 
     private static final String ERESOLVE = "ERESOLVE";
 
@@ -54,13 +59,15 @@ public class NpmErrorParser {
 
     private static final String PACKAGE_JSON = "package.json";
 
-    private static final String CONFLICT_MARKER = "npm ERR! Could not resolve dependency:";
+    private static final Pattern CONFLICT_MARKER =
+            Pattern.compile("^(?:npm ERR!|npm error) Could not resolve dependency:$");
 
     private static final String BOILERPLATE_PREFIX = "A complete log";
 
-    private static final Pattern ERROR_CODE = Pattern.compile("^npm ERR! code (\\S+)");
+    private static final Pattern ERROR_CODE = Pattern.compile("^(?:npm ERR!|npm error) code (\\S+)");
 
-    private static final Pattern E404_PACKAGE = Pattern.compile("^npm ERR! 404\\s+'([^']+)'\\s+is not in this registry");
+    private static final Pattern E404_PACKAGE =
+            Pattern.compile("^(?:npm ERR!|npm error) 404\\s+'([^']+)'\\s+is not in this registry");
 
     private static final Pattern PEER_CONFLICT = Pattern.compile("peer\\s+(\\S+)\\s+from\\s+(\\S+)");
 
@@ -171,7 +178,7 @@ public class NpmErrorParser {
     private static Optional<String[]> findPeerConflict(List<String> block) {
         int marker = -1;
         for (int index = 0; index < block.size(); index++) {
-            if (CONFLICT_MARKER.equals(block.get(index).strip())) {
+            if (CONFLICT_MARKER.matcher(block.get(index).strip()).matches()) {
                 marker = index;
                 break;
             }
@@ -195,8 +202,9 @@ public class NpmErrorParser {
      */
     private static String firstLine(List<String> block) {
         for (String line : block) {
-            if (line.startsWith(ERROR_PREFIX)) {
-                String content = line.substring(ERROR_PREFIX.length()).strip();
+            Matcher prefix = ERROR_PREFIX.matcher(line);
+            if (prefix.find()) {
+                String content = line.substring(prefix.end()).strip();
                 if (!content.isEmpty() && !content.startsWith(BOILERPLATE_PREFIX)) {
                     return content;
                 }
