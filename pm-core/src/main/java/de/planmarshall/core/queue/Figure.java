@@ -10,6 +10,7 @@
 package de.planmarshall.core.queue;
 
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -27,6 +28,7 @@ import org.jspecify.annotations.Nullable;
  * @param sentinel   {@code indeterminate}, {@code unmeasured} or {@code null} for a measured figure
  * @since 0.1
  */
+@Builder
 public record Figure(String name, @Nullable Double value, long population, @Nullable String sentinel) {
 
     /** The population of the figure cannot be read. */

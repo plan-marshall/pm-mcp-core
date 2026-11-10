@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
@@ -70,6 +71,7 @@ public final class RoleAssignmentProposal {
      * @param unresolved  why the default cannot be met; {@code null} when the value is proposed
      * @since 0.1
      */
+    @Builder
     public record Proposal(String role, String tier, String advisory, @Nullable RoleAssignmentValue assignment,
     @Nullable String unresolved) {
 

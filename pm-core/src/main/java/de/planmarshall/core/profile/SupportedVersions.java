@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -147,7 +148,8 @@ public final class SupportedVersions {
         }
     }
 
-    private record Version(int major, int minor, int patch, @Nullable String suffix) implements Comparable<Version> {
+    @Builder
+    record Version(int major, int minor, int patch, @Nullable String suffix) implements Comparable<Version> {
 
         private Optional<Version> next() {
             if (suffix != null) {

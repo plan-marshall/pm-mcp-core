@@ -430,6 +430,7 @@ Instant createdAt, @Nullable Instant spawnedAt, @Nullable Instant endedAt, @Null
      * @param source     where the configured value came from
      * @since 0.1
      */
+    @Builder
     public record ClampedValue(String key, @Nullable String configured, BigDecimal used, Source source) {
 
         /**

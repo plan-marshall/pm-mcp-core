@@ -11,6 +11,7 @@ package de.planmarshall.core.queue;
 
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
 
 /**
  * The harness-specific tool names the navigation figures read from a task's activity (Model Work § Navigation Figures):
@@ -24,6 +25,7 @@ import java.util.Set;
  * @param skillTool           the server's skill tool
  * @since 0.1
  */
+@Builder
 public record NavigationVocabulary(Set<String> fileReadTools, Set<String> wholeFileReadTools,
 Set<String> searchTools, String languageServerTool, String skillTool) {
 

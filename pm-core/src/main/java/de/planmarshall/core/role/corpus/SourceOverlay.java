@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.corpus.ImportedItem.Grading;
@@ -47,6 +48,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
  * @param rows     the selected rows, at least one; unmodifiable
  * @since 0.1
  */
+@Builder
 public record SourceOverlay(String source, String file, @Nullable String keyField, LocalDate created,
 List<Row> rows) {
 
@@ -81,6 +83,7 @@ List<Row> rows) {
      * @param contamination the contamination note of the item, literal text; {@code null} if not given
      * @since 0.1
      */
+    @Builder
     public record Row(String key, String slug, String topic, String role, String title, List<String> tags,
     String group, String question, String facts, @Nullable List<String> choices,
     @Nullable JsonValue answerSchema, Target target,

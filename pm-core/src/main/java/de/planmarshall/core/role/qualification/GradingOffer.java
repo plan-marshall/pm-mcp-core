@@ -12,6 +12,7 @@ package de.planmarshall.core.role.qualification;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.core.role.RoleForm;
 
@@ -29,6 +30,7 @@ import de.planmarshall.core.role.RoleForm;
  * @param expectedTokens the expected tokens of the whole run
  * @since 0.1
  */
+@Builder
 public record GradingOffer(String role, List<Topic> topics, int items, List<RoleForm> forms, int runsPerItem,
 int judgeItems, long expectedTokens) {
 

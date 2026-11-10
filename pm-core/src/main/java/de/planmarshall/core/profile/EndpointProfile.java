@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,6 +37,7 @@ import org.jspecify.annotations.Nullable;
  * @param weightsProbe   how the identity of the model's weights is read; {@code null} when the harness reports none
  * @since 0.1
  */
+@Builder
 public record EndpointProfile(String clientId, @Nullable String executable, @Nullable Identity identity,
 @Nullable UpdateEvidence updateEvidence, Endpoint endpoint, Map<String, String> modelTiers,
 @Nullable WeightsProbe weightsProbe) {
@@ -99,6 +101,7 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
      *                              loopback form
      * @since 0.1
      */
+    @Builder
     public record Endpoint(String protocol, String locality, String baseUrl, @Nullable String readinessPath,
     String modelsPath, String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
     int requestTimeoutSeconds, @Nullable String credentialKey) {
@@ -157,6 +160,7 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
      * @param pattern the pattern whose first group is the identity; {@code null} for {@code models_listing}
      * @since 0.1
      */
+    @Builder
     public record WeightsProbe(String source, @Nullable String pointer, @Nullable List<String> argv,
     @Nullable String pattern) {
 

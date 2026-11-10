@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -125,6 +126,7 @@ public record BuildTimings(Map<String, KeyTimings> keys) {
      * @param lastObservedAt    the instant of the last finished run; {@code null} before the first
      * @since 0.1
      */
+    @Builder
     public record KeyTimings(Baseline clean, Baseline poisoned, Baseline cold, @Nullable Long escalationSeconds,
     @Nullable Instant lastObservedAt) {
 

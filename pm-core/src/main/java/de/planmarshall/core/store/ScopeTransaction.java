@@ -28,6 +28,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import lombok.Builder;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -128,6 +129,7 @@ public final class ScopeTransaction {
      * @param content      the new content or the appended block, held, not copied; empty for a delete
      * @param mustBeAbsent whether the commit is refused when the store exists; true only for a create
      */
+    @Builder
     record PendingTarget(String path, Mode mode, byte[] content, boolean mustBeAbsent) {
 
         @Override

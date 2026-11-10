@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
@@ -38,6 +39,7 @@ import de.planmarshall.core.role.RoleSkill;
  * @param skillDigests   the digests of the resolved skills by skill URI
  * @since 0.1
  */
+@Builder
 public record GradedConfiguration(String harness, String harnessVersion, String model, @Nullable String effort,
 List<String> tools, RoleClass roleClass, Map<String, String> skillDigests) {
 

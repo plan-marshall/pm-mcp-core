@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -46,6 +47,7 @@ import org.jspecify.annotations.Nullable;
  * @param offTrack            per off-track signal the threshold below the compiled one and the action
  * @since 0.1
  */
+@Builder
 public record RoleArtifact(int formatVersion, String name, String description, RoleClass roleClass, List<String> tools,
 String harness, String model, EffortValue effort, RoleForm form, int count, List<String> skills,
 @Nullable Recycling recycling, int budgetFloorSeconds, @Nullable Integer contextBudgetTokens,

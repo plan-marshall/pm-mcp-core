@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -44,6 +45,7 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param toolUses         the pointer of the tool calls, or {@code null}
  * @since 0.1
  */
+@Builder
 public record UsagePointers(@Nullable String inputTokens, @Nullable String outputTokens, @Nullable String cacheRead,
 @Nullable String cacheCreation, @Nullable String reasoning, @Nullable String costUsd,
 @Nullable String toolUses) {

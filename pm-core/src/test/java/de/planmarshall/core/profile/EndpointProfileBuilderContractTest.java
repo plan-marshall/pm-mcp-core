@@ -1,0 +1,98 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.core.profile;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * The builders of {@link EndpointProfile} and of its nested records build the values the canonical constructors build,
+ * and a missing required component is refused with the same refusal.
+ */
+@EnableGeneratorController
+@DisplayName("Endpoint profile builders")
+class EndpointProfileBuilderContractTest {
+
+    @Test
+    @DisplayName("the profile builder builds the constructor's value and refuses alike")
+    void shouldBuildProfileLikeTheConstructorAndRefuseAlike() {
+        var clientId = Generators.letterStrings(3, 12).next();
+        var endpoint = new EndpointProfile.Endpoint("openai_chat", "loopback", "http://127.0.0.1:11434", "/health",
+                "/v1/models", "/data", "enforced", 32_768, 4_096, 120, null);
+        var modelTiers = Map.of("frontier", "acme-frontier");
+
+        var canonical = new EndpointProfile(clientId, null, null, null, endpoint, modelTiers, null);
+        var built = EndpointProfile.builder().clientId(canonical.clientId()).executable(canonical.executable())
+                .identity(canonical.identity()).updateEvidence(canonical.updateEvidence())
+                .endpoint(canonical.endpoint()).modelTiers(canonical.modelTiers())
+                .weightsProbe(canonical.weightsProbe()).build();
+
+        assertAll(
+                () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
+                () -> {
+                    var fromConstructor = assertThrows(NullPointerException.class,
+                            () -> new EndpointProfile(null, null, null, null, endpoint, modelTiers, null),
+                            "the constructor refuses a null clientId");
+                    var fromBuilder = assertThrows(NullPointerException.class,
+                            () -> EndpointProfile.builder().endpoint(endpoint).modelTiers(modelTiers).build(),
+                            "the builder refuses a missing clientId");
+                    assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
+                            "both refuse an absent clientId with the same message");
+                });
+    }
+
+    @Test
+    @DisplayName("the endpoint builder builds the constructor's value")
+    void shouldBuildEndpointLikeTheConstructor() {
+        var canonical = new EndpointProfile.Endpoint("openai_chat", "loopback", "http://127.0.0.1:11434", "/health",
+                "/v1/models", "/data", "enforced", 32_768, 4_096, 120, null);
+        var built = EndpointProfile.Endpoint.builder().protocol(canonical.protocol())
+                .locality(canonical.locality()).baseUrl(canonical.baseUrl())
+                .readinessPath(canonical.readinessPath()).modelsPath(canonical.modelsPath())
+                .modelsPointer(canonical.modelsPointer()).resultSchema(canonical.resultSchema())
+                .contextTokens(canonical.contextTokens()).answerReserveTokens(canonical.answerReserveTokens())
+                .requestTimeoutSeconds(canonical.requestTimeoutSeconds())
+                .credentialKey(canonical.credentialKey()).build();
+
+        assertEquals(canonical, built, "the builder builds the constructor's value");
+    }
+
+    @Test
+    @DisplayName("the weights probe builder builds the constructor's value and refuses alike")
+    void shouldBuildWeightsProbeLikeTheConstructorAndRefuseAlike() {
+        var argv = List.of("acme", "weights", "{{model}}");
+        var pattern = "^(\\S+)$";
+
+        var canonical = new EndpointProfile.WeightsProbe("argv", null, argv, pattern);
+        var built = EndpointProfile.WeightsProbe.builder().source(canonical.source())
+                .pointer(canonical.pointer()).argv(canonical.argv()).pattern(canonical.pattern()).build();
+
+        assertAll(
+                () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
+                () -> {
+                    var fromConstructor = assertThrows(NullPointerException.class,
+                            () -> new EndpointProfile.WeightsProbe(null, null, argv, pattern),
+                            "the constructor refuses a null source");
+                    var fromBuilder = assertThrows(NullPointerException.class,
+                            () -> EndpointProfile.WeightsProbe.builder().argv(argv).pattern(pattern).build(),
+                            "the builder refuses a missing source");
+                    assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
+                            "both refuse an absent source with the same message");
+                });
+    }
+}

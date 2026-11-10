@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import lombok.With;
 
 /**
@@ -31,6 +32,7 @@ import lombok.With;
  * @since 0.1
  */
 @With
+@Builder
 public record AuditIndexEntry(String prevHash, String file, String firstEventId, String lastEventId, long recordCount,
 String checkpointHash) {
 

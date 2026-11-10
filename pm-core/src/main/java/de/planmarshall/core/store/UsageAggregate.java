@@ -22,6 +22,7 @@ import java.util.OptionalLong;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Function;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
@@ -60,6 +61,7 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * @param totalIsFloor       whether the figure is a lower bound because a row of the population is unmeasured
  * @since 0.1
  */
+@Builder
 public record UsageAggregate(Population population, OptionalLong totalTokens, OptionalLong tokensIn,
 OptionalLong tokensOut, long rows, long rowsUnmeasured, Map<UnmeasuredReason, Long> unmeasuredReasons,
 long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {

@@ -193,6 +193,7 @@ Map<String, String> retained) {
      * @param pushedAt         the instant of the push
      * @since 0.1
      */
+    @Builder
     public record CallFrame(String callerWorkflowId, String callerStateId, String subworkflowId,
     String entry, Map<String, BoundArg> boundArgs, Instant pushedAt) {
 
@@ -289,6 +290,7 @@ Map<String, String> retained) {
      * @param startedAt the instant the job was started
      * @since 0.1
      */
+    @Builder
     public record JobEntry(String jobId, String kind, String status, Instant startedAt) {
 
         /**
@@ -313,6 +315,7 @@ Map<String, String> retained) {
      * @param reason      why a {@code lost} task ended without a result; {@code null} otherwise
      * @since 0.1
      */
+    @Builder
     public record TaskEntry(String queueTaskId, String role, String state, @Nullable String outcome,
     @Nullable String reason) {
 
@@ -343,6 +346,7 @@ Map<String, String> retained) {
      * @param raisedAt       the instant the condition was raised
      * @since 0.1
      */
+    @Builder
     public record PendingCondition(String kind, long remedyAttempts, @Nullable Integrity integrity, String facts,
     Instant raisedAt) {
 
@@ -376,6 +380,7 @@ Map<String, String> retained) {
      * @param currentDigest  the current digest; {@code null} when the file is missing
      * @since 0.1
      */
+    @Builder
     public record Integrity(String kind, String store, String recordedDigest, @Nullable String currentDigest) {
 
         /**
@@ -399,6 +404,7 @@ Map<String, String> retained) {
      * @param lastRetry   the last retry and the failure fingerprints it answered; {@code null} before the first
      * @since 0.1
      */
+    @Builder
     public record PolicyCounter(long retryUsed, long fixUsed, @Nullable Renewal renewedFrom,
     @Nullable LastRetry lastRetry) {
 

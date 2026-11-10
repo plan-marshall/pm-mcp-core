@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,6 +37,7 @@ import org.jspecify.annotations.Nullable;
  * @param at              when the line was written
  * @since 0.1
  */
+@Builder
 public record PlanHistoryLine(int formatVersion, long seq, Event event, String node, List<String> callPath,
 @Nullable String phase, @Nullable String outcome, int instanceVersion, Instant at) {
 

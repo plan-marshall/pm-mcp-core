@@ -11,6 +11,7 @@ package de.planmarshall.core.config;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
@@ -29,6 +30,7 @@ import de.planmarshall.core.role.RoleAssignment;
  * @param escalation  the optional stronger configuration of the role; {@code null} when none is named
  * @since 0.1
  */
+@Builder
 public record RoleAssignmentValue(String harness, String model, EffortSetting effort,
 @Nullable EffortValue effortValue, @Nullable Escalation escalation) {
 

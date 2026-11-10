@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -57,6 +58,7 @@ public final class JudgeCheck {
      * @param items               every item's two scores
      * @since 0.1
      */
+    @Builder
     public record Record(String qualificationDigest, String harness, String model, String corpusRevision,
     BigDecimal oracleAccuracy, BigDecimal blindAccuracy, BigDecimal constantBaseline, int unscored,
     Instant checkedAt, List<ItemScore> items) {
@@ -114,6 +116,7 @@ public final class JudgeCheck {
      * @param durationMs  how long the two scorings took; {@code null} when unknown
      * @since 0.1
      */
+    @Builder
     public record ItemScore(String itemId, Label label, Grade oracleScore, Grade blindScore, TokenTotal totalTokens,
     @Nullable Long durationMs) {
 
@@ -177,6 +180,7 @@ public final class JudgeCheck {
      * @param label     whether the known answer is right or wrong
      * @since 0.1
      */
+    @Builder
     public record Item(String itemId, String question, String facts, String reference, String answer, Label label) {
 
         /** @throws NullPointerException if a component is {@code null} */

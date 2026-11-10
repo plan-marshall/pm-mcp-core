@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -44,6 +45,7 @@ import de.planmarshall.core.profile.ProfileValidator;
  * @param askUserTool             the harness tool that asks the user, which no role may name
  * @since 0.1
  */
+@Builder
 public record HarnessProfile(String clientId, boolean eligible, boolean restrictedModelsDeclared,
 Set<String> restrictedModels, Map<RoleClass, ToolSet> classes, Map<String, List<String>> modelEfforts,
 Map<String, String> modelTiers, @Nullable Integer contextBudgetTokens, @Nullable Integer idleWakeups,
@@ -76,6 +78,7 @@ Resumability resumability, String askUserTool) {
      * @param maxResumeAgeSeconds  the oldest stored session measured to resume; {@code null} when resume is false
      * @since 0.1
      */
+    @Builder
     public record Resumability(boolean hold, @Nullable Integer maxHoldSeconds, boolean resume,
     @Nullable Integer maxResumeAgeSeconds) {
     }

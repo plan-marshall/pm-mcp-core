@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * The result of one import of the corpus sources (PM-WORK-6, PM-TEST-6): which sources it covered with how many items,
@@ -107,6 +108,7 @@ public record ImportResult(List<CoveredSource> covered, List<MissedSource> misse
      * @param detail what failed, without a credential
      * @since 0.1
      */
+    @Builder
     public record MissedSource(String name, Reason reason, String file, String detail) {
 
         /**
