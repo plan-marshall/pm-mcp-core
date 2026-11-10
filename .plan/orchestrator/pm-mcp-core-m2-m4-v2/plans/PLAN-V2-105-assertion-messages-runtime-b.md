@@ -84,3 +84,8 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: it owns the `runtime` `worker` test directory (`SupervisorTestFixture` and the worker doubles): this plan runs after 136. The dependency is the oracle: emit this plan only in that order.

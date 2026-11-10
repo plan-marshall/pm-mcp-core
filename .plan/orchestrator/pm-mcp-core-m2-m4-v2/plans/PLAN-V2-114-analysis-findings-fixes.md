@@ -148,3 +148,8 @@ These are not extra deliverables and extend no Done-when: the outline adopts, sp
 8. **`SubprocessJobRunner.java:573`** (`landings/PLAN-V2-99.md` L3-3): a leftover `isEmpty() ? Optional.empty() : Optional.of(…)` that is fed through `orElse(null)`; remove the round trip (the file is already in this plan's surface through Deliverable 2(b)).
 
 **Not here:** the test classes of these items are PLAN-V2-125 (core: the byte pin of the written members, the `Optional` test helpers, `java:S5778` at `RoleAssignmentsStoreTest.java:153`) and PLAN-V2-126 (runtime and providers: the absence tests that cannot fail, the generator-less literals, `LaunchComposerTest.java:180`); the assertion messages are PLAN-V2-101 to 105.
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: it edits nine test classes that 136 also converts (`LessonStoreTest`, `LessonResolverTest`, `LessonRetirementTest`, `LessonClaimTest`, `LessonRevisionTest`, `LessonStoreCrashTest`, `ScopeTransactionTest`, `SubprocessJobRunnerTest`, `DerivedFactStoreLockTest`) and `core-store.adoc` at other lines; never in parallel with 136, the second rebases; recommendation: 136 first. The dependency is the oracle: emit this plan only in that order.

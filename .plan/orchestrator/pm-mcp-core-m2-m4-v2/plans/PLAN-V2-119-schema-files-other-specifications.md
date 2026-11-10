@@ -102,3 +102,7 @@ sole sanctioned write mechanism are stated in
 Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
 
 - **Sequencing (operator 2026-11-09):** run AFTER PLAN-V2-129 (deferred-code removal), so that the schema block of `harness-profiles/03-endpoint-harness` is not moved for code that is deleted.
+
+## Grounding note (cleanup 2026-11-10, main 0dff9ea7, after #354)
+
+Deliverable 1 moves the schema block of `harness-profiles/01-profile-schema.adoc` byte for byte, and Deliverables 2 and 3 compare each block to its codec. The merged pull request #354 (`1b5dc230`) edited that block: `headless.usage` gained the required pointer `model` (`01-profile-schema.adoc`, lines 323 to 326, in the `required` list), while `ProfileValidator` closes `headless.usage` to the seven `ProfileStages.USAGE_FIGURES` (`ProfileValidator.java:946-947`) and no shipped profile carries `model`: the block and its codec now deviate. This plan reports the deviation (a schema is not changed inside the move) and names the plan that closes it: the new Milestone 4 item "the model that answered" (the finding `zed-acp-ingestion-001`), which adds the pointer to the validator and the shipped `claude` profile.

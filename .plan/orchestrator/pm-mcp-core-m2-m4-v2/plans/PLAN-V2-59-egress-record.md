@@ -152,3 +152,13 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 **Settled 2026-11-10 (operator, Q17 of the issues pass, answer "1"):** the acceptance of unenforced egress that this plan deliberately does not build will be a machine-remembered `ConsentKind` (`accept_unenforced_egress`) in the existing consent store, with a runtime-status line and an admission check that refuses `egress_unenforced`; it is built as a plan of its own when `pm-exec` reports enforcement, not here (see the Watches entry "Acceptance of unenforced egress" of `epic.md`). This plan's "no admission refusal, no new operator act, no audit event for an acceptance" stands.
 
+## Grounding note (cleanup 2026-11-10, main 0dff9ea7, after #354)
+
+The merged specification pull request #354 (`1b5dc230`) touches three things this plan builds on. (1) The activity-kind bullet of `store-schemas/16-task-queue.adoc` (line 49) gained the server kind `model_differs`, while the schema enum and `ActivityEntry.Kind` are unchanged: prose, schema and code already differ, and the `egress` kind of Deliverables 1 and 4 is inserted beside `model_differs` in the bullet, the schema and the enum, in one edit. (2) `git_metadata` is now a member of the launch report (`job-runtime/01`, line 126) and is recorded in the job record (`job-runtime/02`, lines 29 to 31), but the job-record block of `store-schemas/10` that Deliverables 1 and 2 extend with `egress` does not have it yet: the new plan for the git-metadata item adds it, so the two plans touch the same block and are sequenced by the gate (the later one reads the tree of the first); "no change of `LaunchReport`" still holds for this plan's code. (3) A new paragraph at `job-runtime/02` line 29 shifts the Worker Egress Proxy section to lines 155 to 164; the lines this spec cites (138 to 141) are re-read at the head before editing.
+
+
+## Grounding note 2 (cleanup 2026-11-10, ingestion drafting of PLAN-V2-134)
+
+- The job record schema has been a file since #323 (`pm-core/src/main/resources/de/planmarshall/core/store/job-record.schema.json`); D1 and D2 of this plan still cite an inline block of `store-schemas/10`. The member `egress` goes into the schema file, with its parity test (`JobRecordSchemaParityTest`); correct the citations at the outline.
+- The Plan parameters name workstream WS-10 while the header says WS-06; the row says WS-06.
+- PLAN-V2-134 `git-metadata-out-of-workers-reach` (staged) adds one more member to `JobRecord`, `JobRecordCodec`, `job-record.schema.json`, `JobRecordSchemaParityTest`, `JobRecordCodecTest`, `JobRecordStoreTest` and `SubprocessJobRunner.newRecord`, the same member pattern: 134 runs after this plan and reads its tree.

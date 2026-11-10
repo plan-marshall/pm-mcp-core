@@ -112,3 +112,8 @@ sole sanctioned write mechanism are stated in
 Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
 
 - **Carried (PLAN-35 residue):** D1 of PLAN-35 is carried by PLAN-V2-33 and this plan (see PLAN-V2-33).
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: it extends `ScenarioFixtures` and `ScriptedFixtureWorker`, whose ports 136 converts: 136 runs first. The dependency is the oracle: emit this plan only in that order.

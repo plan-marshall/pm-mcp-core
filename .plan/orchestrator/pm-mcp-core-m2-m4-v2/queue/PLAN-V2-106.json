@@ -2,10 +2,10 @@
   "id": "PLAN-V2-106",
   "slug": "easymock-for-fakes",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-106-easymock-for-fakes",
+  "pr": "#355",
+  "landing": "landings/PLAN-V2-106.md",
   "seq": -6
 }
