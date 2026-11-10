@@ -4,18 +4,18 @@
 
 ## START HERE
 
-**Resume anchor**: PLAN-01 and PLAN-02 shipped 2026-10-28. PLAN-03 is running in plan-marshall-mcp since 2026-10-30 (operator-confirmed; cap 60 USD with R4 large last, Claude Code parallel limit measured, Q6's quorum moved to PLAN-04). It files no inbox message. Next action: when it lands, the operator pastes its final report and PR, then analyze reconciles the row, including plan_marshall_plan_id and pr. PLAN-04 stays deferred until PLAN-03 has landed, an OpenCode consumer exists or the operator decides without one, Antigravity is usable (about 2026-10-31 07:10 CET) and its budget and data home are confirmed.
+**Resume anchor**: PLAN-01, PLAN-02 and PLAN-03 shipped (PLAN-03 analyzed 2026-11-10, landings/PLAN-03.md). PLAN-05 (fix the measurement code's defects) emitted 2026-11-10, awaiting the operator's launch in the plan-marshall-mcp checkout; record launched on confirmation, then analyze its landing from the PR and final report. The operator also opens a direct PR in plan-marshall-mcp for the package's four record gaps. PLAN-04 stays deferred: it waits for PLAN-05 and for launch conditions 2 (an OpenCode consumer package, or the operator decides without one), 3 (Antigravity usable, operator to confirm) and 4 (budget incl. Claude Code Q5 bound 5 and R4 large work, and the data home).
 **Phase**: orchestrating
-**Running**:
-- PLAN-03 (WS-02)
 **Queue** (staged, in order):
 1. PLAN-04 (WS-02)
+2. PLAN-05 (WS-02)
 - PLAN-01 (WS-01) — plan=rb-01-correct-question-loop-results — PR #213 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-02) — plan=rb-02-revise-follow-up-package — PR #212 — landing=landings/PLAN-02.md — status: shipped
+- PLAN-03 (WS-02) — plan=question-loop-run-follow-up-measurement — PR plan-marshall-mcp#114 — landing=landings/PLAN-03.md — status: shipped
 
 ## Ordered Queue
 
 | # | Plan | Workstream | Status | Surface (expected) | Lane |
 |---|------|------------|--------|--------------------|------|
-| 1 | PLAN-03 | WS-02 | running | ../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/ | plan-marshall |
-| 2 | PLAN-04 | WS-02 | staged | ../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/ | plan-marshall |
+| 1 | PLAN-04 | WS-02 | staged | ../plan-marshall-documentation/doc/developer/question-loop-measurement.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/ | plan-marshall |
+| 2 | PLAN-05 | WS-02 | staged | ../plan-marshall-documentation/doc/developer/question-loop-measurement.adoc; ../plan-marshall-documentation/doc/specification/evaluation.adoc; ../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc; ../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/question/ | plan-marshall |
