@@ -76,6 +76,17 @@ class NpmErrorParserTest extends ParsedBuildPortedTest {
     }
 
     @Test
+    @DisplayName("a prose line that mentions packages is no install summary")
+    void installSummaryRejectsProse() {
+        ParsedBuild changed = NpmErrorParser.parse("changed the way packages are resolved\n");
+        ParsedBuild upToDate = NpmErrorParser.parse("up to date, but packages are stale\n");
+
+        assertAll(
+                () -> assertFalse(changed.successMarker(), "a prose sentence is no completion line"),
+                () -> assertFalse(upToDate.successMarker(), "a stale-packages sentence is no completion line"));
+    }
+
+    @Test
     @DisplayName("an install line beside an error block is no marker")
     void installLineBesideAnError() {
         ParsedBuild build = NpmErrorParser.parse("""

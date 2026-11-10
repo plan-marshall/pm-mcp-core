@@ -270,6 +270,24 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("a TAP bailout after a passing summary is no marker")
+    void tapBailout() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                TAP version 13
+                1..5
+                ok 1 - a
+                # tests 5
+                # pass 5
+                # fail 0
+                Bail out! database unavailable
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a bailout is no passing summary"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a bailout keeps a zero exit indeterminate"));
+    }
+
+    @Test
     @DisplayName("a failed Jest test suite is no marker")
     void jestFailedSuite() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """

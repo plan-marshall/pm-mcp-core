@@ -144,7 +144,12 @@ class SecretRedactorTest {
                         "an escaped quote inside a value is not its close"),
                 () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
                         redactValue("npm login --password abcdef,secret"),
-                        "a comma inside an unquoted value is masked with it"));
+                        "a comma inside an unquoted value is masked with it"),
+                () -> assertEquals("publish --token " + SecretRedactor.REDACTED,
+                        redactValue("publish --token abc"), "a short unquoted value is masked"),
+                () -> assertEquals("--token \"" + SecretRedactor.REDACTED + "\" --name \"x\"",
+                        redactValue("--token \"abc\" --name \"x\""),
+                        "only the credential's quoted value is masked"));
     }
 
     @Test

@@ -31,7 +31,8 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
  * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
- * zero, an all-skipped run, a printed failing count and a filed diagnostic all keep the marker {@code false}.
+ * zero, an all-skipped run, a printed failing count, a {@code Bail out!} line and a filed diagnostic all keep the marker
+ * {@code false}.
  * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * occurrence of each summary line, and it trusts {@code # tests} over its parts. This port sums every summary block of a
@@ -63,6 +64,9 @@ public class TapOutputParser {
 
     /** A `not ok` test point, with or without its description: TAP permits both. */
     private static final Pattern NOT_OK_MARKER = Pattern.compile("^\\s*not ok\\b");
+
+    /** A TAP bailout: the run stopped before its plan was complete, whatever the summaries say. */
+    private static final Pattern BAIL_OUT = Pattern.compile("^\\s*Bail out!");
 
     private static final Pattern LOCATION = Pattern.compile("^(.+):(\\d+):\\d+");
 
@@ -121,16 +125,17 @@ public class TapOutputParser {
     }
 
     /**
-     * Whether the log printed a failure marker: a {@code not ok} line or a {@code # fail} count above zero. The status
-     * is what the tool printed, so a failure marker without a filed diagnostic (a {@code not ok} line that names no test
-     * and carries no message) is still red.
+     * Whether the log printed a failure marker: a {@code not ok} line, a {@code Bail out!} line or a {@code # fail}
+     * count above zero. The status is what the tool printed, so a failure marker without a filed diagnostic (a
+     * {@code not ok} line that names no test and carries no message, or a bailout that stopped the run) is still red.
      *
      * @param lines the log lines
      * @return whether a failure marker was printed
      */
     private static boolean printsFailure(List<String> lines) {
         return lines.stream()
-                .anyMatch(line -> NOT_OK_MARKER.matcher(line).find() || count(FAILED, line).orElse(0L) > 0);
+                .anyMatch(line -> NOT_OK_MARKER.matcher(line).find() || BAIL_OUT.matcher(line).find()
+                        || count(FAILED, line).orElse(0L) > 0);
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

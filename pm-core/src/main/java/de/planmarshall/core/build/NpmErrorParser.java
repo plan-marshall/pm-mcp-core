@@ -78,13 +78,13 @@ public class NpmErrorParser {
 
     /**
      * The install family's completion line: {@code added 150 packages in 10s}, {@code removed 3 packages in 1s},
-     * {@code changed 2 packages} or {@code up to date, audited 5 packages}. The line is anchored to its own shape, so a
-     * prose sentence carrying the words {@code added} and {@code packages} does not match. The adapter
+     * {@code changed 2 packages} or {@code up to date, audited 5 packages}. Each branch requires its printed count, so a
+     * prose sentence that merely carries the words {@code added} and {@code packages} does not match. The adapter
      * {@code BuildOutputParser.npm} reads the same pattern to dispatch an install log here, so the marker and the
      * dispatch cannot drift apart.
      */
-    public static final Pattern INSTALL_SUMMARY =
-            Pattern.compile("(?m)^\\s*(?:added|removed|changed|up to date)\\b.*\\bpackages?\\b");
+    public static final Pattern INSTALL_SUMMARY = Pattern.compile(
+            "(?m)^\\s*(?:(?:added|removed|changed) \\d+ packages?\\b|up to date, audited \\d+ packages?\\b)");
 
     /**
      * Parses an npm error log.
