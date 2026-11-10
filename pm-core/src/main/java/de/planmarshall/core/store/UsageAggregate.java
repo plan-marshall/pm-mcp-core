@@ -174,47 +174,64 @@ long populationCount, SortedMap<String, Long> excluded, boolean totalIsFloor) {
     public static UsageAggregate of(Population population, List<HarnessUsage> usages) {
         Objects.requireNonNull(population, "population");
         Objects.requireNonNull(usages, "usages");
-        long total = 0;
-        long in = 0;
-        long out = 0;
-        var unmeasured = 0;
-        var counted = 0;
-        var inMeasured = true;
-        var outMeasured = true;
-        var reasons = new EnumMap<UnmeasuredReason, Long>(UnmeasuredReason.class);
+        var tally = tally(usages);
+        var measured = tally.counted - tally.unmeasured;
+        return new UsageAggregate(population,
+                measured == 0 ? OptionalLong.empty() : OptionalLong.of(tally.total),
+                tally.counted == 0 || !tally.inMeasured ? OptionalLong.empty() : OptionalLong.of(tally.in),
+                tally.counted == 0 || !tally.outMeasured ? OptionalLong.empty() : OptionalLong.of(tally.out),
+                measured, tally.unmeasured, tally.reasons, tally.counted, new TreeMap<>(), tally.unmeasured > 0);
+    }
+
+    private static Tally tally(List<HarnessUsage> usages) {
+        var tally = new Tally();
         for (var usage : usages) {
+            tally.add(usage);
+        }
+        return tally;
+    }
+
+    /** The running sums of one aggregate; one mutable cell per figure, so the loop stays one branch per figure. */
+    private static final class Tally {
+
+        private long total;
+        private long in;
+        private long out;
+        private int unmeasured;
+        private int counted;
+        private boolean inMeasured = true;
+        private boolean outMeasured = true;
+        private final EnumMap<UnmeasuredReason, Long> reasons = new EnumMap<>(UnmeasuredReason.class);
+
+        private void add(HarnessUsage usage) {
             counted++;
             var rowTotal = usage.totalTokens();
             if (rowTotal.isPresent()) {
                 total += rowTotal.getAsLong();
             } else {
-                unmeasured++;
-                var reason = usage.unmeasuredReason();
-                if (reason != null) {
-                    reasons.merge(reason, 1L, Long::sum);
-                }
+                addUnmeasured(usage);
             }
             var rowIn = usage.tokensIn();
-            var rowOut = usage.tokensOut();
             if (rowIn.isPresent()) {
                 in += rowIn.getAsLong();
             } else {
                 inMeasured = false;
             }
+            var rowOut = usage.tokensOut();
             if (rowOut.isPresent()) {
                 out += rowOut.getAsLong();
             } else {
                 outMeasured = false;
             }
         }
-        var populationCount = counted;
-        var floor = unmeasured > 0;
-        var measured = populationCount - unmeasured;
-        return new UsageAggregate(population,
-                measured == 0 ? OptionalLong.empty() : OptionalLong.of(total),
-                populationCount == 0 || !inMeasured ? OptionalLong.empty() : OptionalLong.of(in),
-                populationCount == 0 || !outMeasured ? OptionalLong.empty() : OptionalLong.of(out),
-                measured, unmeasured, reasons, populationCount, new TreeMap<>(), floor);
+
+        private void addUnmeasured(HarnessUsage usage) {
+            unmeasured++;
+            var reason = usage.unmeasuredReason();
+            if (reason != null) {
+                reasons.merge(reason, 1L, Long::sum);
+            }
+        }
     }
 
     /**
