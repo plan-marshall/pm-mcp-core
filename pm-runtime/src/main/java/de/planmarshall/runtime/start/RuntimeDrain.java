@@ -161,7 +161,12 @@ public final class RuntimeDrain {
             }
         }
         LOGGER.info(INFO.RUNTIME_DRAINED, ended, terminated, EXIT_DRAINED);
-        return new Outcome(EXIT_DRAINED, ended, terminated, failures);
+        return Outcome.builder()
+                .exitCode(EXIT_DRAINED)
+                .ended(ended)
+                .terminated(terminated)
+                .failures(failures)
+                .build();
     }
 
     private void drainParticipants(List<String> failures, List<String> ended, List<String> terminated) {

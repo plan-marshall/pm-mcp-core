@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.credentials.dbus;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -18,8 +19,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Proves that the builder of {@link DbusMessage} builds the value its canonical constructor builds. The record
- * validates no component for null, so it has no refusal to mirror; every value is generated.
+ * Proves that the builder of {@link DbusMessage} builds the value its canonical constructor builds, and that it carries
+ * the constructor's refusal of a missing body (the constructor copies the body with {@code List.copyOf}). Every value
+ * is generated.
  */
 @EnableGeneratorController
 @DisplayName("DbusMessage record builder")
@@ -59,5 +61,17 @@ class DbusMessageRecordsTest {
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same dbus message");
+    }
+
+    @Test
+    @DisplayName("the builder refuses a missing body like the constructor")
+    void dbusMessageBuilderRefusesMissingBody() {
+        assertThrows(NullPointerException.class, () -> DbusMessage.builder()
+                .type(1)
+                .flags(0)
+                .serial(1L)
+                .replySerial(0L)
+                .signature("s")
+                .build());
     }
 }

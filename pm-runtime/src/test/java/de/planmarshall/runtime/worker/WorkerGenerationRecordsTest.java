@@ -30,7 +30,8 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * Proves that the builder of {@link WorkerGeneration} builds the value its canonical constructor builds, including its
  * null refusal for the generation id. Every value is generated; the job-private working directory pair and the
  * unmeasured context are contract values, and the generation id is drawn from the generator artifact of
- * {@code pm-runtime}.
+ * {@code pm-runtime}. The record's own {@code equals} compares the generation id alone, so the component-wise
+ * {@code toString} comparison is what proves the other seventeen components are wired.
  */
 @EnableGeneratorController
 @DisplayName("WorkerGeneration builder")
@@ -81,6 +82,8 @@ class WorkerGenerationRecordsTest {
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same worker generation");
+        assertEquals(constructed.toString(), built.toString(),
+                "the builder wires every component of the generation");
     }
 
     @Test

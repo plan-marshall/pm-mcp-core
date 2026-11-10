@@ -82,8 +82,12 @@ public final class EndpointClient {
         Objects.requireNonNull(profile, "profile");
         var uri = uri(profile, path);
         if (!loopback(uri)) {
-            return new Response(0, "", Failure.UNREACHABLE,
-                    "refused (%s): not a loopback address".formatted(shown(uri)));
+            return Response.builder()
+                    .status(0)
+                    .body("")
+                    .failure(Failure.UNREACHABLE)
+                    .detail("refused (%s): not a loopback address".formatted(shown(uri)))
+                    .build();
         }
         try (var handler = HttpHandler.builder().uri(uri).connectionTimeoutSeconds(CONNECT_TIMEOUT_SECONDS)
                      .readTimeoutSeconds(profile.endpoint().requestTimeoutSeconds()).allowInsecureHttp(true).build()) {
@@ -94,7 +98,12 @@ public final class EndpointClient {
                 request.POST(BodyPublishers.ofString(body));
             }
             var answer = handler.send(request.build(), BodyHandlers.ofString());
-            return new Response(answer.statusCode(), answer.body(), Failure.NONE, "answered");
+            return Response.builder()
+                    .status(answer.statusCode())
+                    .body(answer.body())
+                    .failure(Failure.NONE)
+                    .detail("answered")
+                    .build();
         } catch (HttpTimeoutException _) {
             return failure(uri, Failure.TIMEOUT, "no answer inside %d s"
                     .formatted(profile.endpoint().requestTimeoutSeconds()));
@@ -108,7 +117,12 @@ public final class EndpointClient {
     }
 
     private static Response failure(URI uri, Failure failure, String detail) {
-        return new Response(0, "", failure, "%s (%s): %s".formatted(failure.wireName(), shown(uri), detail));
+        return Response.builder()
+                .status(0)
+                .body("")
+                .failure(failure)
+                .detail("%s (%s): %s".formatted(failure.wireName(), shown(uri), detail))
+                .build();
     }
 
     /**
