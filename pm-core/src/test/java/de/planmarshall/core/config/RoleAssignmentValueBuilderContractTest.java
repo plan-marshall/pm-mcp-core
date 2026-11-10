@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ class RoleAssignmentValueBuilderContractTest {
     @Test
     @DisplayName("the builder builds the constructor's value and refuses alike")
     void shouldBuildLikeTheConstructorAndRefuseAlike() {
-        var harness = Generators.letterStrings(2, 10).next().toLowerCase(java.util.Locale.ROOT);
+        var harness = Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
         var model = Generators.letterStrings(1, 20).next();
 
         var canonical = new RoleAssignmentValue(harness, model, EffortSetting.INHERIT, null, null);
