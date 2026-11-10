@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,6 +45,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -108,6 +111,8 @@ class JournalRecoveryTest {
             super("stopped after " + step + " of target " + target);
         }
     }
+
+
 
     /**
      * Creates a consistent scope: the status and the work log are written by a commit, so the sidecar holds their
@@ -754,7 +759,8 @@ class JournalRecoveryTest {
         @DisplayName("a sink that refuses the record keeps the journal; the next recovery delivers it exactly once")
         void sinkRefuses() {
             var journal = stopAt(Step.JOURNAL, 0);
-            var refusing = FailingAuditSink.refusing(1);
+            Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+            var refusing = AuditSinkDoubles.refusing(refused);
 
             var first = recoverWith(refusing);
 
@@ -765,7 +771,7 @@ class JournalRecoveryTest {
                     () -> assertArrayEquals(committedSidecar(), Files.readAllBytes(scope.sidecarFile()),
                             "the sidecar holds the new digests"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "the journal stays as the intent"),
-                    () -> assertEquals(List.of(), refusing.events(), "the refusing sink recorded nothing"),
+                    () -> assertEquals(List.of(), refused.getValues(), "the refusing sink recorded nothing"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()));
 
@@ -785,7 +791,7 @@ class JournalRecoveryTest {
         @DisplayName("a replay after the record was delivered finds nothing and delivers no second record")
         void noSecondRecord() {
             var journal = stopAt(Step.JOURNAL, 0);
-            recoverWith(FailingAuditSink.refusing(1));
+            recoverWith(AuditSinkDoubles.refusing());
             recover();
 
             var third = recover();
@@ -801,9 +807,9 @@ class JournalRecoveryTest {
         @DisplayName("a process stopped between the roll-forward and the append delivers the record at the next recovery")
         void stoppedBeforeAppend() throws Exception {
             var journal = stopAt(Step.JOURNAL, 0);
-            var stopping = FailingAuditSink.stopping(1);
+            var stopping = AuditSinkDoubles.stopping();
 
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> recoverWith(stopping),
+            assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> recoverWith(stopping),
                     "the recovery stops before the append");
             var afterStop = snapshot(scope.pathBase());
             var outcome = recover();
@@ -822,7 +828,8 @@ class JournalRecoveryTest {
         @DisplayName("a record a transaction owes is delivered with it, or by the recovery when the sink refused it, "
                 + "keeping its own id")
         void owedByTransaction() throws Exception {
-            var refusing = FailingAuditSink.refusing(1);
+            Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+            var refusing = AuditSinkDoubles.refusing(refused);
             TransactionJournal journal;
             String recordId;
             try (var transaction = locks.openTransaction()) {
@@ -843,7 +850,7 @@ class JournalRecoveryTest {
             assertAll("a record owed by a transaction",
                     () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS)),
                             "the commit completed its data"),
-                    () -> assertEquals(List.of(), refusing.events(), "the refusing sink recorded nothing"),
+                    () -> assertEquals(List.of(), refused.getValues(), "the refusing sink recorded nothing"),
                     () -> assertInstanceOf(IllegalStateException.class, blocked,
                             "no transaction overwrites a journal that owes a record"),
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome,
