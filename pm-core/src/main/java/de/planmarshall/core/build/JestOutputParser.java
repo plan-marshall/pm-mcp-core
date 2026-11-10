@@ -28,6 +28,10 @@ import org.jspecify.annotations.Nullable;
  * closed block is a {@link Category#TEST_FAILURE} diagnostic carrying the suite, the line of the first stack frame and
  * the collected frames. The {@code Tests:} summary line supplies the counts.
  * <p>
+ * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
+ * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
+ * zero, an all-skipped run, a printed failing count and a filed diagnostic all keep the marker {@code false}.
+ * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * {@code Tests:} block only, and it trusts the block's {@code total} over its parts. This port sums every block of a
  * multi-package run, and a block whose total is not the sum of its parts makes the population
@@ -84,8 +88,23 @@ public class JestOutputParser {
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = diagnostics.isEmpty() && !printsFailedSummary(lines)
                 ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return new ParsedBuild(diagnostics, status, false, testCounts,
-                ParsedBuild.noTestsRanFrom(status, false, testCounts, false));
+        boolean successMarker = printsPassingSummary(status, testCounts);
+        return new ParsedBuild(diagnostics, status, successMarker, testCounts,
+                ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false));
+    }
+
+    /**
+     * Whether the log printed Jest's passing summary: a successful status over a measured population with no failed
+     * test and at least one passed test. A measured zero and an all-skipped run carry no passed test, so they are no
+     * marker either.
+     *
+     * @param status     the status the tool printed
+     * @param testCounts the counts the summary supplied, or {@code null} when it carried none
+     * @return whether the passing summary is the positive success marker
+     */
+    private static boolean printsPassingSummary(BuildStatus status, @Nullable TestCounts testCounts) {
+        return status == BuildStatus.SUCCESS && testCounts instanceof TestCounts.Measured measured
+                && measured.failed() == 0 && measured.passed() > 0;
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

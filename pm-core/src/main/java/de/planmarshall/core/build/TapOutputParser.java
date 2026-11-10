@@ -29,6 +29,10 @@ import org.jspecify.annotations.Nullable;
  * the test name stands as the message. The {@code # tests} / {@code # pass} / {@code # fail} / {@code # skipped} summary
  * supplies the counts.
  * <p>
+ * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
+ * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
+ * zero, an all-skipped run, a printed failing count and a filed diagnostic all keep the marker {@code false}.
+ * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * occurrence of each summary line, and it trusts {@code # tests} over its parts. This port sums every summary block of a
  * multi-file run, and a total that is not the sum of its parts makes the population {@link TestCounts.Unmeasured}.
@@ -97,8 +101,23 @@ public class TapOutputParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
-        return new ParsedBuild(diagnostics, status, false, testCounts,
-                ParsedBuild.noTestsRanFrom(status, false, testCounts, false));
+        boolean successMarker = printsPassingSummary(status, testCounts);
+        return new ParsedBuild(diagnostics, status, successMarker, testCounts,
+                ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false));
+    }
+
+    /**
+     * Whether the log printed TAP's passing summary: a successful status over a measured population with no failed test
+     * and at least one passed test. A measured zero and an all-skipped run carry no passed test, so they are no marker
+     * either.
+     *
+     * @param status     the status the tool printed
+     * @param testCounts the counts the summary supplied, or {@code null} when it carried none
+     * @return whether the passing summary is the positive success marker
+     */
+    private static boolean printsPassingSummary(BuildStatus status, @Nullable TestCounts testCounts) {
+        return status == BuildStatus.SUCCESS && testCounts instanceof TestCounts.Measured measured
+                && measured.failed() == 0 && measured.passed() > 0;
     }
 
     /**

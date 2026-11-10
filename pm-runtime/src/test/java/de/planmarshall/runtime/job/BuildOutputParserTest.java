@@ -237,6 +237,83 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("a passing Jest run decides succeeded")
+    void jestPassingRun() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Tests:       5 passed, 5 total
+                """);
+
+        assertAll(
+                () -> assertTrue(parse.successMarker(), "the Jest passing summary is the marker"),
+                () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a passing Jest run decides succeeded"));
+    }
+
+    @Test
+    @DisplayName("a passing TAP run decides succeeded")
+    void tapPassingRun() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                TAP version 13
+                1..5
+                ok 1 - a
+                ok 2 - b
+                ok 3 - c
+                ok 4 - d
+                ok 5 - e
+                # tests 5
+                # pass 5
+                # fail 0
+                """);
+
+        assertAll(
+                () -> assertTrue(parse.successMarker(), "the TAP passing summary is the marker"),
+                () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a passing TAP run decides succeeded"));
+    }
+
+    @Test
+    @DisplayName("an unmeasured Jest summary stays indeterminate")
+    void jestUnmeasuredSummary() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Tests:       7 total
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "an unmeasured summary is no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "an unmeasured summary stays indeterminate"));
+    }
+
+    @Test
+    @DisplayName("a measured TAP zero stays indeterminate")
+    void tapZeroCount() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                TAP version 13
+                1..0
+                # tests 0
+                # pass 0
+                # fail 0
+                # skipped 0
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a measured zero is no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a measured zero stays indeterminate"));
+    }
+
+    @Test
+    @DisplayName("an all-skipped Jest run stays indeterminate")
+    void jestAllSkipped() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Tests:       3 skipped, 3 total
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a skipped-only run is no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "an all-skipped run stays indeterminate"));
+    }
+
+    @Test
     @DisplayName("a zero count alone is not a success marker")
     void zeroCountIsNoMarker() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """

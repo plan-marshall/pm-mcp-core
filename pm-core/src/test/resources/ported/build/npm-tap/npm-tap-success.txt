@@ -1,8 +1,10 @@
 original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_tap_parse_log_success test/plan-marshall/build-npm/test_npm_parsers.py::test_tap_extracts_test_summary_success test/plan-marshall/build-npm/test_npm_parsers.py::test_test_summary_to_dict
 # A green `node --test` run: no `not ok` line, and the summary reports five passing tests.
+# That summary is the tool's passing summary, so the success marker is `true` (it was `false`
+# while the parser ignored the summary and read the absence of `not ok` as no evidence at all).
 log-file npm-tap-test-real.log
 status SUCCESS
-success-marker false
+success-marker true
 tests measured 5 0 0 5
 no-tests-ran false
 diagnostic-count 0
