@@ -10,9 +10,9 @@
 package de.planmarshall.workflow.task;
 
 import java.util.Objects;
-import lombok.Builder;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import lombok.Builder;
 
 /**
  * One off-track signal the runtime computed for a worker, with the action the role artifact chooses (Model Work § A

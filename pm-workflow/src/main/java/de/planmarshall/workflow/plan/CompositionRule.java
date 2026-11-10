@@ -12,9 +12,9 @@ package de.planmarshall.workflow.plan;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.CallValue;
+import lombok.Builder;
 
 /**
  * One rule of the composition rule file (PM-IMPL-5, PM-EXT-7): a {@code when} condition over one fact and a

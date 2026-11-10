@@ -11,10 +11,10 @@ package de.planmarshall.workflow.plan;
 
 import java.util.List;
 import java.util.Objects;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Everything one composition reads, passed in as values (PM-IMPL-5, PM-WF-1, PM-EXT-7): the composer reads no store.

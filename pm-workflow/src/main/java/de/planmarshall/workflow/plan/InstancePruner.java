@@ -23,8 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.LinkSpec;
@@ -33,6 +31,8 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.LaneEntryIds;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Applies the effects of the composition rules, the bound axis variants and the waivers to the plan template
@@ -317,8 +317,14 @@ final class InstancePruner {
                 new StateBehavior.QuestionWait(questionClass, transitions(transitions, removed));
             case StateBehavior.TerminalState terminal -> terminal;
         };
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
-                state.factsPrimitiveId(), behavior, state.location());
+        return StateNode.builder()
+                .id(state.id())
+                .terminalOutcome(state.terminalOutcome())
+                .skillPath(state.skillPath())
+                .factsPrimitiveId(state.factsPrimitiveId())
+                .behavior(behavior)
+                .location(state.location())
+                .build();
     }
 
     private static List<LinkSpec> links(String stateId, List<LinkSpec> links, Selection selection) {
@@ -498,7 +504,12 @@ final class InstancePruner {
             if (!listed.add(prune.element().wireName() + " " + id)) {
                 return false;
             }
-            pruned.add(new PrunedElement(prune.element(), id, prune.reason(), prune.sourceFact()));
+            pruned.add(PrunedElement.builder()
+                    .element(prune.element())
+                    .id(id)
+                    .reason(prune.reason())
+                    .sourceFact(prune.sourceFact())
+                    .build());
             return true;
         }
     }

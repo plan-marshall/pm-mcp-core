@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import lombok.Builder;
 
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -22,6 +21,7 @@ import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import lombok.Builder;
 
 /**
  * What the static verifier of the loaded units reads (PM-IMPL-5): the registries the assembly supplies and the units

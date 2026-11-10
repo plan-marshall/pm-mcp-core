@@ -10,10 +10,10 @@
 package de.planmarshall.workflow.plan;
 
 import java.util.Objects;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.WorkflowPrinter;
+import lombok.Builder;
 
 /**
  * One composed file of a plan instance version (PM-IMPL-5, PM-WF-25): a phase sub-workflow or a bound axis

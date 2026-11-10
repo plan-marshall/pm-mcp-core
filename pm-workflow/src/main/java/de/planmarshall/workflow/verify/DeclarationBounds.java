@@ -15,12 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 
 /**
  * The compiled declaration schemas of the units that declare parameters, and the check of a unit's {@code declare} and

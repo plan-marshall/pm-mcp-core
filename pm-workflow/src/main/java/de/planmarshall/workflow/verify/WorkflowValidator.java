@@ -1418,12 +1418,12 @@ public final class WorkflowValidator {
                 if (callee.resultSchema() == null) {
                     call.transitions().stream().filter(transition -> transition.resultGuard() != null)
                             .findFirst().ifPresent(transition -> violations.add(Violation.builder()
-                                    .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
-                                    .stateId(state.id())
-                                    .location(transition.location())
-                                    .message("the call guards the outcome '%s' on the result of '%s', which declares no result schema"
-                                            .formatted(transition.outcomeName(), call.subWorkflowId()))
-                                    .build()));
+                            .rule(VerificationRule.SUBWORKFLOW_CALL_CONTRACT)
+                            .stateId(state.id())
+                            .location(transition.location())
+                            .message("the call guards the outcome '%s' on the result of '%s', which declares no result schema"
+                                    .formatted(transition.outcomeName(), call.subWorkflowId()))
+                            .build()));
                 }
 
                 var outcomeCounts = new HashMap<String, Integer>();

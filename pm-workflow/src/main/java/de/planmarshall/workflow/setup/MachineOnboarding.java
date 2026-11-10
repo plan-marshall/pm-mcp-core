@@ -16,12 +16,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import lombok.Builder;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.core.store.WorkflowStatus;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**

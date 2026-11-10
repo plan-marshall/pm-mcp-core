@@ -258,11 +258,11 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                     .map(entry -> binding(entry, name)).flatMap(Optional::stream).toList();
             return refused() ? Optional.empty()
                     : Optional.of(CompositionRule.builder()
-                            .id(id.get())
-                            .when(when.get())
-                            .prunes(prunes)
-                            .bindings(bindings)
-                            .build());
+                    .id(id.get())
+                    .when(when.get())
+                    .prunes(prunes)
+                    .bindings(bindings)
+                    .build());
         }
 
         private Optional<CompositionRule.Condition> condition(Node node, String name) {

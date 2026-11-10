@@ -10,9 +10,9 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.Objects;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.SourceLocation;
+import lombok.Builder;
 
 /**
  * One violation of a compiled invariant by a unit (PM-IMPL-5). A violation is a value with the file and the line of

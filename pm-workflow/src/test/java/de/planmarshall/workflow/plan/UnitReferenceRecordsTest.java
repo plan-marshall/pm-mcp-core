@@ -12,11 +12,11 @@ package de.planmarshall.workflow.plan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.testing.generators.WorkflowGenerators;
 
 /**

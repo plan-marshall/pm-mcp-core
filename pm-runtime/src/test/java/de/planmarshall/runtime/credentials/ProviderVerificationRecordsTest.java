@@ -16,7 +16,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -75,7 +74,7 @@ class ProviderVerificationRecordsTest {
         var ran = Generators.booleans().next();
         var lines = List.of(new ProviderVerification.CheckLine(Generators.letterStrings(1, 20).next(),
                 Generators.booleans().next(), ProviderVerification.MESSAGE_KEY_PREFIX
-                        + Generators.letterStrings(1, 20).next(),
+                + Generators.letterStrings(1, 20).next(),
                 List.of(Generators.letterStrings(1, 20).next()), Generators.letterStrings(1, 40).next()));
         var toRecord = Consent.machine(ConsentKind.VERIFY_PROVIDERS,
                 Instant.ofEpochMilli(Generators.longs(0, 1_900_000_000_000L).next()), Consent.Channel.CLI, null);

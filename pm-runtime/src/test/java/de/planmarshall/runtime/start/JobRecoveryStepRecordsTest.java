@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.lang.reflect.Constructor;
-
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,7 @@ class JobRecoveryStepRecordsTest {
 
     @Test
     @DisplayName("the builder builds the handling record the constructor builds")
-    void handlingBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void handlingBuilderEqualsConstructor() throws Exception {
         var type = Class.forName("de.planmarshall.runtime.start.JobRecoveryStep$Handling");
         JobRecoveryStep.Rule rule = Generators.enumValues(JobRecoveryStep.Rule.class).next();
         var signal = Generators.letterStrings(1, 20).next();
@@ -55,7 +55,7 @@ class JobRecoveryStepRecordsTest {
     }
 
     private static void invokeSetter(Object builder, String name, Object value) throws ReflectiveOperationException {
-        var setter = java.util.Arrays.stream(builder.getClass().getDeclaredMethods())
+        var setter = Arrays.stream(builder.getClass().getDeclaredMethods())
                 .filter(method -> method.getName().equals(name) && method.getParameterCount() == 1)
                 .findFirst()
                 .orElseThrow();

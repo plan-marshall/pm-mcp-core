@@ -12,10 +12,10 @@ package de.planmarshall.workflow.engine;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
-import lombok.Builder;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.store.WorkflowStatus;
+import lombok.Builder;
 
 /**
  * What a resting state waits for, derived from the persisted status alone (PM-ARCH-4: a resumed engine reads the wait

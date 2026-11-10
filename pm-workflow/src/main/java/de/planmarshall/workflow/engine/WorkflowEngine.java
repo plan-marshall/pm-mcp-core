@@ -24,8 +24,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
@@ -63,6 +61,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.VerificationResult;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The deterministic interpreter of one workflow unit (PM-IMPL-5; PM-WF-1: only verified units run; PM-WF-16: sub-workflow

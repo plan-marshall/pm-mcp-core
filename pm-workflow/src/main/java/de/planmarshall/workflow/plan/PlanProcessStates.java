@@ -14,8 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.PlanHistoryLine;
@@ -23,6 +21,8 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The state of every node of a plan's process, derived from the plan's append-only history and the instance version in

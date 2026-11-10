@@ -12,9 +12,9 @@ package de.planmarshall.workflow.plan;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 
 /**
  * One version of a plan instance (PM-IMPL-5): its number, its header, its plan unit and the set of composed files the

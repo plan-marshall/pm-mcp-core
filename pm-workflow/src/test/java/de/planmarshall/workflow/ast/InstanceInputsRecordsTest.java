@@ -11,12 +11,14 @@ package de.planmarshall.workflow.ast;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 
 /**
  * Proves that the builders of {@link InstanceInputs} and its nested {@link InstanceInputs.UnitRef} build the values

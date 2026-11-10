@@ -11,15 +11,16 @@ package de.planmarshall.workflow.plan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.StateNode;
 
 /**

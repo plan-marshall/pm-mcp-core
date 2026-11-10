@@ -13,9 +13,9 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.SourceLocation;
+import lombok.Builder;
 
 /**
  * A non-terminal state that {@link TransitionFuzzer} reached and that has no exit under the drawn assignment of the

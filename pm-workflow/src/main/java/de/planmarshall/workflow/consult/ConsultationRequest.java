@@ -13,10 +13,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import lombok.Builder;
 
 import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.role.RoleClass;
+import lombok.Builder;
 
 /**
  * The ask of one task follows its {@code consult:<role>} link (Model Work § The {@code consult:<role>} Link): the asking

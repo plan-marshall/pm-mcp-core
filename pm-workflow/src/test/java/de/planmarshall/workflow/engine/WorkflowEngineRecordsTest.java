@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +66,7 @@ class WorkflowEngineRecordsTest {
 
     @Test
     @DisplayName("Pending builder builds the canonical constructor's value")
-    void pendingBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void pendingBuilderEqualsConstructor() throws Exception {
         var pendingClass = Class.forName("de.planmarshall.workflow.engine.WorkflowEngine$Run$Pending");
         var event = Generators.enumValues(PlanHistoryLine.Event.class).next();
         var node = Generators.letterStrings(1, 8).next();

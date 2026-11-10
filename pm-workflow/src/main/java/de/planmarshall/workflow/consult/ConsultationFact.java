@@ -11,11 +11,11 @@ package de.planmarshall.workflow.consult;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
-import lombok.Builder;
 
 import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
+import lombok.Builder;
 
 /**
  * One consultation as the asking task's facts carry it (Model Work § The Answer through the Next Wait;

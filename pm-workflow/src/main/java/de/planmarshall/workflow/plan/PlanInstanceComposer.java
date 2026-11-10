@@ -22,8 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
@@ -41,6 +39,8 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
 import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Composes one version of a plan instance and verifies it before anyone may write it (PM-IMPL-5, PM-WF-1, PM-EXT-7,
@@ -359,8 +359,12 @@ public final class PlanInstanceComposer {
         for (var unit : composed.units()) {
             var source = request.subUnits().stream()
                     .filter(subUnit -> subUnit.definition().id().equals(unit.unit())).findFirst().orElseThrow();
-            templates.add(new UnitReference(unit.unit(), unit.file(), unit.digest(),
-                    source.reference().origin()));
+            templates.add(UnitReference.builder()
+                    .unit(unit.unit())
+                    .file(unit.file())
+                    .digest(unit.digest())
+                    .origin(source.reference().origin())
+                    .build());
         }
         var subUnits = request.subUnits().stream().map(CompositionRequest.SubUnit::reference)
                 .filter(reference -> !composedIds.contains(reference.unit()))

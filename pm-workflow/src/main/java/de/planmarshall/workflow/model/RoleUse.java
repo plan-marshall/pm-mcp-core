@@ -13,9 +13,9 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Builder;
 
 import de.planmarshall.core.role.RoleClass;
+import lombok.Builder;
 
 /**
  * One role a composed unit names, with the classes its use admits (PM-WORK-1, Composition Check).

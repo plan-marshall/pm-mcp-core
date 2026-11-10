@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.HeaderJson.ArrayNode;
@@ -25,6 +23,8 @@ import de.planmarshall.workflow.plan.HeaderJson.Node;
 import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The {@code diff_summary} of a line of the composition log (PM-IMPL-5, PM-WF-1): a composed version relative to the

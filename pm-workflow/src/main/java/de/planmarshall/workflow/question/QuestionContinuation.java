@@ -13,13 +13,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.QueueTaskRecord.ContinuationForm;
 import de.planmarshall.core.queue.QueueTaskRecord.FallbackReason;
 import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.workflow.ast.StateBehavior;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The server's decision whether a task continues after its question, and in which form (Model Work § Continuing after a

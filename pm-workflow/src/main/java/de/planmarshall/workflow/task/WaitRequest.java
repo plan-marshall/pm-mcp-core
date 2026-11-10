@@ -11,10 +11,10 @@ package de.planmarshall.workflow.task;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a worker's {@code pm_wait} asks the task protocol: a task of the caller's role, for the caller's generation.

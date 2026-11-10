@@ -16,13 +16,13 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalLong;
-
-import de.planmarshall.core.store.JsonlStoreFile;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import de.planmarshall.core.store.JsonlStoreFile;
 
 /**
  * Proves that the builder of the private record {@code AuditVerification.State} builds the value of its canonical
@@ -36,7 +36,7 @@ class AuditVerificationRecordsTest {
 
     @Test
     @DisplayName("the builder builds the state record the constructor builds")
-    void stateBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void stateBuilderEqualsConstructor() throws Exception {
         var type = Class.forName("de.planmarshall.runtime.audit.AuditVerification$State");
         var head = Generators.letterStrings(1, 20).next().getBytes(StandardCharsets.UTF_8);
         var index = new AuditIndex.Snapshot(List.of(), Generators.letterStrings(64, 64).next(), OptionalLong.empty());
@@ -63,7 +63,7 @@ class AuditVerificationRecordsTest {
     }
 
     private static void invokeSetter(Object builder, String name, Object value) throws ReflectiveOperationException {
-        var setter = java.util.Arrays.stream(builder.getClass().getDeclaredMethods())
+        var setter = Arrays.stream(builder.getClass().getDeclaredMethods())
                 .filter(method -> method.getName().equals(name) && method.getParameterCount() == 1)
                 .findFirst()
                 .orElseThrow();

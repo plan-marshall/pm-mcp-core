@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.lang.reflect.Constructor;
-
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ class JudgmentVerificationRecordsTest {
 
     @Test
     @DisplayName("the builder builds the probe record the constructor builds")
-    void probeBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void probeBuilderEqualsConstructor() throws Exception {
         var type = Class.forName("de.planmarshall.runtime.endpoint.JudgmentVerification$Probe");
         var valid = false;
         var status = Generators.integers(100, 599).next();
@@ -55,7 +55,7 @@ class JudgmentVerificationRecordsTest {
 
     @Test
     @DisplayName("the builder refuses a missing body like the constructor")
-    void probeBuilderRefusesMissingBody() throws ReflectiveOperationException {
+    void probeBuilderRefusesMissingBody() throws Exception {
         var type = Class.forName("de.planmarshall.runtime.endpoint.JudgmentVerification$Probe");
         var builderFactory = type.getDeclaredMethod("builder");
         builderFactory.setAccessible(true);
@@ -71,7 +71,7 @@ class JudgmentVerificationRecordsTest {
     }
 
     private static void invokeSetter(Object builder, String name, Object value) throws ReflectiveOperationException {
-        var setter = java.util.Arrays.stream(builder.getClass().getDeclaredMethods())
+        var setter = Arrays.stream(builder.getClass().getDeclaredMethods())
                 .filter(method -> method.getName().equals(name) && method.getParameterCount() == 1)
                 .findFirst()
                 .orElseThrow();

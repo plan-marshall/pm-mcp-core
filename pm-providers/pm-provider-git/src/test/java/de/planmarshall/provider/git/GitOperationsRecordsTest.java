@@ -18,7 +18,6 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -227,6 +226,25 @@ class GitOperationsRecordsTest {
                 credential);
 
         assertEquals(constructed, built, "the builder builds the same push input");
+    }
+
+    @Test
+    @DisplayName("the commit input builder builds the constructor value")
+    void commitInputBuilderEqualsConstructor() {
+        var root = path();
+        var message = text();
+        var author = identity();
+        var committer = identity();
+
+        var built = GitOperations.CommitInput.builder()
+                .root(root)
+                .message(message)
+                .author(author)
+                .committer(committer)
+                .build();
+        var constructed = new GitOperations.CommitInput(root, message, author, committer);
+
+        assertEquals(constructed, built, "the builder builds the same commit input");
     }
 
     @Test

@@ -11,13 +11,16 @@ package de.planmarshall.workflow.plan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 
 /**
  * Proves that the builder of {@link PlanInstanceComposer.Composed} builds the value of its canonical constructor.
@@ -28,13 +31,18 @@ class PlanInstanceComposerRecordsTest {
 
     @Test
     @DisplayName("the builder builds the composed value the constructor builds")
-    void composedBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void composedBuilderEqualsConstructor() throws Exception {
         var composedClass = Class.forName("de.planmarshall.workflow.plan.PlanInstanceComposer$Composed");
         var units = List.of();
-        var positionStates = Set.of();
-        var subUnits = Set.of();
-        var pruned = List.of();
-        var unresolved = Set.of();
+        var positionStates = Set.of(Generators.letterStrings(1, 8).next());
+        var subUnits = Set.of(Generators.letterStrings(1, 8).next());
+        var pruned = List.of(PrunedElement.builder()
+                .element(Generators.enumValues(PrunedElement.Kind.class).next())
+                .id(Generators.letterStrings(1, 8).next())
+                .reason(Generators.enumValues(PruneReason.class).next())
+                .sourceFact(Generators.letterStrings(1, 8).next())
+                .build());
+        var unresolved = Set.of(Generators.letterStrings(1, 8).next());
         var constructor = composedClass.getDeclaredConstructor(List.class, Set.class, Set.class, List.class,
                 Set.class);
         constructor.setAccessible(true);

@@ -15,7 +15,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.lang.reflect.Constructor;
 import java.time.Instant;
-
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ class SubprocessJobRunnerRecordsTest {
 
     @Test
     @DisplayName("the builder builds the ended record the constructor builds")
-    void endedBuilderEqualsConstructor() throws ReflectiveOperationException {
+    void endedBuilderEqualsConstructor() throws Exception {
         var type = Class.forName("de.planmarshall.runtime.job.SubprocessJobRunner$Ended");
         var spawnedAt = Instant.ofEpochSecond(Generators.longs(0L, 1_900_000_000L).next());
         var endedAt = Instant.ofEpochSecond(Generators.longs(0L, 1_900_000_000L).next());
@@ -58,7 +58,7 @@ class SubprocessJobRunnerRecordsTest {
     }
 
     private static void invokeSetter(Object builder, String name, Object value) throws ReflectiveOperationException {
-        var setter = java.util.Arrays.stream(builder.getClass().getDeclaredMethods())
+        var setter = Arrays.stream(builder.getClass().getDeclaredMethods())
                 .filter(method -> method.getName().equals(name) && method.getParameterCount() == 1)
                 .findFirst()
                 .orElseThrow();

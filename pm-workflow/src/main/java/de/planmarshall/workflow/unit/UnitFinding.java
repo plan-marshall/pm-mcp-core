@@ -12,11 +12,11 @@ package de.planmarshall.workflow.unit;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import lombok.Builder;
 
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 
 /**
  * One finding that refuses a unit (PM-IMPL-5): what kind of check refused it, the code of the rule, invariant or

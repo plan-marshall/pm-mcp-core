@@ -14,11 +14,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import lombok.Builder;
 
 import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PrunedElement;
 import de.planmarshall.workflow.plan.WaivedGate;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**

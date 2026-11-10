@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import lombok.Builder;
 
 /**
  * The token-based clone detection the server runs before the {@code finalize.simplify} task, in-process and without a
@@ -159,7 +158,6 @@ public final class CloneDetector {
     }
 
     /** Where a normalized run repeats in the tree. */
-    @Builder
     private record Occurrence(String path, List<Token> tokens, int start) {
     }
 

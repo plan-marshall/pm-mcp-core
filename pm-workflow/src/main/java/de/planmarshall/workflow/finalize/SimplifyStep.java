@@ -15,12 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import lombok.Builder;
 
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.InputScope;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.Lane;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
 import de.planmarshall.workflow.finalize.ProposalRecord.Disposition;
+import lombok.Builder;
 
 /**
  * The {@code default:finalize-step-simplify} step and the two tasks of its firing (Phase Workflows § Finalize Step

@@ -11,11 +11,11 @@ package de.planmarshall.workflow.model;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
-import lombok.Builder;
-import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleForm;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The task queue the model caller queues into and closes through (PM-WORK-1 Queue and the closed outcomes of

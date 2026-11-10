@@ -271,6 +271,7 @@ public interface GitOperations {
      * @param author    the author (the operator's commit identity)
      * @param committer the committer (the agent identity)
      */
+    @Builder
     record CommitInput(Path root, String message, Identity author, Identity committer) {
     }
 
