@@ -100,7 +100,6 @@ class OrderedWriteTest {
     }
 
 
-
     @BeforeEach
     void createScopes() throws IOException {
         queueRule = "queue-" + lowerName();
