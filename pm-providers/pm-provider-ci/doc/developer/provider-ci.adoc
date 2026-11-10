@@ -38,9 +38,13 @@ classpath, an unknown id is empty, and `select(ForgeUrl)` finds the provider of 
 
 |link:{src}/ForgeUrl.java[`ForgeUrl`]
 |The URL grammar of each forge, resolved against a host-to-forge table (the built-in one names `github.com`,
-`gitlab.com` and `codeberg.org`). A resolution is `RESOLVED`, `UNKNOWN_FORGE` or `INVALID`, always a value.
-`pullRequest()` returns the `PullRequestRef` of a resolved URL; it is present exactly when the kind is
-`Kind.PULL_REQUEST`.
+`gitlab.com` and `codeberg.org`). A pull-request URL copied from a tab of the forge's web interface carries one trailing
+tab segment after the number: `files`, `commits` and `checks` on GitHub, `files` and `commits` on Forgejo, `diffs`,
+`commits`, `pipelines` and `changes` on GitLab; an issue path carries no tab. A resolution is `RESOLVED`,
+`UNKNOWN_FORGE` or `INVALID`, always a value. `pullRequest()` returns the `PullRequestRef` of a resolved URL; it is
+present exactly when the kind is `Kind.PULL_REQUEST`. `issue()` returns the `IssueRef`; it is present exactly when the
+kind is `Kind.ISSUE`. A consumer obtains an `IssueRef` from `issue()` and a `PullRequestRef` from `pullRequest()`, never
+from `repository()` and `number()`.
 
 |link:{src}/Identity.java[`Identity`]
 |The identity of the credential: login, user id, `TokenKind`, the operator login beside a GitHub App's bot identity, the
@@ -125,7 +129,8 @@ Plan Source Contracts (`pr`)]_
 
 `prView(PullRequestRef)` reads one pull request of the provider's origin; GitLab calls it a merge request, and the
 contract names both a pull request. A consumer reaches the reference through `ForgeUrl.resolve(url)` and
-`ForgeUrl.pullRequest()`, which is present exactly for a pull-request URL. The read returns, for every state, the state,
+`ForgeUrl.pullRequest()`, which is present exactly for a pull-request URL; an `IssueRef` comes from
+`ForgeUrl.issue()`, which is present exactly for an issue URL. The read returns, for every state, the state,
 the title and body, the base and head branch, the head commit, the head repository, `headWritable` and the changed paths
 with their completeness. The adapters' reads are described in their guides
 (link:../../../pm-provider-github/doc/developer/provider-github.adoc#_the_pull_request_read[GitHub],
@@ -196,8 +201,11 @@ the declared footprint, never the length of the list.
   GitLab `NOT_FOUND` (link:../adr/provider-ci/004-a-pull-request-is-no-issue.adoc[module ADR 004],
   link:../adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[module ADR 006]).
 * *A comment on a pull request is not `issueComment`.* It is an operation of the review and finalize slice, which
-  brings its own operation and permission set; `issueComment` gets no pull-request guard, because `IssueRef` carries
-  no kind (module ADR 009).
+  brings its own operation and permission set. `issueComment` is the issue write-back: on GitHub it reads the issue with
+  the credential that authors the comment and refuses a pull-request number with `REJECTED` "is a pull request", without
+  posting; on GitLab it posts to `issues/{iid}/notes`, which cannot tell a merge-request iid from an issue iid, so the
+  reference type a consumer holds is the protection (link:../adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[module
+  ADR 010], which supersedes ADR 009 in part).
 
 == Invariants and Failure Modes
 
@@ -233,9 +241,11 @@ the declared footprint, never the length of the list.
 
 [horizontal]
 link:{test}/ForgeUrlTest.java[`ForgeUrlTest`]:: the grammar of every forge, a trailing slash, a query and a fragment, an
-unknown host, a pull-request URL, a hostile URL (user information, a parent segment, an encoded parent segment, an
-over-long path, an over-long segment), an uppercase and a trailing-dot host, the value invariants, and
-`pullRequest()` for the pull-request URL of every forge and empty for an issue URL.
+unknown host, a pull-request URL with one of the tab segments its web interface puts after the number, a tab off that
+grammar (an issue path with a tab, an unknown tab, two trailing segments), a hostile URL (user information, a parent
+segment, an encoded parent segment, an over-long path, an over-long segment), an uppercase and a trailing-dot host, the
+value invariants, and `pullRequest()` for the pull-request URL of every forge and empty for an issue URL, with `issue()`
+the reverse.
 link:{test}/CiProvidersTest.java[`CiProvidersTest`]:: the lookup by id, the registration order, the selection by a
 resolved URL, and the refusal of a duplicate or malformed id.
 link:{test}/ValueTypesTest.java[`ValueTypesTest`]:: the invariants and the defensive copies of the value types.
@@ -285,5 +295,6 @@ link:../../../../doc/adr/012-generator-artifacts.adoc[repository ADR 012].
   link:../adr/provider-ci/007-head-writable-is-the-credentials-push-fact.adoc[module ADR 007],
   link:../adr/provider-ci/008-a-non-open-pull-request-is-a-value.adoc[module ADR 008],
   link:../adr/provider-ci/009-the-pull-request-split-is-closed-by-types.adoc[module ADR 009],
+  link:../adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[module ADR 010],
   link:../../../../doc/adr/013-the-null-contract-of-the-null-marked-packages.adoc[repository ADR 013],
   link:../../../../doc/adr/014-the-ci-contract-is-the-module-pm-provider-ci.adoc[repository ADR 014]

@@ -27,7 +27,15 @@ import de.planmarshall.core.findings.FindingSourceKey;
  * <p>
  * Each forge has its own URL grammar: GitHub and Forgejo {@code /<owner>/<name>/issues/<n>} (a pull request
  * {@code /<owner>/<name>/pull/<n>} on GitHub, {@code /<owner>/<name>/pulls/<n>} on Forgejo), GitLab
- * {@code /<group>/…/<project>/-/issues/<n>} (a merge request {@code /-/merge_requests/<n>}). A host-to-forge table,
+ * {@code /<group>/…/<project>/-/issues/<n>} (a merge request {@code /-/merge_requests/<n>}). A pull-request URL that
+ * was copied from a tab of the forge's web interface carries one trailing tab segment after the number: {@code files},
+ * {@code commits} and {@code checks} on GitHub ({@code /pull/<n>/{files,commits,checks}}), {@code files} and
+ * {@code commits} on Forgejo ({@code /pulls/<n>/{files,commits}}), and {@code diffs}, {@code commits}, {@code pipelines}
+ * and {@code changes} on GitLab ({@code /-/merge_requests/<n>/{diffs,commits,pipelines,changes}}); the segments are the
+ * routes of those web interfaces, GitHub's pull-request reference and GitLab's merge-request changes guide document
+ * them and Forgejo's web interface shows the same files and commits routes, and a tab adds the one segment the length
+ * bound allows above it. An issue path carries
+ * no tab. A host-to-forge table,
  * passed by the caller or the {@link #BUILT_IN_HOSTS built-in one}, selects the forge and so the grammar. A URL on a host
  * the table does not name is the outcome {@link Outcome#UNKNOWN_FORGE} as a value; a malformed or hostile URL is
  * {@link Outcome#INVALID}. Neither is thrown.
@@ -48,12 +56,21 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     private static final String GITLAB_SEPARATOR = "-";
     /** The longest URL path that is considered. */
     private static final int MAX_PATH_LENGTH = 2048;
-    /** The most path segments that are considered: 21 GitLab group segments, a project and {@code /-/issues/<n>}. */
+    /** The most path segments that are considered: 21 GitLab group segments, a project and {@code /-/issues/<n>}; a
+     * pull-request tab adds one more. */
     private static final int MAX_SEGMENTS = 25;
     /** The longest one path segment that is considered. */
     private static final int MAX_SEGMENT_LENGTH = 255;
     /** The most digits an issue or pull-request number has. */
     private static final int MAX_NUMBER_DIGITS = 9;
+    /** The tab segment every forge's pull-request web interface shares. */
+    private static final String COMMITS = "commits";
+    /** The one trailing tab segment a GitHub pull-request URL accepts after its number. */
+    private static final List<String> GITHUB_PULL_REQUEST_TABS = List.of("files", COMMITS, "checks");
+    /** The one trailing tab segment a Forgejo pull-request URL accepts after its number. */
+    private static final List<String> FORGEJO_PULL_REQUEST_TABS = List.of("files", COMMITS);
+    /** The one trailing tab segment a GitLab merge-request URL accepts after its number. */
+    private static final List<String> GITLAB_PULL_REQUEST_TABS = List.of("diffs", COMMITS, "pipelines", "changes");
 
     /** The host-to-forge table of the well-known public forges. */
     public static final Map<String, String> BUILT_IN_HOSTS = Map.of(
@@ -166,6 +183,13 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     }
 
     /**
+     * @return the issue the URL names; present exactly when the kind is {@link Kind#ISSUE}
+     */
+    public Optional<IssueRef> issue() {
+        return kind == Kind.ISSUE ? Optional.of(new IssueRef(repository, number)) : Optional.empty();
+    }
+
+    /**
      * Resolves a URL against the {@link #BUILT_IN_HOSTS built-in host table}.
      *
      * @param url the issue or pull-request URL
@@ -229,7 +253,8 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (!segments.isEmpty() && segments.getLast().isEmpty()) {
             segments.removeLast();
         }
-        if (segments.isEmpty() || segments.size() > MAX_SEGMENTS) {
+        if (segments.isEmpty() || (segments.size() > MAX_SEGMENTS && !tabOfAny(segments))
+                || segments.size() > MAX_SEGMENTS + 1) {
             return Optional.empty();
         }
         for (String segment : segments) {
@@ -242,17 +267,20 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     }
 
     private static Resolution resolveGitHub(String forge, String origin, List<String> segments) {
-        if (segments.size() != 4) {
-            return Resolution.invalid("a GitHub or Forgejo source URL has four path segments");
+        if (segments.size() != 4 && segments.size() != 5) {
+            return Resolution.invalid("a GitHub or Forgejo source URL has four path segments or five with a tab");
         }
         Kind kind = switch (segments.get(2)) {
-            case "issues" -> Kind.ISSUE;
+            case "issues" -> segments.size() == 4 ? Kind.ISSUE : null;
             case "pull" -> GITHUB.equals(forge) ? Kind.PULL_REQUEST : null;
             case "pulls" -> GITHUB.equals(forge) ? null : Kind.PULL_REQUEST;
             default -> null;
         };
         if (kind == null) {
             return Resolution.invalid("the path is neither an issue nor a pull-request path");
+        }
+        if (segments.size() == 5 && !tabOf(forge).contains(segments.get(4))) {
+            return Resolution.invalid("the tab is not a tab of the pull request's web interface");
         }
         Optional<Integer> number = number(segments.get(3));
         if (number.isEmpty()) {
@@ -266,11 +294,35 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         }
     }
 
+    /** @return the one tab segment the forge's pull-request web interface puts after the number */
+    private static List<String> tabOf(String forge) {
+        return GITHUB.equals(forge) ? GITHUB_PULL_REQUEST_TABS : FORGEJO_PULL_REQUEST_TABS;
+    }
+
+    /**
+     * @param segments the path segments
+     * @return whether the last segment is a pull-request tab of one of the forges
+     */
+    private static boolean tabOfAny(List<String> segments) {
+        String last = segments.getLast();
+        return GITHUB_PULL_REQUEST_TABS.contains(last) || FORGEJO_PULL_REQUEST_TABS.contains(last)
+                || GITLAB_PULL_REQUEST_TABS.contains(last);
+    }
+
     private static Resolution resolveGitLab(String forge, String origin, List<String> segments) {
-        if (segments.size() < 5 || !GITLAB_SEPARATOR.equals(segments.get(segments.size() - 3))) {
-            return Resolution.invalid("a GitLab source URL ends with /-/issues/<n> or /-/merge_requests/<n>");
+        int operation;
+        boolean tabbed;
+        if (segments.size() >= 5 && GITLAB_SEPARATOR.equals(segments.get(segments.size() - 3))) {
+            operation = segments.size() - 2;
+            tabbed = false;
+        } else if (segments.size() >= 6 && GITLAB_SEPARATOR.equals(segments.get(segments.size() - 4))) {
+            operation = segments.size() - 3;
+            tabbed = true;
+        } else {
+            return Resolution.invalid("a GitLab source URL ends with /-/issues/<n> or /-/merge_requests/<n>, "
+                    + "or with one tab after a merge-request number");
         }
-        Kind kind = switch (segments.get(segments.size() - 2)) {
+        Kind kind = switch (segments.get(operation)) {
             case "issues" -> Kind.ISSUE;
             case "merge_requests" -> Kind.PULL_REQUEST;
             default -> null;
@@ -278,11 +330,14 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
         if (kind == null) {
             return Resolution.invalid("the path is neither an issue nor a merge-request path");
         }
-        Optional<Integer> number = number(segments.getLast());
+        if (tabbed && (kind != Kind.PULL_REQUEST || !GITLAB_PULL_REQUEST_TABS.contains(segments.getLast()))) {
+            return Resolution.invalid("an issue path carries no tab and no other tab is a merge-request tab");
+        }
+        Optional<Integer> number = number(segments.get(operation + 1));
         if (number.isEmpty()) {
             return Resolution.invalid("the number is not a positive integer");
         }
-        List<String> repository = segments.subList(0, segments.size() - 3);
+        List<String> repository = segments.subList(0, operation - 1);
         String name = repository.getLast();
         String ownerOrPath = String.join("/", repository.subList(0, repository.size() - 1));
         try {
