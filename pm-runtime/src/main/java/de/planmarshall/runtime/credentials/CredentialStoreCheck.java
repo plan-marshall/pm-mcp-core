@@ -18,12 +18,15 @@ import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The check of the OS store before it is recorded (PM-CRED-2): one test entry under the fixed global account
- * {@value #ACCOUNT} is written, read back and compared, and deleted, each step reported as one check line.
+ * The check of the OS store before it is recorded (PM-CRED-2): the fixed account {@value #ACCOUNT} is read first, then one
+ * test entry is written, read back and compared, and deleted, each step reported as one check line.
  * <p>
- * A failed step ends the check: what was written is deleted, and the check records nothing. The consent
- * {@code check_credential_store} and the states of the store step stay with the onboarding; this class only runs the
- * three steps on the store it is given. The test value is random, never logged and never part of a check line.
+ * An account that is already occupied fails the write step with {@code credential_store_check.write.occupied} and nothing
+ * is written or deleted: the check never overwrites an entry, and restoring an original value could lose it on a crash
+ * between the write and the restore. A failed step ends the check: what was written is deleted, and the check records
+ * nothing. The consent {@code check_credential_store} and the states of the store step stay with the onboarding; this
+ * class only runs the three steps on the store it is given. The test value is random, never logged and never part of a
+ * check line.
  *
  * @since 0.1
  */
@@ -44,7 +47,7 @@ public final class CredentialStoreCheck {
 
     /** The step of the check. */
     public enum Step {
-        /** The test entry is written. */
+        /** The account is read, then the test entry is written. */
         WRITE("write"),
         /** The test entry is read back and compared with what was written. */
         READ_BACK("read_back"),
@@ -148,7 +151,7 @@ public final class CredentialStoreCheck {
     }
 
     /**
-     * Writes, reads back and deletes the test entry in the given store.
+     * Reads the account, writes, reads back and deletes the test entry in the given store.
      *
      * @param store the OS store to check
      * @return the result
@@ -157,6 +160,21 @@ public final class CredentialStoreCheck {
         var account = CredentialAccount.global(ACCOUNT);
         var value = testValue();
         var lines = new ArrayList<CheckLine>();
+        try {
+            if (store.get(account).isPresent()) {
+                lines.add(CheckLine.builder()
+                        .step(Step.WRITE)
+                        .outcome(Outcome.FAILED)
+                        .messageKey(key(Step.WRITE, "occupied"))
+                        .arguments(arguments(store.name()))
+                        .answer(null)
+                        .build());
+                return new Result(lines);
+            }
+        } catch (SecretStoreException e) {
+            lines.add(failed(Step.WRITE, WHAT_FAILED, store.name(), e));
+            return new Result(lines);
+        }
         try {
             store.put(account, value);
         } catch (SecretStoreException e) {

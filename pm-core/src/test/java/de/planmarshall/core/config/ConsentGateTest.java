@@ -211,6 +211,28 @@ class ConsentGateTest {
     }
 
     @Test
+    @DisplayName("every answer refuses a device on the cli channel and a malformed device before it decides")
+    void deviceOnEveryAnswer() {
+        var request = ConsentGate.Request.machine(ConsentKind.CHECK_CREDENTIAL_STORE);
+        var rememberedGate = remembered(ConsentKind.CHECK_CREDENTIAL_STORE, "", List.of());
+        var gates = List.of(empty(), rememberedGate);
+        var answers = List.of(ConsentGate.Answer.YES, ConsentGate.Answer.NO,
+                ConsentGate.Answer.YES_REMEMBER);
+
+        assertAll(
+                () -> gates.forEach(gate -> answers.forEach(answer -> {
+                    assertThrows(IllegalArgumentException.class,
+                            () -> gate.answer(request, answer, Consent.Channel.CLI, DEVICE),
+                            "a device on the cli channel is refused for " + answer.wireName());
+                    assertThrows(IllegalArgumentException.class,
+                            () -> gate.answer(request, answer, Consent.Channel.WEB, NOT_A_DEVICE),
+                            "a malformed device is refused for " + answer.wireName());
+                })),
+                () -> assertTrue(rememberedGate.answer(request, ConsentGate.Answer.NO, Consent.Channel.WEB, DEVICE)
+                        .runs(), "a web answer with a paired device is a valid answer"));
+    }
+
+    @Test
     @DisplayName("an act of the operator's own needs no consent, and a typed credential is stored on that act")
     void operatorAct() {
         var decision = ConsentGate.operatorAct();

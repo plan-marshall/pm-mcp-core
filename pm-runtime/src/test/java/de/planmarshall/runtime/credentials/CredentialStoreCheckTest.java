@@ -76,7 +76,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals("credential_store_check.read_back.ok", result.lines().get(1).messageKey()),
                 () -> assertEquals(List.of(SecretStore.SECRET_SERVICE, CredentialStoreCheck.ACCOUNT),
                         result.lines().getFirst().arguments()),
-                () -> assertEquals(List.of("put", "get", "delete"), store.calls),
+                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
 
@@ -95,7 +95,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals("failed", line.outcome().code()),
                 () -> assertEquals("credential_store_check.write.failed", line.messageKey()),
                 () -> assertEquals("credential_store_locked: put refused", line.answer()),
-                () -> assertEquals(List.of("put", "delete"), store.calls),
+                () -> assertEquals(List.of("get", "put", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
 
@@ -112,7 +112,7 @@ class CredentialStoreCheckTest {
                         result.lines().stream().map(CheckLine::outcome).toList()),
                 () -> assertEquals("credential_store_check.read_back.differs", result.lines().get(1).messageKey()),
                 () -> assertNull(result.lines().get(1).answer(), "a differing read back carries no answer"),
-                () -> assertEquals(List.of("put", "get", "delete"), store.calls),
+                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
 
@@ -132,13 +132,53 @@ class CredentialStoreCheckTest {
     @DisplayName("a read-back the store refuses fails with its answer and deletes the test entry")
     void readBackFails() {
         store.failOn = "get";
+        store.succeedFirst = 1;
 
         var result = check.check(store);
 
         assertAll(
                 () -> assertEquals("credential_store_check.read_back.failed", result.lines().get(1).messageKey()),
                 () -> assertEquals("credential_store_locked: get refused", result.lines().get(1).answer()),
+                () -> assertEquals(List.of("get", "put", "get", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
+    }
+
+    @Test
+    @DisplayName("a store that cannot read the account fails the write step and writes nothing")
+    void readFails() {
+        store.occupies(Optional.empty());
+        store.failOn = "get";
+
+        var result = check.check(store);
+
+        var line = result.lines().getFirst();
+        assertAll(
+                () -> assertEquals(1, result.lines().size(), "a failed read ends the check"),
+                () -> assertEquals(Step.WRITE, line.step(), "the write step cannot run without the read"),
+                () -> assertEquals(Outcome.FAILED, line.outcome(), "the read's failure fails the write step"),
+                () -> assertEquals("credential_store_check.write.failed", line.messageKey()),
+                () -> assertEquals(List.of("get"), store.calls, "nothing is written after a failed read"));
+    }
+
+    @Test
+    @DisplayName("an occupied account fails the write step and nothing is written or deleted")
+    void occupied() {
+        var existing = Generators.letterStrings(20, 40).next();
+        store.occupies(Optional.of(existing));
+
+        var result = check.check(store);
+
+        var line = result.lines().getFirst();
+        assertAll(
+                () -> assertFalse(result.passed(), "an occupied account fails the check"),
+                () -> assertEquals(1, result.lines().size(), "the occupied account ends the check"),
+                () -> assertEquals(Step.WRITE, line.step(), "the occupied account fails the write step"),
+                () -> assertEquals(Outcome.FAILED, line.outcome(), "the write step fails"),
+                () -> assertEquals("credential_store_check.write.occupied", line.messageKey()),
+                () -> assertEquals(List.of("get"), store.calls,
+                        "nothing is written or deleted on an occupied account"),
+                () -> assertEquals(existing, store.secrets.get(CredentialStoreCheck.ACCOUNT),
+                        "the original value is still there"));
     }
 
     @Test
@@ -156,7 +196,7 @@ class CredentialStoreCheckTest {
                 () -> assertEquals(Outcome.FAILED, line.outcome()),
                 () -> assertEquals("credential_store_check.delete.failed", line.messageKey()),
                 () -> assertEquals("credential_store_locked: delete refused", line.answer()),
-                () -> assertEquals(List.of("put", "get", "delete", "delete"), store.calls),
+                () -> assertEquals(List.of("get", "put", "get", "delete", "delete"), store.calls),
                 () -> assertTrue(store.secrets.isEmpty()));
     }
 
@@ -237,8 +277,11 @@ class CredentialStoreCheckTest {
         private final List<String> written = new ArrayList<>();
         private String failOn = "";
         private int failures = Integer.MAX_VALUE;
+        private int succeedFirst;
+        private Optional<String> occupied = Optional.empty();
         private Optional<String> readBack = Optional.empty();
         private boolean readBackScripted;
+        private boolean putCalled;
         private boolean deleteFinds = true;
 
         void readBack(Optional<String> answer) {
@@ -246,9 +289,22 @@ class CredentialStoreCheckTest {
             readBackScripted = true;
         }
 
+        /** Puts an entry under the check's account, so the check finds it occupied. */
+        void occupies(Optional<String> value) {
+            value.ifPresent(secret -> secrets.put(CredentialStoreCheck.ACCOUNT, secret));
+            occupied = value;
+        }
+
         private void failIfAsked(String operation) {
             calls.add(operation);
-            if (failOn.equals(operation) && failures > 0) {
+            if (!failOn.equals(operation)) {
+                return;
+            }
+            if (succeedFirst > 0) {
+                succeedFirst--;
+                return;
+            }
+            if (failures > 0) {
                 failures--;
                 throw new SecretStoreException(SecretStoreException.Reason.LOCKED, operation + " refused");
             }
@@ -264,11 +320,15 @@ class CredentialStoreCheckTest {
             failIfAsked("put");
             written.add(secret);
             secrets.put(account.account(), secret);
+            putCalled = true;
         }
 
         @Override
         public Optional<String> get(CredentialAccount account) {
             failIfAsked("get");
+            if (!putCalled) {
+                return occupied;
+            }
             return readBackScripted ? readBack : Optional.ofNullable(secrets.get(account.account()));
         }
 

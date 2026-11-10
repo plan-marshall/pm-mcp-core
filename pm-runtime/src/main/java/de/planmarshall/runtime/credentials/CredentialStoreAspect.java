@@ -245,7 +245,9 @@ public final class CredentialStoreAspect {
      * {@code store.check}: writes, reads back and deletes one test entry in the chosen store, and decides from the
      * result and the recorded store: a passed check with no store recorded, or with the chosen store recorded, reaches
      * {@code store.record}; a passed check with another store recorded reaches {@code store.confirm-move}; a failed
-     * check reaches {@code store.unavailable}.
+     * check reaches {@code store.unavailable}. A recorded store that cannot be read after the passed check reaches
+     * {@code store.unavailable} with {@code credential_store_failed}, as {@code confirm-move} and {@code record} answer
+     * the same failure.
      *
      * @param store the store to check
      * @return the next state, with the check's lines
@@ -265,7 +267,12 @@ public final class CredentialStoreAspect {
                     .build();
         }
         LOGGER.info(INFO.CREDENTIAL_STORE_CHECK_PASSED, store.value());
-        var recorded = choice.recorded();
+        Optional<Store> recorded;
+        try {
+            recorded = choice.recorded();
+        } catch (StoreRefusal | UncheckedIOException e) {
+            return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());
+        }
         if (recorded.isPresent() && recorded.get() != store) {
             return Transition.builder()
                     .next(State.CONFIRM_MOVE)

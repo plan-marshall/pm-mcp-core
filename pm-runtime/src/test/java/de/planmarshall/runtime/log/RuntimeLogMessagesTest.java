@@ -182,7 +182,9 @@ class RuntimeLogMessagesTest {
                 Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVE_RESUMED, "PM_RUNTIME-29",
                         "Credential store move from '%s' to '%s' resumed from phase '%s' and completed"),
                 Arguments.of(RuntimeLogMessages.WARN.CREDENTIAL_STORE_MOVE_FAILED, "PM_RUNTIME-129",
-                        "Credential store move from '%s' to '%s' failed before the switch, %s: %s"));
+                        "Credential store move from '%s' to '%s' failed before the switch, %s: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.CREDENTIAL_STORE_ASPECT_MOVE_FAILED, "PM_RUNTIME-146",
+                        "The credential store move of the aspect failed: %s"));
     }
 
     @ParameterizedTest(name = "{1}")
