@@ -48,12 +48,17 @@ public record ProviderDefault(boolean available, @Nullable ProviderVariant varia
 
     /**
      * @param provider the provider the default belongs to
-     * @throws IllegalArgumentException if a {@code cli} variant is named for a provider without one
+     * @throws IllegalArgumentException if a {@code cli} variant is named for a provider without one, or a provider
+     *                                  with a {@code cli} variant names no variant
      */
     public void requireVariantOf(Provider provider) {
         if (variant == ProviderVariant.CLI && !provider.hasCliVariant()) {
             throw new IllegalArgumentException(
                     "The provider '%s' has no cli variant".formatted(provider.wireName()));
+        }
+        if (variant == null && provider.hasCliVariant()) {
+            throw new IllegalArgumentException(
+                    "The provider '%s' records a cli variant and names none".formatted(provider.wireName()));
         }
     }
 }

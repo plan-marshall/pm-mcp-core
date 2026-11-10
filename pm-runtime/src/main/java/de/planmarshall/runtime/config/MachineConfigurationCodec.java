@@ -62,6 +62,13 @@ public class MachineConfigurationCodec {
     private static final String FIELD_VARIANT = "variant";
     private static final String FIELD_CREDENTIAL_KEY = "credential_key";
 
+    /** The lowest and highest {@code max_build_slots} the schema admits. */
+    private static final int MIN_BUILD_SLOTS = 1;
+    private static final int MAX_BUILD_SLOTS = 16;
+
+    /** The lowest {@code lsp_idle_timeout_seconds} the schema admits. */
+    private static final int MIN_LSP_IDLE_TIMEOUT_SECONDS = 60;
+
     /** The schema default of {@code max_build_slots}. */
     static final int DEFAULT_MAX_BUILD_SLOTS = 2;
 
@@ -189,8 +196,15 @@ public class MachineConfigurationCodec {
                             case FIELD_FORMAT_VERSION -> copyFormatVersion(parser, generator);
                             case FIELD_REVISION -> copyRevision(parser, generator);
                             case FIELD_PROVIDERS -> copyProviders(parser, generator);
+                            case FIELD_MAX_BUILD_SLOTS -> copyBoundedInteger(parser, generator, field,
+                                    MIN_BUILD_SLOTS, MAX_BUILD_SLOTS);
+                            case FIELD_LSP_IDLE_TIMEOUT_SECONDS -> copyBoundedInteger(parser, generator, field,
+                                    MIN_LSP_IDLE_TIMEOUT_SECONDS, Integer.MAX_VALUE);
                             default -> copyMember(parser, generator, field);
                         }
+                    }
+                    if (parser.currentToken() != JsonToken.END_OBJECT) {
+                        throw unreadable("the machine configuration is not a JSON object");
                     }
                     requireFields(seen, "machine configuration", FIELD_FORMAT_VERSION, FIELD_REVISION,
                             FIELD_MAX_BUILD_SLOTS, FIELD_LSP_IDLE_TIMEOUT_SECONDS);
@@ -198,6 +212,9 @@ public class MachineConfigurationCodec {
                         writeProviders(generator, replacement);
                     }
                     generator.writeEndObject();
+                }
+                if (parser.nextToken() != null) {
+                    throw unreadable("content after the document");
                 }
                 if (replacement != null) {
                     rewritten = out.toByteArray();
@@ -221,6 +238,19 @@ public class MachineConfigurationCodec {
             }
             readRevision = documentRevision;
             generator.writeNumberField(FIELD_REVISION, replacement == null ? documentRevision : writeRevision);
+        }
+
+        /** Copies one required setting through, refusing a value that is not an integer inside the schema's bounds. */
+        private static void copyBoundedInteger(JsonParser parser, JsonGenerator generator, String field, int minimum,
+                int maximum) throws IOException {
+            if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT) {
+                throw unreadable("'%s' must be an integer".formatted(field));
+            }
+            var value = parser.getIntValue();
+            if (value < minimum || value > maximum) {
+                throw unreadable("'%s' must be %d to %d: %d".formatted(field, minimum, maximum, value));
+            }
+            generator.writeNumberField(field, value);
         }
 
         private void copyProviders(JsonParser parser, JsonGenerator generator) throws IOException {

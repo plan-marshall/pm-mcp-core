@@ -54,8 +54,8 @@ class MachineConfigurationStoreTest {
     private MachineConfigurationStore store;
 
     private final long revision = Generators.longs(1, 1_000_000).next();
-    private final int maxBuildSlots = Generators.integers(1, 64).next();
-    private final int lspIdleTimeout = Generators.integers(1, 86_400).next();
+    private final int maxBuildSlots = Generators.integers(1, 16).next();
+    private final int lspIdleTimeout = Generators.integers(60, 86_400).next();
     private final String harness = freeText();
     private final String landing = freeText();
     private final String githubKey = credentialKey();
@@ -200,7 +200,8 @@ class MachineConfigurationStoreTest {
     void emptyProviders() throws Exception {
         Files.writeString(file, """
                 {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
-                 "providers":{"git":{"available":true}}}""".formatted(revision, maxBuildSlots, lspIdleTimeout),
+                 "providers":{"git":{"available":true,"variant":"native"}}}""".formatted(revision, maxBuildSlots,
+                lspIdleTimeout),
                 UTF_8);
 
         store.writeProviders(ProviderDefaults.none(), revision);
@@ -248,6 +249,44 @@ class MachineConfigurationStoreTest {
                 () -> assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, outdated.outcome(),
                         "the refusal must name a newer format"),
                 () -> assertEquals(file, unknownProvider.file(), "the refusal must name the file"));
+    }
+
+    @Test
+    @DisplayName("the store file must be machine-config.json below the base of its lock key")
+    void foreignPath() {
+        var foreign = base.resolve("state").resolve(MachineConfigurationStore.FILE_NAME);
+        var storeFile = new AtomicStoreFile(foreign, LockKey.machineConfiguration(base));
+
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> new MachineConfigurationStore(storeFile, new TestLocks()),
+                "a store file outside the base of its lock key is refused");
+
+        assertAll(
+                () -> assertTrue(refused.getMessage().contains(MachineConfigurationStore.FILE_NAME),
+                        "the refusal must name the expected file"),
+                () -> assertEquals(MachineConfigurationStore.FILE_NAME,
+                        MachineConfigurationStore.file(base).store().getFileName().toString(),
+                        "the store file is machine-config.json below the base"));
+    }
+
+    @Test
+    @DisplayName("an omitted variant is refused for a provider with a cli variant")
+    void variantOmitted() {
+        var github = new ProviderDefault(true, null, null);
+        var git = new ProviderDefault(true, null, null);
+
+        var refusedGithub = assertThrows(IllegalArgumentException.class,
+                () -> new ProviderDefaults(Map.of(Provider.GITHUB, github)),
+                "github records a cli variant and must name one");
+        var refusedGit = assertThrows(IllegalArgumentException.class,
+                () -> new ProviderDefaults(Map.of(Provider.GIT, git)),
+                "git records a cli variant and must name one");
+
+        assertAll(
+                () -> assertTrue(refusedGithub.getMessage().contains("github"),
+                        "the refusal must name the provider"),
+                () -> assertTrue(refusedGit.getMessage().contains("git"),
+                        "the refusal must name the provider"));
     }
 
     @Test
