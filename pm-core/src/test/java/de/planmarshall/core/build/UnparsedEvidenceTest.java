@@ -115,7 +115,7 @@ class UnparsedEvidenceTest {
     @DisplayName("reduces a carriage-return spinner to its last frame")
     void reducesASpinner() {
         var frames = IntStream.range(0, 60).mapToObj(index -> "frame " + index).toList();
-        var log = "the failure that matters\n" + String.join("\r", frames) + "\n";
+        var log = "the failure that matters\n" + String.join("\r", frames) + "\r";
 
         var evidence = UnparsedEvidence.of(PLAN, JOB, log);
 

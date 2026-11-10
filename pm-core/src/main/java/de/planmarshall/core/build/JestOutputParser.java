@@ -30,7 +30,8 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
  * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
- * zero, an all-skipped run, a printed failing count and a filed diagnostic all keep the marker {@code false}.
+ * zero, an all-skipped run, a printed failing test or suite count and a filed diagnostic all keep the marker
+ * {@code false}.
  * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * {@code Tests:} block only, and it trusts the block's {@code total} over its parts. This port sums every block of a
@@ -45,6 +46,8 @@ public class JestOutputParser {
     private static final String TEST_MARKER = "●";
 
     private static final String TESTS_PREFIX = "Tests:";
+
+    private static final String SUITES_PREFIX = "Test Suites:";
 
     private static final String STACK_FRAME = "at ";
 
@@ -204,15 +207,18 @@ public class JestOutputParser {
     }
 
     /**
-     * Whether the log printed a failed test count: a {@code Tests:} block whose failed count is above zero. The status is
-     * what the tool printed, so a failed summary without a filed diagnostic (truncated output) is still red.
+     * Whether the log printed a failed count: a {@code Tests:} block whose failed count is above zero, or a
+     * {@code Test Suites:} block that reports a failed suite. The status is what the tool printed, so a failed summary
+     * without a filed diagnostic (truncated output, or a suite that failed to run) is still red and is never a passing
+     * marker.
      *
      * @param lines the log lines
-     * @return whether a failed test count was printed
+     * @return whether a failed count was printed
      */
     private static boolean printsFailedSummary(List<String> lines) {
         return lines.stream()
-                .filter(line -> line.strip().startsWith(TESTS_PREFIX))
+                .map(String::strip)
+                .filter(line -> line.startsWith(TESTS_PREFIX) || line.startsWith(SUITES_PREFIX))
                 .anyMatch(line -> {
                     Matcher matcher = FAILED_COUNT.matcher(line);
                     while (matcher.find()) {

@@ -112,9 +112,13 @@ class SecretRedactorTest {
     @Test
     @DisplayName("user information in a URL keeps the scheme and the user")
     void urlUserInformation() {
-        assertEquals("request to https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg failed",
-                redactValue("request to https://deploy:s3cr3t-value@registry.example/pkg failed"),
-                "a URL's password is masked and its scheme kept");
+        assertAll("URL user information",
+                () -> assertEquals("request to https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg failed",
+                        redactValue("request to https://deploy:s3cr3t-value@registry.example/pkg failed"),
+                        "a URL's password is masked and its scheme kept"),
+                () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host/x",
+                        redactValue("https://user:p@ss@host/x"),
+                        "a password containing @ is masked whole"));
     }
 
     @Test
@@ -171,9 +175,12 @@ class SecretRedactorTest {
     @DisplayName("redacting is idempotent")
     void idempotent() {
         var once = redactValue("password=hunter22");
-        var everyShape = redactValue("npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
-                + " https://deploy:s3cr3t-value@registry.example/pkg --password hunter22"
-                + " -----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7v0x\n-----END RSA PRIVATE KEY-----");
+        var everyShape = redactValue("""
+                npm_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8
+                https://deploy:s3cr3t-value@registry.example/pkg --password hunter22
+                -----BEGIN RSA PRIVATE KEY-----
+                MIIEowIBAAKCAQEA7v0x
+                -----END RSA PRIVATE KEY-----""");
 
         assertAll("redaction is idempotent",
                 () -> assertEquals(once, SecretRedactor.redactText(once).orElseThrow(),

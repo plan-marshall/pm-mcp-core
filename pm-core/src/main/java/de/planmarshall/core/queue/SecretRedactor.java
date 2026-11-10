@@ -80,7 +80,7 @@ public final class SecretRedactor {
      * match.
      */
     private static final Pattern URL_USER_INFORMATION =
-            Pattern.compile("(?i)\\b([a-z][a-z0-9+.-]*://)([^\\s/:@]+):([^\\s/@]+)@");
+            Pattern.compile("(?i)\\b([a-z][a-z0-9+.-]*://)([^\\s/:@]+):([^\\s/?#]+)@");
 
     /**
      * A credential flag whose value is separated by whitespace instead of {@code :} or {@code =}. The leading

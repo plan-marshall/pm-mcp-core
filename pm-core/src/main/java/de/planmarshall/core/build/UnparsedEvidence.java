@@ -106,7 +106,12 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
             if (!reduced.isEmpty()) {
                 reduced.append('\n');
             }
-            reduced.append(line.substring(line.lastIndexOf('\r') + 1));
+            var end = line.length();
+            while (end > 0 && line.charAt(end - 1) == '\r') {
+                end--;
+            }
+            var trimmed = line.substring(0, end);
+            reduced.append(trimmed.substring(trimmed.lastIndexOf('\r') + 1));
         }
         return reduced.toString();
     }

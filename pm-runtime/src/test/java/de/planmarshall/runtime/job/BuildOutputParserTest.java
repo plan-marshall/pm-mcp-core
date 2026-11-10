@@ -271,6 +271,20 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("a failed Jest test suite is no marker")
+    void jestFailedSuite() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Test Suites: 1 failed, 1 passed, 2 total
+                Tests:       3 passed, 3 total
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a failed suite is no passing summary"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a failed suite keeps a zero exit indeterminate"));
+    }
+
+    @Test
     @DisplayName("an unmeasured Jest summary stays indeterminate")
     void jestUnmeasuredSummary() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
