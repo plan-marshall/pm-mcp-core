@@ -106,8 +106,8 @@ public class OpenRewriteLogParser {
                         .column(column.get()).recipe(match.group(5)).message(match.group(6))
                         .classification(
                                 "100".equals(match.group(1))
-                                ? RewriteClassification.NEWLY_DETECTED
-                                : RewriteClassification.PRE_EXISTING)
+                                        ? RewriteClassification.NEWLY_DETECTED
+                                        : RewriteClassification.PRE_EXISTING)
                         .build());
                 continue;
             }
