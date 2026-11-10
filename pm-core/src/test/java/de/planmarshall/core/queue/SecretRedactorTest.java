@@ -132,7 +132,13 @@ class SecretRedactorTest {
                 () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
                         redactValue("publish --token \"abcd1234\""), "a double-quoted token value is masked"),
                 () -> assertEquals("npm login --password '" + SecretRedactor.REDACTED + "'",
-                        redactValue("npm login --password 'hunter22'"), "a single-quoted password is masked"));
+                        redactValue("npm login --password 'hunter22'"), "a single-quoted password is masked"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("publish --token \"correct horse battery staple\""),
+                        "a quoted value with spaces is masked whole"),
+                () -> assertEquals("npm login --password \"" + SecretRedactor.REDACTED,
+                        redactValue("npm login --password \"correct horse"),
+                        "an unclosed quoted value is masked to the line end"));
     }
 
     @Test

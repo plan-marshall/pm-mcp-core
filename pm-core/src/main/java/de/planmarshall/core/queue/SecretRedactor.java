@@ -23,8 +23,9 @@ import org.jspecify.annotations.Nullable;
  * negative writes a credential to a store: it replaces the value of an explicit credential-shaped assignment (a
  * password, token, secret, API key or authorization header), a bearer value, a provider token shape (including the npm
  * {@code npm_} access token), the user-information form of a URL ({@code scheme://user:secret@host}), the value of a
- * spaced credential flag ({@code --password <value>} or {@code --token "<value>"}, quoted or not) and a PEM
- * private-key block carried inside one text, and it leaves every other text alone. Each non-assignment shape is anchored
+ * spaced credential flag ({@code --password <value>}, quoted or not; a quoted value is matched through its closing
+ * quote, spaces included, and an unclosed quote masks the rest of the line) and a PEM private-key block carried inside one
+ * text, and it leaves every other text alone. Each non-assignment shape is anchored
  * to its own form — a URL needs its {@code scheme://} and {@code @}, a flag needs its leading {@code --} and a following
  * space — so prose cannot match. A hash, a commit id, a path and a prose sentence that merely contains the word
  * {@code token} are not secrets and stay readable.
@@ -85,11 +86,20 @@ public final class SecretRedactor {
 
     /**
      * A credential flag whose value is separated by whitespace instead of {@code :} or {@code =}. The leading
-     * {@code --} anchors the shape, so {@code --password-file notes.txt} is a different flag and stays readable; an
-     * optional opening quote is kept around the mask.
+     * {@code --} anchors the shape, so {@code --password-file notes.txt} is a different flag and stays readable. The
+     * quoted forms are matched first: a quoted value runs to its closing quote, spaces included, and an unclosed quote
+     * masks the rest of the line.
      */
-    private static final Pattern CREDENTIAL_FLAG =
-            Pattern.compile("(?<![\\w-])(--(?:password|passwd|passphrase|token|secret))([ \\t]+)([\"']?)([^\\s\"',;]{4,})");
+    private static final String CREDENTIAL_FLAG_NAMES = "password|passwd|passphrase|token|secret";
+
+    private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
+            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)([\"'])([^\"'\\r\\n]*)\\3");
+
+    private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
+            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)([\"'])([^\"'\\r\\n]*)");
+
+    private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
+            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)([^\\s\"',;]{4,})");
 
     /**
      * A PEM private-key block carried inside one text. A window that starts inside a block (its {@code BEGIN} line
@@ -136,8 +146,12 @@ public final class SecretRedactor {
         }
         masked = URL_USER_INFORMATION.matcher(masked)
                 .replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
-        masked = CREDENTIAL_FLAG.matcher(masked)
+        masked = QUOTED_CREDENTIAL_FLAG.matcher(masked)
+                .replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED) + "$3");
+        masked = UNCLOSED_CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED));
+        masked = CREDENTIAL_FLAG.matcher(masked)
+                .replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         masked = PEM_PRIVATE_KEY.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
         masked = PEM_PRIVATE_KEY_UNCLOSED.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
         return Optional.of(masked);
