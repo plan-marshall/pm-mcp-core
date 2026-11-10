@@ -74,12 +74,18 @@ Done When.
 
 ## Claim Labels
 
-- OBSERVED: PLAN-03 (staged beside this plan, 2026-10-29) takes the extraction, the evidence store and the Claude Code
-  groups of the package; the package file at `plan-marshall-mcp` `origin/main` (`da9d6d8`, #110) has 13 tasks and is not
-  yet amended to name each task's part — read at `doc/plans/question-loop-follow-up.adoc`.
+- OBSERVED: PLAN-03 landed 2026-11-05 (`plan-marshall-mcp` #114 `61daf53` and #118 `e22f6c1`,
+  `plan-marshall-documentation` #144 `2071fbc`) and amended the package: `doc/plans/question-loop-follow-up.adoc` on
+  `plan-marshall-mcp` `main` names this plan's part at :8 and :82 and lists what is handed to it at :145–158 (tasks 3
+  and 4, the OpenCode and Antigravity groups of tasks 6 to 11, task 9's Q2 observation on Antigravity, Q6's vote quorum,
+  task 12's OpenCode and Antigravity values). Q4's cross-harness continuation is named only in the Q4 row of
+  `evaluation.adoc`, not in that list. Claude Code items PLAN-03 did not run: Q5 bound 5 and R4 large work (see
+  `landings/PLAN-03.md`).
+  - verdict: contradicted | checked_at: 3d01811a84ab4c33641ad91f29f3bf5c0ec40c52 | by: question-loop-corrections/analyze | rescoped: yes | evidence: PLAN-03 landed (mcp #114, #118; docs #144): the package file on plan-marshall-mcp main names this plan's part at :8, :82 and :145-158; the claim was rewritten to say so
 - OBSERVED: the OpenCode 2.x profile and its inline settings are specified (core #206, `plan-marshall-documentation`
   #125) with values provisional until verified, and Roadmap Milestone 14 holds the items that verify and ship them; no
   package of `doc/plans/` carries those items (re-checked 2026-10-28 at the landing of PLAN-02).
+  - verdict: corroborated | checked_at: db02e44332a1818ff246c824e441d0a01ef06679 | by: question-loop-corrections/analyze | rescoped: n/a | evidence: re-checked 2026-11-10: no package of doc/plans in pm-mcp-core main carries the OpenCode 2.x profile items of Milestone 14 (client-profile-measured-values, client-profile-rendering, profile-verification-stages read)
 - OBSERVED: the shipped profile documents are `classpath:/profiles/<client_id>.json` resources of `pm-api` in
   `pm-mcp-clients`, which has no work package for the measured values (ledger Watches, 2026-10-28).
 - HYPOTHESIS: Antigravity becomes usable at about 2026-10-31 07:10 CET — the operator's statement, accurate to its
@@ -92,7 +98,7 @@ Done When.
 - HYPOTHESIS: `../plan-marshall-mcp/pm-e2e/src/test/java/de/planmarshall/e2e/` — the driver extended for the two hosts' findings, in the sibling repository (verify-at-outline)
 - HYPOTHESIS: `../plan-marshall-mcp/doc/plans/question-loop-follow-up.adoc` — the package file, closed when done
 - HYPOTHESIS: `../plan-marshall-documentation/doc/specification/evaluation.adoc` — the result rows
-- OBSERVED: `../plan-marshall-documentation/doc/developer/question-loop-experiment.adoc` — the developer document (exists on `main`, swept 2026-10-29)
+- OBSERVED: `../plan-marshall-documentation/doc/developer/question-loop-measurement.adoc` — the developer document of the maintained code (created by PLAN-03, documentation #144; the earlier `question-loop-experiment.adoc` was deleted by #145, 2026-11-02)
 
 ## Dependencies and Sequencing
 

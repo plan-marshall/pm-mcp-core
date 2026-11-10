@@ -35,15 +35,14 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
 - PLAN-02 — touches `doc/plans/` here and `doc/plans/` of `plan-marshall-mcp`; disjoint from PLAN-01. Its change to
   `doc/plans/question-continuation.adoc` concerns PLAN-73 of the sibling epic `pm-mcp-core-m2-m4`, shipped as #201 (see
   Watches). Its sixth deliverable follows the OpenCode 2.x worker of #206 and documentation #125.
-- PLAN-03 — runs in `plan-marshall-mcp` (the package `question-loop-follow-up` as PLAN-02 leaves it). Since 2026-10-29
-  it is the Claude Code part only: the package amendment, the extracted driver, the evidence store and the Claude Code
-  groups. It is launched by the operator's word after PLAN-01 and PLAN-02 have landed (both did, 2026-10-28) and the
-  operator accepted the run budget recomputed for the Claude Code groups. Its declared surface lies in the sibling
-  repositories and is read as declarative (`corpus surfaces`, 2026-10-29).
+- PLAN-03 — shipped 2026-11-05 (`plan-marshall-mcp` #114 and #118, `plan-marshall-documentation` #144; plan
+  `question-loop-run-follow-up-measurement`), analyzed 2026-11-10 from the merged diffs and the archived plan directory
+  (`landings/PLAN-03.md`). Q5 bound 5 and R4 large work of Claude Code were not run.
 - PLAN-04 — the OpenCode and Antigravity part, split from PLAN-03 on 2026-10-29; staged and deferred. Launch conditions
-  (spec, Standing Constraints): PLAN-03 landed, a consumer package for the OpenCode values (Milestone 14 or `pm-mcp-clients`)
-  or the operator's recorded decision to go without, Antigravity usable (about 2026-10-31 07:10 CET), and the run budget
-  and data home confirmed. Same surface as PLAN-03, so it is sequenced after it, never concurrent.
+  (spec, Standing Constraints): PLAN-03 landed (met 2026-11-05), a consumer package for the OpenCode values (Milestone 14
+  or `pm-mcp-clients`) or the operator's recorded decision to go without (not met, re-checked 2026-11-10), Antigravity
+  usable (about 2026-10-31 07:10 CET; not confirmed by the operator since), and the run budget and data home confirmed
+  (not yet). Its Expected Surface names the developer document `question-loop-measurement.adoc` since 2026-11-10.
 
 ## Decisions
 
@@ -111,6 +110,16 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   its groups at that limit; written into its spec as a finding, not a shipped value.
 - 2026-10-30 — Q6's quorum moves to PLAN-04 (operator), because it votes on OpenCode as well and settles none of PLAN-03's
   values; PLAN-03 keeps Q6's consultation part. PLAN-04's hand-off takes the same sibling path as PLAN-03's.
+- 2026-11-10 — PLAN-03 analyzed as shipped (`plan-marshall-mcp` #114 `61daf53`, #118 `e22f6c1`;
+  `plan-marshall-documentation` #144 `2071fbc`; all merged 2026-11-05). The cap of 60 USD was replaced by 45 USD by the
+  operator on 2026-10-31 (package decision record, no reason recorded); spent 41.89 USD on `claude-haiku-4-5` plus 1.76 USD
+  on `claude-sonnet-5-5` outside the cap. Parallel limit 12; Q1–Q4, Q6 (consultation), Q7, R1–R3 pass; R4 small work
+  figures only; Q5 fails on Haiku at bounds 3 and 4 and passes on Sonnet. Not run: Q5 bound 5 (cap rule) and R4 large
+  work (operator, 2026-11-01). Raw worker outputs are not in the evidence store (operator, 2026-11-01). The package's own
+  Done When is met only in part (question bound unsettled; `verify -Pintegration-tests` red, accepted in finalize and not
+  recorded in the package). The three-layer read found layer-3 defects in the measurement code (see Open Defects). The
+  developer document is `question-loop-measurement.adoc`; `question-loop-experiment.adoc` was deleted by documentation
+  #145. PLAN-04's spec was re-scoped in the same act (claim 1, Expected Surface).
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -130,11 +139,21 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
 
 - The landing of PLAN-01 (`rb-01-correct-question-loop-results-001.md`) is incomplete the same way: `total_tokens` is
   `unknown`. — source: `inbox landing-check`, 2026-10-28
-- The Limits of `evaluation.adoc` (`plan-marshall-documentation` `main`) do not say that the OpenCode runs of the smoke
-  run had no inline settings (`headless.inline_settings`, core #206); the file holds no occurrence of "inline". PLAN-01
-  was to add it and to check which settings the experiment code's OpenCode launch set; it ran from the older spec copy.
-  — source: PLAN-01 analysis 2026-10-28. Fix: a one-sentence direct pull request in the documentation repository, or fold
-  into PLAN-03; the operator decides.
+- Resolved 2026-11-10: the Limits of `evaluation.adoc` now say that the OpenCode runs of the smoke run had no inline
+  settings (documentation `main`, `evaluation.adoc:1004`, by PLAN-03 / #144). — source: PLAN-01 analysis 2026-10-28.
+- The measurement code PLAN-03 landed carries layer-3 defects (`landings/PLAN-03.md` § Layer 3): `runs.jsonl` is
+  appended without a lock from up to 12 threads (`QuestionResults.java:260`); a re-aggregation from the evidence store
+  passes Q2's and R1/R2's output-read clauses vacuously because missing worker outputs read as empty
+  (`RunView.java:124`, `:196`); the fresh half of Q3 cannot fail because the driver's own teardown counts as the stop
+  (`QuestionResults.java:859`); a JVM abort leaves running workers alive (`QuestionDriver.java:675`, `:699`); a gated
+  run without `pm.experiment.hosts` launches all three harnesses (`QuestionLoopMeasurement.java:225`). The first, second,
+  fourth and fifth bear on PLAN-04's runs. — source: PLAN-03 analysis 2026-11-10; reported to the operator, a fix plan only
+  on the operator's word.
+- The package `question-loop-follow-up` (`plan-marshall-mcp` `main`) leaves four record gaps PLAN-03 owed: the
+  `-Pintegration-tests` deviation from task 1's Done When is not recorded; the cap change of 2026-10-31 has no reason; Q3's
+  pass rests on a reading of the criterion that is recorded only as open; the index row still titles the package "at
+  the specified scale". — source: PLAN-03 analysis 2026-11-10; a small direct pull request there, or fold into PLAN-04;
+  the operator decides.
 - Merged `main` fails `BROKEN LINKS 0` (the landing reports 12 and four undefined watch ids; this analysis confirmed
   `PM-WATCH-CLIENT-14` cited at `model-work/01-roles-and-configuration.adoc:357` and not defined in
   `implementation-watch/client-profiles.adoc`). None comes from this epic's diffs; the owners are the plans that removed
@@ -160,8 +179,11 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   the main checkout, so compare again after the land. Compared 2026-10-30: PLAN-03, PLAN-04 and `epic.md` were
   byte-identical in both copies (before this day's `epic.md` edit, which is narrative only). Retired for PLAN-03 2026-10-30, launched from the ledger copy; PLAN-04 compares again.
 - Client versions, re-checked 2026-10-30: Claude Code 2.1.314 (also the npm latest; the smoke run was 2.1.306 to 2.1.310),
-  OpenCode 2.2.3 (smoke 2.1.2 to 2.1.4), `agy` 1.4.7 (smoke 1.4.7 at the end). — re-read at the first run; the plan records
-  the version per run.
+  OpenCode 2.2.3 (smoke 2.1.2 to 2.1.4), `agy` 1.4.7 (smoke 1.4.7 at the end). PLAN-03 measured on Claude Code 2.1.316.
+  — PLAN-04 re-reads them at its first run and says which PLAN-03 rows it re-ran.
+- The documentation worktree `/Users/oliver/git/plan-marshall-documentation-question-loop-follow-up` of PLAN-03 is
+  still there, on `docs/question-loop-follow-up-measurement` whose upstream is gone (#144 merged). — retire when the
+  operator has removed it.
 
 - `pm-mcp-core-m2-m4` PLAN-73 (`question-continuation`) read `question-loop-verification` as `done` and its
   dependencies as met, although no `headless.resumability`, `questions` or bound value was settled. A finding was sent to
@@ -176,7 +198,9 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   probe, `events` mapping and tool names) have no package in `doc/plans/` of this repository. Re-checked at the landing
   of PLAN-02, 2026-10-28: still none. `client-profile-measured-values` takes only the `inline_settings` member and the
   measured values; PLAN-02 named Milestone 14 as owner and created no package. PLAN-03's OpenCode values reach the
-  profile only once a package ships it. — tell the operator; stage a package when the operator decides.
+  profile only once a package ships it. Re-checked 2026-11-10: still none (`client-profile-rendering` and
+  `profile-verification-stages`, both 2026-11-02, do not carry these items); this is PLAN-04's launch condition 2. — tell
+  the operator; stage a package when the operator decides.
 - The shipped profile documents are `classpath:/profiles/<client_id>.json` resources of `pm-api` in `pm-mcp-clients`,
   not of `pm-core`, so the measured values need a landing there. `client-profile-measured-values` names it as owed;
   `pm-mcp-clients` has no work package for it and no index dependency records it. — re-check when
@@ -196,14 +220,12 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   `evaluation.adoc` (estimate, unmeasured at this scale): 270 base runs plus 24 to reproduce a smoke group, 28 to 36 USD and
   about 32 to 49 h serial; with Q5's further bounds, groups extended to 10 and Q6's voters, 41 to 52 USD. Not included: R4
   large work (36 runs, one smoke run took up to 18.2 million tokens on OpenCode) and the Sonnet repeats. Accepted for PLAN-03 2026-10-30 at a cap of 60 USD; the parallel-limit runs add 48 to 72 runs
-  (5 to 9 USD); with Q6's quorum moved to PLAN-04 that leaves about 5 to 16 USD for R4 large work in the case with extras. — the operator confirms or
-  replaces it again before PLAN-04.
+  (5 to 9 USD); with Q6's quorum moved to PLAN-04 that leaves about 5 to 16 USD for R4 large work in the case with extras. Replaced by the operator
+  on 2026-10-31 by a cap of 45 USD; PLAN-03 spent 41.89 USD (9.47 USD of it on the parallel limit) plus 1.76 USD of Sonnet
+  repeats outside the cap. — the operator confirms a budget for PLAN-04 before it is emitted.
 - Gemini / Antigravity is available from about 2026-10-31 07:10 CET (operator, 2026-10-28 18:10 CET, "in 2 d 13 h"). Since
   the split this binds PLAN-04's Antigravity groups, not PLAN-03. — retire when the Antigravity groups have run, or move
   the date if the operator gives a new one.
-- The 55 USD default may be low for the full scale: the smoke invocation of 24 Claude Code runs cost 2.3 to 2.9 USD, which
-  scaled linearly to 20 runs per fixture and host is above 55 USD. Not reproduced from the package text. — task 6 settles
-  it; moot if the reduced scale stands.
 - `question-continuation` should read `headless.resumability`, the `questions` values and the bound from the profile at
   runtime and fall back conservatively, since measured values go stale with the harness version. Outside PLAN-03 and this
   epic. — raise with the owner of `question-continuation` (`pm-mcp-core-m2-m4`) when its remaining package is staged.
