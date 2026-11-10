@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +36,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -95,6 +98,8 @@ class OrderedWriteTest {
             super("stopped " + where);
         }
     }
+
+
 
     @BeforeEach
     void createScopes() throws IOException {
@@ -458,7 +463,8 @@ class OrderedWriteTest {
         void sinkRefuses() {
             var write = flow(0, NO_STOP, new ArrayList<>());
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
-            var refusing = FailingAuditSink.refusing(1);
+            Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+            var refusing = AuditSinkDoubles.refusing(refused);
 
             var applied = OrderedWrite.reconcile(locks, List.of(reconciler()), refusing);
             var journalKept = Files.exists(workspace.journalFile());
@@ -468,7 +474,7 @@ class OrderedWriteTest {
                     () -> assertEquals(List.of(queueReconciliation(), epicReconciliation()), applied,
                             "the data outcome should be as before"),
                     () -> assertTrue(journalKept, "the derived write's journal should keep it owed"),
-                    () -> assertEquals(reconciledOf(epicReconciliation()), reconciledOf(refusing.events()),
+                    () -> assertEquals(reconciledOf(epicReconciliation()), reconciledOf(refused.getValues()),
                             "the refusing sink should get the epic record"),
                     () -> assertEquals(List.of(), restarted, "the derived writes should be in place"),
                     () -> assertEquals(reconciledOf(queueReconciliation()), reconciledRecords(),
@@ -481,7 +487,7 @@ class OrderedWriteTest {
         void noSecondRecord() {
             var write = flow(0, NO_STOP, new ArrayList<>());
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
-            OrderedWrite.reconcile(locks, List.of(reconciler()), FailingAuditSink.refusing(1));
+            OrderedWrite.reconcile(locks, List.of(reconciler()), AuditSinkDoubles.refusing());
             restart();
             var records = audit.events().size();
 
@@ -496,9 +502,9 @@ class OrderedWriteTest {
             var write = flow(0, NO_STOP, new ArrayList<>());
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
             var reconcilers = List.of(reconciler());
-            var stopping = FailingAuditSink.stopping(1);
+            var stopping = AuditSinkDoubles.stopping();
 
-            assertThrows(FailingAuditSink.ProcessStopped.class,
+            assertThrows(AuditSinkDoubles.ProcessStopped.class,
                     () -> OrderedWrite.reconcile(locks, reconcilers, stopping),
                     "the sink should stop the reconcile");
             var applied = restart();

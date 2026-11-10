@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +41,8 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -600,7 +603,8 @@ class EnrolmentStoreTest {
                 var first = written();
                 var second = AuditEvent.enrolmentRebaselined(PROJECT, transactionId());
                 owe(PROJECT, first, second);
-                var sink = FailingAuditSink.refusing(1);
+                Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.refusing(refused);
 
                 var delivered = deliver(sink);
 
@@ -619,7 +623,7 @@ class EnrolmentStoreTest {
                 assertAll("a second hand-over should deliver what was owed",
                         () -> assertEquals(List.of(first, second), again,
                                 "The second hand-over should deliver both records"),
-                        () -> assertEquals(List.of(first, second), sink.events(),
+                        () -> assertEquals(List.of(first, second), refused.getValues(),
                                 "The sink should accept both records on the second try"),
                         () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
                                 "The intent file should be removed after the hand-over"));
@@ -666,12 +670,12 @@ class EnrolmentStoreTest {
             void stopped() {
                 var written = written();
                 owe(PROJECT, written);
-                var stopping = FailingAuditSink.stopping(1);
+                var stopping = AuditSinkDoubles.stopping();
 
                 try (var transaction = locks.openTransaction()) {
                     transaction.acquire(store.lockKey(PROJECT));
 
-                    assertThrows(FailingAuditSink.ProcessStopped.class,
+                    assertThrows(AuditSinkDoubles.ProcessStopped.class,
                             () -> store.deliverOwedAudit(transaction, PROJECT, stopping),
                             "A stopped hand-over should propagate the stop");
                 }

@@ -32,7 +32,8 @@ import de.planmarshall.core.role.RoleSkill;
 
 /**
  * The fixtures of the model-caller tests (test helper): an effective role of any class and form, a resolver over a map of
- * roles, a recorder of the qualification lookup, the availability guard and the task queue.
+ * roles, a recorder of the qualification lookup and the availability guard. The task queue is an EasyMock double the
+ * test creates.
  * <p>
  * The fixtures name a generic harness and generic roles; a test that needs a role the specification fixes by name (the
  * judge, the steward) names it explicitly.
@@ -149,29 +150,4 @@ final class ModelFixtures {
         }
     }
 
-    /** The task queue of the tests, which records what the model caller asks of it. */
-    static final class RecordingQueue implements ModelQueue {
-
-        private final List<Enqueue> enqueued = new ArrayList<>();
-        private final List<Close> closed = new ArrayList<>();
-
-        List<Enqueue> enqueued() {
-            return enqueued;
-        }
-
-        List<Close> closed() {
-            return closed;
-        }
-
-        @Override
-        public Queued enqueue(Enqueue request) {
-            enqueued.add(request);
-            return new Queued(QUEUE_TASK);
-        }
-
-        @Override
-        public void close(Close request) {
-            closed.add(request);
-        }
-    }
 }

@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.endpoint;
 
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,7 +34,6 @@ import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcherElement;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,6 +45,8 @@ import java.util.function.Function;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -87,8 +93,10 @@ class JudgmentEndpointRemoteTest {
     private final Map<String, Function<RecordedRequest, MockResponse>> routes = new ConcurrentHashMap<>();
     private MockWebServer server;
     private URI root;
-    private RecordingAuditSink audit;
-    private RecordingRegistry registry;
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private final Capture<String> registeredSecrets = newCapture(CaptureType.ALL);
+    private AuditSink audit;
+    private SecretRegistry registry;
     private String clientId;
     private String key;
     private String secret;
@@ -122,8 +130,14 @@ class JudgmentEndpointRemoteTest {
     void start(MockWebServer mockWebServer, URIBuilder uriBuilder) {
         server = mockWebServer;
         root = uriBuilder.build();
-        audit = new RecordingAuditSink();
-        registry = new RecordingRegistry();
+        audit = createMock(AuditSink.class);
+        audit.append(capture(auditEvents));
+        expectLastCall().anyTimes();
+        replay(audit);
+        registry = createMock(SecretRegistry.class);
+        registry.register(capture(registeredSecrets));
+        expectLastCall().anyTimes();
+        replay(registry);
         clientId = word() + "-judge";
         key = word() + "-token";
         secret = word() + "-" + word() + "-" + Generators.integers(1_000, 9_999).next();
@@ -246,7 +260,7 @@ class JudgmentEndpointRemoteTest {
                         "the first request carries the secret"),
                 () -> assertEquals("Bearer " + secret, second.getHeaders().get("Authorization"),
                         "the second request carries the secret"),
-                () -> assertTrue(registry.secrets().contains(secret), "the secret is registered for redaction"),
+                () -> assertTrue(registeredSecrets.getValues().contains(secret), "the secret is registered for redaction"),
                 () -> assertEquals(inputTokens, answers.ascending().answer().usage().inputTokens().value(),
                         "the input tokens of the answer are read"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -271,7 +285,7 @@ class JudgmentEndpointRemoteTest {
                 () -> assertEquals(1, server.getRequestCount(), "the redirect target received no request"),
                 () -> assertEquals("Bearer " + secret, first.getHeaders().get("Authorization"),
                         "only the own origin received the secret"),
-                () -> assertFalse(audit.text().contains(secret), "the audit record holds no secret"));
+                () -> assertFalse(auditEvents.getValues().toString().contains(secret), "the audit record holds no secret"));
         assertNoLogLineHolds(secret);
         assertAttemptEndedLogged();
     }
@@ -292,7 +306,7 @@ class JudgmentEndpointRemoteTest {
                     () -> assertEquals(1, server.getRequestCount(), "only the own origin received a request"),
                     () -> assertEquals(0, cleartext.getRequestCount(),
                             "the cleartext target received no request"),
-                    () -> assertFalse(audit.text().contains(secret), "the audit record holds no secret"));
+                    () -> assertFalse(auditEvents.getValues().toString().contains(secret), "the audit record holds no secret"));
             assertNoLogLineHolds(secret);
             assertAttemptEndedLogged();
         }
@@ -373,7 +387,7 @@ class JudgmentEndpointRemoteTest {
                 () -> assertEquals(EndpointOutcome.Reason.REQUEST_REFUSED, answers.ascending().outcome().reason(),
                         "the attempt ends as a refused request"),
                 () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"),
-                () -> assertTrue(registry.secrets().isEmpty(), "no secret is registered for redaction"));
+                () -> assertTrue(registeredSecrets.getValues().isEmpty(), "no secret is registered for redaction"));
         assertNoLogLineHolds(secret);
         assertAttemptEndedLogged();
     }
@@ -392,46 +406,12 @@ class JudgmentEndpointRemoteTest {
                         "probabilities over 1 are an invalid answer"),
                 () -> assertFalse(answers.ascending().outcome().detail().contains(facts),
                         "the error text carries no part of the body"),
-                () -> assertEquals(1, audit.events().size(), "the task leaves exactly one record"),
-                () -> assertFalse(audit.text().contains(facts), "the audit record holds no facts"),
-                () -> assertFalse(audit.text().contains(secret), "the audit record holds no secret"),
-                () -> assertTrue(audit.text().contains(model), "the audit record names the model"));
+                () -> assertEquals(1, auditEvents.getValues().size(), "the task leaves exactly one record"),
+                () -> assertFalse(auditEvents.getValues().toString().contains(facts), "the audit record holds no facts"),
+                () -> assertFalse(auditEvents.getValues().toString().contains(secret), "the audit record holds no secret"),
+                () -> assertTrue(auditEvents.getValues().toString().contains(model), "the audit record names the model"));
         assertNoLogLineHolds(facts);
         assertNoLogLineHolds(secret);
         assertAttemptEndedLogged();
-    }
-
-    /** The secrets the runtime registered with the redaction registry. */
-    static final class RecordingRegistry implements SecretRegistry {
-
-        private final List<String> secrets = new ArrayList<>();
-
-        @Override
-        public void register(String value) {
-            secrets.add(value);
-        }
-
-        List<String> secrets() {
-            return List.copyOf(secrets);
-        }
-    }
-
-    /** The audit records of the test. */
-    static final class RecordingAuditSink implements AuditSink {
-
-        private final List<AuditEvent> events = new ArrayList<>();
-
-        @Override
-        public void append(AuditEvent event) {
-            events.add(event);
-        }
-
-        List<AuditEvent> events() {
-            return List.copyOf(events);
-        }
-
-        String text() {
-            return events.toString();
-        }
     }
 }
