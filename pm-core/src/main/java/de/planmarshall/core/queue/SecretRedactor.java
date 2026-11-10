@@ -92,14 +92,18 @@ public final class SecretRedactor {
      */
     private static final String CREDENTIAL_FLAG_NAMES = "password|passwd|passphrase|token|secret";
 
-    private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
-            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)([\"'])([^\"'\\r\\n]*)\\3");
+    /** The shared head of a credential-flag pattern: the flag name and the whitespace after it, kept as groups 1 and 2. */
+    private static final String CREDENTIAL_FLAG_HEAD =
+            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
 
-    private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
-            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)([\"'])([^\"'\\r\\n]*)");
+    private static final Pattern QUOTED_CREDENTIAL_FLAG =
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])([^\"'\\r\\n]*)\\3");
 
-    private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
-            "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)([^\\s\"',;]{4,})");
+    private static final Pattern UNCLOSED_CREDENTIAL_FLAG =
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])([^\"'\\r\\n]*)");
+
+    private static final Pattern CREDENTIAL_FLAG =
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([^\\s\"',;]{4,})");
 
     /**
      * A PEM private-key block carried inside one text. A window that starts inside a block (its {@code BEGIN} line
@@ -121,6 +125,9 @@ public final class SecretRedactor {
         return Pattern.compile("(?i)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
     }
 
+    /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
+    private static final String KEEP_THREE_GROUPS = "$1$2$3";
+
     private SecretRedactor() {
     }
 
@@ -136,7 +143,7 @@ public final class SecretRedactor {
         if (value.isEmpty()) {
             return Optional.of(value);
         }
-        var masked = AUTH_HEADER.matcher(value).replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED));
+        var masked = AUTH_HEADER.matcher(value).replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
         for (var pattern : ASSIGNMENTS) {
             masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
@@ -147,9 +154,9 @@ public final class SecretRedactor {
         masked = URL_USER_INFORMATION.matcher(masked)
                 .replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
         masked = QUOTED_CREDENTIAL_FLAG.matcher(masked)
-                .replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED) + "$3");
+                .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
         masked = UNCLOSED_CREDENTIAL_FLAG.matcher(masked)
-                .replaceAll("$1$2$3" + Matcher.quoteReplacement(REDACTED));
+                .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         masked = PEM_PRIVATE_KEY.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
