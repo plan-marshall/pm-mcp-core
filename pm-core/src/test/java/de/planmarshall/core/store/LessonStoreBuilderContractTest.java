@@ -26,7 +26,10 @@ class LessonStoreBuilderContractTest {
     @Test
     @DisplayName("the builder builds the constructor's value and refuses an absent title")
     void shouldBuildLikeTheConstructorAndRefuseAnAbsentTitle() {
-        var canonical = LessonFixtures.newLesson().build();
+        var fixture = LessonFixtures.newLesson().build();
+        var canonical = new LessonStore.NewLesson(fixture.title(), fixture.component(), fixture.category(),
+                fixture.bundle(), fixture.rule(), fixture.remedy(), fixture.provenance(), fixture.audience(),
+                fixture.derivedFromUntrusted(), fixture.toolVersion(), fixture.sources(), fixture.body());
         var built = LessonStore.NewLesson.builder().title(canonical.title()).component(canonical.component())
                 .category(canonical.category()).bundle(canonical.bundle()).rule(canonical.rule())
                 .remedy(canonical.remedy()).provenance(canonical.provenance()).audience(canonical.audience())

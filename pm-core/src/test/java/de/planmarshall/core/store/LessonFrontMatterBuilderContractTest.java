@@ -86,7 +86,9 @@ class LessonFrontMatterBuilderContractTest {
     @Test
     @DisplayName("the retired builder builds the constructor's value and refuses an absent instant")
     void shouldBuildRetiredLikeTheConstructorAndRefuseAnAbsentInstant() {
-        var canonical = LessonFixtures.retirement(LessonFrontMatter.Retired.Verdict.APPLIED).build();
+        var fixture = LessonFixtures.retirement(LessonFrontMatter.Retired.Verdict.APPLIED).build();
+        var canonical = new LessonFrontMatter.Retired(fixture.at(), fixture.by(), fixture.verdict(), fixture.into(),
+                fixture.reason(), fixture.coveringClause(), fixture.coveringInput(), fixture.lessonState());
         var built = LessonFrontMatter.Retired.builder().at(canonical.at()).by(canonical.by())
                 .verdict(canonical.verdict()).into(canonical.into()).reason(canonical.reason())
                 .coveringClause(canonical.coveringClause()).coveringInput(canonical.coveringInput())

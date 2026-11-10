@@ -134,8 +134,9 @@ public final class LoopBackBudget {
         if (counter.fixUsed() >= fixBudget) {
             return new Charge.Exhausted(counter.fixUsed(), fixBudget);
         }
-        var charged = new PolicyCounter(counter.retryUsed(), counter.fixUsed() + 1, counter.renewedFrom(),
-                counter.lastRetry());
+        var charged = WorkflowStatus.PolicyCounter.builder().retryUsed(counter.retryUsed())
+                .fixUsed(counter.fixUsed() + 1).renewedFrom(counter.renewedFrom()).lastRetry(counter.lastRetry())
+                .build();
         return new Charge.Granted(status.toBuilder()
                 .policyCounters(withCounter(status, policyClass, charged))
                 .loopBackIteration(status.loopBackIteration() + 1)
@@ -160,8 +161,9 @@ public final class LoopBackBudget {
         if (counter.retryUsed() >= retryBudget) {
             return new Charge.Exhausted(counter.retryUsed(), retryBudget);
         }
-        var charged = new PolicyCounter(counter.retryUsed() + 1, counter.fixUsed(), counter.renewedFrom(),
-                counter.lastRetry());
+        var charged = WorkflowStatus.PolicyCounter.builder().retryUsed(counter.retryUsed() + 1)
+                .fixUsed(counter.fixUsed()).renewedFrom(counter.renewedFrom()).lastRetry(counter.lastRetry())
+                .build();
         return new Charge.Granted(status.toBuilder()
                 .policyCounters(withCounter(status, policyClass, charged))
                 .build());
@@ -173,7 +175,8 @@ public final class LoopBackBudget {
             throw new IllegalArgumentException("'%s' is no remediation policy class".formatted(policyClass));
         }
         var counter = status.policyCounters().get(policyClass);
-        return counter != null ? counter : new PolicyCounter(0, 0, null, null);
+        return counter != null ? counter
+                : WorkflowStatus.PolicyCounter.builder().retryUsed(0).fixUsed(0).build();
     }
 
     private static LinkedHashMap<String, PolicyCounter> withCounter(WorkflowStatus status, String policyClass,

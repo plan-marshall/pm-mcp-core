@@ -103,15 +103,20 @@ public final class EndpointVerification {
         var lookup = owner.ownerOf(endpoint.getHost(), endpoint.getPort());
         if (!ownsTheNamedProgram(profile, lookup)) {
             // No request leaves the runtime, and no probe runs: the program on the port is not the one the draft names.
-            return new ProfileStages.EndpointVerification(
-                    new ProfileStages.EndpointIdentity(false, lookup.isFound() ? lookup.executablePath() : null, null,
-                            List.of(), Map.of()),
-                    new ProfileStages.EndpointLaunch(false, false, NONE, false),
-                    new ProfileStages.EndpointClasses(false, false), new ProfileStages.EndpointLimits(false, 0));
+            return ProfileStages.EndpointVerification.builder()
+                    .identity(ProfileStages.EndpointIdentity.builder().passed(false)
+                            .executablePath(lookup.isFound() ? lookup.executablePath() : null).version(null)
+                            .models(List.of()).weights(Map.of()).build())
+                    .launch(ProfileStages.EndpointLaunch.builder().passed(false).readiness(false).resultSchema(NONE)
+                            .streamingOff(false).probes(Map.of()).build())
+                    .classes(new ProfileStages.EndpointClasses(false, false))
+                    .limits(new ProfileStages.EndpointLimits(false, 0))
+                    .stages(ProfileStages.ENDPOINT_STAGES).build();
         }
-        return new ProfileStages.EndpointVerification(identity(profile, lookup),
-                launch(profile, model, baseTask, schema), classes(profile, model, toolTask, decoyResult),
-                limits(profile, model, baseTask));
+        return ProfileStages.EndpointVerification.builder().identity(identity(profile, lookup))
+                .launch(launch(profile, model, baseTask, schema))
+                .classes(classes(profile, model, toolTask, decoyResult))
+                .limits(limits(profile, model, baseTask)).stages(ProfileStages.ENDPOINT_STAGES).build();
     }
 
     /**
@@ -126,7 +131,8 @@ public final class EndpointVerification {
 
     private ProfileStages.EndpointIdentity identity(EndpointProfile profile, SocketOwner.Lookup lookup) {
         if (!lookup.isFound()) {
-            return new ProfileStages.EndpointIdentity(false, null, null, List.of(), Map.of());
+            return ProfileStages.EndpointIdentity.builder().passed(false).executablePath(null).version(null)
+                    .models(List.of()).weights(Map.of()).build();
         }
         var version = probe(profile, lookup.executablePath());
         var listing = listing(profile);
@@ -144,8 +150,8 @@ public final class EndpointVerification {
             }
         }
         var passed = version.isPresent() && !models.isEmpty() && weightsSettled;
-        return new ProfileStages.EndpointIdentity(passed, lookup.executablePath(), version.orElse(null), models,
-                identities);
+        return ProfileStages.EndpointIdentity.builder().passed(passed).executablePath(lookup.executablePath())
+                .version(version.orElse(null)).models(models).weights(identities).build();
     }
 
     private ProfileStages.EndpointLaunch launch(EndpointProfile profile, String model, String baseTask,
@@ -158,7 +164,8 @@ public final class EndpointVerification {
         }
         var streamingOff = answer.isPresent();
         var measured = measureSchema(profile, model, baseTask);
-        return new ProfileStages.EndpointLaunch(ready && answer.isPresent(), ready, measured, streamingOff);
+        return ProfileStages.EndpointLaunch.builder().passed(ready && answer.isPresent()).readiness(ready)
+                .resultSchema(measured).streamingOff(streamingOff).probes(Map.of()).build();
     }
 
     private ProfileStages.EndpointClasses classes(EndpointProfile profile, String model, String toolTask,
