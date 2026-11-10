@@ -38,9 +38,9 @@ class QualificationSettingsBuilderContractTest {
                 () -> new QualificationSettings(canonical.agreementLevel(), canonical.allowedGap(), null,
                         canonical.skipDecisions()),
                 "the constructor refuses an absent role list");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> QualificationSettings.builder().agreementLevel(canonical.agreementLevel())
-                        .allowedGap(canonical.allowedGap()).skipDecisions(canonical.skipDecisions()).build(),
+        var incomplete = QualificationSettings.builder().agreementLevel(canonical.agreementLevel())
+                .allowedGap(canonical.allowedGap()).skipDecisions(canonical.skipDecisions());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent role list");
 
         assertAll(

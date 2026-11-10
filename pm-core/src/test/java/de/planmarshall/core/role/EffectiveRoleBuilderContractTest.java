@@ -48,15 +48,17 @@ class EffectiveRoleBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack = Map.of();
+                    var idleWakeups = OptionalInt.empty();
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new EffectiveRole(null, HARNESS, MODEL, canonical.effort(), canonical.skills(),
-                                    "1.4", null, canonical.questions(), Map.of(), 200_000, OptionalInt.empty()),
+                                    "1.4", null, canonical.questions(), offTrack, 200_000, idleWakeups),
                             "the constructor refuses a null artifact");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> EffectiveRole.builder().harness(HARNESS).model(MODEL).effort(canonical.effort())
-                                    .skills(canonical.skills()).harnessVersion("1.4")
-                                    .questions(canonical.questions()).offTrack(Map.of())
-                                    .contextBudgetTokens(200_000).idleWakeups(OptionalInt.empty()).build(),
+                    var incomplete = EffectiveRole.builder().harness(HARNESS).model(MODEL)
+                            .effort(canonical.effort()).skills(canonical.skills()).harnessVersion("1.4")
+                            .questions(canonical.questions()).offTrack(Map.of())
+                            .contextBudgetTokens(200_000).idleWakeups(OptionalInt.empty());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing artifact");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent artifact with the same message");

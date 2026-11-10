@@ -52,14 +52,14 @@ class JudgeCheckBuilderContractTest {
                                     canonical.blindAccuracy(), canonical.constantBaseline(), canonical.unscored(),
                                     canonical.checkedAt(), canonical.items()),
                             "the constructor refuses a null digest");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JudgeCheck.Record.builder().harness(canonical.harness())
-                                    .model(canonical.model()).corpusRevision(canonical.corpusRevision())
-                                    .oracleAccuracy(canonical.oracleAccuracy())
-                                    .blindAccuracy(canonical.blindAccuracy())
-                                    .constantBaseline(canonical.constantBaseline())
-                                    .unscored(canonical.unscored()).checkedAt(canonical.checkedAt())
-                                    .items(canonical.items()).build(),
+                    var incomplete = JudgeCheck.Record.builder().harness(canonical.harness())
+                            .model(canonical.model()).corpusRevision(canonical.corpusRevision())
+                            .oracleAccuracy(canonical.oracleAccuracy())
+                            .blindAccuracy(canonical.blindAccuracy())
+                            .constantBaseline(canonical.constantBaseline())
+                            .unscored(canonical.unscored()).checkedAt(canonical.checkedAt())
+                            .items(canonical.items());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing digest");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent digest with the same message");
@@ -78,14 +78,17 @@ class JudgeCheckBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var oracleScore = Grade.of(true);
+                    var blindScore = Grade.of(false);
+                    var totalTokens = TokenTotal.measured(1_200);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new JudgeCheck.ItemScore(null, JudgeCheck.Label.RIGHT, Grade.of(true),
-                                    Grade.of(false), TokenTotal.measured(1_200), 800L),
+                            () -> new JudgeCheck.ItemScore(null, JudgeCheck.Label.RIGHT, oracleScore, blindScore,
+                                    totalTokens, 800L),
                             "the constructor refuses a null item id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JudgeCheck.ItemScore.builder().label(JudgeCheck.Label.RIGHT)
-                                    .oracleScore(Grade.of(true)).blindScore(Grade.of(false))
-                                    .totalTokens(TokenTotal.measured(1_200)).durationMs(800L).build(),
+                    var incomplete = JudgeCheck.ItemScore.builder().label(JudgeCheck.Label.RIGHT)
+                            .oracleScore(Grade.of(true)).blindScore(Grade.of(false))
+                            .totalTokens(TokenTotal.measured(1_200)).durationMs(800L);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing item id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent item id with the same message");
@@ -108,10 +111,9 @@ class JudgeCheckBuilderContractTest {
                             () -> new JudgeCheck.Item(null, "Is it right?", "Subject", "right", "right answer",
                                     JudgeCheck.Label.RIGHT),
                             "the constructor refuses a null item id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JudgeCheck.Item.builder().question("Is it right?").facts("Subject")
-                                    .reference("right").answer("right answer").label(JudgeCheck.Label.RIGHT)
-                                    .build(),
+                    var incomplete = JudgeCheck.Item.builder().question("Is it right?").facts("Subject")
+                            .reference("right").answer("right answer").label(JudgeCheck.Label.RIGHT);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing item id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent item id with the same message");

@@ -41,12 +41,12 @@ class WaiverRequestBuilderContractTest {
                         canonical.evidenceUri(), canonical.requestedAt(), canonical.outcome(),
                         canonical.waiverId(), canonical.answered(), canonical.prCommentRef()),
                 "the constructor refuses an absent request id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> WaiverRequest.builder().gate(canonical.gate()).policy(canonical.policy())
-                        .rationale(canonical.rationale()).evidenceUri(canonical.evidenceUri())
-                        .requestedAt(canonical.requestedAt()).outcome(canonical.outcome())
-                        .waiverId(canonical.waiverId()).answered(canonical.answered())
-                        .prCommentRef(canonical.prCommentRef()).build(),
+        var incomplete = WaiverRequest.builder().gate(canonical.gate()).policy(canonical.policy())
+                .rationale(canonical.rationale()).evidenceUri(canonical.evidenceUri())
+                .requestedAt(canonical.requestedAt()).outcome(canonical.outcome())
+                .waiverId(canonical.waiverId()).answered(canonical.answered())
+                .prCommentRef(canonical.prCommentRef());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent request id");
 
         assertAll(
@@ -66,9 +66,9 @@ class WaiverRequestBuilderContractTest {
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new Answered(null, canonical.deviceId(), canonical.reason(), canonical.at()),
                 "the constructor refuses an absent channel");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Answered.builder().deviceId(canonical.deviceId()).reason(canonical.reason())
-                        .at(canonical.at()).build(),
+        var incomplete = Answered.builder().deviceId(canonical.deviceId()).reason(canonical.reason())
+                .at(canonical.at());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent channel");
 
         assertAll(

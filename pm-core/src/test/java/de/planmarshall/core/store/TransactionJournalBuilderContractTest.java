@@ -47,10 +47,10 @@ class TransactionJournalBuilderContractTest {
                 () -> new TransactionJournal(null, canonical.scopeType(), canonical.scopeId(),
                         canonical.createdAt(), canonical.targets(), canonical.owedEvents()),
                 "the constructor refuses an absent transaction id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> TransactionJournal.builder().scopeType(canonical.scopeType())
-                        .scopeId(canonical.scopeId()).createdAt(canonical.createdAt())
-                        .targets(canonical.targets()).owedEvents(canonical.owedEvents()).build(),
+        var incomplete = TransactionJournal.builder().scopeType(canonical.scopeType())
+                .scopeId(canonical.scopeId()).createdAt(canonical.createdAt())
+                .targets(canonical.targets()).owedEvents(canonical.owedEvents());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent transaction id");
 
         assertAll(
@@ -74,9 +74,9 @@ class TransactionJournalBuilderContractTest {
                 () -> new Target(null, canonical.mode(), canonical.stagedPath(),
                         canonical.sizeBefore(), canonical.newDigest()),
                 "the constructor refuses an absent path");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Target.builder().mode(canonical.mode()).stagedPath(canonical.stagedPath())
-                        .sizeBefore(canonical.sizeBefore()).newDigest(canonical.newDigest()).build(),
+        var incomplete = Target.builder().mode(canonical.mode()).stagedPath(canonical.stagedPath())
+                .sizeBefore(canonical.sizeBefore()).newDigest(canonical.newDigest());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent path");
 
         assertAll(

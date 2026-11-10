@@ -38,10 +38,10 @@ class ProjectStoreIdentityBuilderContractTest {
                 () -> new ProjectStoreIdentity(canonical.projectId(), canonical.projectRoot(), null,
                         canonical.createdAt(), canonical.unenrolledAt()),
                 "the constructor refuses an absent display name");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> ProjectStoreIdentity.builder().projectId(canonical.projectId())
-                        .projectRoot(canonical.projectRoot()).createdAt(canonical.createdAt())
-                        .unenrolledAt(canonical.unenrolledAt()).build(),
+        var incomplete = ProjectStoreIdentity.builder().projectId(canonical.projectId())
+                .projectRoot(canonical.projectRoot()).createdAt(canonical.createdAt())
+                .unenrolledAt(canonical.unenrolledAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent display name");
 
         assertAll(

@@ -47,14 +47,14 @@ class QualificationRecordBuilderContractTest {
                                     canonical.missedSources(), canonical.forms(), canonical.warmFreshGap(),
                                     canonical.ungraded(), canonical.gradedAt(), canonical.items()),
                             "the constructor refuses a null role");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> QualificationRecord.builder()
-                                    .qualificationDigest(canonical.qualificationDigest())
-                                    .configuration(canonical.configuration())
-                                    .corpusRevision(canonical.corpusRevision())
-                                    .missedSources(canonical.missedSources()).forms(canonical.forms())
-                                    .warmFreshGap(canonical.warmFreshGap()).ungraded(canonical.ungraded())
-                                    .gradedAt(canonical.gradedAt()).items(canonical.items()).build(),
+                    var incomplete = QualificationRecord.builder()
+                            .qualificationDigest(canonical.qualificationDigest())
+                            .configuration(canonical.configuration())
+                            .corpusRevision(canonical.corpusRevision())
+                            .missedSources(canonical.missedSources()).forms(canonical.forms())
+                            .warmFreshGap(canonical.warmFreshGap()).ungraded(canonical.ungraded())
+                            .gradedAt(canonical.gradedAt()).items(canonical.items());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing role");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent role with the same message");
@@ -73,12 +73,13 @@ class QualificationRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var totalTokens = TokenTotal.measured(1_200);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new QualificationRecord.FormResult(null, 5, TokenTotal.measured(1_200), 800),
+                            () -> new QualificationRecord.FormResult(null, 5, totalTokens, 800),
                             "the constructor refuses null topics");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> QualificationRecord.FormResult.builder().items(5)
-                                    .totalTokens(TokenTotal.measured(1_200)).durationMs(800).build(),
+                    var incomplete = QualificationRecord.FormResult.builder().items(5)
+                            .totalTokens(TokenTotal.measured(1_200)).durationMs(800);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses missing topics");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse absent topics with the same message");
@@ -97,14 +98,17 @@ class QualificationRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var answer = JsonNode.nullValue();
+                    var score = Grade.of(true);
+                    var totalTokens = TokenTotal.measured(1_200);
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new QualificationRecord.ItemResult(null, RoleForm.FRESH, Checkout.CURRENT,
-                                    JsonNode.nullValue(), Grade.of(true), TokenTotal.measured(1_200), 800L),
+                                    answer, score, totalTokens, 800L),
                             "the constructor refuses a null item id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> QualificationRecord.ItemResult.builder().form(RoleForm.FRESH)
-                                    .checkout(Checkout.CURRENT).answer(JsonNode.nullValue()).score(Grade.of(true))
-                                    .totalTokens(TokenTotal.measured(1_200)).durationMs(800L).build(),
+                    var incomplete = QualificationRecord.ItemResult.builder().form(RoleForm.FRESH)
+                            .checkout(Checkout.CURRENT).answer(JsonNode.nullValue()).score(Grade.of(true))
+                            .totalTokens(TokenTotal.measured(1_200)).durationMs(800L);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing item id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent item id with the same message");

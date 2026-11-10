@@ -44,9 +44,9 @@ class DerivedFactKindSpecBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new DerivedFactKindSpec(null, classes, false, INPUTS),
                             "the constructor refuses a null schema");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> DerivedFactKindSpec.builder().classes(classes).qualifierAllowed(false)
-                                    .inputs(INPUTS).build(),
+                    var incomplete = DerivedFactKindSpec.builder().classes(classes).qualifierAllowed(false)
+                            .inputs(INPUTS);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing schema");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent schema with the same message");

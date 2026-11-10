@@ -39,11 +39,11 @@ class WorkerIdleRowBuilderContractTest {
                         canonical.harnessVersion(), canonical.model(), canonical.usage(),
                         canonical.idleWakeups(), canonical.recordedAt()),
                 "the constructor refuses an absent job id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> WorkerIdleRow.builder().role(canonical.role()).harness(canonical.harness())
-                        .harnessVersion(canonical.harnessVersion()).model(canonical.model())
-                        .usage(canonical.usage()).idleWakeups(canonical.idleWakeups())
-                        .recordedAt(canonical.recordedAt()).build(),
+        var incomplete = WorkerIdleRow.builder().role(canonical.role()).harness(canonical.harness())
+                .harnessVersion(canonical.harnessVersion()).model(canonical.model())
+                .usage(canonical.usage()).idleWakeups(canonical.idleWakeups())
+                .recordedAt(canonical.recordedAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent job id");
 
         assertAll(

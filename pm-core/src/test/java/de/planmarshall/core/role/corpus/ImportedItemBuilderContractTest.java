@@ -48,13 +48,13 @@ class ImportedItemBuilderContractTest {
                                     canonical.grading(), canonical.provenance(), canonical.review(),
                                     canonical.contamination(), canonical.canary()),
                             "the constructor refuses a null role");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ImportedItem.builder().id(canonical.id()).topic(canonical.topic())
-                                    .title(canonical.title()).tags(canonical.tags()).group(canonical.group())
-                                    .input(canonical.input()).target(canonical.target())
-                                    .grading(canonical.grading()).provenance(canonical.provenance())
-                                    .review(canonical.review()).contamination(canonical.contamination())
-                                    .canary(canonical.canary()).build(),
+                    var incomplete = ImportedItem.builder().id(canonical.id()).topic(canonical.topic())
+                            .title(canonical.title()).tags(canonical.tags()).group(canonical.group())
+                            .input(canonical.input()).target(canonical.target())
+                            .grading(canonical.grading()).provenance(canonical.provenance())
+                            .review(canonical.review()).contamination(canonical.contamination())
+                            .canary(canonical.canary());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing role");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent role with the same message");
@@ -74,8 +74,8 @@ class ImportedItemBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new ImportedItem.Input(null, "Subject: logic", null, null),
                             "the constructor refuses a null question");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ImportedItem.Input.builder().facts("Subject: logic").build(),
+                    var incomplete = ImportedItem.Input.builder().facts("Subject: logic");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing question");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent question with the same message");
@@ -94,12 +94,14 @@ class ImportedItemBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    List<String> alternatives = List.of();
+                    List<ImportedItem.RubricItem> items = List.of();
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new ImportedItem.Target("first", null, List.of(), List.of(), false),
+                            () -> new ImportedItem.Target("first", null, alternatives, items, false),
                             "the constructor refuses a null rationale");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ImportedItem.Target.builder().answer("first").alternatives(List.of())
-                                    .items(List.of()).expectedEmpty(false).build(),
+                    var incomplete = ImportedItem.Target.builder().answer("first").alternatives(List.of())
+                            .items(List.of()).expectedEmpty(false);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing rationale");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent rationale with the same message");
@@ -121,9 +123,9 @@ class ImportedItemBuilderContractTest {
                             () -> new ImportedItem.Origin(null, canonical.commit(), canonical.path(),
                                     canonical.line()),
                             "the constructor refuses a null repository");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ImportedItem.Origin.builder().commit(canonical.commit()).path(canonical.path())
-                                    .line(canonical.line()).build(),
+                    var incomplete = ImportedItem.Origin.builder().commit(canonical.commit())
+                            .path(canonical.path()).line(canonical.line());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing repository");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent repository with the same message");
@@ -144,8 +146,8 @@ class ImportedItemBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new ImportedItem.Review(null, "operator", null, "checked"),
                             "the constructor refuses a null status");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ImportedItem.Review.builder().by("operator").notes("checked").build(),
+                    var incomplete = ImportedItem.Review.builder().by("operator").notes("checked");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing status");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent status with the same message");

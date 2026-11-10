@@ -38,13 +38,14 @@ class BuildTimingsBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var poisoned = BuildTimings.Baseline.empty();
+                    var cold = BuildTimings.Baseline.empty();
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new BuildTimings.KeyTimings(null, BuildTimings.Baseline.empty(),
-                                    BuildTimings.Baseline.empty(), null, AT),
+                            () -> new BuildTimings.KeyTimings(null, poisoned, cold, null, AT),
                             "the constructor refuses a null clean baseline");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> BuildTimings.KeyTimings.builder().poisoned(BuildTimings.Baseline.empty())
-                                    .cold(BuildTimings.Baseline.empty()).build(),
+                    var incomplete = BuildTimings.KeyTimings.builder()
+                            .poisoned(BuildTimings.Baseline.empty()).cold(BuildTimings.Baseline.empty());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing clean baseline");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent clean baseline with the same message");

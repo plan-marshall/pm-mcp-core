@@ -43,16 +43,17 @@ class AuditRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    Map<String, Object> details = Map.of();
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new AuditRecord(null, PREV_HASH, AT, AuditRecord.Category.STORE, "store.locked",
                                     AuditRecord.Scope.PLAN, "plan-one", "operator", AuditRecord.Outcome.SUCCEEDED,
-                                    Map.of()),
+                                    details),
                             "the constructor refuses a null event id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> AuditRecord.builder().prevHash(PREV_HASH).timestamp(AT)
-                                    .category(AuditRecord.Category.STORE).event("store.locked")
-                                    .scopeType(AuditRecord.Scope.PLAN).scopeId("plan-one").actor("operator")
-                                    .outcome(AuditRecord.Outcome.SUCCEEDED).details(Map.of()).build(),
+                    var incomplete = AuditRecord.builder().prevHash(PREV_HASH).timestamp(AT)
+                            .category(AuditRecord.Category.STORE).event("store.locked")
+                            .scopeType(AuditRecord.Scope.PLAN).scopeId("plan-one").actor("operator")
+                            .outcome(AuditRecord.Outcome.SUCCEEDED).details(Map.of());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing event id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent event id with the same message");

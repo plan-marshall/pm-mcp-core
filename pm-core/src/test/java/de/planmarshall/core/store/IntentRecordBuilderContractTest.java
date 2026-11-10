@@ -54,12 +54,13 @@ class IntentRecordBuilderContractTest {
                                     canonical.decisions(), canonical.assumptions(), canonical.openQuestions(),
                                     canonical.deferred(), canonical.sourceClaims()),
                             "the constructor refuses a null why");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentRecord.builder().goal(canonical.goal()).criteria(canonical.criteria())
-                                    .nonGoals(canonical.nonGoals()).constraints(canonical.constraints())
-                                    .decisions(canonical.decisions()).assumptions(canonical.assumptions())
-                                    .openQuestions(canonical.openQuestions()).deferred(canonical.deferred())
-                                    .sourceClaims(canonical.sourceClaims()).build(),
+                    var incomplete = IntentRecord.builder().goal(canonical.goal())
+                            .criteria(canonical.criteria())
+                            .nonGoals(canonical.nonGoals()).constraints(canonical.constraints())
+                            .decisions(canonical.decisions()).assumptions(canonical.assumptions())
+                            .openQuestions(canonical.openQuestions()).deferred(canonical.deferred())
+                            .sourceClaims(canonical.sourceClaims());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing why");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent why with the same message");
@@ -80,9 +81,9 @@ class IntentRecordBuilderContractTest {
                             () -> new IntentRecord.Criterion(null, canonical.text(), CriterionKind.NEW,
                                     VerifiedBy.TEST, null),
                             "the constructor refuses a null criterion id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentRecord.Criterion.builder().text(canonical.text()).kind(CriterionKind.NEW)
-                                    .verifiedBy(VerifiedBy.TEST).build(),
+                    var incomplete = IntentRecord.Criterion.builder().text(canonical.text())
+                            .kind(CriterionKind.NEW).verifiedBy(VerifiedBy.TEST);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing criterion id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent criterion id with the same message");
@@ -104,9 +105,9 @@ class IntentRecordBuilderContractTest {
                             () -> new IntentRecord.CapabilityLink(null, "records-are-valid", CapabilityChange.ADDED,
                                     null),
                             "the constructor refuses a null capability");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentRecord.CapabilityLink.builder().requirement("records-are-valid")
-                                    .change(CapabilityChange.ADDED).build(),
+                    var incomplete = IntentRecord.CapabilityLink.builder().requirement("records-are-valid")
+                            .change(CapabilityChange.ADDED);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing capability");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent capability with the same message");
@@ -127,9 +128,9 @@ class IntentRecordBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new IntentRecord.Constraint(null, text, ConstraintSource.OPERATOR, null),
                             "the constructor refuses a null constraint id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentRecord.Constraint.builder().text(text).source(ConstraintSource.OPERATOR)
-                                    .build(),
+                    var incomplete = IntentRecord.Constraint.builder().text(text)
+                            .source(ConstraintSource.OPERATOR);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing constraint id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent constraint id with the same message");
@@ -149,13 +150,14 @@ class IntentRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var optionsWeighed = List.of("first option");
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new IntentRecord.Decision(null, text, List.of("first option"), Decider.MODEL, null,
+                            () -> new IntentRecord.Decision(null, text, optionsWeighed, Decider.MODEL, null,
                                     null, null),
                             "the constructor refuses a null decision id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentRecord.Decision.builder().text(text).optionsWeighed(List.of("first option"))
-                                    .decider(Decider.MODEL).build(),
+                    var incomplete = IntentRecord.Decision.builder().text(text)
+                            .optionsWeighed(List.of("first option")).decider(Decider.MODEL);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing decision id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent decision id with the same message");
@@ -176,9 +178,9 @@ class IntentRecordBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new IntentRecord.Assumption(null, text, AssumptionStatus.VERIFIED, false, null),
                             "the constructor refuses a null assumption id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentRecord.Assumption.builder().text(text).status(AssumptionStatus.VERIFIED)
-                                    .riskiest(false).build(),
+                    var incomplete = IntentRecord.Assumption.builder().text(text)
+                            .status(AssumptionStatus.VERIFIED).riskiest(false);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing assumption id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent assumption id with the same message");

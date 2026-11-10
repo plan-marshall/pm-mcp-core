@@ -43,13 +43,15 @@ class DerivedFactBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var inputDigest = "a".repeat(64);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new DerivedFact(null, value, source, "a".repeat(64), DERIVED_AT,
+                            () -> new DerivedFact(null, value, source, inputDigest, DERIVED_AT,
                                     DerivedFact.State.CURRENT, null),
                             "the constructor refuses a null kind");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> DerivedFact.builder().value(value).source(source).inputDigest("a".repeat(64))
-                                    .derivedAt(DERIVED_AT).state(DerivedFact.State.CURRENT).build(),
+                    var incomplete = DerivedFact.builder().value(value).source(source)
+                            .inputDigest("a".repeat(64)).derivedAt(DERIVED_AT)
+                            .state(DerivedFact.State.CURRENT);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing kind");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent kind with the same message");

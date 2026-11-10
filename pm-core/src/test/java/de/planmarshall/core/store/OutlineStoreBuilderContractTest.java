@@ -41,9 +41,9 @@ class OutlineStoreBuilderContractTest {
                 () -> new Revision(canonical.revision(), null, canonical.taskId(),
                         canonical.outlineRecord()),
                 "the constructor refuses an absent instant");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Revision.builder().revision(canonical.revision()).taskId(canonical.taskId())
-                        .outlineRecord(canonical.outlineRecord()).build(),
+        var incomplete = Revision.builder().revision(canonical.revision()).taskId(canonical.taskId())
+                .outlineRecord(canonical.outlineRecord());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent instant");
 
         assertAll(

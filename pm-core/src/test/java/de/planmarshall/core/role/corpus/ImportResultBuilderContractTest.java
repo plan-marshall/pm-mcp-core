@@ -41,9 +41,10 @@ class ImportResultBuilderContractTest {
                             () -> new ImportResult.MissedSource(null, ImportResult.Reason.UNREACHABLE,
                                     canonical.file(), canonical.detail()),
                             "the constructor refuses a null name");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ImportResult.MissedSource.builder().reason(ImportResult.Reason.UNREACHABLE)
-                                    .file(canonical.file()).detail(canonical.detail()).build(),
+                    var incomplete = ImportResult.MissedSource.builder()
+                            .reason(ImportResult.Reason.UNREACHABLE).file(canonical.file())
+                            .detail(canonical.detail());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing name");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent name with the same message");

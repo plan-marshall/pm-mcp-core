@@ -46,10 +46,10 @@ class ModelSlotStoreBuilderContractTest {
                         canonical.form(), canonical.planId(), canonical.acquiredAt(),
                         canonical.leaseExpiresAt()),
                 "the constructor refuses an absent owner");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Lease.builder().jobId(canonical.jobId()).role(canonical.role())
-                        .workerClass(canonical.workerClass()).form(canonical.form()).planId(canonical.planId())
-                        .acquiredAt(canonical.acquiredAt()).leaseExpiresAt(canonical.leaseExpiresAt()).build(),
+        var incomplete = Lease.builder().jobId(canonical.jobId()).role(canonical.role())
+                .workerClass(canonical.workerClass()).form(canonical.form()).planId(canonical.planId())
+                .acquiredAt(canonical.acquiredAt()).leaseExpiresAt(canonical.leaseExpiresAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent owner");
 
         assertAll(
@@ -72,10 +72,10 @@ class ModelSlotStoreBuilderContractTest {
                 () -> new Waiting(null, canonical.jobId(), canonical.role(), canonical.workerClass(),
                         canonical.form(), canonical.planId(), canonical.enqueuedAt()),
                 "the constructor refuses an absent owner");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Waiting.builder().jobId(canonical.jobId()).role(canonical.role())
-                        .workerClass(canonical.workerClass()).form(canonical.form()).planId(canonical.planId())
-                        .enqueuedAt(canonical.enqueuedAt()).build(),
+        var incomplete = Waiting.builder().jobId(canonical.jobId()).role(canonical.role())
+                .workerClass(canonical.workerClass()).form(canonical.form()).planId(canonical.planId())
+                .enqueuedAt(canonical.enqueuedAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent owner");
 
         assertAll(

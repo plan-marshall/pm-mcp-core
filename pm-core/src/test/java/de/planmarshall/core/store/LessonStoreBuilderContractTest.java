@@ -46,12 +46,12 @@ class LessonStoreBuilderContractTest {
                                     canonical.derivedFromUntrusted(), canonical.toolVersion(), canonical.sources(),
                                     canonical.body()),
                             "the constructor refuses a null title");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonStore.NewLesson.builder().component(canonical.component())
-                                    .category(canonical.category()).remedy(canonical.remedy())
-                                    .provenance(canonical.provenance()).audience(canonical.audience())
-                                    .toolVersion(canonical.toolVersion()).sources(canonical.sources())
-                                    .body(canonical.body()).build(),
+                    var incomplete = LessonStore.NewLesson.builder().component(canonical.component())
+                            .category(canonical.category()).remedy(canonical.remedy())
+                            .provenance(canonical.provenance()).audience(canonical.audience())
+                            .toolVersion(canonical.toolVersion()).sources(canonical.sources())
+                            .body(canonical.body());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing title");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent title with the same message");

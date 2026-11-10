@@ -40,9 +40,9 @@ class GradingHarnessBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new GradingHarness.Offered(null, RoleForm.FRESH, Checkout.CURRENT, 1),
                             "the constructor refuses a null item");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> GradingHarness.Offered.builder().form(RoleForm.FRESH).checkout(Checkout.CURRENT)
-                                    .run(1).build(),
+                    var incomplete = GradingHarness.Offered.builder().form(RoleForm.FRESH)
+                            .checkout(Checkout.CURRENT).run(1);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing item");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent item with the same message");

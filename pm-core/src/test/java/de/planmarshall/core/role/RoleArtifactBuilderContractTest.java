@@ -45,15 +45,15 @@ class RoleArtifactBuilderContractTest {
                                     canonical.skills(), canonical.recycling(), canonical.budgetFloorSeconds(),
                                     canonical.contextBudgetTokens(), canonical.questions(), canonical.offTrack()),
                             "the constructor refuses a null name");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> RoleArtifact.builder().formatVersion(canonical.formatVersion())
-                                    .description(canonical.description()).roleClass(canonical.roleClass())
-                                    .tools(canonical.tools()).harness(canonical.harness()).model(canonical.model())
-                                    .effort(canonical.effort()).form(canonical.form()).count(canonical.count())
-                                    .skills(canonical.skills()).recycling(canonical.recycling())
-                                    .budgetFloorSeconds(canonical.budgetFloorSeconds())
-                                    .contextBudgetTokens(canonical.contextBudgetTokens())
-                                    .questions(canonical.questions()).offTrack(canonical.offTrack()).build(),
+                    var incomplete = RoleArtifact.builder().formatVersion(canonical.formatVersion())
+                            .description(canonical.description()).roleClass(canonical.roleClass())
+                            .tools(canonical.tools()).harness(canonical.harness()).model(canonical.model())
+                            .effort(canonical.effort()).form(canonical.form()).count(canonical.count())
+                            .skills(canonical.skills()).recycling(canonical.recycling())
+                            .budgetFloorSeconds(canonical.budgetFloorSeconds())
+                            .contextBudgetTokens(canonical.contextBudgetTokens())
+                            .questions(canonical.questions()).offTrack(canonical.offTrack());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing name");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent name with the same message");

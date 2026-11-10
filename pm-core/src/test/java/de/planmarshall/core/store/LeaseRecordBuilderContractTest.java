@@ -39,12 +39,13 @@ class LeaseRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var leaseExpiresAt = ACQUIRED_AT.plusSeconds(3_600);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new LeaseRecord(null, owner, ACQUIRED_AT, ACQUIRED_AT.plusSeconds(3_600)),
+                            () -> new LeaseRecord(null, owner, ACQUIRED_AT, leaseExpiresAt),
                             "the constructor refuses a null key");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LeaseRecord.builder().owner(owner).acquiredAt(ACQUIRED_AT)
-                                    .leaseExpiresAt(ACQUIRED_AT.plusSeconds(3_600)).build(),
+                    var incomplete = LeaseRecord.builder().owner(owner).acquiredAt(ACQUIRED_AT)
+                            .leaseExpiresAt(ACQUIRED_AT.plusSeconds(3_600));
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing key");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent key with the same message");

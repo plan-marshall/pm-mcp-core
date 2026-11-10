@@ -52,8 +52,8 @@ class LessonFrontMatterBuilderContractTest {
                                     canonical.revisions(), canonical.mergedFrom(), canonical.claim(),
                                     canonical.retired()),
                             "the constructor refuses a null lesson id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonFixtures.frontMatterBuilder().lessonId(null).build(),
+                    var incomplete = LessonFixtures.frontMatterBuilder().lessonId(null);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing lesson id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent lesson id with the same message");
@@ -74,9 +74,9 @@ class LessonFrontMatterBuilderContractTest {
                             () -> new LessonFrontMatter.Revision(1, null, canonical.sources(),
                                     canonical.bodySha256()),
                             "the constructor refuses a null instant");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonFrontMatter.Revision.builder().n(1).sources(canonical.sources())
-                                    .bodySha256(canonical.bodySha256()).build(),
+                    var incomplete = LessonFrontMatter.Revision.builder().n(1).sources(canonical.sources())
+                            .bodySha256(canonical.bodySha256());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing instant");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent instant with the same message");
@@ -102,10 +102,10 @@ class LessonFrontMatterBuilderContractTest {
                                     canonical.into(), canonical.reason(), canonical.coveringClause(),
                                     canonical.coveringInput(), canonical.lessonState()),
                             "the constructor refuses a null instant");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonFrontMatter.Retired.builder().by(canonical.by())
-                                    .verdict(canonical.verdict()).reason(canonical.reason())
-                                    .lessonState(canonical.lessonState()).build(),
+                    var incomplete = LessonFrontMatter.Retired.builder().by(canonical.by())
+                            .verdict(canonical.verdict()).reason(canonical.reason())
+                            .lessonState(canonical.lessonState());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing instant");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent instant with the same message");
