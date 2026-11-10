@@ -19,7 +19,6 @@ import static org.easymock.EasyMock.replay;
 import java.io.IOException;
 import java.io.Serial;
 import java.io.UncheckedIOException;
-
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 
