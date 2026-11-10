@@ -229,3 +229,19 @@ dropped it. Fixtures: a harness stub that turns off project skills together with
 fails on the control), and one that reads `.agents/skills/` whatever its own switch says (the test fails on the
 decoy).
 Source:: Article analysis `obsidian-second-brain-skill-clash` of plan-marshall-documentation.
+
+[#PM-WATCH-CLIENT-20]
+=== PM-WATCH-CLIENT-20: The model that answered is read per turn and compared as one model
+
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#served-model[Harness Profiles § The Model That Answered],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: The launch names an alias (`sonnet`) and the harness reports the full identifier, so every turn writes
+`model_differs`; or the comparison strips the identifier to a family and misses a switch from one release to another;
+or the model is read from the run's final line only, so a fallback in the middle of a run that switches back is never
+recorded; or a harness that reports no model is recorded with the launch model, as if it had been measured.
+Guard:: Parsing fixtures per shipped harness version with a run whose turns report two models: the row's
+`served_models` holds both in order, and `model_differs` is written once per change; a fixture launched with an alias
+whose turns report its full identifier writes no `model_differs`; a profile with `model: null` records
+`served_models: "unmeasured"`. Matched control: a run whose every turn reports the launch model writes no entry.
+Source:: Article analysis `promise-that-killed-atom-gemini-cli` of plan-marshall-documentation: Gemini CLI routes each turn
+of `auto` between models and falls back without a word in plan mode or for a preview the account cannot use.

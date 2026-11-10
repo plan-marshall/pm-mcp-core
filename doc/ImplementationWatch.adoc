@@ -53,12 +53,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|41
+|42
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/harness-profiles.adoc[Harness Profiles]
 |`CLIENT`
-|11
+|12
 |link:specification/harness-profiles.adoc[Harness Profiles Specification]
 
 |link:implementation-watch/runtime-lifecycle.adoc[Runtime Lifecycle]
