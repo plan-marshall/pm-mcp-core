@@ -63,12 +63,14 @@ public record ForgeUrl(String forge, RepositoryRef repository, int number, Kind 
     private static final int MAX_SEGMENT_LENGTH = 255;
     /** The most digits an issue or pull-request number has. */
     private static final int MAX_NUMBER_DIGITS = 9;
+    /** The tab segment every forge's pull-request web interface shares. */
+    private static final String COMMITS = "commits";
     /** The one trailing tab segment a GitHub pull-request URL accepts after its number. */
-    private static final List<String> GITHUB_PULL_REQUEST_TABS = List.of("files", "commits", "checks");
+    private static final List<String> GITHUB_PULL_REQUEST_TABS = List.of("files", COMMITS, "checks");
     /** The one trailing tab segment a Forgejo pull-request URL accepts after its number. */
-    private static final List<String> FORGEJO_PULL_REQUEST_TABS = List.of("files", "commits");
+    private static final List<String> FORGEJO_PULL_REQUEST_TABS = List.of("files", COMMITS);
     /** The one trailing tab segment a GitLab merge-request URL accepts after its number. */
-    private static final List<String> GITLAB_PULL_REQUEST_TABS = List.of("diffs", "commits", "pipelines", "changes");
+    private static final List<String> GITLAB_PULL_REQUEST_TABS = List.of("diffs", COMMITS, "pipelines", "changes");
 
     /** The host-to-forge table of the well-known public forges. */
     public static final Map<String, String> BUILT_IN_HOSTS = Map.of(
