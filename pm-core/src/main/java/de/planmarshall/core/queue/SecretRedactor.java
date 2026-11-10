@@ -96,6 +96,7 @@ public final class SecretRedactor {
     private static final String CREDENTIAL_FLAG_HEAD =
             "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
 
+    @SuppressWarnings("java:S5998") // the alternatives are disjoint (escape pair vs non-backslash), so the repetition is linear
     private static final Pattern QUOTED_CREDENTIAL_FLAG =
             Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])((?:\\\\[^\\r\\n]|(?!\\3)[^\\\\\\r\\n])*)\\3");
 
