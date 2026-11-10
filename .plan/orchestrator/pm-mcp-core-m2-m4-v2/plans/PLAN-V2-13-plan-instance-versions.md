@@ -207,3 +207,8 @@ Asks for the operator at refine: (1) deliverable 3 is no longer a task of the pa
 - Deliverable 3 (the store accepts only a version the composer verified) stays as a sub-item of task 2: the package file's Done When still tests "a version the composer did not return", and the gap is real (`PlanInstance.java:79` public four-argument constructor; `PlanInstanceStore.recordComposed`, `:132`, checks no provenance).
 - A composer test at the `START` event entry point is enough for the refusal "at `start`": no plan-creation code exists and `start-from-clients` is parked; the pull request body says that the plan-creation caller must not create the plan on a refusal.
 - Model-identity comparison (settled 2026-11-10, operator, Q9, answer "1"; recommended by the orchestrator at 78%): this plan builds it once in `workflow.model` with the table test and the matched control of PM-WATCH-DISP-67; the package `decision-quorum-and-calibration` reuses it; this plan does not delete PM-WATCH-DISP-67 (that package's Done When lists it) and its pull request body says so. If the quorum package is emitted first, the function is built there and this plan calls it.
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: it edits `EngineFixtures` (the `Ports` constructor and the fixture plan), whose port doubles 136 converts: 136 runs first. The dependency is the oracle: emit this plan only in that order.

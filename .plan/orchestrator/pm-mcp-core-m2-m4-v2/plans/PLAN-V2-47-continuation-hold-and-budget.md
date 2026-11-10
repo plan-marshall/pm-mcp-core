@@ -118,3 +118,8 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
 
 - **Settled (2026-11-09):** the specification sentence "ends its hold" is restored at `model-work/06-envelopes-questions-deadlines.adoc:427` (#201). The behaviour gap, `WorkerRecycling` recycling a HOLDING generation without ending the hold, is D2 here.
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: its Expected Surface names `SupervisorTestFixture.RecordingProtocol`, `OffTrackScenarioTest`, `ActivityRecorderTest`, `StartFailureGuardTest`, `WorkerActivityPumpTest` and `HarnessStartSpacingTest` as implementers of the protocol method `holdEnded`; after 136 those are EasyMock doubles and the surface shrinks, correct it at the outline: 136 runs first. The dependency is the oracle: emit this plan only in that order.

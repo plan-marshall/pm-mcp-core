@@ -105,3 +105,8 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 
 - **UPDATE 2026-10-27 (analysis of PLAN-66, landings/PLAN-66.md)** (Op44) — PLAN-66 shipped the ingress (WorkerActivityPump, ActivityRecorder, OffTrackDetector) but no loop; nothing in src/main calls them; the loop itself is the assembly (external E3), this plan owns the library calls and the pass
 - **No plan owns the supervision loop that drives the worker supervisor (found by the analysis of P** (Op45) — WorkerSupervisor, LossDetection, WorkerEnding, WorkerRecycling, StartFailureGuard and AgentStartedDetector are called from nowhere in src/main; "the pass is the supervision loop's call" (runtime-worker.adoc:268); the loop is the assembly (external E3)
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: it extends the worker doubles (`SupervisorTestFixture` family) that 136 converts to EasyMock: 136 runs first. The dependency is the oracle: emit this plan only in that order.

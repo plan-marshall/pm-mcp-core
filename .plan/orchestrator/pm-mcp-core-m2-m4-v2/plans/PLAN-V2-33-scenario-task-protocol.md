@@ -120,3 +120,8 @@ Open items of the previous epic that this plan owns (register: `owner-register.m
 Added by the orchestrator after the operator's walk-through of the open defects (decision log, 2026-11-09). Read at the outline, re-check each statement against `origin/main` (Claim Labels) and adopt it into a deliverable of the outline or say in the landing why not. It extends no Done-when by itself.
 
 - **Carried (PLAN-35 residue):** D1 of PLAN-35 (the `pm-scenario` fault directives `kill_worker`, `stall_worker`, `end_turn`, `kill_relay`, `restart_runtime`, `assert_worker_state`, `assert_refused`) is carried by this plan and PLAN-V2-49. D5 is `plan-marshall-mcp` `worker-integration-tests`; D6 and D7 stay in the package `supervision-scenarios` (no plan in this repository).
+
+
+## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
+
+PLAN-V2-136 `easymock-for-fakes-residue` is staged (the weak keeps of PLAN-V2-106, `landings/PLAN-V2-106.md`). Shared surface: it extends the engine and scenario ports (`ScenarioFixtures`, `EngineFixtures`) that 136 converts: 136 runs first. The dependency is the oracle: emit this plan only in that order.
