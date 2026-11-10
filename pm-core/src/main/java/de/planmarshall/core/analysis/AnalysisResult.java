@@ -147,6 +147,7 @@ boolean workPerformed, @Nullable String analysisRef, Instant observedAt) {
      * @param actual     the measured value, at most 64 characters; {@code null} when the provider reports none
      * @param result     whether the condition passed or failed
      */
+    @Builder
     public record Condition(String metric, Comparator comparator, String threshold, @Nullable String actual,
     GateResult result) {
 

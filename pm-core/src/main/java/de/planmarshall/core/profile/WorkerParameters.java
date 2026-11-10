@@ -11,6 +11,7 @@ package de.planmarshall.core.profile;
 
 import java.util.Objects;
 import java.util.OptionalInt;
+import lombok.Builder;
 
 /**
  * The worker and connection values of one loaded client profile, typed (PM-WORK-3, PM-CLIENT-2; Client Profiles, Worker
@@ -40,6 +41,7 @@ import java.util.OptionalInt;
  * @param progressResetsTimeout whether a progress frame resets the host's idle timeout
  * @since 0.1
  */
+@Builder
 public record WorkerParameters(boolean eligible, OptionalInt ackDeadlineSeconds, boolean ackInformational,
 int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progressResetsTimeout) {
 
