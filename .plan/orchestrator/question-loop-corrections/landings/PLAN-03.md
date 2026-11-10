@@ -118,6 +118,6 @@ Re-read by the orchestrator: PK:15, :100, :106, :107, :170; README of mcp `doc/p
 
 ## Follow-Ups
 
-- Layer-3 defects L3-1, L3-2, L3-5, L3-6 bear on PLAN-04's runs — reported to the operator; a fix plan is staged only on the operator's word.
-- Claude Code items not run: Q5 bound 5 and R4 large work — reported to the operator for routing (PLAN-04, a new row, or recorded as not run).
-- Layer-2 record gaps in the package (integration-tests deviation, cap change reason, Q3 reading, stale index row title) — small documentation fixes in `plan-marshall-mcp`; reported to the operator.
+- Layer-3 defects L3-1 to L3-6 (L3-7 as a verify-first clause) — staged as PLAN-05, which lands before PLAN-04 (operator, 2026-11-10).
+- Claude Code items not run: Q5 bound 5 and R4 large work — folded into PLAN-04 as its deliverable 4 (operator, 2026-11-10); PLAN-04's Expected Surface is unchanged by the fold.
+- Layer-2 record gaps in the package (integration-tests deviation, cap change reason, Q3 reading, stale index row title) — a direct pull request in `plan-marshall-mcp` the operator opens (operator, 2026-11-10); an Open Defect until merged.

@@ -42,7 +42,11 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   (spec, Standing Constraints): PLAN-03 landed (met 2026-11-05), a consumer package for the OpenCode values (Milestone 14
   or `pm-mcp-clients`) or the operator's recorded decision to go without (not met, re-checked 2026-11-10), Antigravity
   usable (about 2026-10-31 07:10 CET; not confirmed by the operator since), and the run budget and data home confirmed
-  (not yet). Its Expected Surface names the developer document `question-loop-measurement.adoc` since 2026-11-10.
+  (not yet). Its Expected Surface names the developer document `question-loop-measurement.adoc` since 2026-11-10. Since
+  2026-11-10 it also runs Claude Code's Q5 bound 5 and R4 large work, and waits for PLAN-05.
+- PLAN-05 — fixes the measurement code's layer-3 defects from PLAN-03's landing (staged 2026-11-10 on the operator's
+  word). Runs in `plan-marshall-mcp`, spends no harness budget, and precedes PLAN-04 on the same surface — never
+  concurrent with it. It is staged after PLAN-04 in queue order but runs first.
 
 ## Decisions
 
@@ -120,6 +124,13 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   recorded in the package). The three-layer read found layer-3 defects in the measurement code (see Open Defects). The
   developer document is `question-loop-measurement.adoc`; `question-loop-experiment.adoc` was deleted by documentation
   #145. PLAN-04's spec was re-scoped in the same act (claim 1, Expected Surface).
+- 2026-11-10 — PLAN-03's leftovers (operator): (1) the layer-3 defects of the measurement code get their own fix plan,
+  PLAN-05, which lands before PLAN-04, because PLAN-04 runs the same driver on two more harnesses at up to 12 workers;
+  (2) Q5 bound 5 and R4 large work of Claude Code are folded into PLAN-04 (deliverable 4, budget in its launch condition 4),
+  so the Claude Code question bound is settled there — PLAN-04's Expected Surface is unchanged by the fold; (3) the
+  package's four record gaps are fixed by a small direct pull request in `plan-marshall-mcp` that the operator opens, as
+  #118 was. Alternatives not taken: folding the fixes into PLAN-04 (one plan over budgeted runs and code fixes), recording
+  the defects only; a separate Claude Code row; recording the two items as not run.
 - 2026-10-27 — The `pm-mcp-core` executor in the main checkout was stale (0.1.1924 against the registry's 0.1.2017) and
   was regenerated from the plugin cache before scaffolding; the old file is kept in the session scratchpad. The shared
   ledger worktree was fast-forwarded from #78 to `origin/main` (#195), with no pending paths.
@@ -147,13 +158,13 @@ when the four plans have landed and the roadmap item of Milestone 4 can be check
   (`RunView.java:124`, `:196`); the fresh half of Q3 cannot fail because the driver's own teardown counts as the stop
   (`QuestionResults.java:859`); a JVM abort leaves running workers alive (`QuestionDriver.java:675`, `:699`); a gated
   run without `pm.experiment.hosts` launches all three harnesses (`QuestionLoopMeasurement.java:225`). The first, second,
-  fourth and fifth bear on PLAN-04's runs. — source: PLAN-03 analysis 2026-11-10; reported to the operator, a fix plan only
-  on the operator's word.
+  fourth and fifth bear on PLAN-04's runs. — source: PLAN-03 analysis 2026-11-10. Staged as PLAN-05 on the operator's
+  word, 2026-11-10; retire when it lands.
 - The package `question-loop-follow-up` (`plan-marshall-mcp` `main`) leaves four record gaps PLAN-03 owed: the
   `-Pintegration-tests` deviation from task 1's Done When is not recorded; the cap change of 2026-10-31 has no reason; Q3's
   pass rests on a reading of the criterion that is recorded only as open; the index row still titles the package "at
-  the specified scale". — source: PLAN-03 analysis 2026-11-10; a small direct pull request there, or fold into PLAN-04;
-  the operator decides.
+  the specified scale". — source: PLAN-03 analysis 2026-11-10. The operator fixes them by a direct pull request in
+  `plan-marshall-mcp` (decision 2026-11-10), giving the reason for the cap change; retire when it is merged.
 - Merged `main` fails `BROKEN LINKS 0` (the landing reports 12 and four undefined watch ids; this analysis confirmed
   `PM-WATCH-CLIENT-14` cited at `model-work/01-roles-and-configuration.adoc:357` and not defined in
   `implementation-watch/client-profiles.adoc`). None comes from this epic's diffs; the owners are the plans that removed
