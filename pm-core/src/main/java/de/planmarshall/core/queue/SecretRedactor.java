@@ -87,8 +87,8 @@ public final class SecretRedactor {
     /**
      * A credential flag whose value is separated by whitespace instead of {@code :} or {@code =}. The leading
      * {@code --} anchors the shape, so {@code --password-file notes.txt} is a different flag and stays readable. The
-     * quoted forms are matched first: a quoted value runs to its closing quote, spaces included, and an unclosed quote
-     * masks the rest of the line.
+     * quoted forms are matched first: a quoted value runs to its closing quote, spaces and escaped quotes included, and
+     * an unclosed quote masks the rest of the line; an unquoted value runs to the next whitespace and may carry a comma.
      */
     private static final String CREDENTIAL_FLAG_NAMES = "password|passwd|passphrase|token|secret";
 
@@ -96,13 +96,17 @@ public final class SecretRedactor {
     private static final String CREDENTIAL_FLAG_HEAD =
             "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
 
+    /** The body of a quoted flag value: any character, an escaped quote included, up to the closing quote. */
+    private static final String QUOTED_FLAG_VALUE = "((?:[^\"'\\\\\\r\\n]|\\\\.)*)";
+
     private static final Pattern QUOTED_CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])([^\"'\\r\\n]*)\\3");
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])" + QUOTED_FLAG_VALUE + "\\3");
 
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])([^\"'\\r\\n]*)");
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])" + QUOTED_FLAG_VALUE);
 
-    private static final Pattern CREDENTIAL_FLAG = Pattern.compile(CREDENTIAL_FLAG_HEAD + VALUE);
+    private static final Pattern CREDENTIAL_FLAG =
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([^\\s\"';]{4,})");
 
     /**
      * A PEM private-key block carried inside one text. A window that starts inside a block (its {@code BEGIN} line

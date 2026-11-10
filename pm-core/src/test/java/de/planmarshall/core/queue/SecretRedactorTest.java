@@ -138,7 +138,13 @@ class SecretRedactorTest {
                         "a quoted value with spaces is masked whole"),
                 () -> assertEquals("npm login --password \"" + SecretRedactor.REDACTED,
                         redactValue("npm login --password \"correct horse"),
-                        "an unclosed quoted value is masked to the line end"));
+                        "an unclosed quoted value is masked to the line end"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("publish --token \"abc\\\"def ghi\""),
+                        "an escaped quote inside a value is not its close"),
+                () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
+                        redactValue("npm login --password abcdef,secret"),
+                        "a comma inside an unquoted value is masked with it"));
     }
 
     @Test
