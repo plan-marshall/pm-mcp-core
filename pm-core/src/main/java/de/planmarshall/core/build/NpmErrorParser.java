@@ -28,6 +28,12 @@ import org.jspecify.annotations.Nullable;
  * the package the registry does not hold; every other code is {@link Category#NPM_ERROR} with the first line of the block
  * as its message. Both named forms point into {@code package.json} without a line, as in the original.
  * <p>
+ * The install family prints no error block; its completion line ({@code added 150 packages in 10s},
+ * {@code up to date, audited 5 packages}) is the tool's positive success marker ({@link #printsInstallSummary}), so a
+ * zero-exit install ends {@code succeeded} instead of {@code indeterminate}. A log with an error block, or one whose
+ * line the pattern cannot read, keeps the marker {@code false}. {@code tsc} and ESLint print no such line: their clean
+ * run stays {@code indeterminate}, and the job's verb does not stand in for a printed summary.
+ * <p>
  * One behaviour is a deliberate change against the original (ADR {@code core-build/003}): the original reads only the
  * first {@code npm ERR! code} line and files at most one diagnostic, so a log that carries several error blocks loses all
  * but the first. This port files one diagnostic per block, in log order.
@@ -59,6 +65,14 @@ public class NpmErrorParser {
     private static final Pattern PEER_CONFLICT = Pattern.compile("peer\\s+(\\S+)\\s+from\\s+(\\S+)");
 
     /**
+     * The install family's completion line: {@code added 150 packages in 10s}, {@code removed 3 packages in 1s},
+     * {@code changed 2 packages} or {@code up to date, audited 5 packages}. The line is anchored to its own shape, so a
+     * prose sentence carrying the words {@code added} and {@code packages} does not match.
+     */
+    private static final Pattern INSTALL_SUMMARY =
+            Pattern.compile("^\\s*(?:added|removed|changed|up to date)\\b.*\\bpackages?\\b");
+
+    /**
      * Parses an npm error log.
      *
      * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here
@@ -81,14 +95,26 @@ public class NpmErrorParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<Diagnostic> diagnostics = extractDiagnostics(logText);
+        List<String> lines = List.of(logText.split("\n", -1));
+        List<Diagnostic> diagnostics = extractDiagnostics(lines);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return new ParsedBuild(diagnostics, status, false, null,
-                ParsedBuild.noTestsRanFrom(status, false, null, false));
+        boolean successMarker = status == BuildStatus.SUCCESS && printsInstallSummary(lines);
+        return new ParsedBuild(diagnostics, status, successMarker, null,
+                ParsedBuild.noTestsRanFrom(status, successMarker, null, false));
     }
 
-    private static List<Diagnostic> extractDiagnostics(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+    /**
+     * Whether the log printed the install family's completion line. The marker needs a successful status, which the
+     * caller supplies by requiring no error block; a completion line beside an error block is therefore no marker.
+     *
+     * @param lines the log lines
+     * @return whether an install completion line was printed
+     */
+    private static boolean printsInstallSummary(List<String> lines) {
+        return lines.stream().anyMatch(line -> INSTALL_SUMMARY.matcher(line).find());
+    }
+
+    private static List<Diagnostic> extractDiagnostics(List<String> lines) {
         var diagnostics = new ArrayList<Diagnostic>();
         int blockStart = -1;
         String code = null;

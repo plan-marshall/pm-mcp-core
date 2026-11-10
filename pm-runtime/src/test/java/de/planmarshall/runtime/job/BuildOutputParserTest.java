@@ -338,15 +338,38 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("an install completion line decides succeeded")
+    void installSummary() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "up to date, audited 5 packages\n");
+
+        assertAll(
+                () -> assertTrue(parse.successMarker(), "the install completion line is the marker"),
+                () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean install decides succeeded"));
+    }
+
+    @Test
     @DisplayName("a log no parser recognises yields nothing")
     void unrecognisedLog() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "up to date, audited 5 packages\n");
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "compiling something\n");
 
         assertAll(
                 () -> assertEquals(ParseResult.NOTHING, parse, "an unrecognised log parses to nothing"),
                 () -> assertEquals(INDETERMINATE, outcome(parse, 0), "nothing with exit 0 is indeterminate"),
                 () -> assertEquals(FAILED_UNPARSED, outcome(parse, failures().next()),
                         "nothing with a failing exit is unparsed"));
+    }
+
+    @Test
+    @DisplayName("a clean tsc or ESLint log prints nothing, so exit 0 stays indeterminate")
+    void cleanSyntaxToolLogs() {
+        var typeScript = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
+        var eslint = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
+
+        assertAll(
+                () -> assertEquals(ParseResult.NOTHING, typeScript, "a clean tsc run prints no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(typeScript, 0), "a clean tsc run stays indeterminate"),
+                () -> assertEquals(ParseResult.NOTHING, eslint, "a clean ESLint run prints no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(eslint, 0), "a clean ESLint run stays indeterminate"));
     }
 
     // Build systems the runtime knows no parser for: contract literals of the budget key.

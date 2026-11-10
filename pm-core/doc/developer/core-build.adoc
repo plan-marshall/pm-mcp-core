@@ -205,13 +205,19 @@ longer matches the pinned template; `observed` otherwise, carrying the findings.
 === The Six JavaScript and Python Parsers
 
 The six tools share the result model and the counts rules of the JVM parsers, and each is a scanner over the lines the
-tool prints. None of them prints a positive success banner, so `successMarker` is `false` for the npm tools and for
-pyproject except where a pytest summary reports a passed count.
+tool prints. The marker is the passing summary the tool itself prints: Jest's `Tests:` summary and TAP's `# tests` / `# pass`
+/ `# fail` block are the marker when they report at least one passed test and no failed test, and the install family's
+completion line (`added 150 packages in 10s`, `up to date, audited 5 packages`) is the marker of a clean install. A clean
+`tsc` or ESLint run prints nothing at all, so `successMarker` stays `false` there and a zero exit stays `indeterminate`; a
+pytest summary that reports a passed count is the marker of the pyproject parser. ADR
+link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-success-marker.adoc[`runtime-job/016`] records the decision.
 
 * *npm errors* — every `npm ERR! code` line opens a block. `ERESOLVE` is `NPM_DEPENDENCY`, and its
   `Could not resolve dependency:` trailer names the peer dependency and its origin when the trailer carries them; `E404`
   is `NPM_ERROR` and names the quoted package specification it could not find; every other code is `NPM_ERROR` with the
   block's first reportable line, which is the code line itself. Both named forms point into `package.json` without a line.
+  A log with no error block whose install completion line reads `added|removed|changed N packages` or
+  `up to date, audited N packages` is a clean install: it files no diagnostic and sets the success marker.
 * *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
   `TSnnnn: message`. Both forms are scanned over every line, so a log that mixes them keeps all of its diagnostics.
 * *ESLint* — a file-header line sets the file and each `line:col severity message rule` row below it is a `LINT_ERROR`

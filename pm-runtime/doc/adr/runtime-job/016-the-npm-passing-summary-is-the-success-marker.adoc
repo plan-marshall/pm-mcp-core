@@ -1,0 +1,68 @@
+= ADR 016: The npm Passing Summary Is the Success Marker
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-10
+
+== Context
+
+Outcome row 7 needs the positive success marker the tool printed; a green `status` alone is not one, so a zero exit of a
+tool without a marker settles `indeterminate` at row 8 (ADR `runtime-job/015`, last bullet of its Consequences). The npm
+family builds every `ParsedBuild` with `successMarker=false`, so a passing `npm test` (`Tests: 5 passed, 5 total` or
+`# tests 5` / `# pass 5` / `# fail 0`) and a clean `npm install` (`added 150 packages in 10s`) both ended
+`indeterminate`, although each printed a passing summary the specification names as the build marker (Job Runtime §
+Outcome Derivation, row 7).
+
+`tsc` and ESLint are different: a clean run prints nothing at all (no summary line, no row, no problem count), and
+`BuildOutputParser.npm` dispatches them only on a marker a failing log carries. There is no printed summary to read, so
+the question is whether the tool or the job's verb proves a clean run.
+
+The operator decided at refine (2026-11-09): the log, not the exit code alone, proves a success.
+
+== Decision
+
+* Jest's `Tests:` summary and TAP's `# tests` / `# pass` / `# fail` block are the positive success marker when the run's
+  status is successful, the counts are `Measured`, the failed count is `0` and the passed count is above `0`. An
+  unreadable or `Unmeasured` summary, a measured zero, an all-skipped run, a printed failing count and a filed
+  diagnostic keep the marker `false`.
+* The install family's completion line (`added|removed|changed N packages`, `up to date, audited N packages`) is the
+  successful-install marker. `NpmErrorParser` sets it for a log with no error block that carries the line, and
+  `BuildOutputParser.npm` dispatches that log to it; a completion line beside an error block is no marker.
+* A clean `tsc` or ESLint run stays `indeterminate` at row 8. Neither tool prints a passing summary, and the adapter does
+  not read the job's verb as one: `npm:quality-gate` with exit `0` and an empty log proves only that the command exited.
+* The rule of ADR `runtime-job/015` stays; its list of tools without a positive marker shrinks to `tsc` and ESLint (and
+  any npm tool that prints no summary). ADR `runtime-job/015` is superseded in part.
+
+== Alternatives Considered
+
+* *Let the job's verb carry the decision (`npm:quality-gate` with exit 0 and an empty log is a success).* It would make a
+  clean `tsc`/ESLint run `succeeded`, but it changes the outcome table's premise that the log, not the exit code alone,
+  proves a success, and it would read a green zero exit as a marker for every tool. The operator kept the log-read
+  premise and selected the parser-by-parser rule.
+* *Mark every zero-exit npm run as succeeded.* It marks a filter that matched nothing and an empty log alike, and it
+  bypasses the contradicting-evidence rule.
+* *Read the install line as a test count.* The line carries no test population; it is the install's own completion, so it
+  sets the marker only and leaves `testCounts` absent.
+
+== Consequences
+
+* A passing Jest/TAP run and a clean install now settle `succeeded` (row 7); a zero count, an all-skipped run and a
+  clean `tsc`/ESLint run still settle `indeterminate` (row 8).
+* The fixture expectations that pinned the old marker change in that line only and carry a comment saying why.
+* `BuildOutputParser.npm` dispatches a log carrying an install completion line to `NpmErrorParser`, so the install
+  family needs no second scanner.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-127-npm-parser-success-and-redaction.md[PLAN-V2-127]
+* Work package link:../../../../doc/plans/build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
+* Specification: link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation];
+  link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
+* Supersedes in part: link:015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR `runtime-job/015`]
+* Developer guide: link:../../developer/runtime-job.adoc[`runtime.job`];
+  link:../../../pm-core/doc/developer/core-build.adoc[`core.build`]
