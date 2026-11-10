@@ -268,7 +268,8 @@ public final class LessonStore {
         var content = read(file);
         var current = StoreDigest.of(content);
         if (!current.equals(verified.digest())) {
-            return new LessonResolution.StoreTampered(lessonId, file, verified.digest(), current);
+            return LessonResolution.StoreTampered.builder().lessonId(lessonId).path(file)
+                    .recorded(verified.digest()).current(current).build();
         }
         return decode(lessonId, file, content, StoreIntegrity.VERIFIED);
     }
@@ -390,8 +391,8 @@ public final class LessonStore {
                 .revision(revision)
                 .sources(evidence)
                 .revisions(append(frontMatter.revisions(),
-                        new Revision(revision, now, evidence, StoreSnapshot.sha256(
-                                body.getBytes(StandardCharsets.UTF_8)))))
+                        Revision.builder().n(revision).at(now).sources(evidence)
+                                .bodySha256(StoreSnapshot.sha256(body.getBytes(StandardCharsets.UTF_8))).build()))
                 .build();
         var lesson = new Lesson(next, body);
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));

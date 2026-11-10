@@ -179,9 +179,9 @@ public class PyprojectOutputParser {
             Matcher matcher = MYPY.matcher(line);
             Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
             if (number != null) {
-                add(diagnostics, seen, new Diagnostic(matcher.group(1), number, null,
-                        DiagnosticCollector.stored(matcher.group(3)), categoryOf(matcher.group(3)), Severity.ERROR,
-                        null));
+                add(diagnostics, seen, Diagnostic.builder().file(matcher.group(1)).line(number)
+                        .message(DiagnosticCollector.stored(matcher.group(3)))
+                        .category(categoryOf(matcher.group(3))).severity(Severity.ERROR).build());
             }
         }
         return diagnostics;
@@ -194,9 +194,10 @@ public class PyprojectOutputParser {
             Matcher matcher = RUFF.matcher(line);
             Integer number = matcher.matches() ? integer(matcher.group(2)) : null;
             if (number != null) {
-                add(diagnostics, seen, new Diagnostic(matcher.group(1), number, integer(matcher.group(3)),
-                        DiagnosticCollector.stored(matcher.group(4) + " " + matcher.group(5)), Category.LINT_ERROR,
-                        Severity.ERROR, null));
+                add(diagnostics, seen, Diagnostic.builder().file(matcher.group(1)).line(number)
+                        .column(integer(matcher.group(3)))
+                        .message(DiagnosticCollector.stored(matcher.group(4) + " " + matcher.group(5)))
+                        .category(Category.LINT_ERROR).severity(Severity.ERROR).build());
             }
         }
         return diagnostics;
@@ -332,7 +333,8 @@ public class PyprojectOutputParser {
         Frame location = block == null ? null : frame(block);
         String file = location == null ? summaryFile : location.file();
         Integer line = location == null ? null : location.line();
-        return new Diagnostic(file, line, null, DiagnosticCollector.stored(message), category, Severity.ERROR, null);
+        return Diagnostic.builder().file(file).line(line).message(DiagnosticCollector.stored(message))
+                .category(category).severity(Severity.ERROR).build();
     }
 
     private static void add(List<Diagnostic> diagnostics, Set<String> seen, Diagnostic diagnostic) {

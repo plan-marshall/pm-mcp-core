@@ -138,9 +138,9 @@ public class TapOutputParser {
         String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
         if (!message.isBlank()) {
             Location location = location(block.location());
-            var diagnostic = new Diagnostic(location.file(), location.line(), null,
-                    DiagnosticCollector.stored(message), Category.TEST_FAILURE, Severity.ERROR,
-                    block.stackTrace());
+            var diagnostic = Diagnostic.builder().file(location.file()).line(location.line())
+                    .message(DiagnosticCollector.stored(message)).category(Category.TEST_FAILURE)
+                    .severity(Severity.ERROR).stackTrace(block.stackTrace()).build();
             if (seen.add(DiagnosticCollector.key(diagnostic))) {
                 diagnostics.add(diagnostic);
             }

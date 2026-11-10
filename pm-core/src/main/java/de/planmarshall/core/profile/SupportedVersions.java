@@ -81,8 +81,9 @@ public final class SupportedVersions {
 
     /** @return whether at least one version of the lowest and highest bounds lies in the range */
     private boolean hasAnyVersion() {
-        Version low = new Version(0, 0, 0, null);
-        Version high = new Version(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, null);
+        Version low = Version.builder().major(0).minor(0).patch(0).build();
+        Version high = Version.builder().major(Integer.MAX_VALUE).minor(Integer.MAX_VALUE)
+                .patch(Integer.MAX_VALUE).build();
         for (var bound : bounds) {
             var raised = bound.raise(low);
             var lowered = bound.lower(high);

@@ -129,8 +129,9 @@ public class EslintOutputParser {
         Severity severity = ERROR.equals(head.group(3)) ? Severity.ERROR : Severity.WARNING;
         Integer lineNumber = position(head.group(1));
         Integer column = lineNumber == null ? null : position(head.group(2));
-        return Optional.of(new Diagnostic(file, lineNumber, column,
-                DiagnosticCollector.stored(rule + ": " + message), Category.LINT_ERROR, severity, null));
+        return Optional.of(Diagnostic.builder().file(file).line(lineNumber).column(column)
+                .message(DiagnosticCollector.stored(rule + ": " + message)).category(Category.LINT_ERROR)
+                .severity(severity).build());
     }
 
     /**

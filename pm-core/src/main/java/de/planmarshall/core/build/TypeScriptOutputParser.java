@@ -84,8 +84,9 @@ public class TypeScriptOutputParser {
         String message = matcher.group(5) + ": " + matcher.group(6);
         Integer line = position(matcher.group(2));
         Integer column = line == null ? null : position(matcher.group(3));
-        return Optional.of(new Diagnostic(matcher.group(1), line, column, DiagnosticCollector.stored(message),
-                Category.COMPILATION_ERROR, Severity.ERROR, null));
+        return Optional.of(Diagnostic.builder().file(matcher.group(1)).line(line).column(column)
+                .message(DiagnosticCollector.stored(message)).category(Category.COMPILATION_ERROR)
+                .severity(Severity.ERROR).build());
     }
 
     /**

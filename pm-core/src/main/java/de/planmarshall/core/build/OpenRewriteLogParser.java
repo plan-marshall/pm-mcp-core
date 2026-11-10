@@ -102,11 +102,13 @@ public class OpenRewriteLogParser {
                 if (lineNumber.isEmpty() || column.isEmpty()) {
                     return parseError(line, "the finding location is outside the int range");
                 }
-                findings.add(new RewriteFinding(match.group(2), lineNumber.get(), column.get(), match.group(5),
-                        match.group(6),
-                        "100".equals(match.group(1))
+                findings.add(RewriteFinding.builder().path(match.group(2)).line(lineNumber.get())
+                        .column(column.get()).recipe(match.group(5)).message(match.group(6))
+                        .classification(
+                                "100".equals(match.group(1))
                                 ? RewriteClassification.NEWLY_DETECTED
-                                : RewriteClassification.PRE_EXISTING));
+                                : RewriteClassification.PRE_EXISTING)
+                        .build());
                 continue;
             }
             if (FINDING_IDENTIFIER.matcher(line).find()) {

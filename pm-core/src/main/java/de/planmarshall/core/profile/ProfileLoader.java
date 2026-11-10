@@ -113,8 +113,9 @@ public final class ProfileLoader {
                 var name = PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX);
                 var profile = ProfileValidator.validate(entry.getValue().document(), name, rules);
                 requireClientId(profile, clientId, name);
-                place(new LoadedProfile(clientId, ProfileSetKind.SHIPPED, profile, entry.getValue().document(),
-                        LoadedProfile.State.VERIFIED, null), effective, refused);
+                place(LoadedProfile.builder().clientId(clientId).kind(ProfileSetKind.SHIPPED).document(profile)
+                        .bytes(entry.getValue().document()).state(LoadedProfile.State.VERIFIED).build(), effective,
+                        refused);
             } catch (ProfileRefusal refusal) {
                 refused.add(new ProfileSet.RefusedProfile(clientId, ProfileSetKind.SHIPPED, refusal));
             }

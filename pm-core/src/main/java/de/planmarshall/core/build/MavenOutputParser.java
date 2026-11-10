@@ -160,8 +160,9 @@ public class MavenOutputParser {
             return Optional.empty();
         }
         var location = JvmFileLocation.parse(line);
-        return Optional.of(new Diagnostic(location.file(), location.line(), location.column(),
-                DiagnosticCollector.stored(message), categoryOf(message, severity.get()), severity.get(), null));
+        return Optional.of(Diagnostic.builder().file(location.file()).line(location.line())
+                .column(location.column()).message(DiagnosticCollector.stored(message))
+                .category(categoryOf(message, severity.get())).severity(severity.get()).build());
     }
 
     private static Optional<Severity> printedSeverity(String line) {

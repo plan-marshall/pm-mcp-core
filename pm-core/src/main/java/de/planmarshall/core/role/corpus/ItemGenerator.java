@@ -62,19 +62,24 @@ public class ItemGenerator {
         var choices = row.choices() == null ? null
                 : row.choices().stream().map(choice -> fill(choice, fields, line)).toList();
         var written = row.target();
-        var target = new Target(written.answer() == null ? null : fill(written.answer(), fields, line),
-                written.rationale(), fillAll(written.alternatives(), fields, line), written.items(),
-                written.expectedEmpty());
+        var target = Target.builder()
+                .answer(written.answer() == null ? null : fill(written.answer(), fields, line))
+                .rationale(written.rationale()).alternatives(fillAll(written.alternatives(), fields, line))
+                .items(written.items()).expectedEmpty(written.expectedEmpty()).build();
         var history = "%s: generated from line %d of %s of %s at commit %s, selected and framed by the overlay of the "
                 + "source %s.";
         var provenance = new Provenance(overlay.created(),
-                new Origin(manifest.repository(), manifest.commit(), overlay.file(), line),
+                Origin.builder().repository(manifest.repository()).commit(manifest.commit()).path(overlay.file())
+                        .line(line).build(),
                 List.of(String.format(Locale.ROOT, history, overlay.created(), line, overlay.file(),
                         manifest.repository(), manifest.commit(), manifest.name())));
-        return new ImportedItem(row.itemId(), row.topic(), row.role(), row.title(), row.tags(), row.group(),
-                new Input(fill(row.question(), fields, line), fill(row.facts(), fields, line), choices,
-                        row.answerSchema()), target, row.grading(), provenance, row.review(), row.contamination(),
-                CANARY);
+        return ImportedItem.builder().id(row.itemId()).topic(row.topic()).role(row.role()).title(row.title())
+                .tags(row.tags()).group(row.group())
+                .input(Input.builder().question(fill(row.question(), fields, line))
+                        .facts(fill(row.facts(), fields, line)).choices(choices)
+                        .answerSchema(row.answerSchema()).build())
+                .target(target).grading(row.grading()).provenance(provenance).review(row.review())
+                .contamination(row.contamination()).canary(CANARY).build();
     }
 
     /**
