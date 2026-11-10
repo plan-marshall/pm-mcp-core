@@ -80,6 +80,53 @@ class UnparsedEvidenceTest {
     }
 
     @Test
+    @DisplayName("redacts a credential label split by an escape")
+    void redactsACredentialSplitByAnEscape() {
+        var secret = "hunter2hunter2";
+        var log = "\u001B[1mpassword\u001B[0m=" + secret + "\n";
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+
+        assertAll(
+                () -> assertFalse(evidence.excerpt().contains(secret), "the split label's value is not kept"),
+                () -> assertTrue(evidence.excerpt().contains(SecretRedactor.REDACTED), "the excerpt names the mask"),
+                () -> assertFalse(evidence.excerpt().contains("\u001B"), "the excerpt carries no escape"));
+    }
+
+    @Test
+    @DisplayName("strips escapes before the byte bound counts")
+    void stripsEscapesBeforeTheByteBound() {
+        var coloured = IntStream.range(0, 49)
+                .mapToObj(index -> "\u001B[31m" + "x".repeat(75) + "\u001B[0m")
+                .toList();
+        var log = "earliest-visible-line\n" + String.join("\n", coloured) + "\n";
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+
+        assertAll(
+                () -> assertTrue(evidence.excerpt().startsWith("earliest-visible-line"),
+                        "the bound counts the stripped text"),
+                () -> assertFalse(evidence.excerpt().contains("\u001B"), "no escape remains in the excerpt"),
+                () -> assertTrue(evidence.excerpt().getBytes(StandardCharsets.UTF_8).length
+                        <= UnparsedEvidence.MAX_BYTES, "the byte bound holds"));
+    }
+
+    @Test
+    @DisplayName("reduces a carriage-return spinner to its last frame")
+    void reducesASpinner() {
+        var frames = IntStream.range(0, 60).mapToObj(index -> "frame " + index).toList();
+        var log = "the failure that matters\n" + String.join("\r", frames) + "\n";
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+
+        assertAll(
+                () -> assertTrue(evidence.excerpt().contains("the failure that matters"),
+                        "the failure survives the spinner"),
+                () -> assertTrue(evidence.excerpt().contains("frame 59"), "the last frame is kept"),
+                () -> assertTrue(evidence.excerpt().lines().count() <= 2, "the spinner is one line"));
+    }
+
+    @Test
     @DisplayName("names the resource URI of the full log by plan and job")
     void namesTheResourceUri() {
         var evidence = UnparsedEvidence.of(PLAN, JOB, "opaque failure\n");

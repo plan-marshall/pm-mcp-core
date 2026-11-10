@@ -20,10 +20,11 @@ cutting an unbounded log into the request or leaking a credential the log may ec
 
 * `UnparsedEvidence` (package `core.build`) carries exactly two components: the bounded, redacted excerpt and the resource
   URI of the full log. It has no diagnostic component, so the model cannot be handed one that was never parsed.
-* `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the tail of the last `MAX_LINES` (50) lines, redacts every
-  secret-shaped value through the existing `SecretRedactor` of `core.queue`, and keeps at most `MAX_BYTES` (4096) bytes of
-  UTF-8 counted from the end of the redacted text; the byte bound can cut the earliest retained line. A cut never
-  splits a UTF-8 character. The canonical constructor refuses an excerpt beyond either bound.
+* `UnparsedEvidence.of(planId, jobId, rawLog)` first strips the ANSI escapes through `BuildLogText.stripAnsi` and
+  reduces each carriage-return frame run to its last frame, then keeps the tail of the last `MAX_LINES` (50) lines,
+  redacts every secret-shaped value through the existing `SecretRedactor` of `core.queue`, and keeps at most `MAX_BYTES`
+  (4096) bytes of UTF-8 counted from the end of the redacted text; the byte bound can cut the earliest retained line. A
+  cut never splits a UTF-8 character. The canonical constructor refuses an excerpt beyond either bound.
 * The URI is `pm://plan/{plan_id}/builds/{job_id}/log`; the full log stays beside the job record and is read as `JobLog`
   reads it.
 
@@ -44,7 +45,8 @@ cutting an unbounded log into the request or leaking a credential the log may ec
 * A truncated excerpt does not yet report forwarded and total sizes, so PM-WATCH-JOB-14 stays open with the envelope that
   carries those sizes.
 * Redaction happens before the byte bound is applied, so a replacement that lengthens a line cannot make the excerpt
-  exceed the bound.
+  exceed the bound. Stripping and the carriage-return reduction happen before the tail is taken, so an escape does not
+  spend the bound and a spinner's frames do not spend the line count; that order was added by PLAN-V2-127.
 
 == Source
 
