@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.SourceLocation;
 
@@ -22,6 +23,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
  * @param message  what is wrong, naming the primitive, outcome, parameter, link or released name concerned
  * @since 0.1
  */
+@Builder
 public record Violation(VerificationRule rule, String stateId, SourceLocation location, String message) {
 
     /**

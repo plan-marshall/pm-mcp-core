@@ -12,7 +12,7 @@ package de.planmarshall.workflow.plan;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
-
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @param value the new ceiling of a raise; {@code null} for a met waiver
  * @since 0.1
  */
+@Builder
 public record Waiver(String id, String gate, Mode mode, @Nullable Integer value) {
 
     /**

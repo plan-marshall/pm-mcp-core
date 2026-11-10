@@ -11,9 +11,10 @@ package de.planmarshall.workflow.model;
 
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleClass;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The task a {@code job llm} state creates (PM-WF-5, PM-WORK-1): the state, the entity it works on, the role name, and the
@@ -31,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  * @param acceptedClasses the classes the use admits
  * @since 0.1
  */
+@Builder
 public record ModelJob(@Nullable String scopeId, String stateId, String entityKey, String role, boolean consultation,
 Set<RoleClass> acceptedClasses) {
 

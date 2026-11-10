@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -34,6 +35,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * @param compiledUnits   the units compiled into the release that no project owns
  * @since 0.1
  */
+@Builder
 public record VerificationContext(PrimitiveRegistry registry, EntityKindRegistry entityKinds,
 QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefinition> compiledUnits) {
 

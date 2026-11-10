@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 
 import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.role.RoleClass;
@@ -36,6 +37,7 @@ import de.planmarshall.core.role.RoleClass;
  * @param at              the instant of the ask
  * @since 0.1
  */
+@Builder
 public record ConsultationRequest(String askingTaskId, String generationId, String role, RoleClass roleClass,
 boolean formDowngraded, List<String> declaredRoles, String question, Instant at) {
 

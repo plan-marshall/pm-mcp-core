@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 /**
  * A template element a composition left out of a plan instance, with the reason and the fact that pruned it
@@ -27,6 +28,7 @@ import java.util.Optional;
  *                   the prune
  * @since 0.1
  */
+@Builder
 public record PrunedElement(Kind element, String id, PruneReason reason, String sourceFact) {
 
     /**

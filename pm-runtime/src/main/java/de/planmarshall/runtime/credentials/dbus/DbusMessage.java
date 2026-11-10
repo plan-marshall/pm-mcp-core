@@ -14,6 +14,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,6 +33,7 @@ import org.jspecify.annotations.Nullable;
  * @param signature   header field 8, empty for an empty body
  * @param body        the body values, one per complete type of the signature
  */
+@Builder
 public record DbusMessage(int type, int flags, long serial, @Nullable String path, @Nullable String iface,
 @Nullable String member, @Nullable String errorName, long replySerial, @Nullable String destination,
 @Nullable String sender, String signature, List<Object> body) {

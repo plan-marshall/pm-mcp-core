@@ -12,6 +12,7 @@ package de.planmarshall.runtime.worker;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
@@ -37,6 +38,7 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  * @param resumeSessionId the stored session a resumed generation continues; {@code null} for a new session
  * @since 0.1
  */
+@Builder
 public record WorkerStartRequest(EffectiveRole role, LaunchRequest.WorkdirKind workdirKind, @Nullable String planId,
 @Nullable Path workdir, @Nullable ContractEnvelope envelope, boolean writesFreeText, List<String> stateSkills,
 List<String> domainSkills, String zeroToolPrompt, @Nullable String resumeSessionId) {

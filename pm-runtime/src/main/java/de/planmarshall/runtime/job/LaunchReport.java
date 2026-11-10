@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobRecord.Confinement;
@@ -39,6 +40,7 @@ import de.planmarshall.core.store.StrictJson;
  * @param landlockAbi      the Landlock ABI version of the applied ruleset; {@code null} when none was applied
  * @since 0.1
  */
+@Builder
 public record LaunchReport(long pid, Instant processStartedAt, Confinement confinement,
 @Nullable Integer landlockAbi) {
 

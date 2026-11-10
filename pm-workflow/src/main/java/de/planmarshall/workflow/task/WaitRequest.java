@@ -11,9 +11,10 @@ package de.planmarshall.workflow.task;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
-import org.jspecify.annotations.Nullable;
 
 /**
  * What a worker's {@code pm_wait} asks the task protocol: a task of the caller's role, for the caller's generation.
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @param reOfferBudget    the re-offer budget of the state whose task the worker takes
  * @since 0.1
  */
+@Builder
 public record WaitRequest(String generationId, String role, String generationDigest, String roleDigest,
 int reOfferBudget) {
 

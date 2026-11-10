@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
@@ -165,6 +166,7 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      *                                {@code null} when there is none
      * @since 0.1
      */
+    @Builder
     record ParseResult(boolean successMarker, int diagnostics, boolean contradictingEvidence,
     @Nullable SelfReportContradiction selfReportContradiction) {
 
@@ -194,6 +196,7 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      *                           profile declares it unreliable, and then the final result event replaces the exit code
      * @since 0.1
      */
+    @Builder
     record ProcessEnded(JobId.Kind kind, @Nullable Termination termination, WaitStatus waitStatus, LogState log,
     ParseResult parse, Set<Integer> declaredExitCodes, boolean exitReliable) implements JobEvidence {
 

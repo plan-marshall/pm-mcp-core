@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.plan;
 
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.WorkflowPrinter;
@@ -30,6 +31,7 @@ import de.planmarshall.workflow.dsl.WorkflowPrinter;
  * @param digest     the SHA-256 of {@code text}
  * @since 0.1
  */
+@Builder
 public record ComposedUnit(String unit, int version, WorkflowDefinition definition, String text, String digest) {
 
     /**

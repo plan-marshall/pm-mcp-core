@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.Builder;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -40,6 +41,7 @@ import org.jspecify.annotations.Nullable;
  *                          incomplete
  * @since 0.1
  */
+@Builder
 public record MachineOnboarding(boolean firstRunCompleted, String state, List<String> pendingSteps,
 Set<String> completedSteps) {
 

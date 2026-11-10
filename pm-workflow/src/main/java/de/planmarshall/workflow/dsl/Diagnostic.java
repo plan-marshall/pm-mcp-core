@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.dsl;
 
+import lombok.Builder;
+
 /**
  * Why and where the parser refused a unit (PM-IMPL-5).
  *
@@ -19,5 +21,6 @@ package de.planmarshall.workflow.dsl;
  * @param message      what is wrong, in words
  * @since 0.1
  */
+@Builder
 public record Diagnostic(RefusalRule rule, String resourceName, int line, int column, String message) {
 }

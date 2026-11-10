@@ -11,10 +11,11 @@ package de.planmarshall.workflow.model;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleForm;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The task queue the model caller queues into and closes through (PM-WORK-1 Queue and the closed outcomes of
@@ -51,6 +52,7 @@ public interface ModelQueue {
      * @param consultation        whether the task serves a {@code consult role} clause
      * @since 0.1
      */
+    @Builder
     record Enqueue(@Nullable String scopeId, String stateId, String entityKey, String role, RoleForm form,
     String configurationDigest, String harness, String model, EffortValue effort, boolean consultation) {
 
@@ -98,6 +100,7 @@ public interface ModelQueue {
      *                  {@link ModelCallResult#ROLE_UNQUALIFIED} or {@link ModelCallResult#ROLE_UNAVAILABLE}
      * @since 0.1
      */
+    @Builder
     record Close(@Nullable String scopeId, String stateId, String entityKey, String role, String reason) {
 
         /** Rejects {@code null} components other than {@code scopeId}. */

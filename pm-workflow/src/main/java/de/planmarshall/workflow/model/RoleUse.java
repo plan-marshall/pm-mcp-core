@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.Builder;
 
 import de.planmarshall.core.role.RoleClass;
 
@@ -35,6 +36,7 @@ import de.planmarshall.core.role.RoleClass;
  * @param consultation    whether the use is a {@code consult role} clause
  * @since 0.1
  */
+@Builder
 public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasses, boolean consultation) {
 
     /** Copies the set. */

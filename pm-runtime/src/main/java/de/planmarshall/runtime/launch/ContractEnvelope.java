@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
@@ -30,6 +31,7 @@ import de.planmarshall.core.profile.JsonNode;
  * @param resultSchema the worker's result schema
  * @since 0.1
  */
+@Builder
 public record ContractEnvelope(String scopeKind, @Nullable String scopeId, String entity, String firstCall,
 List<LinkSchema> links, JsonNode resultSchema) {
 

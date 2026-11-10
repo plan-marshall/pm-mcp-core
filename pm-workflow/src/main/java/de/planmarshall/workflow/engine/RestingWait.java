@@ -12,6 +12,7 @@ package de.planmarshall.workflow.engine;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.store.WorkflowStatus;
@@ -33,6 +34,7 @@ import de.planmarshall.core.store.WorkflowStatus;
  * @param taskEntities the entities of the state's queue tasks; empty when it has none
  * @since 0.1
  */
+@Builder
 public record RestingWait(String stateId, AwaitedEvent awaitedEvent, Set<String> jobIds, Set<String> taskEntities) {
 
     /**

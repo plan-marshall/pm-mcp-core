@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
@@ -39,6 +40,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param units   the composed phase sub-workflows and bound axis variants of the version, in header order
  * @since 0.1
  */
+@Builder
 public record PlanInstance(int version, PlanInstanceHeader header, WorkflowDefinition unit, String text,
 List<ComposedUnit> units) {
 

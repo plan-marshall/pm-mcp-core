@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.ast;
 
+import lombok.Builder;
+
 /**
  * The parsed {@code instance} header line of a plan instance version (PM-IMPL-5, PM-EXT-7): the members of the
  * {@code PlanInstanceHeader} schema the engine reads, and the header JSON exactly as it was read. The members the tree
@@ -21,5 +23,6 @@ package de.planmarshall.workflow.ast;
  * @param json    the header JSON as read
  * @since 0.1
  */
+@Builder
 public record InstanceHeader(String planId, int version, String event, InstanceInputs inputs, String json) {
 }

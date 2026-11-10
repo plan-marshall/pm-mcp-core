@@ -9,9 +9,11 @@
  */
 package de.planmarshall.workflow.model;
 
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
+
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleValidationReason;
-import org.jspecify.annotations.Nullable;
 
 /**
  * What the one model caller did with a {@code job llm} state (PM-WORK-1, The Model Caller): it queued the task for the
@@ -40,6 +42,7 @@ public sealed interface ModelCallResult {
      * @param formDowngraded  whether a warm artifact runs fresh because only the fresh form qualifies
      * @since 0.1
      */
+    @Builder
     record Queued(String queueTaskId, String role, RoleForm form, String configurationDigest, boolean formDowngraded)
             implements ModelCallResult {
     }
@@ -54,6 +57,7 @@ public sealed interface ModelCallResult {
      * @param detail           what is wrong, naming the value where one exists
      * @since 0.1
      */
+    @Builder
     record Closed(String role, String reason, @Nullable RoleValidationReason validationReason, String detail)
             implements ModelCallResult {
     }

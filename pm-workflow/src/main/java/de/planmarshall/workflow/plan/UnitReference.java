@@ -10,9 +10,10 @@
 package de.planmarshall.workflow.plan;
 
 import java.util.Objects;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
-import org.jspecify.annotations.Nullable;
 
 /**
  * A unit a plan instance names by digest, a template or a sub-unit (PM-IMPL-5): {@code unit_ref} of the instance
@@ -24,6 +25,7 @@ import org.jspecify.annotations.Nullable;
  * @param origin where the unit comes from
  * @since 0.1
  */
+@Builder
 public record UnitReference(String unit, @Nullable String file, String digest, UnitOrigin origin) {
 
     /**

@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.CallValue;
 
@@ -30,6 +31,7 @@ import de.planmarshall.workflow.ast.CallValue;
  * @param bindings the policy call arguments the rule fixes when it holds
  * @since 0.1
  */
+@Builder
 public record CompositionRule(String id, Condition when, List<Prune> prunes, List<Binding> bindings) {
 
     /**

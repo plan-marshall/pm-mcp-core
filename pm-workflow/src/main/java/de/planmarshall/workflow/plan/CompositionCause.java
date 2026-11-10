@@ -12,12 +12,13 @@ package de.planmarshall.workflow.plan;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Optional;
+import lombok.Builder;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.workflow.plan.HeaderJson.Node;
 import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Why a composition was attempted, or why it was refused (PM-IMPL-5): the {@code cause} object of a line of the
@@ -33,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * @param refusal        for a refused composition: why it was refused
  * @since 0.1
  */
+@Builder
 public record CompositionCause(@Nullable String gate, @Nullable FallbackCause fallbackCause,
 @Nullable String waiverId, @Nullable String deliverableId, @Nullable String replanId,
 @Nullable String fromConfigHash, @Nullable String toConfigHash,

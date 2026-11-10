@@ -10,7 +10,7 @@
 package de.planmarshall.workflow.ast;
 
 import java.util.List;
-
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,6 +24,7 @@ import org.jspecify.annotations.Nullable;
  * @param location      where the transition was read
  * @since 0.1
  */
+@Builder
 public record OutcomeTransition(
 String outcomeName,
 String targetStateId,

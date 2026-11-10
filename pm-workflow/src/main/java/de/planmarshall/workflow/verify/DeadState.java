@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.SourceLocation;
 
@@ -28,6 +29,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
  * @param run        the number of the run that reached it, counted from {@code 1}
  * @since 0.1
  */
+@Builder
 public record DeadState(String stateId, SourceLocation location, Map<String, Boolean> assignment, int run) {
 
     /**

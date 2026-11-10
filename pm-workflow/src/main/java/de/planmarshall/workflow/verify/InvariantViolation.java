@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.workflow.ast.SourceLocation;
 
@@ -24,6 +25,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
  * @param message  what is wrong, naming the states, transitions, outcomes or values concerned
  * @since 0.1
  */
+@Builder
 public record InvariantViolation(InvariantId id, String stateId, SourceLocation location, String message) {
 
     /**

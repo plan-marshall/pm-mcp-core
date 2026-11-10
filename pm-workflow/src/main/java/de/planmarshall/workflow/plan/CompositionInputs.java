@@ -11,7 +11,7 @@ package de.planmarshall.workflow.plan;
 
 import java.util.List;
 import java.util.Objects;
-
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  *                                 none
  * @since 0.1
  */
+@Builder
 public record CompositionInputs(String configHash, List<UnitReference> templates, List<UnitReference> subUnits,
 String compositionRulesRevision, String compositionRulesDigest, String planFactsDigest,
 @Nullable String realizedFootprintDigest, @Nullable String changeType, @Nullable String providersDigest) {

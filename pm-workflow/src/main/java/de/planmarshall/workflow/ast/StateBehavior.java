@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -145,6 +145,7 @@ public sealed interface StateBehavior
      * @param consultRoles      the roles of the {@code consult role} clauses in source order
      * @param transitions       the transitions of the evaluated outcomes
      */
+    @Builder
     record ModelJob(String entityKind, @Nullable String roleName, @Nullable String fanOutPrimitiveId,
     @Nullable String rolesPrimitiveId, AskForm askForm, List<String> consultRoles,
     List<OutcomeTransition> transitions) implements StateBehavior {
@@ -182,6 +183,7 @@ public sealed interface StateBehavior
      * @param paramBindings the bound parameters by name, in source order
      * @param transitions   the transitions of the callee's exits
      */
+    @Builder
     record SubWorkflowCall(String subWorkflowId, @Nullable String entry, Map<String, CallValue> paramBindings,
     List<OutcomeTransition> transitions) implements StateBehavior {
 

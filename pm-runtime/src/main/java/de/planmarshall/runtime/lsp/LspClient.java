@@ -28,6 +28,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+import lombok.Builder;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DefinitionCapabilities;
 import org.eclipse.lsp4j.DefinitionParams;
@@ -81,6 +82,7 @@ public final class LspClient implements AutoCloseable {
      * @param endLine        the end line
      * @param endCharacter   the end character
      */
+    @Builder
     public record LspLocation(String uri, int startLine, int startCharacter, int endLine, int endCharacter) {
 
         static LspLocation of(String uri, Range range) {

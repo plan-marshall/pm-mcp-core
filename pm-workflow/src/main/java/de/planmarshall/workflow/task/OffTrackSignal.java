@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.task;
 
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
 
@@ -23,6 +24,7 @@ import de.planmarshall.core.queue.QueueTaskRecord;
  * @param threshold   the threshold in force
  * @since 0.1
  */
+@Builder
 public record OffTrackSignal(QueueTaskRecord.SignalName signal, QueueTaskRecord.SignalAction action,
 double measurement, double threshold) {
 

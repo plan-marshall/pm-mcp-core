@@ -17,6 +17,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpTimeoutException;
 import java.util.Locale;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -167,6 +168,7 @@ public final class EndpointClient {
      * @param detail  what happened, for a record; never a task text
      * @since 0.1
      */
+    @Builder
     public record Response(int status, String body, Failure failure, String detail) {
 
         /** Copies the values and refuses a missing outcome. */

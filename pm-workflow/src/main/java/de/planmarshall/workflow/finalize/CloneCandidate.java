@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.finalize;
 
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * One run of the plan's added lines that repeats a run of the tree the plan started from (Phase Workflows § Finalize
@@ -25,6 +26,7 @@ import java.util.Objects;
  * @param tokens        the length of the run in normalized tokens, at least 50
  * @since 0.1
  */
+@Builder
 public record CloneCandidate(String addedPath, LineRange addedRange, String existingPath, LineRange existingRange,
 int tokens) {
 

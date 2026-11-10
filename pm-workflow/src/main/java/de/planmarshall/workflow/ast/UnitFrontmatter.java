@@ -11,7 +11,7 @@ package de.planmarshall.workflow.ast;
 
 import java.time.LocalDate;
 import java.util.List;
-
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -40,6 +40,7 @@ import org.jspecify.annotations.Nullable;
  * @param location         where the opening {@code ---} of the frontmatter was read
  * @since 0.1
  */
+@Builder
 public record UnitFrontmatter(
 String name,
 String description,

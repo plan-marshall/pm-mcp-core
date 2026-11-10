@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.core.role.RoleArtifact;
 
@@ -26,6 +27,7 @@ import de.planmarshall.core.role.RoleArtifact;
  * @param threshold   the threshold in force
  * @since 0.1
  */
+@Builder
 public record ActivitySignal(RoleArtifact.OffTrackSignal signal, RoleArtifact.OffTrackAction action,
 double measurement, double threshold) {
 
