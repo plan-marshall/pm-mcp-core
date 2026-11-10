@@ -65,4 +65,4 @@ The operator decided at refine (2026-11-09): the log, not the exit code alone, p
   link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
 * Supersedes in part: link:015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR `runtime-job/015`]
 * Developer guide: link:../../developer/runtime-job.adoc[`runtime.job`];
-  link:../../../pm-core/doc/developer/core-build.adoc[`core.build`]
+  link:../../../../pm-core/doc/developer/core-build.adoc[`core.build`]
