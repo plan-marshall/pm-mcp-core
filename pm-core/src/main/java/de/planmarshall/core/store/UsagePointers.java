@@ -94,8 +94,9 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         var cacheCreationTokens = component(turn, cacheCreation, unparsed);
         var reasoningValues = component(turn, reasoning, unparsed);
         var tools = component(turn, toolUses, unparsed);
-        var cost = cost(turn, unparsed);
-        var reason = reason(unparsed, input, output, cacheReadTokens, cacheCreationTokens, reasoningValues, tools);
+        var cost = cost(turn, unparsed).orElse(null);
+        var reason = reason(unparsed, input, output, cacheReadTokens, cacheCreationTokens, reasoningValues, tools)
+                .orElse(null);
         return new HarnessUsage(input, output, cacheReadTokens, cacheCreationTokens, reasoningValues, tools, cost,
                 reason);
     }

@@ -56,6 +56,8 @@ public interface CiProvider {
 
     /**
      * The operation {@code ci.issue-view}: one issue by its reference.
+     * <p>
+     * A consumer obtains the {@link IssueRef} from {@link ForgeUrl#issue()}, which is present exactly for an issue URL.
      *
      * @param issue the issue
      * @return the issue; GitHub answers {@code REJECTED} "is a pull request" when the number names a pull request,
@@ -66,10 +68,17 @@ public interface CiProvider {
 
     /**
      * The operation {@code ci.issue-comment}: one comment on an issue.
+     * <p>
+     * GitHub reads the issue with the credential that authors the comment and answers {@code REJECTED} "is a pull
+     * request" without posting when its number names a pull request; a failed read is its outcome, never a post.
+     * GitLab posts to {@code issues/{iid}/notes}, which addresses an issue by GitLab's own numbering: a merge-request
+     * iid is also the iid of some issue there, so the adapter posts and the reference type is the protection (module
+     * ADR 010).
      *
      * @param issue the issue
      * @param body  the comment body
-     * @return the posted comment; {@code REJECTED} when the issue is on another origin
+     * @return the posted comment; {@code REJECTED} when the issue is on another origin, when the body is blank, or on
+     *         GitHub when the number names a pull request
      */
     Result<IssueComment> issueComment(IssueRef issue, String body);
 
@@ -79,6 +88,8 @@ public interface CiProvider {
      * A pull request that is not open is a value, not a refusal: a closed or merged pull request is
      * {@link Result.Outcome#OK} with its {@link PullRequest#state() state}. A changed-path list the forge cut short is
      * reported by the {@link PullRequest#pathCompleteness() completeness value}, never presented as the whole list.
+     * A consumer obtains the {@link PullRequestRef} from {@link ForgeUrl#pullRequest()}, which is present exactly for a
+     * pull-request URL.
      *
      * @param pullRequest the pull request
      * @return the pull request; {@code NOT_FOUND} when no pull request has the number; on GitHub that includes a

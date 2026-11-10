@@ -26,7 +26,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.api.MachinePaths;
@@ -293,7 +292,7 @@ final class RuntimeChildProcess {
         process.destroy();
         process.waitFor();
         var outcome = OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.BUILD,
-                Optional.of(JobEvidence.Termination.ENGINE_CANCEL), new JobEvidence.Signalled("SIGTERM"),
+                JobEvidence.Termination.ENGINE_CANCEL, new JobEvidence.Signalled("SIGTERM"),
                 JobEvidence.LogState.READABLE, JobEvidence.ParseResult.NOTHING, Set.of(), true));
         var settled = running.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                 .endedAt(Instant.now()).signal("SIGTERM").build();

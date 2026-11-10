@@ -307,7 +307,7 @@ public final class WorkerSupervisor {
             var result = environment.starter().startWorker(new WorkerStart(launch, environment.enrolment(),
                     new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null), budgetKey(role),
                     role.artifact().budgetFloorSeconds(), floorDerivation(), block.writablePaths(environment.home()),
-                    Optional.empty()));
+                    null));
             return switch (result) {
                 case JobRunner.StartResult.Started(var jobId) -> Optional.of(jobId);
                 case JobRunner.StartResult.Refused _ -> Optional.empty();

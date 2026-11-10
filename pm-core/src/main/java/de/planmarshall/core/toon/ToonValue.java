@@ -22,9 +22,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * An immutable value of the JSON data model as the TOON encoder consumes it.
  * <p>
- * The tree is built explicitly (records, no reflection): PM-MCP maps its records onto it in their
- * declared component order. Java {@code null} and {@link Optional#empty()} values are omitted when a
- * field is added to an {@link ToonObject}; an explicit JSON {@code null} is {@link ToonNull}.
+ * The tree is built explicitly (records, no reflection): PM-MCP maps its records onto it in their declared component
+ * order. A Java {@code null} value is omitted when a field is added to an {@link ToonObject}; an explicit JSON
+ * {@code null} is {@link ToonNull}.
  *
  * @since 0.1
  */
@@ -172,7 +172,7 @@ public sealed interface ToonValue
             }
         }
 
-        /** Insertion-ordered builder; {@code null} and empty optional values are omitted. */
+        /** Insertion-ordered builder; {@code null} values are omitted. */
         public static final class Builder {
 
             private final List<Field> fields = new ArrayList<>();
@@ -217,16 +217,6 @@ public sealed interface ToonValue
              */
             public Builder add(String key, boolean value) {
                 return add(key, new ToonBoolean(value));
-            }
-
-            /**
-             * @param key   the key
-             * @param value the optional value; omitted when empty
-             * @return this builder
-             */
-            public Builder add(String key, Optional<? extends ToonValue> value) {
-                value.ifPresent(v -> add(key, v));
-                return this;
             }
 
             /**

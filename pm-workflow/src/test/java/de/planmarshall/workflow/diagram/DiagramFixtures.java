@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.FreeParam;
@@ -284,7 +283,7 @@ final class DiagramFixtures {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, P parameters) {
-            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
         }
 
         @Override

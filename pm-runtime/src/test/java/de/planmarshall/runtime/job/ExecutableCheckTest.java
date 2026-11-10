@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -225,7 +224,7 @@ class ExecutableCheckTest {
         @DisplayName("positive control: a build job of npm runs the enrolled npm")
         void npmBuild() {
             assertEquals(List.of(tool(HostToolName.NPM)),
-                    passed(enrolment, new HostToolBuild(words().next(), Optional.empty())),
+                    passed(enrolment, new HostToolBuild(words().next(), null)),
                     "an npm build job runs the enrolled npm");
         }
     }
@@ -307,7 +306,7 @@ class ExecutableCheckTest {
         @DisplayName("positive control: mvnw starts as the verified wrapper at the root of the tree")
         void mvnw() {
             assertEquals(List.of(fixture.root.resolve(JobEnrolmentFixture.MVNW).toString()),
-                    passed(enrolment, new WrapperBuild(WrapperName.MVNW, words().next(), Optional.empty())),
+                    passed(enrolment, new WrapperBuild(WrapperName.MVNW, words().next(), null)),
                     "mvnw starts as the wrapper at the root");
         }
 
@@ -315,7 +314,7 @@ class ExecutableCheckTest {
         @DisplayName("positive control: pw runs through the enrolled python3 with the wrapper as first argument")
         void pw() {
             assertEquals(List.of(tool(HostToolName.PYTHON3), fixture.root.resolve(JobEnrolmentFixture.PW).toString()),
-                    passed(enrolment, new WrapperBuild(WrapperName.PW, words().next(), Optional.empty())),
+                    passed(enrolment, new WrapperBuild(WrapperName.PW, words().next(), null)),
                     "pw runs through the enrolled python3");
         }
 
@@ -325,7 +324,7 @@ class ExecutableCheckTest {
             drift(HostToolName.PYTHON3);
 
             assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
-                    refused(enrolment, new WrapperBuild(WrapperName.PW, words().next(), Optional.empty())).reason(),
+                    refused(enrolment, new WrapperBuild(WrapperName.PW, words().next(), null)).reason(),
                     "pw with a drifted python3 is refused");
         }
     }

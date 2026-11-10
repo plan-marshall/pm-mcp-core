@@ -340,7 +340,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`job`
 |The unit's store state (`stored`; `stored_untrusted` for `source-lesson`); `source-<kind>.unscreened` (`retry`).
-|`job llm screen role screener each screen.batch-parts` over the stored items without a cached verdict (one screener task per batch part, one part unless the batch exceeds the screening split bound; a fully cached batch settles at once), zero tools, in the empty `cwd/` subdirectory of its job-private directory; fail-closed. The verdict is written into the manifest.
+|`job llm screen role screener each screen.batch-parts` over the stored items without a cached verdict (one screener task per batch part, one part unless the batch exceeds the screening split bound; a fully cached batch settles at once), zero tools, in the empty `cwd/` subdirectory of its job-private directory; fail-closed. The verdict is written into the manifest. For `source-pr`, a pull request the operator did not author whose changed files include an instruction file resolves `suspicious`, those files its reasons, whatever the screener's verdict (link:../model-work/07-untrusted-text-screening.adoc#pr-instruction-files[Model Work Specification, A Pull Request That Changes an Instruction File]).
 |`clean` -> `source-<kind>.done`; `suspicious` -> `source-<kind>.flagged`; `lost` (the screener failed, its launch was refused, or no configuration of `screener` qualifies) -> `source-<kind>.unscreened`.
 |link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener Job]
 
@@ -348,7 +348,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`operator_wait`
 |`source-<kind>.screen` (`suspicious`).
-|`facts`: the flagged spans with their reasons. `accept` (`reason: text[1..2000]`: the text is used, still delivered marked untrusted, and the acceptance is audited); implicit `step_out` (_remove_).
+|`facts`: the flagged spans with their reasons, for `source-pr` also the instruction files it changes. `accept` (`reason: text[1..2000]`: the text is used, still delivered marked untrusted, and the acceptance is audited); implicit `step_out` (_remove_).
 |`accept` -> `source-<kind>.done`.
 |link:../model-work/07-untrusted-text-screening.adoc#two-level-guard[Model Work Specification, Two-Level Guard for External Text]
 

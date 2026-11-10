@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -730,7 +729,7 @@ class EnrolmentsTest {
 
             assertAll(
                     () -> assertEquals(store.file(PROJECT), outcome.file()),
-                    () -> assertEquals(Optional.of(recorded), outcome.recorded()),
+                    () -> assertEquals(recorded, outcome.recorded()),
                     () -> assertEquals(StoreDigest.of(edited), outcome.current()),
                     () -> assertTrue(outcome.settled().isEmpty()),
                     () -> assertTrue(verify().pilot()),
@@ -801,7 +800,7 @@ class EnrolmentsTest {
             var outcome = enrolments.rebaseline(PROJECT);
 
             assertAll(
-                    () -> assertTrue(outcome.recorded().isEmpty()),
+                    () -> assertNull(outcome.recorded()),
                     () -> assertFalse(verify().pilot()));
         }
 
@@ -1813,25 +1812,23 @@ class EnrolmentsTest {
     }
 
     @Test
-    @DisplayName("a re-baseline outcome refuses missing components and keeps its own copy of what it settled")
+    @DisplayName("a re-baseline outcome refuses non-nullable components and keeps its own copy of what it settled")
     void rebaselineComponents() {
         var digest = StoreDigest.of(new byte[0]);
         var file = base.resolve("f");
         var none = List.<PairRecovery>of();
         var settled = new ArrayList<PairRecovery>();
-        var outcome = new Enrolments.Rebaseline(file, Optional.empty(), digest, settled);
+        var outcome = new Enrolments.Rebaseline(file, null, digest, settled);
         settled.add(new PairRecovery.Completed(TransactionId.generate(Clock.systemUTC()), List.of(file)));
         var reported = outcome.settled();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(null, Optional.empty(), digest, none)),
+                        () -> new Enrolments.Rebaseline(null, null, digest, none)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(file, null, digest, none)),
+                        () -> new Enrolments.Rebaseline(file, null, null, none)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(file, Optional.empty(), null, none)),
-                () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(file, Optional.empty(), digest, null)),
+                        () -> new Enrolments.Rebaseline(file, null, digest, null)),
                 () -> assertTrue(reported.isEmpty()),
                 () -> assertThrows(UnsupportedOperationException.class, reported::clear));
     }

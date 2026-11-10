@@ -109,19 +109,22 @@ class GitHubCiProviderTest {
     private static final String REPOSITORY_PATH = REPOSITORIES_PATH + "/" + OWNER + "/" + NAME;
     /** The pull-request reads of {@link #PULL_REQUEST}, answered by {@link #getModuleDispatcher()}. */
     private static final String PULLS_PATH = REPOSITORY_PATH + "/pulls";
+    /** The issue reads of {@link #REPOSITORY}, answered by {@link #getModuleDispatcher()} when a test primed one. */
+    private static final String ISSUES_PATH = REPOSITORY_PATH + "/issues/";
 
     private final List<HttpClient> clients = new CopyOnWriteArrayList<>();
     private final AtomicReference<MockResponse> pullResponse = new AtomicReference<>();
     private final AtomicReference<MockResponse> filesResponse = new AtomicReference<>();
     private final AtomicReference<MockResponse> repositoryResponse = new AtomicReference<>();
+    private final AtomicReference<MockResponse> issueResponse = new AtomicReference<>();
 
     /**
-     * Answers the pull-request read and the changed-files read with the responses a test primed; the two reads
-     * carry generated titles, bodies, branches and paths, which a static {@code @MockResponseConfig} cannot. The
-     * repository's permission read is answered only when a test primed it, so a test can vary the permission between
-     * two reads; every other path is left to the static configurations. The base URL is the parent of every path it
-     * answers rather than one of them, because a dispatcher whose base URL equals the path of a static configuration
-     * is refused as a conflict.
+     * Answers the pull-request read, the changed-files read and a primed issue read; the two pull-request reads
+     * carry generated titles, bodies, branches and paths, which a static {@code @MockResponseConfig} cannot, and the
+     * issue read is the guard of {@code issueComment}. The repository's permission read is answered only when a test
+     * primed it, so a test can vary the permission between two reads; every other path is left to the static
+     * configurations. The base URL is the parent of every path it answers rather than one of them, because a dispatcher
+     * whose base URL equals the path of a static configuration is refused as a conflict.
      */
     ModuleDispatcherElement getModuleDispatcher() {
         return new ModuleDispatcherElement() {
@@ -135,6 +138,9 @@ class GitHubCiProviderTest {
                 String path = request.getUrl().encodedPath();
                 if (REPOSITORY_PATH.equals(path)) {
                     return Optional.ofNullable(repositoryResponse.get());
+                }
+                if (path.startsWith(ISSUES_PATH)) {
+                    return Optional.ofNullable(issueResponse.get());
                 }
                 if (!path.startsWith(PULLS_PATH)) {
                     return Optional.empty();
@@ -524,6 +530,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"id\":9001}")
     void postsComment(MockWebServer server) {
         var provider = tokenProvider(server, CLASSIC_TOKEN);
+        issueResponse.set(issueBody(5, false));
 
         Result<IssueComment> result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment());
 
@@ -531,7 +538,42 @@ class GitHubCiProviderTest {
         assertAll("the posted comment",
                 () -> assertEquals("9001", comment.id(), "the comment id is read"),
                 () -> assertEquals("https://github.com/cuioss/pm/issues/5#issuecomment-9001", comment.url(),
-                        "the comment URL is derived"));
+                        "the comment URL is derived"),
+                () -> assertEquals(2, server.getRequestCount(), "the issue read precedes the post"));
+    }
+
+    @Test
+    @DisplayName("refuses a comment on a pull-request number without posting (the pull_request member is the flag)")
+    void refusesCommentOnPullRequest(MockWebServer server) throws Exception {
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
+        issueResponse.set(issueBody(7, true));
+
+        var result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 7), comment());
+        var request = server.takeRequest(5, TimeUnit.SECONDS);
+
+        assertAll("the pull-request comment refusal",
+                () -> assertEquals(Result.Outcome.REJECTED, result.outcome(), "a pull-request number is refused"),
+                () -> assertEquals("is a pull request", result.detail(), "the reason names the pull request"),
+                () -> assertEquals("/repos/cuioss/pm/issues/7", request == null ? null : request.getTarget(),
+                        "the issue is read before the refusal"),
+                () -> assertEquals(1, server.getRequestCount(), "no comment is posted for a pull request"));
+    }
+
+    @ParameterizedTest(name = "a {0} of the guard read answers the issueView outcome")
+    @CsvSource({"404, NOT_FOUND", "403, PERMISSION_DENIED", "429, RATE_LIMITED", "500, FAILED"})
+    @DisplayName("propagates a failed guard read and sends no post (the status mapping is the contract)")
+    @MockResponseConfig(path = "/repos/cuioss/pm/issues/7/comments", method = HttpMethodMapper.POST, status = 201,
+            stringContent = "{\"id\":9001}")
+    void propagatesFailedGuardRead(int status, Result.Outcome expected, MockWebServer server) {
+        var provider = tokenProvider(server, CLASSIC_TOKEN);
+        issueResponse.set(new MockResponse.Builder().code(status).addHeader("Content-Type", "application/json")
+                .body("{\"message\":\"refused\"}").build());
+
+        var result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 7), comment());
+
+        assertAll("the failed guard read",
+                () -> assertEquals(expected, result.outcome(), "the read's outcome is propagated"),
+                () -> assertEquals(1, server.getRequestCount(), "no post is sent after a failed read"));
     }
 
     @Test
@@ -540,6 +582,7 @@ class GitHubCiProviderTest {
             stringContent = "{\"message\":\"Not Found\"}")
     void refusesComment(MockWebServer server) {
         var provider = tokenProvider(server, CLASSIC_TOKEN);
+        issueResponse.set(issueBody(5, false));
 
         assertAll("the comment refusals",
                 () -> assertEquals(Result.Outcome.NOT_FOUND,
@@ -704,15 +747,19 @@ class GitHubCiProviderTest {
             stringContent = "{\"id\":9001}")
     void postsAppCommentWithUserToken(MockWebServer server) throws Exception {
         var provider = appProvider(server);
+        issueResponse.set(issueBody(5, false));
 
         var result = provider.issueComment(issue(WEB_ORIGIN, FORGE, 5), comment());
-        var request = server.takeRequest(5, TimeUnit.SECONDS);
+        var readRequest = server.takeRequest(5, TimeUnit.SECONDS);
+        var commentRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
         assertAll("the App comment",
-                () -> assertNotNull(request, "the comment request reaches the server"),
+                () -> assertNotNull(readRequest, "the guard read reaches the server"),
+                () -> assertNotNull(commentRequest, "the comment request reaches the server"),
                 () -> assertTrue(result.isOk(), "the comment is posted"),
-                () -> assertEquals(BEARER + USER_TOKEN,
-                        request == null ? null : request.getHeaders().get("Authorization"),
+                () -> assertEquals(BEARER + USER_TOKEN, authorization(readRequest),
+                        "the user access token reads the issue"),
+                () -> assertEquals(BEARER + USER_TOKEN, authorization(commentRequest),
                         "the user access token authors the comment"));
     }
 
@@ -786,6 +833,22 @@ class GitHubCiProviderTest {
     private static MockResponse json(int status, Object body) {
         return new MockResponse.Builder().code(status).addHeader("Content-Type", "application/json")
                 .body(Json.write(body)).build();
+    }
+
+    /**
+     * The body of {@code GET repos/{owner}/{repo}/issues/{n}}; the member names are GitHub's wire format and the
+     * {@code pull_request} member is the flag the guard reads.
+     */
+    private static MockResponse issueBody(int number, boolean pullRequest) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("title", "An issue");
+        body.put("state", "open");
+        body.put("html_url", "https://github.com/" + OWNER + "/" + NAME + "/issues/" + number);
+        if (pullRequest) {
+            body.put("pull_request", Map.of("url", "https://api.github.com/repos/" + OWNER + "/" + NAME
+                    + "/pulls/" + number));
+        }
+        return json(200, body);
     }
 
     private void prime(Fixture fixture, Map<String, Object> pull) {

@@ -100,12 +100,18 @@ Code and tests, named per class (R19):
 - OBSERVED: `pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/{HttpClientTest,JsonTest}.java`, `pm-providers/pm-provider-sonar/src/test/java/de/planmarshall/provider/sonar/{SonarClientTest,SonarProviderTest}.java` — routing, `word()`, the Sonar edges (D2, D3, D4)
 - HYPOTHESIS: new generator classes in `CiGenerators` and `GitGenerators` (a pull-request fixture generator, a commit-id generator, a name generator) with their tests — the new classes the text implies (D2)
 
+- OBSERVED: `pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/AbsenceContractsTest.java`, `pm-providers/pm-provider-github/src/test/java/de/planmarshall/provider/github/AbsenceContractsTest.java`, `pm-providers/pm-provider-gitlab/src/test/java/de/planmarshall/provider/gitlab/AbsenceContractsTest.java`, `pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/AbsenceContractsTest.java` — the absence tests that cannot fail (carried 2026-11-10 from `landings/PLAN-V2-99.md`)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/job/OptionalAbsenceContractsTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/ProcessTreeTrackerTest.java` — the generator-less literals and the unpinned nullable root start (carried 2026-11-10 from `landings/PLAN-V2-99.md`)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchFixtures.java` — the literal bound of the idle wake-ups (carried 2026-11-10 from `landings/PLAN-V2-97.md`)
+- OBSERVED: `pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ForgeUrlTest.java` — the untested negatives of the tab grammar (carried 2026-11-10 from `landings/PLAN-V2-128.md`)
+
 Specification, documentation:
 
 - OBSERVED: `pm-providers/pm-provider-github/doc/developer/provider-github.adoc`, `pm-providers/pm-provider-gitlab/doc/developer/provider-gitlab.adoc`, `pm-providers/pm-provider-http/doc/developer/provider-http.adoc`, `pm-runtime/doc/developer/runtime-corpus.adoc` — the ADR 002 citations (D3)
 - OBSERVED: `doc/adr/017-http-tests-through-mock-response-config-and-module-dispatcher.adoc`, `doc/adr/010-the-coding-skills-and-the-accepted-exception.adoc`, `doc/adr/012-generator-artifacts.adoc` — an amendment each (D3, D5)
 - OBSERVED: `pm-runtime/README.adoc`, `pm-runtime/src/test/java/de/planmarshall/runtime/testing/generators/package-info.java` — the content of the artifact (D5)
 - OBSERVED (only with the operator's word at refine, R07): `CLAUDE.md` and `.opencode/rules/plan-marshall-standing-rules.md` — the tense of one sentence and the need of `cui-test-generator` (D3, D5)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/log/RuntimeLogMessagesTest.java` — the negative control of the byte check (carried 2026-11-09 from `landings/PLAN-V2-121.md`)
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMessages.adoc`, the ADR directory and developer guide of an existing package as additive bookkeeping.
 
@@ -164,3 +170,16 @@ Open defects of the ledger that this plan absorbs (register: `owner-register.md`
 - Wa75 C8 is **refuted at the head** (see Claim Labels); Wa79 finding 4's "405/406/409/422 mappings" is not carried (no such mapping in `SonarClient`).
 - Wa77 C6 (round trips lost punctuation in `JobLogTest` and the audit torn lines, "allowed by the spec") is decided case by case in D4(e); C9 (the root-uid vacuity of `shouldReadNoStoreOrUnit`, `StartupSequenceTest`) is pre-existing and stays.
 - Wa82 unverified lead: whether the native `pm-mcpd` build finds `stalled-scope.properties` (no registration of it exists in the repository): only the native build in `plan-marshall-mcp` shows it (register E9).
+
+**Carried 2026-11-09 from the landing analysis of PLAN-V2-121 (Expected Surface extended in the same edit)**
+
+- PLAN-V2-121 L3-1: the negative control `byteCheckNamesAChangedListing` of `RuntimeLogMessagesTest` (line 315) compares a tampered copy of the generated text with the same text, so it proves `LogMessageListing.same` and not `generatedListingIsCurrent`; make it drive the check of the committed file, as in PLAN-V2-125.
+
+**Carried 2026-11-10 from the landing analyses of PLAN-V2-99, PLAN-V2-97 and PLAN-V2-128 (Expected Surface extended in the same edit)**
+
+- PLAN-V2-99 L2-1: the absence tests of the providers cannot fail. `AbsenceContractsTest` of `pm-provider-http` (`responseWithoutOptionalParts`, line 29: the old `Response` compact constructor had no null check on `etag`, `next` or `resetAt`), of `pm-provider-github` (`ReviewComment`, line 32, and `ReviewThread`, line 40: the records have no compact constructor) and of `pm-provider-git` (`repositoryInfoWithoutHeadOrBranch` line 44, `mainWorktreeWithoutName` line 55, `refUpdateWithoutOldOrNewId` line 67) pass before and after the conversion. Give each an assertion that drives the code that sets the component (the `GitHubClient` thread and author mapper, the HTTP missing-ETag mapper, `JGitOperations` for the git records), as the four review nitpicks the lane left unapplied asked; `AbsenceContractsTest` of `pm-provider-gitlab` is read the same way.
+- PLAN-V2-99 L2-2: no test pins the nullable `ProcessTreeTracker.rootStartedAt` (an unreadable start at construction or at refresh); `ProcessTreeTrackerTest` covers a changed start only (line 146).
+- PLAN-V2-99 L3-5: the new `OptionalAbsenceContractsTest` and the four `AbsenceContractsTest` classes draw nothing from the module generators and carry arbitrary literals (`github`, `line`, `5L`, `/base`, `ok`, `test`, `id`, `body`, `now`, `missing`, `/worktree`) where the literal is not the contract (CLAUDE.md, Code Standards, test data).
+- PLAN-V2-97 (the runtime half): `LaunchComposerTest` line 180 asserts `idle_wakeups` in the unrelated test `tokenAndRecord` (a failure there is mislabelled) and uses the literal `3` here and in `LaunchFixtures.java:137`, in a class that has `@EnableGeneratorController`; move the assertion into a test of its own and draw the bound from `Generators`.
+- PLAN-V2-128 L2-3 and the literals: the untested negatives of `ForgeUrlTest` (an unknown tab on a GitLab merge request, `ForgeUrl.java:333`, where deleting the `!GITLAB_PULL_REQUEST_TABS.contains` disjunct passes every test; GitLab two trailing segments; GitLab zero or padded number with a tab; Forgejo `issues/N/files`; a 22-group path with a tab, `ForgeUrl.java:257`), and the literals `7` and `/repos/cuioss/pm/issues/7` of `GitHubCiProviderTest.refusesCommentOnPullRequest` (line 547), which no static `@MockResponseConfig` forces.
+- The assertion messages missing or outside 20 to 60 characters that the conversion touched (PLAN-V2-99: `CredentialStoreAspectTest:293`, `ProviderVerificationTest:149`, `EnrolmentsTest:803`, `HarnessesSidecarCheckTest:117,118,137`, `WorkerRecyclingTest:130,151,286`, `WorkerSupervisorLaunchTest:121`) are **owned by PLAN-V2-103 to 105**, not here.

@@ -12,6 +12,7 @@ package de.planmarshall.core.service;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
@@ -93,15 +94,15 @@ public interface JobRunner<R, C> {
      * @param budgetDerivation how the budget was derived
      * @param request          what the job runs and where, verified by the runtime before the launch
      * @param stdin            the in-memory payload the job reads from its standard input, never part of its argument
-     *                         vector; empty for none
+     *                         vector; {@code null} for none
      * @param <R>              the request of a job
      * @since 0.1
      */
     record StartRequest<R>(JobId.Kind kind, Scope scope, String budgetKey, long budgetSeconds,
-    BudgetDerivation budgetDerivation, R request, Optional<String> stdin) {
+    BudgetDerivation budgetDerivation, R request, @Nullable String stdin) {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
+         * @throws NullPointerException     if a component other than {@code stdin} is {@code null}
          * @throws IllegalArgumentException if the kind is {@code probe}, the budget key is blank or the budget is less
          *                                  than one second
          */
@@ -120,7 +121,6 @@ public interface JobRunner<R, C> {
             }
             Objects.requireNonNull(budgetDerivation, "budgetDerivation");
             Objects.requireNonNull(request, "request");
-            Objects.requireNonNull(stdin, "stdin");
         }
     }
 

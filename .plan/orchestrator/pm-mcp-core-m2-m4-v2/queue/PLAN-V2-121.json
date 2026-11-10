@@ -2,10 +2,10 @@
   "id": "PLAN-V2-121",
   "slug": "generated-listings",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-121-generated-listings",
+  "pr": "#339",
+  "landing": "landings/PLAN-V2-121.md",
   "seq": 109
 }

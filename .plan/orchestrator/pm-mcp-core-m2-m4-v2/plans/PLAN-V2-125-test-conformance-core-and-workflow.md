@@ -100,9 +100,15 @@ Code and tests, named per class (R19):
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java` — the constant initialiser and the overflow (D6)
 - OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java` — the constant test and the branch (D6)
 
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/role/RoleDigestTest.java`, `pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java`, `pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentValidationTest.java`, `pm-core/src/test/java/de/planmarshall/core/config/ConsentCodecTest.java` — the `Optional` test helpers and the byte pin of the written members (carried 2026-11-10 from `landings/PLAN-V2-97.md`)
+
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentsStoreTest.java` — the `assertThrows` lambda of line 153, `java:S5778` (carried 2026-11-10 from `landings/PLAN-V2-97.md`)
+
 Specification, documentation:
 
 - OBSERVED: `pm-core/doc/developer/core-config.adoc` — the paragraph on `LimitProperties` (D6, additive); `pm-core/src/main/java/de/planmarshall/core/config/package-info.java` — one sentence (D6)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/log/CoreLogMessagesTest.java` and `pm-workflow/src/test/java/de/planmarshall/workflow/log/WorkflowLogMessagesTest.java` — the negative control of the byte check and the short assertion messages (carried 2026-11-09 from `landings/PLAN-V2-121.md`)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/build/IstanbulSummaryParserTest.java`, `CoverageReportTest.java`, `CoverageMetricsTest.java`, `CoverageItemTest.java`, `CoverageVerdictTest.java`, `JacocoReportParserTest.java`, `LcovReportParserTest.java` — assertion message, labelled literals, `@ParameterizedTest` for the refusal cases (carried 2026-11-09 from `landings/PLAN-V2-18.md`)
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMessages.adoc`, the ADR directory and developer guide of an existing package as additive bookkeeping.
 
@@ -159,3 +165,15 @@ Open defects of the ledger that this plan absorbs (register: `owner-register.md`
 - Wa82 (5), the PR body of #321 describing two `LimitProperties` classes, and the spec lesson of Wa82 (a repo-wide search in a Done-when is no declared surface): history, no code item.
 - Wa66 S1, S3 and Wa68 S1 to S3, Wa70 S1, S2, S4, Wa72 S1 to S6 (spec inconsistencies of the closed plans, counts, the Sonar clause): findings about specs that have shipped; the lesson is carried by this spec's Standing Constraints ("substance, not form") and by the per-class table.
 - Wa81 unverified lead: the landing of #319 says `OutlineSchemaParityTest.recordEnumerations` failed first at `749fbd6e`; the reading could not reproduce it.
+
+**Carried 2026-11-09 from the landing analyses of PLAN-V2-121 and PLAN-V2-18 (Expected Surface extended in the same edit)**
+
+- PLAN-V2-121 L3-1: the negative control of `CoreLogMessagesTest` and `WorkflowLogMessagesTest` (`byteCheckNamesAChangedListing`) compares a tampered copy of the generated text with the same text, so it proves `LogMessageListing.same` and not `generatedListingIsCurrent`; make the control drive the check of the committed file (a tampered copy of the committed file read through the same path). The pre-existing assertions of the two classes (`ranges`, `unique`, `planInstanceMessages`) have no message or one under 20 characters.
+- PLAN-V2-18: `IstanbulSummaryParserTest.java:57` has an assertion message of 17 characters; `CoverageReportTest` and the Metrics / Item / Verdict tests use literal percentages without saying they are the contract (or take them from `Generators`); the refusal cases of `JacocoReportParserTest` and `LcovReportParserTest` are separate `@Test` methods and become `@ParameterizedTest`.
+
+**Carried 2026-11-10 from the landing analysis of PLAN-V2-97 (Expected Surface extended in the same edit)**
+
+- PLAN-V2-97 L2: the test helpers keep `Optional` parameters and unwrap them with `orElse(null)` (`RoleDigestTest.java:175`, `RoleValidationTableTest`, `RoleAssignmentValidationTest.java:105`); take `@Nullable` parameters, as the production code now does.
+- PLAN-V2-97 L2: the landing says the stored formats are "pinned by" `ConsentCodecTest.roundTrip` and the parity tests, but the diffs change constructor arguments only and a round trip with schema validation does not compare bytes (`ConsentCodecTest.java:119`); add one assertion per converted codec that the written text carries no member the `Optional.empty()` form did not carry (`ConsentCodec`, `RoleAssignmentsCodec`, `MetricsCodec`).
+- PLAN-V2-97 L3: the new invariant of `RoleAssignmentValue.java:55` (a named effort whose value is null is refused) and the missing `requireNonNull(idleWakeups)` of `EffectiveRole.java:54` are production decisions **owned by PLAN-V2-114** (Carried 2026-11-10 there); their refusal tests travel with that change and are not added here.
+- PLAN-V2-97 (#344), `java:S5778` (MAJOR, open on the pull request since 2026-11-09T20:09Z and open on `main`): `RoleAssignmentsStoreTest.java:153` builds `new EffortValue(null)` inside the `assertThrows` lambda that also calls the `RoleAssignmentValue` constructor, so two invocations in one lambda can throw; build the value outside the lambda so only the constructor under test can throw. The two unresolved review threads of #344 (`core-role.adoc:272`, `LaunchComposerTest.java:180`) are covered by PLAN-V2-114 (the `core-role.adoc` gaps) and PLAN-V2-126 (the `LaunchComposerTest` literal and misplaced assertion); they stay unresolved on the merged pull request (operator decision 2026-11-10, 2.i). The assertion messages the conversion touched (`ConsentGateTest:78,89,104,117,220`, `RoleEffectiveConfigurationTest:219`, `RoleAssignmentsStoreTest:106,169`, `EffectiveRoleFactsTest` "neither sets it") are **owned by PLAN-V2-101 and 102**, not here.

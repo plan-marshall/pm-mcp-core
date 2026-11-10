@@ -10,8 +10,8 @@
 package de.planmarshall.core.spi;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The engine port that reads a question record of a scope (PM-ARCH-4, bullets 4 and 5: a question state rests on the
@@ -41,20 +41,19 @@ public interface QuestionRecordReader {
     /**
      * What the engine asks the port to read: one question record of one scope.
      *
-     * @param scopeId the identifier of the plan or epic the record belongs to; empty for the workspace scope
+     * @param scopeId the identifier of the plan or epic the record belongs to; {@code null} for the workspace scope
      * @param questionId the identifier of the question, {@code ^Q-[0-9]{3,6}$}
      * @since 0.1
      */
-    record ReadRequest(Optional<String> scopeId, String questionId) {
+    record ReadRequest(@Nullable String scopeId, String questionId) {
 
         private static final Pattern QUESTION_ID = Pattern.compile("^Q-\\d{3,6}$");
 
         /**
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if {@code questionId} is {@code null}
          * @throws IllegalArgumentException if the question identifier does not match {@code ^Q-[0-9]{3,6}$}
          */
         public ReadRequest {
-            Objects.requireNonNull(scopeId, "scopeId");
             Objects.requireNonNull(questionId, "questionId");
             if (!QUESTION_ID.matcher(questionId).matches()) {
                 throw new IllegalArgumentException("question_id does not match ^Q-[0-9]{3,6}$: " + questionId);

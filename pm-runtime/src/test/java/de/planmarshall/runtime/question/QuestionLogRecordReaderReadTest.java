@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
@@ -94,7 +93,7 @@ class QuestionLogRecordReaderReadTest {
     }
 
     private ReadRequest request(String scopeId, String questionId) {
-        return new ReadRequest(Optional.of(scopeId), questionId);
+        return new ReadRequest(scopeId, questionId);
     }
 
     @Nested

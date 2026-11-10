@@ -173,7 +173,7 @@ class PrimitiveContractTest {
             assertAll(
                     () -> assertTrue(jobStarter.enqueuesJob()),
                     () -> assertTrue(result.outcome().startsJob()),
-                    () -> assertEquals(Optional.of(TestPrimitives.SPAWNED_JOB_ID), result.spawnedJobId()));
+                    () -> assertEquals(TestPrimitives.SPAWNED_JOB_ID, result.spawnedJobId()));
         }
     }
 
@@ -188,15 +188,13 @@ class PrimitiveContractTest {
             factWithoutName.put(null, SUBJECT);
             return Stream.of(
                     Arguments.of("outcome", (Executable) () -> new PrimitiveResult<CompleteOutcome>(null, Map.of(),
-                            Optional.empty())),
+                            null)),
                     Arguments.of("updatedFacts", (Executable) () -> new PrimitiveResult<>(CompleteOutcome.DONE, null,
-                            Optional.empty())),
-                    Arguments.of("spawnedJobId", (Executable) () -> new PrimitiveResult<>(CompleteOutcome.DONE,
-                            Map.of(), null)),
+                            null)),
                     Arguments.of("value of a fact", (Executable) () -> new PrimitiveResult<>(CompleteOutcome.DONE,
-                            factWithoutValue, Optional.empty())),
+                            factWithoutValue, null)),
                     Arguments.of("name of a fact", (Executable) () -> new PrimitiveResult<>(CompleteOutcome.DONE,
-                            factWithoutName, Optional.empty())));
+                            factWithoutName, null)));
         }
 
         @ParameterizedTest(name = "null {0}")
@@ -213,7 +211,7 @@ class PrimitiveContractTest {
         void copiesFacts() {
             var facts = new HashMap<String, Object>();
             facts.put("subject", SUBJECT);
-            var result = new PrimitiveResult<>(CompleteOutcome.DONE, facts, Optional.empty());
+            var result = new PrimitiveResult<>(CompleteOutcome.DONE, facts, null);
 
             facts.put("subject", OTHER_SUBJECT);
             facts.put(ADDED_FACT, LATER_VALUE);
@@ -224,7 +222,7 @@ class PrimitiveContractTest {
         @Test
         @DisplayName("hands out facts that cannot be changed")
         void factsAreUnmodifiable() {
-            var result = new PrimitiveResult<>(CompleteOutcome.DONE, Map.of("subject", SUBJECT), Optional.empty());
+            var result = new PrimitiveResult<>(CompleteOutcome.DONE, Map.of("subject", SUBJECT), null);
             var facts = result.updatedFacts();
 
             assertThrows(UnsupportedOperationException.class, () -> facts.put(ADDED_FACT, LATER_VALUE));

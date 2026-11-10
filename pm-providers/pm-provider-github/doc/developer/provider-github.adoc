@@ -70,7 +70,10 @@ A call follows one path:
 A comment on a pull request travels through the issue-comment endpoint
 (`POST /repos/{owner}/{repo}/issues/{number}/comments`) and still needs `pull_requests: write`: GitHub answers a token
 narrowed to `issues: write` alone with `403` there. That is why `PULL_REQUEST_COMMENT` and `ISSUE_COMMENT` are two
-operations with different permission sets.
+operations with different permission sets. `issueComment` reads the issue first with the credential that authors the
+comment and refuses a pull-request number with `REJECTED` "is a pull request", so the comment endpoint is reached only
+for an issue (<<_the_ci_adapter>>, module
+link:../../../pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010]).
 
 == Invariants and Failure Modes
 
@@ -109,9 +112,12 @@ the same instant (`+0000`, `+00:00`); a header the parser cannot read is reporte
 milestone title is filtered as absent. For a GitHub App the adapter reads the App's slug from `GET /app` with the App
 JWT, the bot user id from `GET /users/{slug}[bot]` and the operator's login from `GET /user` with the user access token.
 `issueView` reads `GET /repos/{owner}/{repo}/issues/{n}` with the token the caller minted for
-`GitHubOperation.ISSUE_READ`, flags the `pull_request` member and refuses a pull request. `issueComment` posts through
-`GitHubClient.postComment` and derives the comment URL. An issue on another origin or of another forge is refused before
-a request is sent.
+`GitHubOperation.ISSUE_READ`, flags the `pull_request` member and refuses a pull request. `issueComment` reads the issue
+with the user access token that authors the comment (the installation token of a token provider is that token), refuses a
+pull-request number with `REJECTED` "is a pull request" before anything is posted, propagates a failed read, and otherwise
+posts through `GitHubClient.postComment` and derives the comment URL. The guard read needs the same `issues: read` that
+`issues: write` includes, for a personal access token, the user access token of a GitHub App and an installation token,
+so it adds no permission. An issue on another origin or of another forge is refused before a request is sent.
 
 [#_the_pull_request_read]
 === The Pull-Request Read

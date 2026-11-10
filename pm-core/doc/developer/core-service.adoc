@@ -182,3 +182,5 @@ changed nothing and recur with the next attempt.
 * link:../adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR 001]: `JobRunner` is created
   in `core.service` as the module structure names it, generic in the request and the probe candidate, and the runtime
   implements it beside the engine port `JobStarter`.
+* The standard input of `JobRunner.StartRequest` is a `@Nullable String`; `null` is the job that reads no standard input,
+  exactly as `Optional.empty()` was (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]).

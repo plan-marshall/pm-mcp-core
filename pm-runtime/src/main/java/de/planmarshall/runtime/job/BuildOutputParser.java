@@ -129,7 +129,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
                 .anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR)
                 || unplacedErrors || failingTests(build.testCounts());
         return new JobEvidence.ParseResult(build.successMarker(), build.diagnostics().size(), contradicting,
-                Optional.empty());
+                null);
     }
 
     private static boolean failingTests(@Nullable TestCounts counts) {

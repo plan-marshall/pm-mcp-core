@@ -296,7 +296,7 @@ public final class Enrolments {
             current = sidecar.digest();
         }
         LOGGER.info(INFO.ENROLMENT_REBASELINED, projectId);
-        return new Rebaseline(file, recorded, current, settled);
+        return new Rebaseline(file, recorded.orElse(null), current, settled);
     }
 
     /**
@@ -482,7 +482,7 @@ public final class Enrolments {
      * The outcome of a re-baseline: what the operator reviewed against what was recorded.
      *
      * @param file     the re-baselined enrolment file
-     * @param recorded the size and SHA-256 the old sidecar recorded; empty if there was no readable sidecar
+     * @param recorded the size and SHA-256 the old sidecar recorded; {@code null} if there was no readable sidecar
      * @param current  the size and SHA-256 of the file, as the new sidecar records them
      * @param settled  the stopped writes of the pair the re-baseline settled before it signed, in the order of their
      *                 transaction ids ({@link EnrolmentStore#recoverPair}); empty when nothing was staged, the normal
@@ -490,15 +490,15 @@ public final class Enrolments {
      *                 bytes may differ from the bytes the operator reviewed
      * @since 0.1
      */
-    public record Rebaseline(Path file, Optional<StoreDigest> recorded, StoreDigest current,
+    public record Rebaseline(Path file, @Nullable StoreDigest recorded, StoreDigest current,
     List<PairRecovery> settled) {
 
         /**
-         * @throws NullPointerException if a component or an element of {@code settled} is {@code null}
+         * @throws NullPointerException if a component other than the recorded digest or an element of {@code settled}
+         *                              is {@code null}
          */
         public Rebaseline {
             Objects.requireNonNull(file, "file");
-            Objects.requireNonNull(recorded, "recorded");
             Objects.requireNonNull(current, "current");
             settled = List.copyOf(Objects.requireNonNull(settled, "settled"));
         }

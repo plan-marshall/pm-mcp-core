@@ -149,11 +149,11 @@ public class MachineConfigurationCodec {
             throws IOException {
         generator.writeObjectFieldStart(provider.wireName());
         generator.writeBooleanField(FIELD_AVAILABLE, def.available());
-        if (def.variant().isPresent()) {
-            generator.writeStringField(FIELD_VARIANT, def.variant().get().wireName());
+        if (def.variant() != null) {
+            generator.writeStringField(FIELD_VARIANT, def.variant().wireName());
         }
-        if (def.credentialKey().isPresent()) {
-            generator.writeStringField(FIELD_CREDENTIAL_KEY, def.credentialKey().get());
+        if (def.credentialKey() != null) {
+            generator.writeStringField(FIELD_CREDENTIAL_KEY, def.credentialKey());
         }
         generator.writeEndObject();
     }
@@ -268,7 +268,7 @@ public class MachineConfigurationCodec {
             }
             requireFields(seen, "provider default", FIELD_AVAILABLE);
             try {
-                return new ProviderDefault(available, variant, credentialKey);
+                return new ProviderDefault(available, variant.orElse(null), credentialKey.orElse(null));
             } catch (IllegalArgumentException | NullPointerException e) {
                 throw unreadable("%s: %s".formatted(provider.wireName(), e.getMessage()), e);
             }

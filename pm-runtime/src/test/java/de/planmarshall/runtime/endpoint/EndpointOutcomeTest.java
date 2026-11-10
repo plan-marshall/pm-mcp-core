@@ -11,6 +11,7 @@ package de.planmarshall.runtime.endpoint;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -139,7 +140,7 @@ class EndpointOutcomeTest {
                 () -> assertEquals(EndpointOutcome.Fate.ANSWERED, outcome.fate()),
                 () -> assertEquals(Measurement.measured(10), outcome.usage().inputTokens()),
                 () -> assertEquals(Measurement.unmeasured(), outcome.usage().outputTokens()),
-                () -> assertTrue(outcome.usage().unmeasuredReason().isPresent()));
+                () -> assertNotNull(outcome.usage().unmeasuredReason()));
     }
 
     @Test

@@ -13,7 +13,7 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
@@ -142,18 +142,17 @@ public final class ProviderVerification {
      * @param ok         whether it passed
      * @param messageKey the message key of the line, {@code provider_verification.<check>.<ok|failed>}
      * @param arguments  the arguments of the message: the provider and what the check measured
-     * @param answer     the provider's or the tool's own answer where there is one
+     * @param answer     the provider's or the tool's own answer where there is one; {@code null} when none
      * @since 0.1
      */
     public record CheckLine(String check, boolean ok, String messageKey, List<String> arguments,
-    Optional<String> answer) {
+    @Nullable String answer) {
 
-        /** Keeps the arguments unmodifiable and rejects {@code null} components. */
+        /** Keeps the arguments unmodifiable and rejects a {@code null} check or message key. */
         public CheckLine {
             Objects.requireNonNull(check, "check");
             Objects.requireNonNull(messageKey, "messageKey");
             arguments = List.copyOf(arguments);
-            Objects.requireNonNull(answer, "answer");
         }
     }
 
@@ -163,16 +162,16 @@ public final class ProviderVerification {
      * @param provider the provider
      * @param ran      whether the consent allowed the checks to run
      * @param lines    the check lines, one per check that ran
-     * @param toRecord the consent to record through {@code ConsentStore}, for a {@code yes_remember}
+     * @param toRecord the consent to record through {@code ConsentStore}, for a {@code yes_remember}; {@code null} when
+     *                 none is recorded
      * @since 0.1
      */
-    public record Verification(Provider provider, boolean ran, List<CheckLine> lines, Optional<Consent> toRecord) {
+    public record Verification(Provider provider, boolean ran, List<CheckLine> lines, @Nullable Consent toRecord) {
 
-        /** Keeps the lines unmodifiable and rejects {@code null} components. */
+        /** Keeps the lines unmodifiable and rejects a {@code null} provider. */
         public Verification {
             Objects.requireNonNull(provider, "provider");
             lines = List.copyOf(lines);
-            Objects.requireNonNull(toRecord, "toRecord");
         }
 
         /** @return whether the checks ran and every one of them passed */
@@ -199,39 +198,40 @@ public final class ProviderVerification {
      * @param gate     the gate read from the consent store before the question
      * @param answer   the answer the operator gave
      * @param channel  the channel it came through
-     * @param deviceId the paired device, for an answer through the web app
+     * @param deviceId the paired device, for an answer through the web app; {@code null} for an answer through another
+     *                 channel
      * @param provider the provider to verify
      * @param defaults the provider's recorded default, which names its variant and its credential key
      * @return the check lines and the consent to record; no check ran when the answer did not allow them
      * @throws IllegalArgumentException if the answer cannot belong to the kind, its scope or its channel
      */
     public Verification verify(ConsentGate gate, ConsentGate.Answer answer, Consent.Channel channel,
-            Optional<String> deviceId, Provider provider, ProviderDefault defaults) {
+            @Nullable String deviceId, Provider provider, ProviderDefault defaults) {
         Objects.requireNonNull(provider, "provider");
         Objects.requireNonNull(defaults, "defaults");
         var decision = Objects.requireNonNull(gate, "gate").answer(
-                ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, deviceId.orElse(null));
+                ConsentGate.Request.machine(ConsentKind.VERIFY_PROVIDERS), answer, channel, deviceId);
         if (!decision.runs()) {
-            return new Verification(provider, false, List.of(), Optional.empty());
+            return new Verification(provider, false, List.of(), null);
         }
         var lines = new ArrayList<CheckLine>();
         lines.add(line(provider, "origin", probe.origin(provider), "reachability"));
         var credentialKey = defaults.credentialKey();
-        if (credentialKey.isEmpty()) {
+        if (credentialKey == null) {
             lines.add(new CheckLine("credential", false, MESSAGE_KEY_PREFIX + "credential.missing",
-                    List.of(provider.wireName()), Optional.empty()));
+                    List.of(provider.wireName()), null));
         } else {
-            var identity = probe.identity(provider, credentialKey.get());
+            var identity = probe.identity(provider, credentialKey);
             lines.add(line(provider, "whoami", identity, "identity"));
-            lines.add(line(provider, "permissions", probe.permissions(provider, credentialKey.get()), "permissions"));
-            lines.add(line(provider, "expiry", probe.expiry(provider, credentialKey.get()), "expiry"));
-            if (defaults.variant().filter(ProviderVariant.CLI::equals).isPresent()) {
+            lines.add(line(provider, "permissions", probe.permissions(provider, credentialKey), "permissions"));
+            lines.add(line(provider, "expiry", probe.expiry(provider, credentialKey), "expiry"));
+            if (ProviderVariant.CLI.equals(defaults.variant())) {
                 lines.add(line(provider, "tool_version", tools.version(provider), "version"));
                 var login = tools.loginIdentity(provider);
                 lines.add(sameIdentity(provider, identity, login));
             }
         }
-        var verification = new Verification(provider, true, lines, Optional.ofNullable(decision.toRecord()));
+        var verification = new Verification(provider, true, lines, decision.toRecord());
         if (verification.passed()) {
             LOGGER.info(INFO.PROVIDER_VERIFIED, provider.wireName(), lines.size());
         } else {
@@ -249,7 +249,7 @@ public final class ProviderVerification {
         if (!credential.ok()) {
             return new CheckLine(TOOL_IDENTITY, false,
                     MESSAGE_KEY_PREFIX + TOOL_IDENTITY + ".credential_unknown", List.of(provider.wireName()),
-                    Optional.of(credential.detail()));
+                    credential.detail());
         }
         if (!login.ok()) {
             return line(provider, TOOL_IDENTITY, login, "identity");
@@ -258,11 +258,11 @@ public final class ProviderVerification {
         return new CheckLine(TOOL_IDENTITY, same,
                 MESSAGE_KEY_PREFIX + TOOL_IDENTITY + "." + (same ? OK : "differs"), List.of(provider.wireName(),
                         credential.detail(), login.detail()),
-                Optional.of(login.detail()));
+                login.detail());
     }
 
     private static CheckLine line(Provider provider, String check, Answer answer, String measured) {
         return new CheckLine(check, answer.ok(), MESSAGE_KEY_PREFIX + check + "." + (answer.ok() ? OK : FAILED),
-                List.of(provider.wireName(), measured), Optional.of(answer.detail()));
+                List.of(provider.wireName(), measured), answer.detail());
     }
 }

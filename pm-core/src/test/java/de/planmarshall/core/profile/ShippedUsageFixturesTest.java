@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -120,7 +119,7 @@ class ShippedUsageFixturesTest {
     }
 
     private static Long cost(HarnessUsage row) {
-        return row.costUsd().map(BigDecimal::longValueExact).orElse(null);
+        return row.costUsd() == null ? null : row.costUsd().longValueExact();
     }
 
     private static OptionalLong totalOrEmpty(Map<String, Long> assigned, Set<String> notApplicable) {

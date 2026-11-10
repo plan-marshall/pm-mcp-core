@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
 
@@ -70,15 +71,10 @@ public final class ProcessTreeTracker {
      * record {@code job_descendant_survived}.
      *
      * @param pid     its PID
-     * @param command its executable, when the process table names it
+     * @param command its executable, when the process table names it; {@code null} when it does not
      * @since 0.1
      */
-    public record Survivor(long pid, Optional<String> command) {
-
-        /** @throws NullPointerException if the command is {@code null} */
-        public Survivor {
-            Objects.requireNonNull(command, "command");
-        }
+    public record Survivor(long pid, @Nullable String command) {
     }
 
     /**
@@ -120,7 +116,7 @@ public final class ProcessTreeTracker {
     private final InstantSource clock;
     private final TerminationProtocol.Pause pause;
     private final Map<Long, Instant> members = new ConcurrentHashMap<>();
-    private final Optional<Instant> rootStartedAt;
+    private final @Nullable Instant rootStartedAt;
 
     /**
      * @param root     the job PID, the root of the tree
@@ -148,7 +144,7 @@ public final class ProcessTreeTracker {
         this.signals = Objects.requireNonNull(signals, "signals");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pause = Objects.requireNonNull(pause, "pause");
-        this.rootStartedAt = this.starts.of(root);
+        this.rootStartedAt = this.starts.of(root).orElse(null);
     }
 
     /**
@@ -157,7 +153,7 @@ public final class ProcessTreeTracker {
      * not the job's.
      */
     public void refresh() {
-        if (!starts.of(root).equals(rootStartedAt)) {
+        if (!Objects.equals(starts.of(root).orElse(null), rootStartedAt)) {
             return;
         }
         for (var member : descendants.of(root)) {
@@ -203,7 +199,8 @@ public final class ProcessTreeTracker {
             Thread.currentThread().interrupt();
         }
         return left.stream().filter(pid -> survivors().contains(pid))
-                .map(pid -> new Survivor(pid, ProcessHandle.of(pid).flatMap(handle -> handle.info().command())))
+                .map(pid -> new Survivor(pid,
+                        ProcessHandle.of(pid).flatMap(handle -> handle.info().command()).orElse(null)))
                 .toList();
     }
 

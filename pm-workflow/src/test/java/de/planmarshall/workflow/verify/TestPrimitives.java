@@ -665,7 +665,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, NoParams parameters) {
-            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
         }
 
         @Override
@@ -798,7 +798,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<R> execute(WorkflowExecutionContext context, P parameters) {
-            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
         }
 
         @Override
@@ -1073,7 +1073,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<EnqueueOutcome> execute(WorkflowExecutionContext context, NoParams parameters) {
-            return new PrimitiveResult<>(EnqueueOutcome.ENQUEUED, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(EnqueueOutcome.ENQUEUED, Map.of(), null);
         }
 
         @Override
@@ -1105,7 +1105,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<DoneOutcome> execute(WorkflowExecutionContext context, NoParams parameters) {
-            return new PrimitiveResult<>(DoneOutcome.DONE, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(DoneOutcome.DONE, Map.of(), null);
         }
 
         @Override
@@ -1137,7 +1137,7 @@ final class TestPrimitives {
 
         @Override
         public PrimitiveResult<DoneOutcome> execute(WorkflowExecutionContext context, NoParams parameters) {
-            return new PrimitiveResult<>(DoneOutcome.DONE, Map.of(), Optional.empty());
+            return new PrimitiveResult<>(DoneOutcome.DONE, Map.of(), null);
         }
 
         @Override
