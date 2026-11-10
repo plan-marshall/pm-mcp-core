@@ -167,7 +167,8 @@ AuditSink auditSink) {
         details.put(DETAIL_REASON, broken.reason().wireName());
         broken.firstBrokenLine().ifPresent(line -> details.put(DETAIL_FIRST_BROKEN_LINE, line));
         details.put(DETAIL_OS_PRINCIPAL, user);
-        var event = new AuditEvent(AUDIT_CHAIN_BROKEN, CATEGORY_SECURITY, OUTCOME_FAILED, details);
+        var event = AuditEvent.builder().event(AUDIT_CHAIN_BROKEN).category(CATEGORY_SECURITY)
+                .outcome(OUTCOME_FAILED).details(details).build();
         try {
             auditSink.append(event);
         } catch (UncheckedIOException e) {

@@ -163,7 +163,8 @@ public class PyprojectOutputParser {
         BuildStatus status = failed ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
                 logText.contains(NO_TESTS_MARKER));
-        return new ParsedBuild(result, status, successMarker, testCounts, noTestsRan);
+        return ParsedBuild.builder().diagnostics(result).status(status).successMarker(successMarker)
+                .testCounts(testCounts).noTestsRan(noTestsRan).build();
     }
 
     private static boolean hasPassedSummary(List<String> lines) {

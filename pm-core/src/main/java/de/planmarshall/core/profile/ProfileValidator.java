@@ -443,7 +443,8 @@ public final class ProfileValidator {
             }
             integer(required(endpoint, pointer, NAME_REQUEST_TIMEOUT_SECONDS), pointer + "/request_timeout_seconds",
                     NAME_REQUEST_TIMEOUT_SECONDS, 5, 3600);
-            return new EndpointBlock(protocol, locality, baseUrl, credential);
+            return EndpointBlock.builder().protocol(protocol).locality(locality).baseUrl(baseUrl)
+                    .credentialKey(credential).build();
         }
 
         /**

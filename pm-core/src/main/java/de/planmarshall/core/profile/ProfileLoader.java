@@ -197,7 +197,8 @@ public final class ProfileLoader {
             }
             state = LoadedProfile.State.VERIFIED_ON_OTHER_BUILD;
         }
-        return new LoadedProfile(clientId, kind, profile, document, state, verification);
+        return LoadedProfile.builder().clientId(clientId).kind(kind).document(profile).bytes(document).state(state)
+                .verificationRecord(verification).build();
     }
 
     private VerificationRecord verificationRecord(Path directory, String clientId, String name) {

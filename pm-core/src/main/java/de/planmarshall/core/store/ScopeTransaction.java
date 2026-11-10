@@ -390,7 +390,8 @@ public final class ScopeTransaction {
             throw new IllegalArgumentException("Store '%s' does not lie in a directory the scope owns: %s"
                     .formatted(relativePath, scope.ownedDirectories()));
         }
-        var target = new PendingTarget(storePath(scope, store), mode, content, mustBeAbsent);
+        var target = PendingTarget.builder().path(storePath(scope, store)).mode(mode).content(content)
+                .mustBeAbsent(mustBeAbsent).build();
         if (targets.putIfAbsent(store, target) != null) {
             throw new IllegalArgumentException("Store '%s' is a target of the transaction already"
                     .formatted(relativePath));
