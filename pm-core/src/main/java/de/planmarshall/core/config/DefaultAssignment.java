@@ -67,7 +67,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
 
     /** Copies the map. */
     public DefaultAssignment {
-        roles = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(roles, "roles")));
+        roles = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(roles, FIELD_ROLES)));
     }
 
     /**
@@ -87,7 +87,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
         public DefaultRole {
             Objects.requireNonNull(tier, "tier");
             Objects.requireNonNull(preferredHarness, "preferredHarness");
-            Objects.requireNonNull(advisory, "advisory");
+            Objects.requireNonNull(advisory, FIELD_ADVISORY);
             if (!TIERS.contains(tier)) {
                 throw new IllegalArgumentException("Not a model tier: " + tier);
             }

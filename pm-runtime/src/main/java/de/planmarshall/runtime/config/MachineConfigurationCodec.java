@@ -135,7 +135,7 @@ public class MachineConfigurationCodec {
      * @return a machine configuration document at revision 1 holding only the required members and the defaults
      */
     public static byte[] create(ProviderDefaults providers) {
-        Objects.requireNonNull(providers, "providers");
+        Objects.requireNonNull(providers, FIELD_PROVIDERS);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
