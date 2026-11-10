@@ -26,8 +26,12 @@ import com.fasterxml.jackson.core.JsonToken;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.experimental.UtilityClass;
@@ -61,6 +65,12 @@ public class MachineConfigurationCodec {
     private static final String FIELD_AVAILABLE = "available";
     private static final String FIELD_VARIANT = "variant";
     private static final String FIELD_CREDENTIAL_KEY = "credential_key";
+    private static final String FIELD_VERIFICATION = "verification";
+    private static final String FIELD_PASSED = "passed";
+    private static final String FIELD_AT = "at";
+    private static final String FIELD_CHECKS = "checks";
+    private static final String FIELD_CHECK = "check";
+    private static final String FIELD_OK = "ok";
 
     /** The lowest and highest {@code max_build_slots} the schema admits. */
     private static final int MIN_BUILD_SLOTS = 1;
@@ -162,6 +172,25 @@ public class MachineConfigurationCodec {
         if (def.credentialKey() != null) {
             generator.writeStringField(FIELD_CREDENTIAL_KEY, def.credentialKey());
         }
+        if (def.verification() != null) {
+            writeVerification(generator, def.verification());
+        }
+        generator.writeEndObject();
+    }
+
+    private static void writeVerification(JsonGenerator generator, VerificationResult verification)
+            throws IOException {
+        generator.writeObjectFieldStart(FIELD_VERIFICATION);
+        generator.writeBooleanField(FIELD_PASSED, verification.passed());
+        generator.writeStringField(FIELD_AT, verification.at().toString());
+        generator.writeArrayFieldStart(FIELD_CHECKS);
+        for (var check : verification.checks()) {
+            generator.writeStartObject();
+            generator.writeStringField(FIELD_CHECK, check.check());
+            generator.writeBooleanField(FIELD_OK, check.ok());
+            generator.writeEndObject();
+        }
+        generator.writeEndArray();
         generator.writeEndObject();
     }
 
@@ -287,20 +316,83 @@ public class MachineConfigurationCodec {
             @Nullable Boolean available = null;
             Optional<ProviderVariant> variant = Optional.empty();
             Optional<String> credentialKey = Optional.empty();
+            @Nullable VerificationResult verification = null;
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 var field = nextField(parser, seen);
                 switch (field) {
                     case FIELD_AVAILABLE -> available = bool(parser, field);
                     case FIELD_VARIANT -> variant = Optional.of(variant(parser));
                     case FIELD_CREDENTIAL_KEY -> credentialKey = Optional.of(string(parser, field));
+                    case FIELD_VERIFICATION -> verification = verification(parser);
                     default -> throw undeclared(field);
                 }
             }
             requireFields(seen, "provider default", FIELD_AVAILABLE);
             try {
-                return new ProviderDefault(available, variant.orElse(null), credentialKey.orElse(null));
+                return new ProviderDefault(available, variant.orElse(null), credentialKey.orElse(null),
+                        verification);
             } catch (IllegalArgumentException | NullPointerException e) {
                 throw unreadable("%s: %s".formatted(provider.wireName(), e.getMessage()), e);
+            }
+        }
+
+        private static VerificationResult verification(JsonParser parser) throws IOException {
+            requireObject(parser, FIELD_VERIFICATION);
+            var seen = new HashSet<String>();
+            @Nullable Boolean passed = null;
+            @Nullable Instant at = null;
+            var checks = new ArrayList<VerificationResult.Check>();
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var field = nextField(parser, seen);
+                switch (field) {
+                    case FIELD_PASSED -> passed = bool(parser, field);
+                    case FIELD_AT -> at = instant(parser, field);
+                    case FIELD_CHECKS -> checks(parser, checks);
+                    default -> throw undeclared(field);
+                }
+            }
+            requireFields(seen, "verification", FIELD_PASSED, FIELD_AT, FIELD_CHECKS);
+            try {
+                return new VerificationResult(passed, at, checks);
+            } catch (IllegalArgumentException | NullPointerException e) {
+                throw unreadable("%s: %s".formatted(FIELD_VERIFICATION, e.getMessage()), e);
+            }
+        }
+
+        private static void checks(JsonParser parser, List<VerificationResult.Check> checks) throws IOException {
+            if (parser.currentToken() != JsonToken.START_ARRAY) {
+                throw unreadable("'%s' must be an array".formatted(FIELD_CHECKS));
+            }
+            while (parser.nextToken() != JsonToken.END_ARRAY) {
+                if (parser.currentToken() != JsonToken.START_OBJECT) {
+                    throw unreadable("a check of '%s' must be an object".formatted(FIELD_CHECKS));
+                }
+                checks.add(check(parser));
+            }
+        }
+
+        private static VerificationResult.Check check(JsonParser parser) throws IOException {
+            var seen = new HashSet<String>();
+            @Nullable String check = null;
+            @Nullable Boolean ok = null;
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var field = nextField(parser, seen);
+                switch (field) {
+                    case FIELD_CHECK -> check = string(parser, field);
+                    case FIELD_OK -> ok = bool(parser, field);
+                    default -> throw undeclared(field);
+                }
+            }
+            requireFields(seen, "check", FIELD_CHECK, FIELD_OK);
+            return new VerificationResult.Check(check, ok);
+        }
+
+        private static Instant instant(JsonParser parser, String field) throws IOException {
+            var text = string(parser, field);
+            try {
+                return Instant.parse(text);
+            } catch (DateTimeParseException e) {
+                throw unreadable("'%s' is not an instant: %s".formatted(field, text), e);
             }
         }
 

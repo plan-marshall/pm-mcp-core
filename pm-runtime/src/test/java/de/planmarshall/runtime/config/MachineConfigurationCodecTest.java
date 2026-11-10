@@ -155,7 +155,7 @@ class MachineConfigurationCodecTest {
                 {"format_version":1,"revision":%d,"max_build_slots":2,"lsp_idle_timeout_seconds":900,%s}"""
                 .formatted(revision, unknown);
         var defaults = new ProviderDefaults(Map.of(Provider.SONAR,
-                new ProviderDefault(false, null, null)));
+                ProviderDefault.unavailable(null)));
 
         var written = new String(
                 MachineConfigurationCodec.write(file, bytes(document), defaults, revision + 1), UTF_8);

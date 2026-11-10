@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,7 +61,9 @@ class MachineConfigurationSchemaParityTest {
     void providersMember() {
         var schema = SchemaResource.load(SCHEMA);
         var defaults = new ProviderDefaults(Map.of(Provider.GITHUB,
-                new ProviderDefault(true, ProviderVariant.CLI, "github")));
+                ProviderDefault.verified(new VerificationResult(true, Instant.EPOCH,
+                        List.of(new VerificationResult.Check("origin", true))), ProviderVariant.CLI)
+                        .withCredentialKey("github")));
         var created = document(MachineConfigurationCodec.create(defaults));
         var providers = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("providers"));
         var written = SchemaResource.object(SchemaResource.object(created.get("providers")).get("github"));

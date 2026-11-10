@@ -20,6 +20,8 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +61,8 @@ class MachineConfigurationStoreTest {
     private final String harness = freeText();
     private final String landing = freeText();
     private final String githubKey = credentialKey();
+    private final Instant verifiedAt = Instant.ofEpochSecond(
+            Generators.longs(1_600_000_000L, 1_900_000_000L).next());
 
     @BeforeEach
     void createStore() {
@@ -92,9 +96,14 @@ class MachineConfigurationStoreTest {
 
     private ProviderDefaults defaults() {
         return new ProviderDefaults(Map.of(
-                Provider.GITHUB, new ProviderDefault(true, ProviderVariant.NATIVE,
-                        githubKey),
-                Provider.SONAR, new ProviderDefault(false, ProviderVariant.NATIVE, null)));
+                Provider.GITHUB, ProviderDefault.verified(result(), ProviderVariant.NATIVE)
+                        .withCredentialKey(githubKey),
+                Provider.SONAR, ProviderDefault.unavailable(null)));
+    }
+
+    private VerificationResult result() {
+        return new VerificationResult(true, verifiedAt,
+                List.of(new VerificationResult.Check("origin", true)));
     }
 
     @Test
@@ -114,7 +123,9 @@ class MachineConfigurationStoreTest {
         Files.writeString(file, """
                 {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
                  "credentials":{"store":"file"},
-                 "providers":{"git":{"available":true,"variant":"cli","credential_key":"%s"}}}"""
+                 "providers":{"git":{"available":true,"variant":"cli","credential_key":"%s",
+                  "verification":{"passed":true,"at":"2026-10-29T10:00:00Z",
+                   "checks":[{"check":"origin","ok":true}]}}}}"""
                 .formatted(revision, maxBuildSlots, lspIdleTimeout, gitKey), UTF_8);
 
         var read = store.read();
@@ -127,6 +138,8 @@ class MachineConfigurationStoreTest {
                         "the variant of git must be read"),
                 () -> assertEquals(gitKey, git.credentialKey(),
                         "the credential key of git must be read"),
+                () -> assertEquals(List.of(new VerificationResult.Check("origin", true)),
+                        git.verification().checks(), "the verification's checks must be read"),
                 () -> assertFalse(read.providers().available(Provider.GITHUB),
                         "an unnamed provider is not available"));
     }
@@ -200,7 +213,9 @@ class MachineConfigurationStoreTest {
     void emptyProviders() throws Exception {
         Files.writeString(file, """
                 {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
-                 "providers":{"git":{"available":true,"variant":"native"}}}""".formatted(revision, maxBuildSlots,
+                 "providers":{"git":{"available":true,"variant":"native",
+                  "verification":{"passed":true,"at":"2026-10-29T10:00:00Z",
+                   "checks":[{"check":"origin","ok":true}]}}}}""".formatted(revision, maxBuildSlots,
                 lspIdleTimeout),
                 UTF_8);
 
@@ -216,7 +231,7 @@ class MachineConfigurationStoreTest {
     @Test
     @DisplayName("a cli variant is refused for a provider without one")
     void cliVariantOfForgejo() {
-        var cliForgejo = new ProviderDefault(true, ProviderVariant.CLI, null);
+        var cliForgejo = ProviderDefault.verified(result(), ProviderVariant.CLI);
         var cli = Map.of(Provider.FORGEJO, cliForgejo);
 
         var refused = assertThrows(IllegalArgumentException.class, () -> new ProviderDefaults(cli),
@@ -272,8 +287,8 @@ class MachineConfigurationStoreTest {
     @Test
     @DisplayName("an omitted variant is refused for a provider with a cli variant")
     void variantOmitted() {
-        var github = new ProviderDefault(true, null, null);
-        var git = new ProviderDefault(true, null, null);
+        var github = ProviderDefault.verified(result(), null);
+        var git = ProviderDefault.verified(result(), null);
 
         var refusedGithub = assertThrows(IllegalArgumentException.class,
                 () -> new ProviderDefaults(Map.of(Provider.GITHUB, github)),
@@ -287,6 +302,54 @@ class MachineConfigurationStoreTest {
                         "the refusal must name the provider"),
                 () -> assertTrue(refusedGit.getMessage().contains("git"),
                         "the refusal must name the provider"));
+    }
+
+    @Test
+    @DisplayName("the verification result is written, read back and the other members kept")
+    void verificationRoundTrip() throws Exception {
+        Files.writeString(file, document(), UTF_8);
+        var result = new VerificationResult(true, verifiedAt, List.of(
+                new VerificationResult.Check("origin", true),
+                new VerificationResult.Check("whoami", false)));
+        var written = new ProviderDefaults(Map.of(Provider.GITHUB,
+                ProviderDefault.verified(result, ProviderVariant.NATIVE).withCredentialKey(githubKey)));
+
+        store.writeProviders(written, revision);
+
+        var read = store.read().providers().of(Provider.GITHUB).orElseThrow();
+        var text = Files.readString(file, UTF_8);
+        assertAll(
+                () -> assertEquals(result, read.verification(), "the verification result must round-trip"),
+                () -> assertTrue(text.contains("\"credentials\":{\"store\":\"os\"}"),
+                        "the credential store must be kept"));
+    }
+
+    @Test
+    @DisplayName("an available provider without a verification result is refused")
+    void unverifiedAvailableRefused() {
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> new ProviderDefaults(Map.of(Provider.GITHUB,
+                        new ProviderDefault(true, ProviderVariant.NATIVE, null, null))),
+                "an available provider without a verification result is refused");
+
+        assertTrue(refused.getMessage().contains("verification"), "the refusal must name the verification");
+    }
+
+    @Test
+    @DisplayName("a document that records a provider available without a verification result is refused")
+    void documentWithoutVerification() throws Exception {
+        Files.writeString(file, """
+                {"format_version":1,"revision":%d,"max_build_slots":%d,"lsp_idle_timeout_seconds":%d,
+                 "providers":{"git":{"available":true,"variant":"native"}}}""".formatted(revision, maxBuildSlots,
+                lspIdleTimeout), UTF_8);
+
+        var refused = assertThrows(StoreRefusal.class, store::read,
+                "a document without a verification result for an available provider is refused");
+
+        assertAll(
+                () -> assertEquals(file, refused.file(), "the refusal must name the file"),
+                () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refused.outcome(),
+                        "the refusal must read as unreadable"));
     }
 
     @Test
