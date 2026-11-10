@@ -702,3 +702,25 @@ consecutive Gradle builds of one project and write set reuse one daemon; the job
 the admitted hosts. Matched controls: under `build_network: open` the outside host is reached and the record states
 `egress: open`; a `build_environment` with the operator's `HTTPS_PROXY` set leaves the job's own proxy in force, never the captured value.
 Source:: Article analyses `secure-architecture-for-ai-agents-owasp-llm` and `secure-architecture-for-ai-agents-owasp-agentic` of plan-marshall-documentation.
+
+[#PM-WATCH-JOB-48]
+=== PM-WATCH-JOB-48: A worker cannot plant code that git runs outside its confinement
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#git-metadata[Job Runtime § Git Metadata],
+link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: The write set grants the whole project root, and Landlock cannot leave out the git directory below it, so a
+worker writes `core.fsmonitor` into `.git/config`, a hook into `.git/hooks/`, or a `.git` link file that points its
+worktree at a git directory of its own; the next `git` the operator's shell prompt runs, or the next `git` job of the CLI
+variant, runs it with the operator's identity. The read-only mount misses the link file or a worktree created after the
+spawn; a digest that covers `.git/config` but not its includes, or the hook directory but not `core.hooksPath`, passes a
+change; the check runs after the commit job, which has already run a changed `.husky/pre-commit`.
+Guard:: Integration tests on Linux and macOS with a writer worker of a fixture harness that writes `core.fsmonitor` into
+`.git/config`, an include file inside the repository, a hook, and the worktree's `.git` link file: every write fails with
+an ordinary error, and a sentinel file each program would write stays absent after a `git status` in the checkout; a
+fixture launcher without a mount namespace records `git_metadata: unenforced`, and the same writes then refuse the next
+`git` job with `git_metadata_changed` and a `security` record before it starts; a plan whose worker changes
+`.husky/pre-commit` without declaring it is refused as a protected path before any commit job runs. Matched control: a
+worker that changes only tracked source files leaves the digest unchanged, and the commit job runs.
+Source:: Article analysis `promise-that-killed-atom-zed` of plan-marshall-documentation: Zed's agent sandbox keeps the git
+metadata unwritable and names a submodule's `core.fsmonitor` as a way out.
