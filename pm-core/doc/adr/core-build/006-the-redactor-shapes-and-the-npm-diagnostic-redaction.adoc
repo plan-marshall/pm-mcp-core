@@ -35,9 +35,9 @@ narrow, anchored patterns, and redact the npm error parser's message at its sour
 * `SecretRedactor` masks, beside the existing shapes:
   ** an npm access token, `npm_` followed by exactly 36 alphanumeric characters;
   ** the user information of a URL, keeping the scheme and the user (`scheme://user:[redacted]@host`);
-  ** the value of a spaced credential flag, keeping the flag and an opening quote; a quoted value is matched through its
-     closing quote (spaces and escaped quotes included), an unclosed quote masks the rest of the line, and an unquoted
-     value may carry a comma (`--token "[redacted]"`, `--password [redacted]`);
+  ** the value of a spaced credential flag, keeping the flag and an opening quote; a quoted value runs to the last
+     matching quote of the line (spaces and escaped quotes included), an unclosed quote masks the rest of the line, and
+     an unquoted value may carry a comma (`--token "[redacted]"`, `--password [redacted]`);
   ** a PEM private-key block carried inside one text, replaced whole; a block whose `END` line is missing is masked from
      its `BEGIN` line to the end of the text (masking too much costs evidence, leaving a key body readable costs the
      credential).
