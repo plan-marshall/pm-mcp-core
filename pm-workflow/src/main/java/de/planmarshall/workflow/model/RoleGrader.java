@@ -263,8 +263,8 @@ public final class RoleGrader {
             return Optional.of(Scoring.judged(item)
                     ? result
                     : QualificationRecord.ItemResult.builder().itemId(item.id()).form(form).checkout(checkout)
-                            .answer(result.answer()).score(Scoring.closed(item, text))
-                            .totalTokens(result.totalTokens()).durationMs(result.durationMs()).build());
+                    .answer(result.answer()).score(Scoring.closed(item, text))
+                    .totalTokens(result.totalTokens()).durationMs(result.durationMs()).build());
         }
         return Optional.of(QualificationRecord.ItemResult.builder().itemId(item.id()).form(form).checkout(checkout)
                 .answer(result.answer()).score(Grade.scored(judged.get().score()))

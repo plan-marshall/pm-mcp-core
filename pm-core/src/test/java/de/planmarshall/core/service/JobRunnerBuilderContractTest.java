@@ -15,10 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.store.JobId;
-import de.planmarshall.core.store.JobRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecord;
 
 /**
  * The builder of {@link JobRunner.StartRequest} builds the value the canonical constructor builds, and a missing

@@ -254,7 +254,7 @@ public final class LessonStore {
             case ScopeIntegrity.Mismatch(_, StoreDigest recorded, var current)
                 -> current != null
                     ? LessonResolution.StoreTampered.builder().lessonId(lessonId).path(file).recorded(recorded)
-                            .current(current).build()
+                    .current(current).build()
                     : new LessonResolution.DeletedOutOfBand(lessonId);
             case ScopeIntegrity.Untracked _ -> new LessonResolution.Untracked(lessonId, file);
             case JournalRecovery.InvariantViolation violation -> throw StoreRefusal.unreadable(scope.journalFile(),
@@ -757,9 +757,9 @@ public final class LessonStore {
         return switch (LessonCodec.decode(content)) {
             case LessonCodec.Readable(Lesson lesson) -> lesson.body().isBlank()
                     ? LessonResolution.EmptyShell.builder().lessonId(lessonId).lesson(lesson).path(file)
-                            .integrity(integrity).build()
+                    .integrity(integrity).build()
                     : LessonResolution.Found.builder().lessonId(lessonId).lesson(lesson).path(file)
-                            .integrity(integrity).build();
+                    .integrity(integrity).build();
             case LessonCodec.Unreadable(LessonCodec.UnreadableReason reason, String detail) ->
                 LessonResolution.PresentUnreadable.builder().lessonId(lessonId).path(file).reason(reason)
                         .detail(detail).build();
