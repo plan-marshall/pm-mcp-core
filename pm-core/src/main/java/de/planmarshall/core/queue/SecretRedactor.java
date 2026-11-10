@@ -102,8 +102,7 @@ public final class SecretRedactor {
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG =
             Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])([^\"'\\r\\n]*)");
 
-    private static final Pattern CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([^\\s\"',;]{4,})");
+    private static final Pattern CREDENTIAL_FLAG = Pattern.compile(CREDENTIAL_FLAG_HEAD + VALUE);
 
     /**
      * A PEM private-key block carried inside one text. A window that starts inside a block (its {@code BEGIN} line
