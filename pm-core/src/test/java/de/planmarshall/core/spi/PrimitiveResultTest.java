@@ -94,13 +94,13 @@ class PrimitiveResultTest {
     }
 
     @Test
-    @DisplayName("the builder defaults both optional components to empty")
+    @DisplayName("the builder defaults both optional components to null")
     void builderDefaultsOptionalComponents() {
         var result = PrimitiveResult.<PlainOutcome>builder().outcome(PlainOutcome.DONE).build();
 
         assertAll(
-                () -> assertNull(result.reason(), "the builder defaults the reason to empty"),
-                () -> assertNull(result.spawnedJobId(), "the builder defaults the job id to empty"),
+                () -> assertNull(result.reason(), "the builder defaults the reason to null"),
+                () -> assertNull(result.spawnedJobId(), "the builder defaults the job id to null"),
                 () -> assertEquals(Map.of(), result.updatedFacts(), "the builder defaults the facts to empty"));
     }
 

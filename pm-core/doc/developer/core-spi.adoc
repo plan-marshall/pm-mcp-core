@@ -84,8 +84,9 @@ The other declarations have a default that says "nothing":
 
 === The Result and the Scope
 
-`PrimitiveResult` refuses a `null` component, a fact without a name and a fact without a value with a
-`NullPointerException`. It keeps an unmodifiable copy of the facts in the order they were passed.
+`PrimitiveResult` refuses a `null` `outcome` or `updatedFacts`, a fact without a name and a fact without a value with
+a `NullPointerException`; `spawnedJobId` and `reason` are the nullable components. It keeps an unmodifiable copy of the
+facts in the order they were passed.
 
 The `reason` component pairs with the outcome: it is present exactly when the outcome declares a reason type through
 `PrimitiveOutcome.reasonType()`, and a present reason is a constant of that enum. A mismatch is an

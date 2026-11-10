@@ -172,7 +172,7 @@ public sealed interface ToonValue
             }
         }
 
-        /** Insertion-ordered builder; {@code null} and empty optional values are omitted. */
+        /** Insertion-ordered builder; {@code null} values are omitted. */
         public static final class Builder {
 
             private final List<Field> fields = new ArrayList<>();
