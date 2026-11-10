@@ -101,6 +101,14 @@
             <artifactId>easymock</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- The architecture rules of the runtime: no class opens a connection, and only the
+             destination classes of the closed list use the cui-http client. The version is managed
+             by cui-java-bom through the parent, exactly as pm-core declares it. -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
