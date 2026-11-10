@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -72,6 +73,7 @@ import de.planmarshall.core.service.AuditEvent;
  * @param owedEvents    the audit records the transaction hands over once its targets are applied, in their order
  * @since 0.1
  */
+@Builder
 public record TransactionJournal(TransactionId transactionId, JournalScopeType scopeType,
 @Nullable String scopeId, Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
 
@@ -131,6 +133,7 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
      *                   leaves no store
      * @since 0.1
      */
+    @Builder
     public record Target(String path, Mode mode, @Nullable String stagedPath, OptionalLong sizeBefore,
     @Nullable StoreDigest newDigest) {
 

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -57,6 +58,7 @@ import org.jspecify.annotations.Nullable;
  * @param canary        the corpus canary
  * @since 0.1
  */
+@Builder
 public record ImportedItem(String id, String topic, String role, String title, List<String> tags,
 @Nullable String group, Input input, Target target, Grading grading, Provenance provenance, Review review,
 @Nullable String contamination, String canary) {
@@ -89,6 +91,7 @@ public record ImportedItem(String id, String topic, String role, String title, L
      *                     there is none
      * @since 0.1
      */
+    @Builder
     public record Input(String question, String facts, @Nullable List<String> choices,
     @Nullable JsonValue answerSchema) {
 
@@ -121,6 +124,7 @@ public record ImportedItem(String id, String topic, String role, String title, L
      * @param expectedEmpty {@code true} for a control: the correct answer reports nothing
      * @since 0.1
      */
+    @Builder
     public record Target(@Nullable String answer, String rationale, List<String> alternatives,
     List<RubricItem> items, boolean expectedEmpty) {
 
@@ -249,6 +253,7 @@ public record ImportedItem(String id, String topic, String role, String title, L
      * @param line       the line of the row in the file, from 1
      * @since 0.1
      */
+    @Builder
     public record Origin(URI repository, String commit, String path, int line) {
 
         /**
@@ -273,6 +278,7 @@ public record ImportedItem(String id, String topic, String role, String title, L
      * @param notes  notes of the review; {@code null} if there are none
      * @since 0.1
      */
+    @Builder
     public record Review(ReviewStatus status, String by, @Nullable LocalDate date, String notes) {
 
         /**

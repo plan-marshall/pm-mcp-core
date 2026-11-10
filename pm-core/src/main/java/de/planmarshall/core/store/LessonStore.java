@@ -189,7 +189,8 @@ public final class LessonStore {
                 .promotions(List.of())
                 .revision(LessonFrontMatter.MIN_REVISION)
                 .sources(sources)
-                .revisions(List.of(new Revision(LessonFrontMatter.MIN_REVISION, now, sources, bodySha256)))
+                .revisions(List.of(LessonFrontMatter.Revision.builder().n(LessonFrontMatter.MIN_REVISION).at(now)
+                        .sources(sources).bodySha256(bodySha256).build()))
                 .mergedFrom(List.of())
                 .claim(null)
                 .retired(null)
@@ -252,7 +253,8 @@ public final class LessonStore {
             case ScopeIntegrity.Absent _ -> new LessonResolution.Absent(lessonId);
             case ScopeIntegrity.Mismatch(_, StoreDigest recorded, var current)
                 -> current != null
-                    ? new LessonResolution.StoreTampered(lessonId, file, recorded, current)
+                    ? LessonResolution.StoreTampered.builder().lessonId(lessonId).path(file).recorded(recorded)
+                    .current(current).build()
                     : new LessonResolution.DeletedOutOfBand(lessonId);
             case ScopeIntegrity.Untracked _ -> new LessonResolution.Untracked(lessonId, file);
             case JournalRecovery.InvariantViolation violation -> throw StoreRefusal.unreadable(scope.journalFile(),
@@ -266,7 +268,8 @@ public final class LessonStore {
         var content = read(file);
         var current = StoreDigest.of(content);
         if (!current.equals(verified.digest())) {
-            return new LessonResolution.StoreTampered(lessonId, file, verified.digest(), current);
+            return LessonResolution.StoreTampered.builder().lessonId(lessonId).path(file)
+                    .recorded(verified.digest()).current(current).build();
         }
         return decode(lessonId, file, content, StoreIntegrity.VERIFIED);
     }
@@ -388,8 +391,8 @@ public final class LessonStore {
                 .revision(revision)
                 .sources(evidence)
                 .revisions(append(frontMatter.revisions(),
-                        new Revision(revision, now, evidence, StoreSnapshot.sha256(
-                                body.getBytes(StandardCharsets.UTF_8)))))
+                        Revision.builder().n(revision).at(now).sources(evidence)
+                                .bodySha256(StoreSnapshot.sha256(body.getBytes(StandardCharsets.UTF_8))).build()))
                 .build();
         var lesson = new Lesson(next, body);
         transaction.replace(storePath(lessonId), LessonCodec.encode(lesson));
@@ -754,10 +757,13 @@ public final class LessonStore {
     private LessonResolution decode(LessonId lessonId, Path file, byte[] content, StoreIntegrity integrity) {
         return switch (LessonCodec.decode(content)) {
             case LessonCodec.Readable(Lesson lesson) -> lesson.body().isBlank()
-                    ? new LessonResolution.EmptyShell(lessonId, lesson, file, integrity)
-                    : new LessonResolution.Found(lessonId, lesson, file, integrity);
+                    ? LessonResolution.EmptyShell.builder().lessonId(lessonId).lesson(lesson).path(file)
+                    .integrity(integrity).build()
+                    : LessonResolution.Found.builder().lessonId(lessonId).lesson(lesson).path(file)
+                    .integrity(integrity).build();
             case LessonCodec.Unreadable(LessonCodec.UnreadableReason reason, String detail) ->
-                new LessonResolution.PresentUnreadable(lessonId, file, reason, detail);
+                LessonResolution.PresentUnreadable.builder().lessonId(lessonId).path(file).reason(reason)
+                        .detail(detail).build();
         };
     }
 

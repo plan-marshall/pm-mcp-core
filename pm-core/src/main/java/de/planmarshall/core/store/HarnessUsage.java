@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,6 +43,7 @@ import org.jspecify.annotations.Nullable;
  *                                measured
  * @since 0.1
  */
+@Builder
 public record HarnessUsage(Measurement inputTokens, Measurement outputTokens, Measurement cacheReadInputTokens,
 Measurement cacheCreationInputTokens, Measurement reasoningTokens, Measurement toolUses,
 @Nullable BigDecimal costUsd, @Nullable UnmeasuredReason unmeasuredReason) {

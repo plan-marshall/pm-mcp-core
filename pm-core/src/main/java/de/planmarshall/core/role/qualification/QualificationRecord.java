@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -47,6 +48,7 @@ import de.planmarshall.core.role.RoleForm;
  * @param items               every offered item and run
  * @since 0.1
  */
+@Builder
 public record QualificationRecord(String role, String qualificationDigest, GradedConfiguration configuration,
 String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> forms,
 @Nullable BigDecimal warmFreshGap, int ungraded, Instant gradedAt, List<ItemResult> items) {
@@ -146,6 +148,7 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
      * @param durationMs  how long the form's grading took
      * @since 0.1
      */
+    @Builder
     public record FormResult(Map<Topic, TopicResult> topics, int items, TokenTotal totalTokens, long durationMs) {
 
         /**
@@ -209,6 +212,7 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
      * @param durationMs how long the answer took; {@code null} when unknown
      * @since 0.1
      */
+    @Builder
     public record ItemResult(String itemId, RoleForm form, Checkout checkout, JsonNode answer, Grade score,
     TokenTotal totalTokens, @Nullable Long durationMs) {
 
