@@ -26,6 +26,17 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreNoStateInRe
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_store[Scope Stores Developer Guide § The Per-Project Machine Store],
 link:../pm-core/doc/adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/038]
 
+[#PM-ARCH-2]
+=== PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2]
+
+Implementation (of the "local, no telemetry" claim as the closed list of outbound calls: the static architecture rule over `pm-runtime` and `pm-core`; the integration test behind a recording test network that the same specification section names is not implemented): link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (the primitive rule, the destination list, the exemption map and the allow-list)
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (one control fixture per hazard, two positive controls, and the two symmetry tests that make each list load-bearing)
+
+Documentation: link:../pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer Guide], link:../doc/adr/023-the-outbound-call-guard-lives-in-pm-runtime.adoc[ADR 023]
+
 [#PM-ARCH-4]
 === PM-ARCH-4: Stateless Requests & Explicit Scope Addressing
 
@@ -1570,6 +1581,12 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-5[PM-TEST-5
 Verified by (the verify-not-resolve pipeline: a job's working directory outside the tree, through a symbolic link escape, or by `..` refused with `path_traversal_rejected`; a tampered build wrapper or pinned file, an un-enrolled or changed host tool, and unapproved arguments refused, each with its positive control; a tampered enrolment file refused with `enrolment_tampered`; the refusal as the job outcome `refused`, the other project's jobs, and the other vectors are not implemented yet): link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/VerifyNotResolveAdversarialTest.java[VerifyNotResolveAdversarialTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
+
+Implementation (of the static architecture rule of the closed list of outbound calls; the integration test behind a recording test network that the same specification section names is not implemented): link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (the primitive rule and the destination list over `pm-runtime` and `pm-core`, with the exemption map and the allow-list)
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java[OutboundCallsArchTest] (the control fixtures the rule must fail on and the two positive controls it must hold on, and the two symmetry tests that make each list load-bearing)
+
+Documentation: link:../pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer Guide]
 
 [#PM-TEST-6]
 === PM-TEST-6: Model Verification Corpus & Qualification Fixtures
