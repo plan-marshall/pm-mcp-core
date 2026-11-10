@@ -1,0 +1,55 @@
+= ADR 011: A Provider's Answer Is Redacted Before a Check Line Carries It
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-10
+
+== Context
+
+`credentials-and-enrolment/01` § Provider Verification said a check line carries "the provider's or the tool's own answer
+verbatim where there is one", and `ProviderVerification` did exactly that: `Answer.detail` reached `CheckLine.answer` and
+`CheckLine.arguments` unchanged. A refusal such as `401 Authorization: Bearer …` or `token=…` therefore reached the
+operator's screen, the transaction records, and any log that names the line. The verification's own Javadoc called the
+answer "the provider's own answer, verbatim".
+
+`pm-core`'s `core.queue.SecretRedactor.redactText` already masks the value of a credential-shaped assignment, a bearer
+value and a token-shaped string, and leaves a path, a hash or prose alone. It was used for the activity journal and job
+logs, not for the provider verification.
+
+The real provider probe (PLAN-V2-12) is not built yet. Leaving the redaction to that probe would let each probe forget it.
+
+== Decision
+
+* Every `Answer.detail` passes through `SecretRedactor.redactText` before it reaches a `CheckLine`: the answer, and the
+  arguments of the tool-identity line (both identities). The identity comparison itself compares the answers as the
+  probes gave them, so a difference is never masked.
+* The specification's statement is corrected to "the provider's or the tool's own answer, after the redaction of anything
+  credential-shaped".
+* A later probe needs no redaction of its own.
+
+== Alternatives Considered
+
+1. *Redact in each probe.* _Not taken_: the same rule would be re-implemented in every provider module, and one omission
+   would write a credential into a line.
+2. *Store only the check name and the flag, no answer.* _Not taken_: the operator needs the answer to know why a check
+   failed; the answer is the evidence of the failure.
+
+== Consequences
+
+* `ProviderVerificationTest` shows a bearer value and a `token=` value reaching neither the line nor its arguments, and an
+  identity that is no secret reaching the line unchanged.
+* The stored `verification` member of the provider defaults carries check names and flags only (ADR `runtime-config/002`);
+  the redacted answer stays in the line of the run.
+
+== Source
+
+* Plan PLAN-V2-81, deliverable 2 and Decision 2
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials
+  & Enrolment § Provider Verification]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/ProviderVerification.java`,
+  `pm-core/src/main/java/de/planmarshall/core/queue/SecretRedactor.java`

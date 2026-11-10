@@ -28,10 +28,16 @@ coordinated by `locks/machine-config.lock`.
 * `Provider` is the closed list `git`, `github`, `gitlab`, `forgejo`, `sonar`; only the first three have a CLI variant,
   which `hasCliVariant()` states once.
 * `ProviderVariant` is `native` or `cli`.
-* `ProviderDefault` is one provider's default: whether it is available, the variant a project that sets none takes, and
-  the credential key it uses where a project names none. A credential key must match the identifier grammar.
+* `ProviderDefault` is one provider's default: whether it is available, the variant a project that sets none takes, the
+  credential key it uses where a project names none, and the last `VerificationResult`. A credential key must match the
+  identifier grammar. A default recorded available must carry a passed result, and the record refuses to be constructed
+  otherwise; `verified(result, variant)` and `unavailable(variant)` are the two forms the rule leaves, and
+  `withCredentialKey(key)` adds the key.
+* `VerificationResult` is `{passed, at, checks[{check, ok}]}`: the check names and their outcomes only, never the
+  provider's answers, so nothing a provider said is stored.
 * `ProviderDefaults` is the closed object: per provider its default. A provider the machine does not serve is absent, not
-  recorded as unavailable; a `cli` variant for a provider without one is refused.
+  recorded as unavailable; a `cli` variant for a provider without one is refused, and so is an omitted variant for a
+  provider with one (`git`, `github`, `gitlab` name it, `forgejo` and `sonar` omit it).
 
 A provider is recorded available only after its verification passed
 (link:runtime-credentials.adoc#_provider_verification[`runtime.credentials` § Provider Verification]); one whose checks
@@ -39,7 +45,9 @@ failed is recorded only on the operator's word, and then as not available.
 
 == The Store
 
-`MachineConfigurationStore` reads and writes `machine-config.json` under `locks/machine-config.lock`.
+`MachineConfigurationStore` reads and writes `machine-config.json` under `locks/machine-config.lock`. Its constructor
+refuses a store file that is not `machine-config.json` below the base the lock key lies under, so a document can never be
+written at another path under the lock's name.
 
 * `read()` answers the defaults and the document's `revision`, or none at revision `0` when the file does not exist.
 * `writeProviders(defaults, revision)` reads the document again under the lock, checks the caller's revision, replaces
@@ -52,7 +60,10 @@ failed is recorded only on the operator's word, and then as not available.
 
 The codec reads `format_version` first, so a document of another version is refused as outdated or newer rather than as
 unreadable for a field that version changed. It refuses an unknown provider, an unknown variant, an unknown member of a
-provider's object and a negative revision.
+provider's object, a negative revision, and content after the root object (a second object, a number, any token). It
+validates the two settings it requires against the schema before it reads or preserves them — `max_build_slots` an
+integer 1 to 16, `lsp_idle_timeout_seconds` an integer of at least 60 — so a `null`, a string or an out-of-range value is
+refused while every other member is still copied through unchanged.
 
 == The Machine's Own Check of its Plan Defaults
 
@@ -72,6 +83,11 @@ protected, or a landing variant fits a project, is the project's own check where
    overwriting it; a caller that writes `revision + 1` it computed itself defeats that.
 3. **A provider without a credential key is not a provider with no credential.** `providers` records where the credential
    is found; whether one exists is the credential store's answer.
+4. **Two revision protocols share the document.** `MachineConfigurationStore` and the consent, catalogue and assignment
+   stores of `core.config` take the caller's revision through `SettingsConflict`; `CredentialStoreChoice.record`
+   increments the revision under its own protocol (link:../adr/runtime-credentials/001-the-recorded-store-replaces-the-automatic-choice.adoc[ADR
+   runtime-credentials/001], link:../adr/runtime-credentials/002-credentials-store-written-only-through-credential-store-choice.adoc[002])
+   and takes none from a caller. A writer that mixes the two would answer a conflict that no caller can resolve.
 
 == Specification Tracing
 

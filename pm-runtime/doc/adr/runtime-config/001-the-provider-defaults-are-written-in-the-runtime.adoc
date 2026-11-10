@@ -32,7 +32,9 @@ defaults model in the runtime beside the document's other writer.
   harness.
 * The provider-neutrality guard stays as it is; no exemption is added.
 * The codec copies every member of `machine-config.json` it does not own through unchanged, so the two writers of the
-  document do not overwrite each other, and the revision rule of `core.config.SettingsConflict` applies to both.
+  document do not overwrite each other, and the revision rule of `core.config.SettingsConflict` applies to the writers of
+  `MachineConfigurationStore` and of the consent, catalogue and assignment stores. `CredentialStoreChoice.record`
+  increments the revision under its own protocol (ADR `runtime-credentials/001` and `002`) and takes none from a caller.
 
 == Alternatives Considered
 
@@ -50,7 +52,7 @@ defaults model in the runtime beside the document's other writer.
 * `pm-core` stays provider-neutral; the runtime names the providers it serves, which is what a runtime does.
 * The work package's Expected Surface is corrected: the machine configuration store is `runtime.config`, not
   `core.config`. The landing reports it as the surface delta.
-* Two packages now hold writers of `machine-config.json`, in two modules, coordinated by one lock and one revision rule;
+* Two packages of one module now hold writers of `machine-config.json`, coordinated by one lock and one revision rule;
   a test of each writer asserts that the other's members survive.
 * `runtime.config` is a new package of the module: it has its developer guide, an ADR directory and one line in the
   module's `README.adoc`.

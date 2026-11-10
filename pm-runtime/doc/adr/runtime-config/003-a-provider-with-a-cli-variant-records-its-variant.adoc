@@ -1,0 +1,52 @@
+= ADR 003: A Provider with a CLI Variant Records Its Variant
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-10
+
+== Context
+
+`store-schemas/12` § Machine Provider Defaults lets a provider omit `variant`, described as "the default integration
+variant of a project that sets none". For `git`, `github` and `gitlab` a project that sets none then has no variant at
+all: the provider verification skips the CLI checks for an empty variant, and a project that inherits the machine's
+default cannot tell which of the two lanes it should take. `ProviderDefault.requireVariantOf` refused a `cli` variant for
+a provider without one, but an omitted variant for a provider with one was accepted, so the default was undefined exactly
+where it matters.
+
+`forgejo` and `sonar` have no `cli` variant (`Provider.hasCliVariant()`), so they legitimately omit it.
+
+== Decision
+
+* `ProviderDefaults` refuses a default that omits `variant` for a provider with a `cli` variant (`git`, `github`,
+  `gitlab`); the refusal names the provider.
+* `forgejo` and `sonar` omit `variant`; a `cli` variant stays refused for them.
+* The description of `variant` in the schema of `providers.<name>` says it is required for `git`, `github` and `gitlab`
+  and omitted for `forgejo` and `sonar`.
+* The format version stays 1: the rule changes version 1 in place, with no migration.
+
+== Alternatives Considered
+
+1. *Default an omitted variant to `native`.* _Not taken_: the default would be a guess for a machine whose operator
+   wants the CLI lane, and the verification's behaviour for an empty variant would stay undefined.
+2. *Require `variant` for every provider.* _Not taken_: `forgejo` and `sonar` have no `cli` variant, so a required
+   member would force them to record a value that means nothing there.
+
+== Consequences
+
+* A document that records `git`, `github` or `gitlab` without a variant is refused as unreadable, and a writer cannot
+  construct such a default.
+* `MachineConfigurationStoreTest` holds the refusal for `github` and `git`; `ProviderDefaults` still refuses a `cli`
+  variant for `forgejo`.
+
+== Source
+
+* Plan PLAN-V2-81, deliverable 1 and Decision 4
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas § Machine
+  Provider Defaults], link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#_two_lane_provider_architecture[Credentials
+  & Enrolment § Two-Lane Provider Architecture]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/config/ProviderDefault.java`, `ProviderDefaults.java`

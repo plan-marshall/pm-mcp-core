@@ -1,0 +1,65 @@
+= ADR 002: The Verification Result Is a Member of the Provider's Default
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-10
+
+== Context
+
+`credentials-and-enrolment/01` § Provider Verification states that the verification's "last result with its time is kept
+with the machine's provider defaults", but `store-schemas/12` § Machine Provider Defaults had no member for it:
+`providers.<name>` held `available`, `variant` and `credential_key` only. `ProviderDefault.of(boolean, ProviderVariant)`
+built an `available: true` default from nothing, so nothing recorded that the checks had ever passed, and the operator
+could not see the last result in either client. The provider step of the machine's onboarding, and every later
+verification of a provider, need the result the defaults were recorded from.
+
+Two shapes were possible: store the provider's answers, or store only the checks and their outcomes. The answers are the
+provider's own text: a credential-shaped part of a refusal would then live in a machine store forever.
+
+== Decision
+
+* `providers.<name>` gains `verification`, an object of `{passed, at, checks[{check, ok}]}`: the last result with its
+  time, and per check its name and whether it passed. The provider's answers are not stored.
+* `ProviderDefault` gains the `verification` component; `runtime.config.VerificationResult` is the record, and
+  `ProviderVerification.Verification.toResult(Instant)` converts a verification with its instant.
+* A default recorded `available: true` must carry a passed result, and `ProviderDefault` refuses to be constructed
+  otherwise. A default recorded `false` carries a failed result or none (the operator's word).
+* `ProviderDefault.of(boolean, ProviderVariant)` is replaced by `verified(VerificationResult, ProviderVariant)` and
+  `unavailable(ProviderVariant)`, the two forms the rule leaves; `withCredentialKey(String)` adds the key.
+* The format version stays 1: the member replaces version 1 in place, with no migration and no reader for an older
+  document.
+
+== Alternatives Considered
+
+1. *Store the provider's answers beside the checks.* _Not taken_: a provider's refusal can carry a token or a header,
+   and a machine store is not the place to keep it. The check names and flags answer what the operator needs to know.
+2. *Keep `available` as the only evidence and drop the member again.* _Not taken_: "recorded available only after its
+   checks passed" is then an assertion of the writer that no reader can check, and the specification's promise of the
+   last result with its time stays unimplemented.
+3. *Keep `of(boolean, ProviderVariant)` and let the writer pass a result separately.* _Not taken_: a boolean that the
+   caller derives from a result it also passes lets the two disagree; the invariant belongs to the value.
+
+== Consequences
+
+* `MachineConfigurationCodec` reads and writes the member, `MachineConfigurationStore.writeProviders` stores `available`
+  only with a verified result, and a document that records an available provider without one is refused as unreadable.
+* Every test that built `available: true` from nothing now passes a result; `ProviderDefaultTest` holds the refusal of
+  both an absent and a failed result.
+* The JSON schema of `machine-config.json` carries the member, and the parity test states the document the codec creates
+  against it.
+* A later reader (the provider step of `plan-marshall-mcp`) sees the last result of each provider without asking the
+  provider again.
+
+== Source
+
+* Plan PLAN-V2-81, deliverable 2 and Decision 1
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas § Machine
+  Provider Defaults], link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials
+  & Enrolment § Provider Verification]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/config/VerificationResult.java`,
+  `ProviderDefault.java`, `MachineConfigurationCodec.java`

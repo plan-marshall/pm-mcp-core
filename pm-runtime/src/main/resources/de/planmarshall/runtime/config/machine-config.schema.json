@@ -126,8 +126,31 @@
         "additionalProperties": false,
         "properties": {
           "available": { "type": "boolean", "description": "true only once its verification passed, or false on the operator's word after a failed verification; a provider recorded false never serves a project." },
-          "variant": { "type": "string", "enum": ["native", "cli"], "description": "The default integration variant of a project that sets none; cli only for git, github, and gitlab." },
-          "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "The credential entry the provider uses where a project names none (identifiers.adoc, credential_key)." }
+          "variant": { "type": "string", "enum": ["native", "cli"], "description": "The default integration variant of a project that sets none; required for git, github and gitlab, and omitted for forgejo and sonar, which have no cli variant." },
+          "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "The credential entry the provider uses where a project names none (identifiers.adoc, credential_key)." },
+          "verification": {
+            "type": "object",
+            "required": ["passed", "at", "checks"],
+            "additionalProperties": false,
+            "description": "The last verification result with its time (provider-credentials.adoc, Provider Verification): a provider recorded available carries a passed result, one recorded false carries a failed result or none.",
+            "properties": {
+              "passed": { "type": "boolean", "description": "Whether every check of the verification passed." },
+              "at": { "type": "string", "format": "date-time", "description": "The instant of the verification." },
+              "checks": {
+                "type": "array",
+                "description": "The checks, one per verification line, with their names and outcomes only; no provider answer is stored.",
+                "items": {
+                  "type": "object",
+                  "required": ["check", "ok"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "check": { "type": "string", "minLength": 1, "description": "The name of the check." },
+                    "ok": { "type": "boolean", "description": "Whether the check passed." }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
