@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -41,6 +42,7 @@ import org.jspecify.annotations.Nullable;
  * @param stages          the stage results by stage name
  * @since 0.1
  */
+@Builder
 public record VerificationRecord(int formatVersion, String clientId, String profileDigest, Instant verifiedAt,
 Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
 
@@ -73,6 +75,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
      * @param startContext the start context of the stage {@code usage}; empty for another stage
      * @since 0.1
      */
+    @Builder
     public record Stage(String status, Map<String, String> results, @Nullable Integer trials,
     List<ProfileStages.StartContext> startContext) {
 
@@ -107,6 +110,7 @@ Tool tool, HarnessBuild harness, Platform platform, Map<String, Stage> stages) {
      * @param models           the models a stage ran with
      * @since 0.1
      */
+    @Builder
     public record HarnessBuild(String executable, String version, String executableSha256, List<String> models) {
 
         /** Copies the models. */
