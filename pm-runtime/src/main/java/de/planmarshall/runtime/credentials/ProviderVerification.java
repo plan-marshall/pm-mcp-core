@@ -13,6 +13,7 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.Consent;
@@ -145,6 +146,7 @@ public final class ProviderVerification {
      * @param answer     the provider's or the tool's own answer where there is one; {@code null} when none
      * @since 0.1
      */
+    @Builder
     public record CheckLine(String check, boolean ok, String messageKey, List<String> arguments,
     @Nullable String answer) {
 
@@ -166,6 +168,7 @@ public final class ProviderVerification {
      *                 none is recorded
      * @since 0.1
      */
+    @Builder
     public record Verification(Provider provider, boolean ran, List<CheckLine> lines, @Nullable Consent toRecord) {
 
         /** Keeps the lines unmodifiable and rejects a {@code null} provider. */
@@ -218,8 +221,13 @@ public final class ProviderVerification {
         lines.add(line(provider, "origin", probe.origin(provider), "reachability"));
         var credentialKey = defaults.credentialKey();
         if (credentialKey == null) {
-            lines.add(new CheckLine("credential", false, MESSAGE_KEY_PREFIX + "credential.missing",
-                    List.of(provider.wireName()), null));
+            lines.add(CheckLine.builder()
+                    .check("credential")
+                    .ok(false)
+                    .messageKey(MESSAGE_KEY_PREFIX + "credential.missing")
+                    .arguments(List.of(provider.wireName()))
+                    .answer(null)
+                    .build());
         } else {
             var identity = probe.identity(provider, credentialKey);
             lines.add(line(provider, "whoami", identity, "identity"));
@@ -247,22 +255,34 @@ public final class ProviderVerification {
      */
     private static CheckLine sameIdentity(Provider provider, Answer credential, Answer login) {
         if (!credential.ok()) {
-            return new CheckLine(TOOL_IDENTITY, false,
-                    MESSAGE_KEY_PREFIX + TOOL_IDENTITY + ".credential_unknown", List.of(provider.wireName()),
-                    credential.detail());
+            return CheckLine.builder()
+                    .check(TOOL_IDENTITY)
+                    .ok(false)
+                    .messageKey(MESSAGE_KEY_PREFIX + TOOL_IDENTITY + ".credential_unknown")
+                    .arguments(List.of(provider.wireName()))
+                    .answer(credential.detail())
+                    .build();
         }
         if (!login.ok()) {
             return line(provider, TOOL_IDENTITY, login, "identity");
         }
         var same = credential.detail().equals(login.detail());
-        return new CheckLine(TOOL_IDENTITY, same,
-                MESSAGE_KEY_PREFIX + TOOL_IDENTITY + "." + (same ? OK : "differs"), List.of(provider.wireName(),
-                        credential.detail(), login.detail()),
-                login.detail());
+        return CheckLine.builder()
+                .check(TOOL_IDENTITY)
+                .ok(same)
+                .messageKey(MESSAGE_KEY_PREFIX + TOOL_IDENTITY + "." + (same ? OK : "differs"))
+                .arguments(List.of(provider.wireName(), credential.detail(), login.detail()))
+                .answer(login.detail())
+                .build();
     }
 
     private static CheckLine line(Provider provider, String check, Answer answer, String measured) {
-        return new CheckLine(check, answer.ok(), MESSAGE_KEY_PREFIX + check + "." + (answer.ok() ? OK : FAILED),
-                List.of(provider.wireName(), measured), answer.detail());
+        return CheckLine.builder()
+                .check(check)
+                .ok(answer.ok())
+                .messageKey(MESSAGE_KEY_PREFIX + check + "." + (answer.ok() ? OK : FAILED))
+                .arguments(List.of(provider.wireName(), measured))
+                .answer(answer.detail())
+                .build();
     }
 }

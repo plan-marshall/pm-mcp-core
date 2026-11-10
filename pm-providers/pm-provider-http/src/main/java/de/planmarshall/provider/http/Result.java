@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  * @param <V>      the value type
  * @since 0.1
  */
+@Builder
 public record Result<V>(Outcome outcome, @Nullable V value, boolean complete, @Nullable Instant resetAt,
 String detail) {
 

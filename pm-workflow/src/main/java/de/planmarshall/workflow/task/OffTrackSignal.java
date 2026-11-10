@@ -12,6 +12,7 @@ package de.planmarshall.workflow.task;
 import java.util.Objects;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import lombok.Builder;
 
 /**
  * One off-track signal the runtime computed for a worker, with the action the role artifact chooses (Model Work § A
@@ -23,6 +24,7 @@ import de.planmarshall.core.queue.QueueTaskRecord;
  * @param threshold   the threshold in force
  * @since 0.1
  */
+@Builder
 public record OffTrackSignal(QueueTaskRecord.SignalName signal, QueueTaskRecord.SignalAction action,
 double measurement, double threshold) {
 

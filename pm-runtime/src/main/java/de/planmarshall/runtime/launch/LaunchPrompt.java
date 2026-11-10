@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * The launch prompt the server composed, with its digest and the skills it delivered in-band (PM-SKILL-4, Job Record):
@@ -24,6 +25,7 @@ import java.util.Objects;
  * @param prefixLength the length of the shared prefix in characters
  * @since 0.1
  */
+@Builder
 public record LaunchPrompt(String text, String digest, List<ResolvedSkill> delivered, int prefixLength) {
 
     /** Copies the delivered skills and refuses a prefix outside the text. */

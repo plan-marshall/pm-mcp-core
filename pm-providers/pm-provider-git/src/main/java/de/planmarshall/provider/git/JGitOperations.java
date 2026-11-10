@@ -205,8 +205,15 @@ public final class JGitOperations implements GitOperations {
             checkout.setFailOnConflict(true);
             checkout.checkout();
             LinkedWorktrees.unlock(admin);
-            return GitResult.ok(new Worktree(target, admin.getFileName().toString(), input.branch(),
-                    start.name(), false, false, false));
+            return GitResult.ok(Worktree.builder()
+                    .path(target)
+                    .name(admin.getFileName().toString())
+                    .branch(input.branch())
+                    .head(start.name())
+                    .main(false)
+                    .locked(false)
+                    .prunable(false)
+                    .build());
         } catch (IOException | JGitInternalException e) {
             LinkedWorktrees.delete(commonDir, admin.getFileName().toString(), target);
             throw e;
@@ -288,8 +295,15 @@ public final class JGitOperations implements GitOperations {
                 Optional<String> branch = headRef != null && headRef.isSymbolic()
                         ? Optional.of(Repository.shortenRefName(headRef.getTarget().getName()))
                         : Optional.empty();
-                worktrees.add(new Worktree(main.getWorkTree().toPath().toRealPath(), null, branch.orElse(null),
-                        head.map(ObjectId::name).orElse(null), true, false, false));
+                worktrees.add(Worktree.builder()
+                        .path(main.getWorkTree().toPath().toRealPath())
+                        .name(null)
+                        .branch(branch.orElse(null))
+                        .head(head.map(ObjectId::name).orElse(null))
+                        .main(true)
+                        .locked(false)
+                        .prunable(false)
+                        .build());
             }
             worktrees.addAll(LinkedWorktrees.list(commonDir));
             return GitResult.ok(List.copyOf(worktrees));
@@ -415,8 +429,12 @@ public final class JGitOperations implements GitOperations {
             }
             FetchResult result = command.call();
             var updates = result.getTrackingRefUpdates().stream()
-                    .map(update -> new RefUpdate(update.getLocalName(), id(update.getOldObjectId()).orElse(null),
-                            id(update.getNewObjectId()).orElse(null), update.getResult().name().toLowerCase(Locale.ROOT)))
+                    .map(update -> RefUpdate.builder()
+                            .ref(update.getLocalName())
+                            .oldId(id(update.getOldObjectId()).orElse(null))
+                            .newId(id(update.getNewObjectId()).orElse(null))
+                            .status(update.getResult().name().toLowerCase(Locale.ROOT))
+                            .build())
                     .toList();
             return GitResult.ok(updates);
         } catch (RefusingFS.CapabilityRefusedException e) {
@@ -596,9 +614,12 @@ public final class JGitOperations implements GitOperations {
     }
 
     private static GitResult<RefUpdate> toPushResult(RemoteRefUpdate update) {
-        var ref = new RefUpdate(update.getRemoteName(), id(update.getExpectedOldObjectId()).orElse(null),
-                id(update.getNewObjectId()).orElse(null),
-                update.getStatus().name().toLowerCase(Locale.ROOT));
+        var ref = RefUpdate.builder()
+                .ref(update.getRemoteName())
+                .oldId(id(update.getExpectedOldObjectId()).orElse(null))
+                .newId(id(update.getNewObjectId()).orElse(null))
+                .status(update.getStatus().name().toLowerCase(Locale.ROOT))
+                .build();
         return switch (update.getStatus()) {
             case OK, UP_TO_DATE -> GitResult.ok(ref);
             case REJECTED_NONFASTFORWARD -> GitResult.of(GitOutcome.REJECTED_NON_FAST_FORWARD, update.getRemoteName());
@@ -648,17 +669,29 @@ public final class JGitOperations implements GitOperations {
                 ? Optional.of(Repository.shortenRefName(head.getTarget().getName()))
                 : Optional.empty();
         Optional<String> id = Optional.ofNullable(repository.resolve(Constants.HEAD)).map(ObjectId::name);
-        return new RepositoryInfo(repository.getWorkTree().toPath().toRealPath(), gitDir, commonDir,
-                id.orElse(null), branch.orElse(null), !gitDir.equals(commonDir));
+        return RepositoryInfo.builder()
+                .worktreeRoot(repository.getWorkTree().toPath().toRealPath())
+                .gitDir(gitDir)
+                .commonDir(commonDir)
+                .head(id.orElse(null))
+                .branch(branch.orElse(null))
+                .linked(!gitDir.equals(commonDir))
+                .build();
     }
 
     private static CommitInfo toInfo(RevCommit commit) {
         var parents = Arrays.stream(commit.getParents()).map(RevCommit::name).toList();
         PersonIdent author = commit.getAuthorIdent();
         PersonIdent committer = commit.getCommitterIdent();
-        return new CommitInfo(commit.name(), parents, new Identity(author.getName(), author.getEmailAddress()),
-                author.getWhenAsInstant(), new Identity(committer.getName(), committer.getEmailAddress()),
-                committer.getWhenAsInstant(), commit.getFullMessage());
+        return CommitInfo.builder()
+                .id(commit.name())
+                .parents(parents)
+                .author(new Identity(author.getName(), author.getEmailAddress()))
+                .authoredAt(author.getWhenAsInstant())
+                .committer(new Identity(committer.getName(), committer.getEmailAddress()))
+                .committedAt(committer.getWhenAsInstant())
+                .message(commit.getFullMessage())
+                .build();
     }
 
     private static Optional<String> id(@Nullable ObjectId id) {

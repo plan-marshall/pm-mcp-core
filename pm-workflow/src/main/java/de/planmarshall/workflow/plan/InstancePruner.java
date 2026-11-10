@@ -31,6 +31,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.LaneEntryIds;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -108,8 +109,12 @@ final class InstancePruner {
         var selection = new Selection(template, verificationSteps, finalizeSteps);
         selection.keepEntries();
         effects.prunes().forEach(selection::resolve);
-        otherLane(template, lane).forEach(state -> selection.resolve(new PrunedElement(PrunedElement.Kind.STATE,
-                state, PruneReason.OTHER_LANE, LANE_FACT)));
+        otherLane(template, lane).forEach(state -> selection.resolve(PrunedElement.builder()
+                .element(PrunedElement.Kind.STATE)
+                .id(state)
+                .reason(PruneReason.OTHER_LANE)
+                .sourceFact(LANE_FACT)
+                .build()));
         Map<PlanFacts.Axis, PlanFacts.BoundVariant> variants = new EnumMap<>(PlanFacts.Axis.class);
         bound.forEach(variant -> variants.put(variant.axis(), variant));
         var states = new LinkedHashMap<String, StateNode>();
@@ -130,8 +135,14 @@ final class InstancePruner {
         var keptVerification = verificationSteps.stream().filter(step -> !selection.steps.contains(step)).toList();
         var keptFinalize = finalizeSteps.stream().map(CompositionRequest.Step::id)
                 .filter(step -> !selection.steps.contains(step)).toList();
-        return new Pruned(states, selection.pruned, policyCalls, waivedGates,
-                new PlanInstanceHeader.Steps(keptVerification, keptFinalize), settled);
+        return Pruned.builder()
+                .states(states)
+                .pruned(selection.pruned)
+                .policyCalls(policyCalls)
+                .waivedGates(waivedGates)
+                .steps(new PlanInstanceHeader.Steps(keptVerification, keptFinalize))
+                .settled(settled)
+                .build();
     }
 
     /**
@@ -245,15 +256,28 @@ final class InstancePruner {
         }
         var variant = variants.get(axis.get());
         axis.get().variants().stream().filter(other -> !other.equals(variant.variant()))
-                .forEach(other -> selection.list(new PrunedElement(PrunedElement.Kind.CALL, state.id() + "/" + other,
-                        PruneReason.PLAN_DEFAULT, variant.sourceFact()), state.id() + "/" + other));
+                .forEach(other -> selection.list(PrunedElement.builder()
+                        .element(PrunedElement.Kind.CALL)
+                        .id(state.id() + "/" + other)
+                        .reason(PruneReason.PLAN_DEFAULT)
+                        .sourceFact(variant.sourceFact())
+                        .build(), state.id() + "/" + other));
         if (variant.variant().equals(call.subWorkflowId())) {
             return state;
         }
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
-                state.factsPrimitiveId(), new StateBehavior.SubWorkflowCall(variant.variant(), call.entry(),
-                        call.paramBindings(), call.transitions()),
-                state.location());
+        return StateNode.builder()
+                .id(state.id())
+                .terminalOutcome(state.terminalOutcome())
+                .skillPath(state.skillPath())
+                .factsPrimitiveId(state.factsPrimitiveId())
+                .behavior(StateBehavior.SubWorkflowCall.builder()
+                        .subWorkflowId(variant.variant())
+                        .entry(call.entry())
+                        .paramBindings(call.paramBindings())
+                        .transitions(call.transitions())
+                        .build())
+                .location(state.location())
+                .build();
     }
 
     private static StateNode keep(StateNode state, Selection selection, RuleEffects effects, List<Waiver> waivers,
@@ -266,9 +290,15 @@ final class InstancePruner {
                 new StateBehavior.AutoStep(primitiveId, transitions(transitions, removed));
             case StateBehavior.JobStep(var primitiveId, var composite, var transitions) ->
                 new StateBehavior.JobStep(primitiveId, composite, transitions(transitions, removed));
-            case StateBehavior.ModelJob job -> new StateBehavior.ModelJob(job.entityKind(), job.roleName(),
-                    job.fanOutPrimitiveId(), job.rolesPrimitiveId(), job.askForm(), job.consultRoles(),
-                    transitions(job.transitions(), removed));
+            case StateBehavior.ModelJob job -> StateBehavior.ModelJob.builder()
+                    .entityKind(job.entityKind())
+                    .roleName(job.roleName())
+                    .fanOutPrimitiveId(job.fanOutPrimitiveId())
+                    .rolesPrimitiveId(job.rolesPrimitiveId())
+                    .askForm(job.askForm())
+                    .consultRoles(job.consultRoles())
+                    .transitions(transitions(job.transitions(), removed))
+                    .build();
             case StateBehavior.SubWorkflowCall call -> {
                 var bindings = new LinkedHashMap<>(call.paramBindings());
                 if (isPolicyCall(state)) {
@@ -276,22 +306,40 @@ final class InstancePruner {
                     arguments.forEach((name, argument) -> bindings.put(name, argument.value()));
                     policyCalls.add(PolicyCall.of(state.id(), call.subWorkflowId(), arguments));
                 }
-                yield new StateBehavior.SubWorkflowCall(call.subWorkflowId(), call.entry(), bindings,
-                        transitions(call.transitions(), removed));
+                yield StateBehavior.SubWorkflowCall.builder()
+                        .subWorkflowId(call.subWorkflowId())
+                        .entry(call.entry())
+                        .paramBindings(bindings)
+                        .transitions(transitions(call.transitions(), removed))
+                        .build();
             }
             case StateBehavior.QuestionWait(var questionClass, var transitions) ->
                 new StateBehavior.QuestionWait(questionClass, transitions(transitions, removed));
             case StateBehavior.TerminalState terminal -> terminal;
         };
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
-                state.factsPrimitiveId(), behavior, state.location());
+        return StateNode.builder()
+                .id(state.id())
+                .terminalOutcome(state.terminalOutcome())
+                .skillPath(state.skillPath())
+                .factsPrimitiveId(state.factsPrimitiveId())
+                .behavior(behavior)
+                .location(state.location())
+                .build();
     }
 
     private static List<LinkSpec> links(String stateId, List<LinkSpec> links, Selection selection) {
         var prunedLinks = selection.links.getOrDefault(stateId, Set.of());
         return links.stream().filter(link -> !prunedLinks.contains(link.idPattern()))
-                .map(link -> new LinkSpec(link.rel(), link.idPattern(), link.form(), link.freeParams(), link.guard(),
-                        link.action(), transitions(link.transitions(), selection.states), link.location()))
+                .map(link -> LinkSpec.builder()
+                        .rel(link.rel())
+                        .idPattern(link.idPattern())
+                        .form(link.form())
+                        .freeParams(link.freeParams())
+                        .guard(link.guard())
+                        .action(link.action())
+                        .transitions(transitions(link.transitions(), selection.states))
+                        .location(link.location())
+                        .build())
                 .toList();
     }
 
@@ -341,6 +389,7 @@ final class InstancePruner {
      * @param settled     by kept state, the outcomes whose transitions all led into a state pruned with a prune
      *                    record, which the record settles (Rule 2)
      */
+    @Builder
     record Pruned(Map<String, StateNode> states, List<PrunedElement> pruned, List<PolicyCall> policyCalls,
     List<WaivedGate> waivedGates, PlanInstanceHeader.Steps steps, Map<String, Set<String>> settled) {
     }
@@ -455,7 +504,12 @@ final class InstancePruner {
             if (!listed.add(prune.element().wireName() + " " + id)) {
                 return false;
             }
-            pruned.add(new PrunedElement(prune.element(), id, prune.reason(), prune.sourceFact()));
+            pruned.add(PrunedElement.builder()
+                    .element(prune.element())
+                    .id(id)
+                    .reason(prune.reason())
+                    .sourceFact(prune.sourceFact())
+                    .build());
             return true;
         }
     }

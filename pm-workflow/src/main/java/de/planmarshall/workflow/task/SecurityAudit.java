@@ -12,6 +12,8 @@ package de.planmarshall.workflow.task;
 import java.time.Instant;
 import java.util.Objects;
 
+import lombok.Builder;
+
 /**
  * Where the task protocol records the {@code security} audit event {@code agent_started} (Model Work § A Worker Off
  * Track): the supervisor found a process of the worker's process tree that runs an enrolled harness executable or the
@@ -44,6 +46,7 @@ public interface SecurityAudit {
      * @param at           the instant the supervisor detected it
      * @since 0.1
      */
+    @Builder
     record Event(String executable, String generationId, String queueTaskId, int attempt, Instant at) {
 
         /**

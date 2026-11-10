@@ -17,6 +17,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.LimitProperties;
@@ -88,6 +89,7 @@ public final class StalledScopeDetector {
      * @param awaitsExternalEvent whether the scope awaits an event outside the store: an open CI, merge-queue or
      *                          review-bot wait, or a prerequisite wait
      */
+    @Builder
     public record View(String projectId, WorkflowStatus status, boolean paused, boolean operatorWait, boolean otherHold,
     boolean awaitsExternalEvent) {
 
@@ -139,6 +141,7 @@ public final class StalledScopeDetector {
      * @param idleSeconds the seconds since that instant
      * @since 0.1
      */
+    @Builder
     public record StalledHold(AuditRecord.Scope scopeType, String scopeId, String state, Cause cause, Instant idleSince,
     long idleSeconds) {
 
@@ -209,8 +212,14 @@ public final class StalledScopeDetector {
             release(key);
             return new Activity(null);
         }
-        var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(), Cause.NO_PROGRESS,
-                status.updatedAt(), idleSeconds);
+        var hold = StalledHold.builder()
+                .scopeType(scopeType(status.scopeType()))
+                .scopeId(status.scopeId())
+                .state(status.state())
+                .cause(Cause.NO_PROGRESS)
+                .idleSince(status.updatedAt())
+                .idleSeconds(idleSeconds)
+                .build();
         stalled.compute(key, (ignored, previous) -> {
             if (previous != null && !status.updatedAt().isAfter(previous.hold().idleSince())) {
                 return previous;

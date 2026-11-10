@@ -15,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.EndpointProfile;
@@ -112,6 +113,7 @@ public final class EndpointEnrolment {
      * @param detail       what happened, for a record
      * @since 0.1
      */
+    @Builder
     public record Refreshed(HarnessEnrolment enrolment, List<String> changedModels, boolean written, String detail) {
 
         /** Copies the models. */

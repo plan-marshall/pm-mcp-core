@@ -113,7 +113,6 @@ class JournalRecoveryTest {
     }
 
 
-
     /**
      * Creates a consistent scope: the status and the work log are written by a commit, so the sidecar holds their
      * digests; the references do not exist yet.

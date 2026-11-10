@@ -40,8 +40,12 @@ public final class CompositionRuleEvaluator {
         for (var rule : rules.rules()) {
             if (rule.when().holds(facts)) {
                 var fact = PlanFacts.sourceFact(rule.when().fact());
-                rule.prunes().forEach(prune -> prunes.add(new PrunedElement(prune.element(), prune.id(),
-                        prune.reason(), fact)));
+                rule.prunes().forEach(prune -> prunes.add(PrunedElement.builder()
+                        .element(prune.element())
+                        .id(prune.id())
+                        .reason(prune.reason())
+                        .sourceFact(fact)
+                        .build()));
                 bindings.addAll(rule.bindings());
             }
         }

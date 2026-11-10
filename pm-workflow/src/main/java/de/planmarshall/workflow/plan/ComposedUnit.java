@@ -13,6 +13,7 @@ import java.util.Objects;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.WorkflowPrinter;
+import lombok.Builder;
 
 /**
  * One composed file of a plan instance version (PM-IMPL-5, PM-WF-25): a phase sub-workflow or a bound axis
@@ -30,6 +31,7 @@ import de.planmarshall.workflow.dsl.WorkflowPrinter;
  * @param digest     the SHA-256 of {@code text}
  * @since 0.1
  */
+@Builder
 public record ComposedUnit(String unit, int version, WorkflowDefinition definition, String text, String digest) {
 
     /**

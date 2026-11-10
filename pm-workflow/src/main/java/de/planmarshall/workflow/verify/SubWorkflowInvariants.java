@@ -134,32 +134,62 @@ final class SubWorkflowInvariants {
             case StateBehavior.AutoStep auto -> new StateBehavior.AutoStep(auto.primitiveId(), shape(auto.transitions()));
             case StateBehavior.JobStep job -> new StateBehavior.JobStep(job.primitiveId(), job.composite(),
                     shape(job.transitions()));
-            case StateBehavior.ModelJob job -> new StateBehavior.ModelJob(job.entityKind(),
-                    ignoreRole ? null : job.roleName(), job.fanOutPrimitiveId(), job.rolesPrimitiveId(),
-                    job.askForm(), job.consultRoles(), shape(job.transitions()));
-            case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
-                    call.entry(), call.paramBindings(), shape(call.transitions()));
+            case StateBehavior.ModelJob job -> StateBehavior.ModelJob.builder()
+                    .entityKind(job.entityKind())
+                    .roleName(ignoreRole ? null : job.roleName())
+                    .fanOutPrimitiveId(job.fanOutPrimitiveId())
+                    .rolesPrimitiveId(job.rolesPrimitiveId())
+                    .askForm(job.askForm())
+                    .consultRoles(job.consultRoles())
+                    .transitions(shape(job.transitions()))
+                    .build();
+            case StateBehavior.SubWorkflowCall call -> StateBehavior.SubWorkflowCall.builder()
+                    .subWorkflowId(call.subWorkflowId())
+                    .entry(call.entry())
+                    .paramBindings(call.paramBindings())
+                    .transitions(shape(call.transitions()))
+                    .build();
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),
                     shape(question.transitions()));
             case StateBehavior.TerminalState terminal -> terminal;
         };
-        return new StateNode(state.id(), state.terminalOutcome(), state.skillPath(),
-                state.factsPrimitiveId(), behavior, Context.nowhere());
+        return StateNode.builder()
+                .id(state.id())
+                .terminalOutcome(state.terminalOutcome())
+                .skillPath(state.skillPath())
+                .factsPrimitiveId(state.factsPrimitiveId())
+                .behavior(behavior)
+                .location(Context.nowhere())
+                .build();
     }
 
     private static LinkSpec shape(LinkSpec link) {
-        return new LinkSpec(link.rel(), link.idPattern(), link.form(),
-                link.freeParams().stream().map(param -> new ParamSpec(param.name(), param.type(), param.optional(),
-                        Context.nowhere())).toList(),
-                link.guard(), link.action(), shape(link.transitions()), Context.nowhere());
+        return LinkSpec.builder()
+                .rel(link.rel())
+                .idPattern(link.idPattern())
+                .form(link.form())
+                .freeParams(link.freeParams().stream().map(param -> ParamSpec.builder()
+                        .name(param.name())
+                        .type(param.type())
+                        .optional(param.optional())
+                        .location(Context.nowhere())
+                        .build()).toList())
+                .guard(link.guard())
+                .action(link.action())
+                .transitions(shape(link.transitions()))
+                .location(Context.nowhere())
+                .build();
     }
 
     private static List<OutcomeTransition> shape(List<OutcomeTransition> transitions) {
-        return transitions.stream().map(transition -> new OutcomeTransition(transition.outcomeName(),
-                transition.targetStateId(), transition.resultGuard(),
-                transition.completions().stream().map(completion -> new StepCompletion(completion.stepId(),
-                        completion.status(), Context.nowhere())).toList(),
-                Context.nowhere())).toList();
+        return transitions.stream().map(transition -> OutcomeTransition.builder()
+                .outcomeName(transition.outcomeName())
+                .targetStateId(transition.targetStateId())
+                .resultGuard(transition.resultGuard())
+                .completions(transition.completions().stream().map(completion -> new StepCompletion(
+                        completion.stepId(), completion.status(), Context.nowhere())).toList())
+                .location(Context.nowhere())
+                .build()).toList();
     }
 
     private static void commitAndPush(Context context) {

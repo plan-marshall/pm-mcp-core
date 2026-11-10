@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.StoreRefusal;
@@ -67,6 +68,7 @@ import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
  *                      it carries the same id and the reader of the audit log drops the duplicate
  * @since 0.1
  */
+@Builder
 public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt, Phase phase, boolean targetHeldKey,
 Operation operation, TransactionId transactionId) {
 

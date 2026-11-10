@@ -114,14 +114,24 @@ public final class DefaultUnitLoader {
         var resource = root + file;
         try (var in = classLoader.getResourceAsStream(resource)) {
             if (in == null) {
-                findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING, resource, 0,
-                        "the default unit '%s' is not on the classpath".formatted(resource)));
+                findings.add(UnitFinding.builder()
+                        .kind(UnitFinding.Kind.MISSING)
+                        .code(UnitFinding.UNIT_MISSING)
+                        .file(resource)
+                        .line(0)
+                        .message("the default unit '%s' is not on the classpath".formatted(resource))
+                        .build());
                 return Optional.empty();
             }
             return Optional.of(new String(in.readAllBytes(), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_UNREADABLE, resource, 0,
-                    "the default unit '%s' cannot be read: %s".formatted(resource, e.getMessage())));
+            findings.add(UnitFinding.builder()
+                    .kind(UnitFinding.Kind.MISSING)
+                    .code(UnitFinding.UNIT_UNREADABLE)
+                    .file(resource)
+                    .line(0)
+                    .message("the default unit '%s' cannot be read: %s".formatted(resource, e.getMessage()))
+                    .build());
             return Optional.empty();
         }
     }
@@ -131,8 +141,13 @@ public final class DefaultUnitLoader {
         return switch (WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT)) {
             case ParseResult.Parsed(var definition) -> Optional.of(definition);
             case ParseResult.Refused(var diagnostic) -> {
-                findings.add(new UnitFinding(UnitFinding.Kind.PARSE, diagnostic.rule().name(), resource,
-                        diagnostic.line(), diagnostic.message()));
+                findings.add(UnitFinding.builder()
+                        .kind(UnitFinding.Kind.PARSE)
+                        .code(diagnostic.rule().name())
+                        .file(resource)
+                        .line(diagnostic.line())
+                        .message(diagnostic.message())
+                        .build());
                 yield Optional.empty();
             }
         };

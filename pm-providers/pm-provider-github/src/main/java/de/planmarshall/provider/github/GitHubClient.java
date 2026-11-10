@@ -130,6 +130,7 @@ public final class GitHubClient {
      * @param body       the body
      * @param createdAt  the creation instant (ISO-8601)
      */
+    @Builder
     public record ReviewComment(String id, String databaseId, @Nullable String author, String body, String createdAt) {
     }
 
@@ -144,6 +145,7 @@ public final class GitHubClient {
      * @param comments the first comments of the thread
      * @param complete whether {@code comments} holds every comment
      */
+    @Builder
     public record ReviewThread(String id, boolean resolved, boolean outdated, String path, @Nullable String line,
     List<ReviewComment> comments, boolean complete) {
     }
@@ -458,14 +460,23 @@ public final class GitHubClient {
 
     private static ReviewThread thread(Object node) {
         var comments = Json.list(node, "comments", "nodes").stream()
-                .map(comment -> new ReviewComment(Json.string(comment, "id").orElse(""),
-                        Json.string(comment, "databaseId").orElse(""), Json.string(comment, "author", LOGIN).orElse(null),
-                        Json.string(comment, "body").orElse(""), Json.string(comment, "createdAt").orElse("")))
+                .map(comment -> ReviewComment.builder()
+                        .id(Json.string(comment, "id").orElse(""))
+                        .databaseId(Json.string(comment, "databaseId").orElse(""))
+                        .author(Json.string(comment, "author", LOGIN).orElse(null))
+                        .body(Json.string(comment, "body").orElse(""))
+                        .createdAt(Json.string(comment, "createdAt").orElse(""))
+                        .build())
                 .toList();
-        return new ReviewThread(Json.string(node, "id").orElse(""), Json.bool(node, "isResolved"),
-                Json.bool(node, "isOutdated"), Json.string(node, "path").orElse(""),
-                Json.string(node, "line").orElse(null),
-                comments, !Json.bool(node, "comments", PAGE_INFO, "hasNextPage"));
+        return ReviewThread.builder()
+                .id(Json.string(node, "id").orElse(""))
+                .resolved(Json.bool(node, "isResolved"))
+                .outdated(Json.bool(node, "isOutdated"))
+                .path(Json.string(node, "path").orElse(""))
+                .line(Json.string(node, "line").orElse(null))
+                .comments(comments)
+                .complete(!Json.bool(node, "comments", PAGE_INFO, "hasNextPage"))
+                .build();
     }
 
     private static String document(String name) {

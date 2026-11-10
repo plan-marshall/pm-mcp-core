@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
@@ -52,6 +53,7 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * @param sessionBusSocket the user's session bus socket; {@code null} when the platform has none
  * @since 0.1
  */
+@Builder
 public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot, @Nullable Path sessionBusSocket) {
 
     /** The directory of the job-private directories below the base. */

@@ -100,8 +100,12 @@ public final class JGitSourceRepository implements SourceRepository {
     @Override
     public SourceFetch fetchCommit(Path cacheRoot, SourceManifest manifest) {
         var remote = remotes.apply(manifest);
-        var result = git.fetchCommit(new FetchCommitInput(cache(cacheRoot, manifest), remote.url(), manifest.commit(),
-                remote.policy()));
+        var result = git.fetchCommit(FetchCommitInput.builder()
+                .cache(cache(cacheRoot, manifest))
+                .url(remote.url())
+                .commit(manifest.commit())
+                .policy(remote.policy())
+                .build());
         return result.isOk() ? SourceFetch.done("commit %s of %s".formatted(manifest.commit(), remote.url()))
                 : failed(result, manifest);
     }

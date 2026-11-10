@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import de.planmarshall.core.role.RoleClass;
+import lombok.Builder;
 
 /**
  * One role a composed unit names, with the classes its use admits (PM-WORK-1, Composition Check).
@@ -35,6 +36,7 @@ import de.planmarshall.core.role.RoleClass;
  * @param consultation    whether the use is a {@code consult role} clause
  * @since 0.1
  */
+@Builder
 public record RoleUse(String stateId, String role, Set<RoleClass> acceptedClasses, boolean consultation) {
 
     /** Copies the set. */

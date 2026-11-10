@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -25,6 +26,7 @@ import org.jspecify.annotations.Nullable;
  * @param leasedTask   the queue task the worker held; {@code null} while it held none
  * @since 0.1
  */
+@Builder
 public record LossSignal(LossReason reason, String generationId, Instant measuredAt, Instant deadline,
 boolean firstCallMade, @Nullable String leasedTask) {
 

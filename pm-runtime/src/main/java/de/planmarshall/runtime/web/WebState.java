@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.web;
 
+import lombok.Builder;
+
 /**
  * The web access setting and the live state of its listener, the {@code web} object of the runtime status.
  *
@@ -18,6 +20,7 @@ package de.planmarshall.runtime.web;
  * @param open    whether the listener is open
  * @since 0.1
  */
+@Builder
 public record WebState(boolean enabled, boolean lan, int port, boolean open) {
 
     /** The compiled default port. */

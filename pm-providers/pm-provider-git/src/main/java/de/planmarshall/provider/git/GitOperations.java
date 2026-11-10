@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -151,6 +152,7 @@ public interface GitOperations {
      * @param commit the full id of the commit
      * @param policy the remotes the fetch may contact
      */
+    @Builder
     record FetchCommitInput(Path cache, String url, String commit, RemotePolicy policy) {
 
         /**
@@ -193,6 +195,7 @@ public interface GitOperations {
      * @param branch       the checked-out branch, {@code null} when detached
      * @param linked       whether this is a linked worktree
      */
+    @Builder
     record RepositoryInfo(Path worktreeRoot, Path gitDir, Path commonDir, @Nullable String head, @Nullable String branch,
     boolean linked) {
     }
@@ -220,6 +223,7 @@ public interface GitOperations {
      * @param locked   whether the linked worktree is locked
      * @param prunable whether the linked worktree's directory is gone
      */
+    @Builder
     record Worktree(Path path, @Nullable String name, @Nullable String branch, @Nullable String head, boolean main,
     boolean locked, boolean prunable) {
     }
@@ -233,6 +237,7 @@ public interface GitOperations {
      * @param createBranch whether to create {@code branch} at {@code startPoint}
      * @param startPoint   the commit-ish to start from (ignored for an existing branch)
      */
+    @Builder
     record WorktreeAddInput(Path root, Path path, @Nullable String branch, boolean createBranch, String startPoint) {
 
         /**
@@ -266,6 +271,7 @@ public interface GitOperations {
      * @param author    the author (the operator's commit identity)
      * @param committer the committer (the agent identity)
      */
+    @Builder
     record CommitInput(Path root, String message, Identity author, Identity committer) {
     }
 
@@ -280,6 +286,7 @@ public interface GitOperations {
      * @param committedAt   the commit time
      * @param message       the full message
      */
+    @Builder
     record CommitInfo(String id, List<String> parents, Identity author, Instant authoredAt, Identity committer,
     Instant committedAt, String message) {
     }
@@ -320,6 +327,7 @@ public interface GitOperations {
      * @param refSpecs   the ref specs; empty for the remote's configured specs
      * @param credential the transport credential; {@code null} when none
      */
+    @Builder
     record RemoteInput(Path root, String remote, List<String> refSpecs, @Nullable GitCredential credential) {
     }
 
@@ -333,6 +341,7 @@ public interface GitOperations {
      * @param expectedRemoteHead the expected current remote head (lease); {@code null} for a plain push
      * @param credential         the transport credential; {@code null} when none
      */
+    @Builder
     record PushInput(Path root, String remote, String localRef, String remoteRef, @Nullable String expectedRemoteHead,
     @Nullable GitCredential credential) {
     }
@@ -345,6 +354,7 @@ public interface GitOperations {
      * @param newId  the new id, {@code null} when deleted
      * @param status the provider-neutral status, e.g. {@code updated}, {@code up_to_date}
      */
+    @Builder
     record RefUpdate(String ref, @Nullable String oldId, @Nullable String newId, String status) {
     }
 }

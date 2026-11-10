@@ -12,6 +12,7 @@ package de.planmarshall.workflow.plan;
 import java.util.Objects;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,6 +25,7 @@ import org.jspecify.annotations.Nullable;
  * @param origin where the unit comes from
  * @since 0.1
  */
+@Builder
 public record UnitReference(String unit, @Nullable String file, String digest, UnitOrigin origin) {
 
     /**

@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import de.planmarshall.core.role.RoleClass;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  * @param acceptedClasses the classes the use admits
  * @since 0.1
  */
+@Builder
 public record ModelJob(@Nullable String scopeId, String stateId, String entityKey, String role, boolean consultation,
 Set<RoleClass> acceptedClasses) {
 

@@ -16,6 +16,7 @@ import java.util.Objects;
 import de.planmarshall.workflow.ast.Phase;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 
 /**
  * One finding that refuses a unit (PM-IMPL-5): what kind of check refused it, the code of the rule, invariant or
@@ -32,6 +33,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param message what is wrong
  * @since 0.1
  */
+@Builder
 public record UnitFinding(Kind kind, String code, String file, int line, String message) {
 
     /** The code of a unit written for an older DSL format than the compiled one. */

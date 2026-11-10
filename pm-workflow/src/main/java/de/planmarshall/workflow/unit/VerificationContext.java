@@ -21,6 +21,7 @@ import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import lombok.Builder;
 
 /**
  * What the static verifier of the loaded units reads (PM-IMPL-5): the registries the assembly supplies and the units
@@ -34,6 +35,7 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * @param compiledUnits   the units compiled into the release that no project owns
  * @since 0.1
  */
+@Builder
 public record VerificationContext(PrimitiveRegistry registry, EntityKindRegistry entityKinds,
 QuestionClassRegistry questionClasses, SchemaRegistry schemas, List<WorkflowDefinition> compiledUnits) {
 

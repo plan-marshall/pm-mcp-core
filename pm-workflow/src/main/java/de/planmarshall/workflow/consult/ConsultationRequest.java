@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 
 import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.role.RoleClass;
+import lombok.Builder;
 
 /**
  * The ask of one task follows its {@code consult:<role>} link (Model Work § The {@code consult:<role>} Link): the asking
@@ -36,6 +37,7 @@ import de.planmarshall.core.role.RoleClass;
  * @param at              the instant of the ask
  * @since 0.1
  */
+@Builder
 public record ConsultationRequest(String askingTaskId, String generationId, String role, RoleClass roleClass,
 boolean formDowngraded, List<String> declaredRoles, String question, Instant at) {
 

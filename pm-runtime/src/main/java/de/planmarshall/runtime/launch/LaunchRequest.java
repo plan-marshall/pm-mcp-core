@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.InstantSource;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
@@ -46,6 +47,7 @@ import de.planmarshall.core.role.EffectiveRole;
  * @param clock               the clock of the spawn instants
  * @since 0.1
  */
+@Builder
 public record LaunchRequest(EffectiveRole role, HeadlessBlock block, HarnessEnrolment enrolment, String generationId,
 Path runtimeHome, Path jobPrivateDirectory, WorkdirKind workdirKind, @Nullable String planId,
 @Nullable Path workdir, Path relaySocket, String shimParagraph, SkillSource skills, boolean fresh,

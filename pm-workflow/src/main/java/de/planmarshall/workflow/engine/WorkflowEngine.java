@@ -61,6 +61,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.VerificationResult;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -156,6 +157,7 @@ public final class WorkflowEngine {
      * @param clock     the clock of {@code updated_at}, {@code pushed_at}, {@code raised_at} and a job's start
      * @since 0.1
      */
+    @Builder
     public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock) {
 
         /** @throws NullPointerException if a port is {@code null} */
@@ -780,8 +782,14 @@ public final class WorkflowEngine {
         /** Records a history line of the advance; a run without a history records nothing. */
         private void record(PlanHistoryLine.Event event, String node, @Nullable String outcome) {
             if (history != null) {
-                lines.add(new Pending(event, node, stack.toStore().stream()
-                        .map(WorkflowStatus.CallFrame::subworkflowId).toList(), status.phase(), outcome));
+                lines.add(Pending.builder()
+                        .event(event)
+                        .node(node)
+                        .callPath(stack.toStore().stream()
+                                .map(WorkflowStatus.CallFrame::subworkflowId).toList())
+                        .phase(status.phase())
+                        .outcome(outcome)
+                        .build());
             }
         }
 
@@ -810,6 +818,7 @@ public final class WorkflowEngine {
         }
 
         /** A line of the advance before it is numbered. */
+        @Builder
         private record Pending(PlanHistoryLine.Event event, String node, List<String> callPath, String phase,
         @Nullable String outcome) {
 
@@ -960,8 +969,14 @@ public final class WorkflowEngine {
         private String call(StateNode node, StateBehavior.SubWorkflowCall call) {
             var callee = verifiedUnit(call.subWorkflowId());
             var entry = entryOf(callee, call);
-            var frame = new CallFrame(unitOf(stack).id(), node.id(), callee.id(), entry,
-                    call.paramBindings(), clock.now().toString());
+            var frame = CallFrame.builder()
+                    .callerWorkflowId(unitOf(stack).id())
+                    .callerStateId(node.id())
+                    .subWorkflowId(callee.id())
+                    .entry(entry)
+                    .boundArgs(call.paramBindings())
+                    .pushedAt(clock.now().toString())
+                    .build();
             record(PlanHistoryLine.Event.CALLED, callee.id(), null);
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());

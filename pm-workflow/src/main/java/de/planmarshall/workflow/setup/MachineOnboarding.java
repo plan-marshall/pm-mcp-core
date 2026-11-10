@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.core.store.WorkflowStatus;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -40,6 +41,7 @@ import org.jspecify.annotations.Nullable;
  *                          incomplete
  * @since 0.1
  */
+@Builder
 public record MachineOnboarding(boolean firstRunCompleted, String state, List<String> pendingSteps,
 Set<String> completedSteps) {
 

@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PrunedElement;
 import de.planmarshall.workflow.plan.WaivedGate;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -41,6 +42,7 @@ import org.jspecify.annotations.Nullable;
  * @param composed    every composed file of the version, the plan unit's included, in header order
  * @since 0.1
  */
+@Builder
 record InstanceAnnotations(String planId, int version, String event, String lane, String posture,
 @Nullable String activeState, List<Pruned> pruned, List<Waived> waivedGates, List<Composed> composed) {
 
@@ -139,6 +141,7 @@ record InstanceAnnotations(String planId, int version, String event, String lane
      * @param reason     the wire name of the prune reason
      * @param sourceFact the fact that caused the prune
      */
+    @Builder
     record Pruned(String element, String id, String reason, String sourceFact) {
 
         static Pruned of(PrunedElement element) {

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -50,6 +51,7 @@ import org.jspecify.annotations.Nullable;
  * @param location      where the unit header was read
  * @since 0.1
  */
+@Builder
 public record WorkflowDefinition(
 UnitFrontmatter frontmatter,
 String id,
