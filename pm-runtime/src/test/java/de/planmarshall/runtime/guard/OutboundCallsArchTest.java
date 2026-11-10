@@ -264,8 +264,8 @@ class OutboundCallsArchTest {
     private static boolean usesCuiHttpClient(JavaClass javaClass) {
         return isInPackage(javaClass.getPackageName(), RUNTIME_PACKAGE)
                 && javaClass.getDirectDependenciesFromSelf().stream()
-                        .anyMatch(dependency -> isInPackage(dependency.getTargetClass().getPackageName(),
-                                CUI_HTTP_CLIENT_PACKAGE));
+                .anyMatch(dependency -> isInPackage(dependency.getTargetClass().getPackageName(),
+                        CUI_HTTP_CLIENT_PACKAGE));
     }
 
     private static Set<String> cuiHttpClientUsers() {
