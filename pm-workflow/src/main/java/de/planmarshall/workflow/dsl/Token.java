@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.dsl;
 
+import lombok.Builder;
+
 /**
  * One token of a line of the workflow language, with its 1-based position in the source (PM-IMPL-5).
  *
@@ -17,6 +19,7 @@ package de.planmarshall.workflow.dsl;
  * @param line   the 1-based line of the token
  * @param column the 1-based column of its first character
  */
+@Builder
 record Token(Kind kind, String text, int line, int column) {
 
     /**

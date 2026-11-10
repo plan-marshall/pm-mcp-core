@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.ast;
 
+import lombok.Builder;
+
 /**
  * A free parameter of a link ({@code param_decl}) (PM-IMPL-5).
  *
@@ -18,5 +20,6 @@ package de.planmarshall.workflow.ast;
  * @param location where the parameter was read
  * @since 0.1
  */
+@Builder
 public record ParamSpec(String name, ParamType type, boolean optional, SourceLocation location) {
 }

@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.util.Optional;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.RoleArtifact;
@@ -46,6 +47,7 @@ public interface WorkerTaskActivity {
      *                            an envelope task
      * @since 0.1
      */
+    @Builder
     record TaskActivity(int attempt, RoleArtifact role, Set<RoleArtifact.OffTrackSignal> alreadyRaised,
     @Nullable Double predictedCostTokens, int unplannedChanges) {
     }

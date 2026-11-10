@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
@@ -51,6 +52,7 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  * @since 0.1
  */
 @With
+@Builder
 public record WorkerGeneration(String generationId, String role, String harness, String model, RoleForm form,
 LaunchRequest.WorkdirKind workdirKind, @Nullable String planId, Path workdir, String configurationDigest,
 Instant startedAt, JobId jobId, ModelSlots.Lease slot, WorkerLifecycle lifecycle, @Nullable String leasedTask,

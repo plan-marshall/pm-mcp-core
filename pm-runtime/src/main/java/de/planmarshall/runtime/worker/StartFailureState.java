@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
@@ -34,6 +35,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 @With
+@Builder
 public record StartFailureState(int consecutiveFailures, boolean held, @Nullable Instant probeDue,
 boolean probeInFlight, @Nullable String lastFailure) {
 

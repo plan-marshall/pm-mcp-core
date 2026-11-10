@@ -22,6 +22,7 @@ import de.planmarshall.workflow.plan.HeaderJson.NullNode;
 import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,6 +43,7 @@ import org.jspecify.annotations.Nullable;
  * @param recordedAt   when the attempt was recorded
  * @since 0.1
  */
+@Builder
 public record CompositionRecord(CompositionEvent event, Result result, @Nullable Integer version,
 CompositionEvent.Trigger trigger, @Nullable CompositionCause cause, SortedMap<String, String> inputDigests,
 @Nullable DiffSummary diffSummary, Instant recordedAt) {

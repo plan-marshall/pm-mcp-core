@@ -160,8 +160,14 @@ public record CallStack(List<CallFrame> frames) {
     private static CallFrame fromStoreFrame(WorkflowStatus.CallFrame frame) {
         var args = new LinkedHashMap<String, CallValue>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toCallValue(value)));
-        return new CallFrame(frame.callerWorkflowId(), frame.callerStateId(),
-                frame.subworkflowId(), frame.entry(), args, frame.pushedAt().toString());
+        return CallFrame.builder()
+                .callerWorkflowId(frame.callerWorkflowId())
+                .callerStateId(frame.callerStateId())
+                .subWorkflowId(frame.subworkflowId())
+                .entry(frame.entry())
+                .boundArgs(args)
+                .pushedAt(frame.pushedAt().toString())
+                .build();
     }
 
     private static BoundArg toBoundArg(CallValue value) {

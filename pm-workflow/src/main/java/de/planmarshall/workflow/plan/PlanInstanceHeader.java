@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,6 +43,7 @@ import org.jspecify.annotations.Nullable;
  * @param waivedGates every gate a waiver marks as waived
  * @since 0.1
  */
+@Builder
 public record PlanInstanceHeader(String planId, int version, CompositionEvent event, Instant composedAt,
 CompositionInputs inputs, @Nullable Lane lane, @Nullable Posture posture, Steps steps,
 List<PrunedElement> pruned, List<PolicyCall> policyCalls, List<WaivedGate> waivedGates) {

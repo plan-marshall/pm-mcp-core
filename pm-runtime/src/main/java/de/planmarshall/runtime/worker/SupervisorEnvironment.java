@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.service.AuditSink;
@@ -69,6 +70,7 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @param eligibilityGate the verification-record gate of the harness for the role
  * @since 0.1
  */
+@Builder
 public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment, Path base, Path home,
 Path runtimeHome, Path relaySocket, String shimParagraph, SkillSource skills, LoadedProfile profile,
 HarnessVerifier harnessVerifier, LaunchComposer composer, WorkerStarter starter, WorkerStateWriter stateWriter,

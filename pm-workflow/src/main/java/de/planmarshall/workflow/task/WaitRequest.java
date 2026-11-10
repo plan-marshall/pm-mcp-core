@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.queue.QueueTaskRecord;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * @param reOfferBudget    the re-offer budget of the state whose task the worker takes
  * @since 0.1
  */
+@Builder
 public record WaitRequest(String generationId, String role, String generationDigest, String roleDigest,
 int reOfferBudget) {
 

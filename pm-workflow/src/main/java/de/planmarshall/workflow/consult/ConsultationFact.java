@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
+import lombok.Builder;
 
 /**
  * One consultation as the asking task's facts carry it (Model Work § The Answer through the Next Wait;
@@ -27,6 +28,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
  * @param answer         the answer; {@code null} while open and for an {@code unavailable} consultation
  * @since 0.1
  */
+@Builder
 public record ConsultationFact(String consultationId, String role, ConsultationStatus status, String answer) {
 
     private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");

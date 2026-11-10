@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -99,6 +100,7 @@ public final class PmExecLauncher {
      * @param confinement      the write set, the extra read paths and the read-denied paths of the job
      * @since 0.1
      */
+    @Builder
     public record Launch(Path workingDirectory, List<String> argv, Map<String, String> environment,
     @Nullable String stdin, Path log, JobConfinement confinement) {
 

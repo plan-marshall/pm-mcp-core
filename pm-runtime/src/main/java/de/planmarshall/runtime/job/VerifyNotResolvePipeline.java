@@ -148,8 +148,13 @@ public final class VerifyNotResolvePipeline {
 
         var argv = new ArrayList<>(executable);
         argv.addAll(arguments.arguments());
-        return new JobVerification.Verified(new VerifiedJob(workingDirectory, argv, arguments.source(),
-                projectScriptArguments(request.target()).orElse(null), enrolment));
+        return new JobVerification.Verified(VerifiedJob.builder()
+                .workingDirectory(workingDirectory)
+                .argv(argv)
+                .templateSource(arguments.source())
+                .projectScriptArguments(projectScriptArguments(request.target()).orElse(null))
+                .enrolment(enrolment)
+                .build());
     }
 
     /** The arguments of a project script job, which stage 3 validated; empty for any other job. */

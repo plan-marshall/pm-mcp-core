@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.ast;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  * @param location         where the state was read
  * @since 0.1
  */
+@Builder
 public record StateNode(
 String id,
 @Nullable TerminalOutcome terminalOutcome,

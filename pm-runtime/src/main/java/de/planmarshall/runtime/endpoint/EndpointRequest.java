@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.CanonicalJson;
@@ -39,6 +40,7 @@ import de.planmarshall.core.profile.JsonNode;
  * @param maxAnswerTokens the answer reserve of the profile
  * @since 0.1
  */
+@Builder
 public record EndpointRequest(String model, String system, String user, @Nullable JsonNode resultSchema,
 @Nullable String schemaName, int maxAnswerTokens) {
 

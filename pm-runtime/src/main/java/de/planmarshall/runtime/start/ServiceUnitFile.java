@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -40,6 +41,7 @@ import org.jspecify.annotations.Nullable;
  * @param daemon        the absolute path of {@code <PM_MCP_HOME>/bin/pm-mcpd}
  * @since 0.1
  */
+@Builder
 public record ServiceUnitFile(Platform platform, Path home, @Nullable String xdgConfigHome, Path daemon) {
 
     /** The {@code launchd} job label, also the base name of the LaunchAgent file. */

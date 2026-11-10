@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.ProjectEnrolment;
@@ -33,6 +34,7 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * @param enrolment              the verified enrolment the job was checked against
  * @since 0.1
  */
+@Builder
 public record VerifiedJob(Path workingDirectory, List<String> argv, @Nullable TemplateSource templateSource,
 JobRequest.@Nullable Value projectScriptArguments, ProjectEnrolment enrolment) {
 

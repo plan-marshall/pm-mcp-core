@@ -12,6 +12,7 @@ package de.planmarshall.workflow.verify;
 import java.util.Objects;
 
 import de.planmarshall.workflow.ast.SourceLocation;
+import lombok.Builder;
 
 /**
  * One violation of a compiled invariant by a unit (PM-IMPL-5). A violation is a value with the file and the line of
@@ -24,6 +25,7 @@ import de.planmarshall.workflow.ast.SourceLocation;
  * @param message  what is wrong, naming the states, transitions, outcomes or values concerned
  * @since 0.1
  */
+@Builder
 public record InvariantViolation(InvariantId id, String stateId, SourceLocation location, String message) {
 
     /**

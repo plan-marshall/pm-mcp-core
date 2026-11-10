@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -48,6 +49,7 @@ import de.planmarshall.core.role.RoleForm;
  * @param workerBlock      the {@code worker} block of the job record
  * @since 0.1
  */
+@Builder
 public record WorkerLaunch(String generationId, String role, RoleClass roleClass, RoleForm form, List<String> argv,
 Map<String, String> env, Path workingDirectory, Path jobPrivateDirectory, Path promptFile, LaunchPrompt prompt,
 @Nullable Path mcpConfigFile, @Nullable String mcpConfig, String jobToken, String jobTokenSha256, String harness,

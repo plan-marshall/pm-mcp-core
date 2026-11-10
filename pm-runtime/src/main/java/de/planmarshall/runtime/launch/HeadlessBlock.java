@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -62,6 +63,7 @@ import de.planmarshall.core.role.RoleClass;
  *                           an event stream
  * @since 0.1
  */
+@Builder
 public record HeadlessBlock(String executable, List<String> argv, Map<RoleClass, List<String>> classArgs,
 AgentMode agentMode, McpConfig mcpConfig, Map<String, String> env, OutputFormat outputFormat,
 Map<String, String> modelTiers, Map<String, List<String>> modelEfforts, List<String> resourceTools,

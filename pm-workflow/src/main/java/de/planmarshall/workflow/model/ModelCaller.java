@@ -94,8 +94,13 @@ public final class ModelCaller {
         }
         var queued = queue.enqueue(new ModelQueue.Enqueue(job.scopeId(), job.stateId(), job.entityKey(), job.role(),
                 form, role.configurationDigest(), role.harness(), role.model(), role.effort(), job.consultation()));
-        return new ModelCallResult.Queued(queued.queueTaskId(), job.role(), form, role.configurationDigest(),
-                downgraded);
+        return ModelCallResult.Queued.builder()
+                .queueTaskId(queued.queueTaskId())
+                .role(job.role())
+                .form(form)
+                .configurationDigest(role.configurationDigest())
+                .formDowngraded(downgraded)
+                .build();
     }
 
     private RoleResolver resolver(String role) {

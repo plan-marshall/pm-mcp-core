@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.ProjectEnrolment.Binding;
@@ -42,6 +43,7 @@ import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
  * @param target           what the job runs
  * @since 0.1
  */
+@Builder
 public record JobRequest(String projectId, String workingDirectory, Set<Path> liveWorktrees, Set<String> modules,
 Target target) {
 

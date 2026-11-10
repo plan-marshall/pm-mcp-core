@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import lombok.Builder;
+
 /**
  * One frame of a scope's call stack: the calling state, the sub-workflow it called, the entry of the sub-workflow the
  * call went through, and the bound arguments (PM-IMPL-5, PM-WF-16). The bound arguments are copied into an
@@ -27,6 +29,7 @@ import java.util.Map;
  * @param pushedAt         when the frame was pushed
  * @since 0.1
  */
+@Builder
 public record CallFrame(
 String callerWorkflowId,
 String callerStateId,

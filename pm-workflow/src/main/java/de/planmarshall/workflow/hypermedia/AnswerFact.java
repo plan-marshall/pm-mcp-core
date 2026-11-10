@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,6 +38,7 @@ import org.jspecify.annotations.Nullable;
  * @param kind         how the answer was taken
  * @since 0.1
  */
+@Builder
 public record AnswerFact(String questionId, @Nullable String planTaskId, String questionText, String branchKey,
 String label, @Nullable String text, Kind kind) {
 

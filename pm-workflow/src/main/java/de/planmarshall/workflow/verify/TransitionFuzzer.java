@@ -75,8 +75,12 @@ public final class TransitionFuzzer {
             var witnessRun = index + 1;
             for (var root : definition.startingStates()) {
                 walk(definition, root, configuration.maxSteps(), assignment, random).ifPresent(state -> deadStates
-                        .computeIfAbsent(state.id(), id -> new DeadState(id, state.location(), assignment,
-                                witnessRun)));
+                        .computeIfAbsent(state.id(), id -> DeadState.builder()
+                                .stateId(id)
+                                .location(state.location())
+                                .assignment(assignment)
+                                .run(witnessRun)
+                                .build()));
             }
         }
         return new FuzzReport(configuration, configuration.runs(), List.copyOf(deadStates.values()));
