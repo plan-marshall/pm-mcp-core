@@ -19,7 +19,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,8 +57,7 @@ class MetricsSchemaParityTest {
 
     private static MetricsRow row() {
         var usage = new HarnessUsage(Measurement.measured(1), Measurement.measured(2), Measurement.measured(3),
-                Measurement.measured(4), Measurement.measured(5), Measurement.measured(6), Optional.empty(),
-                Optional.empty());
+                Measurement.measured(4), Measurement.measured(5), Measurement.measured(6), null, null);
         return MetricsRow.builder().queueTaskId(QUEUE_TASK_ID).attempt(1).role("implementer").jobId(ID)
                 .generationId(ID).harness("opencode").harnessVersion("1").model("model").effort("high")
                 .form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step").envelopeId(null).predictedCost(null)

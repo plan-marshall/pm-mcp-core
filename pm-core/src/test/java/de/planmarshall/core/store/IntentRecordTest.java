@@ -198,7 +198,7 @@ class IntentRecordTest {
                         new CapabilityLink("intent-record", "round-trip", CapabilityChange.ADDED, null)),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
         var facts = new IntentAcceptance.Context(PLAN_ID, question -> Optional.empty(),
-                (capability, requirement) -> Optional.of("a".repeat(64)), Optional.empty(), FILE);
+                (capability, requirement) -> Optional.of("a".repeat(64)), null, FILE);
 
         var refusal = assertInstanceOf(Refused.class,
                 accept(null, IntentSubmission.REFINE, revision(1, added), facts), "the outcome is a refusal");
@@ -214,7 +214,7 @@ class IntentRecordTest {
                 List.of("No chat integration"), List.of());
         var seeded = new IntentAcceptance.Context(PLAN_ID, question -> Optional.empty(),
                 (capability, requirement) -> Optional.empty(),
-                Optional.of(new IntentAcceptance.EpicSeed(epic, "The plan lands with its records")), FILE);
+                new IntentAcceptance.EpicSeed(epic, "The plan lands with its records"), FILE);
 
         var refused = accept(null, IntentSubmission.REFINE, revision(1, valid()), seeded);
         var refusal = assertInstanceOf(Refused.class, refused, "the outcome is a refusal");

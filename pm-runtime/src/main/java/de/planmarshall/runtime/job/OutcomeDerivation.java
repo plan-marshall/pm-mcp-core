@@ -89,14 +89,14 @@ public class OutcomeDerivation {
         return switch (evidence) {
             case RefusedBeforeSpawn _ -> new Outcome(Fate.REFUSED, 1);
             case NeverStarted _ -> new Outcome(Fate.KILLED, 4);
-            case ProcessEnded process -> process.termination().map(OutcomeDerivation::terminated)
-                    .orElseGet(() -> ended(process));
-            case InProcessEnded(var termination, var result) -> termination.map(OutcomeDerivation::terminated)
-                    .orElseGet(() -> switch (result) {
-                        case DOMAIN -> new Outcome(Fate.SUCCEEDED, 11);
-                        case TRANSPORT -> new Outcome(Fate.FAILED, 12);
-                        case OUT_OF_CONTRACT -> new Outcome(Fate.INDETERMINATE, 13);
-                    });
+            case ProcessEnded process -> process.termination() != null
+                    ? terminated(process.termination()) : ended(process);
+            case InProcessEnded(var termination, var result) -> termination != null
+                    ? terminated(termination) : switch (result) {
+                case DOMAIN -> new Outcome(Fate.SUCCEEDED, 11);
+                case TRANSPORT -> new Outcome(Fate.FAILED, 12);
+                case OUT_OF_CONTRACT -> new Outcome(Fate.INDETERMINATE, 13);
+            };
         };
     }
 
@@ -116,7 +116,7 @@ public class OutcomeDerivation {
             return new Outcome(Fate.INDETERMINATE, 5);
         }
         var parse = process.parse();
-        if (process.kind() == JobId.Kind.PROJECT_SCRIPT && parse.selfReportContradiction().isPresent()) {
+        if (process.kind() == JobId.Kind.PROJECT_SCRIPT && parse.selfReportContradiction() != null) {
             return new Outcome(Fate.INDETERMINATE, 6);
         }
         var exitCode = exitCode(process);

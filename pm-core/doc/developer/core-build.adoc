@@ -8,6 +8,7 @@
 :src: ../../src/main/java/de/planmarshall/core/build
 :test: ../../src/test/java/de/planmarshall/core/build
 :data: ../../src/test/resources/ported/build
+:coverage-data: ../../src/test/resources/ported/coverage
 
 == Purpose
 
@@ -21,8 +22,14 @@ Nine parsers are implemented: Maven, Gradle and the OpenRewrite finding log of a
 and Python tools — npm errors, TypeScript, ESLint, Jest, TAP and the pyproject log of pytest, ruff and mypy. Each is
 ported from the `plan-marshall` parser module of the same tool, and its tests are ported from that module's pytest suite.
 
+The package also carries the four native coverage report parsers — JaCoCo, Cobertura, LCOV and Istanbul — which read a
+coverage artifact and answer the threshold question. They are ported from `plan-marshall`'s format-agnostic
+`script-shared/scripts/build/_coverage_parse.py` and follow its rules, with the model and the XML hardening recorded in
+link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
+
 A parser is a pure function of the log text. It reads no file except through `BuildLogText.read`, holds no state, opens no
-process and consults no configuration.
+process and consults no configuration. A coverage parser is a pure function of the report text in the same way: it reads
+no file except through its own `parse(Path)` overload, and it returns either the report or a refusal.
 
 == Main Types
 
@@ -91,6 +98,41 @@ line, column and the code prefixed to the message.
 |link:{src}/PyprojectOutputParser.java[`PyprojectOutputParser`]
 |The tool-detecting scanner for mypy, ruff and pytest, with the deepest traceback frame as a pytest diagnostic's
 location.
+
+|link:{src}/CoverageReport.java[`CoverageReport`]
+|A parsed coverage report: its `CoverageFormat`, the overall `CoverageMetrics` and the `CoverageItem` list, with
+`evaluate(threshold)` returning the `CoverageVerdict`.
+
+|link:{src}/CoverageMetrics.java[`CoverageMetrics`]
+|The overall percentages the format gives: `instruction`, `branch`, `line`, `function` (JaCoCo's method counter) and
+`statement`, each absent metric `null`, the line always present, every value within `0..100`.
+
+|link:{src}/CoverageItem.java[`CoverageItem`]
+|One class or file of a report: its name, optional source file, line and branch percentages and the `missedMethods`
+detail the format names.
+
+|link:{src}/CoverageVerdict.java[`CoverageVerdict`]
+|The threshold verdict: `passed` from the overall line percentage, and the `lowCoverage` items chosen by their line
+percentage.
+
+|link:{src}/CoverageParseResult.java[`CoverageParseResult`]
+|The parse result as a value: `Parsed` carries the report, `Refused` names the format and the reason a report was not
+read.
+
+|link:{src}/JacocoReportParser.java[`JacocoReportParser`]
+|The JaCoCo XML reader: the four overall counters, the per-class line and branch counters, the methods with a missed
+`METHOD` counter (constructors excluded).
+
+|link:{src}/CoberturaReportParser.java[`CoberturaReportParser`]
+|The Cobertura XML reader: the root line and branch rates, the per-class rate and file, and the methods with a zero line
+rate.
+
+|link:{src}/LcovReportParser.java[`LcovReportParser`]
+|The LCOV record reader: `SF`/`LF`/`LH`/`BRF`/`BRH`/`FNF`/`FNH` summed over every file, with `DA:` kept out of the
+percentages.
+
+|link:{src}/IstanbulSummaryParser.java[`IstanbulSummaryParser`]
+|The Istanbul JSON summary reader: the `total` metrics and one item per file, read with the Jackson streaming API.
 |===
 
 `Severity`, `Category`, `BuildStatus`, `TestsPopulation`, `RewriteVerdict` and `RewriteClassification` are the closed
@@ -201,6 +243,69 @@ stays a measured zero: no tool of the six prints a positive "no tests" marker, s
 a filter that matched nothing reports either pytest's own `no tests ran` line (no count at all) or TAP's
 `# tests 0` (a measured zero).
 
+== The Coverage Reports
+
+_Requirements:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6], link:{docs}/Requirements.adoc#PM-TEST-2[PM-TEST-2]
+
+The four coverage parsers share one model and one hardening, and each reads one format's artifact. They are pure
+functions of the report text and return `CoverageParseResult`: a `Parsed` report or a `Refused` value that names the
+format and the reason. A report that cannot be read is never a report of zeros.
+
+=== The model and the verdict
+
+`CoverageReport` carries the `CoverageFormat`, the `CoverageMetrics` of the overall percentages and the `CoverageItem`
+list. `CoverageMetrics` keeps an absent metric `null`, so a format that carries no branch or statement counter is
+distinguishable from a measured zero; only the line percentage is required. `CoverageItem` carries the name (a class or
+a file), the optional source file, the line and branch percentages and the `missedMethods` detail.
+
+`CoverageReport.evaluate(threshold)` decides the verdict from the **overall line percentage only** and builds the
+low-coverage list from **each item's line percentage only** (`>=` passes). A branch, instruction, function or statement
+percentage never changes either: a report whose branch coverage is below the threshold passes when its line coverage is
+above it, and a high branch percentage does not rescue a low line.
+
+=== JaCoCo
+
+`JacocoReportParser.parse` walks the report once through {@link CoverageXmlReader} and takes the {@code INSTRUCTION},
+{@code BRANCH}, {@code LINE} and {@code METHOD} counters of the report element as the overall percentages, each
+{@code covered / (missed + covered)}; a counter the report does not carry leaves its metric `null`, a report without a
+`LINE` counter is refused, and a class without one is left out of the measured items. Per class it takes the `LINE`
+counter (and the `BRANCH` counter where present); each method whose `METHOD` counter has a missed part contributes its
+name to `missedMethods`, and `<init>` and `<clinit>` are excluded because they are not methods a test is expected to call.
+The class name is dotted (`com/example/A` becomes `com.example.A`).
+
+=== Cobertura
+
+`CoberturaReportParser.parse` takes the root `line-rate` and `branch-rate` as the overall percentages — a missing root
+`line-rate` is a refusal and a missing `branch-rate` leaves the branch metric `null` — and each class's `line-rate` as
+an item, naming its `filename`. A method whose `line-rate` is zero contributes its name to `missedMethods`. A rate that
+is not a finite number is refused.
+
+=== LCOV
+
+`LcovReportParser.parse` reads the line-oriented records from `SF:` to `end_of_record` and sums every record into the
+overall percentages: `line` from `LH/LF`, `branch` from `BRH/BRF`, `function` from `FNH/FNF`, and `statement` equals
+`line` because LCOV has no statement counter. A metric no record carries is `null`, not a zero. Each record is an item. A
+`DA:` record is per-line detail and never enters a percentage. A record that is not terminated, or carries no `LF/LH`
+counter, is a truncation and is refused, as is a covered count above its total.
+
+=== Istanbul
+
+`IstanbulSummaryParser.parse` streams the document with Jackson rather than binding it to a tree. The `total` object
+supplies the `pct` of `lines`, `statements`, `functions` and `branches`; every other top-level object is one file item,
+with `lines.pct` as its line percentage and `branches.pct` as its branch percentage. A truncated document, a metric
+without a numeric `pct` and a document without `total` are refused.
+
+=== The XML hardening
+
+Both XML parsers read their report as untrusted input through `CoverageXmlReader`. The factory keeps DTD support on — so
+JaCoCo's own `DOCTYPE` with a system identifier parses — turns external entities off, keeps entity references from being
+replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file or a
+URL reads nothing. A document whose DTD carries an internal subset is refused before it is read, because that is where
+a general or parameter entity is declared; the parsers also refuse an `ENTITY_REFERENCE` event as a backstop. A report
+that declares and uses an external entity is therefore refused, never expanded; a `DOCTYPE` declaration alone is
+tolerated without resolution. The decision is recorded in
+link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
+
 == Adding a Parser
 
 1. Add the parser class: a static-only class (`@UtilityClass`) with `parse(String)` and `parse(Path)`, returning
@@ -262,6 +367,12 @@ unevaluated fails through `BuildLogFixtures.assertConsumed`. The roster is close
 The pinned commit is `BuildLogFixtures.PIN`; it is advanced by re-reading the original at the new commit and moving every
 `original:` header and every `suite:` line with it, because the loader refuses any other commit.
 
+The coverage fixtures follow the same convention without the scenario grammar: they are plain report files below
+`src/test/resources/ported/coverage/`, copied byte for byte from the original's own fixture directory at the full pin
+recorded in link:{coverage-data}/PROVENANCE.adoc[`ported/coverage/PROVENANCE.adoc`], plus one `deliberate-` file per
+behaviour the port decides on top of the original. A coverage parser test reads its fixture through the class path and
+compares the figures with literals read out of the report by hand; no test runs Python.
+
 == The Unparsed Evidence
 
 _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
@@ -276,11 +387,17 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 * *A verdict is not a default.* `noTestsRan` is false unless the tool said so; `null` counts are not "zero tests".
 * *The model is immutable.* The diagnostics list and the per-runner map are frozen in the compact constructor.
 * *No state crosses a parse.* Two calls with the same text return equal results; nothing is cached.
+* *A refused report is not a report of zeros.* A coverage report that cannot be read is `CoverageParseResult.Refused`,
+  which carries the format and the reason; there is no result in which a refusal has been turned into percentages.
+* *The threshold reads the line only.* `CoverageReport.evaluate` compares the overall line percentage and each item's
+  line percentage, and no other metric changes either.
+* *A coverage document is untrusted.* The XML readers tolerate a `DOCTYPE` without resolving it and refuse an external
+  entity; a malformed JSON summary is a refusal, not a zero.
 
 == Specification Tracing
 
-* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime Specification § Unparseable Output Fallback]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
+* Specification: link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime Specification § Native Build Output Parsers]; link:{spec}/job-runtime/03-parsers-and-gates.adoc#_native_coverage_report_parsers[Job Runtime Specification § Native Coverage Report Parsers]; link:{spec}/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime Specification § Unparseable Output Fallback]; link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
   PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
   by every parser of the package
-* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free]
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening]

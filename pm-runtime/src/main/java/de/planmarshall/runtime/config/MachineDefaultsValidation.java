@@ -10,7 +10,7 @@
 package de.planmarshall.runtime.config;
 
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The machine's own check of its plan defaults (State Catalogue § Plan Defaults, {@code defaults.validate}): only what
@@ -43,15 +43,14 @@ public final class MachineDefaultsValidation {
      * One verdict of the machine's check.
      *
      * @param valid      whether the variant fits what the machine provides
-     * @param reason     why it does not, or empty
+     * @param reason     why it does not, or {@code null}
      * @param messageKey the message key of the verdict
      * @since 0.1
      */
-    public record Verdict(boolean valid, Optional<String> reason, String messageKey) {
+    public record Verdict(boolean valid, @Nullable String reason, String messageKey) {
 
-        /** Rejects {@code null} components. */
+        /** Rejects a {@code null} message key. */
         public Verdict {
-            Objects.requireNonNull(reason, "reason");
             Objects.requireNonNull(messageKey, "messageKey");
         }
     }
@@ -67,16 +66,16 @@ public final class MachineDefaultsValidation {
         Objects.requireNonNull(variant, "variant");
         Objects.requireNonNull(providers, "providers");
         if (LANDING_FILES.equals(variant) || LANDING_MAIN.equals(variant)) {
-            return new Verdict(true, Optional.empty(), MESSAGE_KEY_PREFIX + variant + ".ok");
+            return new Verdict(true, null, MESSAGE_KEY_PREFIX + variant + ".ok");
         }
         if (!LANDING_PULL_REQUEST.equals(variant)) {
-            return new Verdict(false, Optional.of("not a landing variant: " + variant),
+            return new Verdict(false, "not a landing variant: " + variant,
                     MESSAGE_KEY_PREFIX + "unknown");
         }
         if (hostingProvider(providers)) {
-            return new Verdict(true, Optional.empty(), MESSAGE_KEY_PREFIX + variant + ".ok");
+            return new Verdict(true, null, MESSAGE_KEY_PREFIX + variant + ".ok");
         }
-        return new Verdict(false, Optional.of("no provider the machine serves opens a pull request"),
+        return new Verdict(false, "no provider the machine serves opens a pull request",
                 MESSAGE_KEY_PREFIX + variant + ".no-provider");
     }
 

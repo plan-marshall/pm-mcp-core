@@ -27,7 +27,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -76,7 +75,7 @@ class ConsentStoreTest {
     }
 
     private static Consent machine(ConsentKind kind) {
-        return Consent.machine(kind, GRANTED, Consent.Channel.CLI, Optional.empty());
+        return Consent.machine(kind, GRANTED, Consent.Channel.CLI, null);
     }
 
     @Test
@@ -87,7 +86,7 @@ class ConsentStoreTest {
         assertAll(
                 () -> assertTrue(read.consents().isEmpty()),
                 () -> assertEquals(0L, read.revision()),
-                () -> assertFalse(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.empty())));
+                () -> assertFalse(read.isRemembered(ConsentKind.SCAN_HARNESSES, null)));
     }
 
     @Test
@@ -99,8 +98,8 @@ class ConsentStoreTest {
         assertAll(
                 () -> assertEquals(1, read.consents().size()),
                 () -> assertEquals(1L, read.revision()),
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.empty())),
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.of(ANY_PROJECT))),
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, null)),
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, ANY_PROJECT)),
                 () -> assertEquals(ConsentKind.SCAN_HARNESSES, read.consents().getFirst().kind()),
                 () -> assertEquals(Consent.Channel.CLI, read.consents().getFirst().channel()));
     }
@@ -112,22 +111,22 @@ class ConsentStoreTest {
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, Optional.empty())),
-                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_LOGIN, Optional.empty())),
-                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_MODELS, Optional.empty())));
+                () -> assertTrue(read.isRemembered(ConsentKind.SCAN_HARNESSES, null)),
+                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_LOGIN, null)),
+                () -> assertFalse(read.isRemembered(ConsentKind.PROBE_HARNESS_MODELS, null)));
     }
 
     @Test
     @DisplayName("a project kind is remembered for its project only")
     void projectScope() {
         store.grant(Consent.project(ConsentKind.INSPECT_CHECKOUT, PROJECT, GRANTED, Consent.Channel.CLI,
-                Optional.empty()), 0L);
+                null), 0L);
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.of(PROJECT))),
-                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.of(OTHER_PROJECT))),
-                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, Optional.empty())),
+                () -> assertTrue(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, PROJECT)),
+                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, OTHER_PROJECT)),
+                () -> assertFalse(read.isRemembered(ConsentKind.INSPECT_CHECKOUT, null)),
                 () -> assertEquals(1, read.ofProject(PROJECT).size()),
                 () -> assertTrue(read.ofProject(OTHER_PROJECT).isEmpty()));
     }
@@ -137,15 +136,15 @@ class ConsentStoreTest {
     void checkoutScripts() {
         var granted = new ConsentScript(SCRIPT, SHA);
         store.grant(Consent.checkoutScripts(PROJECT, List.of(granted), GRANTED, Consent.Channel.WEB,
-                Optional.of(DEVICE)), 0L);
+                DEVICE), 0L);
 
         var read = store.read();
         assertAll(
-                () -> assertTrue(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(PROJECT),
+                () -> assertTrue(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT,
                         List.of(granted))),
-                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(PROJECT),
+                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT,
                         List.of(new ConsentScript(SCRIPT, OTHER_SHA)))),
-                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, Optional.of(PROJECT),
+                () -> assertFalse(read.isRemembered(ConsentKind.RUN_CHECKOUT_SCRIPTS, PROJECT,
                         List.of(new ConsentScript(OTHER_SCRIPT, SHA)))));
     }
 
@@ -153,11 +152,11 @@ class ConsentStoreTest {
     @DisplayName("granting the same (kind, project) again replaces the entry instead of adding one")
     void replaceEntry() {
         store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, GRANTED, Consent.Channel.CLI,
-                Optional.empty()), 0L);
+                null), 0L);
         var replacedAt = GRANTED.plusSeconds(60);
 
         store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, replacedAt, Consent.Channel.WEB,
-                Optional.empty()), store.read().revision());
+                null), store.read().revision());
 
         var read = store.read();
         assertAll(
@@ -194,13 +193,13 @@ class ConsentStoreTest {
         store.grant(machine(ConsentKind.SCAN_HARNESSES), 0L);
         var revision = store.read().revision();
 
-        var withdrawn = store.withdraw(ConsentKind.SCAN_HARNESSES, Optional.empty(), revision);
+        var withdrawn = store.withdraw(ConsentKind.SCAN_HARNESSES, null, revision);
 
         assertAll(
                 () -> assertTrue(withdrawn),
                 () -> assertTrue(store.read().consents().isEmpty()),
                 () -> assertEquals(2L, store.read().revision()),
-                () -> assertFalse(store.read().isRemembered(ConsentKind.SCAN_HARNESSES, Optional.empty())));
+                () -> assertFalse(store.read().isRemembered(ConsentKind.SCAN_HARNESSES, null)));
     }
 
     @Test
@@ -209,7 +208,7 @@ class ConsentStoreTest {
         store.grant(machine(ConsentKind.SCAN_HARNESSES), 0L);
         var revision = store.read().revision();
 
-        var withdrawn = store.withdraw(ConsentKind.FETCH_ICONS, Optional.empty(), revision);
+        var withdrawn = store.withdraw(ConsentKind.FETCH_ICONS, null, revision);
 
         assertAll(
                 () -> assertFalse(withdrawn),
@@ -222,9 +221,9 @@ class ConsentStoreTest {
     void removeProject() {
         store.grant(machine(ConsentKind.SCAN_HARNESSES), 0L);
         store.grant(Consent.project(ConsentKind.INSPECT_CHECKOUT, PROJECT, GRANTED, Consent.Channel.CLI,
-                Optional.empty()), store.read().revision());
+                null), store.read().revision());
         store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, GRANTED, Consent.Channel.CLI,
-                Optional.empty()), store.read().revision());
+                null), store.read().revision());
 
         var removed = store.removeProject(PROJECT, store.read().revision());
 
@@ -239,9 +238,9 @@ class ConsentStoreTest {
     void neverRemembered() {
         var harnessProfileRefused = assertThrows(IllegalArgumentException.class,
                 () -> Consent.machine(ConsentKind.VERIFY_HARNESS_PROFILE, GRANTED, Consent.Channel.CLI,
-                        Optional.empty()));
+                        null));
         var autoRunRefused = assertThrows(IllegalArgumentException.class,
-                () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED, Consent.Channel.CLI, Optional.empty()));
+                () -> Consent.machine(ConsentKind.AUTO_RUN, GRANTED, Consent.Channel.CLI, null));
 
         assertAll(
                 () -> assertTrue(harnessProfileRefused.getMessage().contains("verify_harness_profile")),
@@ -271,8 +270,8 @@ class ConsentStoreTest {
     @DisplayName("a remembered and a withdrawn consent append their operator records")
     void audit() {
         store.grant(Consent.project(ConsentKind.MODEL_COST, PROJECT, GRANTED, Consent.Channel.CLI,
-                Optional.empty()), 0L);
-        store.withdraw(ConsentKind.MODEL_COST, Optional.of(PROJECT), store.read().revision());
+                null), 0L);
+        store.withdraw(ConsentKind.MODEL_COST, PROJECT, store.read().revision());
 
         assertAll(
                 () -> assertEquals(List.of("consent_remembered", "consent_withdrawn"),

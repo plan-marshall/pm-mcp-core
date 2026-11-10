@@ -10,19 +10,19 @@
 package de.planmarshall.provider.git;
 
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of a git contract operation: its outcome, the value on {@link GitOutcome#OK}, and a
  * detail for every other outcome (the failing step, the refused feature, the rejected ref).
  *
  * @param outcome the outcome
- * @param value   the value, present exactly for {@link GitOutcome#OK}
+ * @param value   the value for {@link GitOutcome#OK}; {@code null} otherwise
  * @param detail  the detail, empty for {@link GitOutcome#OK}
  * @param <V>     the value type
  * @since 0.1
  */
-public record GitResult<V>(GitOutcome outcome, Optional<V> value, String detail) {
+public record GitResult<V>(GitOutcome outcome, @Nullable V value, String detail) {
 
     /**
      * @param outcome the outcome
@@ -31,7 +31,6 @@ public record GitResult<V>(GitOutcome outcome, Optional<V> value, String detail)
      */
     public GitResult {
         Objects.requireNonNull(outcome, "outcome");
-        Objects.requireNonNull(value, "value");
         Objects.requireNonNull(detail, "detail");
     }
 
@@ -41,7 +40,7 @@ public record GitResult<V>(GitOutcome outcome, Optional<V> value, String detail)
      * @return an {@link GitOutcome#OK} result
      */
     public static <V> GitResult<V> ok(V value) {
-        return new GitResult<>(GitOutcome.OK, Optional.of(value), "");
+        return new GitResult<>(GitOutcome.OK, Objects.requireNonNull(value, "value"), "");
     }
 
     /**
@@ -51,7 +50,7 @@ public record GitResult<V>(GitOutcome outcome, Optional<V> value, String detail)
      * @return a result without value
      */
     public static <V> GitResult<V> of(GitOutcome outcome, String detail) {
-        return new GitResult<>(outcome, Optional.empty(), detail);
+        return new GitResult<>(outcome, null, detail);
     }
 
     /**

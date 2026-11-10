@@ -140,7 +140,7 @@ class QualificationValueTest {
         var noSources = new ImportResult(List.of(), List.of());
         var repository = URI.create("https://example.org/"
                 + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT));
-        var noPrevious = Optional.<QualificationRecord>empty();
+        QualificationRecord noPrevious = null;
         var noForms = List.<RoleForm>of();
         var noTopics = List.<Topic>of();
         var noItems = List.<ImportedItem>of();
@@ -167,7 +167,7 @@ class QualificationValueTest {
         var plan = new GradingPlan(QualificationFixtures.role("review-code", RoleClass.READ_ONLY, RoleForm.FRESH),
                 QualificationFixtures.corpus(), new ImportResult(List.of(), List.of()),
                 QualificationFixtures.CORPUS_REVISION, QualificationFixtures.REPOSITORY, GradingProfile.single(),
-                judge, ItemCheckout.none(), Optional.empty());
+                judge, ItemCheckout.none(), null);
 
         var offer = GradingOffer.of(plan);
 
@@ -193,7 +193,7 @@ class QualificationValueTest {
         var plan = new GradingPlan(QualificationFixtures.role("review-code", RoleClass.READ_ONLY,
                         RoleForm.FRESH), List.of(own, foreign), new ImportResult(List.of(), List.of()),
                 QualificationFixtures.CORPUS_REVISION, QualificationFixtures.REPOSITORY, GradingProfile.single(),
-                judge, ItemCheckout.none(), Optional.empty());
+                judge, ItemCheckout.none(), null);
 
         assertEquals(1, GradingOffer.runs(plan));
     }

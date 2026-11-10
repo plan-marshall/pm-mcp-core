@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 
@@ -160,8 +159,8 @@ class ScenarioReplayRunnerTest {
                             runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList()),
                     () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status()),
                     () -> assertEquals(1, fixtures.jobStarter.requests.size()),
-                    () -> assertEquals(List.of(new QueueTaskCreator.CreateRequest(Optional.of(PLAN_ID),
-                            "execute.review", "change", "reviewer")), fixtures.taskCreator.requests));
+                    () -> assertEquals(List.of(new QueueTaskCreator.CreateRequest(PLAN_ID, "execute.review", "change",
+                            "reviewer")), fixtures.taskCreator.requests));
         }
 
         @Test

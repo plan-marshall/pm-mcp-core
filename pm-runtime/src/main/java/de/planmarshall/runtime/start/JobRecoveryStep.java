@@ -175,12 +175,12 @@ public final class JobRecoveryStep implements RecoveryStep {
      * @param rule       the rule that settled the job
      * @param signal     the signal to record; {@code null} for an in-process operation, which records none
      * @param terminated whether a live group was terminated
-     * @param failure    why the job cannot be settled; empty when it can
+     * @param failure    why the job cannot be settled; {@code null} when it can
      */
-    private record Handling(Rule rule, @Nullable String signal, boolean terminated, Optional<String> failure) {
+    private record Handling(Rule rule, @Nullable String signal, boolean terminated, @Nullable String failure) {
 
         static Handling failed(Rule rule, String reason) {
-            return new Handling(rule, null, false, Optional.of(reason));
+            return new Handling(rule, null, false, reason);
         }
     }
 
@@ -237,8 +237,8 @@ public final class JobRecoveryStep implements RecoveryStep {
                 continue;
             }
             var handling = handle(projectId, job);
-            if (handling.failure().isPresent()) {
-                return new Outcome.Failed(handling.failure().get());
+            if (handling.failure() != null) {
+                return new Outcome.Failed(handling.failure());
             }
             var rule = handling.rule();
             if (handling.terminated()) {
@@ -247,7 +247,7 @@ public final class JobRecoveryStep implements RecoveryStep {
             var settled = job.toBuilder().status(Status.ENDED).fate(KILLED.fate()).outcomeRow(KILLED.row())
                     .endedAt(clock.instant()).signal(handling.signal()).childWallMs(null).build();
             var report = JobSettlement.of(store, lockManager).settle(new SettlementStep.Settled(settled,
-                    slots.of(job)));
+                    slots.of(job).orElse(null)));
             if (report.stoppedAt().isPresent()) {
                 return new Outcome.Failed("job %s was not settled, the settlement stopped at %s: %s".formatted(
                         job.jobId(), report.stoppedAt().get(), report.steps().getLast().outcome()));
@@ -282,10 +282,10 @@ public final class JobRecoveryStep implements RecoveryStep {
                 case GROUP_EXITED -> Signal.SIGTERM.name();
                 case GROUP_NOT_REACHED, SIGNAL_REFUSED -> RUNTIME_RESTART;
             };
-            return new Handling(rule, signal, true, Optional.empty());
+            return new Handling(rule, signal, true, null);
         }
         return new Handling(rule, job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART, false,
-                Optional.empty());
+                null);
     }
 
     /** @return the rule that settles a job left unsettled, the first that matches */

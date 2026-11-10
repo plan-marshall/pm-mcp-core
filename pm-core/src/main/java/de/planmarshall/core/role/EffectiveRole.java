@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The effective configuration of one role (PM-WORK-1, Role Assignment): the artifact's other members, and the harness,
@@ -32,17 +34,18 @@ import java.util.Optional;
  * @param effort             the effective effort
  * @param skills             the role's skills as the project resolves them
  * @param harnessVersion     the major.minor of the enrolled harness version
- * @param weightsIdentity    the weights identity of the model where the harness reports one
+ * @param weightsIdentity    the weights identity of the model where the harness reports one; {@code null} when the
+ *                           harness reports none
  * @param questions          the continuation bounds cut to the harness's resumability; {@code 0} is ineffective
  * @param offTrack           every off-track signal with its effective threshold and action
  * @param contextBudgetTokens the effective context budget of a worker
- * @param idleWakeups        the effective idle wakeups of a warm worker; {@code null} when neither sets it
+ * @param idleWakeups        the effective idle wakeups of a warm worker; empty when neither sets it
  * @since 0.1
  */
 public record EffectiveRole(RoleArtifact artifact, String harness, String model, EffortValue effort,
-List<RoleSkill> skills, String harnessVersion, Optional<String> weightsIdentity,
+List<RoleSkill> skills, String harnessVersion, @Nullable String weightsIdentity,
 RoleArtifact.Questions questions, Map<RoleArtifact.OffTrackSignal, RoleArtifact.OffTrackSetting> offTrack,
-int contextBudgetTokens, Integer idleWakeups) {
+int contextBudgetTokens, OptionalInt idleWakeups) {
 
     /** The compiled context budget when neither the artifact nor the harness sets one. */
     public static final int COMPILED_CONTEXT_BUDGET = 400_000;
@@ -54,7 +57,6 @@ int contextBudgetTokens, Integer idleWakeups) {
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(effort, "effort");
         Objects.requireNonNull(questions, "questions");
-        Objects.requireNonNull(weightsIdentity, "weightsIdentity");
         skills = List.copyOf(skills);
         offTrack = Collections.unmodifiableMap(new LinkedHashMap<>(offTrack));
     }
@@ -68,15 +70,15 @@ int contextBudgetTokens, Integer idleWakeups) {
      * @param effort          the effective effort
      * @param skills          the resolved skills
      * @param harnessVersion  the major.minor of the enrolled harness version
-     * @param weightsIdentity the weights identity of the model, where reported
+     * @param weightsIdentity the weights identity of the model, where reported; may be {@code null}
      * @param profile         the facts of the harness's profile
      * @return the effective role
      */
     public static EffectiveRole of(RoleArtifact artifact, String harness, String model, EffortValue effort,
-            List<RoleSkill> skills, String harnessVersion, Optional<String> weightsIdentity, HarnessProfile profile) {
+            List<RoleSkill> skills, String harnessVersion, @Nullable String weightsIdentity, HarnessProfile profile) {
         return new EffectiveRole(artifact, harness, model, effort, skills, harnessVersion, weightsIdentity,
                 questions(artifact, profile), offTrack(artifact), contextBudget(artifact, profile),
-                idleWakeups(artifact, profile).orElse(null));
+                idleWakeups(artifact, profile));
     }
 
     /** @return whether the role has no tool and no PM-MCP connection */
@@ -136,9 +138,9 @@ int contextBudgetTokens, Integer idleWakeups) {
                 .orElse(COMPILED_CONTEXT_BUDGET);
     }
 
-    private static Optional<Integer> idleWakeups(RoleArtifact role, HarnessProfile profile) {
-        return role.recyclingBounds()
-                .map(RoleArtifact.Recycling::idleWakeups)
-                .or(() -> Optional.ofNullable(profile.idleWakeups()));
+    private static OptionalInt idleWakeups(RoleArtifact role, HarnessProfile profile) {
+        var declared = role.recyclingBounds().map(RoleArtifact.Recycling::idleWakeups).orElse(null);
+        var value = declared != null ? declared : profile.idleWakeups();
+        return value == null ? OptionalInt.empty() : OptionalInt.of(value);
     }
 }

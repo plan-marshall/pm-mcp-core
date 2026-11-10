@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,7 +80,7 @@ class QuestionLogRecordReaderBoundaryTest {
     }
 
     private ReadRequest request(String questionId) {
-        return new ReadRequest(Optional.of(planId), questionId);
+        return new ReadRequest(planId, questionId);
     }
 
     @Nested
@@ -110,7 +109,7 @@ class QuestionLogRecordReaderBoundaryTest {
         @DisplayName("reads Unreadable for two characters, the shortest id the grammar refuses")
         void refusesTheLowerBoundary() {
             assertEquals(new Unreadable("the scope is not an identifier: ab"),
-                    reader.read(new ReadRequest(Optional.of("ab"), "Q-001")));
+                    reader.read(new ReadRequest("ab", "Q-001")));
         }
 
         @Test
@@ -120,9 +119,9 @@ class QuestionLogRecordReaderBoundaryTest {
 
             assertAll(
                     () -> assertEquals(new Unreadable("no question log for the scope"),
-                            reader.read(new ReadRequest(Optional.of("abc"), "Q-001"))),
+                            reader.read(new ReadRequest("abc", "Q-001"))),
                     () -> assertEquals(new Unreadable("no question log for the scope"),
-                            reader.read(new ReadRequest(Optional.of(longest), "Q-001"))));
+                            reader.read(new ReadRequest(longest, "Q-001"))));
         }
     }
 

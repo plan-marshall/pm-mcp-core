@@ -23,7 +23,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.Optional;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevWalk;
@@ -77,11 +76,11 @@ class GitIdentityTest {
     private CommitInfo commit() {
         var result = git.commit(new CommitInput(repo, Generators.letterStrings(3, 30).next(), author, agent));
         assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
-        return result.value().orElseThrow();
+        return result.value();
     }
 
     private WorktreeAddInput detached(String startPoint) {
-        return new WorktreeAddInput(repo, repo.resolve("wt"), Optional.empty(), false, startPoint);
+        return new WorktreeAddInput(repo, repo.resolve("wt"), null, false, startPoint);
     }
 
     @Test
@@ -135,7 +134,7 @@ class GitIdentityTest {
             repository.branchCreate().setName(pinned).setStartPoint(later.id()).call();
         }
 
-        var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), Optional.of(pinned), false,
+        var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), pinned, false,
                 initial.id()));
 
         assertAll(
@@ -153,7 +152,7 @@ class GitIdentityTest {
             repository.branchCreate().setName(pinned).setStartPoint(initial.id()).call();
         }
 
-        var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), Optional.of(pinned), false,
+        var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), pinned, false,
                 initial.id().substring(0, ABBREVIATED)));
 
         assertAll(

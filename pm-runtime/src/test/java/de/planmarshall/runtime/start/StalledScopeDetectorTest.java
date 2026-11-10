@@ -12,6 +12,8 @@ package de.planmarshall.runtime.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -164,11 +166,11 @@ class StalledScopeDetectorTest {
         var activity = detector().detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(idleSeconds));
 
         assertAll(
-                () -> assertEquals(stalled, activity.hold().isPresent(), "the hold must follow the threshold"),
+                () -> assertEquals(stalled, activity.hold() != null, "the hold must follow the threshold"),
                 () -> assertEquals(stalled ? 1 : 0, activity.needsOperator(),
                         "a stall must need the operator once"));
         if (stalled) {
-            var hold = activity.hold().orElseThrow();
+            var hold = activity.hold();
             assertAll(
                     () -> assertEquals(THRESHOLD, StalledScopeDetector.THRESHOLD.toSeconds(),
                             "the threshold must be 600 seconds"),
@@ -230,7 +232,7 @@ class StalledScopeDetectorTest {
                 LAST_PROGRESS.plusSeconds(overThreshold()));
 
         assertAll(
-                () -> assertTrue(activity.hold().isEmpty(), "a scope awaiting an event must not be held"),
+                () -> assertNull(activity.hold(), "a scope awaiting an event must not be held"),
                 () -> assertEquals(0, activity.needsOperator(), "a scope awaiting an event needs no operator"),
                 () -> assertEquals(List.of(), records, "no plan_stalled record must be appended"),
                 () -> assertEquals(List.of(), released, "no hold must be released"));
@@ -241,7 +243,7 @@ class StalledScopeDetectorTest {
     void shouldHoldAnEpic() {
         var activity = detector().detect(View.of(PROJECT, epic().build()), LAST_PROGRESS.plusSeconds(overThreshold()));
 
-        assertEquals(AuditRecord.Scope.EPIC, activity.hold().orElseThrow().scopeType(),
+        assertEquals(AuditRecord.Scope.EPIC, activity.hold().scopeType(),
                 "the hold of an epic must name the epic scope");
     }
 
@@ -295,9 +297,9 @@ class StalledScopeDetectorTest {
                 () -> assertEquals(1, released.size(), "the old episode must be released"),
                 () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince(),
                         "the released hold is the old episode"),
-                () -> assertEquals(progressAt, activity.hold().orElseThrow().idleSince(),
+                () -> assertEquals(progressAt, activity.hold().idleSince(),
                         "the new hold must count from the progress"),
-                () -> assertEquals(idle, activity.hold().orElseThrow().idleSeconds(),
+                () -> assertEquals(idle, activity.hold().idleSeconds(),
                         "the new hold must carry its own idle span"));
     }
 
@@ -312,9 +314,9 @@ class StalledScopeDetectorTest {
         var second = detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(secondIdle));
 
         assertAll(
-                () -> assertEquals(firstIdle, first.hold().orElseThrow().idleSeconds(),
+                () -> assertEquals(firstIdle, first.hold().idleSeconds(),
                         "the first read must report its span"),
-                () -> assertEquals(secondIdle, second.hold().orElseThrow().idleSeconds(),
+                () -> assertEquals(secondIdle, second.hold().idleSeconds(),
                         "the second read must report its span"),
                 () -> assertEquals(1, records.size(), "one episode must append one record"));
     }
@@ -351,12 +353,12 @@ class StalledScopeDetectorTest {
         assertAll(
                 () -> assertEquals("plan.hold_released", StalledScopeDetector.HOLD_RELEASED,
                         "the report must be plan.hold_released"),
-                () -> assertTrue(cleared.hold().isEmpty(), "the hold must clear after the progress"),
+                () -> assertNull(cleared.hold(), "the hold must clear after the progress"),
                 () -> assertEquals(1, released.size(), "the cleared hold must be released once"),
                 () -> assertEquals(List.of("plan.hold_released"), reports, "the release must announce the report"),
                 () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince(),
                         "the released hold is the old episode"),
-                () -> assertTrue(again.hold().isPresent(), "a new stall must be held again"),
+                () -> assertNotNull(again.hold(), "a new stall must be held again"),
                 () -> assertEquals(2, records.size(), "the new episode must append a record"));
     }
 
@@ -575,7 +577,7 @@ class StalledScopeDetectorTest {
                 LAST_PROGRESS.plusSeconds(idle + span()));
 
         assertAll(
-                () -> assertTrue(activity.hold().isEmpty(), "a paused scope must not be held"),
+                () -> assertNull(activity.hold(), "a paused scope must not be held"),
                 () -> assertEquals(1, released.size(), "the open episode must be released"));
     }
 
@@ -606,7 +608,7 @@ class StalledScopeDetectorTest {
     }
 
     @Test
-    @DisplayName("a missing project, status, view, instant or hold is refused")
+    @DisplayName("a missing project, status or required hold part is refused; a null hold is absent")
     void shouldRefuseMissingValues() {
         var status = plan().build();
         var target = detector();
@@ -637,8 +639,8 @@ class StalledScopeDetectorTest {
                 () -> assertThrows(NullPointerException.class,
                         () -> new StalledHold(AuditRecord.Scope.PLAN, PLAN_ID, STATE, Cause.NO_PROGRESS, null, idle),
                         "a hold without an idle start must be refused"),
-                () -> assertThrows(NullPointerException.class, () -> new Activity(null),
-                        "an activity without a hold must be refused"));
+                () -> assertNull(new Activity(null).hold(),
+                        "an activity without a hold is null"));
     }
 
     @Test

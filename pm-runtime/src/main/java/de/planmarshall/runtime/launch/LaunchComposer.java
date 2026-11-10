@@ -102,8 +102,8 @@ public final class LaunchComposer {
         var workerBlock = workerBlock(request, role, roleClass, workdirKind, model, effort, prompt, now, tokenSha256);
         return new WorkerLaunch(request.generationId(), role.artifact().name(), roleClass,
                 request.fresh() ? RoleForm.FRESH : RoleForm.WARM,
-                argv, env, workingDirectory, jobPrivate, promptFile, prompt, Optional.ofNullable(mcp.file()),
-                Optional.ofNullable(mcp.content()), token, tokenSha256, role.harness(), request.enrolment().version(),
+                argv, env, workingDirectory, jobPrivate, promptFile, prompt, mcp.file(),
+                mcp.content(), token, tokenSha256, role.harness(), request.enrolment().version(),
                 model, effort.value(), effort.narrowedFrom(), workerBlock);
     }
 
@@ -279,7 +279,7 @@ public final class LaunchComposer {
     private static List<String> composeArgv(LaunchRequest request, HeadlessBlock block, RoleClass roleClass,
             Path workingDirectory, String model, String effort, Path promptFile, @Nullable Path resultSchema,
             List<String> tools, McpComposition mcp) {
-        var template = request.resumeSessionId().isPresent() && !block.resumeArgv().isEmpty()
+        var template = request.resumeSessionId() != null && !block.resumeArgv().isEmpty()
                 ? block.resumeArgv()
                 : block.argumentsFor(roleClass);
         var slots = new LinkedHashMap<String, String>();
@@ -292,7 +292,7 @@ public final class LaunchComposer {
         slots.put("mcp_config", mcp.slot());
         slots.put("agent", block.agentMode() == HeadlessBlock.AgentMode.INLINE ? inlineAgent(request, model, effort,
                 tools) : null);
-        slots.put("session_id", request.resumeSessionId().orElse(null));
+        slots.put("session_id", request.resumeSessionId());
         var filled = fill(template, slots);
         if (filled.isEmpty()) {
             throw new CompositionException("the argument template of '%s' rendered empty".formatted(roleClass
@@ -359,7 +359,7 @@ public final class LaunchComposer {
         members.put("task", JsonNode.nullValue());
         members.put("served_tasks", JsonNode.array(List.of()));
         members.put("worktree_mark", JsonNode.nullValue());
-        members.put("idle_wakeups", JsonNode.integer(role.idleWakeups() == null ? 0 : role.idleWakeups()));
+        members.put("idle_wakeups", JsonNode.integer(role.idleWakeups().orElse(0)));
         members.put("context_tokens", JsonNode.string("unmeasured"));
         members.put("delivered_skills", JsonNode.array(prompt.delivered().stream().map(skill -> JsonNode.object(Map.of(
                 "uri", JsonNode.string(skill.uri()), "digest", JsonNode.string(skill.digest()), "delivered_at",

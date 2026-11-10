@@ -21,7 +21,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -93,7 +92,7 @@ class RoleAssignmentsSchemaParityTest {
                 "inherited-role", RoleAssignmentValue.inheritEffort("opencode", "deepseek-v4.1"),
                 "escalated-role", RoleAssignmentValue.of("opencode", "deepseek-v4.1", "high")
                         .withEscalation(new Escalation("opencode", "deepseek-v4.1",
-                                Optional.of(new EffortValue("high"))))), 1);
+                                new EffortValue("high")))), 1);
 
         assertEquals(Set.of(), validator().validate(new String(written, UTF_8), InputFormat.JSON),
                 () -> "The written store is valid: " + new String(written, UTF_8));

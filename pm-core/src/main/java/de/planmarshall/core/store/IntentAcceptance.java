@@ -119,21 +119,20 @@ public final class IntentAcceptance {
      * @param planId       the plan the record belongs to
      * @param questions    the answered question parts of the plan
      * @param capabilities the capability requirements of the tree the plan started from
-     * @param epic         the epic the plan started from; empty for a plan it did not start
+     * @param epic         the epic the plan started from; {@code null} for a plan it did not start
      * @param treeRoot     the root a {@code fact} decision's evidence path is resolved against
      * @since 0.1
      */
     public record Context(String planId, QuestionAnswers questions, CapabilityFacts capabilities,
-    Optional<EpicSeed> epic, Path treeRoot) {
+    @Nullable EpicSeed epic, Path treeRoot) {
 
         /**
-         * @throws NullPointerException if a value is {@code null}
+         * @throws NullPointerException if a value other than {@code epic} is {@code null}
          */
         public Context {
             Objects.requireNonNull(planId, "planId");
             Objects.requireNonNull(questions, "questions");
             Objects.requireNonNull(capabilities, "capabilities");
-            Objects.requireNonNull(epic, "epic");
             Objects.requireNonNull(treeRoot, "treeRoot");
         }
     }
@@ -317,10 +316,10 @@ public final class IntentAcceptance {
     }
 
     private static Optional<String> claimRefusal(IntentRecord intentRecord, Context context) {
-        if (context.epic().isEmpty()) {
+        var seed = context.epic();
+        if (seed == null) {
             return Optional.empty();
         }
-        var seed = context.epic().orElseThrow();
         for (var required : seed.intent().requiredClaims(seed.rowDoneWhen())) {
             if (!intentRecord.holdsClaim(required)) {
                 return Optional.of(

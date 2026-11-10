@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
-import java.util.Optional;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -123,7 +122,7 @@ class ModelCallerTest {
     void invalidRoleClosesWithReason() {
         var detail = Generators.letterStrings(10, 40).next();
         RoleResolver refusing = name -> new RoleResolution.Undefined(name,
-                Optional.of(RoleValidationReason.MODEL_NOT_ALLOWED), detail);
+                RoleValidationReason.MODEL_NOT_ALLOWED, detail);
         var fixtures = new Fixtures(refusing, ModelFixtures.resolver(Map.of()));
 
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));

@@ -211,6 +211,6 @@ class CapabilitySpecTest {
 
     private static IntentAcceptance.Context context(Path root, CapabilityIndex index) {
         return new IntentAcceptance.Context(IntentFixtures.PLAN_ID, question -> Optional.empty(), index,
-                Optional.empty(), root);
+                null, root);
     }
 }

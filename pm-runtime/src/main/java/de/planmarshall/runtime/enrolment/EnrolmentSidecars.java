@@ -84,7 +84,8 @@ public final class EnrolmentSidecars {
         }
         var harnessesResult = harnesses.verify(transaction, key);
         if (!harnessesResult.passed()) {
-            return failure(harnessesResult.file().orElseThrow(), harnessesResult.reason().orElseThrow());
+            return failure(Objects.requireNonNull(harnessesResult.file(), "file"),
+                    Objects.requireNonNull(harnessesResult.reason(), "reason"));
         }
         return verifyAuditHead(transaction, key);
     }

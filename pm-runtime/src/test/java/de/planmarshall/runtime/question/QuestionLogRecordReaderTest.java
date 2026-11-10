@@ -30,7 +30,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -105,7 +104,7 @@ class QuestionLogRecordReaderTest {
     }
 
     private ReadRequest request(String questionId) {
-        return new ReadRequest(Optional.of(PLAN), questionId);
+        return new ReadRequest(PLAN, questionId);
     }
 
     /** The closing events, derived from the enum at run time: the closed set of resolution outcomes. */
@@ -367,7 +366,7 @@ class QuestionLogRecordReaderTest {
         void readsTheWorkspaceScope(EndOfLine endOfLine) {
             append(workspace, endOfLine, asked(question));
 
-            assertEquals(new Open(), reader.read(new ReadRequest(Optional.empty(), question)));
+            assertEquals(new Open(), reader.read(new ReadRequest(null, question)));
         }
 
         @ParameterizedTest
@@ -379,13 +378,13 @@ class QuestionLogRecordReaderTest {
             createDirectory(epic.journalFile().getParent());
             append(epic, endOfLine, asked(question));
 
-            assertEquals(new Open(), reader.read(new ReadRequest(Optional.of(EPIC), question)));
+            assertEquals(new Open(), reader.read(new ReadRequest(EPIC, question)));
         }
 
         @Test
         @DisplayName("reads Unreadable for a scope with no store")
         void readsUnreadableForAnAbsentScope() {
-            var read = reader.read(new ReadRequest(Optional.of("absent-scope"), question));
+            var read = reader.read(new ReadRequest("absent-scope", question));
 
             assertEquals(new Unreadable("no question log for the scope"), read);
         }
@@ -405,7 +404,7 @@ class QuestionLogRecordReaderTest {
         @DisplayName("reads Unreadable for a scope id that is no identifier, throwing nothing")
         void readsUnreadableForAnInvalidScopeId() {
             var read = assertDoesNotThrow(
-                    () -> reader.read(new ReadRequest(Optional.of("../../escape"), question)));
+                    () -> reader.read(new ReadRequest("../../escape", question)));
 
             var unreadable = assertInstanceOf(Unreadable.class, read);
             assertEquals("the scope is not an identifier: ../../escape", unreadable.reason());

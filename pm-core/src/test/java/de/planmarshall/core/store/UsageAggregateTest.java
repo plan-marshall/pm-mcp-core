@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -86,7 +85,7 @@ class UsageAggregateTest {
     private static HarnessUsage usage(long input, long output, long cacheRead, long cacheCreation, long reasoning) {
         return new HarnessUsage(Measurement.measured(input), Measurement.measured(output),
                 Measurement.measured(cacheRead), Measurement.measured(cacheCreation), Measurement.measured(reasoning),
-                Measurement.measured(Generators.integers(0, 50).next()), Optional.empty(), Optional.empty());
+                Measurement.measured(Generators.integers(0, 50).next()), null, null);
     }
 
     private MetricsRow row(String id, HarnessUsage usage) {
@@ -128,7 +127,7 @@ class UsageAggregateTest {
                 () -> assertEquals(2, aggregate.populationCount(), "the population should count two rows"),
                 () -> assertFalse(aggregate.totalIsFloor(), "the total should not be a floor"),
                 () -> assertTrue(aggregate.excluded().isEmpty(), "no row should be excluded"),
-                () -> assertEquals(Optional.of(UsageAggregate.Population.MODEL_JOB), aggregate.population(),
+                () -> assertEquals(UsageAggregate.Population.MODEL_JOB, aggregate.population(),
                         "the population should be model_job"));
     }
 
@@ -138,7 +137,7 @@ class UsageAggregateTest {
         long input = figure(), output = figure(), cacheRead = figure();
         var usage = new HarnessUsage(Measurement.measured(input), Measurement.measured(output),
                 Measurement.measured(cacheRead), Measurement.notApplicable(), Measurement.notApplicable(),
-                Measurement.measured(1), Optional.empty(), Optional.empty());
+                Measurement.measured(1), null, null);
         var aggregate = UsageAggregate.of(List.of(row(taskId(1), usage)));
         assertAll(
                 () -> assertEquals(OptionalLong.of(input + output + cacheRead), aggregate.totalTokens(),
@@ -157,7 +156,7 @@ class UsageAggregateTest {
         long input = figure(), output = figure(), cacheRead = figure(), creation = figure();
         var usage = new HarnessUsage(Measurement.measured(input), Measurement.measured(output),
                 Measurement.measured(cacheRead), Measurement.measured(creation), Measurement.unmeasured(),
-                Measurement.measured(1), Optional.empty(), Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS));
+                Measurement.measured(1), null, UnmeasuredReason.NOT_REPORTED_BY_HARNESS);
         var aggregate = UsageAggregate.of(List.of(row(taskId(1), usage),
                 row(taskId(2), usage(input, output, cacheRead, creation, 0))));
         assertAll(
@@ -257,10 +256,10 @@ class UsageAggregateTest {
         long input = figure(), output = figure(), reasoning = figure();
         var apart = new HarnessUsage(Measurement.measured(input), Measurement.measured(output),
                 Measurement.measured(0), Measurement.notApplicable(), Measurement.measured(reasoning),
-                Measurement.measured(1), Optional.empty(), Optional.empty());
+                Measurement.measured(1), null, null);
         var included = new HarnessUsage(Measurement.measured(input), Measurement.measured(output + reasoning),
                 Measurement.measured(0), Measurement.notApplicable(), Measurement.notApplicable(),
-                Measurement.measured(1), Optional.empty(), Optional.empty());
+                Measurement.measured(1), null, null);
 
         assertAll(
                 () -> assertEquals(apart.totalTokens(), included.totalTokens(), "both totals should agree"),
@@ -275,7 +274,7 @@ class UsageAggregateTest {
         long floorIn = figure(), floorOut = figure(), measuredIn = figure(), measuredOut = figure();
         var unmeasured = new HarnessUsage(Measurement.measured(floorIn), Measurement.measured(floorOut),
                 Measurement.measured(0), Measurement.measured(0), Measurement.unmeasured(), Measurement.measured(1),
-                Optional.empty(), Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS));
+                null, UnmeasuredReason.NOT_REPORTED_BY_HARNESS);
         var floor = UsageAggregate.of(List.of(row(taskId(1), unmeasured)));
         var measured = UsageAggregate.of(List.of(row(taskId(2), usage(measuredIn, measuredOut, 0, 0, 0))));
 

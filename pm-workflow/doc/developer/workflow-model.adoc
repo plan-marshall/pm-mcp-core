@@ -122,8 +122,8 @@ lets its state take the conservative fallback.
 * A member that may be absent is a `@Nullable` parameter or record component, `null` when absent: the `scopeId` of a
   `ModelJob` and of the `ModelQueue` records is `null` for the workspace scope, and the validation reason of a
   `role_undefined` closure is `null` where there is none. Absence a method returns stays `Optional`
-  (`CompositionRefusal.roleClass()`); the `Optional` a `pm-core` accessor returns is unwrapped once, where it enters the
-  caller (`RoleResolution.Undefined.reason()`, `GradingPlan.previous()`).
+  (`CompositionRefusal.roleClass()`). The nullable `pm-core` components are read directly, with no `Optional` unwrap at
+  the boundary (`RoleResolution.Undefined.reason()`, `GradingPlan.previous()`).
 
 == Tests
 

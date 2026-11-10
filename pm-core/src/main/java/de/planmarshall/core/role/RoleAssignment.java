@@ -9,8 +9,7 @@
  */
 package de.planmarshall.core.role;
 
-import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What one level names of a role's harness, model and effort (PM-WORK-1, Role Assignment): the machine's or the project's
@@ -18,23 +17,16 @@ import java.util.Optional;
  * what it names and keeps the value of the level below for everything else. An effort that a level names as
  * {@code null} clears the effort; an effort the level does not name keeps the lower value.
  *
- * @param harness the harness the level names, or empty
- * @param model   the model the level names, or empty
- * @param effort  the effort the level names, or empty
+ * @param harness the harness the level names, or {@code null}
+ * @param model   the model the level names, or {@code null}
+ * @param effort  the effort the level names, or {@code null}
  * @since 0.1
  */
-public record RoleAssignment(Optional<String> harness, Optional<String> model, Optional<EffortValue> effort) {
-
-    /** Rejects {@code null} components. */
-    public RoleAssignment {
-        Objects.requireNonNull(harness, "harness");
-        Objects.requireNonNull(model, "model");
-        Objects.requireNonNull(effort, "effort");
-    }
+public record RoleAssignment(@Nullable String harness, @Nullable String model, @Nullable EffortValue effort) {
 
     /** @return the assignment that names nothing */
     public static RoleAssignment none() {
-        return new RoleAssignment(Optional.empty(), Optional.empty(), Optional.empty());
+        return new RoleAssignment(null, null, null);
     }
 
     /**
@@ -44,7 +36,7 @@ public record RoleAssignment(Optional<String> harness, Optional<String> model, O
      * @return the assignment that names all three
      */
     public static RoleAssignment of(String harness, String model, String effort) {
-        return new RoleAssignment(Optional.of(harness), Optional.of(model), Optional.of(new EffortValue(effort)));
+        return new RoleAssignment(harness, model, new EffortValue(effort));
     }
 
     /**
@@ -55,6 +47,7 @@ public record RoleAssignment(Optional<String> harness, Optional<String> model, O
      * @return the overlaid assignment
      */
     public RoleAssignment over(RoleAssignment lower) {
-        return new RoleAssignment(harness.or(lower::harness), model.or(lower::model), effort.or(lower::effort));
+        return new RoleAssignment(harness != null ? harness : lower.harness(),
+                model != null ? model : lower.model(), effort != null ? effort : lower.effort());
     }
 }

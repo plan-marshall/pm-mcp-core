@@ -318,7 +318,7 @@ final class QualificationFixtures {
         return EffectiveRole.of(artifact, HARNESS, MODEL,
                 new EffortValue(null),
                 List.of(new RoleSkill("skill://pm/role/" + name + "/SKILL.md", DIGEST)),
-                VERSION, Optional.empty(), profile);
+                VERSION, null, profile);
     }
 
     /** @return the qualification settings at the compiled defaults */

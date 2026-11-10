@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -116,7 +118,7 @@ class WorkerJobTest {
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(new WorkerEnvironment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT).parser((kind, output) -> new JobEvidence.ParseResult(
-                true, 0, false, Optional.empty())).primitives(request -> Optional.empty()).jobTokens(tokens)
+                true, 0, false, null)).primitives(request -> Optional.empty()).jobTokens(tokens)
                 .build();
     }
 
@@ -187,13 +189,13 @@ class WorkerJobTest {
                 promptText.getBytes(StandardCharsets.UTF_8).length);
         var launch = new WorkerLaunch(generation, role, RoleClass.WRITER,
                 RoleForm.FRESH, List.of(script.toString(), mode), ENVIRONMENT, script
-                        .getParent(), fixture.base.resolve("run/jobs").resolve(generation), script, prompt, Optional
-                        .empty(), Optional.empty(), token, JobTokens.sha256Hex(token), "claude", version(),
+                        .getParent(), fixture.base.resolve("run/jobs").resolve(generation), script, prompt, null,
+                null, token, JobTokens.sha256Hex(token), "claude", version(),
                 Generators.letterStrings(1, 16).next(), null, null,
                 JsonDocument.parse(workerBlock().getBytes(StandardCharsets.UTF_8), "worker"));
         return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:" + role, budgetSeconds,
                 new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(),
-                Optional.empty());
+                null);
     }
 
     /** @return a generated version of the form major.minor.patch */
@@ -210,8 +212,8 @@ class WorkerJobTest {
                         .Questions(0, 0), Map.of());
         return new EffectiveRole(artifact, "claude", "frontier",
                 new EffortValue("high"), List.of(), Generators.integers(0, 99).next() + "."
-                + Generators.integers(0, 99).next(), Optional.empty(),
-                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, 3);
+                + Generators.integers(0, 99).next(), null,
+                new RoleArtifact.Questions(0, 0), Map.of(), 400_000, OptionalInt.of(3));
     }
 
     /** The environment of the test worker: the allowlist of the fixture. */
@@ -224,8 +226,8 @@ class WorkerJobTest {
 
         @Override
         public Map<String, String> ofWorker(ProjectEnrolment enrolment, JobId jobId,
-                Map<String, String> harnessSwitches, Optional<String> jobToken, Optional<String> workerDataVariable,
-                Optional<String> egressProxy) {
+                Map<String, String> harnessSwitches, @Nullable String jobToken, @Nullable String workerDataVariable,
+                @Nullable String egressProxy) {
             return ENVIRONMENT;
         }
     }

@@ -9,6 +9,9 @@
 :test: ../../src/test/java/de/planmarshall/provider/gitlab
 
 == Purpose
+
+A field, parameter or record component whose value may be absent is written `@Nullable T` since the null-contract conversion; `Optional<T>` is returned for absence only.
+
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-1[PM-IMPL-1], link:{docs}/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]_
 
 Package `de.planmarshall.provider.gitlab` connects the engine to GitLab in two variants: the native REST client over the
@@ -69,7 +72,11 @@ fallback for a token that is no personal access token) to the contract's `Identi
 without a record an OAuth token, everything else a personal token), the scopes and expiry from the token record, and the
 permissions from the `permissions` object of `GET /projects/{path}`. `issueView` reads
 `GET /projects/{id}/issues/{iid}` and `issueComment` posts to `POST /projects/{id}/issues/{iid}/notes`, each with the
-project path URL-encoded as the client does. An issue on another origin or of another forge is refused before a request
+project path URL-encoded as the client does. A comment is posted on the issue endpoint only: the adapter reads no merge
+request, because `issues/{iid}/notes` addresses an issue by GitLab's own numbering and a merge-request iid is also the iid
+of some issue, so the reference type a consumer holds is the protection
+(link:../../../pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[`provider.ci` ADR 010]).
+An issue on another origin or of another forge is refused before a request
 is sent. A missing issue is `NOT_FOUND`; the adapter does not probe a merge request, so the issue and merge-request
 number spaces stay apart (link:../../../pm-provider-ci/doc/adr/provider-ci/006-a-missing-gitlab-issue-is-not-found.adoc[`provider.ci`
 ADR 006]). The login and the user id come from `GET /user`: a blank user id falls back to the token record's `user_id`,

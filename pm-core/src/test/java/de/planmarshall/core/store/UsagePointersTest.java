@@ -22,7 +22,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -103,10 +102,10 @@ class UsagePointersTest {
                             "the reasoning should be read from the output"),
                     () -> assertEquals(Measurement.measured(7), usage.toolUses(),
                             "the tool uses should be read from the output"),
-                    () -> assertEquals(Optional.empty(), usage.costUsd(), "opencode should report no cost"),
+                    () -> assertNull(usage.costUsd(), "opencode should report no cost"),
                     () -> assertEquals(OptionalLong.of(7490), usage.totalTokens(),
                             "the total should sum the five components"),
-                    () -> assertEquals(Optional.empty(), usage.unmeasuredReason(),
+                    () -> assertNull(usage.unmeasuredReason(),
                             "no unmeasured reason should be given"));
         }
 
@@ -120,7 +119,7 @@ class UsagePointersTest {
                             "the reasoning should be not_applicable"),
                     () -> assertEquals(OptionalLong.of(900 + 410 + 3000 + 700), usage.totalTokens(),
                             "not_applicable should count zero in the total"),
-                    () -> assertEquals(Optional.empty(), usage.unmeasuredReason(),
+                    () -> assertNull(usage.unmeasuredReason(),
                             "no unmeasured reason should be given"));
         }
 
@@ -139,7 +138,7 @@ class UsagePointersTest {
 
             var usage = pointers.read(parse(document));
 
-            assertEquals(Optional.of(cost), usage.costUsd(), "the cost should be read from its pointer");
+            assertEquals(cost, usage.costUsd(), "the cost should be read from its pointer");
         }
     }
 
@@ -161,8 +160,8 @@ class UsagePointersTest {
                             "the cache write should be unmeasured"),
                     () -> assertEquals(Measurement.unmeasured(), usage.reasoningTokens(),
                             "the reasoning should be unmeasured"),
-                    () -> assertEquals(Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS),
-                            usage.unmeasuredReason(), "the reason should be not_reported_by_harness"),
+                    () -> assertEquals(UnmeasuredReason.NOT_REPORTED_BY_HARNESS, usage.unmeasuredReason(),
+                            "the reason should be not_reported_by_harness"),
                     () -> assertEquals(OptionalLong.empty(), usage.totalTokens(), "the total should be unmeasured"));
         }
 
@@ -192,7 +191,7 @@ class UsagePointersTest {
             assertAll(
                     () -> assertEquals(Measurement.unmeasured(), usage.inputTokens(),
                             "a text figure should be unmeasured"),
-                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), usage.unmeasuredReason(),
+                    () -> assertEquals(UnmeasuredReason.OUTPUT_UNPARSED, usage.unmeasuredReason(),
                             "the reason should be output_unparsed"));
         }
     }
@@ -232,10 +231,10 @@ class UsagePointersTest {
             long tools2 = Generators.longs(0L, 50L).next();
             var measured = new HarnessUsage(Measurement.measured(input1), Measurement.measured(output1),
                     Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
-                    Measurement.measured(tools1), Optional.empty(), Optional.empty());
+                    Measurement.measured(tools1), null, null);
             var other = new HarnessUsage(Measurement.measured(input2), Measurement.measured(output2),
                     Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
-                    Measurement.measured(tools2), Optional.empty(), Optional.empty());
+                    Measurement.measured(tools2), null, null);
 
             var sum = HarnessUsage.sum(List.of(measured, other));
             var partial = HarnessUsage.sum(List.of(measured, HarnessUsage.unparsed()));
@@ -249,13 +248,13 @@ class UsagePointersTest {
                             "the tool uses should be summed"),
                     () -> assertEquals(Measurement.notApplicable(), sum.reasoningTokens(),
                             "the reasoning should stay not_applicable"),
-                    () -> assertEquals(Optional.empty(), sum.unmeasuredReason(),
+                    () -> assertNull(sum.unmeasuredReason(),
                             "no unmeasured reason should be given"),
                     () -> assertEquals(OptionalLong.of(input1 + input2 + output1 + output2), sum.totalTokens(),
                             "the total should sum both turns"),
                     () -> assertEquals(Measurement.unmeasured(), partial.inputTokens(),
                             "an unparsed turn should leave input unmeasured"),
-                    () -> assertEquals(Optional.of(UnmeasuredReason.OUTPUT_UNPARSED), partial.unmeasuredReason(),
+                    () -> assertEquals(UnmeasuredReason.OUTPUT_UNPARSED, partial.unmeasuredReason(),
                             "the reason should be output_unparsed"));
         }
     }
@@ -277,8 +276,8 @@ class UsagePointersTest {
                                     null, null, null, UsagePointers.NOT_APPLICABLE),
                             "a not_applicable tool-use pointer should fail"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new HarnessUsage(unmeasured, unmeasured,
-                            notApplicable, notApplicable, notApplicable, notApplicable, Optional.empty(),
-                            Optional.empty()), "a not_applicable tool-use figure should fail"));
+                            notApplicable, notApplicable, notApplicable, notApplicable, null,
+                            null), "a not_applicable tool-use figure should fail"));
         }
     }
 

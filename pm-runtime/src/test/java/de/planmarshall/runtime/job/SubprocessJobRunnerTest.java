@@ -128,7 +128,7 @@ class SubprocessJobRunnerTest {
     private static final String BUDGET_KEY = "git:status";
     private static final BudgetDerivation FLOOR = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
     private static final Map<String, String> ENVIRONMENT = Map.of("PATH", "/usr/bin:/bin");
-    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, Optional.empty());
+    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null);
 
     /** The enrolled {@code git} of the fixture: its first argument selects what the job does. */
     private static final String GIT_SCRIPT = """
@@ -271,7 +271,7 @@ class SubprocessJobRunnerTest {
         var request = fixture.request(fixture.root.toString(),
                 new JobRequest.HostToolCall(HostToolName.GIT, List.of(arguments)));
         return new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, budgetSeconds, FLOOR, request,
-                Optional.empty());
+                null);
     }
 
     private JobId started(JobRunner.StartResult result) {
@@ -617,7 +617,7 @@ class SubprocessJobRunnerTest {
             var request = fixture.gitStatus(fixture.beside.toString());
 
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
-                    request, Optional.empty()));
+                    request, null));
 
             var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result,
                     "the start of the job is refused");
@@ -1328,7 +1328,7 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a primitive without a job spec is refused")
         void unknownPrimitive() {
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+            var result = runner.start(new JobStarter.StartRequest(null, "verify",
                     Generators.letterStrings(4, 12).next()));
 
             var refused = assertInstanceOf(JobStarter.StartResult.Refused.class, result,
@@ -1348,7 +1348,7 @@ class SubprocessJobRunnerTest {
             var job = git(30, "ok");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
 
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+            var result = runner.start(new JobStarter.StartRequest(null, "verify",
                     Generators.letterStrings(4, 12).next()));
 
             var started = assertInstanceOf(JobStarter.StartResult.Started.class, result,
@@ -1363,10 +1363,10 @@ class SubprocessJobRunnerTest {
         @DisplayName("the refusal of a job's verification is the refusal of the port")
         void refusedPrimitive() {
             var job = new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
-                    fixture.gitStatus(fixture.beside.toString()), Optional.<String>empty());
+                    fixture.gitStatus(fixture.beside.toString()), null);
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
 
-            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+            var result = runner.start(new JobStarter.StartRequest(null, "verify",
                     Generators.letterStrings(4, 12).next()));
 
             // path_traversal_rejected is the reason code of the verification
@@ -1383,7 +1383,7 @@ class SubprocessJobRunnerTest {
         @DisplayName("a worker is not started by the runner")
         void worker() {
             var request = new JobRunner.StartRequest<>(JobId.Kind.LLM, new Scope(Scope.Type.PROJECT, null),
-                    BUDGET_KEY, 30, FLOOR, fixture.gitStatus(fixture.root.toString()), Optional.<String>empty());
+                    BUDGET_KEY, 30, FLOOR, fixture.gitStatus(fixture.root.toString()), null);
 
             assertThrows(IllegalArgumentException.class, () -> runner.start(request),
                     "a worker job is refused by the runner");
@@ -1466,7 +1466,7 @@ class SubprocessJobRunnerTest {
         void termination(CancelCause cause) {
             var termination = SubprocessJobRunner.termination(cause);
             var outcome = OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.GIT,
-                    Optional.of(termination), new Exited(0), JobEvidence.LogState.READABLE, SUCCESS, Set.of(), true));
+                    termination, new Exited(0), JobEvidence.LogState.READABLE, SUCCESS, Set.of(), true));
 
             assertAll(
                     () -> assertEquals(cause.fate(), outcome.fate(), "the termination decides the cause's fate"),
@@ -1551,8 +1551,8 @@ class SubprocessJobRunnerTest {
             int pid = Generators.integers(2, 4_000_000).next();
             var executable = "/" + Generators.letterStrings(3, 12).next();
 
-            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, Optional.of(executable)),
-                    new ProcessTreeTracker.Survivor(pid + 1, Optional.empty())));
+            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, executable),
+                    new ProcessTreeTracker.Survivor(pid + 1, null)));
 
             // security and failed are the category and outcome of the audit record's schema
             assertAll(
@@ -1595,8 +1595,8 @@ class SubprocessJobRunnerTest {
                     Set.of());
             int pid = Generators.integers(2, 4_000_000).next();
 
-            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, Optional.empty()),
-                    new ProcessTreeTracker.Survivor(pid + 1, Optional.empty())));
+            runner.auditSurvivors(job, List.of(new ProcessTreeTracker.Survivor(pid, null),
+                    new ProcessTreeTracker.Survivor(pid + 1, null)));
 
             var logged = TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(TestLogLevel.WARN,
                     WARN.JOB_DESCENDANT_AUDIT_FAILED.resolveIdentifierString());
@@ -1753,7 +1753,7 @@ class SubprocessJobRunnerTest {
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
-                    awaitReaped(lines.report().orElseThrow().pid());
+                    awaitReaped(lines.report().pid());
                 });
                 return ENVIRONMENT;
             });
@@ -1827,7 +1827,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertTrue(cancel.get(10, TimeUnit.SECONDS), "the cancel decided the end of the job"),
-                    () -> assertEquals(Optional.of(Termination.ENGINE_CANCEL),
+                    () -> assertEquals(Termination.ENGINE_CANCEL,
                             waiting.get(10, TimeUnit.SECONDS).cause(), "the exit does not hide an answered cancel"));
         }
 
@@ -1844,7 +1844,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertTrue(cancelled, "the cancel decided the end of the job"),
-                    () -> assertEquals(Optional.of(Termination.ENGINE_CANCEL), awaited.cause(),
+                    () -> assertEquals(Termination.ENGINE_CANCEL, awaited.cause(),
                             "an exit before the first look leaves the cause"));
         }
 
@@ -1860,7 +1860,7 @@ class SubprocessJobRunnerTest {
             var late = job.cancel(Termination.ENGINE_CANCEL);
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), awaited.cause(), "nothing decided the end: the exit does"),
+                    () -> assertNull(awaited.cause(), "nothing decided the end: the exit does"),
                     () -> assertFalse(late, "the door is closed, the fate is no longer open to a cancel"));
         }
 
@@ -1911,7 +1911,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertTrue(awaited.interrupted(), "the interrupt of the wait is reported"),
-                    () -> assertEquals(Optional.empty(), awaited.cause(), "the exit ended the wait, no cause did"));
+                    () -> assertNull(awaited.cause(), "the exit ended the wait, no cause did"));
         }
 
         @Test
@@ -1928,7 +1928,7 @@ class SubprocessJobRunnerTest {
             var interruptStatus = Thread.interrupted();
 
             assertAll(
-                    () -> assertTrue(awaited.report().isEmpty(), "the interrupted wait ends without a report"),
+                    () -> assertNull(awaited.report(), "the interrupted wait ends without a report"),
                     () -> assertEquals(0L, awaited.observedLength(), "nothing of the empty log was observed"),
                     () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
         }
@@ -1969,7 +1969,7 @@ class SubprocessJobRunnerTest {
         private JobId startedBuild(String budgetKey, JobRequest.Target target) {
             var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.BUILD,
                     new Scope(Scope.Type.PLAN, planId), budgetKey, 30, FLOOR,
-                    fixture.request(fixture.root.toString(), target), Optional.empty()));
+                    fixture.request(fixture.root.toString(), target), null));
             return assertInstanceOf(JobRunner.StartResult.Started.class, result,
                     "the build job of the budget key starts").jobId();
         }
@@ -2051,7 +2051,7 @@ class SubprocessJobRunnerTest {
                     new BuildOutputParser(), request -> Optional.empty(), null, Map.of(),
                     fixture.pipeline(verifyTemplate));
 
-            var jobId = startedBuild("maven:verify", new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
+            var jobId = startedBuild("maven:verify", new WrapperBuild(WrapperName.MVNW, "verify", null));
             var settledJob = settled(jobId);
             var rawLog = Files.readString(jobs.logPath(jobId));
             var evidence = UnparsedEvidence.of(planId, jobId, rawLog);

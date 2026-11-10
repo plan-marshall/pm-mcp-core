@@ -14,7 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -78,13 +78,12 @@ public final class ConsentStore {
          * entry that lists every requested script with the same digest.
          *
          * @param kind      the kind the action needs
-         * @param projectId the project the action runs for; ignored for a kind remembered for the machine
+         * @param projectId the project the action runs for; {@code null} for the workspace scope
          * @param scripts   the scripts the action would run, for {@code run_checkout_scripts}
          * @return whether the action may run without a question
          */
-        public boolean isRemembered(ConsentKind kind, Optional<String> projectId, List<ConsentScript> scripts) {
+        public boolean isRemembered(ConsentKind kind, @Nullable String projectId, List<ConsentScript> scripts) {
             Objects.requireNonNull(kind, "kind");
-            Objects.requireNonNull(projectId, PROJECT_ID);
             Objects.requireNonNull(scripts, "scripts");
             return consents.stream()
                     .filter(consent -> consent.kind() == kind)
@@ -94,10 +93,10 @@ public final class ConsentStore {
 
         /**
          * @param kind      the kind
-         * @param projectId the project, for a kind remembered for a project
+         * @param projectId the project, for a kind remembered for a project; {@code null} for the workspace scope
          * @return whether the kind is remembered for the scope
          */
-        public boolean isRemembered(ConsentKind kind, Optional<String> projectId) {
+        public boolean isRemembered(ConsentKind kind, @Nullable String projectId) {
             return isRemembered(kind, projectId, List.of());
         }
 
@@ -109,10 +108,10 @@ public final class ConsentStore {
             return consents.stream().filter(consent -> consent.belongsTo(projectId)).toList();
         }
 
-        private static boolean belongsTo(Consent consent, Optional<String> projectId) {
+        private static boolean belongsTo(Consent consent, @Nullable String projectId) {
             return consent.kind().projectScoped()
-                    ? projectId.filter(consent::belongsTo).isPresent()
-                    : consent.projectId().isEmpty();
+                    ? projectId != null && consent.belongsTo(projectId)
+                    : consent.projectId() == null;
         }
 
         private static boolean covers(Consent consent, List<ConsentScript> requested) {
@@ -188,8 +187,7 @@ public final class ConsentStore {
             entries.removeIf(entry -> sameScope(entry, consent));
             entries.add(consent);
             return 1;
-        }, Optional.of(AuditEvent.consentRemembered(consent.kind().wireName(),
-                consent.projectId().orElse(null))));
+        }, AuditEvent.consentRemembered(consent.kind().wireName(), consent.projectId()));
     }
 
     /**
@@ -197,19 +195,18 @@ public final class ConsentStore {
      * with the consent changes.
      *
      * @param kind      the kind to withdraw
-     * @param projectId the project, for a kind remembered for a project
+     * @param projectId the project, for a kind remembered for a project; {@code null} for the workspace scope
      * @param revision  the revision the caller read
      * @return whether an entry was withdrawn; {@code false} leaves the document as it is
      * @throws SettingsConflict     if the document holds another revision than {@code revision}
      * @throws StoreRefusal         if the document is unreadable or in another format version
      * @throws UncheckedIOException if the document cannot be read or written
      */
-    public boolean withdraw(ConsentKind kind, Optional<String> projectId, long revision) {
+    public boolean withdraw(ConsentKind kind, @Nullable String projectId, long revision) {
         Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(projectId, PROJECT_ID);
         return mutate(revision, entries -> entries.removeIf(entry -> entry.kind() == kind
                         && sameProject(entry, projectId)) ? 1 : 0,
-                Optional.of(AuditEvent.consentWithdrawn(kind.wireName(), projectId.orElse(null)))) > 0;
+                AuditEvent.consentWithdrawn(kind.wireName(), projectId)) > 0;
     }
 
     /**
@@ -228,7 +225,7 @@ public final class ConsentStore {
             var before = entries.size();
             entries.removeIf(entry -> entry.belongsTo(projectId));
             return before - entries.size();
-        }, Optional.empty());
+        }, null);
     }
 
     /**
@@ -240,7 +237,7 @@ public final class ConsentStore {
      *
      * @return the number of entries the change reports as changed
      */
-    private int mutate(long revision, Change change, Optional<AuditEvent> event) {
+    private int mutate(long revision, Change change, @Nullable AuditEvent event) {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(storeFile.lockKey());
             var current = readLocked(transaction);
@@ -250,7 +247,9 @@ public final class ConsentStore {
             var entries = new ArrayList<>(current.consents());
             var changed = change.apply(entries);
             if (changed > 0) {
-                event.ifPresent(auditSink::append);
+                if (event != null) {
+                    auditSink.append(event);
+                }
                 storeFile.write(transaction, ConsentCodec.write(entries, revision + 1));
             }
             return changed;
@@ -281,9 +280,9 @@ public final class ConsentStore {
         return left.kind() == right.kind() && sameProject(left, right.projectId());
     }
 
-    private static boolean sameProject(Consent entry, Optional<String> projectId) {
-        return entry.kind().projectScoped() ? projectId.filter(entry::belongsTo).isPresent()
-                : entry.projectId().isEmpty() && projectId.isEmpty();
+    private static boolean sameProject(Consent entry, @Nullable String projectId) {
+        return entry.kind().projectScoped() ? projectId != null && entry.belongsTo(projectId)
+                : entry.projectId() == null && projectId == null;
     }
 
     /** @return the document file, absolute and normalized */

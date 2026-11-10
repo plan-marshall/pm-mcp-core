@@ -84,7 +84,7 @@ HarnessUsage usage, int idleWakeups, Instant recordedAt) {
 
     /** @return why a figure of the row is unmeasured, empty when every applicable figure is measured */
     public Optional<UnmeasuredReason> unmeasuredReason() {
-        return usage.unmeasuredReason();
+        return Optional.ofNullable(usage.unmeasuredReason());
     }
 
     private static void requirePattern(String value, Pattern pattern, String name) {

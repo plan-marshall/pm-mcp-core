@@ -643,8 +643,16 @@ Guard:: Fuzz and corpus tests (cui-http generators, garak and promptfoo corpora 
 validator on its own output changes nothing; no tag-block code point, variation selector, `Cf`, `Co`, or `Cn` code
 point, lone surrogate, or ANSI escape survives; images, raw HTML, and links outside the allowlist are removed or
 neutralized with one reported change each; a rule-table hit is recorded as a finding and never blocks on its own; the
-number of passes is bounded.
-Source:: design review.
+number of passes is bounded. Matched pairs in the shapes of an incident-response detection pack (a tool description with
+an instruction block, CSS-hidden instructions as an HTML block and inline, a rules-file text with coercive directives,
+a data-carrying URL template, a typosquatted package name) each beside the clean control of the same document: the
+attack yields its rule hit or URL flag and no hidden text survives, the control yields no change and no hit. A hidden
+instruction that level 1 removes (a tag-block run, an HTML comment) still appears as a rule hit in removed content;
+matched controls: removed markup without an instruction yields none, and a registered review bot's collapsed section
+and footer yield none. An instruction encoded as a Base64 run yields a rule hit in encoded content and is delivered
+unchanged; matched controls: a Base64 run of the same length that decodes to binary data or to text without an
+instruction yields none, an eleventh run is not decoded, and a run that decodes to another Base64 run is decoded once.
+Source:: design review; article analyses `ai-dfir-toolkit` and `argus` of plan-marshall-documentation.
 
 [#PM-WATCH-JOB-29]
 === PM-WATCH-JOB-29: Bot boilerplate is removed before the screener sees a comment
@@ -694,3 +702,25 @@ consecutive Gradle builds of one project and write set reuse one daemon; the job
 the admitted hosts. Matched controls: under `build_network: open` the outside host is reached and the record states
 `egress: open`; a `build_environment` with the operator's `HTTPS_PROXY` set leaves the job's own proxy in force, never the captured value.
 Source:: Article analyses `secure-architecture-for-ai-agents-owasp-llm` and `secure-architecture-for-ai-agents-owasp-agentic` of plan-marshall-documentation.
+
+[#PM-WATCH-JOB-48]
+=== PM-WATCH-JOB-48: A worker cannot plant code that git runs outside its confinement
+
+Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#git-metadata[Job Runtime § Git Metadata],
+link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-5[PM-SEC-5]
+Hazard:: The write set grants the whole project root, and Landlock cannot leave out the git directory below it, so a
+worker writes `core.fsmonitor` into `.git/config`, a hook into `.git/hooks/`, or a `.git` link file that points its
+worktree at a git directory of its own; the next `git` the operator's shell prompt runs, or the next `git` job of the CLI
+variant, runs it with the operator's identity. The read-only mount misses the link file or a worktree created after the
+spawn; a digest that covers `.git/config` but not its includes, or the hook directory but not `core.hooksPath`, passes a
+change; the check runs after the commit job, which has already run a changed `.husky/pre-commit`.
+Guard:: Integration tests on Linux and macOS with a writer worker of a fixture harness that writes `core.fsmonitor` into
+`.git/config`, an include file inside the repository, a hook, and the worktree's `.git` link file: every write fails with
+an ordinary error, and a sentinel file each program would write stays absent after a `git status` in the checkout; a
+fixture launcher without a mount namespace records `git_metadata: unenforced`, and the same writes then refuse the next
+`git` job with `git_metadata_changed` and a `security` record before it starts; a plan whose worker changes
+`.husky/pre-commit` without declaring it is refused as a protected path before any commit job runs. Matched control: a
+worker that changes only tracked source files leaves the digest unchanged, and the commit job runs.
+Source:: Article analysis `promise-that-killed-atom-zed` of plan-marshall-documentation: Zed's agent sandbox keeps the git
+metadata unwritable and names a submodule's `core.fsmonitor` as a way out.

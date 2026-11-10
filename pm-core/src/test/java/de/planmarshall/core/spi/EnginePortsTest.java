@@ -14,7 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -24,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -113,7 +114,7 @@ class EnginePortsTest {
             var reason = Generators.letterStrings(5, 20).next();
             var starter = (JobStarter) request -> new StartResult.Refused(reason);
 
-            var result = starter.start(new StartRequest(Optional.of(SCOPE_ID), "build.verify", "build.run"));
+            var result = starter.start(new StartRequest(SCOPE_ID, "build.verify", "build.run"));
 
             assertAll(
                     () -> assertEquals(reason, assertInstanceOf(StartResult.Refused.class, result)
@@ -125,16 +126,16 @@ class EnginePortsTest {
         @Test
         @DisplayName("the request names the scope, state and primitive; blank identifiers are refused")
         void requestValidation() {
-            var workspace = new StartRequest(Optional.empty(), "setup.build", "build.run");
+            var workspace = new StartRequest(null, "setup.build", "build.run");
 
             assertAll(
-                    () -> assertEquals(Optional.empty(), workspace.scopeId()),
+                    () -> assertNull(workspace.scopeId()),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new StartRequest(Optional.empty(), "", "build.run")),
+                            () -> new StartRequest(null, "", "build.run")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new StartRequest(Optional.empty(), "setup.build", " ")),
+                            () -> new StartRequest(null, "setup.build", " ")),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new StartRequest(null, "setup.build", "build.run")));
+                            () -> new StartRequest(null, null, "build.run")));
         }
     }
 
@@ -169,9 +170,9 @@ class EnginePortsTest {
                 return new Created("qt-%016x".formatted(requests.size()));
             };
 
-            var first = creator.create(new CreateRequest(Optional.of(SCOPE_ID), "plan.review", "TASK-001",
+            var first = creator.create(new CreateRequest(SCOPE_ID, "plan.review", "TASK-001",
                     "review-code"));
-            var second = creator.create(new CreateRequest(Optional.of(SCOPE_ID), "plan.review", "TASK-002",
+            var second = creator.create(new CreateRequest(SCOPE_ID, "plan.review", "TASK-002",
                     "review-code"));
 
             assertAll(
@@ -185,13 +186,13 @@ class EnginePortsTest {
         void requestValidation() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CreateRequest(Optional.empty(), " ", "TASK-001", "review-code")),
+                            () -> new CreateRequest(null, " ", "TASK-001", "review-code")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CreateRequest(Optional.empty(), "plan.review", "", "review-code")),
+                            () -> new CreateRequest(null, "plan.review", "", "review-code")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CreateRequest(Optional.empty(), "plan.review", "TASK-001", "")),
+                            () -> new CreateRequest(null, "plan.review", "TASK-001", "")),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new CreateRequest(Optional.empty(), "plan.review", "TASK-001", null)));
+                            () -> new CreateRequest(null, "plan.review", "TASK-001", null)));
         }
     }
 
@@ -203,7 +204,7 @@ class EnginePortsTest {
         @ValueSource(strings = {"Q-001", "Q-999999", "Q-0042"})
         @DisplayName("a question_id of ^Q-[0-9]{3,6}$ is accepted")
         void acceptsQuestionId(String questionId) {
-            var request = new ReadRequest(Optional.of(SCOPE_ID), questionId);
+            var request = new ReadRequest(SCOPE_ID, questionId);
 
             assertEquals(questionId, request.questionId());
         }
@@ -213,7 +214,7 @@ class EnginePortsTest {
         @DisplayName("a question_id outside ^Q-[0-9]{3,6}$ is refused")
         void refusesQuestionIdOutsideGrammar(String questionId) {
             var thrown = assertThrows(IllegalArgumentException.class,
-                    () -> new ReadRequest(Optional.empty(), questionId));
+                    () -> new ReadRequest(null, questionId));
 
             assertEquals("question_id does not match ^Q-[0-9]{3,6}$: " + questionId, thrown.getMessage());
         }
@@ -229,7 +230,7 @@ class EnginePortsTest {
             QuestionRecordReader reader = request -> records.get(request.questionId());
 
             var routes = List.of("Q-001", "Q-002", "Q-003").stream()
-                    .map(id -> route(reader.read(new ReadRequest(Optional.of(SCOPE_ID), id))))
+                    .map(id -> route(reader.read(new ReadRequest(SCOPE_ID, id))))
                     .toList();
 
             assertEquals(List.of("rest", "take answered", "could not read"), routes);
@@ -283,7 +284,7 @@ class EnginePortsTest {
         @DisplayName("a string outside the entry_id grammar never becomes the entry of a request")
         void noRequestForUncheckedString(String value) {
             assertAll(
-                    () -> assertEquals(Optional.empty(), EntryId.parse(value)),
+                    () -> assertTrue(EntryId.parse(value).isEmpty()),
                     () -> assertThrows(IllegalArgumentException.class, () -> new EntryId(value)));
         }
 

@@ -69,8 +69,7 @@ class ReasonPrimitives {
     }
 
     private static <R extends Enum<R> & PrimitiveOutcome> PrimitiveResult<R> reasoned(R outcome) {
-        return new PrimitiveResult<>(outcome, Map.of(), Optional.empty(),
-                Optional.of(WellFormedReason.MESSAGE_REFUSED));
+        return new PrimitiveResult<>(outcome, Map.of(), null, WellFormedReason.MESSAGE_REFUSED);
     }
 
     /**

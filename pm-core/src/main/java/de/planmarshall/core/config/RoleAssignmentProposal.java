@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.HarnessProfile;
@@ -65,21 +66,19 @@ public final class RoleAssignmentProposal {
      * @param role        the role name
      * @param tier        the tier of the role's default
      * @param advisory    the advisory of the role's default
-     * @param assignment  the proposed value; empty when the default cannot be met
-     * @param unresolved  why the default cannot be met; empty when the value is proposed
+     * @param assignment  the proposed value; {@code null} when the default cannot be met
+     * @param unresolved  why the default cannot be met; {@code null} when the value is proposed
      * @since 0.1
      */
-    public record Proposal(String role, String tier, String advisory, Optional<RoleAssignmentValue> assignment,
-    Optional<String> unresolved) {
+    public record Proposal(String role, String tier, String advisory, @Nullable RoleAssignmentValue assignment,
+    @Nullable String unresolved) {
 
         /** Rejects a value and a reason at once, and neither. */
         public Proposal {
             Objects.requireNonNull(role, "role");
             Objects.requireNonNull(tier, "tier");
             Objects.requireNonNull(advisory, "advisory");
-            Objects.requireNonNull(assignment, "assignment");
-            Objects.requireNonNull(unresolved, "unresolved");
-            if (assignment.isPresent() == unresolved.isPresent()) {
+            if ((assignment != null) == (unresolved != null)) {
                 throw new IllegalArgumentException("A proposal holds a value or a reason for its absence: " + role);
             }
         }
@@ -89,15 +88,14 @@ public final class RoleAssignmentProposal {
      * @param roles      the effective role set of the project or the machine
      * @param defaults   the release's default assignment
      * @param harnesses  the enrolled harnesses, in the order of the client id
-     * @param catalogue  the effective model catalogue; empty when the machine has none yet
+     * @param catalogue  the effective model catalogue; {@code null} when the machine has none yet
      * @return one proposal per assignable role, in role-name order
      */
     public static Map<String, Proposal> propose(RoleSet roles, DefaultAssignment defaults, List<Harness> harnesses,
-            Optional<ModelCatalogue> catalogue) {
+            @Nullable ModelCatalogue catalogue) {
         Objects.requireNonNull(roles, "roles");
         Objects.requireNonNull(defaults, "defaults");
         Objects.requireNonNull(harnesses, "harnesses");
-        Objects.requireNonNull(catalogue, "catalogue");
         var proposals = new LinkedHashMap<String, Proposal>();
         roles.assignable().forEach((roleName, artifact) -> proposals.put(roleName,
                 propose(roleName, artifact, defaults, harnesses, catalogue)));
@@ -105,7 +103,7 @@ public final class RoleAssignmentProposal {
     }
 
     private static Proposal propose(String role, RoleArtifact artifact, DefaultAssignment defaults,
-            List<Harness> harnesses, Optional<ModelCatalogue> catalogue) {
+            List<Harness> harnesses, @Nullable ModelCatalogue catalogue) {
         var entry = defaults.of(role);
         if (entry.isEmpty()) {
             return unresolved(role, "", "", "the release's default assignment names no such role");
@@ -120,20 +118,20 @@ public final class RoleAssignmentProposal {
             return unresolved(role, defaultRole, "the harness '%s' maps no model to the tier '%s'"
                     .formatted(harness.get().clientId(), defaultRole.tier()));
         }
-        if (catalogue.isEmpty()) {
+        if (catalogue == null) {
             return unresolved(role, defaultRole, "no effective model catalogue exists yet");
         }
-        if (!catalogue.get().allows(harness.get().clientId(), model.get())) {
+        if (!catalogue.allows(harness.get().clientId(), model.get())) {
             return unresolved(role, defaultRole, "the effective model catalogue does not allow '%s' on '%s'"
                     .formatted(model.get(), harness.get().clientId()));
         }
         var effort = narrow(harness.get().profile(), model.get(), defaultRole.effort());
         return new Proposal(role, defaultRole.tier(), defaultRole.advisory(),
-                Optional.of(new RoleAssignmentValue(harness.get().clientId(), model.get(),
-                        defaultRole.effort().isPresent() && effort.isPresent() ? EffortSetting.VALUE
+                new RoleAssignmentValue(harness.get().clientId(), model.get(),
+                        defaultRole.effort() != null && effort.isPresent() ? EffortSetting.VALUE
                                 : EffortSetting.DEFAULT,
-                        effort, Optional.empty())),
-                Optional.empty());
+                        effort.orElse(null), null),
+                null);
     }
 
     /**
@@ -155,14 +153,14 @@ public final class RoleAssignmentProposal {
      * it, else the greatest listed value below it, else the lowest listed one. A model without effort values runs with no
      * effort flag, which the store writes as {@code null}.
      */
-    private static Optional<EffortValue> narrow(HarnessProfile profile, String model, Optional<EffortValue> effort) {
+    private static Optional<EffortValue> narrow(HarnessProfile profile, String model, @Nullable EffortValue effort) {
         var accepted = new ArrayList<>(profile.efforts(model));
-        if (effort.isEmpty() || effort.get().value() == null || accepted.isEmpty()) {
+        if (effort == null || effort.value() == null || accepted.isEmpty()) {
             return Optional.empty();
         }
-        var value = effort.get().value();
+        var value = effort.value();
         if (accepted.contains(value)) {
-            return effort;
+            return Optional.of(effort);
         }
         var below = accepted.stream().filter(candidate -> candidate.compareTo(value) < 0)
                 .reduce((first, second) -> second);
@@ -174,6 +172,6 @@ public final class RoleAssignmentProposal {
     }
 
     private static Proposal unresolved(String role, String tier, String advisory, String reason) {
-        return new Proposal(role, tier, advisory, Optional.empty(), Optional.of(reason));
+        return new Proposal(role, tier, advisory, null, reason);
     }
 }

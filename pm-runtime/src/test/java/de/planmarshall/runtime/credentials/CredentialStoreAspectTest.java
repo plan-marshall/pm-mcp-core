@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -138,7 +139,7 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("no to the consent leaves the scope in the consent state and writes nothing")
     void consentNo() {
-        var transition = aspect.consent(gate(), ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty());
+        var transition = aspect.consent(gate(), ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
                 () -> assertEquals(State.CONSENT, transition.next()),
@@ -150,28 +151,28 @@ class CredentialStoreAspectTest {
     @Test
     @DisplayName("yes to the consent reaches the check, and yes_remember records the consent")
     void consentYes() {
-        var yes = aspect.consent(gate(), ConsentGate.Answer.YES, Consent.Channel.CLI, Optional.empty());
+        var yes = aspect.consent(gate(), ConsentGate.Answer.YES, Consent.Channel.CLI, null);
         var remembered = aspect.consent(gate(), ConsentGate.Answer.YES_REMEMBER, Consent.Channel.CLI,
-                Optional.empty());
+                null);
 
         assertAll(
-                () -> assertEquals(State.CHECK, yes.next()),
-                () -> assertTrue(yes.toRecord().isEmpty()),
-                () -> assertEquals(State.CHECK, remembered.next()),
-                () -> assertEquals(Consent.Channel.CLI, remembered.toRecord().orElseThrow().channel()));
+                () -> assertEquals(State.CHECK, yes.next(), "a yes answer reaches the check"),
+                () -> assertNull(yes.toRecord(), "a plain yes records no consent"),
+                () -> assertEquals(State.CHECK, remembered.next(), "a remembered yes reaches the check"),
+                () -> assertEquals(Consent.Channel.CLI, remembered.toRecord().channel(),
+                        "the remembered consent names the CLI channel"));
     }
 
     @Test
     @DisplayName("a remembered consent passes the consent state without a question")
     void consentRemembered() {
-        consents.grant(Consent.machine(ConsentKind.CHECK_CREDENTIAL_STORE, NOW,
-                Consent.Channel.CLI, Optional.empty()), 0L);
+        consents.grant(Consent.machine(ConsentKind.CHECK_CREDENTIAL_STORE, NOW, Consent.Channel.CLI, null), 0L);
 
-        var transition = aspect.consent(gate(), ConsentGate.Answer.NO, Consent.Channel.CLI, Optional.empty());
+        var transition = aspect.consent(gate(), ConsentGate.Answer.NO, Consent.Channel.CLI, null);
 
         assertAll(
-                () -> assertEquals(State.CHECK, transition.next()),
-                () -> assertTrue(transition.toRecord().isEmpty()));
+                () -> assertEquals(State.CHECK, transition.next(), "a remembered consent skips the question"),
+                () -> assertNull(transition.toRecord(), "a remembered consent records nothing new"));
     }
 
     @Test
@@ -200,7 +201,8 @@ class CredentialStoreAspectTest {
 
         assertAll(
                 () -> assertEquals(State.UNAVAILABLE, transition.next()),
-                () -> assertTrue(transition.reason().orElseThrow().startsWith("credential_store_check.write.")),
+                () -> assertTrue(transition.reason().startsWith("credential_store_check.write."),
+                        "a failed check carries the check's own reason"),
                 () -> assertFalse(transition.usable()));
     }
 
@@ -230,7 +232,8 @@ class CredentialStoreAspectTest {
 
         assertAll(
                 () -> assertEquals(State.UNAVAILABLE, transition.next()),
-                () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason().orElseThrow()),
+                () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason(),
+                        "a failed move reports credential_store_failed"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.CREDENTIAL_STORE_ASPECT_MOVE_FAILED.resolveIdentifierString()),
                 () -> assertEquals(Optional.of(Store.FILE), choice.recorded()));
@@ -256,7 +259,7 @@ class CredentialStoreAspectTest {
         Files.createDirectories(recordFile.getParent());
         Files.writeString(recordFile, "{}");
 
-        assertTrue(aspect.detect().moveInterrupted());
+        assertTrue(aspect.detect().moveInterrupted(), "an earlier move is reported as interrupted");
     }
 
     @Test
@@ -284,9 +287,10 @@ class CredentialStoreAspectTest {
         Transition transition = aspect.check(Store.FILE);
 
         assertAll(
-                () -> assertTrue(transition.usable()),
-                () -> assertTrue(transition.reason().isEmpty()),
-                () -> assertTrue(transition.toRecord().isEmpty()));
+                () -> assertTrue(transition.usable(), "an available store is usable"),
+                () -> assertNull(transition.reason(), "an available store carries no reason"),
+                () -> assertNull(transition.detail(), "an available store carries no detail"),
+                () -> assertNull(transition.toRecord()));
     }
 
     /** A secret store in memory, which a test can make fail. */

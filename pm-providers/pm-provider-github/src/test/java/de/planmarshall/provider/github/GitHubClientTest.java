@@ -215,17 +215,17 @@ class GitHubClientTest {
             Result<List<ReviewThread>> result = client.reviewThreads(owner, repository, pullRequest);
 
             assertTrue(result.isOk(), "the thread read succeeds");
-            List<ReviewThread> threads = result.value().orElseThrow();
+            List<ReviewThread> threads = result.value();
             ReviewThread read = threads.getFirst();
             assertAll("the threads and the requests",
                     () -> assertTrue(result.complete(), "every page is read"),
                     () -> assertEquals(List.of(first.id(), second.id()),
                             threads.stream().map(ReviewThread::id).toList(), "both pages' threads are read"),
                     () -> assertFalse(read.resolved(), "the resolved flag is read"),
-                    () -> assertEquals(Optional.of(String.valueOf(first.line())), read.line(), "the line is read"),
+                    () -> assertEquals(String.valueOf(first.line()), read.line(), "the line is read"),
                     () -> assertEquals(first.firstLine() + "\n" + first.secondLine(),
                             read.comments().getFirst().body(), "the multi-line comment is read"),
-                    () -> assertEquals(Optional.of(first.author()), read.comments().getFirst().author(),
+                    () -> assertEquals(first.author(), read.comments().getFirst().author(),
                             "the comment author is read"),
                     () -> assertTrue(read.complete(), "the thread's comments are complete"),
                     () -> assertEquals(Optional.of(GitHubClient.REVIEW_THREADS), Json.string(requestJson(0), "query"),
@@ -268,7 +268,7 @@ class GitHubClientTest {
             Result<Boolean> result = client.resolveReviewThread(threadId);
 
             assertAll("the resolved thread",
-                    () -> assertEquals(Optional.of(true), result.value(), "the thread is resolved"),
+                    () -> assertEquals(true, result.value(), "the thread is resolved"),
                     () -> assertEquals(Optional.of(GitHubClient.RESOLVE_REVIEW_THREAD),
                             Json.string(requestJson(0), "query"), "the resolve document is sent"),
                     () -> assertEquals(Optional.of(threadId), Json.string(requestJson(0), "variables", "threadId"),
@@ -286,7 +286,7 @@ class GitHubClientTest {
 
             assertAll("the rate limit",
                     () -> assertEquals(Result.Outcome.RATE_LIMITED, result.outcome(), "the limit is passed through"),
-                    () -> assertEquals(reset, result.resetAt().orElseThrow().getEpochSecond(),
+                    () -> assertEquals(reset, result.resetAt().getEpochSecond(),
                             "the reset instant is passed through"));
         }
     }
@@ -311,7 +311,7 @@ class GitHubClientTest {
                 var appClient = new GitHubClient(jwtHttp, GitHubClient.GRAPHQL_PATH);
                 var result = appClient.app();
 
-                assertEquals(Optional.of(new GitHubClient.AppIdentity(slug, String.valueOf(appId))), result.value(),
+                assertEquals(new GitHubClient.AppIdentity(slug, String.valueOf(appId)), result.value(),
                         "the App slug and id are read");
             }
             assertEquals(BEARER + jwt, requests.getFirst().getHeaders().get("Authorization"),
@@ -335,8 +335,8 @@ class GitHubClientTest {
                     + "\"html_url\":\"https://github.com/" + owner + "/" + repository + "/pull/" + pullRequest
                     + "\",\"pull_request\":{}}"));
 
-            var payload = client.issue(owner, repository, issue).value().orElseThrow();
-            var pullPayload = client.issue(owner, repository, pullRequest).value().orElseThrow();
+            var payload = client.issue(owner, repository, issue).value();
+            var pullPayload = client.issue(owner, repository, pullRequest).value();
 
             assertAll("the issue and the pull request",
                     () -> assertEquals(title, payload.issue().title(), "the issue title is mapped"),
@@ -354,7 +354,7 @@ class GitHubClientTest {
             on("GET", issuePath(issue), json(200, "{\"title\":\"" + word() + "\",\"state\":\"open\","
                     + "\"html_url\":\"https://github.com/" + owner + "/" + repository + "/issues/" + issue + "\"}"));
 
-            var payload = client.issue(owner, repository, issue).value().orElseThrow();
+            var payload = client.issue(owner, repository, issue).value();
 
             assertEquals("", payload.issue().body(), "a missing body is mapped as empty");
         }
@@ -367,7 +367,7 @@ class GitHubClientTest {
                     + "\"html_url\":\"https://github.com/" + owner + "/" + repository + "/issues/" + issue + "\","
                     + "\"milestone\":{\"title\":\" \"}}"));
 
-            var payload = client.issue(owner, repository, issue).value().orElseThrow();
+            var payload = client.issue(owner, repository, issue).value();
 
             assertNull(payload.issue().milestone(), "a blank milestone title is no milestone");
         }
@@ -411,7 +411,7 @@ class GitHubClientTest {
             graphql(json(200, "{\"data\":{\"enqueuePullRequest\":{\"mergeQueueEntry\":{\"id\":\"" + entryId
                     + "\",\"position\":" + position + ",\"state\":\"QUEUED\"}}}}"));
 
-            var entry = client.enqueue(node, head).value().orElseThrow();
+            var entry = client.enqueue(node, head).value();
 
             assertAll("the queue entry and the request",
                     () -> assertEquals(new GitHubClient.MergeQueueEntry(entryId, String.valueOf(position), "QUEUED"),
@@ -455,7 +455,7 @@ class GitHubClientTest {
             var result = client.postComment(owner, repository, issue, body);
 
             assertAll("the posted comment",
-                    () -> assertEquals(Optional.of(String.valueOf(commentId)), result.value(),
+                    () -> assertEquals(String.valueOf(commentId), result.value(),
                             "the comment id is returned"),
                     () -> assertEquals(Optional.of(body), Json.string(requestJson(0), "body"),
                             "the comment body is sent unchanged"));

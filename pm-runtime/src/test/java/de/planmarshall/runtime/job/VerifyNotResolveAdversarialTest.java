@@ -109,7 +109,7 @@ class VerifyNotResolveAdversarialTest {
     }
 
     private static WrapperBuild maven(String module) {
-        return new WrapperBuild(WrapperName.MVNW, "verify", Optional.ofNullable(module));
+        return new WrapperBuild(WrapperName.MVNW, "verify", module);
     }
 
     @Nested
@@ -163,7 +163,7 @@ class VerifyNotResolveAdversarialTest {
             assertAll(
                     () -> assertEquals(List.of(fixture.root.resolve(MVNW).toString(), "verify", "-pl",
                             fixture.module), job.argv(), "the argv is the wrapper and the template"),
-                    () -> assertEquals(Optional.of(TemplateSource.COMPILED_DEFAULT), job.templateSource(),
+                    () -> assertEquals(TemplateSource.COMPILED_DEFAULT, job.templateSource(),
                             "the template source is compiled_default"));
         }
     }

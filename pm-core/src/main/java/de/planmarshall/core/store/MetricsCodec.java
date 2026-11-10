@@ -231,13 +231,13 @@ public class MetricsCodec {
         writeMeasurement(generator, FIELD_CACHE_CREATION, usage.cacheCreationInputTokens());
         writeMeasurement(generator, FIELD_REASONING, usage.reasoningTokens());
         writeMeasurement(generator, FIELD_TOOL_USES, usage.toolUses());
-        if (usage.costUsd().isPresent()) {
-            generator.writeNumberField(FIELD_COST_USD, usage.costUsd().get());
+        if (usage.costUsd() != null) {
+            generator.writeNumberField(FIELD_COST_USD, usage.costUsd());
         } else {
             generator.writeStringField(FIELD_COST_USD, UNMEASURED);
         }
         writeEnum(generator, FIELD_UNMEASURED_REASON,
-                usage.unmeasuredReason().map(UnmeasuredReason::wireName).orElse(null));
+                usage.unmeasuredReason() == null ? null : usage.unmeasuredReason().wireName());
     }
 
     private static void writeMeasurement(JsonGenerator generator, String field, Measurement measurement)
@@ -537,8 +537,8 @@ public class MetricsCodec {
         private Measurement cacheCreationInputTokens;
         private Measurement reasoningTokens;
         private Measurement toolUses;
-        private Optional<BigDecimal> costUsd = Optional.empty();
-        private Optional<UnmeasuredReason> unmeasuredReason = Optional.empty();
+        private @Nullable BigDecimal costUsd;
+        private @Nullable UnmeasuredReason unmeasuredReason;
 
         void read(JsonParser parser, String field) throws IOException {
             switch (field) {
@@ -549,9 +549,9 @@ public class MetricsCodec {
                 case FIELD_CACHE_CREATION -> cacheCreationInputTokens = measurement(parser, field);
                 case FIELD_REASONING -> reasoningTokens = measurement(parser, field);
                 case FIELD_TOOL_USES -> toolUses = measurements(parser, field);
-                case FIELD_COST_USD -> costUsd = cost(parser, field);
+                case FIELD_COST_USD -> costUsd = cost(parser, field).orElse(null);
                 case FIELD_UNMEASURED_REASON ->
-                    unmeasuredReason = nullableEnum(parser, field, UnmeasuredReason::fromWireName);
+                    unmeasuredReason = nullableEnum(parser, field, UnmeasuredReason::fromWireName).orElse(null);
                 default -> throw undeclared(field);
             }
         }

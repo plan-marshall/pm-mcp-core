@@ -13,6 +13,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -105,7 +107,7 @@ class RoleAssignmentProposalTest {
 
     private static Map<String, RoleAssignmentProposal.Proposal> propose(Optional<ModelCatalogue> catalogue) {
         return RoleAssignmentProposal.propose(roleSet(), defaults(),
-                List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue);
+                List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue.orElse(null));
     }
 
     @Test
@@ -125,38 +127,37 @@ class RoleAssignmentProposalTest {
     void proposal() {
         var proposal = propose(catalogue()).get("implement");
 
-        var value = proposal.assignment().orElseThrow();
+        var value = proposal.assignment();
         assertAll(
                 () -> assertEquals("standard", proposal.tier()),
                 () -> assertEquals("Implements the tasks of a plan.", proposal.advisory()),
-                () -> assertTrue(proposal.unresolved().isEmpty()),
+                () -> assertNull(proposal.unresolved()),
                 () -> assertEquals(HARNESS, value.harness()),
                 () -> assertEquals(STANDARD_MODEL, value.model()),
                 () -> assertEquals(EffortSetting.VALUE, value.effort()),
-                () -> assertEquals(Optional.of(new EffortValue("high")), value.effortValue()),
-                () -> assertEquals(Optional.of(new EffortValue("high")),
-                        value.assignment().effort()));
+                () -> assertEquals(new EffortValue("high"), value.effortValue()),
+                () -> assertEquals(new EffortValue("high"), value.assignment().effort()));
     }
 
     @Test
     @DisplayName("an effort the harness does not list is narrowed to the greatest one it accepts")
     void narrowsEffort() {
-        var outline = propose(catalogue()).get("outline").assignment().orElseThrow();
+        var outline = propose(catalogue()).get("outline").assignment();
 
         assertAll(
                 () -> assertEquals(EffortSetting.VALUE, outline.effort()),
-                () -> assertEquals(Optional.of(new EffortValue("high")), outline.effortValue()));
+                () -> assertEquals(new EffortValue("high"), outline.effortValue()));
     }
 
     @Test
     @DisplayName("a model without effort values runs with no effort flag")
     void noEffortValues() {
-        var screener = propose(catalogue()).get("screener").assignment().orElseThrow();
+        var screener = propose(catalogue()).get("screener").assignment();
 
         assertAll(
                 () -> assertEquals(FAST_MODEL, screener.model()),
                 () -> assertEquals(EffortSetting.DEFAULT, screener.effort()),
-                () -> assertTrue(screener.effortValue().isEmpty()));
+                () -> assertNull(screener.effortValue()));
     }
 
     @Test
@@ -166,8 +167,8 @@ class RoleAssignmentProposalTest {
                 .get("implement");
 
         assertAll(
-                () -> assertTrue(proposal.assignment().isEmpty()),
-                () -> assertTrue(proposal.unresolved().orElseThrow().contains("does not allow")),
+                () -> assertNull(proposal.assignment()),
+                () -> assertTrue(proposal.unresolved().contains("does not allow")),
                 () -> assertEquals("Implements the tasks of a plan.", proposal.advisory()));
     }
 
@@ -177,20 +178,19 @@ class RoleAssignmentProposalTest {
         var proposal = propose(Optional.empty()).get("implement");
 
         assertAll(
-                () -> assertTrue(proposal.assignment().isEmpty()),
-                () -> assertEquals("no effective model catalogue exists yet",
-                        proposal.unresolved().orElseThrow()));
+                () -> assertNull(proposal.assignment()),
+                () -> assertEquals("no effective model catalogue exists yet", proposal.unresolved()));
     }
 
     @Test
     @DisplayName("a role the default names but no enrolled harness runs is reported without a value")
     void noHarness() {
-        var proposals = RoleAssignmentProposal.propose(roleSet(), defaults(), List.of(), catalogue());
+        var proposals = RoleAssignmentProposal.propose(roleSet(), defaults(), List.of(), catalogue().orElse(null));
 
         assertAll(
-                () -> assertTrue(proposals.get("implement").assignment().isEmpty()),
+                () -> assertNull(proposals.get("implement").assignment()),
                 () -> assertEquals("no enrolled harness runs the role's class",
-                        proposals.get("implement").unresolved().orElseThrow()));
+                        proposals.get("implement").unresolved()));
     }
 
     @Test
@@ -201,12 +201,12 @@ class RoleAssignmentProposalTest {
                 "replan", new RoleSets.ShippedRole(artifact("replan", RoleClass.READ_ONLY)))));
 
         var proposals = RoleAssignmentProposal.propose(set, defaults(),
-                List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue());
+                List.of(new RoleAssignmentProposal.Harness(HARNESS, profile())), catalogue().orElse(null));
 
         assertAll(
-                () -> assertTrue(proposals.get("replan").assignment().isEmpty()),
-                () -> assertTrue(proposals.get("replan").unresolved().orElseThrow().contains("names no such role")),
-                () -> assertTrue(proposals.get("implement").assignment().isPresent()));
+                () -> assertNull(proposals.get("replan").assignment()),
+                () -> assertTrue(proposals.get("replan").unresolved().contains("names no such role")),
+                () -> assertNotNull(proposals.get("implement").assignment()));
     }
 
     @Test
@@ -220,12 +220,12 @@ class RoleAssignmentProposalTest {
                 {"format_version":1,"roles":{"implement":{"tier":"standard","effort":"high",
                  "preferred_harness":"%s","advisory":"Implements."}}}""".formatted(FALLBACK_HARNESS).getBytes(UTF_8));
 
-        var preferred = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first, second), both);
-        var fallback = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first), both);
+        var preferred = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first, second),
+                both.orElse(null));
+        var fallback = RoleAssignmentProposal.propose(roleSet(), defaults, List.of(first), both.orElse(null));
 
         assertAll(
-                () -> assertEquals(FALLBACK_HARNESS,
-                        preferred.get("implement").assignment().orElseThrow().harness()),
-                () -> assertEquals(HARNESS, fallback.get("implement").assignment().orElseThrow().harness()));
+                () -> assertEquals(FALLBACK_HARNESS, preferred.get("implement").assignment().harness()),
+                () -> assertEquals(HARNESS, fallback.get("implement").assignment().harness()));
     }
 }

@@ -91,9 +91,9 @@ their level. Where a project artifact exists, the machine assignment of level 3 
 replaces the artifact it landed on, its three members included. Where no project artifact exists, the machine assignment
 lands on the machine or shipped artifact and applies.
 
-`RoleAssignment` carries three optional members. An `Optional` that is empty means "this level names nothing"; an
-`EffortValue` whose `value` is `null` means "this level names no effort flag", which clears the effort of the levels
-below. The distinction is load-bearing and is the reason `EffortValue` exists as a wrapper.
+`RoleAssignment` carries three nullable members. A `null` member means "this level names nothing"; an `EffortValue`
+whose `value` is `null` means "this level names no effort flag", which clears the effort of the levels below. The
+distinction is load-bearing and is the reason `EffortValue` exists as a wrapper.
 
 The steward is the exception: `resolveSteward()` takes its harness from `harnesses.default` of `machine-config.json`, its
 model from the tier `standard` of that harness's profile, and the effort of its default assignment. Its artifact's
@@ -227,9 +227,10 @@ exceeds the baseline and the blind accuracy by the margin and nothing is unscore
 
 == Invariants and Failure Modes
 
-* *Absence is `Optional` or `@Nullable`*: `HarnessProfile.askUserTool`, a qualification's `effort` and `duration_ms`
-  and a grading's `pass_threshold` are `@Nullable`; the JSON readers that may see a `null` answer `Optional`, and the
-  caller keeps the `orElse(null)` in the member.
+* *Absence is `Optional` or `@Nullable`*: a qualification's `effort` and `duration_ms` and a grading's
+  `pass_threshold` are `@Nullable`; the JSON readers that may see a `null` answer `Optional`, and the caller keeps the
+  `orElse(null)` in the member. `HarnessProfile.askUserTool` is non-null: the profile projection always supplies a value
+  (`""` for an endpoint and for a harness that declares no tool).
 
 * A role set, an assignment and an override are operator files. Never add a code path that reads them from the repository.
 * Validation is per read. A value that a later change makes invalid (an unenrolled harness, a model the catalogue no
@@ -265,6 +266,11 @@ is `1`), and a split that does not sum to the total is refused at construction.
 
 link:../adr/core-role/005-token-total-carries-the-split.adoc[ADR 005]: the token total of a grading record carries its
 split.
+
+== The Null Contract of This Package
+
+A field, a parameter and a record component of this package carry `@Nullable` where the state may be absent; `Optional`
+stays the type of the absence a method returns (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The weights identity of `EffectiveRole`, the `harness`, `model` and `effort` components of `RoleAssignment`, the default harness of `MachineConfiguration`, the reason of `RoleResolution.Undefined`, the `catalogue` of `RoleAssignmentValidation.Facts` and the `previous` record of `GradingPlan` are `@Nullable`. `EffectiveRole.idleWakeups` is an `OptionalInt` (link:../../../doc/adr/022-the-effective-idle-wakeups-are-an-optionalint.adoc[repository ADR 022]).
 
 == Related
 

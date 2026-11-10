@@ -11,15 +11,15 @@ package de.planmarshall.core.role;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -114,14 +114,23 @@ class EffectiveRoleFactsTest {
                 .set("/recycling", map("idle_wakeups", null, "token_budget",
                         Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
                 .artifact();
+        var artifactSets = RoleFixtures.valid().set("/form", "warm")
+                .set("/recycling", map("idle_wakeups", 4, "token_budget",
+                        Generators.integers(10_000, 100_000).next(), "tasks_per_generation", null))
+                .artifact();
 
         assertAll(
-                () -> assertEquals(idleWakeups, role(warm, profile(
+                () -> assertEquals(OptionalInt.of(idleWakeups), role(warm, profile(
                                 new HarnessProfile.Resumability(false, null, false, null),
                                 Generators.integers(200_000, 800_000).next(), idleWakeups)).idleWakeups(),
                         "the host's value applies"),
-                () -> assertNull(role(warm, profile(new HarnessProfile.Resumability(false, null, false, null),
-                        Generators.integers(200_000, 800_000).next(), null)).idleWakeups(), "neither sets it"));
+                () -> assertTrue(role(warm, profile(new HarnessProfile.Resumability(false, null, false, null),
+                                Generators.integers(200_000, 800_000).next(), null)).idleWakeups().isEmpty(),
+                        "neither sets it"),
+                () -> assertEquals(OptionalInt.of(4), role(artifactSets, profile(
+                                new HarnessProfile.Resumability(false, null, false, null),
+                                Generators.integers(200_000, 800_000).next(), 3)).idleWakeups(),
+                        "the artifact's value wins over the host's"));
     }
 
     @Test
@@ -162,15 +171,15 @@ class EffectiveRoleFactsTest {
         var identity = Generators.letterStrings(5, 20).next();
         var role = EffectiveRole.of(RoleFixtures.valid().artifact(), RoleFixtures.HARNESS, RoleFixtures.MODEL,
                 new EffortValue(null), List.of(new RoleSkill("skill://pm/role/implement/SKILL.md",
-                        RoleFixtures.SKILL_DIGEST)), "1.4", Optional.of(identity), RoleFixtures.harness());
+                        RoleFixtures.SKILL_DIGEST)), "1.4", identity, RoleFixtures.harness());
 
-        assertEquals(Optional.of(identity), role.weightsIdentity(), "weights identity is preserved");
+        assertEquals(identity, role.weightsIdentity(), "weights identity is preserved");
     }
 
     private static EffectiveRole role(RoleArtifact artifact, HarnessProfile profile) {
         return EffectiveRole.of(artifact, RoleFixtures.HARNESS, RoleFixtures.MODEL, new EffortValue(null),
                 List.of(new RoleSkill("skill://pm/role/implement/SKILL.md", RoleFixtures.SKILL_DIGEST)), "1.4",
-                Optional.empty(), profile);
+                null, profile);
     }
 
     private static HarnessProfile profile(HarnessProfile.Resumability resumability, Integer contextBudget,

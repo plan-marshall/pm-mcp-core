@@ -128,9 +128,10 @@ public final class RoleGrader {
             return judgeRefusal.get();
         }
         var runs = GradingOffer.runs(plan);
-        // pm-core boundary: GradingPlan.previous() returns Optional; it is filtered and unwrapped here, once
-        var previous = plan.previous().filter(entry -> entry.qualificationDigest().equals(role.qualificationDigest())
-                && entry.corpusRevision().equals(plan.corpusRevision())).orElse(null);
+        // pm-core boundary: GradingPlan.previous() is nullable and filtered here, once
+        var recorded = plan.previous();
+        var previous = recorded != null && recorded.qualificationDigest().equals(role.qualificationDigest())
+                && recorded.corpusRevision().equals(plan.corpusRevision()) ? recorded : null;
         var results = new ArrayList<QualificationRecord.ItemResult>();
         var forms = new EnumMap<RoleForm, QualificationRecord.FormResult>(RoleForm.class);
         for (var form : forms(plan)) {

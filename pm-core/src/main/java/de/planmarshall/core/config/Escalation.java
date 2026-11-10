@@ -10,7 +10,7 @@
 package de.planmarshall.core.config;
 
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
 
@@ -20,16 +20,15 @@ import de.planmarshall.core.role.EffortValue;
  *
  * @param harness the client id of an enrolled, worker-eligible harness
  * @param model   the model, allowed on that harness by the effective catalogue
- * @param effort  the effort, or empty when the schema's {@code null} applies
+ * @param effort  the effort, or {@code null} when the schema's {@code null} applies
  * @since 0.1
  */
-public record Escalation(String harness, String model, Optional<EffortValue> effort) {
+public record Escalation(String harness, String model, @Nullable EffortValue effort) {
 
-    /** Rejects {@code null} components and empty names. */
+    /** Rejects a {@code null} harness or model and empty names. */
     public Escalation {
         Objects.requireNonNull(harness, "harness");
         Objects.requireNonNull(model, "model");
-        Objects.requireNonNull(effort, "effort");
         if (harness.isEmpty() || model.isEmpty()) {
             throw new IllegalArgumentException("An escalation names its harness and its model");
         }

@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The git contract: one method per operation, typed inputs, results with the closed
@@ -189,11 +189,11 @@ public interface GitOperations {
      * @param worktreeRoot the canonical worktree root
      * @param gitDir       the canonical git directory of this worktree
      * @param commonDir    the canonical common git directory
-     * @param head         the {@code HEAD} commit id, empty for an unborn branch
-     * @param branch       the checked-out branch, empty when detached
+     * @param head         the {@code HEAD} commit id, {@code null} for an unborn branch
+     * @param branch       the checked-out branch, {@code null} when detached
      * @param linked       whether this is a linked worktree
      */
-    record RepositoryInfo(Path worktreeRoot, Path gitDir, Path commonDir, Optional<String> head, Optional<String> branch,
+    record RepositoryInfo(Path worktreeRoot, Path gitDir, Path commonDir, @Nullable String head, @Nullable String branch,
     boolean linked) {
     }
 
@@ -213,14 +213,14 @@ public interface GitOperations {
      * A worktree of the repository.
      *
      * @param path     the worktree root
-     * @param name     the administrative name, empty for the main worktree
-     * @param branch   the checked-out branch, empty when detached
-     * @param head     the {@code HEAD} commit id, empty when unborn
+     * @param name     the administrative name, {@code null} for the main worktree
+     * @param branch   the checked-out branch, {@code null} when detached
+     * @param head     the {@code HEAD} commit id, {@code null} when unborn
      * @param main     whether this is the main worktree
      * @param locked   whether the linked worktree is locked
      * @param prunable whether the linked worktree's directory is gone
      */
-    record Worktree(Path path, Optional<String> name, Optional<String> branch, Optional<String> head, boolean main,
+    record Worktree(Path path, @Nullable String name, @Nullable String branch, @Nullable String head, boolean main,
     boolean locked, boolean prunable) {
     }
 
@@ -229,11 +229,11 @@ public interface GitOperations {
      *
      * @param root         the main worktree root (the enrolled project root)
      * @param path         the new worktree root; must lie inside {@code root} and not exist or be empty
-     * @param branch       the branch to check out; empty for a detached worktree
+     * @param branch       the branch to check out; {@code null} for a detached worktree
      * @param createBranch whether to create {@code branch} at {@code startPoint}
      * @param startPoint   the commit-ish to start from (ignored for an existing branch)
      */
-    record WorktreeAddInput(Path root, Path path, Optional<String> branch, boolean createBranch, String startPoint) {
+    record WorktreeAddInput(Path root, Path path, @Nullable String branch, boolean createBranch, String startPoint) {
 
         /**
          * @param root         the root
@@ -245,7 +245,6 @@ public interface GitOperations {
         public WorktreeAddInput {
             Objects.requireNonNull(root, "root");
             Objects.requireNonNull(path, "path");
-            Objects.requireNonNull(branch, "branch");
             Objects.requireNonNull(startPoint, "startPoint");
         }
     }
@@ -319,9 +318,9 @@ public interface GitOperations {
      * @param root       the worktree root
      * @param remote     the configured remote name
      * @param refSpecs   the ref specs; empty for the remote's configured specs
-     * @param credential the transport credential, if any
+     * @param credential the transport credential; {@code null} when none
      */
-    record RemoteInput(Path root, String remote, List<String> refSpecs, Optional<GitCredential> credential) {
+    record RemoteInput(Path root, String remote, List<String> refSpecs, @Nullable GitCredential credential) {
     }
 
     /**
@@ -331,21 +330,21 @@ public interface GitOperations {
      * @param remote             the configured remote name
      * @param localRef           the local ref or commit-ish to push
      * @param remoteRef          the full remote ref, e.g. {@code refs/heads/feature}
-     * @param expectedRemoteHead the expected current remote head (lease); empty for a plain push
-     * @param credential         the transport credential, if any
+     * @param expectedRemoteHead the expected current remote head (lease); {@code null} for a plain push
+     * @param credential         the transport credential; {@code null} when none
      */
-    record PushInput(Path root, String remote, String localRef, String remoteRef, Optional<String> expectedRemoteHead,
-    Optional<GitCredential> credential) {
+    record PushInput(Path root, String remote, String localRef, String remoteRef, @Nullable String expectedRemoteHead,
+    @Nullable GitCredential credential) {
     }
 
     /**
      * A ref changed by a transport operation.
      *
      * @param ref    the (local tracking or remote) ref name
-     * @param oldId  the previous id, empty when created
-     * @param newId  the new id, empty when deleted
+     * @param oldId  the previous id, {@code null} when created
+     * @param newId  the new id, {@code null} when deleted
      * @param status the provider-neutral status, e.g. {@code updated}, {@code up_to_date}
      */
-    record RefUpdate(String ref, Optional<String> oldId, Optional<String> newId, String status) {
+    record RefUpdate(String ref, @Nullable String oldId, @Nullable String newId, String status) {
     }
 }

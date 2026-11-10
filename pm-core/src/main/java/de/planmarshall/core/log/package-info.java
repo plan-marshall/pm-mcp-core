@@ -8,7 +8,8 @@
  * the root of this repository.
  */
 /**
- * The log messages of {@code pm-core} ({@link de.planmarshall.core.log.CoreLogMessages}, prefix {@code PM_CORE}).
+ * The log messages of {@code pm-core} ({@link de.planmarshall.core.log.CoreLogMessages}, prefix {@code PM_CORE}), and the
+ * renderer of a holder's generated documentation listing ({@link de.planmarshall.core.log.LogMessageListing}).
  * Every module that logs has its own holder in its own {@code log} package with its own prefix, so that each
  * identifier is numbered once per prefix (PM-IMPL-1); a module never logs through another module's holder except
  * this one.

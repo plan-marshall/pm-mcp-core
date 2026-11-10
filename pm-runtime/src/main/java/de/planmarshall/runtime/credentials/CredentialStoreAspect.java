@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
@@ -117,33 +118,31 @@ public final class CredentialStoreAspect {
      * What one state answered: the next state and what the state produced.
      *
      * @param next        the next state
-     * @param reason      the reason code of an unavailable store, or empty
-     * @param detail      why the store is unavailable, or empty
-     * @param toRecord    the consent to record through {@code ConsentStore}, for a {@code yes_remember}
+     * @param reason      the reason code of an unavailable store, or {@code null}
+     * @param detail      why the store is unavailable, or {@code null}
+     * @param toRecord    the consent to record through {@code ConsentStore}, for a {@code yes_remember}; {@code null}
+     *                    when none is recorded
      * @param lines       the check lines of {@code store.check}, empty for the other states
      * @param moveEntries the count of entries a move would carry, for {@code store.confirm-move}
      * @since 0.1
      */
-    public record Transition(State next, Optional<String> reason, Optional<String> detail,
-    Optional<Consent> toRecord, List<CheckLine> lines, OptionalInt moveEntries) {
+    public record Transition(State next, @Nullable String reason, @Nullable String detail,
+    @Nullable Consent toRecord, List<CheckLine> lines, OptionalInt moveEntries) {
 
-        /** Keeps the lists unmodifiable and rejects {@code null} components. */
+        /** Keeps the lists unmodifiable and rejects a {@code null} next state or move count. */
         public Transition {
             Objects.requireNonNull(next, "next");
-            Objects.requireNonNull(reason, "reason");
-            Objects.requireNonNull(detail, "detail");
-            Objects.requireNonNull(toRecord, "toRecord");
             lines = List.copyOf(lines);
             Objects.requireNonNull(moveEntries, "moveEntries");
         }
 
         static Transition to(State next) {
-            return new Transition(next, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
+            return new Transition(next, null, null, null, List.of(),
                     OptionalInt.empty());
         }
 
         static Transition unavailable(String reason, String detail) {
-            return new Transition(State.UNAVAILABLE, Optional.of(reason), Optional.of(detail), Optional.empty(),
+            return new Transition(State.UNAVAILABLE, reason, detail, null,
                     List.of(), OptionalInt.empty());
         }
 
@@ -218,19 +217,19 @@ public final class CredentialStoreAspect {
      * @param gate     the gate read from the consent store before the question
      * @param answer   the answer the operator gave
      * @param channel  the channel it came through
-     * @param deviceId the paired device, for an answer through the web app
+     * @param deviceId the paired device, for an answer through the web app; {@code null} for an answer through another
+     *                 channel
      * @return the next state, with the consent to record for a {@code yes_remember}
      * @throws IllegalArgumentException if the answer cannot belong to the kind, its scope or its channel
      */
     public Transition consent(ConsentGate gate, ConsentGate.Answer answer, Consent.Channel channel,
-            Optional<String> deviceId) {
+            @Nullable String deviceId) {
         var decision = Objects.requireNonNull(gate, "gate").answer(
                 ConsentGate.Request.machine(ConsentKind.CHECK_CREDENTIAL_STORE), answer, channel, deviceId);
         if (!decision.runs()) {
             return Transition.to(State.CONSENT);
         }
-        return new Transition(State.CHECK, Optional.empty(), Optional.empty(), decision.toRecord(), List.of(),
-                OptionalInt.empty());
+        return new Transition(State.CHECK, null, null, decision.toRecord(), List.of(), OptionalInt.empty());
     }
 
     /**
@@ -247,17 +246,17 @@ public final class CredentialStoreAspect {
         var result = check.check(choice.backendOf(store));
         if (!result.passed()) {
             var last = result.lines().getLast();
-            return new Transition(State.UNAVAILABLE, Optional.of(last.messageKey()),
-                    Optional.of(String.join(" ", last.arguments())), Optional.empty(), result.lines(),
+            return new Transition(State.UNAVAILABLE, last.messageKey(),
+                    String.join(" ", last.arguments()), null, result.lines(),
                     OptionalInt.empty());
         }
         LOGGER.info(INFO.CREDENTIAL_STORE_CHECK_PASSED, store.value());
         var recorded = choice.recorded();
         if (recorded.isPresent() && recorded.get() != store) {
-            return new Transition(State.CONFIRM_MOVE, Optional.empty(), Optional.empty(), Optional.empty(),
+            return new Transition(State.CONFIRM_MOVE, null, null, null,
                     result.lines(), OptionalInt.empty());
         }
-        return new Transition(State.RECORD, Optional.empty(), Optional.empty(), Optional.empty(), result.lines(),
+        return new Transition(State.RECORD, null, null, null, result.lines(),
                 OptionalInt.empty());
     }
 
@@ -269,7 +268,7 @@ public final class CredentialStoreAspect {
      */
     public Transition confirmMove() {
         try {
-            return new Transition(State.MOVE, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
+            return new Transition(State.MOVE, null, null, null, List.of(),
                     OptionalInt.of(move.recordedEntries()));
         } catch (Refusal | SecretStoreException | StoreRefusal | UncheckedIOException e) {
             return Transition.unavailable(CREDENTIAL_STORE_FAILED, e.getMessage());

@@ -13,8 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -99,13 +100,13 @@ class JobLogTest {
                     "the third read answers lines");
 
             assertAll(
-                    () -> assertEquals(pid, first.report().orElseThrow().pid(), "the report's PID is read"),
+                    () -> assertEquals(pid, first.report().pid(), "the report's PID is read"),
                     () -> assertEquals(List.of(firstLine), first.lines(), "the first read holds the complete line"),
                     () -> assertEquals((report + "\n" + firstLine + "\n").getBytes(StandardCharsets.UTF_8).length,
                             first.nextOffset(), "the offset follows the complete line"),
                     () -> assertEquals(List.of(secondLine, thirdLine), second.lines(),
                             "the second read joins the split line"),
-                    () -> assertTrue(second.report().isEmpty(), "a later read carries no report"),
+                    () -> assertNull(second.report(), "a later read carries no report"),
                     () -> assertEquals(Files.size(path), second.nextOffset(), "the second read reaches the end"),
                     () -> assertEquals(List.of(), third.lines(), "a read at the end answers no line"),
                     () -> assertEquals(second.nextOffset(), third.nextOffset(), "a read at the end keeps the offset"));
@@ -122,10 +123,10 @@ class JobLogTest {
                     "the second read answers lines");
 
             assertAll(
-                    () -> assertTrue(first.report().isPresent(), "the first read strips the report"),
+                    () -> assertNotNull(first.report(), "the first read strips the report"),
                     () -> assertEquals(List.of(), first.lines(), "the report is no line of the job"),
                     () -> assertEquals(List.of(report), second.lines(), "a later report-shaped line is kept"),
-                    () -> assertTrue(second.report().isEmpty(), "a later read strips no report"));
+                    () -> assertNull(second.report(), "a later read strips no report"));
         }
 
         @Test
@@ -143,7 +144,7 @@ class JobLogTest {
                     () -> assertEquals(List.of(), incomplete.lines(), "an incomplete line is not answered"),
                     () -> assertEquals(0, incomplete.nextOffset(), "an incomplete line keeps the offset"),
                     () -> assertEquals(List.of(start + end), complete.lines(), "the completed line is answered"),
-                    () -> assertTrue(complete.report().isEmpty(), "a first line that is no report is kept"));
+                    () -> assertNull(complete.report(), "a first line that is no report is kept"));
         }
 
         @Test

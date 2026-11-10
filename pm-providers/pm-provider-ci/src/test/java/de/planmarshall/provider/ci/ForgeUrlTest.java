@@ -89,10 +89,87 @@ class ForgeUrlTest {
         var number = number();
         var expected = new PullRequestRef(new RepositoryRef(forge, origin, owner, name), number);
 
-        var pullRequest = ForgeUrl.resolve(template.formatted(owner, name, number)).url().orElseThrow()
-                .pullRequest();
+        var url = ForgeUrl.resolve(template.formatted(owner, name, number)).url().orElseThrow();
 
-        assertEquals(expected, pullRequest.orElseThrow(), "the accessor names repository and number");
+        assertAll("the pull request URL",
+                () -> assertEquals(expected, url.pullRequest().orElseThrow(),
+                        "the accessor names repository and number"),
+                () -> assertTrue(url.issue().isEmpty(), "a pull-request URL names no issue"));
+    }
+
+    /**
+     * The tab segments of a pull request's web interface are the grammar of each forge, so they are contract
+     * literals; the owner, the name and the number are generated.
+     */
+    @ParameterizedTest(name = "{0} pull-request tab {2}")
+    @CsvSource({
+            "github, https://github.com, https://github.com/%s/%s/pull/%d/files",
+            "github, https://github.com, https://github.com/%s/%s/pull/%d/commits",
+            "github, https://github.com, https://github.com/%s/%s/pull/%d/checks",
+            "forgejo, https://codeberg.org, https://codeberg.org/%s/%s/pulls/%d/files",
+            "forgejo, https://codeberg.org, https://codeberg.org/%s/%s/pulls/%d/commits",
+            "gitlab, https://gitlab.com, https://gitlab.com/%s/%s/-/merge_requests/%d/diffs",
+            "gitlab, https://gitlab.com, https://gitlab.com/%s/%s/-/merge_requests/%d/commits",
+            "gitlab, https://gitlab.com, https://gitlab.com/%s/%s/-/merge_requests/%d/pipelines",
+            "gitlab, https://gitlab.com, https://gitlab.com/%s/%s/-/merge_requests/%d/changes"
+    })
+    @DisplayName("names the pull request of a tab URL of each forge (the tab segments are the grammar)")
+    void namesPullRequestOfTabUrl(String forge, String origin, String template) {
+        var owner = segment();
+        var name = segment();
+        var number = number();
+        var expected = new PullRequestRef(new RepositoryRef(forge, origin, owner, name), number);
+
+        var url = ForgeUrl.resolve(template.formatted(owner, name, number)).url().orElseThrow();
+
+        assertAll("the pull-request tab URL",
+                () -> assertEquals(expected, url.pullRequest().orElseThrow(),
+                        "the tab URL names its pull request"),
+                () -> assertEquals(number, url.number(), "the tab URL keeps the number"));
+    }
+
+    @Test
+    @DisplayName("refuses a tab off the pull-request grammar (the refused tab segments are the grammar)")
+    void refusesTabsOutsideThePullRequestGrammar() {
+        var owner = segment();
+        var name = segment();
+        var number = number();
+
+        assertAll("the refused tab URLs",
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/%s/%s/issues/%d/files".formatted(owner, name, number))
+                                .outcome(),
+                        "an issue path with a tab is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://gitlab.com/%s/%s/-/issues/%d/diffs".formatted(owner, name, number))
+                                .outcome(),
+                        "a GitLab issue path with a tab is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/%s/%s/pull/%d/settings".formatted(owner, name, number))
+                                .outcome(),
+                        "an unknown GitHub tab is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://codeberg.org/%s/%s/pulls/%d/diffs".formatted(owner, name, number))
+                                .outcome(),
+                        "a GitLab tab on Forgejo is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/%s/%s/pull/%d/files/commits"
+                                .formatted(owner, name, number)).outcome(),
+                        "two trailing segments are refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/%s/%s/pull/0/files".formatted(owner, name)).outcome(),
+                        "a tab after a zero number is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.INVALID,
+                        ForgeUrl.resolve("https://github.com/%s/%s/pull/007/files".formatted(owner, name)).outcome(),
+                        "a tab after a padded number is refused"),
+                () -> assertEquals(ForgeUrl.Outcome.RESOLVED,
+                        ForgeUrl.resolve("https://github.com/%s/%s/pull/%d/files?diff=split#top"
+                                .formatted(owner, name, number)).outcome(),
+                        "a query and a fragment beside the tab are ignored"),
+                () -> assertEquals(ForgeUrl.Kind.PULL_REQUEST,
+                        ForgeUrl.resolve("https://gitlab.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v"
+                                + "/-/merge_requests/1/diffs").url().orElseThrow().kind(),
+                        "a tab is accepted at the nesting limit"));
     }
 
     @Test
@@ -101,7 +178,10 @@ class ForgeUrlTest {
         var url = ForgeUrl.resolve("https://github.com/%s/%s/issues/%d".formatted(segment(), segment(), number()))
                 .url().orElseThrow();
 
-        assertTrue(url.pullRequest().isEmpty(), "an issue URL names no pull request");
+        assertAll("the issue URL",
+                () -> assertTrue(url.pullRequest().isEmpty(), "an issue URL names no pull request"),
+                () -> assertEquals(new IssueRef(url.repository(), url.number()), url.issue().orElseThrow(),
+                        "the accessor names the issue"));
     }
 
     @Test

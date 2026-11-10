@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The usage of one harness output, as the profile's {@code headless.usage} pointers read it (PM-CLIENT-2, PM-WF-14):
@@ -36,14 +37,14 @@ import java.util.function.Function;
  * @param cacheCreationInputTokens the cache-write input tokens
  * @param reasoningTokens         the reasoning or thinking tokens a harness reports apart from its output
  * @param toolUses                the tool calls the harness reports
- * @param costUsd                 the harness-reported cost; empty when none was reported
- * @param unmeasuredReason        why a figure of the usage is unmeasured; empty when every applicable figure is
+ * @param costUsd                 the harness-reported cost; {@code null} when none was reported
+ * @param unmeasuredReason        why a figure of the usage is unmeasured; {@code null} when every applicable figure is
  *                                measured
  * @since 0.1
  */
 public record HarnessUsage(Measurement inputTokens, Measurement outputTokens, Measurement cacheReadInputTokens,
 Measurement cacheCreationInputTokens, Measurement reasoningTokens, Measurement toolUses,
-Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
+@Nullable BigDecimal costUsd, @Nullable UnmeasuredReason unmeasuredReason) {
 
     /** The reason a figure of a metrics row is unmeasured. The set is closed. */
     public enum UnmeasuredReason {
@@ -85,8 +86,6 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
         Objects.requireNonNull(cacheCreationInputTokens, "cacheCreationInputTokens");
         Objects.requireNonNull(reasoningTokens, "reasoningTokens");
         Objects.requireNonNull(toolUses, "toolUses");
-        Objects.requireNonNull(costUsd, "costUsd");
-        Objects.requireNonNull(unmeasuredReason, "unmeasuredReason");
         if (inputTokens.isNotApplicable() || outputTokens.isNotApplicable()) {
             throw new IllegalArgumentException("'input_tokens' and 'output_tokens' are never not_applicable");
         }
@@ -106,8 +105,7 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
      */
     public static HarnessUsage unmeasured(UnmeasuredReason reason) {
         var unmeasured = Measurement.unmeasured();
-        return new HarnessUsage(unmeasured, unmeasured, unmeasured, unmeasured, unmeasured, unmeasured,
-                Optional.empty(), Optional.of(reason));
+        return new HarnessUsage(unmeasured, unmeasured, unmeasured, unmeasured, unmeasured, unmeasured, null, reason);
     }
 
     /** @return the usage of a worker the supervisor ended before it finished */
@@ -134,8 +132,7 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
                 completionTokens.isPresent() ? Measurement.measured(completionTokens.getAsLong())
                         : Measurement.unmeasured(),
                 Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
-                Measurement.measured(0), Optional.empty(),
-                missing ? Optional.of(UnmeasuredReason.NOT_REPORTED_BY_HARNESS) : Optional.empty());
+                Measurement.measured(0), null, missing ? UnmeasuredReason.NOT_REPORTED_BY_HARNESS : null);
     }
 
     /**
@@ -144,8 +141,7 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
      */
     public static HarnessUsage none() {
         var unmeasured = Measurement.unmeasured();
-        return new HarnessUsage(unmeasured, unmeasured, unmeasured, unmeasured, unmeasured, unmeasured,
-                Optional.empty(), Optional.empty());
+        return new HarnessUsage(unmeasured, unmeasured, unmeasured, unmeasured, unmeasured, unmeasured, null, null);
     }
 
     /**
@@ -213,11 +209,11 @@ Optional<BigDecimal> costUsd, Optional<UnmeasuredReason> unmeasuredReason) {
         if (usages.isEmpty()) {
             return unmeasured(UnmeasuredReason.NOT_REPORTED_BY_HARNESS);
         }
-        var reason = usages.stream().map(HarnessUsage::unmeasuredReason).flatMap(Optional::stream).findFirst();
-        var cost = usages.stream().map(HarnessUsage::costUsd).allMatch(Optional::isPresent)
-                ? Optional.of(usages.stream().map(usage -> usage.costUsd().orElseThrow()).reduce(BigDecimal.ZERO,
-                BigDecimal::add))
-                : Optional.<BigDecimal>empty();
+        var reason = usages.stream().map(HarnessUsage::unmeasuredReason).filter(Objects::nonNull).findFirst()
+                .orElse(null);
+        var cost = usages.stream().map(HarnessUsage::costUsd).allMatch(Objects::nonNull)
+                ? usages.stream().map(HarnessUsage::costUsd).reduce(BigDecimal.ZERO, BigDecimal::add)
+                : null;
         return new HarnessUsage(sumOf(usages, HarnessUsage::inputTokens), sumOf(usages, HarnessUsage::outputTokens),
                 sumOf(usages, HarnessUsage::cacheReadInputTokens), sumOf(usages, HarnessUsage::cacheCreationInputTokens),
                 sumOf(usages, HarnessUsage::reasoningTokens), sumOf(usages, HarnessUsage::toolUses), cost, reason);

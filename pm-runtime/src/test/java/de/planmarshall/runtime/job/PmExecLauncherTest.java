@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -26,8 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -91,7 +92,7 @@ class PmExecLauncherTest {
             var marker = Generators.letterStrings(8, 32).next();
             var payload = words().next() + ": " + marker + "\n\n" + Generators.letterStrings(1, 64).next();
             var launch = new Launch(work, List.of(absolute(), words().next(), "-F", "-"), Map.of(),
-                    Optional.of(payload), work.resolve("job.log"));
+                    payload, work.resolve("job.log"));
 
             var launcher = new PmExecLauncher(home);
 
@@ -118,7 +119,7 @@ class PmExecLauncherTest {
             var executable = absolute();
             var confinement = new JobConfinement(List.of(Path.of(write)), List.of(Path.of(read)),
                     List.of(Path.of(denied)));
-            var launch = new Launch(work, List.of(executable), Map.of(), Optional.empty(), work.resolve("job.log"),
+            var launch = new Launch(work, List.of(executable), Map.of(), null, work.resolve("job.log"),
                     confinement);
 
             assertEquals(List.of(home.resolve("bin/pm-exec").toString(),
@@ -132,7 +133,7 @@ class PmExecLauncherTest {
         @DisplayName("a missing launcher is not looked up anywhere else: the start fails")
         void missingLauncher() {
             var launcher = new PmExecLauncher(home);
-            var launch = new Launch(work, List.of(absolute()), Map.of("PATH", absolute()), Optional.empty(),
+            var launch = new Launch(work, List.of(absolute()), Map.of("PATH", absolute()), null,
                     work.resolve("job.log"));
 
             assertThrows(IOException.class, () -> launcher.launch(launch), "a missing launcher fails the start");
@@ -147,7 +148,7 @@ class PmExecLauncherTest {
             List<String> relativeVector = List.of(words().next(), words().next());
             List<String> absoluteVector = List.of(absolute());
             Map<String, String> noEnvironment = Map.of();
-            Optional<String> noInput = Optional.empty();
+            String noInput = null;
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new PmExecLauncher(relativeHome),
@@ -158,9 +159,9 @@ class PmExecLauncherTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Launch(work, relativeVector, noEnvironment, noInput, log),
                             "a relative executable is refused"),
-                    () -> assertThrows(NullPointerException.class,
+                    () -> assertDoesNotThrow(
                             () -> new Launch(work, absoluteVector, noEnvironment, null, log),
-                            "a null stdin is refused"));
+                            "a null stdin is the /dev/null launch"));
         }
     }
 
@@ -169,7 +170,7 @@ class PmExecLauncherTest {
     @DisplayName("a started job")
     class Started {
 
-        private Launched start(List<String> argv, Map<String, String> environment, Optional<String> stdin)
+        private Launched start(List<String> argv, Map<String, String> environment, @Nullable String stdin)
                 throws IOException {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             return new PmExecLauncher(home).launch(new Launch(work, argv, environment, stdin, work.resolve("job.log")));
@@ -184,7 +185,7 @@ class PmExecLauncherTest {
         @Test
         @DisplayName("reads /dev/null without a payload, so a reader of stdin ends at once")
         void devNullByDefault() throws Exception {
-            var launched = start(List.of(FakePmExec.tool("cat").toString()), Map.of(), Optional.empty());
+            var launched = start(List.of(FakePmExec.tool("cat").toString()), Map.of(), null);
 
             var log = awaitEnd(launched);
 
@@ -199,7 +200,7 @@ class PmExecLauncherTest {
         void inMemoryStdin() throws Exception {
             var payload = Generators.letterStrings(1, 32).next() + "\n" + Generators.letterStrings(1, 32).next()
                     + " Ü " + Generators.letterStrings(1, 32).next() + "\n";
-            var launched = start(List.of(FakePmExec.tool("cat").toString()), Map.of(), Optional.of(payload));
+            var launched = start(List.of(FakePmExec.tool("cat").toString()), Map.of(), payload);
 
             var log = awaitEnd(launched);
 
@@ -214,7 +215,7 @@ class PmExecLauncherTest {
         void environmentAndOutput() throws Exception {
             var name = "PM_JOB_" + Generators.letterStrings(1, 16).next().toUpperCase(Locale.ROOT);
             var value = words().next();
-            var launched = start(List.of(FakePmExec.tool("env").toString()), Map.of(name, value), Optional.empty());
+            var launched = start(List.of(FakePmExec.tool("env").toString()), Map.of(name, value), null);
 
             var log = awaitEnd(launched);
 
@@ -230,14 +231,14 @@ class PmExecLauncherTest {
         @Test
         @DisplayName("has a PID that is its process-group id and the PID of the launch report")
         void pidIsProcessGroup() throws Exception {
-            var launched = start(List.of(FakePmExec.tool("sleep").toString(), "30"), Map.of(), Optional.empty());
+            var launched = start(List.of(FakePmExec.tool("sleep").toString(), "30"), Map.of(), null);
             try {
                 var lines = FakePmExec.awaitLines(new JobLog(work.resolve("job.log")), launched.process(), 0);
 
                 assertAll(
                         () -> assertEquals(launched.process().pid(), launched.pid(),
                                 "the job PID is the process PID"),
-                        () -> assertEquals(launched.pid(), lines.report().orElseThrow().pid(),
+                        () -> assertEquals(launched.pid(), lines.report().pid(),
                                 "the job PID is the reported PID"),
                         () -> assertEquals(launched.pid(), processGroup(launched.pid()),
                                 "the job PID is its process-group id"));

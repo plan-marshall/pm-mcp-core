@@ -225,8 +225,8 @@ class ChangeLedgerTest {
 
             var outcome = verify(ChangeLedger.FILE_NAME);
 
-            assertEquals(new ScopeIntegrity.Mismatch(ChangeLedger.FILE_NAME, recorded,
-                            Optional.of(StoreDigest.of(edited))), outcome,
+            assertEquals(new ScopeIntegrity.Mismatch(ChangeLedger.FILE_NAME, recorded, StoreDigest.of(edited)),
+                    outcome,
                     "The edited ledger is a mismatch of the integrity check");
         }
 

@@ -16,9 +16,9 @@ WARN and ERROR records, with the prefix `PM_RUNTIME`. The module logs through th
 the foundation, through `CoreLogMessages` of `pm-core`.
 
 The holder also carries the messages the assembly `pm-mcp-server` logs and no module of `pm-mcp-core` logs, until the
-assembly takes them over; their component names a class of the assembly. The complete roster with each record's
-component, template and description is in link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`]; this guide states
-how the holder is built and extended.
+assembly takes them over; their Javadoc names the component of the assembly. The complete roster of identifiers and
+templates is the listing generated from this holder and included by link:../../../doc/LogMessages.adoc[`doc/LogMessages.adoc`];
+the purpose and the component of each record are its Javadoc. This guide states how the holder is built and extended.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -49,7 +49,8 @@ periodic sweep, a job settlement or its supervision.
 
 Every record is a `LogRecord` built by `LogRecordModel.builder()` with the prefix, the identifier and the template. A
 `LogRecord` is a constant; a caller logs it with the `CuiLogger` of its class and passes the arguments in the order of the
-template's `%s` placeholders. The roster in `doc/LogMessages.adoc` is the reference; do not copy it into a second place.
+template's `%s` placeholders. The listing generated from this holder and included by `doc/LogMessages.adoc` is the
+reference; do not copy it into a second place.
 
 == Using the Holder
 
@@ -68,14 +69,15 @@ message is a record of a holder, never a literal at the call site.
 
 . Find the next free identifier of the level in `doc/LogMessages.adoc` and in the holder: INFO 001-099, WARN 100-199,
    ERROR 200-299. There are no workstream blocks and nothing is renumbered.
-. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component, the
-   template with its placeholders, and what each placeholder names.
-3. Add the row to the holder's table in `doc/LogMessages.adoc` with the same identifier, component, template and
-   description.
+. Add the constant to the holder's inner class, with a Javadoc sentence that states when it is logged, the component that
+   logs it, the template with its placeholders, and what each placeholder names.
+. The listing `doc/log-messages/pm-runtime.adoc` is generated from the holder; do not edit it by hand. Regenerate it by
+   running `RuntimeLogMessagesTest` with the system property `planmarshall.log-messages.regenerate=true`, and commit the
+   refreshed file with the record. Without the property the test only compares it.
 4. Log it from the class that owns the event. When the event belongs to the foundation, it goes to `CoreLogMessages`
    instead, and this module logs through it. A provider module with a first record of its own creates its own holder.
-5. Run `RuntimeLogMessagesTest`: it refuses an identifier used twice or outside its level's range and derives the expected
-   record set from the holder.
+5. Run `RuntimeLogMessagesTest`: it refuses an identifier used twice or outside its level's range, derives the expected
+   record set from the holder, and compares the committed listing with a fresh generation.
 
 Do not add a message for an event an existing record already states: extend the record's description instead, so the
 log's vocabulary stays closed.
@@ -90,13 +92,14 @@ log's vocabulary stays closed.
   refused. An exception's message is passed only where it is known to be free of them.
 * *The assembly's messages move out with it.* A record whose component names the assembly leaves this holder when the
   assembly takes it over; until then it is here so the message is not lost.
-* *The roster has one source.* `doc/LogMessages.adoc` states the current records; the holder is the code side of the same
-  list. A change to one without the other is a documentation defect.
+* *The roster has one source.* The holder is the source of the generated listing that `doc/LogMessages.adoc` includes;
+  a change to a record is a change to the holder, and the test fails until the listing is regenerated.
 
 == Testing
 
 link:{test}/RuntimeLogMessagesTest.java[`RuntimeLogMessagesTest`]:: every identifier is unique and inside its level's
-range, the prefix is `PM_RUNTIME`, and the expected set of records is derived from the holder at run time.
+range, the prefix is `PM_RUNTIME`, and the expected set of records is derived from the holder at run time. It compares the
+committed listing `doc/log-messages/pm-runtime.adoc` byte for byte with a fresh generation and names a changed one.
 
 == Specification Tracing
 

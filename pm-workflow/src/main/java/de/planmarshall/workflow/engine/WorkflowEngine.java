@@ -452,8 +452,7 @@ public final class WorkflowEngine {
 
     private EngineStep resolve(Run run, WorkflowStatus status, StateNode node, StateBehavior.QuestionWait question,
             EngineEvent.QuestionResolved resolved) {
-        var read = questions.read(new QuestionRecordReader.ReadRequest(Optional.ofNullable(status.scopeId()),
-                resolved.questionId()));
+        var read = questions.read(new QuestionRecordReader.ReadRequest(status.scopeId(), resolved.questionId()));
         return switch (read) {
             case QuestionRead.Resolved(var outcome) when outcome.equals(resolved.outcome()) ->
                 run.chain(run.leftTo(node, transitionOf(node, question.transitions(), outcome, Map.of())
@@ -872,8 +871,7 @@ public final class WorkflowEngine {
             }
             var jobId = spawned;
             if (jobId == null) {
-                var started = jobs.start(new JobStarter.StartRequest(Optional.ofNullable(status.scopeId()), node.id(),
-                        job.primitiveId()));
+                var started = jobs.start(new JobStarter.StartRequest(status.scopeId(), node.id(), job.primitiveId()));
                 if (!(started instanceof JobStarter.StartResult.Started(var startedId))) {
                     leave(node, "refused");
                     return Optional.of(transitionOf(node, job.transitions(), "refused", Map.of()).targetStateId());
@@ -901,8 +899,7 @@ public final class WorkflowEngine {
                         .formatted(node.id()));
             }
             var entity = modelJob.entityKind();
-            var created = tasks.create(new QueueTaskCreator.CreateRequest(Optional.ofNullable(status.scopeId()),
-                    node.id(), entity, role));
+            var created = tasks.create(new QueueTaskCreator.CreateRequest(status.scopeId(), node.id(), entity, role));
             status = status.toBuilder()
                     .activeJob(new ActiveJob(node.id(), node.id()))
                     .activeTasks(Map.of(entity, new TaskEntry(created.queueTaskId(), role, "queued", null, null)))
@@ -954,7 +951,7 @@ public final class WorkflowEngine {
             if (!results.isEmpty()) {
                 results.peek().putAll(result.updatedFacts());
             }
-            spawnedJobId = result.spawnedJobId().orElse(null);
+            spawnedJobId = result.spawnedJobId();
             var outcome = result.outcome().wireName();
             leave(node, outcome);
             return transitionOf(node, transitions, outcome, Map.of()).targetStateId();

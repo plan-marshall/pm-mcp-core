@@ -12,7 +12,6 @@ package de.planmarshall.core.store;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -199,19 +198,18 @@ public sealed interface LessonResolution {
      * @param lessonId the id the lesson is listed under
      * @param path     the file that differs from its entry
      * @param recorded the digest the sidecar records
-     * @param current  the digest of the file as it is; empty if the file does not exist
+     * @param current  the digest of the file as it is; {@code null} if the file does not exist
      * @since 0.1
      */
     @Builder
-    record StoreTampered(LessonId lessonId, Path path, StoreDigest recorded, Optional<StoreDigest> current)
+    record StoreTampered(LessonId lessonId, Path path, StoreDigest recorded, @Nullable StoreDigest current)
             implements LessonResolution {
 
-        /** @throws NullPointerException if a component is {@code null} */
+        /** @throws NullPointerException if a component other than {@code current} is {@code null} */
         public StoreTampered {
             Objects.requireNonNull(lessonId, LESSON_ID);
             Objects.requireNonNull(path, "path");
             Objects.requireNonNull(recorded, "recorded");
-            Objects.requireNonNull(current, "current");
         }
 
         @Override
