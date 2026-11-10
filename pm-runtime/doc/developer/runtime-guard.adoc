@@ -96,7 +96,7 @@ The map holds the four classes the sweep of the head finds, and the specificatio
 
 Both maps are proved load-bearing in both directions.
 A test evaluates rule A without its exemptions over the same import and asserts that the violating top-level classes are exactly the keys of the map, so an entry that no longer violates fails as stale and a violation without an entry fails as unlisted; rule B asserts the same equality between the classes that depend on `de.cuioss.http.client..` and the allow-list.
-The import is asserted non-vacuous (it contains `HuggingFaceSourceRepository`, `WorkerEgressProxy` and `ShippedRoles`), so a changed import path cannot make either rule pass on nothing.
+The import is asserted non-vacuous (it contains `HuggingFaceSourceRepository`, `WorkerEgressProxy` and `ShippedRoles`), so a changed import path cannot make rule A pass on nothing; rule B asserts its own non-vacuity on `EndpointClient`, `JudgmentClient` and `HuggingFaceSourceRepository`.
 
 == How to add an outbound call
 

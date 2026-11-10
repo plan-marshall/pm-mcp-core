@@ -379,11 +379,13 @@ class OutboundCallsArchTest {
         @DisplayName("every allow-list entry carries its specification sentence")
         void everyEntryCarriesItsSentence() {
             var unnamed = DESTINATION_CLASSES.stream()
-                    .filter(destination -> destination.specification().isBlank())
+                    .filter(destination -> !destination.specification()
+                            .contains("Closed List of Outbound Calls")
+                            || destination.specification().length() < 40)
                     .map(DestinationClass::name)
                     .toList();
 
-            assertEquals(List.of(), unnamed, "Each entry names the sentence it implements");
+            assertEquals(List.of(), unnamed, "Each entry names its specification sentence");
         }
     }
 
