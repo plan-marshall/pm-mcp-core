@@ -130,6 +130,7 @@ public final class GitHubClient {
      * @param body       the body
      * @param createdAt  the creation instant (ISO-8601)
      */
+    @Builder
     public record ReviewComment(String id, String databaseId, @Nullable String author, String body, String createdAt) {
     }
 
@@ -144,6 +145,7 @@ public final class GitHubClient {
      * @param comments the first comments of the thread
      * @param complete whether {@code comments} holds every comment
      */
+    @Builder
     public record ReviewThread(String id, boolean resolved, boolean outdated, String path, @Nullable String line,
     List<ReviewComment> comments, boolean complete) {
     }

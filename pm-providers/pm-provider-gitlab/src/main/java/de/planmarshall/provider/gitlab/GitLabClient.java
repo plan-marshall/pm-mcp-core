@@ -72,6 +72,7 @@ public final class GitLabClient {
      * @param resolvable whether the note can be resolved
      * @param resolved   whether it is resolved
      */
+    @Builder
     public record Note(String id, String author, String body, boolean resolvable, boolean resolved) {
     }
 
@@ -102,6 +103,7 @@ public final class GitLabClient {
      * @param active    whether the token (or, without a token record, its user) is active
      * @param expiresAt the expiry date, {@code null} when none or unknown
      */
+    @Builder
     public record TokenIdentity(String id, String name, String userId, List<String> scopes, boolean active,
     @Nullable String expiresAt) {
     }
