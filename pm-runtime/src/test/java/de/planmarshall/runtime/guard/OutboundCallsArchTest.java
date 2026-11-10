@@ -52,8 +52,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.role.ShippedRoles;
 import de.planmarshall.runtime.corpus.HuggingFaceSourceRepository;
+import de.planmarshall.runtime.endpoint.EndpointClient;
+import de.planmarshall.runtime.endpoint.JudgmentClient;
 import de.planmarshall.runtime.guard.fixtures.ChannelFixture;
 import de.planmarshall.runtime.guard.fixtures.ClientSocketFixture;
+import de.planmarshall.runtime.guard.fixtures.CuiHttpFixture;
 import de.planmarshall.runtime.guard.fixtures.DataTypesFixture;
 import de.planmarshall.runtime.guard.fixtures.DatagramFixture;
 import de.planmarshall.runtime.guard.fixtures.HttpClientFixture;
@@ -92,6 +95,13 @@ import de.planmarshall.runtime.job.WorkerEgressProxy;
  * A test evaluates the rule without its exemptions over the same import and asserts that the violating classes are
  * exactly the exempt ones, so an entry that no longer violates fails as stale and a violation without an entry fails
  * as unlisted. The import is asserted non-vacuous, so a changed import path cannot make the rule pass on nothing.
+ * <p>
+ * Rule B closes the list a second way: no class of {@code pm-runtime} depends on {@code de.cuioss.http.client..} — the
+ * client itself — except the destination classes the closed list names, each entry carrying the specification sentence
+ * it implements. A test asserts the same two-way symmetry as rule A, so a new use of the client without a list entry
+ * fails as an unlisted user and an entry that no longer uses the client fails as stale. The validation pipelines of
+ * {@code de.cuioss.http.security..} stay free: they validate a URL or a header and open no connection. Rule B does not
+ * look at {@code pm-core}, whose build already forbids {@code cui-http}.
  */
 // Every datum in this class is a contract: package names, type names, class names, reasons and fixture names.
 @DisplayName("The closed list of outbound calls of the runtime")
@@ -134,6 +144,51 @@ class OutboundCallsArchTest {
 
     /** Rule A without its exemptions: the evaluation by which the exemption map is proved load-bearing. */
     private static final ArchCondition<JavaClass> NO_CONNECTION_UNEXEMPTED = connectionFree(true);
+
+    /** The package of the HTTP client whose users are the closed list of destination classes (rule B). */
+    private static final String CUI_HTTP_CLIENT_PACKAGE = "de.cuioss.http.client";
+
+    /** The module rule B looks at: {@code pm-core} cannot depend on {@code cui-http}, its build forbids it. */
+    private static final String RUNTIME_PACKAGE = "de.planmarshall.runtime";
+
+    /**
+     * The destination classes of the closed list that use the {@code cui-http} client, one entry per class, each with
+     * the sentence of the specification it implements. A class not on this list may not use the client at all.
+     */
+    private static final List<DestinationClass> DESTINATION_CLASSES = List.of(
+            new DestinationClass("de.planmarshall.runtime.endpoint.JudgmentClient",
+                    "Credentials & Enrolment § Closed List of Outbound Calls: the remote judgment endpoint the "
+                            + "operator enrolled (Client Profiles § Judgment Endpoint)"),
+            new DestinationClass("de.planmarshall.runtime.endpoint.EndpointClient",
+                    "Credentials & Enrolment § Closed List of Outbound Calls: the loopback endpoint of a client "
+                            + "profile (Client Profiles § The Request)"),
+            new DestinationClass("de.planmarshall.runtime.corpus.HuggingFaceSourceRepository",
+                    "Credentials & Enrolment § Closed List of Outbound Calls: the fetch of the corpus sources at "
+                            + "their pinned commit over HTTPS (Model Work § Corpus Sources)"),
+            new DestinationClass("de.planmarshall.runtime.corpus.LfsBatchClient",
+                    "Credentials & Enrolment § Closed List of Outbound Calls: the Git LFS batch request and the "
+                            + "object download of the corpus fetch (Model Work § Corpus Sources)"));
+
+    /** The names of {@link #DESTINATION_CLASSES}: the allow-list rule B refuses every other user against. */
+    private static final Set<String> ALLOW_LIST = DESTINATION_CLASSES.stream()
+            .map(DestinationClass::name)
+            .collect(Collectors.toUnmodifiableSet());
+
+    /** Rule B as it holds for the main classes: a class on the allow-list may use the client. */
+    private static final ArchCondition<JavaClass> CUI_HTTP_CLIENT_ONLY_ON_THE_CLOSED_LIST = new ArchCondition<>(
+            "use the cui-http client only as a destination class of the closed list") {
+        @Override
+        public void check(JavaClass javaClass, ConditionEvents events) {
+            if (isAllowedDestination(javaClass)) {
+                return;
+            }
+            javaClass.getDirectDependenciesFromSelf().stream()
+                    .filter(dependency -> isInPackage(dependency.getTargetClass().getPackageName(),
+                            CUI_HTTP_CLIENT_PACKAGE))
+                    .forEach(dependency -> events.add(
+                            SimpleConditionEvent.violated(dependency, dependency.getDescription())));
+        }
+    };
 
     private static JavaClasses mainClasses;
 
@@ -198,6 +253,38 @@ class OutboundCallsArchTest {
         return classes().should(NO_CONNECTION_UNEXEMPTED).evaluate(new ClassFileImporter().importClasses(fixture));
     }
 
+    private static boolean isInPackage(String packageName, String root) {
+        return packageName.equals(root) || packageName.startsWith(root + ".");
+    }
+
+    private static boolean isAllowedDestination(JavaClass javaClass) {
+        return ALLOW_LIST.contains(topLevelName(javaClass));
+    }
+
+    private static boolean usesCuiHttpClient(JavaClass javaClass) {
+        return isInPackage(javaClass.getPackageName(), RUNTIME_PACKAGE)
+                && javaClass.getDirectDependenciesFromSelf().stream()
+                        .anyMatch(dependency -> isInPackage(dependency.getTargetClass().getPackageName(),
+                                CUI_HTTP_CLIENT_PACKAGE));
+    }
+
+    private static Set<String> cuiHttpClientUsers() {
+        return mainClasses.stream()
+                .filter(OutboundCallsArchTest::usesCuiHttpClient)
+                .map(OutboundCallsArchTest::topLevelName)
+                .collect(Collectors.toSet());
+    }
+
+    private static EvaluationResult evaluateDestinations(Class<?> fixture) {
+        return classes().that().resideInAPackage(RUNTIME_PACKAGE + "..")
+                .should(CUI_HTTP_CLIENT_ONLY_ON_THE_CLOSED_LIST)
+                .evaluate(new ClassFileImporter().importClasses(fixture));
+    }
+
+    /** A destination class of the closed list: the class that may use the client, and the sentence it implements. */
+    private record DestinationClass(String name, String specification) {
+    }
+
     @Nested
     @DisplayName("rule A on the main classes of pm-runtime and pm-core")
     class MainClasses {
@@ -260,6 +347,77 @@ class OutboundCallsArchTest {
         @DisplayName("holds on the data types of the HTTP client's API")
         void holdsOnDataTypes() {
             var result = evaluate(DataTypesFixture.class);
+
+            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+        }
+    }
+
+    @Nested
+    @DisplayName("rule B on the main classes of pm-runtime")
+    class DestinationList {
+
+        @Test
+        @DisplayName("the rule holds, and the import is not empty")
+        void ruleHolds() {
+            var nonVacuous = mainClasses.contain(EndpointClient.class)
+                    && mainClasses.contain(JudgmentClient.class)
+                    && mainClasses.contain(HuggingFaceSourceRepository.class);
+
+            assertTrue(nonVacuous, "The import contains the destination classes");
+            classes().that().resideInAPackage(RUNTIME_PACKAGE + "..")
+                    .should(CUI_HTTP_CLIENT_ONLY_ON_THE_CLOSED_LIST)
+                    .check(mainClasses);
+        }
+
+        @Test
+        @DisplayName("the allow-list and the client's users are one set")
+        void allowListHasNoDeadEntryAndNoUnlistedUser() {
+            assertEquals(ALLOW_LIST, cuiHttpClientUsers(), "Only the listed classes use cui-http");
+        }
+
+        @Test
+        @DisplayName("every allow-list entry carries its specification sentence")
+        void everyEntryCarriesItsSentence() {
+            var unnamed = DESTINATION_CLASSES.stream()
+                    .filter(destination -> destination.specification().isBlank())
+                    .map(DestinationClass::name)
+                    .toList();
+
+            assertEquals(List.of(), unnamed, "Each entry names the sentence it implements");
+        }
+    }
+
+    @Nested
+    @DisplayName("rule B on the control fixtures")
+    class DestinationControls {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("fixtures")
+        @DisplayName("fails on the fixture, naming the forbidden target")
+        void failsOnFixture(Class<?> fixture, String forbiddenTarget) {
+            var result = evaluateDestinations(fixture);
+
+            assertTrue(result.hasViolation(), () -> "The rule fails on " + fixture.getSimpleName());
+            assertTrue(result.getFailureReport().getDetails().stream().anyMatch(detail -> detail.contains(forbiddenTarget)),
+                    () -> result.getFailureReport().toString());
+        }
+
+        static Stream<Arguments> fixtures() {
+            return Stream.of(Arguments.of(CuiHttpFixture.class, "de.cuioss.http.client.handler.HttpHandler"));
+        }
+
+        @Test
+        @DisplayName("holds on a listening socket and a listening HTTP server")
+        void holdsOnListeningOnly() {
+            var result = evaluateDestinations(ListeningOnlyFixture.class);
+
+            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+        }
+
+        @Test
+        @DisplayName("holds on the data types of the HTTP client's API")
+        void holdsOnDataTypes() {
+            var result = evaluateDestinations(DataTypesFixture.class);
 
             assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
         }
