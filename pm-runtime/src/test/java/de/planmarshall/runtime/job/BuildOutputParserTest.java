@@ -366,7 +366,7 @@ class BuildOutputParserTest {
     void npmErrorCurrentPrefix() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
                 npm error code E404
-                npm error 404 'missing' is not in this registry
+                npm error 404  The requested resource 'missing@1' could not be found or you do not have permission to access it.
                 """);
 
         assertAll(

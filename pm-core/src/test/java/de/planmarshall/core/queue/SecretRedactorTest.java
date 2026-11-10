@@ -172,7 +172,8 @@ class SecretRedactorTest {
     void idempotent() {
         var once = redactValue("password=hunter22");
         var everyShape = redactValue("npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
-                + " https://deploy:s3cr3t-value@registry.example/pkg --password hunter22"); 
+                + " https://deploy:s3cr3t-value@registry.example/pkg --password hunter22"
+                + " -----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7v0x\n-----END RSA PRIVATE KEY-----");
 
         assertAll("redaction is idempotent",
                 () -> assertEquals(once, SecretRedactor.redactText(once).orElseThrow(),

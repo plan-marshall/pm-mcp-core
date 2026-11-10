@@ -28,9 +28,11 @@ import de.planmarshall.core.queue.SecretRedactor;
  * {@code npm error } prefix of npm 12 on — and classifies each block by its code. An
  * {@code ERESOLVE} block is {@link Category#NPM_DEPENDENCY} and names the conflicting peer dependency when the
  * {@code Could not resolve dependency:} trailer names one; an {@code E404} block is {@link Category#NPM_ERROR} and names
- * the package the registry does not hold; every other code is {@link Category#NPM_ERROR} whose message is the code and the
- * first line of the block, redacted through {@link SecretRedactor} before the stored-length cut so a truncated message
- * cannot keep half a secret. Both named forms point into {@code package.json} without a line, as in the original.
+ * the quoted package when the block carries the {@code '<package>' is not in this registry} form of npm up to 11,
+ * otherwise it reports the package as not found (npm 12 prints the "requested resource" wording). Every other code is
+ * {@link Category#NPM_ERROR} whose message is the code and the first line of the block, redacted through
+ * {@link SecretRedactor} before the stored-length cut so a truncated message cannot keep half a secret. Both named forms
+ * point into {@code package.json} without a line, as in the original.
  * <p>
  * The install family prints no error block; its completion line ({@code added 150 packages in 10s},
  * {@code up to date, audited 5 packages}) is the tool's positive success marker ({@link #printsInstallSummary}), so a
