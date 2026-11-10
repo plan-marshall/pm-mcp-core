@@ -55,9 +55,9 @@ class OutlineRecordBuilderContractTest {
                 () -> new OutlineRecord(null, canonical.overview(), canonical.scopeEstimate(),
                         canonical.deliverables()),
                 "the constructor refuses an absent summary");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> OutlineRecord.builder().overview(canonical.overview())
-                        .scopeEstimate(canonical.scopeEstimate()).deliverables(canonical.deliverables()).build(),
+        var incomplete = OutlineRecord.builder().overview(canonical.overview())
+                .scopeEstimate(canonical.scopeEstimate()).deliverables(canonical.deliverables());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent summary");
 
         assertAll(
@@ -87,15 +87,15 @@ class OutlineRecordBuilderContractTest {
                         canonical.changePerFile(), canonical.verification(), canonical.satisfies(),
                         canonical.addedDependencies(), canonical.interfaces(), canonical.keyLinks()),
                 "the constructor refuses an absent change type");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Deliverable.builder().number(canonical.number()).title(canonical.title())
-                        .intentGloss(canonical.intentGloss()).executionMode(canonical.executionMode())
-                        .domain(canonical.domain()).module(canonical.module()).depends(canonical.depends())
-                        .designNotes(canonical.designNotes()).profiles(canonical.profiles())
-                        .affectedFiles(canonical.affectedFiles()).changePerFile(canonical.changePerFile())
-                        .verification(canonical.verification()).satisfies(canonical.satisfies())
-                        .addedDependencies(canonical.addedDependencies()).interfaces(canonical.interfaces())
-                        .keyLinks(canonical.keyLinks()).build(),
+        var incomplete = Deliverable.builder().number(canonical.number()).title(canonical.title())
+                .intentGloss(canonical.intentGloss()).executionMode(canonical.executionMode())
+                .domain(canonical.domain()).module(canonical.module()).depends(canonical.depends())
+                .designNotes(canonical.designNotes()).profiles(canonical.profiles())
+                .affectedFiles(canonical.affectedFiles()).changePerFile(canonical.changePerFile())
+                .verification(canonical.verification()).satisfies(canonical.satisfies())
+                .addedDependencies(canonical.addedDependencies()).interfaces(canonical.interfaces())
+                .keyLinks(canonical.keyLinks());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent change type");
 
         assertAll(

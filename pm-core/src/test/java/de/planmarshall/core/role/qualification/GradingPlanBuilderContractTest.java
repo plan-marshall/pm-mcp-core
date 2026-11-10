@@ -52,12 +52,12 @@ class GradingPlanBuilderContractTest {
                                     canonical.corpusRevision(), canonical.projectRepository(), canonical.profile(),
                                     canonical.judge(), canonical.checkouts(), null),
                             "the constructor refuses a null role");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> GradingPlan.builder().items(canonical.items())
-                                    .importResult(canonical.importResult())
-                                    .corpusRevision(canonical.corpusRevision())
-                                    .projectRepository(canonical.projectRepository()).profile(canonical.profile())
-                                    .judge(canonical.judge()).checkouts(canonical.checkouts()).build(),
+                    var incomplete = GradingPlan.builder().items(canonical.items())
+                            .importResult(canonical.importResult())
+                            .corpusRevision(canonical.corpusRevision())
+                            .projectRepository(canonical.projectRepository()).profile(canonical.profile())
+                            .judge(canonical.judge()).checkouts(canonical.checkouts());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing role");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent role with the same message");

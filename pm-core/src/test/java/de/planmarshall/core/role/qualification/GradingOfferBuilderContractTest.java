@@ -41,11 +41,11 @@ class GradingOfferBuilderContractTest {
                             () -> new GradingOffer(null, canonical.topics(), canonical.items(), canonical.forms(),
                                     canonical.runsPerItem(), canonical.judgeItems(), canonical.expectedTokens()),
                             "the constructor refuses a null role");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> GradingOffer.builder().topics(canonical.topics()).items(canonical.items())
-                                    .forms(canonical.forms()).runsPerItem(canonical.runsPerItem())
-                                    .judgeItems(canonical.judgeItems())
-                                    .expectedTokens(canonical.expectedTokens()).build(),
+                    var incomplete = GradingOffer.builder().topics(canonical.topics()).items(canonical.items())
+                            .forms(canonical.forms()).runsPerItem(canonical.runsPerItem())
+                            .judgeItems(canonical.judgeItems())
+                            .expectedTokens(canonical.expectedTokens());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing role");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent role with the same message");

@@ -41,9 +41,9 @@ class LeaseOwnerBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new LeaseOwner(null, ScopeType.PLAN, "lock-manager", holder, null),
                             "the constructor refuses a null project id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LeaseOwner.builder().scopeType(ScopeType.PLAN).scopeId("lock-manager")
-                                    .holderInstance(holder).build(),
+                    var incomplete = LeaseOwner.builder().scopeType(ScopeType.PLAN).scopeId("lock-manager")
+                            .holderInstance(holder);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing project id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent project id with the same message");

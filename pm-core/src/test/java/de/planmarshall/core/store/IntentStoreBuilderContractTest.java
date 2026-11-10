@@ -41,9 +41,9 @@ class IntentStoreBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new IntentStore.Revision(1, SUBMITTED_AT, "TASK-001", null),
                             "the constructor refuses an absent intent record");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentStore.Revision.builder().revision(1).submittedAt(SUBMITTED_AT)
-                                    .taskId("TASK-001").build(),
+                    var incomplete = IntentStore.Revision.builder().revision(1).submittedAt(SUBMITTED_AT)
+                            .taskId("TASK-001");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses an absent intent record");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent intent record with the same message");

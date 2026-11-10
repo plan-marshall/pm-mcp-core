@@ -44,13 +44,14 @@ class JournalScopeBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var ownedDirectories = List.of(pathBase);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new JournalScope(null, null, pathBase, journal, sidecar, List.of(pathBase), lockKey),
+                            () -> new JournalScope(null, null, pathBase, journal, sidecar, ownedDirectories,
+                                    lockKey),
                             "the constructor refuses a null scope type");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JournalScope.builder().pathBase(pathBase).journalFile(journal)
-                                    .sidecarFile(sidecar).ownedDirectories(List.of(pathBase)).lockKey(lockKey)
-                                    .build(),
+                    var incomplete = JournalScope.builder().pathBase(pathBase).journalFile(journal)
+                            .sidecarFile(sidecar).ownedDirectories(List.of(pathBase)).lockKey(lockKey);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing scope type");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent scope type with the same message");

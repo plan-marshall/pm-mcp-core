@@ -37,12 +37,13 @@ class AuditIndexEntryBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var checkpointHash = "b".repeat(64);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new AuditIndexEntry(null, file, EVENT_ID, EVENT_ID, 3, "b".repeat(64)),
+                            () -> new AuditIndexEntry(null, file, EVENT_ID, EVENT_ID, 3, checkpointHash),
                             "the constructor refuses a null previous hash");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> AuditIndexEntry.builder().file(file).firstEventId(EVENT_ID).lastEventId(EVENT_ID)
-                                    .recordCount(3).checkpointHash("b".repeat(64)).build(),
+                    var incomplete = AuditIndexEntry.builder().file(file).firstEventId(EVENT_ID)
+                            .lastEventId(EVENT_ID).recordCount(3).checkpointHash("b".repeat(64));
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing previous hash");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent previous hash with the same message");

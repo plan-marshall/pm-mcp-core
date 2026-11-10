@@ -61,18 +61,19 @@ class JobRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    List<JobRecord.ClampedValue> clampedValues = List.of();
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new JobRecord(null, Execution.PROCESS, scope, null, "build:verify", 600,
                                     derivation, ARGV_DIGEST, Status.QUEUED, null, null, null,
                                     Confinement.UNAVAILABLE, CREATED_AT, null, null, null, null, null, null, null,
-                                    null, false, null, List.of(), null),
+                                    null, false, null, clampedValues, null),
                             "the constructor refuses a null job id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JobRecord.builder().execution(Execution.PROCESS).scope(scope)
-                                    .budgetKey("build:verify").budgetSeconds(600).budgetDerivation(derivation)
-                                    .argvDigest(ARGV_DIGEST).status(Status.QUEUED)
-                                    .confinement(Confinement.UNAVAILABLE).createdAt(CREATED_AT)
-                                    .clampedValues(List.of()).build(),
+                    var incomplete = JobRecord.builder().execution(Execution.PROCESS).scope(scope)
+                            .budgetKey("build:verify").budgetSeconds(600).budgetDerivation(derivation)
+                            .argvDigest(ARGV_DIGEST).status(Status.QUEUED)
+                            .confinement(Confinement.UNAVAILABLE).createdAt(CREATED_AT)
+                            .clampedValues(List.of());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing job id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent job id with the same message");
@@ -90,12 +91,13 @@ class JobRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var used = new BigDecimal("60");
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new ClampedValue(null, "120", new BigDecimal("60"), ClampedValue.Source.ENROLMENT),
+                            () -> new ClampedValue(null, "120", used, ClampedValue.Source.ENROLMENT),
                             "the constructor refuses a null key");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ClampedValue.builder().configured("120").used(new BigDecimal("60"))
-                                    .source(ClampedValue.Source.ENROLMENT).build(),
+                    var incomplete = ClampedValue.builder().configured("120").used(new BigDecimal("60"))
+                            .source(ClampedValue.Source.ENROLMENT);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing key");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent key with the same message");

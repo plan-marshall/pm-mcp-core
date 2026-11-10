@@ -44,10 +44,10 @@ class IntentAcceptanceBuilderContractTest {
                             () -> new IntentAcceptance.Context(null, questionId -> Optional.empty(),
                                     (capability, requirement) -> Optional.empty(), null, TREE_ROOT),
                             "the constructor refuses a null plan id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> IntentAcceptance.Context.builder().questions(questionId -> Optional.empty())
-                                    .capabilities((capability, requirement) -> Optional.empty()).treeRoot(TREE_ROOT)
-                                    .build(),
+                    var incomplete = IntentAcceptance.Context.builder()
+                            .questions(questionId -> Optional.empty())
+                            .capabilities((capability, requirement) -> Optional.empty()).treeRoot(TREE_ROOT);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing plan id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent plan id with the same message");

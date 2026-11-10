@@ -46,10 +46,10 @@ class SourceManifestBuilderContractTest {
                             () -> new SourceManifest(null, canonical.repository(), canonical.commit(),
                                     canonical.licence(), canonical.fetch(), canonical.files()),
                             "the constructor refuses a null name");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> SourceManifest.builder().repository(canonical.repository())
-                                    .commit(canonical.commit()).licence(canonical.licence())
-                                    .fetch(canonical.fetch()).files(canonical.files()).build(),
+                    var incomplete = SourceManifest.builder().repository(canonical.repository())
+                            .commit(canonical.commit()).licence(canonical.licence())
+                            .fetch(canonical.fetch()).files(canonical.files());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing name");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent name with the same message");

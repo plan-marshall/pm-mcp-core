@@ -46,17 +46,19 @@ class ChangeLedgerRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var worktreeSha = "a".repeat(64);
+                    List<String> changedPaths = List.of();
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new ChangeLedgerRecord(null, "a".repeat(64),
+                            () -> new ChangeLedgerRecord(null, worktreeSha,
                                     ChangeLedgerRecord.WORKTREE_SHA_VERSION, null, "compile",
-                                    ChangeLedgerRecord.Outcome.SUCCEEDED, 1_500L, null, null, List.of(), null, null,
-                                    null, null, null, null, RECORDED_AT),
+                                    ChangeLedgerRecord.Outcome.SUCCEEDED, 1_500L, null, null, changedPaths, null,
+                                    null, null, null, null, null, RECORDED_AT),
                             "the constructor refuses a null kind");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ChangeLedgerRecord.builder().worktreeSha("a".repeat(64))
-                                    .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).gateKind("compile")
-                                    .outcome(ChangeLedgerRecord.Outcome.SUCCEEDED).changedPaths(List.of())
-                                    .recordedAt(RECORDED_AT).build(),
+                    var incomplete = ChangeLedgerRecord.builder().worktreeSha("a".repeat(64))
+                            .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).gateKind("compile")
+                            .outcome(ChangeLedgerRecord.Outcome.SUCCEEDED).changedPaths(List.of())
+                            .recordedAt(RECORDED_AT);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing kind");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent kind with the same message");
@@ -78,10 +80,10 @@ class ChangeLedgerRecordBuilderContractTest {
                             () -> new ChangeLedgerRecord.WorktreeShaFailure(null,
                                     ChangeLedgerRecord.WorktreeShaFailure.FailureKind.EXIT_CODE, 128, null),
                             "the constructor refuses a null command");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ChangeLedgerRecord.WorktreeShaFailure.builder()
-                                    .failure(ChangeLedgerRecord.WorktreeShaFailure.FailureKind.EXIT_CODE)
-                                    .exitCode(128).build(),
+                    var incomplete = ChangeLedgerRecord.WorktreeShaFailure.builder()
+                            .failure(ChangeLedgerRecord.WorktreeShaFailure.FailureKind.EXIT_CODE)
+                            .exitCode(128);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing command");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent command with the same message");
@@ -101,16 +103,20 @@ class ChangeLedgerRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var mergeBase = "a".repeat(40);
+                    var baseCommit = "b".repeat(40);
+                    var diagnosticsDigest = "c".repeat(64);
+                    var fingerprints = List.of("d".repeat(64));
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new ChangeLedgerRecord.Baseline(null, "a".repeat(40), "b".repeat(40),
-                                    ChangeLedgerRecord.Baseline.ProofSource.CI_BASE_RESULT, "c".repeat(64),
-                                    List.of("d".repeat(64))),
+                            () -> new ChangeLedgerRecord.Baseline(null, mergeBase, baseCommit,
+                                    ChangeLedgerRecord.Baseline.ProofSource.CI_BASE_RESULT, diagnosticsDigest,
+                                    fingerprints),
                             "the constructor refuses a null gate kind");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> ChangeLedgerRecord.Baseline.builder().mergeBase("a".repeat(40))
-                                    .baseCommit("b".repeat(40))
-                                    .proofSource(ChangeLedgerRecord.Baseline.ProofSource.CI_BASE_RESULT)
-                                    .diagnosticsDigest("c".repeat(64)).fingerprints(List.of("d".repeat(64))).build(),
+                    var incomplete = ChangeLedgerRecord.Baseline.builder().mergeBase("a".repeat(40))
+                            .baseCommit("b".repeat(40))
+                            .proofSource(ChangeLedgerRecord.Baseline.ProofSource.CI_BASE_RESULT)
+                            .diagnosticsDigest("c".repeat(64)).fingerprints(List.of("d".repeat(64)));
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing gate kind");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent gate kind with the same message");

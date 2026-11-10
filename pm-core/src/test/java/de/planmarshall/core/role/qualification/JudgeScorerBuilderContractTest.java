@@ -37,9 +37,9 @@ class JudgeScorerBuilderContractTest {
                             () -> new JudgeScorer.JudgePrompt(null, "Is it right?", "Subject", "right",
                                     "right answer"),
                             "the constructor refuses a null item id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> JudgeScorer.JudgePrompt.builder().question("Is it right?").facts("Subject")
-                                    .reference("right").answer("right answer").build(),
+                    var incomplete = JudgeScorer.JudgePrompt.builder().question("Is it right?").facts("Subject")
+                            .reference("right").answer("right answer");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing item id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent item id with the same message");

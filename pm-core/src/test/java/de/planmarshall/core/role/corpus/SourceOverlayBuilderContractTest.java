@@ -40,9 +40,9 @@ class SourceOverlayBuilderContractTest {
                             () -> new SourceOverlay(null, canonical.file(), null, canonical.created(),
                                     canonical.rows()),
                             "the constructor refuses a null source");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> SourceOverlay.builder().file(canonical.file()).created(canonical.created())
-                                    .rows(canonical.rows()).build(),
+                    var incomplete = SourceOverlay.builder().file(canonical.file()).created(canonical.created())
+                            .rows(canonical.rows());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing source");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent source with the same message");
@@ -70,12 +70,12 @@ class SourceOverlayBuilderContractTest {
                                     canonical.answerSchema(), canonical.target(), canonical.grading(),
                                     canonical.review(), canonical.contamination()),
                             "the constructor refuses a null key");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> SourceOverlay.Row.builder().slug(canonical.slug()).topic(canonical.topic())
-                                    .role(canonical.role()).title(canonical.title()).tags(canonical.tags())
-                                    .question(canonical.question()).facts(canonical.facts())
-                                    .target(canonical.target()).grading(canonical.grading())
-                                    .review(canonical.review()).build(),
+                    var incomplete = SourceOverlay.Row.builder().slug(canonical.slug()).topic(canonical.topic())
+                            .role(canonical.role()).title(canonical.title()).tags(canonical.tags())
+                            .question(canonical.question()).facts(canonical.facts())
+                            .target(canonical.target()).grading(canonical.grading())
+                            .review(canonical.review());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing key");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent key with the same message");

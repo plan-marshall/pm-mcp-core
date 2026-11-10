@@ -36,10 +36,10 @@ class WaiverConsumptionRecordBuilderContractTest {
                 () -> new WaiverConsumptionRecord(null, canonical.gate(), canonical.at(),
                         canonical.stateId(), canonical.headSha(), canonical.covered()),
                 "the constructor refuses an absent waiver id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> WaiverConsumptionRecord.builder().gate(canonical.gate()).at(canonical.at())
-                        .stateId(canonical.stateId()).headSha(canonical.headSha())
-                        .covered(canonical.covered()).build(),
+        var incomplete = WaiverConsumptionRecord.builder().gate(canonical.gate()).at(canonical.at())
+                .stateId(canonical.stateId()).headSha(canonical.headSha())
+                .covered(canonical.covered());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent waiver id");
 
         assertAll(

@@ -39,17 +39,20 @@ class HarnessUsageBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var outputTokens = Measurement.measured(300);
+                    var cacheReadInputTokens = Measurement.measured(400);
+                    var cacheCreationInputTokens = Measurement.notApplicable();
+                    var reasoningTokens = Measurement.notApplicable();
+                    var toolUses = Measurement.measured(7);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new HarnessUsage(null, Measurement.measured(300), Measurement.measured(400),
-                                    Measurement.notApplicable(), Measurement.notApplicable(), Measurement.measured(7),
-                                    null, null),
+                            () -> new HarnessUsage(null, outputTokens, cacheReadInputTokens,
+                                    cacheCreationInputTokens, reasoningTokens, toolUses, null, null),
                             "the constructor refuses absent input tokens");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> HarnessUsage.builder().outputTokens(Measurement.measured(300))
-                                    .cacheReadInputTokens(Measurement.measured(400))
-                                    .cacheCreationInputTokens(Measurement.notApplicable())
-                                    .reasoningTokens(Measurement.notApplicable()).toolUses(Measurement.measured(7))
-                                    .build(),
+                    var incomplete = HarnessUsage.builder().outputTokens(Measurement.measured(300))
+                            .cacheReadInputTokens(Measurement.measured(400))
+                            .cacheCreationInputTokens(Measurement.notApplicable())
+                            .reasoningTokens(Measurement.notApplicable()).toolUses(Measurement.measured(7));
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses absent input tokens");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse absent input tokens with the same message");

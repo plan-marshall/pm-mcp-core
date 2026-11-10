@@ -49,11 +49,11 @@ class GradedConfigurationBuilderContractTest {
                                     canonical.effort(), canonical.tools(), canonical.roleClass(),
                                     canonical.skillDigests()),
                             "the constructor refuses a null harness");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> GradedConfiguration.builder().harnessVersion(canonical.harnessVersion())
-                                    .model(canonical.model()).effort(canonical.effort()).tools(canonical.tools())
-                                    .roleClass(canonical.roleClass())
-                                    .skillDigests(canonical.skillDigests()).build(),
+                    var incomplete = GradedConfiguration.builder().harnessVersion(canonical.harnessVersion())
+                            .model(canonical.model()).effort(canonical.effort()).tools(canonical.tools())
+                            .roleClass(canonical.roleClass())
+                            .skillDigests(canonical.skillDigests());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing harness");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent harness with the same message");

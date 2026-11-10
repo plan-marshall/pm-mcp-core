@@ -42,13 +42,13 @@ class UsageAggregateBuilderContractTest {
                         canonical.unmeasuredReasons(), canonical.populationCount(), canonical.excluded(),
                         canonical.totalIsFloor()),
                 "the constructor refuses an absent population");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> UsageAggregate.builder().totalTokens(canonical.totalTokens())
-                        .tokensIn(canonical.tokensIn()).tokensOut(canonical.tokensOut())
-                        .rows(canonical.rows()).rowsUnmeasured(canonical.rowsUnmeasured())
-                        .unmeasuredReasons(canonical.unmeasuredReasons())
-                        .populationCount(canonical.populationCount()).excluded(canonical.excluded())
-                        .totalIsFloor(canonical.totalIsFloor()).build(),
+        var incomplete = UsageAggregate.builder().totalTokens(canonical.totalTokens())
+                .tokensIn(canonical.tokensIn()).tokensOut(canonical.tokensOut())
+                .rows(canonical.rows()).rowsUnmeasured(canonical.rowsUnmeasured())
+                .unmeasuredReasons(canonical.unmeasuredReasons())
+                .populationCount(canonical.populationCount()).excluded(canonical.excluded())
+                .totalIsFloor(canonical.totalIsFloor());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent population");
 
         assertAll(

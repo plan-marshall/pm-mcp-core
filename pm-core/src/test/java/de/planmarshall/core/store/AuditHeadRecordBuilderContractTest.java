@@ -37,14 +37,15 @@ class AuditHeadRecordBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    var headHash = "a".repeat(64);
+                    var indexHeadHash = "b".repeat(64);
+                    var hmac = "c".repeat(64);
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new AuditHeadRecord(null, 1, EVENT_ID, "a".repeat(64), "b".repeat(64),
-                                    "c".repeat(64)),
+                            () -> new AuditHeadRecord(null, 1, EVENT_ID, headHash, indexHeadHash, hmac),
                             "the constructor refuses a null file");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> AuditHeadRecord.builder().recordCount(1).lastEventId(EVENT_ID)
-                                    .headHash("a".repeat(64)).indexHeadHash("b".repeat(64)).hmac("c".repeat(64))
-                                    .build(),
+                    var incomplete = AuditHeadRecord.builder().recordCount(1).lastEventId(EVENT_ID)
+                            .headHash("a".repeat(64)).indexHeadHash("b".repeat(64)).hmac("c".repeat(64));
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing file");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent file with the same message");

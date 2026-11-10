@@ -39,11 +39,11 @@ class PlanHistoryLineBuilderContractTest {
                         canonical.callPath(), canonical.phase(), canonical.outcome(),
                         canonical.instanceVersion(), canonical.at()),
                 "the constructor refuses an absent event");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> PlanHistoryLine.builder().formatVersion(canonical.formatVersion()).seq(canonical.seq())
-                        .node(canonical.node()).callPath(canonical.callPath()).phase(canonical.phase())
-                        .outcome(canonical.outcome()).instanceVersion(canonical.instanceVersion())
-                        .at(canonical.at()).build(),
+        var incomplete = PlanHistoryLine.builder().formatVersion(canonical.formatVersion()).seq(canonical.seq())
+                .node(canonical.node()).callPath(canonical.callPath()).phase(canonical.phase())
+                .outcome(canonical.outcome()).instanceVersion(canonical.instanceVersion())
+                .at(canonical.at());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent event");
 
         assertAll(

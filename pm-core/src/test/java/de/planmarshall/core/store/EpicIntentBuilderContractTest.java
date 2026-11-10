@@ -40,12 +40,13 @@ class EpicIntentBuilderContractTest {
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
+                    List<String> notYetSpecified = List.of();
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new EpicIntent(null, doneWhen, nonGoals, List.of()),
+                            () -> new EpicIntent(null, doneWhen, nonGoals, notYetSpecified),
                             "the constructor refuses a null destination");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> EpicIntent.builder().doneWhen(doneWhen).nonGoals(nonGoals).notYetSpecified(List.of())
-                                    .build(),
+                    var incomplete = EpicIntent.builder().doneWhen(doneWhen).nonGoals(nonGoals)
+                            .notYetSpecified(List.of());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing destination");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent destination with the same message");

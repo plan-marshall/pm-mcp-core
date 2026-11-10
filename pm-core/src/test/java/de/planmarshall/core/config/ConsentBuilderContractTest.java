@@ -41,9 +41,10 @@ class ConsentBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new Consent(null, null, List.of(), Instant.EPOCH, Consent.Channel.CLI, null),
                             "the constructor refuses a null kind");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> Consent.builder().scripts(List.of()).grantedAt(Instant.EPOCH)
-                                    .channel(Consent.Channel.CLI).build(),
+                    var scripts = List.<ConsentScript>of();
+                    var incomplete = Consent.builder().scripts(scripts).grantedAt(Instant.EPOCH)
+                            .channel(Consent.Channel.CLI);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing kind");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent kind with the same message");

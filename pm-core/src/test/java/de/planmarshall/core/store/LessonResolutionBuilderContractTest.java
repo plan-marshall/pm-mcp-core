@@ -41,9 +41,9 @@ class LessonResolutionBuilderContractTest {
                             () -> new LessonResolution.Found(null, canonical.lesson(), LESSON_FILE,
                                     StoreIntegrity.VERIFIED),
                             "the constructor refuses a null lesson id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonResolution.Found.builder().lesson(canonical.lesson()).path(LESSON_FILE)
-                                    .integrity(StoreIntegrity.VERIFIED).build(),
+                    var incomplete = LessonResolution.Found.builder().lesson(canonical.lesson())
+                            .path(LESSON_FILE).integrity(StoreIntegrity.VERIFIED);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing lesson id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent lesson id with the same message");
@@ -65,10 +65,10 @@ class LessonResolutionBuilderContractTest {
                             () -> new LessonResolution.PresentUnreadable(null, LESSON_FILE,
                                     LessonCodec.UnreadableReason.NO_OPENING_FENCE, "the file has no opening fence"),
                             "the constructor refuses a null lesson id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonResolution.PresentUnreadable.builder().path(LESSON_FILE)
-                                    .reason(LessonCodec.UnreadableReason.NO_OPENING_FENCE)
-                                    .detail("the file has no opening fence").build(),
+                    var incomplete = LessonResolution.PresentUnreadable.builder().path(LESSON_FILE)
+                            .reason(LessonCodec.UnreadableReason.NO_OPENING_FENCE)
+                            .detail("the file has no opening fence");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing lesson id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent lesson id with the same message");
@@ -90,9 +90,9 @@ class LessonResolutionBuilderContractTest {
                             () -> new LessonResolution.EmptyShell(null, canonical.lesson(), LESSON_FILE,
                                     StoreIntegrity.UNCHECKED),
                             "the constructor refuses a null lesson id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonResolution.EmptyShell.builder().lesson(canonical.lesson()).path(LESSON_FILE)
-                                    .integrity(StoreIntegrity.UNCHECKED).build(),
+                    var incomplete = LessonResolution.EmptyShell.builder().lesson(canonical.lesson())
+                            .path(LESSON_FILE).integrity(StoreIntegrity.UNCHECKED);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing lesson id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent lesson id with the same message");
@@ -113,9 +113,9 @@ class LessonResolutionBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new LessonResolution.StoreTampered(null, LESSON_FILE, recorded, null),
                             "the constructor refuses a null lesson id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> LessonResolution.StoreTampered.builder().path(LESSON_FILE).recorded(recorded)
-                                    .build(),
+                    var incomplete = LessonResolution.StoreTampered.builder().path(LESSON_FILE)
+                            .recorded(recorded);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing lesson id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent lesson id with the same message");

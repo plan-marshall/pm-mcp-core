@@ -44,11 +44,11 @@ class WaiverRecordBuilderContractTest {
                         canonical.value(), canonical.reason(), canonical.reasonClass(),
                         canonical.requestId(), canonical.operator(), canonical.at()),
                 "the constructor refuses an absent event");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> WaiverRecord.builder().waiverId(canonical.waiverId()).gate(canonical.gate())
-                        .mode(canonical.mode()).value(canonical.value()).reason(canonical.reason())
-                        .reasonClass(canonical.reasonClass()).requestId(canonical.requestId())
-                        .operator(canonical.operator()).at(canonical.at()).build(),
+        var incomplete = WaiverRecord.builder().waiverId(canonical.waiverId()).gate(canonical.gate())
+                .mode(canonical.mode()).value(canonical.value()).reason(canonical.reason())
+                .reasonClass(canonical.reasonClass()).requestId(canonical.requestId())
+                .operator(canonical.operator()).at(canonical.at());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent event");
 
         assertAll(

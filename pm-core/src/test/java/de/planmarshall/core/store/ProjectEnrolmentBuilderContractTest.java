@@ -59,16 +59,16 @@ class ProjectEnrolmentBuilderContractTest {
                         canonical.providers(), canonical.projectScripts(), canonical.languageServers(),
                         canonical.commandBudgets(), canonical.writePaths(), canonical.buildEnvironment()),
                 "the constructor refuses an absent instant");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> ProjectEnrolment.builder().projectId(canonical.projectId())
-                        .projectRoot(canonical.projectRoot()).pilot(canonical.pilot())
-                        .containerEngine(canonical.containerEngine()).releasedAt(canonical.releasedAt())
-                        .wrappers(canonical.wrappers()).hostTools(canonical.hostTools())
-                        .build(canonical.build()).providers(canonical.providers())
-                        .projectScripts(canonical.projectScripts())
-                        .languageServers(canonical.languageServers())
-                        .commandBudgets(canonical.commandBudgets()).writePaths(canonical.writePaths())
-                        .buildEnvironment(canonical.buildEnvironment()).build(),
+        var incomplete = ProjectEnrolment.builder().projectId(canonical.projectId())
+                .projectRoot(canonical.projectRoot()).pilot(canonical.pilot())
+                .containerEngine(canonical.containerEngine()).releasedAt(canonical.releasedAt())
+                .wrappers(canonical.wrappers()).hostTools(canonical.hostTools())
+                .build(canonical.build()).providers(canonical.providers())
+                .projectScripts(canonical.projectScripts())
+                .languageServers(canonical.languageServers())
+                .commandBudgets(canonical.commandBudgets()).writePaths(canonical.writePaths())
+                .buildEnvironment(canonical.buildEnvironment());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent instant");
 
         assertAll(
@@ -90,9 +90,9 @@ class ProjectEnrolmentBuilderContractTest {
                 () -> new Wrapper(null, canonical.relativePath(), canonical.sha256(),
                         canonical.pinnedFiles(), canonical.interpreter()),
                 "the constructor refuses an absent wrapper name");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Wrapper.builder().relativePath(canonical.relativePath()).sha256(canonical.sha256())
-                        .pinnedFiles(canonical.pinnedFiles()).interpreter(canonical.interpreter()).build(),
+        var incomplete = Wrapper.builder().relativePath(canonical.relativePath()).sha256(canonical.sha256())
+                .pinnedFiles(canonical.pinnedFiles()).interpreter(canonical.interpreter());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent wrapper name");
 
         assertAll(
@@ -114,10 +114,10 @@ class ProjectEnrolmentBuilderContractTest {
                 () -> new HostTool(null, canonical.executablePath(), canonical.sha256(),
                         canonical.interpreter(), canonical.version()),
                 "the constructor refuses an absent host tool name");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> HostTool.builder().executablePath(canonical.executablePath())
-                        .sha256(canonical.sha256()).interpreter(canonical.interpreter())
-                        .version(canonical.version()).build(),
+        var incomplete = HostTool.builder().executablePath(canonical.executablePath())
+                .sha256(canonical.sha256()).interpreter(canonical.interpreter())
+                .version(canonical.version());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent name");
 
         assertAll(
@@ -141,10 +141,10 @@ class ProjectEnrolmentBuilderContractTest {
                 () -> new ProjectScript(canonical.scriptPath(), canonical.sha256(), null,
                         canonical.binding(), canonical.argumentSchema(), canonical.maxTimeoutSeconds()),
                 "the constructor refuses an absent interpreter");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> ProjectScript.builder().scriptPath(canonical.scriptPath()).sha256(canonical.sha256())
-                        .binding(canonical.binding()).argumentSchema(canonical.argumentSchema())
-                        .maxTimeoutSeconds(canonical.maxTimeoutSeconds()).build(),
+        var incomplete = ProjectScript.builder().scriptPath(canonical.scriptPath()).sha256(canonical.sha256())
+                .binding(canonical.binding()).argumentSchema(canonical.argumentSchema())
+                .maxTimeoutSeconds(canonical.maxTimeoutSeconds());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent interpreter");
 
         assertAll(
