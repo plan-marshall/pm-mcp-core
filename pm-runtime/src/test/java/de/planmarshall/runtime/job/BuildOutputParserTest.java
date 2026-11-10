@@ -338,13 +338,27 @@ class BuildOutputParserTest {
     }
 
     @Test
-    @DisplayName("an install completion line decides succeeded")
-    void installSummary() {
+    @DisplayName("an install completion line decides succeeded instead of nothing")
+    void unrecognisedLog() {
+        // Changed deliberately: this log read as NOTHING before the install family's completion line
+        // became its passing summary (PLAN-V2-127, D2).
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "up to date, audited 5 packages\n");
 
         assertAll(
                 () -> assertTrue(parse.successMarker(), "the install completion line is the marker"),
                 () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean install decides succeeded"));
+    }
+
+    @Test
+    @DisplayName("a log no parser recognises still yields nothing")
+    void opaqueLog() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "compiling something\n");
+
+        assertAll(
+                () -> assertEquals(ParseResult.NOTHING, parse, "an unrecognised log parses to nothing"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "nothing with exit 0 is indeterminate"),
+                () -> assertEquals(FAILED_UNPARSED, outcome(parse, failures().next()),
+                        "nothing with a failing exit is unparsed"));
     }
 
     @Test
@@ -359,18 +373,6 @@ class BuildOutputParserTest {
                 () -> assertEquals(1, parse.diagnostics(), "the new-prefix error block was filed"),
                 () -> assertEquals(FAILED, outcome(parse, failures().next()),
                         "a new-prefix npm error decides failed rather than unparsed"));
-    }
-
-    @Test
-    @DisplayName("a log no parser recognises yields nothing")
-    void unrecognisedLog() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "compiling something\n");
-
-        assertAll(
-                () -> assertEquals(ParseResult.NOTHING, parse, "an unrecognised log parses to nothing"),
-                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "nothing with exit 0 is indeterminate"),
-                () -> assertEquals(FAILED_UNPARSED, outcome(parse, failures().next()),
-                        "nothing with a failing exit is unparsed"));
     }
 
     @Test

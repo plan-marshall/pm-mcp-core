@@ -101,26 +101,30 @@ class SecretRedactorTest {
     @Test
     @DisplayName("an npm access token is redacted")
     void npmAccessToken() {
+        // The documented shape: `npm_` plus 36 alphanumeric characters, the last six a Base62 CRC32
+        // checksum (npm Registry API, "Delete npm access token"; GitHub changelog 2021-09-23).
         var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
 
-        assertEquals("the token is " + SecretRedactor.REDACTED, redactValue("the token is " + token));
+        assertEquals("the token is " + SecretRedactor.REDACTED, redactValue("the token is " + token),
+                "the documented npm token shape is redacted");
     }
 
     @Test
     @DisplayName("user information in a URL keeps the scheme and the user")
     void urlUserInformation() {
         assertEquals("request to https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg failed",
-                redactValue("request to https://deploy:s3cr3t-value@registry.example/pkg failed"));
+                redactValue("request to https://deploy:s3cr3t-value@registry.example/pkg failed"),
+                "a URL's password is masked and its scheme kept");
     }
 
     @Test
     @DisplayName("a credential flag with a space is redacted and keeps the flag")
     void spacedCredentialFlags() {
-        assertAll(
+        assertAll("spaced credential flags",
                 () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
-                        redactValue("npm login --password hunter22")),
+                        redactValue("npm login --password hunter22"), "a spaced password value is masked"),
                 () -> assertEquals("publish --token " + SecretRedactor.REDACTED,
-                        redactValue("publish --token abc12345")));
+                        redactValue("publish --token abc12345"), "a spaced token value is masked"));
     }
 
     @Test
@@ -129,20 +133,25 @@ class SecretRedactorTest {
         var block = String.join("\n", "-----BEGIN RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA7v0x",
                 "-----END RSA PRIVATE KEY-----");
 
-        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue("key:\n" + block));
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue("key:\n" + block),
+                "a PEM private-key block is replaced whole");
     }
 
     @Test
     @DisplayName("shapes that merely resemble a credential stay readable")
     void shapeNegativeControls() {
-        assertAll(
+        assertAll("shape negative controls",
                 () -> assertEquals("see https://github.com/org/repo",
-                        redactValue("see https://github.com/org/repo")),
-                () -> assertEquals("--password-file notes.txt", redactValue("--password-file notes.txt")),
-                () -> assertEquals("the word token appears here", redactValue("the word token appears here")),
-                () -> assertEquals("npm_" + "A".repeat(20), redactValue("npm_" + "A".repeat(20))),
+                        redactValue("see https://github.com/org/repo"), "a URL without user information stays"),
+                () -> assertEquals("--password-file notes.txt", redactValue("--password-file notes.txt"),
+                        "a different flag is not a credential flag"),
+                () -> assertEquals("the word token appears here", redactValue("the word token appears here"),
+                        "prose carrying the word token stays readable"),
+                () -> assertEquals("npm_" + "A".repeat(20), redactValue("npm_" + "A".repeat(20)),
+                        "an npm_ string shorter than a token stays"),
                 () -> assertEquals("-----BEGIN RSA PRIVATE KEY----- without an end",
-                        redactValue("-----BEGIN RSA PRIVATE KEY----- without an end")));
+                        redactValue("-----BEGIN RSA PRIVATE KEY----- without an end"),
+                        "a PEM header without its end stays readable"));
     }
 
     @Test
@@ -162,8 +171,14 @@ class SecretRedactorTest {
     @DisplayName("redacting is idempotent")
     void idempotent() {
         var once = redactValue("password=hunter22");
+        var everyShape = redactValue("npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+                + " https://deploy:s3cr3t-value@registry.example/pkg --password hunter22"); 
 
-        assertEquals(once, SecretRedactor.redactText(once).orElseThrow());
+        assertAll("redaction is idempotent",
+                () -> assertEquals(once, SecretRedactor.redactText(once).orElseThrow(),
+                        "redacting a redacted assignment changes nothing"),
+                () -> assertEquals(everyShape, SecretRedactor.redactText(everyShape).orElseThrow(),
+                        "redacting the new shapes twice changes nothing"));
     }
 
     @Test

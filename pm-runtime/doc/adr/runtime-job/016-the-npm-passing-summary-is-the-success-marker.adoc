@@ -22,7 +22,8 @@ Outcome Derivation, row 7).
 `BuildOutputParser.npm` dispatches them only on a marker a failing log carries. There is no printed summary to read, so
 the question is whether the tool or the job's verb proves a clean run.
 
-The operator decided at refine (2026-11-09): the log, not the exit code alone, proves a success.
+The operator answered the R07 question when this plan was implemented (2026-11-09): the log, not the exit code
+alone, proves a success.
 
 == Decision
 

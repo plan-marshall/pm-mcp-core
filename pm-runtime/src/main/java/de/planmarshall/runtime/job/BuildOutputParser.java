@@ -69,14 +69,6 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     private static final Pattern NPM_MARKER = Pattern.compile("(?m)^(?:npm ERR!|npm error) ");
 
     /**
-     * The install family's completion line, which is its own passing summary: {@code added|removed|changed N packages}
-     * or {@code up to date, audited N packages}. A log carrying it is dispatched to {@link NpmErrorParser} even though it
-     * has no {@code npm ERR!} block.
-     */
-    private static final Pattern NPM_INSTALL_SUMMARY =
-            Pattern.compile("(?m)^\\s*(?:added|removed|changed|up to date)\\b.*\\bpackages?\\b");
-
-    /**
      * Parses the log of an ended job.
      *
      * @param job    the job record, whose kind and budget key select the parser
@@ -122,7 +114,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
         if (TAP_MARKER.matcher(output).find()) {
             return Optional.of(result(TapOutputParser.parse(output)));
         }
-        if (NPM_MARKER.matcher(output).find() || NPM_INSTALL_SUMMARY.matcher(output).find()) {
+        if (NPM_MARKER.matcher(output).find() || NpmErrorParser.INSTALL_SUMMARY.matcher(output).find()) {
             return Optional.of(result(NpmErrorParser.parse(output)));
         }
         return Optional.empty();

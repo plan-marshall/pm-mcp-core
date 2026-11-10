@@ -146,8 +146,8 @@ The model separates facts a consumer must not conflate (link:../adr/core-build/0
 
 * `status` is what the tool printed. A `testFailureIgnore` run that printed `BUILD SUCCESS` over two errored tests is
   `SUCCESS` with `failed = 2`; the parser does not resolve the contradiction, the gate does.
-* `successMarker` records that the positive banner was seen, so the contradiction stays readable after the status is
-  consumed.
+* `successMarker` records that the positive success marker was seen — the tool's banner or the passing summary it printed —
+  so the contradiction stays readable after the status is consumed.
 * `testCounts` distinguishes three states: absent (`null`, the log carried no count line), `Unmeasured` (counts the parser
   could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (the aggregation defect the
   implementation watch recorded as PM-WATCH-JOB-10, closed by this package and deleted from the watch document).

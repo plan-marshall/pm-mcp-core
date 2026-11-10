@@ -13,19 +13,22 @@ Accepted
 
 `SecretRedactor` is the one write-boundary mask of an activity entry and of an unparsed build excerpt (ADR
 `core-queue/008`, ADR `core-build/004`). It knew an authorization header, a bearer value, an explicit `label=value`
-assignment and the provider token shapes `sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs]`, and it masked a PEM block only
-when the label `private[_-]?key` happened to match. An npm build log carries shapes outside that list: an access token
+assignment (including a `private_key=`-style label) and the provider token shapes
+`sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs]`, but it masked no PEM block. An npm build log carries shapes outside that
+list: an access token
 `npm_` followed by 36 alphanumeric characters, a registry URL with user information
 (`https://<user>:<secret>@registry.example/pkg`), a credential passed as a spaced flag (`--password <value>`,
 `--token <value>`) and, in a hostile log, a PEM private key whose base64 body carries no label. Every one of those was
 returned unchanged.
 
-`NpmErrorParser` files the first reportable line of a generic `npm ERR!` block as the diagnostic message, cut to 500
-characters (`DiagnosticCollector.stored`). A line such as `request to https://<user>:<secret>@registry.example/pkg failed`
-would therefore be stored as a finding message once a consumer reads `Diagnostic.message` (a later plan).
+`NpmErrorParser` composes a generic block's diagnostic message from its code token and the block's first reportable
+line, cut to 500 characters (`DiagnosticCollector.stored`). `firstLine` returns the block's code line, so a later
+`request to https://<user>:<secret>@registry.example/pkg failed` line does not reach the message at the head; the
+reachable vector is a secret in the code token itself, and the composed message becomes a finding message once a consumer
+reads `Diagnostic.message` (a later plan). The redaction is applied to the composed message, so either part is masked.
 
-The operator decided at refine (2026-11-09): mask the four npm shapes with narrow, anchored patterns, and redact the npm
-error parser's message at its source only.
+The operator answered the R07 questions when this plan was implemented (2026-11-09): mask the four npm shapes with
+narrow, anchored patterns, and redact the npm error parser's message at its source only.
 
 == Decision
 
@@ -38,9 +41,9 @@ error parser's message at its source only.
   without user information (`https://github.com/org/repo`), a different flag (`--password-file notes.txt`), a sentence
   with the word `token`, an `npm_`-prefixed string shorter than a token, and a PEM header without its end.
 * A PEM block whose `BEGIN` line lies outside the text is not masked; the carried open item names it.
-* `NpmErrorParser` redacts the generic block's first reportable line through `SecretRedactor.redactText` before the
-  500-character cut, so a cut value cannot keep a prefix the redactor would have matched whole. The `ERESOLVE` and
-  `E404` messages are built from dependency names and stay unchanged.
+* `NpmErrorParser` redacts the generic block's composed message (its code token and the first reportable line) through
+  `SecretRedactor.redactText` before the 500-character cut, so a cut value cannot keep a prefix the redactor would have
+  matched whole. The `ERESOLVE` and `E404` messages are built from dependency names and stay unchanged.
 * Whether the other parsers' messages are redacted centrally at `DiagnosticCollector.stored` is carried, not taken: the
   Jest, TAP, `tsc`, ESLint, pytest and JVM messages carry source and test text, and the false-positive cost on compiler
   messages is the reason it is a separate decision.

@@ -28,8 +28,8 @@ facts the parser no longer carries. A Java model has to make the distinction a c
 
 * `diagnostics` — the located findings, in log order, each a `Diagnostic`;
 * `status` — what the tool printed, `SUCCESS` or `FAILURE`, derived from its own markers;
-* `successMarker` — whether the positive success banner was seen, so a green banner over a failing test stays visible
-  instead of being resolved in the parser;
+* `successMarker` — whether the positive success marker was seen (the tool's banner or the passing summary it printed), so
+  a green banner over a failing test stays visible instead of being resolved in the parser;
 * `testCounts` — `null` when the log carried no count line, `TestCounts.Unmeasured` when it carried counts that could not
   be aggregated, `TestCounts.Measured` otherwise;
 * `noTestsRan` — a verdict that holds only when the build reported success, printed its success marker, printed its own
