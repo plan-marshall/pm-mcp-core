@@ -48,8 +48,8 @@ class EndpointProfileBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new EndpointProfile(null, null, null, null, endpoint, modelTiers, null),
                             "the constructor refuses a null clientId");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> EndpointProfile.builder().endpoint(endpoint).modelTiers(modelTiers).build(),
+                    var incomplete = EndpointProfile.builder().endpoint(endpoint).modelTiers(modelTiers);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing clientId");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent clientId with the same message");
@@ -88,8 +88,8 @@ class EndpointProfileBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new EndpointProfile.WeightsProbe(null, null, argv, pattern),
                             "the constructor refuses a null source");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> EndpointProfile.WeightsProbe.builder().argv(argv).pattern(pattern).build(),
+                    var incomplete = EndpointProfile.WeightsProbe.builder().argv(argv).pattern(pattern);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing source");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent source with the same message");

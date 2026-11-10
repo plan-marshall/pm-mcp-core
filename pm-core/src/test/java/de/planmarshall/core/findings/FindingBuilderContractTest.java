@@ -64,9 +64,9 @@ class FindingBuilderContractTest {
                                     null, null, null, null, null, null, null, TransmitOutcome.PENDING, null, null,
                                     null, ResolveState.NOT_APPLICABLE, Instant.EPOCH, null),
                             "the constructor refuses a null finding id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> Finding.builder().formatVersion(Finding.FORMAT_VERSION)
-                                    .source(FindingSourceKind.GITHUB_PR).summary("summary").build(),
+                    var incomplete = Finding.builder().formatVersion(Finding.FORMAT_VERSION)
+                            .source(FindingSourceKind.GITHUB_PR).summary("summary");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing finding id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent finding id with the same message");
@@ -91,9 +91,10 @@ class FindingBuilderContractTest {
                             () -> new Finding.CiFailure(null, Finding.CiFailure.FailureClass.FAILURE,
                                     Finding.CiFailure.FailureKind.TEST, true),
                             "the constructor refuses a null check name");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> Finding.CiFailure.builder().failureClass(Finding.CiFailure.FailureClass.FAILURE)
-                                    .failureKind(Finding.CiFailure.FailureKind.TEST).requiredCheck(true).build(),
+                    var incomplete = Finding.CiFailure.builder()
+                            .failureClass(Finding.CiFailure.FailureClass.FAILURE)
+                            .failureKind(Finding.CiFailure.FailureKind.TEST).requiredCheck(true);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing check name");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent check name with the same message");

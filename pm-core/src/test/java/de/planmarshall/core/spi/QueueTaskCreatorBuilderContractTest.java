@@ -36,9 +36,9 @@ class QueueTaskCreatorBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new QueueTaskCreator.CreateRequest("plan-1", null, "entity-1", "review-code"),
                             "the constructor refuses a null state id");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> QueueTaskCreator.CreateRequest.builder().scopeId("plan-1").entityKey("entity-1")
-                                    .role("review-code").build(),
+                    var incomplete = QueueTaskCreator.CreateRequest.builder().scopeId("plan-1")
+                            .entityKey("entity-1").role("review-code");
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing state id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent state id with the same message");

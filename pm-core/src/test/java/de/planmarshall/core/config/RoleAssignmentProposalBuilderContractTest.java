@@ -45,9 +45,9 @@ class RoleAssignmentProposalBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new RoleAssignmentProposal.Proposal(null, tier, advisory, null, unresolved),
                             "the constructor refuses a null role");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> RoleAssignmentProposal.Proposal.builder().tier(tier).advisory(advisory)
-                                    .unresolved(unresolved).build(),
+                    var incomplete = RoleAssignmentProposal.Proposal.builder().tier(tier).advisory(advisory)
+                            .unresolved(unresolved);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing role");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent role with the same message");

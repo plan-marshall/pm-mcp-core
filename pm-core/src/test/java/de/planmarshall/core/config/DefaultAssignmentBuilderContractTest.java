@@ -42,9 +42,9 @@ class DefaultAssignmentBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new DefaultAssignment.DefaultRole(null, null, preferredHarness, advisory),
                             "the constructor refuses a null tier");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> DefaultAssignment.DefaultRole.builder().preferredHarness(preferredHarness)
-                                    .advisory(advisory).build(),
+                    var incomplete = DefaultAssignment.DefaultRole.builder().preferredHarness(preferredHarness)
+                            .advisory(advisory);
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing tier");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent tier with the same message");

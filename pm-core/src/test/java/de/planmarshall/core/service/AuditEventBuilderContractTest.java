@@ -45,8 +45,8 @@ class AuditEventBuilderContractTest {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new AuditEvent(null, category, outcome, Map.of()),
                             "the constructor refuses a null event");
-                    var fromBuilder = assertThrows(NullPointerException.class,
-                            () -> AuditEvent.builder().category(category).outcome(outcome).details(Map.of()).build(),
+                    var incomplete = AuditEvent.builder().category(category).outcome(outcome).details(Map.of());
+                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing event");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent event with the same message");
