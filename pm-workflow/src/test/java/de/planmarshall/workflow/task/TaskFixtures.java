@@ -15,7 +15,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.queue.QueueTaskRecord;
@@ -118,23 +117,6 @@ final class TaskFixtures {
 
     static QueueTaskRecord task(WaitAnswer answer) {
         return ((WaitAnswer.Offered) answer).task();
-    }
-
-    /**
-     * The audit of a test: it records every {@code agent_started} detection.
-     */
-    static final class RecordingAudit implements SecurityAudit {
-
-        private final List<Event> events = new CopyOnWriteArrayList<>();
-
-        @Override
-        public void agentStarted(Event event) {
-            events.add(event);
-        }
-
-        List<Event> events() {
-            return List.copyOf(events);
-        }
     }
 
     /** A pause state a test changes. */

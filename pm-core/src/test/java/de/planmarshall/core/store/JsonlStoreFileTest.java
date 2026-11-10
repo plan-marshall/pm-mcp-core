@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +39,8 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Function;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -387,14 +390,15 @@ class JsonlStoreFileTest {
         @DisplayName("a sink that refuses the record keeps the intent; the next repair delivers it exactly once")
         void sinkRefuses() throws Exception {
             Files.write(store, bytes(FIRST, TORN));
-            var refusing = FailingAuditSink.refusing(1);
+            Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+            var refusing = AuditSinkDoubles.refusing(refused);
 
             repairWith(refusing);
 
             assertAll("a sink that refuses the tail repair record",
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store), "the cut is done"),
                     () -> assertTrue(Files.exists(storeFile.auditIntentFile()), "the intent survives"),
-                    () -> assertEquals(List.of(), refusing.events(), "the refusing sink recorded nothing"),
+                    () -> assertEquals(List.of(), refused.getValues(), "the refusing sink recorded nothing"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()));
 
@@ -412,7 +416,7 @@ class JsonlStoreFileTest {
         @DisplayName("a replay after the record was delivered delivers no second record")
         void noSecondRecord() throws Exception {
             Files.write(store, bytes(FIRST, TORN));
-            repairWith(FailingAuditSink.refusing(1));
+            repairWith(AuditSinkDoubles.refusing());
             repairWith(audit);
 
             repairWith(audit);
@@ -424,9 +428,9 @@ class JsonlStoreFileTest {
         @DisplayName("a process stopped between the cut and the append delivers the record at the next repair")
         void stoppedBeforeAppend() throws Exception {
             Files.write(store, bytes(FIRST, TORN));
-            var stopping = FailingAuditSink.stopping(1);
+            var stopping = AuditSinkDoubles.stopping();
 
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> repairWith(stopping),
+            assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> repairWith(stopping),
                     "the repair stops before its append");
             var intentSurvived = Files.exists(storeFile.auditIntentFile());
             repairWith(audit);
@@ -443,9 +447,9 @@ class JsonlStoreFileTest {
         @Test
         @DisplayName("a repair stopped between its intent and its cut is completed once, with the id of its intent")
         void stoppedBeforeCut() throws Exception {
-            var stopping = FailingAuditSink.stopping(1);
+            var stopping = AuditSinkDoubles.stopping();
             Files.write(store, bytes(FIRST, TORN));
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> repairWith(stopping),
+            assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> repairWith(stopping),
                     "the repair stops before its cut");
             var owedId = auditIntentTransactionId();
             Files.write(store, bytes(FIRST, TORN));

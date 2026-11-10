@@ -9,6 +9,12 @@
  */
 package de.planmarshall.workflow.model;
 
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,9 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 
-
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -60,7 +68,7 @@ class ModelCallerTest {
         var result = fixtures.caller.call(job("task", IMPLEMENT, false));
 
         var queued = (ModelCallResult.Queued) result;
-        var request = fixtures.queue.enqueued().getFirst();
+        var request = fixtures.enqueued().getFirst();
         assertAll(
                 () -> assertEquals(ModelFixtures.QUEUE_TASK, queued.queueTaskId()),
                 () -> assertEquals(IMPLEMENT, queued.role()),
@@ -87,7 +95,7 @@ class ModelCallerTest {
         assertAll(
                 () -> assertEquals(RoleForm.FRESH, queued.form()),
                 () -> assertTrue(queued.formDowngraded()),
-                () -> assertEquals(RoleForm.FRESH, fixtures.queue.enqueued().getFirst().form()));
+                () -> assertEquals(RoleForm.FRESH, fixtures.enqueued().getFirst().form()));
     }
 
     @Test
@@ -100,8 +108,8 @@ class ModelCallerTest {
 
         assertAll(
                 () -> assertEquals("role_unqualified", result.reason()),
-                () -> assertTrue(fixtures.queue.enqueued().isEmpty()),
-                () -> assertEquals("role_unqualified", fixtures.queue.closed().getFirst().reason()));
+                () -> assertTrue(fixtures.enqueued().isEmpty()),
+                () -> assertEquals("role_unqualified", fixtures.closed().getFirst().reason()));
     }
 
     @Test
@@ -114,7 +122,7 @@ class ModelCallerTest {
         assertAll(
                 () -> assertEquals("role_undefined", result.reason()),
                 () -> assertNull(result.validationReason(), "an absent role carries no validation reason"),
-                () -> assertTrue(fixtures.queue.enqueued().isEmpty()));
+                () -> assertTrue(fixtures.enqueued().isEmpty()));
     }
 
     @Test
@@ -143,7 +151,7 @@ class ModelCallerTest {
 
         assertAll(
                 () -> assertEquals("class_mismatch", result.reason()),
-                () -> assertTrue(fixtures.queue.enqueued().isEmpty()));
+                () -> assertTrue(fixtures.enqueued().isEmpty()));
     }
 
     @Test
@@ -168,7 +176,7 @@ class ModelCallerTest {
 
         assertAll(
                 () -> assertInstanceOf(ModelCallResult.Queued.class, result),
-                () -> assertTrue(fixtures.queue.enqueued().getFirst().consultation()));
+                () -> assertTrue(fixtures.enqueued().getFirst().consultation()));
     }
 
     @Test
@@ -183,7 +191,7 @@ class ModelCallerTest {
 
         assertAll(
                 () -> assertEquals("role_unavailable", result.reason()),
-                () -> assertTrue(fixtures.queue.enqueued().isEmpty()));
+                () -> assertTrue(fixtures.enqueued().isEmpty()));
     }
 
     @Nested
@@ -218,8 +226,8 @@ class ModelCallerTest {
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result),
                     () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"),
-                    () -> assertEquals(harness, fixtures.queue.enqueued().getFirst().harness()),
-                    () -> assertEquals(model, fixtures.queue.enqueued().getFirst().model()));
+                    () -> assertEquals(harness, fixtures.enqueued().getFirst().harness()),
+                    () -> assertEquals(model, fixtures.enqueued().getFirst().model()));
         }
     }
 
@@ -239,7 +247,7 @@ class ModelCallerTest {
 
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result, "the plan task must be queued"),
-                    () -> assertEquals(planId, fixtures.queue.enqueued().getFirst().scopeId(),
+                    () -> assertEquals(planId, fixtures.enqueued().getFirst().scopeId(),
                             "the queued task carries the plan as its scope"));
         }
 
@@ -255,10 +263,10 @@ class ModelCallerTest {
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result,
                             "the workspace task must be queued"),
-                    () -> assertEquals(1, fixtures.queue.enqueued().size(), "exactly one task is queued"),
-                    () -> assertNull(fixtures.queue.enqueued().getFirst().scopeId(),
+                    () -> assertEquals(1, fixtures.enqueued().size(), "exactly one task is queued"),
+                    () -> assertNull(fixtures.enqueued().getFirst().scopeId(),
                             "the queued workspace task has no scope id"),
-                    () -> assertTrue(fixtures.queue.closed().isEmpty(), "a queued task is not also closed"));
+                    () -> assertTrue(fixtures.closed().isEmpty(), "a queued task is not also closed"));
         }
 
         @Test
@@ -271,12 +279,12 @@ class ModelCallerTest {
             assertAll(
                     () -> assertEquals("role_undefined", result.reason(), "the absent role closes role_undefined"),
                     () -> assertNull(result.validationReason(), "an absent role carries no validation reason"),
-                    () -> assertEquals(1, fixtures.queue.closed().size(), "exactly one task is closed"),
-                    () -> assertNull(fixtures.queue.closed().getFirst().scopeId(),
+                    () -> assertEquals(1, fixtures.closed().size(), "exactly one task is closed"),
+                    () -> assertNull(fixtures.closed().getFirst().scopeId(),
                             "the closed workspace task has no scope id"),
-                    () -> assertEquals("role_undefined", fixtures.queue.closed().getFirst().reason(),
+                    () -> assertEquals("role_undefined", fixtures.closed().getFirst().reason(),
                             "the queue closes the task role_undefined"),
-                    () -> assertTrue(fixtures.queue.enqueued().isEmpty(), "a closed task is never queued"));
+                    () -> assertTrue(fixtures.enqueued().isEmpty(), "a closed task is never queued"));
         }
 
         @Test
@@ -291,9 +299,9 @@ class ModelCallerTest {
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result,
                             "the workspace consultation is queued"),
-                    () -> assertNull(fixtures.queue.enqueued().getFirst().scopeId(),
+                    () -> assertNull(fixtures.enqueued().getFirst().scopeId(),
                             "the workspace consultation has no scope id"),
-                    () -> assertTrue(fixtures.queue.enqueued().getFirst().consultation(),
+                    () -> assertTrue(fixtures.enqueued().getFirst().consultation(),
                             "the queued task keeps its consultation flag"));
         }
     }
@@ -313,12 +321,14 @@ class ModelCallerTest {
         return "plan-" + Generators.letterStrings(3, 12).next();
     }
 
-    /** One caller with its recorders. */
+    /** One caller with its EasyMock task queue. */
     private static final class Fixtures {
 
         private final ModelFixtures.Qualifications qualifications = new ModelFixtures.Qualifications();
         private final ModelFixtures.Guard guard = new ModelFixtures.Guard();
-        private final ModelFixtures.RecordingQueue queue = new ModelFixtures.RecordingQueue();
+        private final Capture<ModelQueue.Enqueue> enqueued = newCapture(CaptureType.ALL);
+        private final Capture<ModelQueue.Close> closed = newCapture(CaptureType.ALL);
+        private final ModelQueue queue;
         private final ModelCaller caller;
 
         private Fixtures(Map<String, EffectiveRole> roles) {
@@ -326,7 +336,21 @@ class ModelCallerTest {
         }
 
         private Fixtures(RoleResolver roles, RoleResolver steward) {
+            queue = createMock(ModelQueue.class);
+            expect(queue.enqueue(capture(enqueued)))
+                    .andReturn(new ModelQueue.Queued(ModelFixtures.QUEUE_TASK)).anyTimes();
+            queue.close(capture(closed));
+            expectLastCall().anyTimes();
+            replay(queue);
             this.caller = new ModelCaller(roles, steward, qualifications, guard, queue);
+        }
+
+        private List<ModelQueue.Enqueue> enqueued() {
+            return enqueued.getValues();
+        }
+
+        private List<ModelQueue.Close> closed() {
+            return closed.getValues();
         }
     }
 }

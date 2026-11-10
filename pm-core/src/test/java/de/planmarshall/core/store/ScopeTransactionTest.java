@@ -181,7 +181,7 @@ class ScopeTransactionTest {
                 transaction.acquire(scope.lockKey());
                 ScopeTransaction.StepHook stop = (step, target) -> {
                     if (step == Step.JOURNAL) {
-                        throw new FailingAuditSink.ProcessStopped();
+                        throw new AuditSinkDoubles.ProcessStopped();
                     }
                 };
                 var write = ScopeTransaction.open(transaction, scope, audit, clock, stop);
@@ -190,7 +190,7 @@ class ScopeTransactionTest {
                 write.owe(AuditEvent.crossScopeReconciled(rule, STATUS, owedIds.get(0)));
                 write.owe(AuditEvent.crossScopeReconciled(rule, REFERENCES, owedIds.get(1)));
                 transactionId = write.transactionId().value();
-                assertThrows(FailingAuditSink.ProcessStopped.class, write::commit,
+                assertThrows(AuditSinkDoubles.ProcessStopped.class, write::commit,
                         "the hook should stop the commit");
             }
 

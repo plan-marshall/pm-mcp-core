@@ -206,8 +206,8 @@ class AuditLogTest {
         var store = new JsonlStoreFile(log.logFile(), auditKey);
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(auditKey);
-            var stopping = FailingAuditSink.stopping(1);
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> store.repairTail(transaction, stopping),
+            var stopping = AuditSinkDoubles.stopping();
+            assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> store.repairTail(transaction, stopping),
                     "the repair stops after cutting the tail");
         }
     }
@@ -412,10 +412,10 @@ class AuditLogTest {
             stopAfterCut();
             var intent = Files.readAllBytes(intentFile());
             var stopping = new RecordingAnchor(Optional.empty());
-            stopping.failure = new FailingAuditSink.ProcessStopped();
+            stopping.failure = new AuditSinkDoubles.ProcessStopped();
             var stopped = new AuditLog(base, stopping, CLOCK, principal);
             var stoppedRecord = template("stopped");
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> append(stopped, stoppedRecord),
+            assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> append(stopped, stoppedRecord),
                     "the append stops after the in-log write");
             Files.write(intentFile(), intent);
 

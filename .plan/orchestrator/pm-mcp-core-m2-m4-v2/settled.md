@@ -561,3 +561,15 @@
 
 **Settled 2026-11-10 (operator decision, option 1.iii; the orchestrator had recommended option 1, a plan of its own, at about 65%):** the residues are folded into PLAN-V2-114 `analysis-findings-fixes` as eight Carried Open Items (not deliverables), Expected Surface extended in the same edit (23 to 31 entries as `corpus surfaces` reports); item 1 (the `OptionalInt`/`OptionalLong` components) declares no surface until the operator decides at refine whether to sanction them by ADR or convert them. Deliverable 2(a) of PLAN-V2-114 is superseded by PLAN-V2-97 (ADR 022). The test-side items stay with PLAN-V2-125 and 126, the assertion messages with PLAN-V2-101 to 105. Emit 114 after 129, 100, 106 and 108. The `QuestionRecord` item is PLAN-V2-114 Deliverable 2(c).
 
+## Watch: No plan records its harness (settled 2026-11-10, resolved)
+
+- No plan records its harness (high-priority finding `pm-mcp-core-m2-m4-132.md`). The operator's rule since 2026-10-13: assume Claude Code unless stated otherwise.
+
+**Settled 2026-11-10 (orchestrator, above 90%):** resolved. The landing facts of every plan now carry `harness`, `model`, `effort`, `plugin_version` and `executor_version` (`standards/landing-payload-spec.md`, the runtime-stamp keys; `unknown` when the stamp is absent), and every runbook-lane landing of the epic since PLAN-V2-83 names `harness=opencode`. The rule "assume Claude Code unless stated otherwise" is superseded by the explicit key.
+
+## Watch: `StalledHold.kind()` became `StalledHold.KIND` (settled 2026-11-10, resolved)
+
+- **`StalledHold.kind()` became `StalledHold.KIND` (PLAN-87, #148; outside-repository check owed).** S3400's prescribed fix replaced the accessor with a `public static final String KIND = "stalled"` constant. No consumer remains in this repository, and a grep of the `plan-marshall-mcp` checkout finds no `StalledHold` reference at all, so nothing breaks today; re-check at the next SNAPSHOT deployment, because that checkout is behind and the assembly could still name the old accessor. Retire when a SNAPSHOT-based build of `pm-mcp-server` compiles.
+
+**Settled 2026-11-10 (orchestrator, above 90%):** resolved. The `plan-marshall-mcp` checkout was fetched (`origin/main` `bea0eff`) and `git grep StalledHold` finds no reference at all, so the assembly cannot name the old accessor; in this repository `StalledScopeDetector.StalledHold` has no consumer outside `pm-runtime`. A SNAPSHOT-based build of `pm-mcp-server` was not run (a reading cannot show it), but nothing can break on a name that is not used.
+
