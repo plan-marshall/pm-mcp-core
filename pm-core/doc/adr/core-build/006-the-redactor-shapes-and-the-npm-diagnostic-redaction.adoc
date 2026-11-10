@@ -35,11 +35,15 @@ narrow, anchored patterns, and redact the npm error parser's message at its sour
 * `SecretRedactor` masks, beside the existing shapes:
   ** an npm access token, `npm_` followed by exactly 36 alphanumeric characters;
   ** the user information of a URL, keeping the scheme and the user (`scheme://user:[redacted]@host`);
-  ** the value of a spaced credential flag, keeping the flag (`--password [redacted]`, `--token [redacted]`);
-  ** a PEM private-key block carried inside one text, replaced whole.
+  ** the value of a spaced credential flag, keeping the flag and an opening quote (`--password [redacted]`,
+     `--token "[redacted]"`);
+  ** a PEM private-key block carried inside one text, replaced whole; a block whose `END` line is missing is masked from
+     its `BEGIN` line to the end of the text (masking too much costs evidence, leaving a key body readable costs the
+     credential).
 * Each added pattern is anchored to its own shape so prose cannot match it, and each has a negative control: a URL
-  without user information (`https://github.com/org/repo`), a different flag (`--password-file notes.txt`), a sentence
-  with the word `token`, an `npm_`-prefixed string shorter than a token, and a PEM header without its end.
+  without user information (`https://github.com/org/repo`), a query or fragment that carries a colon and an `@`
+  (`https://host?next=user:password@other/path`), a different flag (`--password-file notes.txt`), a sentence with the word
+  `token`, an `npm_`-prefixed string shorter than a token, and prose that names a key type without a PEM marker.
 * A PEM block whose `BEGIN` line lies outside the text is not masked; the carried open item names it.
 * `NpmErrorParser` redacts the generic block's composed message (its code token and the first reportable line) through
   `SecretRedactor.redactText` before the 500-character cut, so a cut value cannot keep a prefix the redactor would have

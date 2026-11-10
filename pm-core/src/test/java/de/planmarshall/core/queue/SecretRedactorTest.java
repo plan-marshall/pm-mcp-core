@@ -128,7 +128,11 @@ class SecretRedactorTest {
                 () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
                         redactValue("npm login --password hunter22"), "a spaced password value is masked"),
                 () -> assertEquals("publish --token " + SecretRedactor.REDACTED,
-                        redactValue("publish --token abc12345"), "a spaced token value is masked"));
+                        redactValue("publish --token abc12345"), "a spaced token value is masked"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("publish --token \"abcd1234\""), "a double-quoted token value is masked"),
+                () -> assertEquals("npm login --password '" + SecretRedactor.REDACTED + "'",
+                        redactValue("npm login --password 'hunter22'"), "a single-quoted password is masked"));
     }
 
     @Test
@@ -139,6 +143,15 @@ class SecretRedactorTest {
 
         assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue("key:\n" + block),
                 "a PEM private-key block is replaced whole");
+    }
+
+    @Test
+    @DisplayName("an unclosed PEM private-key block masks the rest")
+    void unclosedPemPrivateKeyBlock() {
+        var log = "key:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7v0x";
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
+                "a block without its END line is masked to the end");
     }
 
     @Test
@@ -153,9 +166,15 @@ class SecretRedactorTest {
                         "prose carrying the word token stays readable"),
                 () -> assertEquals("npm_" + "A".repeat(20), redactValue("npm_" + "A".repeat(20)),
                         "an npm_ string shorter than a token stays"),
-                () -> assertEquals("-----BEGIN RSA PRIVATE KEY----- without an end",
-                        redactValue("-----BEGIN RSA PRIVATE KEY----- without an end"),
-                        "a PEM header without its end stays readable"));
+                () -> assertEquals("the RSA private key is rotated daily",
+                        redactValue("the RSA private key is rotated daily"),
+                        "prose naming a key type stays readable"),
+                () -> assertEquals("https://host?next=user:password@other/path",
+                        redactValue("https://host?next=user:password@other/path"),
+                        "a query is not URL user information"),
+                () -> assertEquals("https://host/#user:password@other",
+                        redactValue("https://host/#user:password@other"),
+                        "a fragment is not URL user information"));
     }
 
     @Test
