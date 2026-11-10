@@ -10,6 +10,12 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +34,7 @@ import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serial;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -44,6 +51,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -107,6 +116,39 @@ class JournalRecoveryTest {
         StopWrite(Step step, int target) {
             super("stopped after " + step + " of target " + target);
         }
+    }
+
+    /** What the stopping audit sink throws at its first append, as a killed process stops it. */
+    private static final class ProcessStopped extends RuntimeException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        ProcessStopped() {
+            super("process stopped at the audit append");
+        }
+    }
+
+    /** @return an EasyMock audit sink that refuses its first append and captures every later one */
+    private static AuditSink refusingSink(Capture<AuditEvent> captured) {
+        AuditSink sink = createMock(AuditSink.class);
+        sink.append(anyObject(AuditEvent.class));
+        expectLastCall().andThrow(new UncheckedIOException(new IOException("the audit log cannot be written")));
+        sink.append(capture(captured));
+        expectLastCall().anyTimes();
+        replay(sink);
+        return sink;
+    }
+
+    /** @return an EasyMock audit sink that stops the caller at its first append */
+    private static AuditSink stoppingSink() {
+        AuditSink sink = createMock(AuditSink.class);
+        sink.append(anyObject(AuditEvent.class));
+        expectLastCall().andThrow(new ProcessStopped());
+        sink.append(anyObject(AuditEvent.class));
+        expectLastCall().anyTimes();
+        replay(sink);
+        return sink;
     }
 
     /**
@@ -754,7 +796,8 @@ class JournalRecoveryTest {
         @DisplayName("a sink that refuses the record keeps the journal; the next recovery delivers it exactly once")
         void sinkRefuses() {
             var journal = stopAt(Step.JOURNAL, 0);
-            var refusing = FailingAuditSink.refusing(1);
+            Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+            var refusing = refusingSink(refused);
 
             var first = recoverWith(refusing);
 
@@ -765,7 +808,7 @@ class JournalRecoveryTest {
                     () -> assertArrayEquals(committedSidecar(), Files.readAllBytes(scope.sidecarFile()),
                             "the sidecar holds the new digests"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "the journal stays as the intent"),
-                    () -> assertEquals(List.of(), refusing.events(), "the refusing sink recorded nothing"),
+                    () -> assertEquals(List.of(), refused.getValues(), "the refusing sink recorded nothing"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()));
 
@@ -785,7 +828,7 @@ class JournalRecoveryTest {
         @DisplayName("a replay after the record was delivered finds nothing and delivers no second record")
         void noSecondRecord() {
             var journal = stopAt(Step.JOURNAL, 0);
-            recoverWith(FailingAuditSink.refusing(1));
+            recoverWith(AuditSinkDoubles.refusing());
             recover();
 
             var third = recover();
@@ -801,9 +844,9 @@ class JournalRecoveryTest {
         @DisplayName("a process stopped between the roll-forward and the append delivers the record at the next recovery")
         void stoppedBeforeAppend() throws Exception {
             var journal = stopAt(Step.JOURNAL, 0);
-            var stopping = FailingAuditSink.stopping(1);
+            var stopping = stoppingSink();
 
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> recoverWith(stopping),
+            assertThrows(ProcessStopped.class, () -> recoverWith(stopping),
                     "the recovery stops before the append");
             var afterStop = snapshot(scope.pathBase());
             var outcome = recover();
@@ -822,7 +865,8 @@ class JournalRecoveryTest {
         @DisplayName("a record a transaction owes is delivered with it, or by the recovery when the sink refused it, "
                 + "keeping its own id")
         void owedByTransaction() throws Exception {
-            var refusing = FailingAuditSink.refusing(1);
+            Capture<AuditEvent> refused = newCapture(CaptureType.ALL);
+            var refusing = refusingSink(refused);
             TransactionJournal journal;
             String recordId;
             try (var transaction = locks.openTransaction()) {
@@ -843,7 +887,7 @@ class JournalRecoveryTest {
             assertAll("a record owed by a transaction",
                     () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS)),
                             "the commit completed its data"),
-                    () -> assertEquals(List.of(), refusing.events(), "the refusing sink recorded nothing"),
+                    () -> assertEquals(List.of(), refused.getValues(), "the refusing sink recorded nothing"),
                     () -> assertInstanceOf(IllegalStateException.class, blocked,
                             "no transaction overwrites a journal that owes a record"),
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome,

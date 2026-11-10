@@ -9,6 +9,11 @@
  */
 package de.planmarshall.workflow.task;
 
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,7 +26,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -54,15 +60,19 @@ class TaskProtocolReOfferTest {
     private static final int RE_OFFER_BUDGET = Generators.integers(1, 10).next();
     private static final String EXECUTABLE = "/usr/local/bin/" + Generators.letterStrings(4, 12).next();
 
-    private record Harness(QueueStore queue, TaskProtocol protocol, TaskFixtures.RecordingAudit audit) {
+    private record Harness(QueueStore queue, TaskProtocol protocol, Capture<SecurityAudit.Event> auditEvents) {
     }
 
     private static Harness harness(Path base) {
         var locks = new TestLocks();
         var queue = QueueStore.ofProject(base, "project-a", locks);
         queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
-        var audit = new TaskFixtures.RecordingAudit();
-        return new Harness(queue, TaskProtocol.builder(queue, locks).audit(audit).build(), audit);
+        Capture<SecurityAudit.Event> events = newCapture(CaptureType.ALL);
+        SecurityAudit audit = createMock(SecurityAudit.class);
+        audit.agentStarted(capture(events));
+        expectLastCall().anyTimes();
+        replay(audit);
+        return new Harness(queue, TaskProtocol.builder(queue, locks).audit(audit).build(), events);
     }
 
     private static TaskCall acknowledged(Harness harness) {
@@ -225,9 +235,9 @@ class TaskProtocolReOfferTest {
                 () -> assertEquals(1, task.signals().getFirst().threshold()),
                 () -> assertEquals(TaskFixtures.AT.plusSeconds(2), task.signals().getFirst().at()),
                 () -> assertEquals(AttemptEnd.OFF_TRACK, task.currentAttempt().orElseThrow().end()),
-                () -> assertEquals(1, harness.audit().events().size()),
+                () -> assertEquals(1, harness.auditEvents().getValues().size()),
                 () -> assertEquals(EXECUTABLE,
-                        harness.audit().events().getFirst().executable()));
+                        harness.auditEvents().getValues().getFirst().executable()));
     }
 
     @Test

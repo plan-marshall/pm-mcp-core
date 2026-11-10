@@ -9,6 +9,9 @@
  */
 package de.planmarshall.workflow.consult;
 
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -17,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -39,6 +43,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.LostReason;
 import de.planmarshall.core.queue.QueueTaskRecord.Outcome;
 import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.role.RoleClass;
+import de.planmarshall.core.service.LockManager;
 import de.planmarshall.workflow.task.CallResult;
 import de.planmarshall.workflow.task.TaskCall;
 import de.planmarshall.workflow.task.TaskProtocol;
@@ -467,7 +472,14 @@ class ConsultationServiceTest {
     @Test
     @DisplayName("a creation failure propagates and leaves the entry for the reconciliation")
     void createFailurePropagatesAndLeavesTheEntryForReconcile() {
-        var failing = new ConsultationService(QueueStore.ofProject(base, "project-a", new FailingCreateLocks()));
+        var delegate = new ConsultTestLocks();
+        LockManager locks = createMock(LockManager.class);
+        expect(locks.openTransaction()).andAnswer(delegate::openTransaction).once();
+        expect(locks.openTransaction()).andThrow(new UncheckedIOException(new IOException("the queue lock cannot be taken")))
+                .once();
+        expect(locks.openTransaction()).andAnswer(delegate::openTransaction).anyTimes();
+        replay(locks);
+        var failing = new ConsultationService(QueueStore.ofProject(base, "project-a", locks));
         var request = ConsultationFixtures.request(ConsultationFixtures.ASKER,
                 ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.REVIEWER);
 
