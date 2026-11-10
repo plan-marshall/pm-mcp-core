@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.endpoint;
 
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,7 +33,6 @@ import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcher;
 import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcherElement;
 import java.net.Inet6Address;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,6 +44,8 @@ import java.util.function.Function;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -84,7 +90,8 @@ class JudgmentEndpointTest {
     /** Canned answers by {@code METHOD target}; each answers every request to its target. */
     private final Map<String, Function<RecordedRequest, MockResponse>> routes = new ConcurrentHashMap<>();
     private MockWebServer server;
-    private RecordingAuditSink audit;
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private AuditSink audit;
     private String base;
     private String clientId;
     private String model;
@@ -117,7 +124,10 @@ class JudgmentEndpointTest {
     @BeforeEach
     void start(MockWebServer mockWebServer, URIBuilder uriBuilder) {
         server = mockWebServer;
-        audit = new RecordingAuditSink();
+        audit = createMock(AuditSink.class);
+        audit.append(capture(auditEvents));
+        expectLastCall().anyTimes();
+        replay(audit);
         var host = server.getSocketAddress().getAddress() instanceof Inet6Address ? "[::1]" : "127.0.0.1";
         base = "http://" + host + ":" + uriBuilder.build().getPort();
         clientId = word() + "-judge";
@@ -221,7 +231,7 @@ class JudgmentEndpointTest {
                 () -> assertEquals(SystemOneRequest.PATH, first.getTarget(), "the system_one path is requested"),
                 () -> assertEquals("a", answers.ascending().answer().answers().get(questionId).choice(),
                         "the choice of the answer is read"),
-                () -> assertEquals("succeeded", audit.only().outcome(), "an answered task is a succeeded record"));
+                () -> assertEquals("succeeded", auditEvents.getValues().getFirst().outcome(), "an answered task is a succeeded record"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                 INFO.JUDGMENT_TASK_ANSWERED.resolveIdentifierString());
     }
@@ -245,7 +255,7 @@ class JudgmentEndpointTest {
                         "the error text carries no part of the body"),
                 () -> assertTrue(answers.ascending().outcome().detail().contains("another model id"),
                         answers.ascending().outcome()::detail),
-                () -> assertEquals("failed", audit.only().outcome(), "an aliased task is a failed record"));
+                () -> assertEquals("failed", auditEvents.getValues().getFirst().outcome(), "an aliased task is a failed record"));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                 WARN.ENDPOINT_ATTEMPT_ENDED.resolveIdentifierString());
     }
@@ -298,12 +308,12 @@ class JudgmentEndpointTest {
 
         assertAll("the read-outs without the body",
                 () -> assertTrue(answers.answered(), "the echoed answer is valid, so only the read-outs are at stake"),
-                () -> assertEquals(1, audit.events().size(), "the task leaves exactly one record"),
-                () -> assertFalse(audit.text().contains(facts), "the audit record holds no facts"),
-                () -> assertFalse(audit.text().contains(question), "the audit record holds no question"),
-                () -> assertTrue(audit.text().contains("judgment_task_completed"),
+                () -> assertEquals(1, auditEvents.getValues().size(), "the task leaves exactly one record"),
+                () -> assertFalse(auditEvents.getValues().toString().contains(facts), "the audit record holds no facts"),
+                () -> assertFalse(auditEvents.getValues().toString().contains(question), "the audit record holds no question"),
+                () -> assertTrue(auditEvents.getValues().toString().contains("judgment_task_completed"),
                         "the audit record names its event"),
-                () -> assertTrue(audit.text().contains(model), "the audit record names the model"));
+                () -> assertTrue(auditEvents.getValues().toString().contains(model), "the audit record names the model"));
         assertNoLogLineHolds(facts);
         assertNoLogLineHolds(question);
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -363,28 +373,5 @@ class JudgmentEndpointTest {
                 () -> assertEquals("input_too_large", answers.status(), "the task status names the size"));
         LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, JudgmentEndpoint.class);
         LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, JudgmentEndpoint.class);
-    }
-
-    /** The audit records of the test. */
-    static final class RecordingAuditSink implements AuditSink {
-
-        private final List<AuditEvent> events = new ArrayList<>();
-
-        @Override
-        public void append(AuditEvent event) {
-            events.add(event);
-        }
-
-        List<AuditEvent> events() {
-            return List.copyOf(events);
-        }
-
-        AuditEvent only() {
-            return events.getFirst();
-        }
-
-        String text() {
-            return events.toString();
-        }
     }
 }
