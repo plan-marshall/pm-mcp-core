@@ -50,11 +50,11 @@ class ConsultationFactRecordsTest {
     void consultationFactBuilderRefusesMissingStatus() {
         var consultationId = "qt-" + Generators.strings("0123456789abcdef", 16, 16).next();
         var role = "role-" + Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789", 2, 8).next();
-        var exception = assertThrows(NullPointerException.class, () -> ConsultationFact.builder()
+        var builder = ConsultationFact.builder()
                 .consultationId(consultationId)
                 .role(role)
-                .answer(Generators.letterStrings(1, 40).next())
-                .build());
+                .answer(Generators.letterStrings(1, 40).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("status", exception.getMessage(), "the builder names the missing status");
     }

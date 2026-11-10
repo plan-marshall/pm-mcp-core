@@ -79,7 +79,7 @@ class PlanInstanceHeaderRecordsTest {
                 Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 64).next(),
                 Generators.letterStrings(1, 64).next(), null, null, null);
 
-        var exception = assertThrows(NullPointerException.class, () -> PlanInstanceHeader.builder()
+        var builder = PlanInstanceHeader.builder()
                 .version(1)
                 .event(CompositionEvent.START)
                 .composedAt(Instant.EPOCH)
@@ -87,8 +87,8 @@ class PlanInstanceHeaderRecordsTest {
                 .steps(new PlanInstanceHeader.Steps(List.of(), List.of()))
                 .pruned(List.of())
                 .policyCalls(List.of())
-                .waivedGates(List.of())
-                .build());
+                .waivedGates(List.of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("planId", exception.getMessage(), "the builder names the missing plan id");
     }

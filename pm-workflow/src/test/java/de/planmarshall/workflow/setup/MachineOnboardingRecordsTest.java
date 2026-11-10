@@ -50,9 +50,9 @@ class MachineOnboardingRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing state like the constructor")
     void machineOnboardingBuilderRefusesMissingState() {
-        var exception = assertThrows(NullPointerException.class, () -> MachineOnboarding.builder()
-                .firstRunCompleted(true)
-                .build());
+        var builder = MachineOnboarding.builder()
+                .firstRunCompleted(true);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("state", exception.getMessage(), "the builder names the missing state");
     }

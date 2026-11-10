@@ -58,13 +58,13 @@ class ModelJobRecordsTest {
         var entityKey = Generators.letterStrings(1, 8).next();
         var role = "role-" + Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789", 2, 8).next();
         var acceptedClasses = Set.of(Generators.enumValues(RoleClass.class).next());
-        var exception = assertThrows(NullPointerException.class, () -> ModelJob.builder()
+        var builder = ModelJob.builder()
                 .scopeId(scopeId)
                 .entityKey(entityKey)
                 .role(role)
                 .consultation(false)
-                .acceptedClasses(acceptedClasses)
-                .build());
+                .acceptedClasses(acceptedClasses);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }

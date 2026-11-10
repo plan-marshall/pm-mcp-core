@@ -62,8 +62,9 @@ class PmExecLauncherRecordsTest {
                 Generators.letterStrings(1, 20).next());
         var log = Path.of("/tmp", Generators.letterStrings(1, 20).next() + ".log");
 
-        var refusal = assertThrows(NullPointerException.class, () -> PmExecLauncher.Launch.builder()
-                .argv(argv).environment(environment).log(log).confinement(JobConfinement.none()).build());
+        var builder = PmExecLauncher.Launch.builder()
+                .argv(argv).environment(environment).log(log).confinement(JobConfinement.none());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("workingDirectory", refusal.getMessage(), "the refusal names the working directory");
     }

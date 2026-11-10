@@ -69,11 +69,11 @@ class GitOperationsRecordsTest {
     @Test
     @DisplayName("the fetch input builder refuses a missing cache")
     void fetchCommitInputBuilderRefusesMissingCache() {
-        var refusal = assertThrows(NullPointerException.class, () -> GitOperations.FetchCommitInput.builder()
+        var builder = GitOperations.FetchCommitInput.builder()
                 .url(text())
                 .commit(text())
-                .policy(new RemotePolicy(null))
-                .build());
+                .policy(new RemotePolicy(null));
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("cache", refusal.getMessage(), "the refusal names the missing cache");
     }
@@ -150,11 +150,11 @@ class GitOperationsRecordsTest {
     @Test
     @DisplayName("the worktree add builder refuses a missing root")
     void worktreeAddInputBuilderRefusesMissingRoot() {
-        var refusal = assertThrows(NullPointerException.class, () -> GitOperations.WorktreeAddInput.builder()
+        var builder = GitOperations.WorktreeAddInput.builder()
                 .path(path())
                 .createBranch(false)
-                .startPoint(text())
-                .build());
+                .startPoint(text());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("root", refusal.getMessage(), "the refusal names the missing root");
     }

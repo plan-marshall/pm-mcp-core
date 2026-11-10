@@ -49,11 +49,11 @@ class OffTrackSignalRecordsTest {
     @DisplayName("OffTrackSignal builder refuses a missing signal")
     void offTrackSignalBuilderRefusesMissingSignal() {
         var action = QueueTaskRecord.SignalAction.NUDGE;
-        var exception = assertThrows(NullPointerException.class, () -> OffTrackSignal.builder()
+        var builder = OffTrackSignal.builder()
                 .action(action)
                 .measurement(1)
-                .threshold(2)
-                .build());
+                .threshold(2);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("signal", exception.getMessage(), "the builder names the missing signal");
     }

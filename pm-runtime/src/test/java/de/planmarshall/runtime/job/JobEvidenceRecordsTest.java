@@ -86,14 +86,14 @@ class JobEvidenceRecordsTest {
         var waitStatus = new JobEvidence.Exited(Generators.integers(0, 255).next());
         var log = Generators.enumValues(JobEvidence.LogState.class).next();
 
-        var refusal = assertThrows(NullPointerException.class, () -> JobEvidence.ProcessEnded.builder()
+        var builder = JobEvidence.ProcessEnded.builder()
                 .waitStatus(waitStatus)
                 .log(log)
                 .parse(new JobEvidence.ParseResult(Generators.booleans().next(),
                         Generators.integers(0, 1000).next(), Generators.booleans().next(), null))
                 .declaredExitCodes(Set.<Integer>of())
-                .exitReliable(true)
-                .build());
+                .exitReliable(true);
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("kind", refusal.getMessage(), "the refusal names the job kind");
     }

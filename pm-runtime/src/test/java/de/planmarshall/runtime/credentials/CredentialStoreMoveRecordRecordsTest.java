@@ -63,14 +63,14 @@ class CredentialStoreMoveRecordRecordsTest {
     void credentialStoreMoveRecordBuilderRefusesMissingFrom() {
         var startedAt = Instant.ofEpochMilli(Generators.longs(0, 1_900_000_000_000L).next());
 
-        var refusal = assertThrows(NullPointerException.class, () -> CredentialStoreMoveRecord.builder()
+        var builder = CredentialStoreMoveRecord.builder()
                 .to(Store.FILE)
                 .startedAt(startedAt)
                 .phase(Generators.enumValues(CredentialStoreMoveRecord.Phase.class).next())
                 .targetHeldKey(Generators.booleans().next())
                 .operation(Generators.enumValues(CredentialStoreMoveRecord.Operation.class).next())
-                .transactionId(TransactionId.generate(Clock.fixed(startedAt, ZoneOffset.UTC)))
-                .build());
+                .transactionId(TransactionId.generate(Clock.fixed(startedAt, ZoneOffset.UTC)));
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("from", refusal.getMessage(), "the refusal names the missing from store");
     }

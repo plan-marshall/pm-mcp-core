@@ -54,12 +54,12 @@ class SecurityAuditRecordsTest {
         var generationId = Generators.letterStrings(3, 10).next();
         var queueTaskId = Generators.letterStrings(3, 10).next();
         var at = Instant.EPOCH.plusSeconds(Generators.integers(1, 1_000).next());
-        var exception = assertThrows(NullPointerException.class, () -> SecurityAudit.Event.builder()
+        var builder = SecurityAudit.Event.builder()
                 .generationId(generationId)
                 .queueTaskId(queueTaskId)
                 .attempt(1)
-                .at(at)
-                .build());
+                .at(at);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("executable", exception.getMessage(), "the builder names the missing executable");
     }

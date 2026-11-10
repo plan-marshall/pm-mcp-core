@@ -49,12 +49,12 @@ class UnitFindingRecordsTest {
     @Test
     @DisplayName("UnitFinding builder refuses a missing kind")
     void unitFindingBuilderRefusesMissingKind() {
-        var exception = assertThrows(NullPointerException.class, () -> UnitFinding.builder()
+        var builder = UnitFinding.builder()
                 .code(UnitFinding.FORMAT_OUTDATED)
                 .file(Generators.letterStrings(1, 24).next())
                 .line(Generators.integers(1, 500).next())
-                .message(Generators.letterStrings(1, 60).next())
-                .build());
+                .message(Generators.letterStrings(1, 60).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("kind", exception.getMessage(), "the builder names the missing kind");
     }

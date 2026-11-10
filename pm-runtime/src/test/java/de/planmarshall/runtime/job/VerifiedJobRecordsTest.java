@@ -57,8 +57,8 @@ class VerifiedJobRecordsTest {
         var argv = List.of(Path.of("/usr/bin", Generators.letterStrings(1, 20).next()).toString());
         var enrolment = CoreGenerators.projectEnrolments().next();
 
-        var refusal = assertThrows(NullPointerException.class,
-                () -> VerifiedJob.builder().argv(argv).enrolment(enrolment).build());
+        var builder = VerifiedJob.builder().argv(argv).enrolment(enrolment);
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("workingDirectory", refusal.getMessage(), "the refusal names the working directory");
     }

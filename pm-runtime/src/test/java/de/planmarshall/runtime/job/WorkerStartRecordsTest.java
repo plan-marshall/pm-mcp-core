@@ -122,7 +122,7 @@ class WorkerStartRecordsTest {
         var scope = new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null);
         var reason = Generators.enumValues(LaunchRefusal.class).next();
 
-        var refusal = assertThrows(NullPointerException.class, () -> WorkerStart.Refusal.builder()
+        var builder = WorkerStart.Refusal.builder()
                 .role(effectiveRole())
                 .enrolment(enrolment)
                 .scope(scope)
@@ -130,8 +130,8 @@ class WorkerStartRecordsTest {
                 .budgetDerivation(new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.OPERATOR, null))
                 .workerBlock("{}")
                 .reason(reason)
-                .detail(Generators.letterStrings(1, 40).next())
-                .build());
+                .detail(Generators.letterStrings(1, 40).next());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("generationId", refusal.getMessage(), "the refusal names the generation id");
     }

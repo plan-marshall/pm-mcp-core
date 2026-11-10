@@ -54,12 +54,12 @@ class JobRequestRecordsTest {
     void jobRequestBuilderRefusesMissingProjectId() {
         var target = new JobRequest.HostToolBuild(Generators.letterStrings(1, 20).next(), null);
 
-        var refusal = assertThrows(NullPointerException.class, () -> JobRequest.builder()
+        var builder = JobRequest.builder()
                 .workingDirectory(Generators.letterStrings(1, 20).next())
                 .liveWorktrees(Set.of(Path.of("/tmp", Generators.letterStrings(1, 20).next())))
                 .modules(Set.of(Generators.letterStrings(1, 20).next()))
-                .target(target)
-                .build());
+                .target(target);
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("projectId", refusal.getMessage(), "the refusal names the project id");
     }

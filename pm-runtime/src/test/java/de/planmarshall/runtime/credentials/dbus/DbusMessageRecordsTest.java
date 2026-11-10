@@ -66,12 +66,12 @@ class DbusMessageRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing body like the constructor")
     void dbusMessageBuilderRefusesMissingBody() {
-        assertThrows(NullPointerException.class, () -> DbusMessage.builder()
+        var builder = DbusMessage.builder()
                 .type(1)
                 .flags(0)
                 .serial(1L)
                 .replySerial(0L)
-                .signature("s")
-                .build());
+                .signature("s");
+        assertThrows(NullPointerException.class, builder::build);
     }
 }

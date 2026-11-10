@@ -48,10 +48,10 @@ class ServiceUnitFileRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing platform like the constructor")
     void serviceUnitFileBuilderRefusesMissingPlatform() {
-        var refusal = assertThrows(NullPointerException.class, () -> ServiceUnitFile.builder()
+        var builder = ServiceUnitFile.builder()
                 .home(Path.of("/home/builder"))
-                .daemon(Path.of("/opt/pm/bin/pm-mcpd"))
-                .build());
+                .daemon(Path.of("/opt/pm/bin/pm-mcpd"));
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("platform", refusal.getMessage(), "the refusal names the platform");
     }

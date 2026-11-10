@@ -53,13 +53,13 @@ class CompositionRecordRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing composition event")
     void compositionRecordBuilderRefusesMissingEvent() {
-        var exception = assertThrows(NullPointerException.class, () -> CompositionRecord.builder()
+        var builder = CompositionRecord.builder()
                 .result(CompositionRecord.Result.COMPOSED)
                 .version(1)
                 .trigger(CompositionEvent.Trigger.SERVER)
                 .inputDigests(new TreeMap<>())
-                .recordedAt(Instant.EPOCH)
-                .build());
+                .recordedAt(Instant.EPOCH);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("event", exception.getMessage(), "the builder names the missing event");
     }

@@ -64,13 +64,13 @@ class ProbeCandidateRecordsTest {
         var executable = digestedFile();
         var scope = new JobRecord.Scope(JobRecord.Scope.Type.MACHINE, null);
 
-        var refusal = assertThrows(NullPointerException.class, () -> ProbeCandidate.builder()
+        var builder = ProbeCandidate.builder()
                 .executable(executable)
                 .arguments(List.of(Generators.letterStrings(1, 20).next()))
                 .successExitCodes(Set.of(0))
                 .scope(scope)
-                .workingDirectory(new ProbeCandidate.JobPrivate())
-                .build());
+                .workingDirectory(new ProbeCandidate.JobPrivate());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("kind", refusal.getMessage(), "the refusal names the probe kind");
     }

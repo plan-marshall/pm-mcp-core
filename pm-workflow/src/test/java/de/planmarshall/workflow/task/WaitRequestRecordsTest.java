@@ -52,12 +52,12 @@ class WaitRequestRecordsTest {
         var role = "role-" + Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789", 2, 8).next();
         var generationDigest = Generators.strings("0123456789abcdef", 64, 64).next();
         var roleDigest = Generators.strings("0123456789abcdef", 64, 64).next();
-        var exception = assertThrows(NullPointerException.class, () -> WaitRequest.builder()
+        var builder = WaitRequest.builder()
                 .role(role)
                 .generationDigest(generationDigest)
                 .roleDigest(roleDigest)
-                .reOfferBudget(3)
-                .build());
+                .reOfferBudget(3);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("generationId", exception.getMessage(), "the builder names the missing generation");
     }

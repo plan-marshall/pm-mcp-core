@@ -48,11 +48,11 @@ class UnitReferenceRecordsTest {
     void unitReferenceBuilderRefusesMissingUnit() {
         var reference = WorkflowGenerators.unitReferences().next();
 
-        var exception = assertThrows(NullPointerException.class, () -> UnitReference.builder()
+        var builder = UnitReference.builder()
                 .file(reference.file())
                 .digest(reference.digest())
-                .origin(reference.origin())
-                .build());
+                .origin(reference.origin());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("unit", exception.getMessage(), "the builder names the missing unit id");
     }

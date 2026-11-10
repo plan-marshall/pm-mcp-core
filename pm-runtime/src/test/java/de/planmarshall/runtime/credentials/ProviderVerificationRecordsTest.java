@@ -57,12 +57,12 @@ class ProviderVerificationRecordsTest {
     @Test
     @DisplayName("the check line builder refuses a missing check like the constructor")
     void checkLineBuilderRefusesMissingCheck() {
-        var refusal = assertThrows(NullPointerException.class, () -> ProviderVerification.CheckLine.builder()
+        var builder = ProviderVerification.CheckLine.builder()
                 .ok(Generators.booleans().next())
                 .messageKey(ProviderVerification.MESSAGE_KEY_PREFIX + Generators.letterStrings(1, 20).next())
                 .arguments(List.of(Generators.letterStrings(1, 20).next()))
-                .answer(Generators.letterStrings(1, 40).next())
-                .build());
+                .answer(Generators.letterStrings(1, 40).next());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("check", refusal.getMessage(), "the refusal names the missing check");
     }
@@ -93,10 +93,10 @@ class ProviderVerificationRecordsTest {
     @Test
     @DisplayName("the verification builder refuses a missing provider like the constructor")
     void verificationBuilderRefusesMissingProvider() {
-        var refusal = assertThrows(NullPointerException.class, () -> ProviderVerification.Verification.builder()
+        var builder = ProviderVerification.Verification.builder()
                 .ran(Generators.booleans().next())
-                .lines(List.of())
-                .build());
+                .lines(List.of());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("provider", refusal.getMessage(), "the refusal names the missing provider");
     }

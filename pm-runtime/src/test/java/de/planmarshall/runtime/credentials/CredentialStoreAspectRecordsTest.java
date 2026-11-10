@@ -63,12 +63,12 @@ class CredentialStoreAspectRecordsTest {
     @Test
     @DisplayName("the transition builder refuses a missing next state like the constructor")
     void transitionBuilderRefusesMissingNext() {
-        var refusal = assertThrows(NullPointerException.class, () -> CredentialStoreAspect.Transition.builder()
+        var builder = CredentialStoreAspect.Transition.builder()
                 .reason(Generators.letterStrings(1, 20).next())
                 .detail(Generators.letterStrings(1, 40).next())
                 .lines(List.of())
-                .moveEntries(OptionalInt.of(Generators.integers(0, 10_000).next()))
-                .build());
+                .moveEntries(OptionalInt.of(Generators.integers(0, 10_000).next()));
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("next", refusal.getMessage(), "the refusal names the missing next state");
     }

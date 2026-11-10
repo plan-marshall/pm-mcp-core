@@ -52,11 +52,11 @@ class DeadStateRecordsTest {
     void deadStateBuilderRefusesMissingStateId() {
         var location = WorkflowGenerators.sourceLocations().next();
         var assignment = Map.of(Generators.letterStrings(1, 12).next(), Generators.booleans().next());
-        var exception = assertThrows(NullPointerException.class, () -> DeadState.builder()
+        var builder = DeadState.builder()
                 .location(location)
                 .assignment(assignment)
-                .run(Generators.integers(1, 100).next())
-                .build());
+                .run(Generators.integers(1, 100).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }

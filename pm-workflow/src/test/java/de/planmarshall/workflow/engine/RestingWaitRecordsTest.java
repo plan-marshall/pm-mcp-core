@@ -51,11 +51,11 @@ class RestingWaitRecordsTest {
     @DisplayName("RestingWait builder refuses a missing state id")
     void restingWaitBuilderRefusesMissingStateId() {
         var awaitedEvent = Generators.enumValues(AwaitedEvent.class).next();
-        var exception = assertThrows(NullPointerException.class, () -> RestingWait.builder()
+        var builder = RestingWait.builder()
                 .awaitedEvent(awaitedEvent)
                 .jobIds(Set.of())
-                .taskEntities(Set.of())
-                .build());
+                .taskEntities(Set.of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }

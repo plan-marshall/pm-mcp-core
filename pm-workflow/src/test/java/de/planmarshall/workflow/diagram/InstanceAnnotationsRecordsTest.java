@@ -84,9 +84,9 @@ class InstanceAnnotationsRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing plan id like the constructor")
     void instanceAnnotationsBuilderRefusesMissingPlanId() {
-        var exception = assertThrows(NullPointerException.class, () -> InstanceAnnotations.builder()
-                .event(Generators.letterStrings(1, 20).next())
-                .build());
+        var builder = InstanceAnnotations.builder()
+                .event(Generators.letterStrings(1, 20).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("planId", exception.getMessage(), "the builder names the missing plan id");
     }

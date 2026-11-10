@@ -50,12 +50,12 @@ class ComposedUnitRecordsTest {
         var definition = PlanFixtures.template();
         var composed = ComposedUnit.of(definition.id(), definition);
 
-        var exception = assertThrows(NullPointerException.class, () -> ComposedUnit.builder()
+        var builder = ComposedUnit.builder()
                 .version(composed.version())
                 .definition(composed.definition())
                 .text(composed.text())
-                .digest(composed.digest())
-                .build());
+                .digest(composed.digest());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("unit", exception.getMessage(), "the builder names the missing unit id");
     }

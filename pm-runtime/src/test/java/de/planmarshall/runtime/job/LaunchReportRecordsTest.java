@@ -54,8 +54,8 @@ class LaunchReportRecordsTest {
         var pid = Generators.longs(1, 100_000).next();
         var confinement = Generators.enumValues(JobRecord.Confinement.class).next();
 
-        var refusal = assertThrows(NullPointerException.class,
-                () -> LaunchReport.builder().pid(pid).confinement(confinement).build());
+        var builder = LaunchReport.builder().pid(pid).confinement(confinement);
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("processStartedAt", refusal.getMessage(), "the refusal names the start instant");
     }

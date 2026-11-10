@@ -59,7 +59,7 @@ class CompositionRequestRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing plan id")
     void compositionRequestBuilderRefusesMissingPlanId() {
-        var exception = assertThrows(NullPointerException.class, () -> CompositionRequest.builder()
+        var builder = CompositionRequest.builder()
                 .event(CompositionEvent.START)
                 .template(PlanFixtures.template())
                 .templates(List.of())
@@ -69,8 +69,8 @@ class CompositionRequestRecordsTest {
                 .waivers(List.of())
                 .position(InstancePosition.at(Generators.letterStrings(1, 20).next()))
                 .verificationSteps(List.of())
-                .finalizeSteps(List.of())
-                .build());
+                .finalizeSteps(List.of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("planId", exception.getMessage(), "the builder names the missing plan id");
     }

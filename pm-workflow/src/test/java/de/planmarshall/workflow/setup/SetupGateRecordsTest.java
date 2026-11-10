@@ -49,11 +49,11 @@ class SetupGateRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing reason like the constructor")
     void refusedBuilderRefusesMissingReason() {
-        var exception = assertThrows(NullPointerException.class, () -> SetupGate.Refused.builder()
+        var builder = SetupGate.Refused.builder()
                 .httpStatus(SetupGate.CONFLICT)
                 .missingStep(Generators.letterStrings(1, 20).next())
-                .clients(List.of())
-                .build());
+                .clients(List.of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("reason", exception.getMessage(), "the builder names the missing reason");
     }

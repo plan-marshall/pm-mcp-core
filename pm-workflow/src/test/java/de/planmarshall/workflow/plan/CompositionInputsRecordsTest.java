@@ -62,13 +62,13 @@ class CompositionInputsRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing configuration hash")
     void compositionInputsBuilderRefusesMissingConfigHash() {
-        var exception = assertThrows(NullPointerException.class, () -> CompositionInputs.builder()
+        var builder = CompositionInputs.builder()
                 .templates(List.of())
                 .subUnits(List.of())
                 .compositionRulesRevision(Generators.letterStrings(1, 20).next())
                 .compositionRulesDigest(Generators.letterStrings(1, 64).next())
-                .planFactsDigest(Generators.letterStrings(1, 64).next())
-                .build());
+                .planFactsDigest(Generators.letterStrings(1, 64).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("configHash", exception.getMessage(), "the builder names the missing hash");
     }

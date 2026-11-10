@@ -46,10 +46,10 @@ class WaiverRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing waiver id")
     void waiverBuilderRefusesMissingId() {
-        var exception = assertThrows(NullPointerException.class, () -> Waiver.builder()
+        var builder = Waiver.builder()
                 .gate(Generators.letterStrings(1, 20).next())
-                .mode(Waiver.Mode.MET)
-                .build());
+                .mode(Waiver.Mode.MET);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("id", exception.getMessage(), "the builder names the missing waiver id");
     }

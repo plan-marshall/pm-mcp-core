@@ -55,12 +55,12 @@ class VerificationContextRecordsTest {
     @Test
     @DisplayName("VerificationContext builder refuses a missing registry")
     void verificationContextBuilderRefusesMissingRegistry() {
-        var exception = assertThrows(NullPointerException.class, () -> VerificationContext.builder()
+        var builder = VerificationContext.builder()
                 .entityKinds(EntityKindRegistry.defaults())
                 .questionClasses(QuestionClassRegistry.defaults())
                 .schemas(SchemaRegistry.defaults())
-                .compiledUnits(List.<WorkflowDefinition>of())
-                .build());
+                .compiledUnits(List.<WorkflowDefinition>of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("registry", exception.getMessage(), "the builder names the missing registry");
     }

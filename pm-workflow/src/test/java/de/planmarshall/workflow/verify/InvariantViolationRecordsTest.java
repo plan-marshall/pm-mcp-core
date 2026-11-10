@@ -48,11 +48,11 @@ class InvariantViolationRecordsTest {
     @Test
     @DisplayName("InvariantViolation builder refuses a missing id")
     void invariantViolationBuilderRefusesMissingId() {
-        var exception = assertThrows(NullPointerException.class, () -> InvariantViolation.builder()
+        var builder = InvariantViolation.builder()
                 .stateId(Generators.letterStrings(1, 20).next())
                 .location(WorkflowGenerators.sourceLocations().next())
-                .message(Generators.letterStrings(1, 60).next())
-                .build());
+                .message(Generators.letterStrings(1, 60).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("id", exception.getMessage(), "the builder names the missing id");
     }

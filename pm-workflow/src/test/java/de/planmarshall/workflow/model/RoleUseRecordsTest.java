@@ -52,11 +52,11 @@ class RoleUseRecordsTest {
     void roleUseBuilderRefusesMissingStateId() {
         var role = "role-" + Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789", 2, 8).next();
         var acceptedClasses = Set.of(Generators.enumValues(RoleClass.class).next());
-        var exception = assertThrows(NullPointerException.class, () -> RoleUse.builder()
+        var builder = RoleUse.builder()
                 .role(role)
                 .acceptedClasses(acceptedClasses)
-                .consultation(false)
-                .build());
+                .consultation(false);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }

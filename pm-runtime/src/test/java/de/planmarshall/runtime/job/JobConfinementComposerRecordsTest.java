@@ -49,10 +49,10 @@ class JobConfinementComposerRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing runtime base like the constructor")
     void composerBuilderRefusesMissingBase() {
-        var refusal = assertThrows(NullPointerException.class, () -> JobConfinementComposer.builder()
+        var builder = JobConfinementComposer.builder()
                 .systemTemp(Path.of("/tmp", Generators.letterStrings(1, 20).next()))
-                .deviceRoot(Path.of("/dev", Generators.letterStrings(1, 20).next()))
-                .build());
+                .deviceRoot(Path.of("/dev", Generators.letterStrings(1, 20).next()));
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("base", refusal.getMessage(), "the refusal names the runtime base");
     }

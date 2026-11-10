@@ -53,11 +53,11 @@ class ModelWaitRecordsTest {
         var startedAt = Instant.EPOCH.plusSeconds(Generators.integers(1, 1_000).next());
         var window = Duration.ofSeconds(60);
         var interval = Duration.ofSeconds(5);
-        var exception = assertThrows(NullPointerException.class, () -> ModelWait.Progress.builder()
+        var builder = ModelWait.Progress.builder()
                 .startedAt(startedAt)
                 .window(window)
-                .interval(interval)
-                .build());
+                .interval(interval);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("call", exception.getMessage(), "the builder names the missing call");
     }

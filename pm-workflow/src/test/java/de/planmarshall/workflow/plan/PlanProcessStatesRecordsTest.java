@@ -48,9 +48,9 @@ class PlanProcessStatesRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing node")
     void nodeStateBuilderRefusesMissingNode() {
-        var exception = assertThrows(NullPointerException.class, () -> PlanProcessStates.NodeState.builder()
-                .state(PlanProcessStates.State.DONE)
-                .build());
+        var builder = PlanProcessStates.NodeState.builder()
+                .state(PlanProcessStates.State.DONE);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("node", exception.getMessage(), "the builder names the missing node");
     }

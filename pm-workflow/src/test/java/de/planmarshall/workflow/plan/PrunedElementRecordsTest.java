@@ -48,11 +48,11 @@ class PrunedElementRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing element kind")
     void prunedElementBuilderRefusesMissingElement() {
-        var exception = assertThrows(NullPointerException.class, () -> PrunedElement.builder()
+        var builder = PrunedElement.builder()
                 .id(Generators.letterStrings(1, 20).next())
                 .reason(PruneReason.POSTURE)
-                .sourceFact("posture")
-                .build());
+                .sourceFact("posture");
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("element", exception.getMessage(), "the builder names the missing element kind");
     }

@@ -58,8 +58,8 @@ class ResponseBuilderTest {
     @Test
     @DisplayName("the builder refuses a missing outcome like the constructor")
     void builderRefusesMissingOutcome() {
-        var refusal = assertThrows(NullPointerException.class,
-                () -> Response.builder().status(200).body("").detail("").build());
+        var builder = Response.builder().status(200).body("").detail("");
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("outcome", refusal.getMessage(), "the refusal names the missing outcome");
     }

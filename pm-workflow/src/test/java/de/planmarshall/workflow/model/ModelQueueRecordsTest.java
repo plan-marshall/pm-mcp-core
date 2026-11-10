@@ -70,7 +70,7 @@ class ModelQueueRecordsTest {
         var harness = Generators.letterStrings(1, 8).next();
         var model = Generators.letterStrings(1, 8).next();
         var effort = new EffortValue(Generators.letterStrings(1, 8).next());
-        var exception = assertThrows(NullPointerException.class, () -> ModelQueue.Enqueue.builder()
+        var builder = ModelQueue.Enqueue.builder()
                 .scopeId(scopeId)
                 .entityKey(entityKey)
                 .role(role)
@@ -79,8 +79,8 @@ class ModelQueueRecordsTest {
                 .harness(harness)
                 .model(model)
                 .effort(effort)
-                .consultation(false)
-                .build());
+                .consultation(false);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }
@@ -112,12 +112,12 @@ class ModelQueueRecordsTest {
         var entityKey = Generators.letterStrings(1, 8).next();
         var role = "role-" + Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789", 2, 8).next();
         var reason = ModelCallResult.ROLE_UNAVAILABLE;
-        var exception = assertThrows(NullPointerException.class, () -> ModelQueue.Close.builder()
+        var builder = ModelQueue.Close.builder()
                 .scopeId(scopeId)
                 .entityKey(entityKey)
                 .role(role)
-                .reason(reason)
-                .build());
+                .reason(reason);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }

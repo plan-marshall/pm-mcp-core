@@ -64,15 +64,15 @@ class ConsultationRequestRecordsTest {
         var generationId = "l-" + Generators.strings("0123456789abcdef", 16, 16).next();
         var role = "role-" + Generators.strings("abcdefghijklmnopqrstuvwxyz0123456789", 2, 8).next();
         var at = Instant.EPOCH.plusSeconds(Generators.integers(1, 1_000).next());
-        var exception = assertThrows(NullPointerException.class, () -> ConsultationRequest.builder()
+        var builder = ConsultationRequest.builder()
                 .askingTaskId(askingTaskId)
                 .generationId(generationId)
                 .role(role)
                 .roleClass(RoleClass.READ_ONLY)
                 .formDowngraded(false)
                 .declaredRoles(List.of(role))
-                .at(at)
-                .build());
+                .at(at);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("question", exception.getMessage(), "the builder names the missing question");
     }

@@ -48,11 +48,11 @@ class ViolationRecordsTest {
     @Test
     @DisplayName("Violation builder refuses a missing rule")
     void violationBuilderRefusesMissingRule() {
-        var exception = assertThrows(NullPointerException.class, () -> Violation.builder()
+        var builder = Violation.builder()
                 .stateId(Generators.letterStrings(1, 20).next())
                 .location(WorkflowGenerators.sourceLocations().next())
-                .message(Generators.letterStrings(1, 60).next())
-                .build());
+                .message(Generators.letterStrings(1, 60).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("rule", exception.getMessage(), "the builder names the missing rule");
     }

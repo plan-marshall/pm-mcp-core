@@ -53,11 +53,11 @@ class CompositionRuleRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing rule id")
     void compositionRuleBuilderRefusesMissingId() {
-        var exception = assertThrows(NullPointerException.class, () -> CompositionRule.builder()
+        var builder = CompositionRule.builder()
                 .when(new CompositionRule.Empty(Generators.letterStrings(1, 20).next()))
                 .prunes(List.of())
-                .bindings(List.of())
-                .build());
+                .bindings(List.of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("id", exception.getMessage(), "the builder names the missing rule id");
     }

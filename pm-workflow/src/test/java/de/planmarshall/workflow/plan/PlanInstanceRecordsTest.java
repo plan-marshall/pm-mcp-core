@@ -60,12 +60,12 @@ class PlanInstanceRecordsTest {
     void planInstanceBuilderRefusesMissingHeader() {
         var unit = PlanFixtures.template();
 
-        var exception = assertThrows(NullPointerException.class, () -> PlanInstance.builder()
+        var builder = PlanInstance.builder()
                 .version(unit.version())
                 .unit(unit)
                 .text(Generators.letterStrings(1, 20).next())
-                .units(List.of())
-                .build());
+                .units(List.of());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("header", exception.getMessage(), "the builder names the missing header");
     }

@@ -47,9 +47,9 @@ class SimplifyStepRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing role like the constructor")
     void reviewTaskBuilderRefusesMissingRole() {
-        var exception = assertThrows(NullPointerException.class, () -> SimplifyStep.ReviewTask.builder()
-                .skill(Generators.letterStrings(1, 40).next())
-                .build());
+        var builder = SimplifyStep.ReviewTask.builder()
+                .skill(Generators.letterStrings(1, 40).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("role", exception.getMessage(), "the builder names the missing role");
     }

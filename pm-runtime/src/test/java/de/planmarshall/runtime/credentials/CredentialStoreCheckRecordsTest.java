@@ -51,12 +51,12 @@ class CredentialStoreCheckRecordsTest {
     @Test
     @DisplayName("the check line builder refuses a missing step like the constructor")
     void checkLineBuilderRefusesMissingStep() {
-        var refusal = assertThrows(NullPointerException.class, () -> CredentialStoreCheck.CheckLine.builder()
+        var builder = CredentialStoreCheck.CheckLine.builder()
                 .outcome(Generators.enumValues(CredentialStoreCheck.Outcome.class).next())
                 .messageKey(CredentialStoreCheck.MESSAGE_KEY_PREFIX + Generators.letterStrings(1, 20).next())
                 .arguments(List.of(Generators.letterStrings(1, 20).next()))
-                .answer(Generators.letterStrings(1, 40).next())
-                .build());
+                .answer(Generators.letterStrings(1, 40).next());
+        var refusal = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("step", refusal.getMessage(), "the refusal names the missing step");
     }

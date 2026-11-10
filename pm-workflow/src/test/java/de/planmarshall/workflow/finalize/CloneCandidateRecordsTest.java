@@ -49,12 +49,12 @@ class CloneCandidateRecordsTest {
     @Test
     @DisplayName("the builder refuses a missing added path like the constructor")
     void cloneCandidateBuilderRefusesMissingAddedPath() {
-        var exception = assertThrows(NullPointerException.class, () -> CloneCandidate.builder()
+        var builder = CloneCandidate.builder()
                 .addedRange(new LineRange(1, 10))
                 .existingPath(Generators.letterStrings(1, 20).next())
                 .existingRange(new LineRange(2, 20))
-                .tokens(Generators.integers(CloneCandidate.MIN_TOKENS, 1_000).next())
-                .build());
+                .tokens(Generators.integers(CloneCandidate.MIN_TOKENS, 1_000).next());
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("addedPath", exception.getMessage(), "the builder names the missing added path");
     }

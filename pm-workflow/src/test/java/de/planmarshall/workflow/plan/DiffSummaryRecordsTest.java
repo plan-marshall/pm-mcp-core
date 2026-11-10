@@ -80,11 +80,11 @@ class DiffSummaryRecordsTest {
         var previous = new CallValue.IntValue(Generators.integers(0, 50).next());
         var value = new CallValue.IntValue(previous.value() + 1);
 
-        var exception = assertThrows(NullPointerException.class, () -> DiffSummary.CeilingChange.builder()
+        var builder = DiffSummary.CeilingChange.builder()
                 .argument(Generators.letterStrings(1, 20).next())
                 .previous(previous)
-                .value(value)
-                .build());
+                .value(value);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("callSite", exception.getMessage(), "the builder names the missing call site");
     }

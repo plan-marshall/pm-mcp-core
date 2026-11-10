@@ -55,11 +55,11 @@ class WorkflowEngineRecordsTest {
         var tasks = new EngineFixtures.RecordingQueueTaskCreator();
         var questions = new EngineFixtures.FixedQuestionRecordReader();
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
-        var exception = assertThrows(NullPointerException.class, () -> WorkflowEngine.Ports.builder()
+        var builder = WorkflowEngine.Ports.builder()
                 .tasks(tasks)
                 .questions(questions)
-                .clock(clock)
-                .build());
+                .clock(clock);
+        var exception = assertThrows(NullPointerException.class, builder::build);
 
         assertEquals("jobs", exception.getMessage(), "the builder names the missing jobs port");
     }
