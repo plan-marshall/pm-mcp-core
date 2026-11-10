@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.Builder;
 
 import de.planmarshall.core.role.RoleClass;
 
@@ -587,6 +588,7 @@ public final class ProfileStages {
      * @param weights        the weights identity per model, where the profile declares a probe; empty otherwise
      * @since 0.1
      */
+    @Builder
     public record EndpointIdentity(boolean passed, String executablePath, String version, List<String> models,
     Map<String, String> weights) {
 
@@ -617,6 +619,7 @@ public final class ProfileStages {
      *                     none
      * @since 0.1
      */
+    @Builder
     public record EndpointLaunch(boolean passed, boolean readiness, String resultSchema, boolean streamingOff,
     Map<String, String> probes) {
 
@@ -695,6 +698,7 @@ public final class ProfileStages {
      * @param stages   the stages this verification ran, in the order they ran
      * @since 0.1
      */
+    @Builder
     public record EndpointVerification(EndpointIdentity identity, EndpointLaunch launch, EndpointClasses classes,
     EndpointLimits limits, List<String> stages) {
 

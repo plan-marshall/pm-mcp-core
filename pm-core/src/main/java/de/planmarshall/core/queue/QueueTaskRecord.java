@@ -623,6 +623,7 @@ Instant createdAt, @Nullable Instant closedAt) {
      * @param fallbackReason  why the continuation fell back; {@code null} when it did not
      * @since 0.1
      */
+    @Builder
     public record Continuation(String questionId, ContinuationForm form, @Nullable Instant holdUntil,
     @Nullable String sessionId, @Nullable Instant suspendedAt, @Nullable Instant resumeUntil,
     @Nullable String suspendedDigest, @Nullable String suspendedHead, @Nullable FallbackReason fallbackReason) {
@@ -653,6 +654,7 @@ Instant createdAt, @Nullable Instant closedAt) {
      * @param acknowledgedAt the instant the {@code ack} link was followed; {@code null} until then
      * @since 0.1
      */
+    @Builder
     public record Lease(String generationId, String jobId, Instant leasedAt, @Nullable Instant acknowledgedAt) {
 
         /**
@@ -683,6 +685,7 @@ Instant createdAt, @Nullable Instant closedAt) {
      * @param counts              whether the attempt spent a re-offer
      * @since 0.1
      */
+    @Builder
     public record Attempt(int attempt, String generationId, String jobId, String configurationDigest,
     Instant offeredAt, @Nullable Instant acknowledgedAt, @Nullable Instant endedAt, @Nullable AttemptEnd end,
     boolean counts) {
@@ -732,6 +735,7 @@ Instant createdAt, @Nullable Instant closedAt) {
      * @param at          when the signal was raised
      * @since 0.1
      */
+    @Builder
     public record Signal(SignalName signal, int attempt, SignalAction action, double measurement, double threshold,
     Instant at) {
 
@@ -773,6 +777,7 @@ Instant createdAt, @Nullable Instant closedAt) {
      * @param deliveredTo    where the answer was delivered; {@code null} until then
      * @since 0.1
      */
+    @Builder
     public record Consultation(String consultationId, String role, String askedBy, Instant askedAt,
     ConsultationStatus status, @Nullable String answer, @Nullable Instant closedAt, @Nullable Instant deliveredAt,
     @Nullable DeliveredTo deliveredTo) {

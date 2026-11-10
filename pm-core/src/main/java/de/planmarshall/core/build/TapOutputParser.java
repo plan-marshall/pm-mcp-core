@@ -106,8 +106,9 @@ public class TapOutputParser {
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
         boolean successMarker = printsPassingSummary(status, testCounts);
-        return new ParsedBuild(diagnostics, status, successMarker, testCounts,
-                ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
+                .testCounts(testCounts)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false)).build();
     }
 
     /**
@@ -161,9 +162,9 @@ public class TapOutputParser {
         String message = block.errorMessage().isEmpty() ? testName : block.errorMessage();
         if (!message.isBlank()) {
             Location location = location(block.location());
-            var diagnostic = new Diagnostic(location.file(), location.line(), null,
-                    DiagnosticCollector.stored(message), Category.TEST_FAILURE, Severity.ERROR,
-                    block.stackTrace());
+            var diagnostic = Diagnostic.builder().file(location.file()).line(location.line())
+                    .message(DiagnosticCollector.stored(message)).category(Category.TEST_FAILURE)
+                    .severity(Severity.ERROR).stackTrace(block.stackTrace()).build();
             if (seen.add(DiagnosticCollector.key(diagnostic))) {
                 diagnostics.add(diagnostic);
             }

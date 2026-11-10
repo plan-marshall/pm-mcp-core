@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonDocument;
@@ -40,6 +41,7 @@ import de.planmarshall.core.role.RoleSkill;
  * @param residency        the residency of each required skill, in the order the task names them
  * @since 0.1
  */
+@Builder
 public record NavigationFigures(Figure cacheReadShare, Figure revisits, Figure languageServerUse,
 Figure fallbackToReadRate, List<SkillResidency> residency) {
 

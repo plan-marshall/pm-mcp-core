@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * @param deviceId  the paired device, for a {@code web} entry; {@code null} when none is named
  * @since 0.1
  */
+@Builder
 public record Consent(ConsentKind kind, @Nullable String projectId, List<ConsentScript> scripts, Instant grantedAt,
 Channel channel, @Nullable String deviceId) {
 

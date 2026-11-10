@@ -113,8 +113,9 @@ public class NpmErrorParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
         boolean successMarker = status == BuildStatus.SUCCESS && printsInstallSummary(lines);
-        return new ParsedBuild(diagnostics, status, successMarker, null,
-                ParsedBuild.noTestsRanFrom(status, successMarker, null, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
+                .testCounts(null)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, null, false)).build();
     }
 
     /**
@@ -153,13 +154,12 @@ public class NpmErrorParser {
 
     private static Diagnostic diagnostic(String code, List<String> block) {
         return switch (code) {
-            case ERESOLVE -> new Diagnostic(PACKAGE_JSON, null, null, eresolveMessage(block), Category.NPM_DEPENDENCY,
-                    Severity.ERROR, null);
-            case E404 -> new Diagnostic(PACKAGE_JSON, null, null, e404Message(block), Category.NPM_ERROR, Severity.ERROR,
-                    null);
-            default -> new Diagnostic(null, null, null,
-                    storedRedacted(code + ": " + firstLine(block)),
-                    Category.NPM_ERROR, Severity.ERROR, null);
+            case ERESOLVE -> Diagnostic.builder().file(PACKAGE_JSON).message(eresolveMessage(block))
+                    .category(Category.NPM_DEPENDENCY).severity(Severity.ERROR).build();
+            case E404 -> Diagnostic.builder().file(PACKAGE_JSON).message(e404Message(block))
+                    .category(Category.NPM_ERROR).severity(Severity.ERROR).build();
+            default -> Diagnostic.builder().message(storedRedacted(code + ": " + firstLine(block)))
+                    .category(Category.NPM_ERROR).severity(Severity.ERROR).build();
         };
     }
 

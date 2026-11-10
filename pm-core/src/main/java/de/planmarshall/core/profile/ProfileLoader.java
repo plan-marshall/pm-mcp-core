@@ -113,8 +113,9 @@ public final class ProfileLoader {
                 var name = PROFILE_NAME.formatted(PROFILES, clientId, SUFFIX);
                 var profile = ProfileValidator.validate(entry.getValue().document(), name, rules);
                 requireClientId(profile, clientId, name);
-                place(new LoadedProfile(clientId, ProfileSetKind.SHIPPED, profile, entry.getValue().document(),
-                        LoadedProfile.State.VERIFIED, null), effective, refused);
+                place(LoadedProfile.builder().clientId(clientId).kind(ProfileSetKind.SHIPPED).document(profile)
+                                .bytes(entry.getValue().document()).state(LoadedProfile.State.VERIFIED).build(), effective,
+                        refused);
             } catch (ProfileRefusal refusal) {
                 refused.add(new ProfileSet.RefusedProfile(clientId, ProfileSetKind.SHIPPED, refusal));
             }
@@ -181,8 +182,8 @@ public final class ProfileLoader {
             if (ProfileValidator.isEndpoint(profile)) {
                 // An endpoint profile declares no supported_versions range: another build of the serving program cannot
                 // be judged against one, so the record keeps its state and launches go on.
-                return new LoadedProfile(clientId, kind, profile, document,
-                        LoadedProfile.State.VERIFIED_ON_OTHER_BUILD, verification);
+                return LoadedProfile.builder().clientId(clientId).kind(kind).document(profile).bytes(document)
+                        .state(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD).verificationRecord(verification).build();
             }
             var supported = profile.member("headless")
                     .filter(headless -> !headless.isNull())
@@ -197,7 +198,8 @@ public final class ProfileLoader {
             }
             state = LoadedProfile.State.VERIFIED_ON_OTHER_BUILD;
         }
-        return new LoadedProfile(clientId, kind, profile, document, state, verification);
+        return LoadedProfile.builder().clientId(clientId).kind(kind).document(profile).bytes(document).state(state)
+                .verificationRecord(verification).build();
     }
 
     private VerificationRecord verificationRecord(Path directory, String clientId, String name) {

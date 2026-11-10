@@ -92,8 +92,9 @@ public class JestOutputParser {
         BuildStatus status = diagnostics.isEmpty() && !printsFailedSummary(lines)
                 ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
         boolean successMarker = printsPassingSummary(status, testCounts);
-        return new ParsedBuild(diagnostics, status, successMarker, testCounts,
-                ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false));
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
+                .testCounts(testCounts)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false)).build();
     }
 
     /**
@@ -151,8 +152,8 @@ public class JestOutputParser {
         }
         Integer line = file == null ? null : stackLocation(stack);
         String stackTrace = String.join("\n", stack);
-        var diagnostic = new Diagnostic(file, line, null, DiagnosticCollector.stored(test), Category.TEST_FAILURE,
-                Severity.ERROR, stackTrace);
+        var diagnostic = Diagnostic.builder().file(file).line(line).message(DiagnosticCollector.stored(test))
+                .category(Category.TEST_FAILURE).severity(Severity.ERROR).stackTrace(stackTrace).build();
         if (seen.add(DiagnosticCollector.key(diagnostic))) {
             diagnostics.add(diagnostic);
         }

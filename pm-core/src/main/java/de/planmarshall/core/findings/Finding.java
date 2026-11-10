@@ -236,6 +236,7 @@ Instant createdAt,
      * @param failureKind   the kind of the failure, from the check's log
      * @param requiredCheck whether the check is a required check of the base branch
      */
+    @Builder
     public record CiFailure(String checkName, FailureClass failureClass, FailureKind failureKind,
     boolean requiredCheck) {
 
@@ -509,6 +510,7 @@ Instant createdAt,
      * @param issueKey    the analysis provider's own key of the issue, at most 256 characters, set only for an
      *                    analysis finding; nullable
      */
+    @Builder
     public record ProviderRef(@Nullable Integer prNumber, @Nullable String threadId, @Nullable String commentId,
     @Nullable CommentKind commentKind, @Nullable String issueKey) {
 

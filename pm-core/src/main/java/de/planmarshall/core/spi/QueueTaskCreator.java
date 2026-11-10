@@ -11,6 +11,7 @@ package de.planmarshall.core.spi;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -44,6 +45,7 @@ public interface QueueTaskCreator {
      * @param role the name of the role whose worker takes the task
      * @since 0.1
      */
+    @Builder
     record CreateRequest(@Nullable String scopeId, String stateId, String entityKey, String role) {
 
         /**
