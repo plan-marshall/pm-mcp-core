@@ -407,7 +407,7 @@ final class UnitGraph {
      *
      * @param stateIds the states of the unit, in declaration order
      * @param graph    the graph of the unit
-     * @return the states that lie on a cycle, in declaration order
+     * @return the states that lie on a cycle
      */
     private static Set<String> cyclicStates(List<String> stateIds, UnitGraph graph) {
         var known = new LinkedHashSet<>(stateIds);

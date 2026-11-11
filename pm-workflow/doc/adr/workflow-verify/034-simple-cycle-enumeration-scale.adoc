@@ -25,7 +25,9 @@ shape of a phase with `k` remediation call sites each looping back to one gate, 
 branch-and-rejoin sections whose cycles are few. The test keeps the pre-change implementation as a private oracle and
 bounds each large unit at 15 seconds, a limit of the test rather than a benchmark.
 
-Measured on the development host (`mvn test -pl pm-workflow -am -Dtest=UnitGraphCycleScaleTest`, surefire report):
+Measured on the development host, with the test run through the project's Maven command
+(`test -pl pm-workflow -am -Dtest=UnitGraphCycleScaleTest`) and read from its surefire report. The times are of that
+host and that run, not a benchmark:
 
 [cols="2,1,1,1,2,1",options="header"]
 |===
@@ -56,6 +58,10 @@ Measured on the development host (`mvn test -pl pm-workflow -am -Dtest=UnitGraph
 The family-(c) unit did not finish inside the bound: its branch-and-rejoin sections carry `2^100` simple paths of
 increasing index while the unit itself carries two cycles. The impractical case is therefore not only the family-(a)
 worst case; a unit of the size the product's units will have can overrun the bound without carrying many cycles.
+
+The twelve default fixture units of `pm-workflow/src/test/resources/unit-fixtures/defaults/` (4 to 17 states each) are
+the fourth measured population: the same test compares both implementations on all of them in 0.263 s before the change
+and 0.096 s after it, and the retained oracle reports the same cycles in the same order for every one of them.
 
 == Decision
 

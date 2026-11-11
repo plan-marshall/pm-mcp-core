@@ -67,7 +67,7 @@ class UnitGraphCycleScaleTest {
 
             var expected = legacyFindSimpleCycles(unit);
 
-            assertEquals(expected, UnitGraph.findSimpleCycles(unit), () -> fixture + " agrees with the legacy result");
+            assertEquals(expected, UnitGraph.findSimpleCycles(unit), () -> fixture);
         }
     }
 
@@ -115,6 +115,27 @@ class UnitGraphCycleScaleTest {
         assertEquals(2, found.size(), "the sprawling unit carries exactly two cycles");
         assertEquals(3 * SMALL_SECTIONS + 5, unit.states().size(), "three states per section, five around");
         assertEquals(4 * SMALL_SECTIONS + 6, edgeCount(unit), "four edges per section, six around");
+    }
+
+    @Test
+    @DisplayName("A unit whose only cycle is a state's own loop enumerates it once")
+    void selfLoopMatchesLegacy() {
+        var unit = parse("self-loop", """
+                state scale.entry
+                    auto test.proceed
+                        again -> scale.entry
+                        done -> scale.done
+
+                state scale.done terminal done success
+                """);
+
+        var expected = legacyFindSimpleCycles(unit);
+        var found = UnitGraph.findSimpleCycles(unit);
+
+        assertEquals(expected, found, "the self loop agrees with the legacy result");
+        assertEquals(List.of(List.of("scale.entry", "scale.entry")), found, "the self loop is one cycle");
+        assertEquals(2, unit.states().size(), "the unit declares two states");
+        assertEquals(2, edgeCount(unit), "the loop and the exit are two edges");
     }
 
     @Test
