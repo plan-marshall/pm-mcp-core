@@ -3,8 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-02
 origin: PLAN-120 of the epic pm-mcp-core-m2-m4
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-57-default-plan-lanes-and-run.md` and is queued as one row file, `queue/PLAN-V2-57.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -90,10 +91,14 @@ The fixture corpus `unit-fixtures/defaults/` is the shape the product's plan uni
 - Package bookkeeping (R01/R05): the package `phase-sub-workflows` stays open (see Expected Surface); no package file of its own.
 - Adjacent to: `plan-marshall-mcp` / `default-units-and-drift-tests` (blocked: the real units, the drift tests and the end-to-end test over the real default plan), which this plan's fixtures and test class are the model for.
 
+## Landing
+
+This plan runs under the plan lifecycle (`/plan-marshall`; lane changed from `runbook` to `plan-marshall` on 2026-11-11, the operator's word "as recommended", because it is a normal plan and not a residue or a small one). Its `request.md` `source_id` points at this spec, so `orchestrator inbox detect` classifies it as orchestrated and its phase 6 files one `landing` message in the epic inbox with the `landing-facts` block of `standards/landing-payload-spec.md`; the orchestrator reconciles the row from it and from the pull request. The plan writes nothing else under `.plan/orchestrator/`.
+
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-57-default-plan-lanes-and-run.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-57-default-plan-lanes-and-run.md"
 ```
 
 ## Write-Boundary

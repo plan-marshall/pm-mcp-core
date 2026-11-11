@@ -2,10 +2,10 @@
   "id": "PLAN-V2-81",
   "slug": "machine-stores-residue",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-81-machine-stores-residue",
+  "pr": "#368",
+  "landing": "landings/PLAN-V2-81.md",
   "seq": 81
 }
