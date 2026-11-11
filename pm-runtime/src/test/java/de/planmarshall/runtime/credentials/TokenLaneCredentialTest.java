@@ -49,11 +49,14 @@ class TokenLaneCredentialTest {
     @Test
     @DisplayName("an entry refuses an empty secret and a URL that is not https with a host")
     void refusals() {
+        var https = URI.create("https://example.com");
+        var http = URI.create("http://example.com");
+
         var emptySecret = assertThrows(IllegalArgumentException.class,
-                () -> new TokenLaneCredential.Entry("", URI.create("https://example.com")),
+                () -> new TokenLaneCredential.Entry("", https),
                 "an empty secret is refused");
         var plainHttp = assertThrows(IllegalArgumentException.class,
-                () -> new TokenLaneCredential.Entry(secret, URI.create("http://example.com")),
+                () -> new TokenLaneCredential.Entry(secret, http),
                 "a URL that is not https is refused");
 
         assertAll(

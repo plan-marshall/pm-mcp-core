@@ -355,7 +355,7 @@ public class MachineConfigurationCodec {
                     default -> throw undeclared(field);
                 }
             }
-            requireFields(seen, "verification", FIELD_PASSED, FIELD_AT, FIELD_CHECKS);
+            requireFields(seen, FIELD_VERIFICATION, FIELD_PASSED, FIELD_AT, FIELD_CHECKS);
             try {
                 return new VerificationResult(passed, at, checks);
             } catch (IllegalArgumentException | NullPointerException e) {

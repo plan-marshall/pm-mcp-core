@@ -271,9 +271,10 @@ class MachineConfigurationStoreTest {
     void foreignPath() {
         var foreign = base.resolve("state").resolve(MachineConfigurationStore.FILE_NAME);
         var storeFile = new AtomicStoreFile(foreign, LockKey.machineConfiguration(base));
+        var locks = new TestLocks();
 
         var refused = assertThrows(IllegalArgumentException.class,
-                () -> new MachineConfigurationStore(storeFile, new TestLocks()),
+                () -> new MachineConfigurationStore(storeFile, locks),
                 "a store file outside the base of its lock key is refused");
 
         assertAll(
@@ -289,12 +290,14 @@ class MachineConfigurationStoreTest {
     void variantOmitted() {
         var github = ProviderDefault.verified(result(), null);
         var git = ProviderDefault.verified(result(), null);
+        var githubDefaults = Map.of(Provider.GITHUB, github);
+        var gitDefaults = Map.of(Provider.GIT, git);
 
         var refusedGithub = assertThrows(IllegalArgumentException.class,
-                () -> new ProviderDefaults(Map.of(Provider.GITHUB, github)),
+                () -> new ProviderDefaults(githubDefaults),
                 "github records a cli variant and must name one");
         var refusedGit = assertThrows(IllegalArgumentException.class,
-                () -> new ProviderDefaults(Map.of(Provider.GIT, git)),
+                () -> new ProviderDefaults(gitDefaults),
                 "git records a cli variant and must name one");
 
         assertAll(
@@ -327,12 +330,15 @@ class MachineConfigurationStoreTest {
     @Test
     @DisplayName("an available provider without a verification result is refused")
     void unverifiedAvailableRefused() {
-        var refused = assertThrows(IllegalArgumentException.class,
-                () -> new ProviderDefaults(Map.of(Provider.GITHUB,
-                        new ProviderDefault(true, ProviderVariant.NATIVE, null, null))),
+        var refused = assertThrows(IllegalArgumentException.class, this::unverifiedGithub,
                 "an available provider without a verification result is refused");
 
         assertTrue(refused.getMessage().contains("verification"), "the refusal must name the verification");
+    }
+
+    private ProviderDefaults unverifiedGithub() {
+        return new ProviderDefaults(Map.of(Provider.GITHUB,
+                new ProviderDefault(true, ProviderVariant.NATIVE, null, null)));
     }
 
     @Test

@@ -80,14 +80,18 @@ class ModelCatalogueCodecTest {
     @Test
     @DisplayName("an unknown member, a negative revision and a harness outside the client-id grammar are refused")
     void refusedDocuments() {
-        var unknown = assertThrows(StoreRefusal.class, () -> ModelCatalogueCodec.read(file,
-                        "{\"format_version\":1,\"revision\":1,\"harnesses\":{},\"unknown\":1}".getBytes(UTF_8)),
+        // Contract literals: the member names and the client-id grammar's upper case
+        var unknownBytes = "{\"format_version\":1,\"revision\":1,\"harnesses\":{},\"unknown\":1}".getBytes(UTF_8);
+        var negativeBytes = "{\"format_version\":1,\"revision\":-1,\"harnesses\":{}}".getBytes(UTF_8);
+        var notAClientIdBytes = "{\"format_version\":1,\"revision\":1,\"harnesses\":{\"Harness\":{\"models\":[]}}}"
+                .getBytes(UTF_8);
+
+        var unknown = assertThrows(StoreRefusal.class, () -> ModelCatalogueCodec.read(file, unknownBytes),
                 "an unknown member must be refused");
-        var negative = assertThrows(StoreRefusal.class, () -> ModelCatalogueCodec.read(file,
-                        "{\"format_version\":1,\"revision\":-1,\"harnesses\":{}}".getBytes(UTF_8)),
+        var negative = assertThrows(StoreRefusal.class, () -> ModelCatalogueCodec.read(file, negativeBytes),
                 "a negative revision must be refused");
-        var notAClientId = assertThrows(StoreRefusal.class, () -> ModelCatalogueCodec.read(file,
-                        "{\"format_version\":1,\"revision\":1,\"harnesses\":{\"Harness\":{\"models\":[]}}}".getBytes(UTF_8)),
+        var notAClientId = assertThrows(StoreRefusal.class,
+                () -> ModelCatalogueCodec.read(file, notAClientIdBytes),
                 "a harness outside the client-id grammar must be refused");
 
         assertAll(
@@ -104,10 +108,10 @@ class ModelCatalogueCodecTest {
         var document = """
                 {"format_version":1,"revision":1,"harnesses":{"%s":{"models":[
                  {"model":"%s","source":"invented","recorded_at":"2026-10-29T10:00:00Z"}]}}}"""
-                .formatted(harness, model);
+                .formatted(harness, model)
+                .getBytes(UTF_8);
 
-        var refused = assertThrows(StoreRefusal.class,
-                () -> ModelCatalogueCodec.read(file, document.getBytes(UTF_8)),
+        var refused = assertThrows(StoreRefusal.class, () -> ModelCatalogueCodec.read(file, document),
                 "an unknown source must be refused");
 
         assertEquals(StoreRefusal.Outcome.UNREADABLE, refused.outcome(),

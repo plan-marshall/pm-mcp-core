@@ -65,14 +65,17 @@ class MachineConfigurationCodecTest {
     }
 
     private StoreRefusal readRefused(String document) {
+        var content = bytes(document);
         return assertThrows(StoreRefusal.class,
-                () -> MachineConfigurationCodec.read(file, bytes(document)),
+                () -> MachineConfigurationCodec.read(file, content),
                 "an unreadable document must be refused on read");
     }
 
     private StoreRefusal writeRefused(String document) {
+        var content = bytes(document);
+        var defaults = ProviderDefaults.none();
         return assertThrows(StoreRefusal.class,
-                () -> MachineConfigurationCodec.write(file, bytes(document), ProviderDefaults.none(), revision),
+                () -> MachineConfigurationCodec.write(file, content, defaults, revision),
                 "an unreadable document must be refused on write");
     }
 
