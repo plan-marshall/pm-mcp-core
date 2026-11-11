@@ -14,10 +14,10 @@ Accepted
 `UnitGraph.findSimpleCycles` enumerates the elementary simple cycles of a unit's transition graph. Two checks call it
 for every unit they verify: `CYCLE_AWAITED_EVENT` (`WorkflowValidator.checkCycleAwaitedEvent`) and the compiled
 invariant on capped model loops (`SubWorkflowInvariants.cappedModelLoops`). The implementation started a depth-first
-search at every state and descended only into states of a larger index, which enumerates every simple path that leaves
-a state: its cost follows the number of simple paths, not the number of cycles. Nothing measured that cost on a unit of
-the size or the shape the product's units have, and those units live in `plan-marshall-mcp`, which will run this code
-over them.
+search at every state and descended only into states of a larger index, which walks every simple path from a state that
+keeps to a larger index: its cost follows the number of simple paths, not the number of cycles. Nothing measured that
+cost on a unit of the size or the shape the product's units have, and those units live in `plan-marshall-mcp`, which
+will run this code over them.
 
 The scale test `UnitGraphCycleScaleTest` generates units in the DSL text and parses them with the real parser, in three
 families: (a) a chain of `n` diamonds closed by one loop-back edge, the worst case with `2^n` simple cycles, (b) the
@@ -26,8 +26,9 @@ branch-and-rejoin sections whose cycles are few. The test keeps the pre-change i
 bounds each large unit at 15 seconds, a limit of the test rather than a benchmark.
 
 Measured on the development host, with the test run through the project's Maven command
-(`test -pl pm-workflow -am -Dtest=UnitGraphCycleScaleTest`) and read from its surefire report. The times are of that
-host and that run, not a benchmark:
+(`test -pl pm-workflow -am -Dtest=UnitGraphCycleScaleTest`) and read from the surefire report of each run: the `Before`
+column is the run at the test's first commit, with the production still the legacy method, and the `After` column a run
+of the same test against the restricted method. The times are of that host and those runs, not a benchmark:
 
 [cols="2,1,1,1,2,1",options="header"]
 |===
@@ -60,8 +61,11 @@ increasing index while the unit itself carries two cycles. The impractical case 
 worst case; a unit of the size the product's units will have can overrun the bound without carrying many cycles.
 
 The twelve default fixture units of `pm-workflow/src/test/resources/unit-fixtures/defaults/` (4 to 17 states each) are
-the fourth measured population: the same test compares both implementations on all of them in 0.263 s before the change
-and 0.096 s after it, and the retained oracle reports the same cycles in the same order for every one of them.
+the fourth measured population: the same test compares both implementations on all of them, in 0.263 s of the `Before`
+run and 0.096 s of the `After` run, and the retained oracle reports the same cycles in the same order for every one of
+them. The two large generated units whose legacy enumeration finishes inside the bound — the 16-diamond chain and the
+200-site phase — are compared with the oracle as well; the family-(c) unit is not, because the legacy enumeration does
+not finish on it.
 
 == Decision
 
@@ -77,9 +81,9 @@ component can neither start nor continue one, so the dropped states contribute n
 oracle of the scale test asserts the equality element by element and in order on the twelve default fixture units and on
 the generated small units of every family.
 
-The family-(a) chain stays exponential: its `2^n` cycles are the answer, and no rule refuses such a unit. A cap on the
-number of cycles is a decision of the operator and is not taken here; the enumeration is the cost Rule 11 charges for
-the shape.
+The family-(a) chain stays exponential: its `2^n` cycles are the answer, and no rule bounds the number of cycles such a
+unit carries. A cap on the number of cycles is a decision of the operator and is not taken here; the enumeration is the
+cost Rule 11 charges for the shape.
 
 == Alternatives Considered
 

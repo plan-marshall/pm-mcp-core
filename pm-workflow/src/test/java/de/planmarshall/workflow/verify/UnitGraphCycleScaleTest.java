@@ -64,10 +64,11 @@ class UnitGraphCycleScaleTest {
 
         for (var fixture : fixtures) {
             var unit = VerifyFixtures.parse(fixture);
+            var name = fixture.substring(fixture.lastIndexOf('/') + 1);
 
             var expected = legacyFindSimpleCycles(unit);
 
-            assertEquals(expected, UnitGraph.findSimpleCycles(unit), () -> fixture);
+            assertEquals(expected, UnitGraph.findSimpleCycles(unit), name + " matches the legacy order");
         }
     }
 
@@ -139,26 +140,30 @@ class UnitGraphCycleScaleTest {
     }
 
     @Test
-    @DisplayName("A 16-diamond chain enumerates its 65536 cycles inside the limit")
+    @DisplayName("A 16-diamond chain enumerates its 65536 cycles in the legacy order, inside the limit")
     void largeDiamondChainStaysInsideTheLimit() {
         var unit = diamonds(LARGE_DIAMONDS);
+        var expected = legacyFindSimpleCycles(unit);
 
         var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
                 "the 65536-cycle enumeration stays inside the limit");
 
+        assertEquals(expected, found, "the large chain agrees with the legacy order");
         assertEquals(1 << LARGE_DIAMONDS, found.size(), "the large chain enumerates 2^16 cycles");
         assertEquals(3 * LARGE_DIAMONDS + 1, unit.states().size(), "three states per diamond, one entry");
         assertEquals(4 * LARGE_DIAMONDS + 1, edgeCount(unit), "four edges per diamond, one entry");
     }
 
     @Test
-    @DisplayName("A phase of 200 remediation sites enumerates 200 cycles inside the limit")
+    @DisplayName("A phase of 200 remediation sites enumerates 200 cycles in the legacy order")
     void largePhaseStaysInsideTheLimit() {
         var unit = phase(LARGE_SITES);
+        var expected = legacyFindSimpleCycles(unit);
 
         var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
                 "the 200-site enumeration stays inside the limit");
 
+        assertEquals(expected, found, "the large phase agrees with the legacy order");
         assertEquals(LARGE_SITES, found.size(), "the large phase enumerates one cycle per site");
         assertEquals(LARGE_SITES + 3, unit.states().size(), "one state per site, gate and done");
         assertEquals(2 * LARGE_SITES + 3, edgeCount(unit), "two edges per site, gate and entry");

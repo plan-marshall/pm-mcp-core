@@ -337,9 +337,9 @@ final class UnitGraph {
      * Finds all elementary simple cycles in the unit graph.
      * <p>
      * The search runs inside the strongly connected components that carry a cycle: a state outside such a component
-     * lies on no cycle, and the depth-first search would still enumerate every simple path that leaves it. The
-     * components are computed once, every other state is dropped, and the search keeps the declaration order of the
-     * states and of their successors, so the returned list is the one an unrestricted search finds.
+     * lies on no cycle, and the depth-first search would still walk every simple path from it that keeps to a larger
+     * index. The components are computed once, every other state is dropped, and the search keeps the declaration order
+     * of the states and of their successors, so the returned list is the one an unrestricted search finds.
      *
      * @param definition the workflow definition
      * @return the list of simple cycles, each represented as a sequence of state IDs ending in the start state
