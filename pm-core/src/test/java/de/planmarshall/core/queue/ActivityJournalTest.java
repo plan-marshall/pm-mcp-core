@@ -11,6 +11,7 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -119,13 +120,15 @@ class ActivityJournalTest {
         Files.writeString(lock, "");
 
         journal.delete(TASK);
-        var deleted = !Files.exists(file) && !Files.exists(lock);
+        var journalStillThere = Files.exists(file);
+        var lockStillThere = Files.exists(lock);
         journal.append(TASK, signal(1));
 
         assertAll("a deleted journal",
-                () -> assertTrue(deleted, "the journal and its sibling lock file are deleted"),
-                () -> assertTrue(Files.exists(file), "the key of the deleted journal is acquirable again"),
-                () -> assertEquals(1, journal.entries(TASK).size(), "the journal written again holds one entry"));
+                () -> assertFalse(journalStillThere, "the journal itself is deleted"),
+                () -> assertFalse(lockStillThere, "the sibling lock file is deleted"),
+                () -> assertEquals(1, journal.entries(TASK).size(),
+                        "the journal written again under the key holds one entry"));
     }
 
     @Test

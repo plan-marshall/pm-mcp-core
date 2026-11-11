@@ -1790,9 +1790,9 @@ predecessor read open and close a channel on the store, and on POSIX closing any
 lock the process holds on it. The OS lock of a leaf key is therefore taken on the sidecar `<key.lockFile()>.lock`,
 which no store channel opens; the guarded file itself stays unlocked. For the two factory leaf keys the key names the
 guarded store, so the sidecar is `<store>.lock` beside it; the audit key also guards the audit index, whose appends
-open channels on the index, never on `audit.jsonl.lock`. The sidecar outlives the transaction that took it and is not
-removed by any step of its own: it moves with the plan directory when that is archived, and goes with the directory
-when the plan is deleted (link:{spec}/filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout Specification]). A store guarded by a non-leaf key is not affected: its lock
+open channels on the index, never on `audit.jsonl.lock`. The audit log's and the plan mailbox's sidecars outlive the
+transaction that took them and have no remover of their own: an archived plan directory carries the mailbox's with it,
+and a deleted plan goes with its directory (link:{spec}/filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout Specification]); a journal's sidecar is unlinked only by the journal's own `delete`, in the transaction that holds its leaf key. A store guarded by a non-leaf key is not affected: its lock
 file lies elsewhere than the store (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR 068]).
 
 Tests: `JsonlStoreFileTest`.

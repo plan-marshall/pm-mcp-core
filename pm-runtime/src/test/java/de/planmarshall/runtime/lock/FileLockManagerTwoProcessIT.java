@@ -80,6 +80,9 @@ class FileLockManagerTwoProcessIT {
 
     private Process holder;
 
+    /** The protocol lines the other process wrote before it said it holds the key. */
+    private final List<String> protocolLines = new ArrayList<>();
+
     @BeforeEach
     void ids() {
         projectId = "project-" + Generators.letterStrings(2, 10).next().toLowerCase(Locale.ROOT);
@@ -98,7 +101,10 @@ class FileLockManagerTwoProcessIT {
         }
     }
 
-    /** Starts the other process and returns once it has said that it holds its key. */
+    /**
+     * Starts the other process and returns once it has said that it holds its key. The protocol lines it wrote before
+     * {@link LockHolderProcess#HELD} are kept in {@link #protocolLines}.
+     */
     private void startHolder(String... extra) throws IOException, InterruptedException, ExecutionException,
             TimeoutException {
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
@@ -109,15 +115,21 @@ class FileLockManagerTwoProcessIT {
                 .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .start();
         var reader = new BufferedReader(new InputStreamReader(holder.getInputStream(), StandardCharsets.UTF_8));
-        // Reading the line cannot be interrupted, so it is waited for from outside; ending the process ends the read
-        var line = CompletableFuture.supplyAsync(() -> {
+        // Reading the lines cannot be interrupted, so it is waited for from outside; ending the process ends the read
+        var lines = CompletableFuture.supplyAsync(() -> {
             try {
-                return reader.readLine();
+                var collected = new ArrayList<String>();
+                String line;
+                while ((line = reader.readLine()) != null && !LockHolderProcess.HELD.equals(line)) {
+                    collected.add(line);
+                }
+                return collected;
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }).get(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS);
-        assertEquals(LockHolderProcess.HELD, line, "the other process did not report that it holds the lock");
+        protocolLines.clear();
+        protocolLines.addAll(lines);
     }
 
     /** Lets the other process release the lock and end, and returns its exit code. */
@@ -187,8 +199,7 @@ class FileLockManagerTwoProcessIT {
      * process's append would release it. Seen from this process, the guarded store stays unlocked and the sidecar
      * carries the lock (ADR 068).
      * <p>
-     * Enabled on Linux and macOS only: the behaviour it shows, a close dropping the process's OS locks, is POSIX, and
-     * the probe opens the guarded store for writing, which the other operating systems may refuse.
+     * Enabled on Linux and macOS only: the behaviour it shows, a close dropping the process's OS locks, is POSIX.
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
@@ -201,7 +212,7 @@ class FileLockManagerTwoProcessIT {
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
-        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
 
         assertAll(
                 () -> assertTrue(sidecarLockedWhileHeld,
@@ -209,15 +220,17 @@ class FileLockManagerTwoProcessIT {
                 () -> assertFalse(storeLockedWhileHeld, "the guarded store itself is not locked"),
                 () -> assertEquals(0, exitCode, "exit code of the other process"),
                 () -> assertFalse(sidecarLockedAfterRelease,
-                        "the sidecar is free after the other process released the key"));
+                        "the sidecar is free after the other process released the key"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child appended one line to the audit log"));
     }
 
     /**
      * The mailbox is the second production leaf key ({@code LockKey.mailbox}); its append opens and closes a channel on
      * the mailbox, so a lock taken on the mailbox itself would be dropped by that very append.
      * <p>
-     * Enabled on Linux and macOS only: the POSIX rule that a close releases the process's OS locks is what the test
-     * shows, and the probe opens the guarded store for writing.
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
@@ -230,7 +243,7 @@ class FileLockManagerTwoProcessIT {
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
-        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
 
         assertAll(
                 () -> assertTrue(sidecarLockedWhileHeld,
@@ -238,14 +251,16 @@ class FileLockManagerTwoProcessIT {
                 () -> assertFalse(storeLockedWhileHeld, "the mailbox itself is not locked by the OS"),
                 () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
                 () -> assertFalse(sidecarLockedAfterRelease,
-                        "the mailbox sidecar is free after the child released it"));
+                        "the mailbox sidecar is free after the child released it"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child appended one line to the mailbox"));
     }
 
     /**
      * A tail repair opens and closes a channel on the guarded store, so the OS lock has to survive it as well.
      * <p>
-     * Enabled on Linux and macOS only: the POSIX rule that a close releases the process's OS locks is what the test
-     * shows, and the probe opens the guarded store for writing.
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
@@ -259,7 +274,7 @@ class FileLockManagerTwoProcessIT {
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
-        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
 
         assertAll(
                 () -> assertTrue(sidecarLockedWhileHeld,
@@ -276,8 +291,8 @@ class FileLockManagerTwoProcessIT {
      * The last-line read of an append-only store opens and closes a channel on it too, so the OS lock must survive the
      * read (ADR 068).
      * <p>
-     * Enabled on Linux and macOS only: the POSIX rule that a close releases the process's OS locks is what the test
-     * shows, and the probe opens the guarded store for writing.
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
@@ -291,7 +306,7 @@ class FileLockManagerTwoProcessIT {
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
-        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
 
         assertAll(
                 () -> assertTrue(sidecarLockedWhileHeld,
@@ -299,15 +314,17 @@ class FileLockManagerTwoProcessIT {
                 () -> assertFalse(storeLockedWhileHeld, "the audit log itself is not locked by the OS"),
                 () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
                 () -> assertFalse(sidecarLockedAfterRelease,
-                        "the audit sidecar is free after the child released it"));
+                        "the audit sidecar is free after the child released it"),
+                () -> assertEquals(List.of(LockHolderProcess.LINES_PREFIX + 1), protocolLines,
+                        "the child read the one complete line of the log"));
     }
 
     /**
      * A task's activity journal is the third production leaf key, built by {@code ActivityJournal} as
      * {@code new LockKey(LockLevel.LEAF, <task>.jsonl, id)}; its store write must not release the OS lock either.
      * <p>
-     * Enabled on Linux and macOS only: the POSIX rule that a close releases the process's OS locks is what the test
-     * shows, and the probe opens the guarded store for writing.
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
@@ -322,7 +339,7 @@ class FileLockManagerTwoProcessIT {
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
-        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
 
         assertAll(
                 () -> assertTrue(sidecarLockedWhileHeld,
@@ -330,7 +347,9 @@ class FileLockManagerTwoProcessIT {
                 () -> assertFalse(storeLockedWhileHeld, "the journal itself is not locked by the OS"),
                 () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
                 () -> assertFalse(sidecarLockedAfterRelease,
-                        "the journal sidecar is free after the child released it"));
+                        "the journal sidecar is free after the child released it"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child appended one line to the journal"));
     }
 
     @Test

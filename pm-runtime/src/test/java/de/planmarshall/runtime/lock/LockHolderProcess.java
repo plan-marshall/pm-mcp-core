@@ -16,6 +16,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JsonlStoreFile;
@@ -29,9 +30,10 @@ import de.planmarshall.core.store.LockLevel;
  * Its arguments are the base directory of the runtime, the project id, the plan id and optionally a mode: none for the
  * plan key, or one of {@link #LEAF}, {@link #MAILBOX}, {@link #REPAIR}, {@link #READ} and {@link #JOURNAL}. In a leaf
  * mode it runs one store operation after acquiring the key, because a store write or read is what opens and closes a
- * channel on the guarded file; {@link #JOURNAL} takes the queue task id as a fifth argument. The one line it writes to
- * its standard output is {@link #HELD}; it is the protocol with the process that started it and not a log message, so
- * it goes to the file descriptor itself. Standard input ends when the starting process closes it, and also when that
+ * channel on the guarded file; {@link #JOURNAL} takes the queue task id as a fifth argument. The lines it writes to its
+ * standard output are the protocol with the process that started it and not log messages, so they go to the file
+ * descriptor itself: the {@link #READ} mode first reports how many complete lines it found ({@link #LINES_PREFIX}), and
+ * every mode then writes {@link #HELD}. Standard input ends when the starting process closes it, and also when that
  * process dies, so this process does not outlive it. It then releases the lock and ends with exit code 0; every failure
  * ends it with an exception and another exit code.
  * <p>
@@ -59,6 +61,9 @@ final class LockHolderProcess {
     /** The argument that selects a journal-shaped leaf key and appends one line through its store. */
     static final String JOURNAL = "journal";
 
+    /** The prefix of the line that reports how many complete lines a {@link #READ} found. */
+    static final String LINES_PREFIX = "lines:";
+
     /** The index of the mode among the arguments; the queue task id of {@link #JOURNAL} follows it. */
     private static final int MODE_ARGUMENT = 3;
 
@@ -82,7 +87,8 @@ final class LockHolderProcess {
         var standardOutput = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
         try (var transaction = new FileLockManager(new RecordingAuditSink()).openTransaction()) {
             transaction.acquire(key);
-            operate(key, transaction, mode, args);
+            var operation = operate(key, transaction, mode, args);
+            operation.ifPresent(standardOutput::println);
             standardOutput.println(HELD);
             System.in.transferTo(OutputStream.nullOutputStream());
         }
@@ -106,16 +112,24 @@ final class LockHolderProcess {
         };
     }
 
-    /** Runs the one store operation of a leaf mode; the plan key runs none. */
-    private static void operate(LockKey key, LockTransaction transaction, String mode, String[] args) {
+    /**
+     * Runs the one store operation of a leaf mode; the plan key runs none.
+     *
+     * @return the line that reports what the operation did, or empty when the mode reports nothing
+     */
+    private static Optional<String> operate(LockKey key, LockTransaction transaction, String mode, String[] args) {
         var store = new JsonlStoreFile(key.lockFile(), key);
         switch (mode) {
             case LEAF, MAILBOX, JOURNAL -> store.append(transaction, APPENDED, new RecordingAuditSink());
             case REPAIR -> store.repairTail(transaction, new RecordingAuditSink());
-            case READ -> store.read(transaction);
+            case READ -> {
+                var content = store.read(transaction);
+                return Optional.of(LINES_PREFIX + content.lines().size());
+            }
             default -> {
                 // the plan key holds its lock only
             }
         }
+        return Optional.empty();
     }
 }
