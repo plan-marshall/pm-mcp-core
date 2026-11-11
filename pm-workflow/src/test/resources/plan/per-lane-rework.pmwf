@@ -15,6 +15,10 @@ author: plan-marshall
 # lane. No state of the deep route transitions into the light route. Every rework cycle passes an awaited job
 # (Rule 11b): outline.deep and refine.baseline-reconcile are model jobs, outline.light-review a build job. The deep
 # lane enters its plan call at outline.gate; the light lane enters its own through the approval of the light review.
+# The land lane enters the deep execute call and the adopt lane the pull request of finalize straight from init.ready;
+# neither passes a refine, outline or plan state on its way in, and both belong to no lane the composer prunes. The land
+# lane shares the deep execute call, so a rework exit of that call re-enters outline.deep, as the shared deep call
+# states of the product do.
 workflow plan version 1 format 1
 scope plan
 start init.ready
@@ -23,6 +27,8 @@ state init.ready
     auto test.lane
         deep -> refine.baseline-reconcile
         light -> init.light-gate
+        land -> phases.execute
+        adopt -> finalize.create-pr
 
 state init.light-gate
     auto test.gate
