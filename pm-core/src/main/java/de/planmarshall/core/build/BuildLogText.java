@@ -156,10 +156,11 @@ public class BuildLogText {
     private static byte[] tail(FileChannel channel, long size) throws IOException {
         var from = size - MAX_BYTES;
         var bytes = read(channel, from, size);
-        if (bytes.length == 0 || read(channel, from - 1, from)[0] == '\n') {
+        if (bytes.length == 0) {
             return bytes;
         }
-        return fromLineStart(bytes);
+        var previous = read(channel, from - 1, from);
+        return previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
     }
 
     private static byte[] read(FileChannel channel, long from, long to) throws IOException {

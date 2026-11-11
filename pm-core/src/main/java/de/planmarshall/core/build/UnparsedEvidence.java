@@ -165,8 +165,9 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
     }
 
     /**
-     * Appends one line end, skipping it while nothing has been written: a log that opens with blank lines loses them, as
-     * joining the listed lines lost them, because the first listed line had no separator of its own.
+     * Appends one line end, skipping it while nothing has been written. The replaced algorithm joined the listed lines,
+     * and its line loop wrote a separator only once its accumulator held a line, so a log that opens with blank lines
+     * lost them; the pass keeps that answer.
      */
     private static void appendLineEnd(StringBuilder reduced) {
         if (!reduced.isEmpty()) {
