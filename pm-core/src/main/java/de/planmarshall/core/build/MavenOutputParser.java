@@ -108,6 +108,18 @@ public class MavenOutputParser {
             Pattern.compile(FAILURE_MARKER));
 
     /**
+     * Whether a line can carry an execution header, asked before the expression runs. The header's template needs an
+     * {@code @}, so a line without one cannot match: asked first, a line of repeated {@code --- a:b:c } text no longer
+     * costs one scan per {@code ---} it holds.
+     *
+     * @param line the line to inspect
+     * @return whether the line carries an execution header
+     */
+    static boolean matchesExecutionHeader(String line) {
+        return line.indexOf('@') >= 0 && EXECUTION_HEADER.matcher(line).find();
+    }
+
+    /**
      * Parses a Maven build log.
      *
      * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here, so a colour-coded log
@@ -131,13 +143,14 @@ public class MavenOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+        String bounded = BuildLogText.boundLines(logText);
+        List<String> lines = List.of(bounded.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        TestCounts testCounts = extractTestCounts(logText, lines).orElse(null);
-        BuildStatus status = detectStatus(logText);
-        boolean successMarker = logText.contains(SUCCESS_MARKER);
+        TestCounts testCounts = extractTestCounts(bounded, lines).orElse(null);
+        BuildStatus status = detectStatus(bounded);
+        boolean successMarker = bounded.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
-                logText.contains(NO_TESTS_MARKER));
+                bounded.contains(NO_TESTS_MARKER));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
     }
 
@@ -223,8 +236,9 @@ public class MavenOutputParser {
         private boolean unrepresentable;
 
         void accept(String line) {
-            Matcher header = EXECUTION_HEADER.matcher(line);
-            if (header.find()) {
+            if (matchesExecutionHeader(line)) {
+                Matcher header = EXECUTION_HEADER.matcher(line);
+                header.find();
                 currentRunner = TEST_RUNNERS.get(header.group(1));
                 resultsSeen = false;
             } else if (RESULTS_MARKER.matcher(line.strip()).matches()) {

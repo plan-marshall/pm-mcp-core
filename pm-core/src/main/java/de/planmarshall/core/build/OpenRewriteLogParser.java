@@ -86,36 +86,51 @@ public class OpenRewriteLogParser {
     }
 
     private static RewriteLogResult parseStripped(String logText, boolean domainActive) {
-        if (!REWRITE_RUN.matcher(logText).find()) {
+        String bounded = BuildLogText.boundLines(logText);
+        if (!REWRITE_RUN.matcher(bounded).find()) {
             return new RewriteLogResult(RewriteVerdict.NOT_OBSERVED, List.of(), NOT_OBSERVED_REASON);
         }
         if (!domainActive) {
             return new RewriteLogResult(RewriteVerdict.DOMAIN_INACTIVE, List.of(), DOMAIN_INACTIVE_REASON);
         }
         var findings = new ArrayList<RewriteFinding>();
-        for (String rawLine : logText.split("\n", -1)) {
+        for (String rawLine : bounded.split("\n", -1)) {
             String line = stripCarriageReturn(rawLine);
-            Matcher match = FINDING.matcher(line);
-            if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
-                Optional<Integer> lineNumber = digits(match.group(3));
-                Optional<Integer> column = digits(match.group(4));
-                if (lineNumber.isEmpty() || column.isEmpty()) {
-                    return parseError(line, "the finding location is outside the int range");
+            if (mayBeFinding(line)) {
+                Matcher match = FINDING.matcher(line);
+                if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
+                    Optional<Integer> lineNumber = digits(match.group(3));
+                    Optional<Integer> column = digits(match.group(4));
+                    if (lineNumber.isEmpty() || column.isEmpty()) {
+                        return parseError(line, "the finding location is outside the int range");
+                    }
+                    findings.add(RewriteFinding.builder().path(match.group(2)).line(lineNumber.get())
+                            .column(column.get()).recipe(match.group(5)).message(match.group(6))
+                            .classification(
+                                    "100".equals(match.group(1))
+                                            ? RewriteClassification.NEWLY_DETECTED
+                                            : RewriteClassification.PRE_EXISTING)
+                            .build());
+                    continue;
                 }
-                findings.add(RewriteFinding.builder().path(match.group(2)).line(lineNumber.get())
-                        .column(column.get()).recipe(match.group(5)).message(match.group(6))
-                        .classification(
-                                "100".equals(match.group(1))
-                                        ? RewriteClassification.NEWLY_DETECTED
-                                        : RewriteClassification.PRE_EXISTING)
-                        .build());
-                continue;
             }
             if (FINDING_IDENTIFIER.matcher(line).find()) {
                 return parseError(line, "the finding line does not match the pinned template");
             }
         }
         return new RewriteLogResult(RewriteVerdict.OBSERVED, findings, null);
+    }
+
+    /**
+     * Whether a line can carry a finding, asked before the pinned expression runs. Its template needs both the
+     * identifier prefix and the {@code by} that separates the recipe from the message, so a line with neither cannot
+     * match: every other line of a build log now costs two substring scans instead of a scan of the expression.
+     *
+     * @param line the line to inspect
+     * @return whether the line can carry a finding
+     */
+    static boolean mayBeFinding(String line) {
+        return line.indexOf("CUI_REWRITE-10") >= 0 && line.indexOf(" by ") >= 0;
     }
 
     private static RewriteLogResult parseError(String line, String reason) {
