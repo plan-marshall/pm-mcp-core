@@ -16,7 +16,9 @@ author: plan-marshall
 # (Rule 11b): outline.deep and refine.baseline-reconcile are model jobs, outline.light-review a build job. The deep
 # lane enters its plan call at outline.gate; the light lane enters its own through the approval of the light review.
 # The land lane enters the deep execute call and the adopt lane the pull request of finalize straight from init.ready;
-# both pass no refine, outline or plan state and belong to no lane the composer prunes.
+# neither passes a refine, outline or plan state on its way in, and both belong to no lane the composer prunes. The land
+# lane shares the deep execute call, so a rework exit of that call re-enters outline.deep, as the shared deep call
+# states of the product do.
 workflow plan version 1 format 1
 scope plan
 start init.ready
