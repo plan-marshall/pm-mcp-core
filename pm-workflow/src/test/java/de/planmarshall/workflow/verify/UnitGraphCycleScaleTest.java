@@ -38,7 +38,7 @@ class UnitGraphCycleScaleTest {
      */
     private static final Duration LIMIT = Duration.ofSeconds(15);
 
-    /** The largest family-(a) chain still small enough to compare with the retained legacy result. */
+    /** The number of diamonds and of remediation sites of the small families, which are compared with the oracle. */
     private static final int SMALL_DIAMONDS = 5;
 
     /** The number of diamonds of the large family-(a) chain: 2^16 simple cycles. */
