@@ -87,6 +87,18 @@ class UnparsedEvidenceTest {
     }
 
     @Test
+    @DisplayName("leading blank lines are dropped as the listing dropped them")
+    void dropsLeadingBlankLines() {
+        assertAll(
+                () -> assertEquals("Build failed", UnparsedEvidence.of(PLAN, JOB, "\n\nBuild failed\n").excerpt(),
+                        "the blank lines before the content are dropped"),
+                () -> assertEquals("", UnparsedEvidence.of(PLAN, JOB, "\n\n").excerpt(),
+                        "a log of blank lines yields an empty excerpt"),
+                () -> assertEquals("a\n\nb", UnparsedEvidence.of(PLAN, JOB, "a\n\nb").excerpt(),
+                        "a blank line between content lines is kept"));
+    }
+
+    @Test
     @DisplayName("cuts a single line longer than four kilobytes at its end")
     void cutsALongLine() {
         var log = "head" + "x".repeat(10_000) + "tail";

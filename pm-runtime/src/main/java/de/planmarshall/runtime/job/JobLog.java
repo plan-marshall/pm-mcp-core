@@ -225,8 +225,21 @@ public record JobLog(Path path) {
         if (end < 0) {
             return new String(head, StandardCharsets.UTF_8);
         }
-        return new String(head, 0, end + 1, StandardCharsets.UTF_8)
-                + new String(fromLineStart(read(channel, size - MAX_BYTES, size)), StandardCharsets.UTF_8);
+        return new String(head, 0, end + 1, StandardCharsets.UTF_8) + new String(tail(channel, size),
+                StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
+     * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
+     */
+    private static byte[] tail(FileChannel channel, long size) throws IOException {
+        var from = size - MAX_BYTES;
+        var bytes = read(channel, from, size);
+        if (bytes.length == 0 || read(channel, from - 1, from)[0] == '\n') {
+            return bytes;
+        }
+        return fromLineStart(bytes);
     }
 
     /**

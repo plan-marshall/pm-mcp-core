@@ -143,7 +143,7 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
                     run++;
                 }
                 if (run < text.length() && text.charAt(run) == '\n') {
-                    reduced.append('\n');
+                    appendLineEnd(reduced);
                     frameStart = reduced.length();
                     index = run + 1;
                 } else if (run == text.length()) {
@@ -153,7 +153,7 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
                     index = run;
                 }
             } else if (current == '\n') {
-                reduced.append('\n');
+                appendLineEnd(reduced);
                 frameStart = reduced.length();
                 index++;
             } else {
@@ -162,6 +162,16 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
             }
         }
         return reduced.toString();
+    }
+
+    /**
+     * Appends one line end, skipping it while nothing has been written: a log that opens with blank lines loses them, as
+     * joining the listed lines lost them, because the first listed line had no separator of its own.
+     */
+    private static void appendLineEnd(StringBuilder reduced) {
+        if (!reduced.isEmpty()) {
+            reduced.append('\n');
+        }
     }
 
     /**

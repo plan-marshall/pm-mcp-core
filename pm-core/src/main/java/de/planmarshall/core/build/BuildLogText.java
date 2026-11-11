@@ -145,8 +145,21 @@ public class BuildLogText {
             if (size <= MAX_BYTES) {
                 return read(channel, 0, size);
             }
-            return fromLineStart(read(channel, size - MAX_BYTES, size));
+            return tail(channel, size);
         }
+    }
+
+    /**
+     * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
+     * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
+     */
+    private static byte[] tail(FileChannel channel, long size) throws IOException {
+        var from = size - MAX_BYTES;
+        var bytes = read(channel, from, size);
+        if (bytes.length == 0 || read(channel, from - 1, from)[0] == '\n') {
+            return bytes;
+        }
+        return fromLineStart(bytes);
     }
 
     private static byte[] read(FileChannel channel, long from, long to) throws IOException {

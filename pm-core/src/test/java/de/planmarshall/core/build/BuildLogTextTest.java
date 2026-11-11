@@ -125,6 +125,20 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut that begins at a line start keeps that line")
+    void cutAtALineStartKeepsTheLine(@TempDir Path directory) throws Exception {
+        var content = "x\n" + "a".repeat(100) + "\n" + "a".repeat(BuildLogText.MAX_BYTES - 101);
+        Path log = directory.resolve("aligned.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertAll(
+                () -> assertEquals(BuildLogText.MAX_BYTES, text.length(), "the whole window is read"),
+                () -> assertTrue(text.startsWith("a".repeat(100)), "the line at the cut's start is kept"));
+    }
+
+    @Test
     @DisplayName("a log one byte over the cap is read from its end")
     void readsALogOverTheCapFromItsEnd(@TempDir Path directory) throws Exception {
         var content = "h" + "a".repeat(BuildLogText.MAX_BYTES);

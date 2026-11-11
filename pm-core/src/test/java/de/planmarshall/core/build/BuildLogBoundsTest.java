@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.build;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -207,7 +208,7 @@ class BuildLogBoundsTest {
     @DisplayName("hostile pytest section and exception lines return inside the bound")
     void boundsThePytestSectionAndExceptionPatterns() {
         var section = "=" + " ".repeat(4) + "a" + " ".repeat(LIMIT - 7) + "=";
-        var exception = "E x" + fit(" ", LIMIT - 3);
+        var exception = "E x" + "y".repeat(LIMIT - 3);
         var log = "=== ERRORS ===\n"
                 + "____ test_a ____\n"
                 + exception + "\n"
@@ -219,7 +220,10 @@ class BuildLogBoundsTest {
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND, () -> PyprojectOutputParser.parse(log),
                 "the section and exception patterns answer a line of " + LIMIT + " characters");
 
-        assertEquals(1, parsed.diagnostics().size(), "the error summary line locates one diagnostic");
+        assertAll(
+                () -> assertEquals(1, parsed.diagnostics().size(), "the error summary line locates one diagnostic"),
+                () -> assertTrue(parsed.diagnostics().getFirst().message().startsWith("xy"),
+                        "the exception line of the block supplies the message"));
     }
 
     @Test
