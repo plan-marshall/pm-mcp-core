@@ -173,7 +173,7 @@ class BuildLogBoundsTest {
                 () -> OpenRewriteLogParser.parse("--- rewrite:run (\n" + hostile + "\n", true),
                 "a finding line of " + LONG_LINE + " characters is parsed inside the bound");
 
-        assertSame(result.verdict(), RewriteVerdict.PARSE_ERROR, "the hostile line is a parse error");
+        assertSame(RewriteVerdict.PARSE_ERROR, result.verdict(), "the hostile line is a parse error");
     }
 
     @Test
@@ -200,7 +200,7 @@ class BuildLogBoundsTest {
                         true),
                 "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
 
-        assertSame(result.verdict(), RewriteVerdict.PARSE_ERROR, "the hostile line is a parse error");
+        assertSame(RewriteVerdict.PARSE_ERROR, result.verdict(), "the hostile line is a parse error");
     }
 
     @Test
