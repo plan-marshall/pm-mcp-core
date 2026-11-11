@@ -29,10 +29,14 @@ import java.util.Objects;
  */
 public record VerificationResult(boolean passed, Instant at, List<Check> checks) {
 
-    /** Rejects a {@code null} instant and keeps the checks unmodifiable. */
+    /** Rejects a {@code null} instant, keeps the checks unmodifiable, and ties {@code passed} to the flags. */
     public VerificationResult {
         Objects.requireNonNull(at, "at");
         checks = List.copyOf(checks);
+        if (passed != (!checks.isEmpty() && checks.stream().allMatch(Check::ok))) {
+            throw new IllegalArgumentException(
+                    "'passed' must equal: at least one check, and every one of them passed");
+        }
     }
 
     /**

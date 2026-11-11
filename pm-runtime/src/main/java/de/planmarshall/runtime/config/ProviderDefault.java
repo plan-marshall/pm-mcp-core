@@ -42,6 +42,10 @@ public record ProviderDefault(boolean available, @Nullable ProviderVariant varia
             throw new IllegalArgumentException(
                     "A provider recorded available carries a passed verification result");
         }
+        if (!available && verification != null && verification.passed()) {
+            throw new IllegalArgumentException(
+                    "A provider recorded not available carries a failed verification result or none");
+        }
     }
 
     /**

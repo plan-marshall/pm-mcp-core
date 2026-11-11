@@ -108,6 +108,23 @@ class MachineConfigurationSchemaParityTest {
                 "The LSP timeout default is the schema's");
     }
 
+    @Test
+    @DisplayName("the settings bounds of the codec are the schema's")
+    void settingsBounds() {
+        var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
+        var buildSlots = SchemaResource.object(properties.get("max_build_slots"));
+        var lspIdleTimeout = SchemaResource.object(properties.get("lsp_idle_timeout_seconds"));
+
+        assertAll(
+                () -> assertEquals(((Number) buildSlots.get("minimum")).intValue(),
+                        MachineConfigurationCodec.MIN_BUILD_SLOTS, "the lowest build slot count is the schema's"),
+                () -> assertEquals(((Number) buildSlots.get("maximum")).intValue(),
+                        MachineConfigurationCodec.MAX_BUILD_SLOTS, "the highest build slot count is the schema's"),
+                () -> assertEquals(((Number) lspIdleTimeout.get("minimum")).intValue(),
+                        MachineConfigurationCodec.MIN_LSP_IDLE_TIMEOUT_SECONDS,
+                        "the lowest LSP idle timeout is the schema's"));
+    }
+
     private static Map<?, ?> document(byte[] written) {
         return SchemaResource.object(SchemaResource.parse(new String(written, UTF_8)));
     }

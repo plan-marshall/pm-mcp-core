@@ -73,11 +73,11 @@ public class MachineConfigurationCodec {
     private static final String FIELD_OK = "ok";
 
     /** The lowest and highest {@code max_build_slots} the schema admits. */
-    private static final int MIN_BUILD_SLOTS = 1;
-    private static final int MAX_BUILD_SLOTS = 16;
+    static final int MIN_BUILD_SLOTS = 1;
+    static final int MAX_BUILD_SLOTS = 16;
 
     /** The lowest {@code lsp_idle_timeout_seconds} the schema admits. */
-    private static final int MIN_LSP_IDLE_TIMEOUT_SECONDS = 60;
+    static final int MIN_LSP_IDLE_TIMEOUT_SECONDS = 60;
 
     /** The form of a refusal that names the member and the reason. */
     private static final String DETAIL_FORMAT = "%s: %s";

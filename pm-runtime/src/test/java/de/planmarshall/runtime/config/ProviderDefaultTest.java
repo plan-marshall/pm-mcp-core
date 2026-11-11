@@ -94,6 +94,18 @@ class ProviderDefaultTest {
     }
 
     @Test
+    @DisplayName("a provider recorded not available is refused a passed result")
+    void unavailableWithPassedResult() {
+        var passed = passed();
+
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> new ProviderDefault(false, ProviderVariant.NATIVE, null, passed),
+                "a passed result cannot accompany a provider recorded not available");
+
+        assertTrue(refused.getMessage().contains("not available"), "the refusal names the state");
+    }
+
+    @Test
     @DisplayName("the verified form refuses a failed result")
     void verifiedRefusesFailed() {
         var result = failed();

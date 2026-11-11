@@ -37,10 +37,13 @@ class TokenLaneCredentialTest {
     void origin() {
         var noPort = new TokenLaneCredential.Entry(secret, URI.create("HTTPS://example.com/entry"));
         var withPort = new TokenLaneCredential.Entry(secret, URI.create("https://example.com:8443/entry"));
+        var mixedCaseHost = new TokenLaneCredential.Entry(secret, URI.create("https://Example.COM/entry"));
 
         assertAll(
                 () -> assertEquals("https://example.com", noPort.origin(), "no port stays unnamed"),
                 () -> assertEquals("https://example.com:8443", withPort.origin(), "a named port stays"),
+                () -> assertEquals("https://Example.COM", mixedCaseHost.origin(),
+                        "the host is carried as written, so a case difference is a different origin"),
                 () -> assertEquals("https://example.com",
                         TokenLaneCredential.origin(URI.create("https://example.com")),
                         "the static origin answers the same rule"));
@@ -51,6 +54,7 @@ class TokenLaneCredentialTest {
     void refusals() {
         var https = URI.create("https://example.com");
         var http = URI.create("http://example.com");
+        var withoutHost = URI.create("https:///path");
 
         var emptySecret = assertThrows(IllegalArgumentException.class,
                 () -> new TokenLaneCredential.Entry("", https),
@@ -58,12 +62,17 @@ class TokenLaneCredentialTest {
         var plainHttp = assertThrows(IllegalArgumentException.class,
                 () -> new TokenLaneCredential.Entry(secret, http),
                 "a URL that is not https is refused");
+        var noHost = assertThrows(IllegalArgumentException.class,
+                () -> new TokenLaneCredential.Entry(secret, withoutHost),
+                "an https URL without a host is refused");
 
         assertAll(
                 () -> assertEquals("A credential entry holds a secret", emptySecret.getMessage(),
                         "the refusal names the empty secret"),
                 () -> assertEquals("A Token Lane entry names an https URL with a host", plainHttp.getMessage(),
-                        "the refusal names the origin rule"));
+                        "the refusal names the origin rule"),
+                () -> assertEquals("A Token Lane entry names an https URL with a host", noHost.getMessage(),
+                        "a host-less URL is refused by the same rule"));
     }
 
     @Test

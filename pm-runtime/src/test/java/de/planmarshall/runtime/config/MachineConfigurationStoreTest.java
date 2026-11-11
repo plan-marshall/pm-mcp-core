@@ -102,8 +102,9 @@ class MachineConfigurationStoreTest {
     }
 
     private VerificationResult result() {
-        return new VerificationResult(true, verifiedAt,
-                List.of(new VerificationResult.Check("origin", true)));
+        return new VerificationResult(true, verifiedAt, List.of(
+                new VerificationResult.Check("origin", true),
+                new VerificationResult.Check("whoami", true)));
     }
 
     @Test
@@ -313,7 +314,7 @@ class MachineConfigurationStoreTest {
         Files.writeString(file, document(), UTF_8);
         var result = new VerificationResult(true, verifiedAt, List.of(
                 new VerificationResult.Check("origin", true),
-                new VerificationResult.Check("whoami", false)));
+                new VerificationResult.Check("whoami", true)));
         var written = new ProviderDefaults(Map.of(Provider.GITHUB,
                 ProviderDefault.verified(result, ProviderVariant.NATIVE).withCredentialKey(githubKey)));
 
