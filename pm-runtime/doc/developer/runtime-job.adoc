@@ -209,7 +209,11 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
 `JobLog` is the file `<job_id>.log` beside the job record that receives `stdout` and `stderr`.
 It is readable while the job runs: `readLines(offset)` reads the complete lines written after a byte offset and answers the offset to continue from, so a reader follows the log as it grows; a line still being written is not answered.
 A read from offset `0` strips the first line when it parses as a launch report; a read from a later offset never strips a line.
-`readWhole(observedLength)` reads the log of an ended job for the outcome derivation.
+`readWhole(observedLength)` reads the log of an ended job for the outcome derivation. Above the cap of the module's limits resource it reads the first line and the last cap bytes, counted from the first line beginning inside them:
+
+include::../../src/main/resources/de/planmarshall/runtime/job/job-log-limits.properties[tag=log-max-bytes]
+
+The first line is kept because it is the launch report, from which the launcher-failure decision is taken; `Complete.length` is the length of the file, not of what was read; and an over-cap log is never `TRUNCATED`, because that state means the log is shorter than what the runtime already read from it. The cut is recorded in link:../../../pm-core/doc/adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR `core-build/007`].
 
 A log that cannot serve a read is a value, `Unavailable(state, detail)`, never an exception, and its state is the one row 5 of the outcome derivation reads:
 
