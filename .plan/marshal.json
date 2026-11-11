@@ -15,7 +15,7 @@
       "escalation": "auto",
       "auto_route_recipe": true,
       "auto_route_recipe_threshold": 0.6,
-      "lane_selection": "ask",
+      "lane_selection": "auto",
       "lane_prune_thresholds": {
         "confidence_complete": 95,
         "linear_change_max_deliverables": 1
@@ -210,7 +210,7 @@
       ]
     }
   },
-  "interaction_mode": "advanced",
+  "interaction_mode": "basic",
   "project": {
     "default_base_branch": "main",
     "working_prefixes": [
