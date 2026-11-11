@@ -32,7 +32,9 @@ import de.planmarshall.core.store.StrictJson;
  * output, because only one line is ever taken. A log whose first line is no report keeps all of its content: the
  * launcher failed before {@code execve}, and with its exit code {@code 64} (usage), {@code 126} (confinement could not
  * be applied) or {@code 127} ({@code execve} failed) that is a launcher failure ({@link #isLauncherFailure(Reading,
- * int)}), whose fate the outcome derivation takes from the exit code.
+ * int)}), whose fate the outcome derivation takes from the exit code. A log the runtime read over its cap reaches this
+ * read as the tail read's text — a launch report and its remaining tail — so the output it answers is that text's, not
+ * the whole file's.
  *
  * @param pid              the PID of the job, equal to its process-group id
  * @param processStartedAt the start instant of the process

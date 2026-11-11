@@ -32,9 +32,11 @@ characters for a line — and asked that both be data of a properties resource, 
   aligned to a line start, because the first line is the launch report that `SubprocessJobRunner.settle` takes the
   launcher-failure decision from; `Complete.length` carries the file's length, and `LogState.TRUNCATED` is never answered
   for an over-cap log, because that state means the log grew shorter than what the runtime already read from it.
-* Every line is cut before any pattern sees it. `BuildLogText.boundLines` cuts a line at `pm.core.build.max-line-length`
-  of the same resource, and a parser applies it once at the entry of its parse, so one cut bounds every expression of
-  that parser at once, including one a later change adds.
+* Every line is cut before a pattern of the three parsers of this plan sees it. `BuildLogText.boundLines` cuts a line at
+  `pm.core.build.max-line-length` of the same resource, and `MavenOutputParser`, `OpenRewriteLogParser` and
+  `PyprojectOutputParser` apply it once at the entry of their parse, so one cut bounds every expression of such a parser
+  at once, including one a later change adds. The package's other six parsers are bounded by the cap of the read, not yet
+  by a line cut.
 * Three patterns are rewritten on top of the cut, each held to the ported expression's result by a differential test
   over generated lines: the Maven execution header and the OpenRewrite finding line are asked a necessary-condition
   pre-test first (a header needs an `@`, a finding line needs both its identifier prefix and ` by `), and the pytest
@@ -59,10 +61,13 @@ characters for a line — and asked that both be data of a properties resource, 
 
 == Consequences
 
-* A parser result changes only for a log over the cap or a line over the bound. A log inside both reads as it was
-  written, so the parser fixtures are unchanged.
+* A parser result changes only for a log over the cap or, in the three parsers that cut a line, for a line over the
+  bound. A log inside both reads as it was written for them, so their fixtures are unchanged.
+* `GradleOutputParser`, `NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and
+  `TapOutputParser` are bounded by the cap but not yet by a line cut; a plan that touches one applies `boundLines` at the
+  entry of its parse in the same way.
 * A new parser is bounded by calling `BuildLogText.boundLines` at the entry of its parse; a pattern added to one of the
-  three parsers is already inside the cut.
+  three cut parsers is already inside the cut.
 * `JobLog.readLines`, the incremental read, is not capped: a reader that follows a growing log reads from the offset it
   names.
 * The cut of a read can leave a partial ANSI escape at the head of the tail. `BuildLogText.stripAnsi` does not match it

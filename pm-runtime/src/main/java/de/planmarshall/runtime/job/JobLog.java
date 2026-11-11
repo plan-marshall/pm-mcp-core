@@ -107,9 +107,10 @@ public record JobLog(Path path) {
     }
 
     /**
-     * The whole log of an ended job, read to its end.
+     * The log of an ended job as the whole read answers it: the launch report and the job's output after it.
      *
-     * @param reading the launch report and the job's output after it, or the whole log when it carries no report
+     * @param reading the launch report and the job's output after it, or the log when it carries no report; a log over
+     *                {@link #MAX_BYTES} is read as its first line and its last {@link #MAX_BYTES} bytes
      * @param length  the length of the log in bytes
      * @since 0.1
      */
@@ -180,13 +181,14 @@ public record JobLog(Path path) {
     }
 
     /**
-     * Reads the whole log of a job that has ended.
+     * Reads the log of a job that has ended.
      * <p>
      * A log longer than {@link #MAX_BYTES} is cut: it is read as its first line and its last {@link #MAX_BYTES} bytes,
      * counted from the first line beginning inside them. The first line is kept because the launch report is the first
      * line, and a launcher failure is decided from it: a tail read alone would report {@code Unreported} and lose the
      * launcher-failure decision. The cut is not {@link LogState#TRUNCATED}: that state means the log is shorter than
-     * what the runtime already read from it, and an over-cap log is longer, not shorter.
+     * what the runtime already read from it, and an over-cap log is longer, not shorter. A first line longer than the
+     * cap cannot be taken by a bounded read, and the head alone is answered.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -220,15 +222,16 @@ public record JobLog(Path path) {
     private static String capped(FileChannel channel, long size) throws IOException {
         var head = read(channel, 0, MAX_BYTES);
         var end = firstLineEnd(head);
-        var first = end < 0
-                ? new String(head, StandardCharsets.UTF_8) + "\n"
-                : new String(head, 0, end + 1, StandardCharsets.UTF_8);
-        return first + new String(fromLineStart(read(channel, size - MAX_BYTES, size)), StandardCharsets.UTF_8);
+        if (end < 0) {
+            return new String(head, StandardCharsets.UTF_8);
+        }
+        return new String(head, 0, end + 1, StandardCharsets.UTF_8)
+                + new String(fromLineStart(read(channel, size - MAX_BYTES, size)), StandardCharsets.UTF_8);
     }
 
     /**
      * The end of the first line of a head, or {@code -1} when the head holds no complete line: the first line is then
-     * longer than the whole head, so the log carries no report a bounded read can take.
+     * longer than the whole head, so no bounded read can take it and the head is all there is to answer with.
      */
     private static int firstLineEnd(byte[] head) {
         for (var index = 0; index < head.length; index++) {

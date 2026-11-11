@@ -96,6 +96,10 @@ public class PyprojectOutputParser {
 
     private static final Pattern SUMMARY_WORD = Pattern.compile("\\b(?:passed|failed|skipped)\\b");
 
+    /** The ported summary expression, kept for the rare line that carries a line terminator (see {@link #isSummaryLine}). */
+    private static final Pattern PORTED_SUMMARY_LINE =
+            Pattern.compile("^.*\\b(?:passed|failed|skipped)\\b.*\\bin\\s+[\\d.]+s.*$");
+
     /**
      * The count part of a pytest summary line, after its verdict word. Both quantifiers are possessive: giving back a
      * whitespace cannot make the next character a digit, and giving back a digit or a dot cannot make it the {@code s},
@@ -183,18 +187,21 @@ public class PyprojectOutputParser {
      * {@code skipped}) and, later on it, the {@code in <seconds>s} that closes the summary.
      * <p>
      * The ported form was one expression, {@code ^.*\b(?:passed|failed|skipped)\b.*\bin\s+[\d.]+s.*$}, matched against
-     * the whole line. It is answered here in two steps, because that expression rescans the rest of the line for every
-     * verdict word it holds, which costs the square of the line's length. The earliest verdict word suffices: if any
-     * pair of a verdict word and a later {@code in <seconds>s} exists, so does the pair of the earliest word with that
-     * same tail. A line that carries a line terminator matches the ported form nowhere, because its {@code .} cannot
-     * cross one, and is refused here first.
+     * the whole line. For a line without a line terminator it is answered here in two steps, because that expression
+     * rescans the rest of the line for every verdict word it holds, which costs the square of the line's length. The
+     * earliest verdict word suffices: if any pair of a verdict word and a later {@code in <seconds>s} exists, so does
+     * the pair of the earliest word with that same tail.
+     * <p>
+     * A line that carries a line terminator is answered by the ported expression itself. There the two forms differ: its
+     * {@code .} cannot cross the terminator while its {@code \s} can, so {@code 1 passed in\r0.12s} matches the ported
+     * form through the {@code \s+}. That line is rare, and the ported form is linear for the one line it meets.
      *
      * @param line the line to inspect
      * @return whether the line is a pytest summary line
      */
     static boolean isSummaryLine(String line) {
         if (carriesLineTerminator(line)) {
-            return false;
+            return PORTED_SUMMARY_LINE.matcher(line).matches();
         }
         Matcher word = SUMMARY_WORD.matcher(line);
         return word.find() && SUMMARY_COUNTS.matcher(line).find(word.end());

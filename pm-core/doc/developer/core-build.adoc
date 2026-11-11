@@ -31,8 +31,9 @@ A parser is a pure function of the log text. It reads no file except through `Bu
 process and consults no configuration. A coverage parser is a pure function of the report text in the same way: it reads
 no file except through its own `parse(Path)` overload, and it returns either the report or a refusal.
 
-Neither the read nor a pattern runs unbounded: the read takes the log's tail above a data cap, and every line is cut at a
-data bound before a pattern sees it (<<_the_bounds_of_a_read_and_of_a_parse>>).
+Neither the read nor a pattern runs unbounded for the parsers this plan touched: the read takes the log's tail above a
+data cap, and every line is cut at a data bound before a pattern sees it
+(<<_the_bounds_of_a_read_and_of_a_parse>>).
 
 == Main Types
 
@@ -333,9 +334,10 @@ pattern reads as a marker.
 include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=log-max-bytes]
 
 `MavenOutputParser`, `OpenRewriteLogParser` and `PyprojectOutputParser` cut every line at the per-line bound of the same
-resource before a pattern of theirs sees the text (`BuildLogText.boundLines`). One cut bounds every expression of a parser
-at once — a pattern that backtracks over a line of repeated tokens included — and a line is cut at its head, because the
-marker a parser reads is at a line's start.
+resource before a pattern of theirs sees the text (`BuildLogText.boundLines`). One cut bounds every expression of such a
+parser at once — a pattern that backtracks over a line of repeated tokens included — and a line is cut at its head,
+because the marker a parser reads is at a line's start. The package's other six parsers are bounded by the cap of the
+read but not yet by a line cut; a plan that touches one applies the same bound.
 
 include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=max-line-length]
 

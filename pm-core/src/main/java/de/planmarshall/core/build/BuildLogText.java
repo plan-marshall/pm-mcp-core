@@ -14,7 +14,6 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
@@ -41,8 +40,9 @@ import de.planmarshall.core.config.LimitProperties;
  * <em>A log longer than {@link #MAX_BYTES} is cut.</em> The read of a file takes at most {@link #MAX_BYTES} bytes, counted
  * from the end, and starts at the first line beginning inside them, so a parser sees the log's tail whole-lined: the
  * count lines, the summary and the failure tail are at the end, which is the part a parser needs and the part a build
- * tool cannot be trusted to keep short. A log at or below the cap is read whole, so no parser result changes for it.
- * The cap is data of {@link #LIMITS}, never a literal, and only editing that resource changes it.
+ * tool cannot be trusted to keep short. A log at or below the cap, with every line inside the per-line bound, is read as
+ * it was written, so no parser result changes for one. The cap is data of {@link #LIMITS}, never a literal, and only
+ * editing that resource changes it.
  * <p>
  * <em>Every line is cut at {@link #MAX_LINE_LENGTH} characters</em> by {@link #boundLines(String)}, which a parser applies
  * before its patterns see the text. A build log is untrusted text, and one long line of repeated tokens can make a
@@ -143,7 +143,7 @@ public class BuildLogText {
         try (var channel = FileChannel.open(logFile, StandardOpenOption.READ)) {
             var size = channel.size();
             if (size <= MAX_BYTES) {
-                return Files.readAllBytes(logFile);
+                return read(channel, 0, size);
             }
             return fromLineStart(read(channel, size - MAX_BYTES, size));
         }

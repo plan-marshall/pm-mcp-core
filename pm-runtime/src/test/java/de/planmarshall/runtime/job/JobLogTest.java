@@ -196,6 +196,22 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("at the cap: the whole log is read, not cut")
+        void atTheCap() throws Exception {
+            var marker = "last line " + line();
+            var filler = "x".repeat(JobLog.MAX_BYTES - report.length() - marker.length() - 2);
+            Files.writeString(path, report + "\n" + filler + "\n" + marker + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a log at the cap is complete");
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(), "the report is read");
+
+            assertAll(
+                    () -> assertEquals(Files.size(path), whole.length(), "the length is the size of the log"),
+                    () -> assertTrue(reading.jobOutput().startsWith(filler), "the log is not cut at the cap"),
+                    () -> assertTrue(reading.jobOutput().contains(marker), "the last line is kept"));
+        }
+
+        @Test
         @DisplayName("over the cap: the first line and the last bytes, never truncated")
         void overTheCap() throws Exception {
             var middle = "middle marker " + line();
@@ -218,7 +234,7 @@ class JobLogTest {
         @Test
         @DisplayName("the cap is read from the module's limits resource")
         void capIsReadFromTheLimitsResource() {
-            assertEquals(LimitProperties.read(JobLog.LIMITS, JobLog.MAX_BYTES_KEY), JobLog.MAX_BYTES,
+            assertEquals(JobLog.MAX_BYTES, LimitProperties.read(JobLog.LIMITS, JobLog.MAX_BYTES_KEY),
                     "the cap must come from the resource");
         }
 

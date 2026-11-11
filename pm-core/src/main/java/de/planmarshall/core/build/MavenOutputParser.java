@@ -108,15 +108,19 @@ public class MavenOutputParser {
             Pattern.compile(FAILURE_MARKER));
 
     /**
-     * Whether a line can carry an execution header, asked before the expression runs. The header's template needs an
-     * {@code @}, so a line without one cannot match: asked first, a line of repeated {@code --- a:b:c } text no longer
-     * costs one scan per {@code ---} it holds.
+     * The runner an execution header names, empty when the line carries none. Asked before the expression runs: the
+     * header's template needs an {@code @}, so a line without one cannot match, and a line of repeated
+     * {@code --- a:b:c } text no longer costs one scan per {@code ---} it holds.
      *
      * @param line the line to inspect
-     * @return whether the line carries an execution header
+     * @return the runner named by the header, or empty when the line is no execution header
      */
-    static boolean matchesExecutionHeader(String line) {
-        return line.indexOf('@') >= 0 && EXECUTION_HEADER.matcher(line).find();
+    static Optional<String> executionHeaderRunner(String line) {
+        if (line.indexOf('@') < 0) {
+            return Optional.empty();
+        }
+        Matcher header = EXECUTION_HEADER.matcher(line);
+        return header.find() ? Optional.of(header.group(1)) : Optional.empty();
     }
 
     /**
@@ -236,10 +240,9 @@ public class MavenOutputParser {
         private boolean unrepresentable;
 
         void accept(String line) {
-            if (matchesExecutionHeader(line)) {
-                Matcher header = EXECUTION_HEADER.matcher(line);
-                header.find();
-                currentRunner = TEST_RUNNERS.get(header.group(1));
+            var runner = executionHeaderRunner(line);
+            if (runner.isPresent()) {
+                currentRunner = TEST_RUNNERS.get(runner.get());
                 resultsSeen = false;
             } else if (RESULTS_MARKER.matcher(line.strip()).matches()) {
                 resultsSeen = true;

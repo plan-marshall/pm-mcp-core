@@ -84,7 +84,7 @@ class BuildLogTextTest {
     @Test
     @DisplayName("the cap is read from the module's limits resource")
     void capIsReadFromTheLimitsResource() {
-        assertEquals(LimitProperties.read(BuildLogText.LIMITS, BuildLogText.MAX_BYTES_KEY), BuildLogText.MAX_BYTES,
+        assertEquals(BuildLogText.MAX_BYTES, LimitProperties.read(BuildLogText.LIMITS, BuildLogText.MAX_BYTES_KEY),
                 "the cap must come from the resource");
     }
 
@@ -100,14 +100,14 @@ class BuildLogTextTest {
     @Test
     @DisplayName("a log one byte under the cap is read whole")
     void readsALogUnderTheCapWhole(@TempDir Path directory) throws Exception {
-        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES - 1);
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES - 2);
         Path log = directory.resolve("under.log");
         Files.writeString(log, content, StandardCharsets.UTF_8);
 
         var text = BuildLogText.read(log);
 
         assertAll(
-                () -> assertEquals(BuildLogText.MAX_BYTES, text.length(), "the whole log is read"),
+                () -> assertEquals(BuildLogText.MAX_BYTES - 1, text.length(), "the whole log is read"),
                 () -> assertTrue(text.startsWith("h"), "the head of the log is kept"),
                 () -> assertTrue(text.endsWith("a"), "the end of the log is kept"));
     }

@@ -10,6 +10,7 @@
 package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -121,8 +122,9 @@ class BuildLogBoundsTest {
     @Test
     @DisplayName("the per-line limit is read from the module's resource")
     void lineLimitIsReadFromTheResource() {
-        assertEquals(LimitProperties.read(BuildLogText.LIMITS, BuildLogText.MAX_LINE_LENGTH_KEY),
-                BuildLogText.MAX_LINE_LENGTH, "the line bound must come from the resource");
+        assertEquals(BuildLogText.MAX_LINE_LENGTH,
+                LimitProperties.read(BuildLogText.LIMITS, BuildLogText.MAX_LINE_LENGTH_KEY),
+                "the line bound must come from the resource");
     }
 
     @Test
@@ -170,7 +172,7 @@ class BuildLogBoundsTest {
                 () -> OpenRewriteLogParser.parse("--- rewrite:run (\n" + hostile + "\n", true),
                 "a finding line of " + LONG_LINE + " characters is parsed inside the bound");
 
-        assertTrue(result.verdict() == RewriteVerdict.PARSE_ERROR, "the hostile line is a parse error");
+        assertSame(result.verdict(), RewriteVerdict.PARSE_ERROR, "the hostile line is a parse error");
     }
 
     @Test
@@ -184,6 +186,39 @@ class BuildLogBoundsTest {
                 "a summary line of " + LONG_LINE + " characters is parsed inside the bound");
 
         assertTrue(parsed.diagnostics().isEmpty(), "the hostile line locates no diagnostic");
+    }
+
+    @Test
+    @DisplayName("hostile rewrite finding lines at the limit return inside the bound")
+    void boundsRepeatedRewriteFindingLines() {
+        var hostile = fit("CUI_REWRITE-100: Finding detected at x", LIMIT);
+        OpenRewriteLogParser.parse("--- rewrite:run (\n", true);
+
+        var result = assertTimeoutPreemptively(HOSTILE_BOUND,
+                () -> OpenRewriteLogParser.parse("--- rewrite:run (\n" + (hostile + "\n").repeat(LINES_AT_THE_LIMIT),
+                        true),
+                "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
+
+        assertSame(result.verdict(), RewriteVerdict.PARSE_ERROR, "the hostile line is a parse error");
+    }
+
+    @Test
+    @DisplayName("hostile pytest section and exception lines return inside the bound")
+    void boundsThePytestSectionAndExceptionPatterns() {
+        var section = fit("= a", LIMIT);
+        var exception = "E x" + fit(" ", LIMIT - 3);
+        var log = "=== ERRORS ===\n"
+                + "____ ERROR at setup of test_x.py ____\n"
+                + exception + "\n"
+                + section + "\n"
+                + "=== short test summary info ===\n"
+                + "ERROR at setup of test_x.py\n";
+        PyprojectOutputParser.parse("=== ERRORS ===\n");
+
+        var parsed = assertTimeoutPreemptively(HOSTILE_BOUND, () -> PyprojectOutputParser.parse(log),
+                "the section and exception patterns answer a hostile line of " + LIMIT + " characters");
+
+        assertEquals(1, parsed.diagnostics().size(), "the error summary line locates one diagnostic");
     }
 
     @Test
@@ -204,7 +239,8 @@ class BuildLogBoundsTest {
     void headerPreTestKeepsThePortedResult() {
         for (var index = 0; index < GENERATED_LINES; index++) {
             var line = generatedLine();
-            assertEquals(PORTED_EXECUTION_HEADER.matcher(line).find(), MavenOutputParser.matchesExecutionHeader(line),
+            assertEquals(PORTED_EXECUTION_HEADER.matcher(line).find(),
+                    MavenOutputParser.executionHeaderRunner(line).isPresent(),
                     () -> "the header pre-test differs from the ported result: " + line);
         }
     }
@@ -228,6 +264,20 @@ class BuildLogBoundsTest {
             var line = generatedLine();
             assertEquals(PORTED_SUMMARY_LINE.matcher(line).matches(), PyprojectOutputParser.isSummaryLine(line),
                     () -> "the summary line differs from the ported result: " + line);
+        }
+    }
+
+    @Test
+    @DisplayName("the summary edge cases answer the ported expression")
+    void summaryLineKeepsThePortedResultOnEdgeCases() {
+        var cases = List.of("", "passed", "passed in 1.5s", "1 failed, 2 passed in 0.5s",
+                "x=passed in 1.5s", "passed in 1.5s extra", "passed\r", "passed in\r0.12s",
+                "passed\r in 1.5s", "passed in 1.5s\r", "skipped in 1s", "passed in \u20281s",
+                "passed in 1s and in 2s", "failed in x s", "passed in 1.5");
+
+        for (var line : cases) {
+            assertEquals(PORTED_SUMMARY_LINE.matcher(line).matches(), PyprojectOutputParser.isSummaryLine(line),
+                    () -> "the edge case differs from the ported result: " + line);
         }
     }
 }
