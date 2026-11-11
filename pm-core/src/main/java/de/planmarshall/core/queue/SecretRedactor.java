@@ -101,7 +101,7 @@ public final class SecretRedactor {
             Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])((?:\\\\[^\\r\\n]|(?!\\3)[^\\\\\\r\\n])*)\\3");
 
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])([^\"'\\r\\n]*)");
+            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])(?![^\\r\\n]*\\3)([^\\r\\n]*)");
 
     private static final Pattern CREDENTIAL_FLAG =
             Pattern.compile(CREDENTIAL_FLAG_HEAD + "([^\\s\"';]+)");
