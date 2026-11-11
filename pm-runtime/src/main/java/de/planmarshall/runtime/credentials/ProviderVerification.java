@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.credentials;
 
 import de.cuioss.tools.logging.CuiLogger;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -19,9 +20,11 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
 import de.planmarshall.core.config.ConsentKind;
+import de.planmarshall.core.queue.SecretRedactor;
 import de.planmarshall.runtime.config.Provider;
 import de.planmarshall.runtime.config.ProviderDefault;
 import de.planmarshall.runtime.config.ProviderVariant;
+import de.planmarshall.runtime.config.VerificationResult;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
@@ -65,7 +68,8 @@ public final class ProviderVerification {
         }
 
         /**
-         * @param detail the provider's own answer, verbatim
+         * @param detail the provider's answer, which the line carries after the redaction of anything
+         *               credential-shaped
          * @return a passed check
          */
         public static Answer ok(String detail) {
@@ -143,7 +147,8 @@ public final class ProviderVerification {
      * @param ok         whether it passed
      * @param messageKey the message key of the line, {@code provider_verification.<check>.<ok|failed>}
      * @param arguments  the arguments of the message: the provider and what the check measured
-     * @param answer     the provider's or the tool's own answer where there is one; {@code null} when none
+     * @param answer     the provider's or the tool's own answer where there is one, after the redaction of anything
+     *                   credential-shaped; {@code null} when none
      * @since 0.1
      */
     @Builder
@@ -180,6 +185,15 @@ public final class ProviderVerification {
         /** @return whether the checks ran and every one of them passed */
         public boolean passed() {
             return ran && !lines.isEmpty() && lines.stream().allMatch(CheckLine::ok);
+        }
+
+        /**
+         * @param at the instant of the verification
+         * @return the result the machine's provider defaults keep: the passed flag, the instant and the check flags
+         */
+        public VerificationResult toResult(Instant at) {
+            return new VerificationResult(passed(), at,
+                    lines.stream().map(line -> new VerificationResult.Check(line.check(), line.ok())).toList());
         }
     }
 
@@ -251,7 +265,8 @@ public final class ProviderVerification {
 
     /**
      * The CLI variant is verified as a whole: its tool must be logged in as the same identity as the credential, which
-     * the two answers of {@code ci.whoami} and the tool's status decide.
+     * the two answers of {@code ci.whoami} and the tool's status decide. The identities are compared as the probe
+     * answered them and redacted only where the line carries them.
      */
     private static CheckLine sameIdentity(Provider provider, Answer credential, Answer login) {
         if (!credential.ok()) {
@@ -260,7 +275,7 @@ public final class ProviderVerification {
                     .ok(false)
                     .messageKey(MESSAGE_KEY_PREFIX + TOOL_IDENTITY + ".credential_unknown")
                     .arguments(List.of(provider.wireName()))
-                    .answer(credential.detail())
+                    .answer(redacted(credential.detail()))
                     .build();
         }
         if (!login.ok()) {
@@ -271,8 +286,9 @@ public final class ProviderVerification {
                 .check(TOOL_IDENTITY)
                 .ok(same)
                 .messageKey(MESSAGE_KEY_PREFIX + TOOL_IDENTITY + "." + (same ? OK : "differs"))
-                .arguments(List.of(provider.wireName(), credential.detail(), login.detail()))
-                .answer(login.detail())
+                .arguments(List.of(provider.wireName(), redacted(credential.detail()),
+                        redacted(login.detail())))
+                .answer(redacted(login.detail()))
                 .build();
     }
 
@@ -282,7 +298,12 @@ public final class ProviderVerification {
                 .ok(answer.ok())
                 .messageKey(MESSAGE_KEY_PREFIX + check + "." + (answer.ok() ? OK : FAILED))
                 .arguments(List.of(provider.wireName(), measured))
-                .answer(answer.detail())
+                .answer(redacted(answer.detail()))
                 .build();
+    }
+
+    /** @return the answer with everything credential-shaped removed, before a line or a log carries it */
+    private static String redacted(String detail) {
+        return SecretRedactor.redactText(detail).orElseThrow();
     }
 }

@@ -35,12 +35,13 @@ public interface TokenLaneCredential {
 
     /**
      * @param url a URL of a credential entry
-     * @return its origin: the lower-case scheme, the host and the port where one is named
+     * @return its origin: the lower-case scheme and host, and the port where one is named
      */
     static String origin(URI url) {
         Objects.requireNonNull(url, "url");
         var scheme = url.getScheme() == null ? "" : url.getScheme().toLowerCase(Locale.ROOT);
-        return scheme + "://" + url.getHost() + (url.getPort() == -1 ? "" : ":" + url.getPort());
+        var host = url.getHost() == null ? "" : url.getHost().toLowerCase(Locale.ROOT);
+        return scheme + "://" + host + (url.getPort() == -1 ? "" : ":" + url.getPort());
     }
 
     /**

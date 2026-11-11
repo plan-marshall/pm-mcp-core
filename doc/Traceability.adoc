@@ -765,6 +765,8 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentSt
 link:../pm-core/src/test/java/de/planmarshall/core/config/ModelCatalogueStoreTest.java[ModelCatalogueStoreTest],
 link:../pm-core/src/test/java/de/planmarshall/core/config/RoleAssignmentsStoreTest.java[RoleAssignmentsStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationCodecTest.java[MachineConfigurationCodecTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/ProviderDefaultTest.java[ProviderDefaultTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineDefaultsValidationTest.java[MachineDefaultsValidationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreAspectTest.java[CredentialStoreAspectTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest]
@@ -1112,6 +1114,8 @@ link:../pm-core/src/main/java/de/planmarshall/core/config/ConsentStore.java[Cons
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreAspectTest.java[CredentialStoreAspectTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/credentials/ProviderVerificationTest.java[ProviderVerificationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationStoreTest.java[MachineConfigurationStoreTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/MachineConfigurationCodecTest.java[MachineConfigurationCodecTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/config/ProviderDefaultTest.java[ProviderDefaultTest],
 link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentStoreTest.java[ConsentStoreTest]
 
 Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc#_the_credential_store_aspect[Developer Guide § The Credential-Store Aspect (`runtime.credentials`)],

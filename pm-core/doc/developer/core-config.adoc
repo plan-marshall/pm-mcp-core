@@ -66,7 +66,10 @@ of the (kind, project) it changes, increments `revision` and writes the document
 `ConsentGate` is the rule, not a store: given the store's snapshot and the operator's answer it decides whether the
 action runs. It answers `yes` (run, record nothing), `yes_remember` (run, and hand back the entry for
 `ConsentStore.grant`), `no` (record nothing, leave the scope in its consent state), and passes a remembered kind without
-a question. A `yes_remember` for a kind that is never remembered is refused, as is a project the kind does not belong to.
+a question. Every answer is validated before the remembered snapshot is looked at: a paired device belongs to a web
+answer and to its grammar, and a device on the `cli` channel or a malformed one is refused for `yes`, `no`,
+`yes_remember` and a remembered kind alike, as the method's contract states. A `yes_remember` for a kind that is never
+remembered is refused, as is a project the kind does not belong to.
 `ConsentGate.operatorAct()` is the other half of the rule: an act of the operator's own — a secret the operator types —
 needs no consent, and is stored on that act.
 

@@ -1207,7 +1207,8 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged when {@code store.move} failed: names the failure, which the aspect reports as
-         * {@code credential_store_failed}. The old store stays recorded and untouched, and no entry or secret is
+         * {@code credential_store_failed}. A failure after the switch leaves the target store recorded, because an entry
+         * cannot be deleted from the old store after the switch, which the next start completes; no entry or secret is
          * named.
          * <p>
          * The component is {@code CredentialStoreAspect}.
@@ -1215,7 +1216,7 @@ public final class RuntimeLogMessages {
         public static final LogRecord CREDENTIAL_STORE_ASPECT_MOVE_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(146)
-                .template("The credential store move of the aspect failed, the old store stays recorded: %s")
+                .template("The credential store move of the aspect failed: %s")
                 .build();
     }
 

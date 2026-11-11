@@ -162,6 +162,7 @@ public final class ConsentGate {
         Objects.requireNonNull(answer, "answer");
         Objects.requireNonNull(channel, "channel");
         requireScope(request);
+        requireDevice(channel, deviceId);
         if (snapshot.isRemembered(request.kind(), request.projectId(), request.scripts())) {
             return Decision.pass();
         }
@@ -193,7 +194,6 @@ public final class ConsentGate {
                     "The consent kind '%s' is never remembered, so no yes_remember link exists for it"
                             .formatted(request.kind().wireName()));
         }
-        requireDevice(channel, deviceId);
         var grantedAt = now();
         if (!request.kind().projectScoped()) {
             return Consent.machine(request.kind(), grantedAt, channel, deviceId);

@@ -17,9 +17,9 @@ import java.util.Optional;
 
 /**
  * The machine's provider defaults, {@code providers} of {@code machine-config.json} (Store Schemas § Machine Provider
- * Defaults): per provider whether it is available, the integration variant a project that sets none takes, and the
- * credential key it uses where a project names none. A provider the machine does not serve is absent, not recorded as
- * unavailable.
+ * Defaults): per provider whether it is available, the integration variant a project that sets none takes, the credential
+ * key it uses where a project names none, and the last verification result. A provider the machine does not serve is
+ * absent, not recorded as unavailable.
  *
  * @param providers the defaults per provider
  * @since 0.1

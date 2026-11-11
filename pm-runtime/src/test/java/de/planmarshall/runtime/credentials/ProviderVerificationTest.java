@@ -35,6 +35,7 @@ import de.planmarshall.core.config.ConsentStore;
 import de.planmarshall.runtime.config.Provider;
 import de.planmarshall.runtime.config.ProviderDefault;
 import de.planmarshall.runtime.config.ProviderVariant;
+import de.planmarshall.runtime.config.VerificationResult;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
@@ -59,6 +60,8 @@ class ProviderVerificationTest {
     private boolean originReachable = true;
     private boolean credentialOk = true;
     private boolean toolLoggedIn = true;
+    private String originDetail = "200";
+    private String credentialFailure = "401 Bad credentials";
     private String toolIdentity;
     private String credentialIdentity;
     private String otherIdentity;
@@ -80,14 +83,15 @@ class ProviderVerificationTest {
         @Override
         public ProviderVerification.Answer origin(Provider provider) {
             calls.add("origin:" + provider.wireName());
-            return originReachable ? ProviderVerification.Answer.ok("200") : ProviderVerification.Answer.failed("503");
+            return originReachable ? ProviderVerification.Answer.ok(originDetail)
+                    : ProviderVerification.Answer.failed(originDetail);
         }
 
         @Override
         public ProviderVerification.Answer identity(Provider provider, String credentialKey) {
             calls.add("identity:" + provider.wireName() + ":" + credentialKey);
             return credentialOk ? ProviderVerification.Answer.ok(credentialIdentity)
-                    : ProviderVerification.Answer.failed("401 Bad credentials");
+                    : ProviderVerification.Answer.failed(credentialFailure);
         }
 
         @Override
@@ -126,7 +130,8 @@ class ProviderVerificationTest {
     }
 
     private static ProviderDefault defaults(ProviderVariant variant, String credentialKey) {
-        return new ProviderDefault(true, variant, credentialKey);
+        return ProviderDefault.verified(new VerificationResult(true, NOW,
+                List.of(new VerificationResult.Check("origin", true))), variant).withCredentialKey(credentialKey);
     }
 
     private ProviderVerification.Verification verify(ProviderDefault defaults, ConsentGate.Answer answer) {
@@ -199,9 +204,86 @@ class ProviderVerificationTest {
     }
 
     @Test
+    @DisplayName("a provider's answer reaches the line after its credential-shaped parts are redacted")
+    void answersRedacted() {
+        originReachable = false;
+        originDetail = "401 Authorization: Bearer abcdefgh12345678";
+        credentialOk = false;
+        credentialFailure = "token=sk-abcdefghijklmnopqrst";
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        var credential = result.lines().get(1);
+        assertAll(
+                () -> assertFalse(origin.answer().contains("abcdefgh12345678"),
+                        "the bearer value must not reach the line"),
+                () -> assertTrue(origin.answer().contains("[redacted]"),
+                        "the answer keeps its label with the value redacted"),
+                () -> assertFalse(credential.answer().contains("sk-abcdefghijklmnopqrst"),
+                        "the token must not reach the line"),
+                () -> assertTrue(credential.answer().contains("[redacted]"),
+                        "the token's label stays in the answer"),
+                () -> assertFalse(origin.toString().contains("abcdefgh12345678"),
+                        "nor an argument of the line"),
+                () -> assertFalse(credential.toString().contains("sk-abcdefghijklmnopqrst"),
+                        "nor an argument of the other line"),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
+    }
+
+    @Test
+    @DisplayName("both identities of the CLI variant are redacted where the line carries them, and still compared")
+    void toolIdentityRedacted() {
+        credentialIdentity = "token=sk-credentialabcdefghijkl";
+        toolIdentity = "token=sk-tooldifferentabcdefghijkl";
+
+        var result = verify(defaults(ProviderVariant.CLI, "github"), ConsentGate.Answer.YES);
+
+        var identity = result.lines().getLast();
+        assertAll(
+                () -> assertFalse(result.passed(), "two different secrets are still different identities"),
+                () -> assertEquals("provider_verification.tool_identity.differs", identity.messageKey(),
+                        "the comparison runs on the answers as given"),
+                () -> assertFalse(identity.toString().contains("sk-credentialabcdefghijkl"),
+                        "the credential identity must not reach the line or its arguments"),
+                () -> assertFalse(identity.toString().contains("sk-tooldifferentabcdefghijkl"),
+                        "the tool identity must not reach the line or its arguments"),
+                () -> assertTrue(identity.answer().contains("[redacted]"),
+                        "the carried identity is redacted"));
+    }
+
+    @Test
+    @DisplayName("the verification converts to the result member with its instant and check flags")
+    void resultMember() {
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var converted = result.toResult(NOW);
+
+        assertAll(
+                () -> assertTrue(converted.passed(), "a passed verification converts to a passed result"),
+                () -> assertEquals(NOW, converted.at(), "the result carries the verification's instant"),
+                () -> assertEquals(List.of("origin", "whoami", "permissions", "expiry"),
+                        converted.checks().stream().map(VerificationResult.Check::check).toList(),
+                        "the result carries the check names"),
+                () -> assertTrue(converted.checks().stream().allMatch(VerificationResult.Check::ok),
+                        "the result carries the check flags"));
+    }
+
+    @Test
+    @DisplayName("an identity that is no secret reaches the line unchanged")
+    void identityUnchanged() {
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        assertEquals(credentialIdentity, result.lines().get(1).answer(),
+                "a plain identity stays readable");
+    }
+
+    @Test
     @DisplayName("an unreachable origin and a refused credential fail with the provider's own answer")
     void failures() {
         originReachable = false;
+        originDetail = "503";
         credentialOk = false;
 
         var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);

@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -44,8 +46,16 @@ class MachineDefaultsValidationTest {
     }
 
     private static ProviderDefaults providers(boolean hosting) {
-        return new ProviderDefaults(Map.of(Provider.GITHUB, new ProviderDefault(hosting,
-                ProviderVariant.NATIVE, lower() + "-" + lower())));
+        var definition = hosting
+                ? ProviderDefault.verified(passed(), ProviderVariant.NATIVE)
+                : ProviderDefault.unavailable(ProviderVariant.NATIVE);
+        return new ProviderDefaults(Map.of(Provider.GITHUB,
+                definition.withCredentialKey(lower() + "-" + lower())));
+    }
+
+    private static VerificationResult passed() {
+        return new VerificationResult(true, Instant.EPOCH,
+                List.of(new VerificationResult.Check("origin", true)));
     }
 
     @Test
@@ -76,8 +86,8 @@ class MachineDefaultsValidationTest {
     @Test
     @DisplayName("the git transport alone does not open a pull request")
     void gitTransportIsNoForge() {
-        var gitOnly = new ProviderDefaults(Map.of(Provider.GIT, new ProviderDefault(true,
-                ProviderVariant.NATIVE, null)));
+        var gitOnly = new ProviderDefaults(Map.of(Provider.GIT,
+                ProviderDefault.verified(passed(), ProviderVariant.NATIVE)));
 
         assertFalse(MachineDefaultsValidation.landing(MachineDefaultsValidation.LANDING_PULL_REQUEST,
                 gitOnly).valid(), "the git transport alone serves no pull request");

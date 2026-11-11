@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.credentials;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -237,6 +238,32 @@ class CredentialStoreAspectTest {
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.CREDENTIAL_STORE_ASPECT_MOVE_FAILED.resolveIdentifierString()),
                 () -> assertEquals(Optional.of(Store.FILE), choice.recorded()));
+    }
+
+    @Test
+    @DisplayName("a passed check with a malformed machine configuration reaches store.unavailable")
+    void malformedConfigurationAfterPassedCheck() throws Exception {
+        Files.writeString(base.resolve(MachineConfigurationStore.FILE_NAME), "{", UTF_8);
+
+        var transition = aspect.check(Store.FILE);
+
+        assertAll(
+                () -> assertEquals(State.UNAVAILABLE, transition.next()),
+                () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason(),
+                        "an unreadable document reports credential_store_failed"));
+    }
+
+    @Test
+    @DisplayName("a passed check with an unreadable machine configuration reaches store.unavailable")
+    void unreadableConfigurationAfterPassedCheck() throws Exception {
+        Files.createDirectory(base.resolve(MachineConfigurationStore.FILE_NAME));
+
+        var transition = aspect.check(Store.FILE);
+
+        assertAll(
+                () -> assertEquals(State.UNAVAILABLE, transition.next()),
+                () -> assertEquals(CredentialStoreAspect.CREDENTIAL_STORE_FAILED, transition.reason(),
+                        "an unreadable document reports credential_store_failed"));
     }
 
     @Test

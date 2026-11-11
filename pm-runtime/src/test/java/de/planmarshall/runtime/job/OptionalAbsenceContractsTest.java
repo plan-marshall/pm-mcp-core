@@ -70,7 +70,7 @@ class OptionalAbsenceContractsTest {
     @Test
     @DisplayName("a provider default without a variant or key keeps both null")
     void providerDefaultWithoutVariant() {
-        var providerDefault = new ProviderDefault(false, null, null);
+        var providerDefault = new ProviderDefault(false, null, null, null);
 
         assertAll(
                 () -> assertNull(providerDefault.variant(), "a provider without a variant is absent"),

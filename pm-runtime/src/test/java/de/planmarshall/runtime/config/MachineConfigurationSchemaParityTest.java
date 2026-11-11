@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,7 +61,9 @@ class MachineConfigurationSchemaParityTest {
     void providersMember() {
         var schema = SchemaResource.load(SCHEMA);
         var defaults = new ProviderDefaults(Map.of(Provider.GITHUB,
-                new ProviderDefault(true, ProviderVariant.CLI, "github")));
+                ProviderDefault.verified(new VerificationResult(true, Instant.EPOCH,
+                        List.of(new VerificationResult.Check("origin", true))), ProviderVariant.CLI)
+                        .withCredentialKey("github")));
         var created = document(MachineConfigurationCodec.create(defaults));
         var providers = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("providers"));
         var written = SchemaResource.object(SchemaResource.object(created.get("providers")).get("github"));
@@ -103,6 +106,23 @@ class MachineConfigurationSchemaParityTest {
         assertEquals(MachineConfigurationCodec.DEFAULT_LSP_IDLE_TIMEOUT_SECONDS,
                 ((Number) SchemaResource.object(properties.get("lsp_idle_timeout_seconds")).get("default")).intValue(),
                 "The LSP timeout default is the schema's");
+    }
+
+    @Test
+    @DisplayName("the settings bounds of the codec are the schema's")
+    void settingsBounds() {
+        var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
+        var buildSlots = SchemaResource.object(properties.get("max_build_slots"));
+        var lspIdleTimeout = SchemaResource.object(properties.get("lsp_idle_timeout_seconds"));
+
+        assertAll(
+                () -> assertEquals(MachineConfigurationCodec.MIN_BUILD_SLOTS,
+                        ((Number) buildSlots.get("minimum")).intValue(), "the lowest build slot count is the schema's"),
+                () -> assertEquals(MachineConfigurationCodec.MAX_BUILD_SLOTS,
+                        ((Number) buildSlots.get("maximum")).intValue(), "the highest build slot count is the schema's"),
+                () -> assertEquals(MachineConfigurationCodec.MIN_LSP_IDLE_TIMEOUT_SECONDS,
+                        ((Number) lspIdleTimeout.get("minimum")).intValue(),
+                        "the lowest LSP idle timeout is the schema's"));
     }
 
     private static Map<?, ?> document(byte[] written) {

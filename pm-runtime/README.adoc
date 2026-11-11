@@ -14,6 +14,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 
 * `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores with the operator's recorded choice among them (no automatic choice, no fallback), the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
 * `audit`: the anchoring and the verification of the audit trail: what makes the hash chain of `logs/audit.jsonl`, which `AuditLog` of `pm-core` writes, checkable for tampering.
+* `config`: the machine configuration and what the machine alone decides of its defaults: the `providers` of `machine-config.json` that the provider step of the machine's onboarding writes, and the machine's own check of a landing variant.
 * `corpus`: the fetch of the corpus sources over `cui-http` (PM-WORK-6, PM-EXEC-5): the Git LFS object download and the Hugging Face dataset read over HTTPS, each implementing a `pm-core` source contract.
 * `credentials`: the credential stores of the runtime: exactly one `SecretStore` per machine, the one the operator recorded in `credentials.store` of `machine-config.json`, read and written by `CredentialStoreChoice`.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
