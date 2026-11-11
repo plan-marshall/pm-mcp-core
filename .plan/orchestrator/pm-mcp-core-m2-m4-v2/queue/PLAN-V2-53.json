@@ -2,10 +2,10 @@
   "id": "PLAN-V2-53",
   "slug": "outbound-calls-guard",
   "workstream": "WS-06",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-53-outbound-calls-guard",
+  "pr": "#365",
+  "landing": "landings/PLAN-V2-53.md",
   "seq": 53
 }

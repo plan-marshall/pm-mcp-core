@@ -2,10 +2,10 @@
   "id": "PLAN-V2-127",
   "slug": "npm-parser-success-and-redaction",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-127-npm-parser-success-and-redaction",
+  "pr": "#353",
+  "landing": "landings/PLAN-V2-127.md",
   "seq": 115
 }
