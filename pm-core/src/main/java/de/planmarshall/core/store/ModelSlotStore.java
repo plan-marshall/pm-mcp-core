@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.InternalFaultException;
@@ -135,6 +136,7 @@ public final class ModelSlotStore {
      * @param leaseExpiresAt always {@code null}: a model slot has no time bound
      * @since 0.1
      */
+    @Builder
     public record Lease(LeaseOwner owner, String jobId, String role, WorkerClass workerClass, Form form, String planId,
     Instant acquiredAt, Instant leaseExpiresAt) {
 
@@ -172,6 +174,7 @@ public final class ModelSlotStore {
      * @param enqueuedAt  the instant the worker was enqueued
      * @since 0.1
      */
+    @Builder
     public record Waiting(LeaseOwner owner, String jobId, String role, WorkerClass workerClass, Form form,
     String planId, Instant enqueuedAt) {
 

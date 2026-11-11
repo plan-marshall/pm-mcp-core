@@ -1,6 +1,8 @@
 deliberate: deliberate-tap-two-blocks
 # The original reads the first occurrence of each summary line, so a log that concatenates two
 # `node --test` runs reports the counts of the first run. This port sums every block.
+# The summed summary reports three passed tests and no failed test: that is the tool's passing
+# summary, so the success marker is `true` (it was `false` while the parser ignored the summary).
 log TAP version 13
 log ok 1 - a
 log 1..1
@@ -17,7 +19,7 @@ log # pass 2
 log # fail 0
 log # skipped 0
 status SUCCESS
-success-marker false
+success-marker true
 tests measured 3 0 0 3
 no-tests-ran false
 diagnostic-count 0

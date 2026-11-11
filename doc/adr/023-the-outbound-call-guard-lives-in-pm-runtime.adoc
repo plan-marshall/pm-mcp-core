@@ -1,0 +1,80 @@
+= ADR 023: The Outbound-Call Guard Lives in `pm-runtime` as a Primitive Rule and a Destination List
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-10
+
+== Context
+
+Credentials & Enrolment § Outbound HTTPS Security and § Closed List of Outbound Calls
+(link:../specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[`03-audit-and-outbound-https.adoc`])
+require the runtime's listed calls to be its only outbound calls, and `PM-ARCH-2` ("local, no telemetry") to be held by two
+tests of `PM-TEST-5` rather than by review: a static architecture rule and an integration test behind a recording test
+network. Neither existed; the ADR of the endpoint harness
+(link:../../pm-runtime/doc/adr/runtime-endpoint/006-system-one-through-cui-http-pinned-origin-no-redirect.adoc[`runtime-endpoint/006`])
+recorded both as "not part of this package" and the repository-wide rule as "owed … reported to the milestone exit", and it
+was owed there still when this decision was taken.
+
+The question was where the rule lives, what it checks, and how a legitimate local socket is exempted without weakening it.
+
+== Decision
+
+The rule lives in `pm-runtime` as the test `OutboundCallsArchTest` in the package
+`de.planmarshall.runtime.guard` (link:../../pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer
+Guide]). It imports the main classes of `de.planmarshall.runtime` and of `de.planmarshall.core` — the two modules on the
+test classpath of `pm-runtime` — and applies two rules to them:
+
+* *Rule A (primitive):* no class depends on a connection-opening type or calls a connection-opening call — the JDK's
+  `HttpClient` and `WebSocket`, the client sockets, the `URLConnection` family and the calls `URL.openConnection` and
+  `URL.openStream`, the socket factories, and the client channels of NIO. Listening types (`ServerSocket`,
+  `ServerSocketChannel`, `AsynchronousServerSocketChannel`, `com.sun.net.httpserver.HttpServer`) accept connections and
+  open none, so they are not connections of the runtime and are not in the set; the data types of the client's API are not
+  either.
+* *Rule B (destination list):* no class of `pm-runtime` depends on `de.cuioss.http.client..` except the destination
+  classes of the closed list, one entry per class, each carrying the specification sentence it implements. The validation
+  pipelines of `de.cuioss.http.security..` stay free: they open no connection. Rule B does not look at `pm-core`, whose
+  build already forbids `cui-http`.
+
+Rule A's exemptions are a closed map from one top-level class to the reason the specification gives it — the egress
+proxy's tunnel, the Unix-domain socket to the Secret Service, and the `jar:` read of the shipped roles and profiles — never
+by package. Both lists are proved load-bearing in both directions: a test evaluates rule A without its exemptions over the
+same import and asserts that the violating classes are exactly the exempt ones, rule B asserts the same equality between
+the client's users and the allow-list, and the import is asserted non-vacuous.
+
+The integration test of the same section stays owed: it needs `check_updates`, which no class implements, and the
+assembly `pm-mcp-server`, which lies outside this repository. It remains "the owed half" in the specification and is a
+deliverable of a later plan.
+
+This decision settles, for the repository-wide rule, what `runtime-endpoint/006` called "owed … reported to the milestone
+exit".
+
+== Alternatives Considered
+
+* *One rule that bans the `java.net` package, as `AnalysisBoundaryArchTest` does for `core.analysis` and
+  `core.findings`:* refused, because `URI`, `InetAddress`, `NetworkInterface` and `URLEncoder` are legitimate and the rule
+  would have to exempt them by name, which is the same exemption map with a broader forbidden set.
+* *A package-level allow-list instead of a class-level one:* refused, because the closed list is a list of destination
+  classes, and a package that holds one destination class would admit a second one silently.
+* *One ArchUnit rule per module:* it needs the ArchUnit test dependency in every module — not decided, since the operator's
+  word covers `pm-runtime` only; the provider modules and `pm-workflow` stay outside this rule until that decision is taken.
+* *A checkstyle or a grep rule:* not ArchUnit, and it would decide text instead of types and calls; not decided.
+
+== Consequences
+
+* A new outbound call is a failing test until its class is on the allow-list and its destination in the specification; the
+  two changes belong to the same pull request.
+* A class that only listens needs no exemption, and a class that reads a `jar:` resource needs one with a reason.
+* The rule sees `pm-runtime` and `pm-core` only: the provider modules, `pm-workflow` and the assembly are outside it, and
+  a provider module's HTTP client stays unguarded by this rule.
+* The recording-test-network integration test remains owed, and the specification says so.
+
+== Source
+
+The pull request of the plan `PLAN-V2-53` (`outbound-calls-guard`) of the epic `pm-mcp-core-m2-m4-v2`; Credentials &
+Enrolment § Outbound HTTPS Security and § Closed List of Outbound Calls; Client Profiles § Judgment Endpoint and § The
+Request; Model Work § Corpus Sources; ADR `runtime-endpoint/006`.

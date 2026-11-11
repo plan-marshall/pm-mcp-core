@@ -77,12 +77,15 @@ public final class BuildTimingsStore {
         Objects.requireNonNull(observedAt, "observedAt");
         var seconds = Math.max(1, duration.toSeconds());
         return update(key, timings -> switch (residue) {
-            case CLEAN -> new KeyTimings(Baseline.observed(timings.clean(), seconds), timings.poisoned(),
-                    timings.cold(), null, observedAt);
-            case POISONED -> new KeyTimings(timings.clean(), Baseline.observed(timings.poisoned(), seconds),
-                    timings.cold(), null, observedAt);
-            case COLD -> new KeyTimings(timings.clean(), timings.poisoned(),
-                    Baseline.observed(timings.cold(), seconds), null, observedAt);
+            case CLEAN -> KeyTimings.builder().clean(Baseline.observed(timings.clean(), seconds))
+                    .poisoned(timings.poisoned()).cold(timings.cold()).escalationSeconds(null)
+                    .lastObservedAt(observedAt).build();
+            case POISONED -> KeyTimings.builder().clean(timings.clean())
+                    .poisoned(Baseline.observed(timings.poisoned(), seconds)).cold(timings.cold())
+                    .escalationSeconds(null).lastObservedAt(observedAt).build();
+            case COLD -> KeyTimings.builder().clean(timings.clean()).poisoned(timings.poisoned())
+                    .cold(Baseline.observed(timings.cold(), seconds)).escalationSeconds(null)
+                    .lastObservedAt(observedAt).build();
         });
     }
 
@@ -104,8 +107,9 @@ public final class BuildTimingsStore {
             throw new IllegalArgumentException("The budget and its cap are at least one second");
         }
         var escalation = escalate(budgetSeconds, capSeconds);
-        return update(key, timings -> new KeyTimings(timings.clean(), timings.poisoned(), timings.cold(), escalation,
-                timings.lastObservedAt()));
+        return update(key, timings -> KeyTimings.builder().clean(timings.clean()).poisoned(timings.poisoned())
+                .cold(timings.cold()).escalationSeconds(escalation).lastObservedAt(timings.lastObservedAt())
+                .build());
     }
 
     /**

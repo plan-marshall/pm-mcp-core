@@ -1,0 +1,83 @@
+= ADR 006: The Redactor Learns the npm Shapes and the npm Diagnostic Is Redacted at Its Source
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-10
+
+== Context
+
+`SecretRedactor` is the one write-boundary mask of an activity entry and of an unparsed build excerpt (ADR
+`core-queue/008`, ADR `core-build/004`). It knew an authorization header, a bearer value, an explicit `label=value`
+assignment (including a `private_key=`-style label) and the provider token shapes
+`sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs]`, but it masked no PEM block. An npm build log carries shapes outside that
+list: an access token
+`npm_` followed by 36 alphanumeric characters, a registry URL with user information
+(`https://<user>:<secret>@registry.example/pkg`), a credential passed as a spaced flag (`--password <value>`,
+`--token <value>`) and, in a hostile log, a PEM private key whose base64 body carries no label. Every one of those was
+returned unchanged.
+
+`NpmErrorParser` composes a generic block's diagnostic message from its code token and the block's first reportable
+line, cut to 500 characters (`DiagnosticCollector.stored`). `firstLine` returns the block's code line, so a later
+`request to https://<user>:<secret>@registry.example/pkg failed` line does not reach the message at the head; the
+reachable vector is a secret in the code token itself, and the composed message becomes a finding message once a consumer
+reads `Diagnostic.message` (a later plan). The redaction is applied to the composed message, so either part is masked.
+
+The operator answered the R07 questions when this plan was implemented (2026-11-09): mask the four npm shapes with
+narrow, anchored patterns, and redact the npm error parser's message at its source only.
+
+== Decision
+
+* `SecretRedactor` masks, beside the existing shapes:
+  ** an npm access token, `npm_` followed by exactly 36 alphanumeric characters;
+  ** the user information of a URL, keeping the scheme and the user (`scheme://user:[redacted]@host`);
+  ** the value of a spaced credential flag, keeping the flag and an opening quote; a quoted value runs to the first
+     unescaped matching quote (spaces included), an unclosed quote masks the rest of the line, and any nonempty unquoted
+     value is masked, a comma included (`--token "[redacted]"`, `--password [redacted]`);
+  ** a PEM private-key block carried inside one text, replaced whole; a block whose `END` line is missing is masked from
+     its `BEGIN` line to the end of the text (masking too much costs evidence, leaving a key body readable costs the
+     credential).
+* Each added pattern is anchored to its own shape so prose cannot match it, and each has a negative control: a URL
+  without user information (`https://github.com/org/repo`), a query or fragment that carries a colon and an `@`
+  (`https://host?next=user:password@other/path`), a different flag (`--password-file notes.txt`), a sentence with the word
+  `token`, an `npm_`-prefixed string shorter than a token, and prose that names a key type without a PEM marker.
+* A PEM block whose `BEGIN` line lies outside the text is not masked; the carried open item names it.
+* `NpmErrorParser` redacts the generic block's composed message (its code token and the first reportable line) through
+  `SecretRedactor.redactText` before the 500-character cut, so a cut value cannot keep a prefix the redactor would have
+  matched whole. The `ERESOLVE` and `E404` messages are built from dependency names and stay unchanged.
+* Whether the other parsers' messages are redacted centrally at `DiagnosticCollector.stored` is carried, not taken: the
+  Jest, TAP, `tsc`, ESLint, pytest and JVM messages carry source and test text, and the false-positive cost on compiler
+  messages is the reason it is a separate decision.
+
+== Alternatives Considered
+
+* *Redact every parser's message at `DiagnosticCollector.stored`.* One seam would cover the later consumer of
+  `Diagnostic.message`, but it masks compiler and test text that is the evidence a reader needs; the operator kept the
+  npm parser's own redaction and carried the broader decision.
+* *A broad `npm_` prefix without the exact length.* A package or variable named `npm_<something>` would lose its text;
+  the 36-character body is the documented token shape and keeps the rest readable.
+* *Mask the whole URL rather than its secret.* The host and the path are the evidence that explains the failure; only the
+  password is the credential.
+* *Dismiss the PEM shape as out of scope.* A private key in a build log is the highest-severity leak of the set, and its
+  block form is unambiguous; only the window-spanning case is carried.
+
+== Consequences
+
+* The masks reach every activity entry as well as the excerpt, because `SecretRedactor.redact` masks each entry at the
+  journal's write boundary; `ActivityJournalMaskingTest` stays green.
+* Redaction stays idempotent: a mask it writes is not matched again by a different replacement.
+* The npm diagnostic is safe at rest before a consumer reads it; the other parsers remain as they are.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-127-npm-parser-success-and-redaction.md[PLAN-V2-127]
+* Work package link:../../../../doc/plans/build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
+* Specification: link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#_a_workers_output_while_it_runs[Job Runtime § A Worker's Output While It Runs];
+  link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback]
+* Journal redaction: link:../core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR `core-queue/008`]
+* Excerpt redaction: link:004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR `core-build/004`]
+* Developer guide: link:../../developer/core-build.adoc[`core.build`]; link:../../developer/core-queue.adoc[`core.queue`]

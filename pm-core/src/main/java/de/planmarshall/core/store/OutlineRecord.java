@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -35,6 +36,7 @@ import org.jspecify.annotations.Nullable;
  * @param deliverables one to 50 deliverables
  * @since 0.1
  */
+@Builder
 public record OutlineRecord(String summary, @Nullable String overview, ScopeEstimate scopeEstimate,
 List<Deliverable> deliverables) {
 
@@ -307,6 +309,7 @@ List<Deliverable> deliverables) {
      * @param keyLinks        how its code is wired in
      * @since 0.1
      */
+    @Builder
     public record Deliverable(int number, String title, String intentGloss, ChangeType changeType,
     ExecutionMode executionMode, String domain, String module, List<Integer> depends, @Nullable String designNotes,
     List<Profile> profiles, List<AffectedFile> affectedFiles, String changePerFile,

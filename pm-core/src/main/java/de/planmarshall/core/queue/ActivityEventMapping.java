@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonNode;
@@ -144,6 +145,7 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
      * @param stopReasonPointer the pointer to the turn's stop reason; {@code turn} only, may be {@code null}
      * @since 0.1
      */
+    @Builder
     public record KindMapping(List<String> match, @Nullable String textPointer, @Nullable String toolPointer,
     List<String> targetPointers, @Nullable String sizePointer, @Nullable String isErrorPointer,
     @Nullable String pathPointer, @Nullable String stopReasonPointer) {

@@ -15,7 +15,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores with the operator's recorded choice among them (no automatic choice, no fallback), the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
 * `audit`: the anchoring and the verification of the audit trail: what makes the hash chain of `logs/audit.jsonl`, which `AuditLog` of `pm-core` writes, checkable for tampering.
 * `config`: the machine configuration and what the machine alone decides of its defaults: the `providers` of `machine-config.json` that the provider step of the machine's onboarding writes, and the machine's own check of a landing variant.
-* `corpus`: the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
+* `corpus`: the fetch of the corpus sources over `cui-http` (PM-WORK-6, PM-EXEC-5): the Git LFS object download and the Hugging Face dataset read over HTTPS, each implementing a `pm-core` source contract.
 * `credentials`: the credential stores of the runtime: exactly one `SecretStore` per machine, the one the operator recorded in `credentials.store` of `machine-config.json`, read and written by `CredentialStoreChoice`.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
 * `endpoint`: the endpoint harness: the one request of a task on a model this machine serves over loopback HTTP, the answer and its usage, the owner check of the listening socket, the weights identity of the models and the verification stages of an endpoint.
@@ -43,6 +43,8 @@ Run from the root of the repository:
 The commands for the whole repository are in `CLAUDE.md`.
 
 The HTTP tests run against the mock web server of `cui-test-mockwebserver-junit5`, a test dependency of the module.
+
+The architecture rules of the runtime (`OutboundCallsArchTest`: no class opens a connection, and only the destination classes of the closed list use `cui-http`) run with the module's tests.
 
 == Test artifact
 
@@ -72,6 +74,7 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
 * link:doc/developer/runtime-ingest.adoc[Ingestion Validator (`runtime.ingest`)]
 * link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
 * link:doc/developer/runtime-launch.adoc[Worker Launch and Harness Enrolment (`runtime.launch`)]
+* link:doc/developer/runtime-guard.adoc[Outbound-Call Guard (`runtime.guard`)]
 * link:doc/developer/runtime-lock.adoc[Lock Manager and Stale Lease Sweep (`runtime.lock`)]
 * link:doc/developer/runtime-log.adoc[Log Messages (`runtime.log`)]
 * link:doc/developer/runtime-lsp.adoc[Language Server Client (`runtime.lsp`)]

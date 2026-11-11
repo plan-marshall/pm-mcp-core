@@ -354,7 +354,8 @@ public final class TaskProtocol {
                 return new CallResult.Refused(TaskRefusal.LINK_NOT_AVAILABLE, task);
             }
             var attempts = acknowledged(task.attempts(), at);
-            var lease = new Lease(task.lease().generationId(), task.lease().jobId(), task.lease().leasedAt(), at);
+            var lease = Lease.builder().generationId(task.lease().generationId()).jobId(task.lease().jobId())
+                    .leasedAt(task.lease().leasedAt()).acknowledgedAt(at).build();
             return new CallResult.Accepted(task.withStatus(Status.EXECUTING).withLease(lease).withAttempts(attempts));
         });
     }

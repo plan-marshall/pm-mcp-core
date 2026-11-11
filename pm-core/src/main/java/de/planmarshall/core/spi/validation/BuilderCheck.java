@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 
 import de.planmarshall.core.store.CapabilityIndex;
 import de.planmarshall.core.store.IntentRecord;
@@ -68,6 +69,7 @@ public final class BuilderCheck {
      * @param decision for {@code minor}, the decision the builder would take; {@code null} otherwise
      * @since 0.1
      */
+    @Builder
     public record Question(Sort sort, String text, List<String> items, String decision) {
 
         /**

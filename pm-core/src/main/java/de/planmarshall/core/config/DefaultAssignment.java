@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffortValue;
@@ -79,6 +80,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
      * @param advisory         the message key of the advisory shown beside the value
      * @since 0.1
      */
+    @Builder
     public record DefaultRole(String tier, @Nullable EffortValue effort, String preferredHarness, String advisory) {
 
         private static final Set<String> TIERS = Set.of("frontier", "standard", "fast");

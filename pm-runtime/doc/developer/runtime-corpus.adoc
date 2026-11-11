@@ -18,6 +18,12 @@ The HTTPS source repository is link:{src}/HuggingFaceSourceRepository.java[`Hugg
 The git part reads an LFS file as its pointer; `LfsBatchClient` downloads the object the pointer names over HTTP, never through a git filter driver, and `HuggingFaceSourceRepository` reads a Hugging Face dataset at its pinned commit, never through a git client.
 `pm-mcp-server` composes them with `JGitSourceRepository` of `pm-provider-git` into a `CorpusImport` (link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[ADR 006], as amended for the HTTPS fetch).
 
+== Entries of the Closed List of Outbound Calls
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+
+`HuggingFaceSourceRepository` and `LfsBatchClient` are the two destination classes of this package, and both are entries of Credentials & Enrolment § Closed List of Outbound Calls (link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[`03-audit-and-outbound-https.adoc`]): the dataset read and the batch request with the object download are named there with what bounds them, and `OutboundCallsArchTest` of `runtime.guard` refuses a use of `cui-http` by any class that list does not name (link:runtime-guard.adoc[Outbound-Call Guard Developer Guide]).
+
 == HTTPS Source Repository
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]

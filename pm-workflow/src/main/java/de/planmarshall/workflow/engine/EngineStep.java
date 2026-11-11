@@ -142,7 +142,8 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
                 throw new IllegalStateException("the state '%s' carries the condition '%s' already"
                         .formatted(status.state(), status.condition().get().kind()));
             }
-            var condition = new WorkflowStatus.PendingCondition(kind, 0, null, toJson(facts), raisedAt);
+            var condition = WorkflowStatus.PendingCondition.builder().kind(kind).remedyAttempts(0).integrity(null)
+                    .facts(toJson(facts)).raisedAt(raisedAt).build();
             return of(status.toBuilder().pendingCondition(condition).updatedAt(raisedAt).build());
         }
 

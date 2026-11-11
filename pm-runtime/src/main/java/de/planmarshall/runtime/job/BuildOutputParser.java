@@ -45,9 +45,12 @@ import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
  * The parsed build becomes the {@link JobEvidence.ParseResult}: the positive success marker the tool printed, the
  * number of diagnostics the parser located, and the contradicting evidence — an error-severity diagnostic or a
  * measured failing test count. A warning beside a green build contradicts nothing. A green {@code status} alone is not
- * a success marker: a tool that prints no positive marker (npm errors, {@code tsc}, ESLint, Jest and TAP do not print a
- * success banner) keeps a zero exit {@code indeterminate} by row 8 of the outcome derivation rather than guessing a
- * success from the absence of diagnostics.
+ * a success marker: a tool that prints no positive marker keeps a zero exit {@code indeterminate} by row 8 of the
+ * outcome derivation rather than guessing a success from the absence of diagnostics. The npm family prints three kinds
+ * of marker and each is dispatched: Jest's and TAP's passing summary, and the install family's completion line
+ * ({@code added|removed|changed ... packages}, {@code up to date, audited N packages}). A clean {@code tsc} or ESLint
+ * run prints nothing at all, so it stays {@code indeterminate}: the job's verb does not stand in for a printed
+ * summary.
  *
  * @since 0.1
  */
@@ -63,7 +66,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
 
     private static final Pattern TAP_MARKER = Pattern.compile("(?m)^(?:TAP version \\d+|1\\.\\.\\d+|(?:not )?ok \\d+)");
 
-    private static final Pattern NPM_MARKER = Pattern.compile("(?m)^npm ERR! ");
+    private static final Pattern NPM_MARKER = Pattern.compile("(?m)^(?:npm ERR!|npm error) ");
 
     /**
      * Parses the log of an ended job.
@@ -111,7 +114,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
         if (TAP_MARKER.matcher(output).find()) {
             return Optional.of(result(TapOutputParser.parse(output)));
         }
-        if (NPM_MARKER.matcher(output).find()) {
+        if (NPM_MARKER.matcher(output).find() || NpmErrorParser.INSTALL_SUMMARY.matcher(output).find()) {
             return Optional.of(result(NpmErrorParser.parse(output)));
         }
         return Optional.empty();

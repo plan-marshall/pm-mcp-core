@@ -12,6 +12,7 @@ package de.planmarshall.core.service;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
@@ -98,6 +99,7 @@ public interface JobRunner<R, C> {
      * @param <R>              the request of a job
      * @since 0.1
      */
+    @Builder
     record StartRequest<R>(JobId.Kind kind, Scope scope, String budgetKey, long budgetSeconds,
     BudgetDerivation budgetDerivation, R request, @Nullable String stdin) {
 

@@ -11,6 +11,7 @@ package de.planmarshall.runtime.config;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  * @param verification  the last verification result, or {@code null} when none was recorded
  * @since 0.1
  */
+@Builder
 public record ProviderDefault(boolean available, @Nullable ProviderVariant variant,
 @Nullable String credentialKey, @Nullable VerificationResult verification) {
 

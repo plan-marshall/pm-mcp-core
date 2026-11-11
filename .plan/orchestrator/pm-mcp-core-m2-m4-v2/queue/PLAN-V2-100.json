@@ -2,10 +2,10 @@
   "id": "PLAN-V2-100",
   "slug": "builders-for-records-core",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "v2-100-builders-for-records-core",
+  "pr": "#367",
+  "landing": "landings/PLAN-V2-100.md",
   "seq": -8
 }

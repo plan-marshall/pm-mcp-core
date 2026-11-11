@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.LockKey;
@@ -43,6 +44,7 @@ import de.planmarshall.core.store.LockKey;
  * @param details  the details of the event, unmodifiable
  * @since 0.1
  */
+@Builder
 public record AuditEvent(String event, String category, String outcome, Map<String, Object> details) {
 
     /** The name of the event that records a refused out-of-order lock acquisition. */
