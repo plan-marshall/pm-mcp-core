@@ -149,6 +149,6 @@ A parameterised test pairs each hazard fixture with the forbidden target its fai
 
 == Specification Tracing
 
-* Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[Credentials & Enrolment § Closed List of Outbound Calls], link:{docs}/specification/client-profiles/04-judgment-endpoint.adoc[Client Profiles § Judgment Endpoint], link:{spec}/model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work § Corpus Sources]
+* Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[Credentials & Enrolment § Closed List of Outbound Calls], link:{spec}/harness-profiles/03-endpoint-harness.adoc#endpoint-harness[Harness Profiles § A Model on This Machine], link:{docs}/later-improvements.adoc#L-39[Later Improvements, L-39], link:{spec}/model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work § Corpus Sources]
 * Requirements: link:{docs}/Requirements.adoc#PM-ARCH-2[PM-ARCH-2], link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5], link:{docs}/Requirements.adoc#PM-TECH-2[PM-TECH-2], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
 * Decisions: link:../../../doc/adr/023-the-outbound-call-guard-lives-in-pm-runtime.adoc[repository ADR 023], link:../../../pm-runtime/doc/developer/runtime-corpus.adoc[`runtime-corpus.adoc`]
