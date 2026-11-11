@@ -33,7 +33,7 @@ class TokenLaneCredentialTest {
     private final String secret = Generators.letterStrings(8, 24).next();
 
     @Test
-    @DisplayName("the origin is the lower-case scheme, the host and the port where one is named")
+    @DisplayName("the origin is the lower-case scheme and host, and the port where one is named")
     void origin() {
         var noPort = new TokenLaneCredential.Entry(secret, URI.create("HTTPS://example.com/entry"));
         var withPort = new TokenLaneCredential.Entry(secret, URI.create("https://example.com:8443/entry"));
@@ -42,8 +42,8 @@ class TokenLaneCredentialTest {
         assertAll(
                 () -> assertEquals("https://example.com", noPort.origin(), "no port stays unnamed"),
                 () -> assertEquals("https://example.com:8443", withPort.origin(), "a named port stays"),
-                () -> assertEquals("https://Example.COM", mixedCaseHost.origin(),
-                        "the host is carried as written, so a case difference is a different origin"),
+                () -> assertEquals("https://example.com", mixedCaseHost.origin(),
+                        "the host is compared case-insensitively, so a case difference is the same origin"),
                 () -> assertEquals("https://example.com",
                         TokenLaneCredential.origin(URI.create("https://example.com")),
                         "the static origin answers the same rule"));

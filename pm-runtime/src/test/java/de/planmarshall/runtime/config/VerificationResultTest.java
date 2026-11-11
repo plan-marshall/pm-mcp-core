@@ -37,12 +37,14 @@ class VerificationResultTest {
     @Test
     @DisplayName("a pass needs at least one check, and every one of them passed")
     void passIsTheOutcomeOfTheChecks() {
+        List<VerificationResult.Check> noChecks = List.of();
+        var failedChecks = List.of(new VerificationResult.Check("origin", false));
+
         var noCheck = assertThrows(IllegalArgumentException.class,
-                () -> new VerificationResult(true, at, List.of()),
+                () -> new VerificationResult(true, at, noChecks),
                 "a pass without a check is refused");
         var failedCheck = assertThrows(IllegalArgumentException.class,
-                () -> new VerificationResult(true, at,
-                        List.of(new VerificationResult.Check("origin", false))),
+                () -> new VerificationResult(true, at, failedChecks),
                 "a pass beside a failed check is refused");
 
         assertAll(

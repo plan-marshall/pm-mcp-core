@@ -116,12 +116,12 @@ class MachineConfigurationSchemaParityTest {
         var lspIdleTimeout = SchemaResource.object(properties.get("lsp_idle_timeout_seconds"));
 
         assertAll(
-                () -> assertEquals(((Number) buildSlots.get("minimum")).intValue(),
-                        MachineConfigurationCodec.MIN_BUILD_SLOTS, "the lowest build slot count is the schema's"),
-                () -> assertEquals(((Number) buildSlots.get("maximum")).intValue(),
-                        MachineConfigurationCodec.MAX_BUILD_SLOTS, "the highest build slot count is the schema's"),
-                () -> assertEquals(((Number) lspIdleTimeout.get("minimum")).intValue(),
-                        MachineConfigurationCodec.MIN_LSP_IDLE_TIMEOUT_SECONDS,
+                () -> assertEquals(MachineConfigurationCodec.MIN_BUILD_SLOTS,
+                        ((Number) buildSlots.get("minimum")).intValue(), "the lowest build slot count is the schema's"),
+                () -> assertEquals(MachineConfigurationCodec.MAX_BUILD_SLOTS,
+                        ((Number) buildSlots.get("maximum")).intValue(), "the highest build slot count is the schema's"),
+                () -> assertEquals(MachineConfigurationCodec.MIN_LSP_IDLE_TIMEOUT_SECONDS,
+                        ((Number) lspIdleTimeout.get("minimum")).intValue(),
                         "the lowest LSP idle timeout is the schema's"));
     }
 
