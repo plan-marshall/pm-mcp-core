@@ -25,8 +25,9 @@ import org.junit.jupiter.api.Test;
 import de.planmarshall.core.config.LimitProperties;
 
 /**
- * The bounds of a build log's parse (R07): every line is cut at the per-line limit before a parser's patterns see it,
- * and the three patterns that backtrack over a line of repeated tokens answer inside a stated bound on a hostile line.
+ * The bounds of a build log's parse (R07): the three parsers of this plan cut every line at the per-line limit before a
+ * pattern of theirs sees it, and the three patterns that backtrack over a line of repeated tokens answer inside a stated
+ * bound on a hostile line.
  * <p>
  * The bound is measured through the parser, not through the expression: a test that proves a pattern is no longer
  * quadratic names its input and uses a preemptive timeout, never a comparison of two wall-clock runs. The hostile line
@@ -205,18 +206,18 @@ class BuildLogBoundsTest {
     @Test
     @DisplayName("hostile pytest section and exception lines return inside the bound")
     void boundsThePytestSectionAndExceptionPatterns() {
-        var section = fit("= a", LIMIT);
+        var section = "=" + " ".repeat(4) + "a" + " ".repeat(LIMIT - 7) + "=";
         var exception = "E x" + fit(" ", LIMIT - 3);
         var log = "=== ERRORS ===\n"
-                + "____ ERROR at setup of test_x.py ____\n"
+                + "____ test_a ____\n"
                 + exception + "\n"
                 + section + "\n"
                 + "=== short test summary info ===\n"
-                + "ERROR at setup of test_x.py\n";
+                + "ERROR test_x.py::test_a\n";
         PyprojectOutputParser.parse("=== ERRORS ===\n");
 
         var parsed = assertTimeoutPreemptively(HOSTILE_BOUND, () -> PyprojectOutputParser.parse(log),
-                "the section and exception patterns answer a hostile line of " + LIMIT + " characters");
+                "the section and exception patterns answer a line of " + LIMIT + " characters");
 
         assertEquals(1, parsed.diagnostics().size(), "the error summary line locates one diagnostic");
     }

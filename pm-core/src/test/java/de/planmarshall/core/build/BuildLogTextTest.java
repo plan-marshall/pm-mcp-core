@@ -113,6 +113,18 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a log exactly at the cap is read whole")
+    void readsALogAtTheCapWhole(@TempDir Path directory) throws Exception {
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES - 1);
+        Path log = directory.resolve("at.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertEquals(content, text, "a log at the cap is read as it was written");
+    }
+
+    @Test
     @DisplayName("a log one byte over the cap is read from its end")
     void readsALogOverTheCapFromItsEnd(@TempDir Path directory) throws Exception {
         var content = "h" + "a".repeat(BuildLogText.MAX_BYTES);

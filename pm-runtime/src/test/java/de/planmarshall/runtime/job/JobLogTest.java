@@ -196,19 +196,20 @@ class JobLogTest {
         }
 
         @Test
-        @DisplayName("at the cap: the whole log is read, not cut")
+        @DisplayName("at the cap: the whole log is answered, never a cut")
         void atTheCap() throws Exception {
             var marker = "last line " + line();
-            var filler = "x".repeat(JobLog.MAX_BYTES - report.length() - marker.length() - 2);
+            var filler = "x".repeat(JobLog.MAX_BYTES - report.length() - marker.length() - 3);
             Files.writeString(path, report + "\n" + filler + "\n" + marker + "\n", StandardCharsets.UTF_8);
 
             var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a log at the cap is complete");
             var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(), "the report is read");
 
             assertAll(
+                    () -> assertEquals(JobLog.MAX_BYTES, Files.size(path), "the log is exactly at the cap"),
                     () -> assertEquals(Files.size(path), whole.length(), "the length is the size of the log"),
-                    () -> assertTrue(reading.jobOutput().startsWith(filler), "the log is not cut at the cap"),
-                    () -> assertTrue(reading.jobOutput().contains(marker), "the last line is kept"));
+                    () -> assertEquals(filler + "\n" + marker + "\n", reading.jobOutput(),
+                            "the whole log follows the report, uncut"));
         }
 
         @Test

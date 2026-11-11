@@ -76,7 +76,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
      */
     public sealed interface Reading permits Reported, Unreported {
 
-        /** @return the output of the job: the log after the report, or the whole log when there is no report */
+        /** @return the output of the job: the log after the report, or the log it was given when there is no report */
         String jobOutput();
     }
 
@@ -100,7 +100,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
      * The log carries no report: it is empty, or its first line does not parse as one. Nothing is stripped.
      *
      * @param detail    why there is no report
-     * @param jobOutput the whole log
+     * @param jobOutput the log the read was given, unchanged
      * @since 0.1
      */
     public record Unreported(String detail, String jobOutput) implements Reading {
@@ -115,8 +115,8 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
     /**
      * Takes the first line of a job log as the launch report.
      *
-     * @param log the job log as written, launch report included
-     * @return the report and the job's output after it, or why there is no report and the whole log
+     * @param log the job log as the caller holds it, launch report included
+     * @return the report and the job's output after it, or why there is no report and the log the read was given
      */
     public static Reading read(String log) {
         Objects.requireNonNull(log, "log");

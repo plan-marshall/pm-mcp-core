@@ -26,8 +26,8 @@ import de.planmarshall.core.store.JobId;
  * The excerpt is the tail of the raw log: the ANSI escapes are stripped through {@link BuildLogText#stripAnsi}, each
  * carriage-return frame run is reduced to its last frame, and the last {@value #MAX_LINES} lines are kept, bounded to at
  * most {@value #MAX_BYTES} bytes of UTF-8 counted from its end, so the byte bound can cut the earliest retained line.
- * The tail is taken by scanning back from the log's end, never by listing the log: a log of a million lines costs the
- * tail it keeps, not a list of every line.
+ * The tail is taken by scanning back from the log's end, and the carriage-return reduction lists no line: a log of a
+ * million lines costs the reduced text, never an entry per line.
  * Every secret-shaped value is replaced by {@link SecretRedactor}; the bound is applied after the redaction, because a
  * replacement can lengthen a line. The full log itself stays beside the job record as {@code <job_id>.log}, which is the
  * resource the URI names.
@@ -94,8 +94,9 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
      * by scanning back from its end for line beginnings.
      * <p>
      * A build log is untrusted text of any length, and listing its lines would hold every one of them at once to keep
-     * fifty. The scan reads the line ends from the end until it has counted the kept lines, so the memory the tail
-     * costs is the tail's own. The line end of the last line is dropped, as joining the listed lines dropped it.
+     * fifty. The scan reads the line ends from the end until it has counted the kept lines, and the carriage-return
+     * reduction holds the text and a frame start, so no entry per line is built. The line end of the last line is
+     * dropped, as joining the listed lines dropped it.
      *
      * @param reduced the log text, its escapes stripped and its carriage-return frames reduced
      * @return the tail, without the line end of its last line
@@ -123,23 +124,42 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
      * Reduces each carriage-return frame run to its last frame: an npm progress spinner overwrites one line with
      * {@code \r}, and every frame would otherwise count as a line of its own against the line bound, pushing the failure
      * out of the tail. The {@code \r\n} line ending is normalized first, so only a standalone {@code \r} ends a frame.
+     * <p>
+     * The pass is character by character and lists nothing: it holds the reduced text and the start of the current
+     * line's current frame, so a log of a million lines costs the text it reduces, never one entry per line.
      *
      * @param text the text, with its ANSI escapes already stripped
      * @return the text with every {@code \r} run reduced to its last frame
      */
     private static String reduceCarriageReturns(String text) {
-        String normalized = text.replace("\r\n", "\n");
-        var reduced = new StringBuilder(normalized.length());
-        for (String line : normalized.split("\n", -1)) {
-            if (!reduced.isEmpty()) {
+        var reduced = new StringBuilder(text.length());
+        var frameStart = 0;
+        var index = 0;
+        while (index < text.length()) {
+            char current = text.charAt(index);
+            if (current == '\r') {
+                var run = index;
+                while (run < text.length() && text.charAt(run) == '\r') {
+                    run++;
+                }
+                if (run < text.length() && text.charAt(run) == '\n') {
+                    reduced.append('\n');
+                    frameStart = reduced.length();
+                    index = run + 1;
+                } else if (run == text.length()) {
+                    index = run;
+                } else {
+                    reduced.setLength(frameStart);
+                    index = run;
+                }
+            } else if (current == '\n') {
                 reduced.append('\n');
+                frameStart = reduced.length();
+                index++;
+            } else {
+                reduced.append(current);
+                index++;
             }
-            var end = line.length();
-            while (end > 0 && line.charAt(end - 1) == '\r') {
-                end--;
-            }
-            var trimmed = line.substring(0, end);
-            reduced.append(trimmed.substring(trimmed.lastIndexOf('\r') + 1));
         }
         return reduced.toString();
     }

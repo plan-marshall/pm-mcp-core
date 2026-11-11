@@ -344,9 +344,12 @@ include::../../src/main/resources/de/planmarshall/core/build/build-limits.proper
 Three patterns are rewritten on top of the cut, each held to the ported expression's result by a differential test over
 generated lines (`BuildLogBoundsTest`): the Maven execution header and the OpenRewrite finding line are asked a
 necessary-condition pre-test first (a header needs an `@`, a finding line needs both its identifier prefix and ` by `),
-and the pytest summary line is answered in two steps — the earliest verdict word, then the `in <seconds>s` tail after it.
-The pytest exception and section patterns measured linear and are left as they are. A test that bounds a pattern names
-its input length and its bound, and uses a preemptive timeout; it never compares two wall-clock runs.
+and the pytest summary line is answered in two steps — the earliest verdict word, then the `in <seconds>s` tail after it —
+for every line without a line terminator, while a line that carries one is answered by the ported expression. A
+pre-test bounds the shapes the analyses named; a line that carries the token it tests still backtracks inside the
+expression, bounded by the line cut. The pytest exception and section patterns measured linear and are left as they are.
+A test that bounds a pattern names its input length and its bound, and uses a preemptive timeout; it never compares two
+wall-clock runs.
 
 Both values are data: editing the properties resource changes the bound, and the class that names it reads the value when
 it initialises. There is no literal in the code and no runtime override.
@@ -424,7 +427,7 @@ compares the figures with literals read out of the report by hand; no test runs 
 
 _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
-`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame, keeps the tail of the last `MAX_LINES` (50) lines, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. The tail is taken by scanning back from the log's end for line beginnings, never by listing the log: a million-line log costs the tail it keeps, not a list of every line. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
+`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame in one character pass that lists no line, takes the tail of the last `MAX_LINES` (50) lines by scanning back for line beginnings, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. A million-line log costs the reduced text, never an entry per line. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
 
 == Invariants and Failure Modes
 

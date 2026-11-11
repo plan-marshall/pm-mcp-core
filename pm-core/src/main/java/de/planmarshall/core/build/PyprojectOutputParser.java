@@ -97,6 +97,7 @@ public class PyprojectOutputParser {
     private static final Pattern SUMMARY_WORD = Pattern.compile("\\b(?:passed|failed|skipped)\\b");
 
     /** The ported summary expression, kept for the rare line that carries a line terminator (see {@link #isSummaryLine}). */
+    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern PORTED_SUMMARY_LINE =
             Pattern.compile("^.*\\b(?:passed|failed|skipped)\\b.*\\bin\\s+[\\d.]+s.*$");
 
@@ -208,8 +209,8 @@ public class PyprojectOutputParser {
     }
 
     private static boolean carriesLineTerminator(String line) {
-        return line.indexOf('\r') >= 0 || line.indexOf('\u0085') >= 0 || line.indexOf('\u2028') >= 0
-                || line.indexOf('\u2029') >= 0;
+        return line.indexOf('\n') >= 0 || line.indexOf('\r') >= 0 || line.indexOf('\u0085') >= 0
+                || line.indexOf('\u2028') >= 0 || line.indexOf('\u2029') >= 0;
     }
 
     private static List<Diagnostic> mypyDiagnostics(List<String> lines) {

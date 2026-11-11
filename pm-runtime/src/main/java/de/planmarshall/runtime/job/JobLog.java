@@ -76,7 +76,7 @@ public record JobLog(Path path) {
     }
 
     /**
-     * What the read of the whole log of an ended job answered.
+     * What the read of the log of an ended job answered.
      *
      * @since 0.1
      */

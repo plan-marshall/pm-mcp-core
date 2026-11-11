@@ -72,12 +72,17 @@ characters for a line — and asked that both be data of a properties resource, 
   names.
 * The cut of a read can leave a partial ANSI escape at the head of the tail. `BuildLogText.stripAnsi` does not match it
   and the fragment stays in the text, where no parser pattern reads it as a marker.
+* The two Maven-side pre-tests reject a line that cannot match; a line that carries the token they test still backtracks
+  inside the expression, so its cost is the square of the line's length — bounded by the per-line cut to one line's
+  worth, not made linear. The pytest summary is linear for every line without a line terminator; a line that carries one
+  is answered by the ported expression, whose cost the terminator does not change. A linear expression for the two
+  Maven-side patterns needs the anchored rewrite, which this plan did not take.
 
 == Source
 
 * Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-131-build-log-bounds.md[PLAN-V2-131]
 * Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Native Build Output Parsers]
-* Developer guides: link:../developer/core-build.adoc[`core.build`] and
+* Developer guides: link:../../developer/core-build.adoc[`core.build`] and
   link:../../../../pm-runtime/doc/developer/runtime-job.adoc[`runtime.job`]
 * Origin: the landings of PLAN-V2-08 (C3), PLAN-V2-28 (C1, I2) and PLAN-V2-36 (C4), and the operator's decision of
   2026-11-10 on the two values.

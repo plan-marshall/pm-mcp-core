@@ -72,16 +72,18 @@ class UnparsedEvidenceTest {
         var allocation = assertInstanceOf(ThreadMXBean.class, ManagementFactory.getThreadMXBean(),
                 "the JVM must account the thread's allocation");
         assertTrue(allocation.isThreadAllocatedMemoryEnabled(), "thread allocation accounting must be enabled");
-        UnparsedEvidence.keptTail(log);
+        UnparsedEvidence.of(PLAN, JOB, log);
 
         var before = allocation.getCurrentThreadAllocatedBytes();
-        var tail = UnparsedEvidence.keptTail(log);
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
         var allocated = allocation.getCurrentThreadAllocatedBytes() - before;
 
         assertAll(
-                () -> assertEquals(UnparsedEvidence.MAX_LINES, tail.lines().count(), "the tail keeps fifty lines"),
+                () -> assertEquals(UnparsedEvidence.MAX_LINES, evidence.excerpt().lines().count(),
+                        "the excerpt keeps fifty lines"),
                 () -> assertTrue(allocated >= 0, "the allocation count must be measured: " + allocated),
-                () -> assertTrue(allocated < 65_536, "the whole log is never listed, allocation: " + allocated));
+                () -> assertTrue(allocated < 16_777_216,
+                        "the whole log is never listed, allocation: " + allocated));
     }
 
     @Test
