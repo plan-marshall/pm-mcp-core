@@ -178,6 +178,37 @@ class WorkflowEngineTest {
                     () -> assertEquals(1, fixtures.nextWork.calls()));
         }
 
+        @ParameterizedTest(name = "terminal {0} ({1})")
+        @MethodSource("de.planmarshall.workflow.engine.WorkflowEngineTest#deliveryTerminals")
+        @DisplayName("Should end a plan in each delivery terminal (contract ids completed, handed_back, returned) with "
+                + "phase completed")
+        void shouldEndDeliveryTerminalWithPhaseCompleted(String outcomeId, OutcomeClass outcomeClass) {
+            var engine = fixtures.engine(endingPlan("plan.end", outcomeId, outcomeClass, ""));
+
+            var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertAll(
+                    () -> assertEquals(outcomeId, ended.outcomeId(), "the end reports the terminal's outcome"),
+                    () -> assertEquals(outcomeClass, ended.outcomeClass(), "the end reports the outcome class"),
+                    () -> assertEquals("completed", ended.status().phase(), "a delivery terminal takes completed"),
+                    () -> assertTrue(ended.status().callStack().isEmpty(), "no call stack is left at the end"));
+        }
+
+        @Test
+        @DisplayName("Should end a plan the engine set at plan.aborted (contract outcome id aborted) with phase aborted")
+        void shouldEndPlanAbortWithPhaseAborted() {
+            var engine = fixtures.engine(endingPlan("completed", "completed", OutcomeClass.SUCCESS,
+                    "\nstate plan.aborted terminal aborted failure\n"));
+
+            var ended = assertInstanceOf(EngineStep.Ended.class,
+                    engine.advance(planStatus(EXECUTE, "plan.aborted")));
+
+            assertAll(
+                    () -> assertEquals("aborted", ended.outcomeId(), "the abort reports the outcome aborted"),
+                    () -> assertEquals(OutcomeClass.FAILURE, ended.outcomeClass(), "the abort reports failure"),
+                    () -> assertEquals("aborted", ended.status().phase(), "only the outcome aborted takes aborted"));
+        }
+
         @ParameterizedTest(name = "{0} -> {1}")
         @MethodSource("de.planmarshall.workflow.engine.WorkflowEngineTest#subWorkflowExits")
         @DisplayName("Should return each exit of a sub-workflow to its caller, which routes it")
@@ -191,6 +222,44 @@ class WorkflowEngineTest {
                     () -> assertEquals(terminal, ended.status().state()),
                     () -> assertTrue(ended.status().callStack().isEmpty()));
         }
+    }
+
+    /** The delivery terminals of a plan with the outcome class each reports; contract ids of the Workflow DSL. */
+    static Stream<Arguments> deliveryTerminals() {
+        return Stream.of(Arguments.of("completed", OutcomeClass.SUCCESS),
+                Arguments.of("handed_back", OutcomeClass.FAILURE), Arguments.of("returned", OutcomeClass.FAILURE));
+    }
+
+    /**
+     * @param terminal     the id of the one terminal state
+     * @param outcomeId    the outcome the terminal reports
+     * @param outcomeClass the class of that outcome
+     * @param more         further states, which no transition enters
+     * @return a plan unit whose start state enters the terminal on every outcome of {@code test.step}
+     */
+    private static WorkflowDefinition endingPlan(String terminal, String outcomeId, OutcomeClass outcomeClass,
+            String more) {
+        return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                icon: workflow.default
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow plan version 1 format 1
+                scope plan
+                start execute.first
+
+                state execute.first
+                    auto test.step
+                        done -> %1$s
+                        failed -> %1$s
+
+                state %1$s terminal %2$s %3$s
+                %4$s""".formatted(terminal, outcomeId, outcomeClass.name().toLowerCase(Locale.ROOT), more));
     }
 
     static Stream<Arguments> subWorkflowExits() {

@@ -1,0 +1,47 @@
+= ADR 015: The End Phase Keyed by the Outcome Id
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-11
+
+== Context
+
+When a top-level unit reaches a terminal, `WorkflowEngine.ended` records the phase of the ended scope. It chose that
+phase by the outcome class alone: every terminal of class `failure` took `aborted`, every other one `completed`. The
+plan unit has three delivery terminals, `completed`, `handed_back` and `returned`, and an operator-initiated end,
+`plan.aborted` (the epic unit likewise `epic.aborted`). `handed_back`, `returned` and `aborted` all report the class
+`failure`, so a plan handed back or returned ended with the phase `aborted`, although the specification gives the
+three delivery terminals the phase `completed` (Workflow DSL Specification § Phase of a state and § Ends of a scope)
+and tells them apart by the outcome. The operator decided on 2026-11-09 that the delivery terminals take `completed`.
+
+== Decision
+
+* `ended` takes the phase `aborted` exactly when the terminal's outcome id is `aborted`, the outcome `plan.aborted`
+  and `epic.aborted` declare (`terminal aborted failure`). The id is held in the constant `ABORTED_OUTCOME` beside
+  `ABORTED_PHASE`.
+* Every other end, the delivery terminals `completed`, `handed_back` and `returned` included, takes `completed`.
+* The outcome class stays what `EngineStep.Ended` reports; only the phase is keyed by the id.
+
+== Alternatives Considered
+
+1. *The phase equal to the terminal's name* (`handed_back`, `returned`). Rejected: the phase value set of the stores
+  is closed and names no such phase; the outcome already tells the delivery terminals apart.
+2. *Keep `aborted` for every failure.* Rejected: it reports a handed-back or returned plan as aborted, which the
+  specification does not, and it hides the operator's abort among the delivery ends.
+
+== Consequences
+
+A plan that ends `handed_back` or `returned` records the phase `completed`; only the abort records `aborted`. A
+consumer that read `aborted` for a handed-back or returned plan, such as the assembly `pm-mcp-server`, is checked
+against the deployed `SNAPSHOT`. Nothing is released, so no stored status is migrated (R13).
+
+== Source
+
+* Work package `PLAN-V2-57`.
+* Store Schemas § Phases as Sub-Workflows and the Phase of a Record (the phase of a plan at its end).
+* Workflow DSL Specification § Phase of a state; § Ends of a scope.
