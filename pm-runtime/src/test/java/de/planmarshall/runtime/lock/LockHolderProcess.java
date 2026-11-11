@@ -87,7 +87,7 @@ final class LockHolderProcess {
         var standardOutput = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
         try (var transaction = new FileLockManager(new RecordingAuditSink()).openTransaction()) {
             transaction.acquire(key);
-            var operation = operate(key, transaction, mode, args);
+            var operation = operate(key, transaction, mode);
             operation.ifPresent(standardOutput::println);
             standardOutput.println(HELD);
             System.in.transferTo(OutputStream.nullOutputStream());
@@ -117,7 +117,7 @@ final class LockHolderProcess {
      *
      * @return the line that reports what the operation did, or empty when the mode reports nothing
      */
-    private static Optional<String> operate(LockKey key, LockTransaction transaction, String mode, String[] args) {
+    private static Optional<String> operate(LockKey key, LockTransaction transaction, String mode) {
         var store = new JsonlStoreFile(key.lockFile(), key);
         switch (mode) {
             case LEAF, MAILBOX, JOURNAL -> store.append(transaction, APPENDED, new RecordingAuditSink());
