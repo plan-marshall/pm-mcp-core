@@ -1,5 +1,7 @@
 # PLAN-V2-139: Finish PLAN-V2-53: the dead judgment-endpoint link, the seven short assertion messages, the CLAUDE.md pointer and the duplicated predicate
 
+> **SUPERSEDED 2026-11-11 by PLAN-V2-137** (operator's word: "aim at larger plans, a smaller number of plans if sensible"). Its four deliverables are Deliverables 4 to 7 of `PLAN-V2-137-records-builders-residue.md`, with the same ask-at-refine questions; do not emit this spec. The queue row is `superseded`. The text below is kept as the record.
+
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: the three-layer analysis of PLAN-V2-53 (`landings/PLAN-V2-53.md`: layer 1 L1-3, layer 2 "weak control", layer 3 "rule deviations" and "duplicated logic"), the merged pull request #365 (`50ec9a55f990c5b57322ea358f927375495fa508`) and the operator's word of 2026-11-11 to stage the residue plans (runbook lane, residue)
