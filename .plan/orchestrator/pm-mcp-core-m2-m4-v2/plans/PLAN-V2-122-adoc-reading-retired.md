@@ -28,14 +28,14 @@ Plan parameters (the values the rules ask for):
 
 ## Objective
 
-The closing package of the schema transition. When every package before it is done, no test reads a specification: this plan deletes `SpecificationDocument` and the property `pm.specification.root`, narrows the `**/doc/**` entry of the include list of the docs-only skip (ADR 015) to the generated log message files of `generated-listings` (decided 2026-11-08: those are the only files below a `doc/` tree a test still reads), and marks ADR 009 and the entry superseded.
+The closing package of the schema transition. When every package before it is done, no test reads a specification: this plan deletes `SpecificationDocument` and the property `pm.specification.root`, narrows the `**/doc/**` entry of the include list of the docs-only skip (ADR 015) to the generated log message files of `generated-listings` (`doc/log-messages/pm-core.adoc`, `pm-runtime.adoc` and `pm-workflow.adoc`, covered by the one glob `doc/log-messages/*.adoc` that ADR 019, `doc/adr/019-generated-log-message-listings.adoc`, names) (decided 2026-11-08: those are the only files below a `doc/` tree a test still reads), and marks ADR 009 and the entry superseded.
 
 ## Deliverables
 
 1. **Delete** `SpecificationDocument` and the property `pm.specification.root`: its declaration and its pass-through to the tests in `pm-core/pom.xml`, and the `..` fallback of every test that read the property.
-2. **Shrink the include list** of `maven-build.paths-code-extra` in `.github/project.yml`: `**/doc/**` narrows to the generated log message files of `generated-listings`, the only files below a `doc/` tree a test still reads (unconditional since the decision of 2026-11-08). `**/src/**` stays: a fixture below a source tree is build input.
-3. **The ADR:** the ADR of `schema-files-foundation` states that the premise of ADR 009 and the `**/doc/**` entry of ADR 015 no longer hold; the ADR index marks them superseded.
-4. **Verify by search:** no test source opens a path below `doc/` (a search for `"doc/`, `Path.of("..`, `Path.of("doc` and `getProperty("pm.` in the test trees), apart from the byte check of the generated log message files of `generated-listings`.
+2. **Shrink the include list** of `maven-build.paths-code-extra` in `.github/project.yml`: `**/doc/**` narrows to the generated log message files of `generated-listings` (`doc/log-messages/pm-core.adoc`, `pm-runtime.adoc` and `pm-workflow.adoc`, covered by the one glob `doc/log-messages/*.adoc` that ADR 019, `doc/adr/019-generated-log-message-listings.adoc`, names), the only files below a `doc/` tree a test still reads (unconditional since the decision of 2026-11-08). `**/src/**` stays: a fixture below a source tree is build input.
+3. **The ADR:** the ADR of `schema-files-foundation` (cited next to ADR 019, which records the generated listings and the glob Deliverable 2 keeps) states that the premise of ADR 009 and the `**/doc/**` entry of ADR 015 no longer hold; the ADR index marks them superseded.
+4. **Verify by search:** no test source opens a path below `doc/` (a search for `"doc/`, `Path.of("..`, `Path.of("doc` and `getProperty("pm.` in the test trees), apart from the byte check of the generated log message files of `generated-listings` (`doc/log-messages/pm-core.adoc`, `pm-runtime.adoc` and `pm-workflow.adoc`, covered by the one glob `doc/log-messages/*.adoc` that ADR 019, `doc/adr/019-generated-log-message-listings.adoc`, names).
 5. **Documents here:** the two sentences of project setup about `skip-on-docs-only` and the docs-only pull request are checked; the pull request beside this one is only needed where one names them.
 
 ## Standing Constraints
@@ -67,7 +67,7 @@ Not surface (R19): `doc/plans/README.adoc` (the plan removes its own row, R08), 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-116, 117, 118, 119 and 120 (117, 118 and 120 are shipped) and PLAN-V2-121 (`generated-listings`, decided 2026-11-08: it keeps a byte check of the generated log message files below `doc/`, whose names this plan reads). Emit last.
+- Depends on: PLAN-V2-116, 117, 118, 119 and 120 (116, 117, 118 and 120 are shipped, 2026-11-11; 119 is staged and orders after 129, so 122 stays last) and PLAN-V2-121 (`generated-listings`, decided 2026-11-08: it keeps a byte check of the generated log message files below `doc/`, whose names this plan reads). Emit last.
 - The packages of the transition: PLAN-V2-115 `schema-files-foundation` (first); PLAN-V2-116 to 119 (the four move packages, disjoint by document, parallel once the foundation is on `main`); PLAN-V2-120 `limits-in-data-files`; PLAN-V2-121 `generated-listings` (decided, staged); PLAN-V2-122 `adoc-reading-retired` (last).
 - Overlaps: by file with every plan that edits a test or document named in the Expected Surface; the orchestrator pairs them by the cross-check before emitting.
 
