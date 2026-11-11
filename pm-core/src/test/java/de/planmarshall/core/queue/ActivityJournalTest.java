@@ -111,7 +111,7 @@ class ActivityJournalTest {
     }
 
     @Test
-    @DisplayName("delete removes the journal and the sibling lock file beside it")
+    @DisplayName("delete removes the journal and the sibling lock file, and the key is acquirable again")
     void deleteRemovesTheSiblingLock(@TempDir Path base) throws Exception {
         var journal = new ActivityJournal(base.resolve("journal"), new TestLocks());
         journal.append(TASK, signal(1));
@@ -120,10 +120,15 @@ class ActivityJournalTest {
         Files.writeString(lock, "");
 
         journal.delete(TASK);
+        var journalStillThere = Files.exists(file);
+        var lockStillThere = Files.exists(lock);
+        journal.append(TASK, signal(1));
 
         assertAll("a deleted journal",
-                () -> assertFalse(Files.exists(file), "the journal itself is deleted"),
-                () -> assertFalse(Files.exists(lock), "the sibling lock file is deleted"));
+                () -> assertFalse(journalStillThere, "the journal itself is deleted"),
+                () -> assertFalse(lockStillThere, "the sibling lock file is deleted"),
+                () -> assertEquals(1, journal.entries(TASK).size(),
+                        "the journal written again under the key holds one entry"));
     }
 
     @Test

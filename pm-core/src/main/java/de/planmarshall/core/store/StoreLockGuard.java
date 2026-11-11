@@ -21,6 +21,9 @@ import de.planmarshall.core.service.LockTransaction;
 /**
  * The one check every store access under a lock runs first (PM-IMPL-7): the transaction holds the key that guards
  * the store, or the access is an internal fault and touches nothing.
+ * <p>
+ * The fault and its detail name the key's guarded file, so they read as the lock of that store. For a leaf key that
+ * file is the append-only store and not the sidecar its OS lock is taken on (ADR 068).
  *
  * @since 0.1
  */
@@ -38,7 +41,7 @@ class StoreLockGuard {
         Objects.requireNonNull(transaction, "transaction");
         if (!transaction.holds(lockKey)) {
             throw new InternalFaultException(Reason.STORE_LOCK_NOT_HELD,
-                    "Store '%s' accessed without its lock '%s'".formatted(store, lockKey.lockFile()),
+                    "Store '%s' accessed without the lock of '%s'".formatted(store, lockKey.lockFile()),
                     Map.of("store", store.toString(), "lock", lockKey.lockFile().toString()));
         }
     }

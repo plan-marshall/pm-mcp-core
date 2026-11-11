@@ -28,7 +28,8 @@ import java.util.regex.Pattern;
  * they protect, so archiving a plan directory or working on an epic in a worktree never splits a lock. The queue lock
  * of the machine scope lies below {@code machine/locks/} and the lock of an onboarding entry below
  * {@code onboardings/locks/}. Only the leaf keys name the guarded file (the audit log, a plan's mailbox, a task's
- * activity journal): an append-only file is never replaced by rename.
+ * activity journal): a leaf file may be renamed (a rotation, the rewrite of a bounded journal), which is why its OS
+ * lock is on the sidecar beside it.
  * <p>
  * Keys are ordered by level, then by {@link #id()}, then by lock path. The id is the plan id of a plan lock and the
  * epic id of an epic lock, so several of them sort lexicographically by that id. The id of a machine store lock is

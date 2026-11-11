@@ -279,6 +279,12 @@ public final class ActivityJournal {
 
     /**
      * Deletes one task's journal and its lock with the plan it belongs to.
+     * <p>
+     * Deleting a journal is an act of the one runtime. The transaction holds the leaf key while it unlinks the journal
+     * and the sidecar, so on POSIX the unlinked sidecar's OS lock lies on a file no path names any more, and a second
+     * runtime that created the sidecar again would take a lock on a different inode; the runtime singleton lock
+     * (`RuntimeLock`) is what excludes that second runtime
+     * (link:../../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]).
      *
      * @param queueTaskId the task whose journal is deleted
      * @throws java.io.UncheckedIOException if a file exists and cannot be deleted

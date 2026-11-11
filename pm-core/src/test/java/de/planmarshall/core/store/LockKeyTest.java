@@ -183,7 +183,7 @@ class LockKeyTest {
         }
 
         @Test
-        @DisplayName("the leaf keys are taken on the append-only file itself")
+        @DisplayName("the leaf keys name the append-only file itself; their OS lock is on its sidecar")
         void leafKeys() {
             var audit = LockKey.auditLog(BASE);
             var mailbox = LockKey.mailbox(BASE, project, plan);
