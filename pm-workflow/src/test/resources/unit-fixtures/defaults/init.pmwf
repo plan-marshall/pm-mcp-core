@@ -6,6 +6,8 @@ icon: phase.init
 entry: start
 exit: deep
 exit: light
+exit: land
+exit: adopt
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
@@ -13,7 +15,8 @@ author: plan-marshall
 # The init phase as its own unit, written for the invariant and unit-loader tests, never copied from the product.
 # Every path into init.ready passes init.classify and the main_sha stamp; the init question returns every answer to
 # init.classify; the light lane passes init.light-gate, whose deep outcome is the light -> deep ratchet. The lanes
-# leave the phase on an exit: `deep` into refine, `light` into the light lane of outline.
+# leave the phase on an exit: `deep` into refine, `light` into the light lane of outline, `land` into the land entry
+# of execute, `adopt` into the adopt entry of finalize.
 workflow phase-1-init version 1 format 1
 scope subworkflow
 entry start -> init.begin
@@ -39,6 +42,8 @@ state init.ready
     auto test.lane
         deep -> init.deep-exit
         light -> init.light-gate
+        land -> init.land-exit
+        adopt -> init.adopt-exit
 
 state init.light-gate
     auto test.gate
@@ -48,3 +53,7 @@ state init.light-gate
 state init.deep-exit terminal deep success
 
 state init.light-exit terminal light success
+
+state init.land-exit terminal land success
+
+state init.adopt-exit terminal adopt success
