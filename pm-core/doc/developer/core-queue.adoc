@@ -115,7 +115,12 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
   naming the file, never an empty record.
 * A torn last line of a journal is cut by the next append; `seq` is never reused.
 * The journal's leaf lock is the sibling `<queue_task_id>.jsonl.lock`: the journal itself is replaced by a rename when it
-  exceeds its bound, and a lock on the replaced inode would exclude nobody.
+  exceeds its bound, and a lock on the replaced inode would exclude nobody. Its OS lock is on that sibling, never on the
+  journal: a store write opens and closes a channel on the journal and would release a lock taken on it
+  (link:../adr/core-store/068-leaf-key-os-lock-on-a-sidecar.adoc[ADR core-store/068]).
+* Deleting a journal is an act of the one runtime: `delete(task)` holds the leaf key while it unlinks the journal and
+  its sidecar, so the held OS lock lies on an unlinked inode afterwards and a second runtime that created the sidecar
+  again would lock a different inode. The runtime singleton lock is what excludes that second runtime.
 * Every text, tool target and link target is masked before the write; a masked value is stored masked, and a secret is
   never in the journal at rest.
 * A navigation figure is either measured with a population or one of the two sentinels; an absent population is never
