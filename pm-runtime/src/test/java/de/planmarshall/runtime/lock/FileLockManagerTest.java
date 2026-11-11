@@ -46,6 +46,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -64,6 +65,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -103,7 +106,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 @DisplayName("File lock manager")
 class FileLockManagerTest {
 
-    /** The instant and the clock of the audit records the leaf-lock tests write. */
+    /**
+     * The instant and the clock of the audit records the leaf-lock tests write. Both are a literal because they are
+     * the contract: the audit records need one fixed instant and clock for the chain, and a generated instant would
+     * make that chain differ on every run (R20, the contract exception to generated test data).
+     */
     private static final Instant AT = Instant.parse("2026-11-08T09:30:15.250Z");
     private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
 
@@ -141,8 +148,12 @@ class FileLockManagerTest {
      * The channel of a probe stays open until the test has ended: closing any channel on a file releases every lock
      * the process holds on it, so a probe that closed its channel would drop the lock of the manager it has just
      * seen. No test fails without this, because the loss is visible from another process only.
+     * <p>
+     * The answer comes from the JVM's lock table, which keeps a channel's registration after another channel on the
+     * file has closed: this probe therefore cannot show that an OS lock survived a store write. That proof is
+     * {@code FileLockManagerTwoProcessIT}, which reads the lock from a second process.
      *
-     * @return whether this process holds a lock of the operating system on the file
+     * @return whether this process holds a lock of the operating system on the file, as the JVM's lock table says
      */
     private boolean isLocked(Path file) throws IOException {
         var channel = FileChannel.open(file, StandardOpenOption.WRITE);
@@ -437,7 +448,11 @@ class FileLockManagerTest {
     @DisplayName("lock files")
     class LockFiles {
 
+        /**
+         * Enabled on Linux and macOS only: it reads POSIX file modes, which the other operating systems do not have.
+         */
         @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a lock file is created with mode 0600 and its directories with mode 0700")
         void modes() {
             var machine = LockKey.enrolment(base, projectId);
@@ -487,8 +502,11 @@ class FileLockManagerTest {
          * lock manager created would stand in the way of the plan that is published into that place. The OS lock is
          * taken on the sidecar beside the guarded file (ADR 068), so the acquisition creates the sidecar and not the
          * store.
+         * <p>
+         * Enabled on Linux and macOS only: it reads the sidecar's mode through POSIX file permissions.
          */
         @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a leaf lock creates its sidecar with mode 0600 but never its directory nor the store")
         void leafLock() throws Exception {
             var audit = LockKey.auditLog(base);
@@ -742,9 +760,10 @@ class FileLockManagerTest {
      * <p>
      * A probe inside this process cannot see a lost OS lock: the JVM's own lock table keeps the first channel's lock
      * registered after another channel on the file closes, so {@code isLocked} and a second manager both answer from
-     * that table. The OS-level proof is {@code FileLockManagerTwoProcessIT.leafAppendKeepsTheOsLock}, which watches
-     * the sidecar from a second process. These tests pin the sidecar's layout, the second manager's refusal, the
-     * release, and the append and repair path.
+     * that table. The OS-level proof is {@code FileLockManagerTwoProcessIT}, which watches the sidecar from a second
+     * process with one test per leaf mode: the audit append, the tail repair, the last-line read, the mailbox append
+     * and a journal-shaped key. These tests pin the sidecar's layout, the second manager's refusal, the release, and
+     * the append and repair path.
      */
     @Nested
     @DisplayName("the OS lock of a leaf key")
@@ -796,9 +815,10 @@ class FileLockManagerTest {
                         secondResult.set(e);
                     }
                 });
-                secondThread.join();
+                secondThread.join(Duration.ofSeconds(10));
 
                 assertAll("a second lock manager on the same base",
+                        () -> assertFalse(secondThread.isAlive(), "the second manager's attempt ends in the bound"),
                         () -> assertTrue(lockedAfterAppend, "the OS lock survives the append"),
                         () -> assertInstanceOf(IllegalStateException.class, secondResult.get(),
                                 "the second manager cannot take the key"),
