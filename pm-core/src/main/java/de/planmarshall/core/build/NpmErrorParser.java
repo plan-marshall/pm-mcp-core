@@ -19,14 +19,26 @@ import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
  * The native parse of an npm error log, ported from {@code build-npm/_npm_parse_errors.py}.
  * <p>
- * The scanner reads the {@code npm ERR! code <CODE>} blocks of the log and classifies each block by its code. An
+ * The scanner reads the {@code code <CODE>} blocks of the log — the {@code npm ERR! } prefix of npm up to 11 and the
+ * {@code npm error } prefix of npm 12 on — and classifies each block by its code. An
  * {@code ERESOLVE} block is {@link Category#NPM_DEPENDENCY} and names the conflicting peer dependency when the
  * {@code Could not resolve dependency:} trailer names one; an {@code E404} block is {@link Category#NPM_ERROR} and names
- * the package the registry does not hold; every other code is {@link Category#NPM_ERROR} with the first line of the block
- * as its message. Both named forms point into {@code package.json} without a line, as in the original.
+ * the quoted package when the block carries the {@code '<package>' is not in this registry} form of npm up to 11,
+ * otherwise it reports the package as not found (npm 12 prints the "requested resource" wording). Every other code is
+ * {@link Category#NPM_ERROR} whose message is the code and the first line of the block, redacted through
+ * {@link SecretRedactor} before the stored-length cut so a truncated message cannot keep half a secret. Both named forms
+ * point into {@code package.json} without a line, as in the original.
+ * <p>
+ * The install family prints no error block; its completion line ({@code added 150 packages in 10s},
+ * {@code up to date, audited 5 packages}) is the tool's positive success marker ({@link #printsInstallSummary}), so a
+ * zero-exit install ends {@code succeeded} instead of {@code indeterminate}. A log with an error block, or one whose
+ * line the pattern cannot read, keeps the marker {@code false}. {@code tsc} and ESLint print no such line: their clean
+ * run stays {@code indeterminate}, and the job's verb does not stand in for a printed summary.
  * <p>
  * One behaviour is a deliberate change against the original (ADR {@code core-build/003}): the original reads only the
  * first {@code npm ERR! code} line and files at most one diagnostic, so a log that carries several error blocks loses all
@@ -40,7 +52,11 @@ import org.jspecify.annotations.Nullable;
 @UtilityClass
 public class NpmErrorParser {
 
-    private static final String ERROR_PREFIX = "npm ERR! ";
+    /**
+     * The two error prefixes npm prints: {@code npm ERR!} up to npm 11 and {@code npm error} from npm 12 on. The same
+     * failure carries the same block under either prefix.
+     */
+    private static final Pattern ERROR_PREFIX = Pattern.compile("^(?:npm ERR!|npm error) ");
 
     private static final String ERESOLVE = "ERESOLVE";
 
@@ -48,15 +64,27 @@ public class NpmErrorParser {
 
     private static final String PACKAGE_JSON = "package.json";
 
-    private static final String CONFLICT_MARKER = "npm ERR! Could not resolve dependency:";
+    private static final Pattern CONFLICT_MARKER =
+            Pattern.compile("^(?:npm ERR!|npm error) Could not resolve dependency:$");
 
     private static final String BOILERPLATE_PREFIX = "A complete log";
 
-    private static final Pattern ERROR_CODE = Pattern.compile("^npm ERR! code (\\S+)");
+    private static final Pattern ERROR_CODE = Pattern.compile("^(?:npm ERR!|npm error) code (\\S+)");
 
-    private static final Pattern E404_PACKAGE = Pattern.compile("^npm ERR! 404\\s+'([^']+)'\\s+is not in this registry");
+    private static final Pattern E404_PACKAGE =
+            Pattern.compile("^(?:npm ERR!|npm error) 404\\s+'([^']+)'\\s+is not in this registry");
 
     private static final Pattern PEER_CONFLICT = Pattern.compile("peer\\s+(\\S+)\\s+from\\s+(\\S+)");
+
+    /**
+     * The install family's completion line: {@code added 150 packages in 10s}, {@code removed 3 packages in 1s},
+     * {@code changed 2 packages} or {@code up to date, audited 5 packages}. Each branch requires its printed count, so a
+     * prose sentence that merely carries the words {@code added} and {@code packages} does not match. The adapter
+     * {@code BuildOutputParser.npm} reads the same pattern to dispatch an install log here, so the marker and the
+     * dispatch cannot drift apart.
+     */
+    public static final Pattern INSTALL_SUMMARY = Pattern.compile(
+            "(?m)^\\s*(?:(?:added|removed|changed) \\d+ packages?\\b|up to date, audited \\d+ packages?\\b)");
 
     /**
      * Parses an npm error log.
@@ -81,14 +109,27 @@ public class NpmErrorParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<Diagnostic> diagnostics = extractDiagnostics(logText);
+        List<String> lines = List.of(logText.split("\n", -1));
+        List<Diagnostic> diagnostics = extractDiagnostics(lines);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return new ParsedBuild(diagnostics, status, false, null,
-                ParsedBuild.noTestsRanFrom(status, false, null, false));
+        boolean successMarker = status == BuildStatus.SUCCESS && printsInstallSummary(lines);
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
+                .testCounts(null)
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, null, false)).build();
     }
 
-    private static List<Diagnostic> extractDiagnostics(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+    /**
+     * Whether the log printed the install family's completion line. The marker needs a successful status, which the
+     * caller supplies by requiring no error block; a completion line beside an error block is therefore no marker.
+     *
+     * @param lines the log lines
+     * @return whether an install completion line was printed
+     */
+    private static boolean printsInstallSummary(List<String> lines) {
+        return lines.stream().anyMatch(line -> INSTALL_SUMMARY.matcher(line).find());
+    }
+
+    private static List<Diagnostic> extractDiagnostics(List<String> lines) {
         var diagnostics = new ArrayList<Diagnostic>();
         int blockStart = -1;
         String code = null;
@@ -113,13 +154,25 @@ public class NpmErrorParser {
 
     private static Diagnostic diagnostic(String code, List<String> block) {
         return switch (code) {
-            case ERESOLVE -> new Diagnostic(PACKAGE_JSON, null, null, eresolveMessage(block), Category.NPM_DEPENDENCY,
-                    Severity.ERROR, null);
-            case E404 -> new Diagnostic(PACKAGE_JSON, null, null, e404Message(block), Category.NPM_ERROR, Severity.ERROR,
-                    null);
-            default -> new Diagnostic(null, null, null, DiagnosticCollector.stored(code + ": " + firstLine(block)),
-                    Category.NPM_ERROR, Severity.ERROR, null);
+            case ERESOLVE -> Diagnostic.builder().file(PACKAGE_JSON).message(eresolveMessage(block))
+                    .category(Category.NPM_DEPENDENCY).severity(Severity.ERROR).build();
+            case E404 -> Diagnostic.builder().file(PACKAGE_JSON).message(e404Message(block))
+                    .category(Category.NPM_ERROR).severity(Severity.ERROR).build();
+            default -> Diagnostic.builder().message(storedRedacted(code + ": " + firstLine(block)))
+                    .category(Category.NPM_ERROR).severity(Severity.ERROR).build();
         };
+    }
+
+    /**
+     * Redacts a generic block's composed message before the stored-length cut, so a cut value cannot keep a prefix the
+     * redactor would have matched whole. The dedicated {@code ERESOLVE} and {@code E404} messages are built from
+     * dependency names and need no redaction.
+     *
+     * @param message the composed message
+     * @return the redacted message, cut to the stored length
+     */
+    private static String storedRedacted(String message) {
+        return DiagnosticCollector.stored(SecretRedactor.redactText(message).orElseThrow());
     }
 
     private static String eresolveMessage(List<String> block) {
@@ -145,7 +198,7 @@ public class NpmErrorParser {
     private static Optional<String[]> findPeerConflict(List<String> block) {
         int marker = -1;
         for (int index = 0; index < block.size(); index++) {
-            if (CONFLICT_MARKER.equals(block.get(index).strip())) {
+            if (CONFLICT_MARKER.matcher(block.get(index).strip()).matches()) {
                 marker = index;
                 break;
             }
@@ -169,8 +222,9 @@ public class NpmErrorParser {
      */
     private static String firstLine(List<String> block) {
         for (String line : block) {
-            if (line.startsWith(ERROR_PREFIX)) {
-                String content = line.substring(ERROR_PREFIX.length()).strip();
+            Matcher prefix = ERROR_PREFIX.matcher(line);
+            if (prefix.find()) {
+                String content = line.substring(prefix.end()).strip();
                 if (!content.isEmpty() && !content.startsWith(BOILERPLATE_PREFIX)) {
                     return content;
                 }

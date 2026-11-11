@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -50,6 +51,7 @@ import org.jspecify.annotations.Nullable;
  * @param filesFindings         the finding sources the step may file; empty when it files none
  * @since 0.1
  */
+@Builder
 public record FinalizeStepDescriptor(
 String name,
 int order,
@@ -140,6 +142,7 @@ List<String> filesFindings) {
      * @param prunableWhen the condition under which a prunable step is pruned; {@code null} if the lane declares none
      * @param costSize     the cost size of the step
      */
+    @Builder
     public record Lane(LaneClass laneClass, @Nullable String tier, @Nullable String prunableWhen, String costSize) {
 
         /**

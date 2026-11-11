@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import lombok.Builder;
 
 /**
  * One line of the waiver consumption log {@code plans/<plan_id>/waiver-consumptions.jsonl} of a plan (PM-SEC-3,
@@ -29,6 +30,7 @@ import java.util.regex.Pattern;
  * @param covered  what the waiver admitted, in the order of the evaluation; each entry not empty
  * @since 0.1
  */
+@Builder
 public record WaiverConsumptionRecord(String waiverId, String gate, Instant at, String stateId, String headSha,
 List<String> covered) {
 

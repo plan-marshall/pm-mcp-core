@@ -77,8 +77,8 @@ public class EslintOutputParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         boolean failed = diagnostics.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR);
         BuildStatus status = failed ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
-        ParsedBuild build = new ParsedBuild(diagnostics, status, false, null,
-                ParsedBuild.noTestsRanFrom(status, false, null, false));
+        ParsedBuild build = ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false)
+                .testCounts(null).noTestsRan(ParsedBuild.noTestsRanFrom(status, false, null, false)).build();
         return new EslintResult(build, problemCounts(lines).orElse(null));
     }
 
@@ -129,8 +129,9 @@ public class EslintOutputParser {
         Severity severity = ERROR.equals(head.group(3)) ? Severity.ERROR : Severity.WARNING;
         Integer lineNumber = position(head.group(1));
         Integer column = lineNumber == null ? null : position(head.group(2));
-        return Optional.of(new Diagnostic(file, lineNumber, column,
-                DiagnosticCollector.stored(rule + ": " + message), Category.LINT_ERROR, severity, null));
+        return Optional.of(Diagnostic.builder().file(file).line(lineNumber).column(column)
+                .message(DiagnosticCollector.stored(rule + ": " + message)).category(Category.LINT_ERROR)
+                .severity(severity).build());
     }
 
     /**

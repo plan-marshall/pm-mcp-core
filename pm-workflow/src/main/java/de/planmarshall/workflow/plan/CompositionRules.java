@@ -257,7 +257,12 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             var bindings = list(then.get("bind"), name + " 'bind'").stream()
                     .map(entry -> binding(entry, name)).flatMap(Optional::stream).toList();
             return refused() ? Optional.empty()
-                    : Optional.of(new CompositionRule(id.get(), when.get(), prunes, bindings));
+                    : Optional.of(CompositionRule.builder()
+                    .id(id.get())
+                    .when(when.get())
+                    .prunes(prunes)
+                    .bindings(bindings)
+                    .build());
         }
 
         private Optional<CompositionRule.Condition> condition(Node node, String name) {

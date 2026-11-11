@@ -114,8 +114,13 @@ public final class CloneDetector {
                     .normalized())) {
                 length++;
             }
-            candidates.add(new CloneCandidate(file.path(), range(added, start, length), occurrence.path(),
-                    range(occurrence.tokens(), occurrence.start(), length), length));
+            candidates.add(CloneCandidate.builder()
+                    .addedPath(file.path())
+                    .addedRange(range(added, start, length))
+                    .existingPath(occurrence.path())
+                    .existingRange(range(occurrence.tokens(), occurrence.start(), length))
+                    .tokens(length)
+                    .build());
             start += length;
         }
         return candidates;

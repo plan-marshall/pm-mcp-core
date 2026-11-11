@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.api.MachinePaths;
@@ -76,6 +77,7 @@ public final class RuntimeDrain {
      * @param terminated what participants terminated and recorded {@code killed} after the drain timeout
      * @param failures   the failures of participants and file operations, each naming what failed
      */
+    @Builder
     public record Outcome(int exitCode, List<String> ended, List<String> terminated, List<String> failures) {
 
         /**
@@ -159,7 +161,12 @@ public final class RuntimeDrain {
             }
         }
         LOGGER.info(INFO.RUNTIME_DRAINED, ended, terminated, EXIT_DRAINED);
-        return new Outcome(EXIT_DRAINED, ended, terminated, failures);
+        return Outcome.builder()
+                .exitCode(EXIT_DRAINED)
+                .ended(ended)
+                .terminated(terminated)
+                .failures(failures)
+                .build();
     }
 
     private void drainParticipants(List<String> failures, List<String> ended, List<String> terminated) {

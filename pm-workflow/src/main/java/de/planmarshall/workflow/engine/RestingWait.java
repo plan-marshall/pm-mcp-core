@@ -15,6 +15,7 @@ import java.util.Set;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.store.WorkflowStatus;
+import lombok.Builder;
 
 /**
  * What a resting state waits for, derived from the persisted status alone (PM-ARCH-4: a resumed engine reads the wait
@@ -33,6 +34,7 @@ import de.planmarshall.core.store.WorkflowStatus;
  * @param taskEntities the entities of the state's queue tasks; empty when it has none
  * @since 0.1
  */
+@Builder
 public record RestingWait(String stateId, AwaitedEvent awaitedEvent, Set<String> jobIds, Set<String> taskEntities) {
 
     /**

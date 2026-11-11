@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.JsonDocument;
@@ -37,6 +38,7 @@ import de.planmarshall.core.store.HarnessUsage;
  * @param usage   the usage of the answer; {@link HarnessUsage#none()} when no answer was measured
  * @since 0.1
  */
+@Builder
 public record EndpointOutcome(Fate fate, Reason reason, String detail, String content, HarnessUsage usage) {
 
     /** Copies the values and refuses an accepted answer with a reason. */

@@ -15,6 +15,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.IntentRecord.CapabilityChange;
@@ -123,6 +124,7 @@ public final class IntentAcceptance {
      * @param treeRoot     the root a {@code fact} decision's evidence path is resolved against
      * @since 0.1
      */
+    @Builder
     public record Context(String planId, QuestionAnswers questions, CapabilityFacts capabilities,
     @Nullable EpicSeed epic, Path treeRoot) {
 

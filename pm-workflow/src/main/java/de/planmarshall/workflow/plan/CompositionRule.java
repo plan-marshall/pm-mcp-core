@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import de.planmarshall.workflow.ast.CallValue;
+import lombok.Builder;
 
 /**
  * One rule of the composition rule file (PM-IMPL-5, PM-EXT-7): a {@code when} condition over one fact and a
@@ -30,6 +31,7 @@ import de.planmarshall.workflow.ast.CallValue;
  * @param bindings the policy call arguments the rule fixes when it holds
  * @since 0.1
  */
+@Builder
 public record CompositionRule(String id, Condition when, List<Prune> prunes, List<Binding> bindings) {
 
     /**

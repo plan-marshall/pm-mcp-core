@@ -28,6 +28,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import lombok.Builder;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -128,6 +129,7 @@ public final class ScopeTransaction {
      * @param content      the new content or the appended block, held, not copied; empty for a delete
      * @param mustBeAbsent whether the commit is refused when the store exists; true only for a create
      */
+    @Builder
     record PendingTarget(String path, Mode mode, byte[] content, boolean mustBeAbsent) {
 
         @Override
@@ -388,7 +390,8 @@ public final class ScopeTransaction {
             throw new IllegalArgumentException("Store '%s' does not lie in a directory the scope owns: %s"
                     .formatted(relativePath, scope.ownedDirectories()));
         }
-        var target = new PendingTarget(storePath(scope, store), mode, content, mustBeAbsent);
+        var target = PendingTarget.builder().path(storePath(scope, store)).mode(mode).content(content)
+                .mustBeAbsent(mustBeAbsent).build();
         if (targets.putIfAbsent(store, target) != null) {
             throw new IllegalArgumentException("Store '%s' is a target of the transaction already"
                     .formatted(relativePath));
@@ -413,8 +416,8 @@ public final class ScopeTransaction {
             staged.add(stageTarget(target));
             hook.after(Step.STAGE, index++);
         }
-        return new TransactionJournal(transactionId, scope.type(), scope.scopeId(), clock.instant(), staged,
-                owedEvents);
+        return TransactionJournal.builder().transactionId(transactionId).scopeType(scope.type())
+                .scopeId(scope.scopeId()).createdAt(clock.instant()).targets(staged).owedEvents(owedEvents).build();
     }
 
     private Target stageTarget(PendingTarget target) throws IOException {
@@ -425,8 +428,8 @@ public final class ScopeTransaction {
         var stagedPath = transactionId.stagedName(target.path(), target.mode());
         if (target.mode() == Mode.REPLACE) {
             SyncedFiles.writeNew(scope.resolve(stagedPath), target.content());
-            return new Target(target.path(), Mode.REPLACE, stagedPath, OptionalLong.empty(),
-                    StoreDigest.of(target.content()));
+            return Target.builder().path(target.path()).mode(Mode.REPLACE).stagedPath(stagedPath)
+                    .sizeBefore(OptionalLong.empty()).newDigest(StoreDigest.of(target.content())).build();
         }
         new JsonlStoreFile(store, scope.lockKey()).repairTail(transaction, auditSink);
         var after = StoreDigest.builder();
@@ -436,8 +439,8 @@ public final class ScopeTransaction {
             after.update(store, sizeBefore);
         }
         SyncedFiles.writeNew(scope.resolve(stagedPath), target.content());
-        return new Target(target.path(), Mode.APPEND, stagedPath, OptionalLong.of(sizeBefore),
-                after.update(target.content()).build());
+        return Target.builder().path(target.path()).mode(Mode.APPEND).stagedPath(stagedPath)
+                .sizeBefore(OptionalLong.of(sizeBefore)).newDigest(after.update(target.content()).build()).build();
     }
 
     private void apply(TransactionJournal journal) throws IOException {

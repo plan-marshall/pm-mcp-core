@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobRecord.Scope;
@@ -44,6 +45,7 @@ import de.planmarshall.core.store.JobRecord.Scope;
  * @param workingDirectory where the probe runs
  * @since 0.1
  */
+@Builder
 public record ProbeCandidate(Kind kind, DigestedFile executable, @Nullable DigestedFile interpreter,
 List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirectory workingDirectory) {
 

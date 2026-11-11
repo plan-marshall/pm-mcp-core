@@ -21,6 +21,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.profile.ProfileStages;
@@ -49,6 +50,7 @@ import de.planmarshall.core.role.RoleClass;
  * @param binding        the origin and credential key of a remote endpoint; {@code null} for a serving program
  * @since 0.1
  */
+@Builder
 public record HarnessEnrolment(String clientId, @Nullable Path executablePath, @Nullable String sha256,
 @Nullable String version, Instant enrolledAt, Instant updatedAt, UsageReport usageReport,
 Map<String, String> events, Map<String, Weights> weights, @Nullable Binding binding) {

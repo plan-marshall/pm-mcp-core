@@ -118,8 +118,14 @@ public interface ModelSlots {
             public Optional<Lease> claim(String generationId, String role) {
                 Objects.requireNonNull(generationId, GENERATION_ID);
                 Objects.requireNonNull(role, "role");
-                var admission = scheduler.request(new ModelSlotScheduler.Request(owner, generationId, role, workerClass,
-                        form, planId));
+                var admission = scheduler.request(ModelSlotScheduler.Request.builder()
+                        .owner(owner)
+                        .jobId(generationId)
+                        .role(role)
+                        .workerClass(workerClass)
+                        .form(form)
+                        .planId(planId)
+                        .build());
                 return switch (admission) {
                     case ModelSlotScheduler.Granted _ -> Optional.of(new Lease(generationId, role));
                     case ModelSlotScheduler.Queued _ -> Optional.empty();

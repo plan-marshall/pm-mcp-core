@@ -72,6 +72,7 @@ public final class GitLabClient {
      * @param resolvable whether the note can be resolved
      * @param resolved   whether it is resolved
      */
+    @Builder
     public record Note(String id, String author, String body, boolean resolvable, boolean resolved) {
     }
 
@@ -102,6 +103,7 @@ public final class GitLabClient {
      * @param active    whether the token (or, without a token record, its user) is active
      * @param expiresAt the expiry date, {@code null} when none or unknown
      */
+    @Builder
     public record TokenIdentity(String id, String name, String userId, List<String> scopes, boolean active,
     @Nullable String expiresAt) {
     }
@@ -274,9 +276,14 @@ public final class GitLabClient {
         }
         Object json = Json.parseOrNull(response.body()).orElse(null);
         var scopes = Json.list(json, "scopes").stream().map(String::valueOf).toList();
-        return Result.ok(new TokenIdentity(Json.string(json, "id").orElse(""), Json.string(json, "name").orElse(""),
-                Json.string(json, "user_id").orElse(""), scopes, Json.bool(json, "active"),
-                Json.string(json, "expires_at").orElse(null)));
+        return Result.ok(TokenIdentity.builder()
+                .id(Json.string(json, "id").orElse(""))
+                .name(Json.string(json, "name").orElse(""))
+                .userId(Json.string(json, "user_id").orElse(""))
+                .scopes(scopes)
+                .active(Json.bool(json, "active"))
+                .expiresAt(Json.string(json, "expires_at").orElse(null))
+                .build());
     }
 
     /** The identity of a token without a token record: the user it acts as ({@code GET /user}). */
@@ -287,8 +294,14 @@ public final class GitLabClient {
         }
         Object json = Json.parseOrNull(response.body()).orElse(null);
         return Json.string(json, "id")
-                .map(userId -> Result.ok(new TokenIdentity("", "", userId, List.of(),
-                        "active".equals(Json.string(json, STATE).orElse("")), null)))
+                .map(userId -> Result.ok(TokenIdentity.builder()
+                        .id("")
+                        .name("")
+                        .userId(userId)
+                        .scopes(List.of())
+                        .active("active".equals(Json.string(json, STATE).orElse("")))
+                        .expiresAt(null)
+                        .build()))
                 .orElseGet(() -> Result.of(Result.Outcome.FAILED, "user response without id"));
     }
 
@@ -458,9 +471,13 @@ public final class GitLabClient {
 
     private static Discussion discussion(Object json) {
         var notes = Json.list(json, "notes").stream()
-                .map(note -> new Note(Json.string(note, "id").orElse(""),
-                        Json.string(note, "author", "username").orElse(""), Json.string(note, "body").orElse(""),
-                        Json.bool(note, "resolvable"), Json.bool(note, "resolved")))
+                .map(note -> Note.builder()
+                        .id(Json.string(note, "id").orElse(""))
+                        .author(Json.string(note, "author", "username").orElse(""))
+                        .body(Json.string(note, "body").orElse(""))
+                        .resolvable(Json.bool(note, "resolvable"))
+                        .resolved(Json.bool(note, "resolved"))
+                        .build())
                 .toList();
         return new Discussion(Json.string(json, "id").orElse(""), notes);
     }

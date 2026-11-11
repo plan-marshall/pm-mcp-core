@@ -113,8 +113,9 @@ public class GradleOutputParser {
         }
         var location = JvmFileLocation.parse(stripped);
         Severity severity = ERROR_CATEGORIES.contains(category) ? Severity.ERROR : Severity.WARNING;
-        return Optional.of(new Diagnostic(location.file(), location.line(), location.column(),
-                DiagnosticCollector.stored(stripped), category, severity, null));
+        return Optional.of(Diagnostic.builder().file(location.file()).line(location.line())
+                .column(location.column()).message(DiagnosticCollector.stored(stripped)).category(category)
+                .severity(severity).build());
     }
 
     private static boolean isSkippedLine(String stripped) {

@@ -12,6 +12,7 @@ package de.planmarshall.core.profile;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -31,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  * @param verificationRecord the verification record the profile was bound to; {@code null} for a shipped profile
  * @since 0.1
  */
+@Builder
 public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
 @Nullable VerificationRecord verificationRecord) {
 

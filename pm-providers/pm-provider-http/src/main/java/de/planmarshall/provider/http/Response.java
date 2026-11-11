@@ -12,6 +12,7 @@ package de.planmarshall.provider.http;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  *                through the secret redactor where it is emitted; {@code PM-CRED-5})
  * @since 0.1
  */
+@Builder
 public record Response(Outcome outcome, int status, String body, @Nullable String etag, @Nullable URI next,
 @Nullable Instant resetAt, String detail) {
 

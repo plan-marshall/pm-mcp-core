@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -177,6 +178,7 @@ public final class JobRecoveryStep implements RecoveryStep {
      * @param terminated whether a live group was terminated
      * @param failure    why the job cannot be settled; {@code null} when it can
      */
+    @Builder
     private record Handling(Rule rule, @Nullable String signal, boolean terminated, @Nullable String failure) {
 
         static Handling failed(Rule rule, String reason) {
@@ -282,10 +284,19 @@ public final class JobRecoveryStep implements RecoveryStep {
                 case GROUP_EXITED -> Signal.SIGTERM.name();
                 case GROUP_NOT_REACHED, SIGNAL_REFUSED -> RUNTIME_RESTART;
             };
-            return new Handling(rule, signal, true, null);
+            return Handling.builder()
+                    .rule(rule)
+                    .signal(signal)
+                    .terminated(true)
+                    .failure(null)
+                    .build();
         }
-        return new Handling(rule, job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART, false,
-                null);
+        return Handling.builder()
+                .rule(rule)
+                .signal(job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART)
+                .terminated(false)
+                .failure(null)
+                .build();
     }
 
     /** @return the rule that settles a job left unsettled, the first that matches */

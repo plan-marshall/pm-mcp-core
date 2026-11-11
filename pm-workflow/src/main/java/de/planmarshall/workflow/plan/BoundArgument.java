@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.workflow.ast.CallValue;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  *                 otherwise
  * @since 0.1
  */
+@Builder
 public record BoundArgument(CallValue value, Source source, @Nullable String file, @Nullable String waiverId) {
 
     /**

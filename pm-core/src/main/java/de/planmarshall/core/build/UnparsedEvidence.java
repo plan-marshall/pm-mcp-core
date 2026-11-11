@@ -24,9 +24,10 @@ import de.planmarshall.core.store.JobId;
  * hand on, and handing the model a made-up one would let it act on a compiler error that never existed. The excerpt is
  * the only content, and it says what the tool actually printed.
  * <p>
- * The excerpt is the tail of the raw log: at most the last {@value #MAX_LINES} lines, bounded to at most
- * {@value #MAX_BYTES} bytes of UTF-8 counted from its end, so the byte bound can cut the earliest retained line. Every
- * secret-shaped value is replaced by {@link SecretRedactor}; the bound is applied after the redaction, because a
+ * The excerpt is the tail of the raw log: the ANSI escapes are stripped through {@link BuildLogText#stripAnsi}, each
+ * carriage-return frame run is reduced to its last frame, and the last {@value #MAX_LINES} lines are kept, bounded to at
+ * most {@value #MAX_BYTES} bytes of UTF-8 counted from its end, so the byte bound can cut the earliest retained line.
+ * Every secret-shaped value is replaced by {@link SecretRedactor}; the bound is applied after the redaction, because a
  * replacement can lengthen a line. The full log itself stays beside the job record as {@code <job_id>.log}, which is the
  * resource the URI names.
  *
@@ -83,10 +84,36 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
     }
 
     private static String tail(String rawLog) {
-        List<String> lines = rawLog.lines().toList();
+        String reduced = reduceCarriageReturns(BuildLogText.stripAnsi(rawLog));
+        List<String> lines = reduced.lines().toList();
         var from = Math.max(0, lines.size() - MAX_LINES);
         var redacted = SecretRedactor.redactText(String.join("\n", lines.subList(from, lines.size()))).orElseThrow();
         return capped(redacted);
+    }
+
+    /**
+     * Reduces each carriage-return frame run to its last frame: an npm progress spinner overwrites one line with
+     * {@code \r}, and every frame would otherwise count as a line of its own against the line bound, pushing the failure
+     * out of the tail. The {@code \r\n} line ending is normalized first, so only a standalone {@code \r} ends a frame.
+     *
+     * @param text the text, with its ANSI escapes already stripped
+     * @return the text with every {@code \r} run reduced to its last frame
+     */
+    private static String reduceCarriageReturns(String text) {
+        String normalized = text.replace("\r\n", "\n");
+        var reduced = new StringBuilder(normalized.length());
+        for (String line : normalized.split("\n", -1)) {
+            if (!reduced.isEmpty()) {
+                reduced.append('\n');
+            }
+            var end = line.length();
+            while (end > 0 && line.charAt(end - 1) == '\r') {
+                end--;
+            }
+            var trimmed = line.substring(0, end);
+            reduced.append(trimmed.substring(trimmed.lastIndexOf('\r') + 1));
+        }
+        return reduced.toString();
     }
 
     /**

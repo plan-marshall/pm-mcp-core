@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -48,6 +49,7 @@ import org.jspecify.annotations.Nullable;
  * @param sourceClaims    one to 60 source claims, each landed or dropped with a reason
  * @since 0.1
  */
+@Builder
 public record IntentRecord(String why, String goal, List<Criterion> criteria, @Nullable String currentBehaviour,
 List<NonGoal> nonGoals, List<Constraint> constraints, List<Decision> decisions, List<Assumption> assumptions,
 List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sourceClaims) {
@@ -320,6 +322,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param capability the capability requirement the criterion changes; {@code null} for the plan's own criterion
      * @since 0.1
      */
+    @Builder
     public record Criterion(String id, String text, CriterionKind kind, VerifiedBy verifiedBy,
     @Nullable CapabilityLink capability) {
 
@@ -352,6 +355,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param base       for modified and removed, the requirement's base fingerprint; {@code null} for added
      * @since 0.1
      */
+    @Builder
     public record CapabilityLink(String capability, String requirement, CapabilityChange change,
     @Nullable String base) {
 
@@ -442,6 +446,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param evidence for {@code code}, the path or {@code pm://} URI that shows it; may be {@code null} otherwise
      * @since 0.1
      */
+    @Builder
     public record Constraint(String id, String text, ConstraintSource source, @Nullable String evidence) {
 
         /**
@@ -505,6 +510,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param adr            the architecture decision record the decision follows or contradicts; may be {@code null}
      * @since 0.1
      */
+    @Builder
     public record Decision(String id, String text, List<String> optionsWeighed, Decider decider,
     @Nullable String questionId, @Nullable String evidence, @Nullable AdrRef adr) {
 
@@ -637,6 +643,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * @param test     for the riskiest assumption, the cheap test that would refute it
      * @since 0.1
      */
+    @Builder
     public record Assumption(String id, String text, AssumptionStatus status, boolean riskiest,
     @Nullable String test) {
 

@@ -58,6 +58,7 @@ public record WaiverRequest(String requestId, String gate, @Nullable String poli
      * @param at       when the operator acted
      * @since 0.1
      */
+    @Builder
     public record Answered(Channel channel, @Nullable String deviceId, @Nullable String reason, Instant at) {
 
         /**

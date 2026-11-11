@@ -12,6 +12,8 @@ package de.planmarshall.workflow.setup;
 import java.util.List;
 import java.util.Objects;
 
+import lombok.Builder;
+
 /**
  * The setup gate of a start, as the machine scope's onboarding decides it (PM-WF-26, PM-SEC-8; Workflow DSL,
  * Waiting for the Operator, item 6 and Machine Scope, item 6). While the machine's first onboarding has not reached
@@ -81,6 +83,7 @@ public final class SetupGate {
      * @param clients     the operator's clients, where the onboarding goes on
      * @since 0.1
      */
+    @Builder
     public record Refused(String reason, int httpStatus, String missingStep, List<String> clients)
             implements Decision {
 
@@ -110,7 +113,12 @@ public final class SetupGate {
         if (act == Act.ONBOARDING_STEP || act == Act.OPERATOR_VERB || onboarding.firstRunCompleted()) {
             return ADMITTED;
         }
-        return new Refused(MACHINE_NOT_ONBOARDED, CONFLICT, onboarding.missingStep().orElse(null), CLIENTS);
+        return Refused.builder()
+                .reason(MACHINE_NOT_ONBOARDED)
+                .httpStatus(CONFLICT)
+                .missingStep(onboarding.missingStep().orElse(null))
+                .clients(CLIENTS)
+                .build();
     }
 
     /**
@@ -128,6 +136,11 @@ public final class SetupGate {
             return ADMITTED;
         }
         var missing = onboarding.pendingSteps().contains(neededStep) ? neededStep : onboarding.missingStep().orElse(null);
-        return new Refused(ONBOARDING_INCOMPLETE, CONFLICT, missing, CLIENTS);
+        return Refused.builder()
+                .reason(ONBOARDING_INCOMPLETE)
+                .httpStatus(CONFLICT)
+                .missingStep(missing)
+                .clients(CLIENTS)
+                .build();
     }
 }

@@ -209,12 +209,23 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
         LOGGER.warn(WARN.WORKER_START_FAILED, role, harness, counted, report.detail());
         audit.append(AuditEvent.workerStartFailed(projectId, role, harness, report.detail()));
         if (previous.held() || counted >= HOLD_THRESHOLD) {
-            states.put(key, new StartFailureState(counted, true, clock.instant().plus(PROBE_BACKOFF), false,
-                    report.detail()));
+            states.put(key, StartFailureState.builder()
+                    .consecutiveFailures(counted)
+                    .held(true)
+                    .probeDue(clock.instant().plus(PROBE_BACKOFF))
+                    .probeInFlight(false)
+                    .lastFailure(report.detail())
+                    .build());
             LOGGER.warn(WARN.WORKER_START_GUARD_HELD, role, harness, counted);
             protocol.closeUnavailable(role, harness);
         } else {
-            states.put(key, new StartFailureState(counted, false, null, false, report.detail()));
+            states.put(key, StartFailureState.builder()
+                    .consecutiveFailures(counted)
+                    .held(false)
+                    .probeDue(null)
+                    .probeInFlight(false)
+                    .lastFailure(report.detail())
+                    .build());
         }
         return report;
     }
@@ -242,9 +253,21 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
             if (counted == 0) {
                 states.remove(key);
             } else if (counted >= HOLD_THRESHOLD) {
-                states.put(key, new StartFailureState(counted, true, now.plus(PROBE_BACKOFF), false, null));
+                states.put(key, StartFailureState.builder()
+                        .consecutiveFailures(counted)
+                        .held(true)
+                        .probeDue(now.plus(PROBE_BACKOFF))
+                        .probeInFlight(false)
+                        .lastFailure(null)
+                        .build());
             } else {
-                states.put(key, new StartFailureState(counted, false, null, false, null));
+                states.put(key, StartFailureState.builder()
+                        .consecutiveFailures(counted)
+                        .held(false)
+                        .probeDue(null)
+                        .probeInFlight(false)
+                        .lastFailure(null)
+                        .build());
             }
         }
     }

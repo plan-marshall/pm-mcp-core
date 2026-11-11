@@ -276,6 +276,7 @@ Instant at) {
      * @param reversibility how reversible it is
      * @since 0.1
      */
+    @Builder
     public record Decision(String title, String header, String description, List<Evidence> evidence, Blocks blocks,
     Reversibility reversibility) {
 
@@ -344,6 +345,7 @@ Instant at) {
      * @param queueTaskId the task of the interpreting role, {@code qt-} and 16 hex digits
      * @since 0.1
      */
+    @Builder
     public record Interpretation(InterpretationResult result, String condition, List<String> passages,
     String queueTaskId) {
 
@@ -375,6 +377,7 @@ Instant at) {
      * @param afterChat      whether the answer followed a chat in the decision
      * @since 0.1
      */
+    @Builder
     public record Answer(AnswerKind kind, List<String> branchKeys, @Nullable AnswerValue value,
     @Nullable String ownWords, @Nullable String note, @Nullable Interpretation interpretation,
     boolean afterChat) {

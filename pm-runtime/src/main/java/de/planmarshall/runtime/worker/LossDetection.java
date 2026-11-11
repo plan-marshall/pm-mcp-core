@@ -195,7 +195,14 @@ public final class LossDetection {
             startFailure = true;
             return Optional.empty();
         }
-        return Optional.of(new LossSignal(LossReason.EXIT, generationId, at, at, firstCallMade, leasedTask));
+        return Optional.of(LossSignal.builder()
+                .reason(LossReason.EXIT)
+                .generationId(generationId)
+                .measuredAt(at)
+                .deadline(at)
+                .firstCallMade(firstCallMade)
+                .leasedTask(leasedTask)
+                .build());
     }
 
     /**
@@ -215,7 +222,14 @@ public final class LossDetection {
             return Optional.empty();
         }
         var reason = ack.isPresent() && ack.get().equals(earliest.get()) ? LossReason.ACK_MISSED : LossReason.SILENCE;
-        return Optional.of(new LossSignal(reason, generationId, now, earliest.get(), firstCallMade, leasedTask));
+        return Optional.of(LossSignal.builder()
+                .reason(reason)
+                .generationId(generationId)
+                .measuredAt(now)
+                .deadline(earliest.get())
+                .firstCallMade(firstCallMade)
+                .leasedTask(leasedTask)
+                .build());
     }
 
     /** @return whether the worker had made its first call */

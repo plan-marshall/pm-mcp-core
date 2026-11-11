@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.crypto.SecretKey;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.AuditCodec;
@@ -169,6 +170,7 @@ public final class AuditVerification implements AuditChainVerification {
     // java:S6218 does not apply: a private transport holder of one read; its head bytes are compared through
     // sameBytes by content and never through Object.equals.
     @SuppressWarnings("java:S6218")
+    @Builder
     private record State(byte @Nullable [] head, AuditIndex.Snapshot index, JsonlStoreFile.Content log,
     boolean logExists) {
     }
@@ -182,7 +184,12 @@ public final class AuditVerification implements AuditChainVerification {
             var log = new JsonlStoreFile(logFile, lockKey).snapshot();
             var logExists = Files.exists(logFile, LinkOption.NOFOLLOW_LINKS);
             afterLogRead.run();
-            state = new State(head, indexSnapshot, log, logExists);
+            state = State.builder()
+                    .head(head)
+                    .index(indexSnapshot)
+                    .log(log)
+                    .logExists(logExists)
+                    .build();
             if (sameBytes(head, headBytes().orElse(null)) && indexSnapshot.headHash().equals(index.snapshot().headHash())) {
                 return state;
             }

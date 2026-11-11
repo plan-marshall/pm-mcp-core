@@ -20,6 +20,7 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 
 /**
  * The compiled declaration schemas of the units that declare parameters, and the check of a unit's {@code declare} and
@@ -172,9 +173,13 @@ public final class DeclarationBounds {
         var findings = new ArrayList<Finding>();
         var schema = SCHEMAS.get(unit.id());
         if (schema == null) {
-            unit.declarations().forEach((name, declaration) -> findings.add(new Finding(name,
-                    declaration.location(), "no declaration schema",
-                    "the unit '%s' has no declaration schema, so it declares no '%s'".formatted(unit.id(), name))));
+            unit.declarations().forEach((name, declaration) -> findings.add(Finding.builder()
+                    .name(name)
+                    .location(declaration.location())
+                    .bound("no declaration schema")
+                    .message("the unit '%s' has no declaration schema, so it declares no '%s'"
+                            .formatted(unit.id(), name))
+                    .build()));
         } else {
             checkDeclarations(unit, schema, findings);
         }
@@ -189,18 +194,30 @@ public final class DeclarationBounds {
             var bound = declaration.bound().describe();
             var declared = unit.declarations().get(declaration.name());
             if (declared == null) {
-                findings.add(new Finding(declaration.name(), unit.location(), bound,
-                        "the unit '%s' does not declare '%s'".formatted(unit.id(), declaration.name())));
+                findings.add(Finding.builder()
+                        .name(declaration.name())
+                        .location(unit.location())
+                        .bound(bound)
+                        .message("the unit '%s' does not declare '%s'".formatted(unit.id(), declaration.name()))
+                        .build());
             } else if (!declaration.bound().admits(declared.value())) {
-                findings.add(new Finding(declaration.name(), declared.location(), bound,
-                        "the value %s of '%s' lies outside %s".formatted(describe(declared.value()),
-                                declaration.name(), bound)));
+                findings.add(Finding.builder()
+                        .name(declaration.name())
+                        .location(declared.location())
+                        .bound(bound)
+                        .message("the value %s of '%s' lies outside %s".formatted(describe(declared.value()),
+                                declaration.name(), bound))
+                        .build());
             }
         }
         unit.declarations().forEach((name, declared) -> {
             if (!known.contains(name)) {
-                findings.add(new Finding(name, declared.location(), "the schema of '%s'".formatted(unit.id()),
-                        "'%s' is not a declaration of the schema of '%s'".formatted(name, unit.id())));
+                findings.add(Finding.builder()
+                        .name(name)
+                        .location(declared.location())
+                        .bound("the schema of '%s'".formatted(unit.id()))
+                        .message("'%s' is not a declaration of the schema of '%s'".formatted(name, unit.id()))
+                        .build());
             }
         });
     }
@@ -210,13 +227,22 @@ public final class DeclarationBounds {
             var location = entry.getValue().location();
             var name = "decide " + entry.getKey();
             if (!ADJUDICATION_UNIT.equals(unit.id())) {
-                findings.add(new Finding(name, location, "decide lines only in " + ADJUDICATION_UNIT,
-                        "the unit '%s' carries the decision declaration '%s'".formatted(unit.id(), entry.getKey())));
+                findings.add(Finding.builder()
+                        .name(name)
+                        .location(location)
+                        .bound("decide lines only in " + ADJUDICATION_UNIT)
+                        .message("the unit '%s' carries the decision declaration '%s'".formatted(unit.id(),
+                                entry.getKey()))
+                        .build());
                 continue;
             }
             if (!DecisionDeclaration.DECISION_KINDS.contains(entry.getKey())) {
-                findings.add(new Finding(name, location, "a decision kind of " + DecisionDeclaration.DECISION_KINDS,
-                        "'%s' is not a decision kind".formatted(entry.getKey())));
+                findings.add(Finding.builder()
+                        .name(name)
+                        .location(location)
+                        .bound("a decision kind of " + DecisionDeclaration.DECISION_KINDS)
+                        .message("'%s' is not a decision kind".formatted(entry.getKey()))
+                        .build());
             }
             if (entry.getValue() instanceof DecisionDeclaration.Quorum quorum) {
                 checkQuorum(name, location, quorum, findings);
@@ -228,16 +254,29 @@ public final class DeclarationBounds {
             List<Finding> findings) {
         var roles = quorum.roles();
         if (roles.size() < MIN_QUORUM_ROLES || roles.size() > MAX_QUORUM_ROLES) {
-            findings.add(new Finding(name, location, QUORUM_BOUND,
-                    "the quorum lists %d roles".formatted(roles.size())));
+            findings.add(Finding.builder()
+                    .name(name)
+                    .location(location)
+                    .bound(QUORUM_BOUND)
+                    .message("the quorum lists %d roles".formatted(roles.size()))
+                    .build());
         }
         if (new HashSet<>(roles).size() != roles.size()) {
-            findings.add(new Finding(name, location, QUORUM_BOUND, "the quorum lists a role twice: " + roles));
+            findings.add(Finding.builder()
+                    .name(name)
+                    .location(location)
+                    .bound(QUORUM_BOUND)
+                    .message("the quorum lists a role twice: " + roles)
+                    .build());
         }
         if (quorum.score() < MIN_QUORUM_SCORE || quorum.score() > MAX_QUORUM_SCORE) {
-            findings.add(new Finding(name, location, QUORUM_BOUND,
-                    "the quorum's score %d lies outside %d to %d".formatted(quorum.score(), MIN_QUORUM_SCORE,
-                            MAX_QUORUM_SCORE)));
+            findings.add(Finding.builder()
+                    .name(name)
+                    .location(location)
+                    .bound(QUORUM_BOUND)
+                    .message("the quorum's score %d lies outside %d to %d".formatted(quorum.score(), MIN_QUORUM_SCORE,
+                            MAX_QUORUM_SCORE))
+                    .build());
         }
     }
 
@@ -391,6 +430,7 @@ public final class DeclarationBounds {
      * @param bound    the bound the declaration violates
      * @param message  what is wrong
      */
+    @Builder
     public record Finding(String name, SourceLocation location, String bound, String message) {
 
         /**

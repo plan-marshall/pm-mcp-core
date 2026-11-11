@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.worker;
 
 import java.time.Instant;
+import lombok.Builder;
 
 /**
  * The module-boundary contract between the supervisor and the task protocol (PM-WORK-3, PM-ARCH-8).
@@ -64,6 +65,7 @@ public interface WorkerProtocol {
      * @param at           the instant the signal was raised
      * @since 0.1
      */
+    @Builder
     record OffTrackReport(String generationId, String queueTaskId, int attempt, String signal, String action,
     double measurement, double threshold, Instant at) {
     }

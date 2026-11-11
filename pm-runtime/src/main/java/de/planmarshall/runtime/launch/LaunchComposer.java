@@ -100,11 +100,28 @@ public final class LaunchComposer {
                 resultSchema, tools, mcp);
         var env = composeEnvironment(request, jobPrivate);
         var workerBlock = workerBlock(request, role, roleClass, workdirKind, model, effort, prompt, now, tokenSha256);
-        return new WorkerLaunch(request.generationId(), role.artifact().name(), roleClass,
-                request.fresh() ? RoleForm.FRESH : RoleForm.WARM,
-                argv, env, workingDirectory, jobPrivate, promptFile, prompt, mcp.file(),
-                mcp.content(), token, tokenSha256, role.harness(), request.enrolment().version(),
-                model, effort.value(), effort.narrowedFrom(), workerBlock);
+        return WorkerLaunch.builder()
+                .generationId(request.generationId())
+                .role(role.artifact().name())
+                .roleClass(roleClass)
+                .form(request.fresh() ? RoleForm.FRESH : RoleForm.WARM)
+                .argv(argv)
+                .env(env)
+                .workingDirectory(workingDirectory)
+                .jobPrivateDirectory(jobPrivate)
+                .promptFile(promptFile)
+                .prompt(prompt)
+                .mcpConfigFile(mcp.file())
+                .mcpConfig(mcp.content())
+                .jobToken(token)
+                .jobTokenSha256(tokenSha256)
+                .harness(role.harness())
+                .harnessVersion(request.enrolment().version())
+                .model(model)
+                .effort(effort.value())
+                .effortNarrowedFrom(effort.narrowedFrom())
+                .workerBlock(workerBlock)
+                .build();
     }
 
     /**

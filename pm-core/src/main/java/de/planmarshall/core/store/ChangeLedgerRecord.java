@@ -231,6 +231,7 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
      * @param signal    the terminating signal, or {@code null}
      * @since 0.1
      */
+    @Builder
     public record WorktreeShaFailure(List<String> command, FailureKind failure, @Nullable Integer exitCode,
     @Nullable Integer signal) {
 
@@ -287,6 +288,7 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
      * @param fingerprints      the accepted fingerprints
      * @since 0.1
      */
+    @Builder
     public record Baseline(String gateKind, String mergeBase, String baseCommit, ProofSource proofSource,
     String diagnosticsDigest, List<String> fingerprints) {
 

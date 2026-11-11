@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import lombok.Builder;
 
 /**
  * The manifest of one corpus source, {@code sources/<name>/manifest.json} (PM-WORK-6): the public repository a
@@ -39,6 +40,7 @@ import java.util.regex.Pattern;
  * @param files      the files read from the repository at the commit, at least one, each path once; unmodifiable
  * @since 0.1
  */
+@Builder
 public record SourceManifest(String name, URI repository, String commit, String licence, FetchKind fetch,
 List<SourceFile> files) {
 

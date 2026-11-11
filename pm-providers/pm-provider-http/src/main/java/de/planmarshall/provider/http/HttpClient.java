@@ -215,17 +215,47 @@ public final class HttpClient implements AutoCloseable {
         Optional<URI> next = headers.allValues("Link").stream().map(HttpClient::nextLink).flatMap(Optional::stream)
                 .findFirst();
         if (status == 304) {
-            return new Response(Outcome.NOT_MODIFIED, status, "", etag.orElse(null), null, null, "");
+            return Response.builder()
+                    .outcome(Outcome.NOT_MODIFIED)
+                    .status(status)
+                    .body("")
+                    .etag(etag.orElse(null))
+                    .next(null)
+                    .resetAt(null)
+                    .detail("")
+                    .build();
         }
         if (status >= 200 && status < 300) {
-            return new Response(Outcome.OK, status, response.body(), etag.orElse(null), next.orElse(null), null, "");
+            return Response.builder()
+                    .outcome(Outcome.OK)
+                    .status(status)
+                    .body(response.body())
+                    .etag(etag.orElse(null))
+                    .next(next.orElse(null))
+                    .resetAt(null)
+                    .detail("")
+                    .build();
         }
         if (isRateLimited(status, headers)) {
-            return new Response(Outcome.RATE_LIMITED, status, response.body(), etag.orElse(null), null,
-                    resetAt(headers), "rate limited");
+            return Response.builder()
+                    .outcome(Outcome.RATE_LIMITED)
+                    .status(status)
+                    .body(response.body())
+                    .etag(etag.orElse(null))
+                    .next(null)
+                    .resetAt(resetAt(headers))
+                    .detail("rate limited")
+                    .build();
         }
-        return new Response(Outcome.HTTP_ERROR, status, response.body(), etag.orElse(null), null, null,
-                "HTTP " + status);
+        return Response.builder()
+                .outcome(Outcome.HTTP_ERROR)
+                .status(status)
+                .body(response.body())
+                .etag(etag.orElse(null))
+                .next(null)
+                .resetAt(null)
+                .detail("HTTP " + status)
+                .build();
     }
 
     private static boolean isRateLimited(int status, HttpHeaders headers) {

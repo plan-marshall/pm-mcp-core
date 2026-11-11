@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -69,6 +70,7 @@ import org.jspecify.annotations.Nullable;
  * @param buildEnvironment  the environment values captured at enrolment, by variable name
  * @since 0.1
  */
+@Builder
 public record ProjectEnrolment(
 String projectId,
 String projectRoot,
@@ -389,6 +391,7 @@ SortedMap<String, String> buildEnvironment) {
      *                     {@code null} for every other wrapper
      * @since 0.1
      */
+    @Builder
     public record Wrapper(WrapperName name, String relativePath, String sha256, List<PinnedFile> pinnedFiles,
     @Nullable Interpreter interpreter) {
 
@@ -451,6 +454,7 @@ SortedMap<String, String> buildEnvironment) {
      * @param version        the version printed at enrolment; {@code null} if none was printed
      * @since 0.1
      */
+    @Builder
     public record HostTool(HostToolName name, String executablePath, String sha256, @Nullable Interpreter interpreter,
     @Nullable String version) {
 
@@ -608,6 +612,7 @@ SortedMap<String, String> buildEnvironment) {
      * @param maxTimeoutSeconds the budget of every run in seconds, at least 10
      * @since 0.1
      */
+    @Builder
     public record ProjectScript(String scriptPath, String sha256, Interpreter interpreter, Binding binding,
     ArgumentSchema argumentSchema, long maxTimeoutSeconds) {
 
@@ -670,6 +675,7 @@ SortedMap<String, String> buildEnvironment) {
      *                   and the enrolment policy refuses one above it; {@code null} if absent
      * @since 0.1
      */
+    @Builder
     public record ArgumentSchema(@Nullable SchemaType type, @Nullable SortedMap<String, ArgumentSchema> properties,
     @Nullable List<String> required, boolean closed, @Nullable List<EnumValue> enumValues,
     @Nullable String pattern, @Nullable BigDecimal minimum, @Nullable BigDecimal maximum,

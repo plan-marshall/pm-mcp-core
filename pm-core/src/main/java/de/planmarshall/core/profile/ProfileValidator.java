@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -301,7 +302,7 @@ public final class ProfileValidator {
     }
 
     /** The checks of one document; it carries the document name and the installation's rules. */
-    private static final class Checker {
+    static final class Checker {
 
         private final String document;
         private final ProfileRules rules;
@@ -442,7 +443,8 @@ public final class ProfileValidator {
             }
             integer(required(endpoint, pointer, NAME_REQUEST_TIMEOUT_SECONDS), pointer + "/request_timeout_seconds",
                     NAME_REQUEST_TIMEOUT_SECONDS, 5, 3600);
-            return new EndpointBlock(protocol, locality, baseUrl, credential);
+            return EndpointBlock.builder().protocol(protocol).locality(locality).baseUrl(baseUrl)
+                    .credentialKey(credential).build();
         }
 
         /**
@@ -540,7 +542,8 @@ public final class ProfileValidator {
         }
 
         /** The values of the {@code endpoint} block the locality rules read. */
-        private record EndpointBlock(String protocol, String locality, String baseUrl,
+        @Builder
+        record EndpointBlock(String protocol, String locality, String baseUrl,
         @Nullable String credentialKey) {
         }
 

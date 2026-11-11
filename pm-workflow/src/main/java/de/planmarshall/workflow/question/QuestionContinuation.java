@@ -18,6 +18,7 @@ import de.planmarshall.core.queue.QueueTaskRecord.ContinuationForm;
 import de.planmarshall.core.queue.QueueTaskRecord.FallbackReason;
 import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.workflow.ast.StateBehavior;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -84,6 +85,7 @@ public final class QuestionContinuation {
      * @param fallbackReason  why the task does not continue; {@code null} unless the form is {@code fallback}
      * @since 0.1
      */
+    @Builder
     public record Decision(Form form, @Nullable Instant holdUntil, @Nullable Instant resumeUntil,
     @Nullable FallbackReason fallbackReason) {
 
@@ -154,11 +156,20 @@ public final class QuestionContinuation {
             return fallback(FallbackReason.NOT_ALLOWED);
         }
         if (questions.holdSeconds() > 0) {
-            return new Decision(Form.HOLD, at.plus(Duration.ofSeconds(questions.holdSeconds())), null, null);
+            return Decision.builder()
+                    .form(Form.HOLD)
+                    .holdUntil(at.plus(Duration.ofSeconds(questions.holdSeconds())))
+                    .resumeUntil(null)
+                    .fallbackReason(null)
+                    .build();
         }
         if (questions.resumeWithinSeconds() > 0) {
-            return new Decision(Form.RESUME, null, at.plus(Duration.ofSeconds(questions.resumeWithinSeconds())),
-                    null);
+            return Decision.builder()
+                    .form(Form.RESUME)
+                    .holdUntil(null)
+                    .resumeUntil(at.plus(Duration.ofSeconds(questions.resumeWithinSeconds())))
+                    .fallbackReason(null)
+                    .build();
         }
         return fallback(FallbackReason.NOT_ALLOWED);
     }
@@ -177,8 +188,12 @@ public final class QuestionContinuation {
             RoleArtifact.@Nullable Questions questions, Instant at) {
         Objects.requireNonNull(at, "at");
         if (continues(askForm, envelopeTask, questions) && questions.resumeWithinSeconds() > 0) {
-            return new Decision(Form.RESUME, null, at.plus(Duration.ofSeconds(questions.resumeWithinSeconds())),
-                    null);
+            return Decision.builder()
+                    .form(Form.RESUME)
+                    .holdUntil(null)
+                    .resumeUntil(at.plus(Duration.ofSeconds(questions.resumeWithinSeconds())))
+                    .fallbackReason(null)
+                    .build();
         }
         return fallback(FallbackReason.HOLD_EXPIRED);
     }
@@ -196,7 +211,12 @@ public final class QuestionContinuation {
      * @return the decision that closes the task {@code asked} for that reason
      */
     public static Decision fallback(FallbackReason reason) {
-        return new Decision(Form.FALLBACK, null, null, Objects.requireNonNull(reason, "reason"));
+        return Decision.builder()
+                .form(Form.FALLBACK)
+                .holdUntil(null)
+                .resumeUntil(null)
+                .fallbackReason(Objects.requireNonNull(reason, "reason"))
+                .build();
     }
 
     private static boolean continues(StateBehavior.AskForm askForm, boolean envelopeTask,

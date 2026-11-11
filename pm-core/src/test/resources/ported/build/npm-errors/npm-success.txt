@@ -1,9 +1,12 @@
 original: plan-marshall@7b7e08f088b6c1b333147aeb2c636325da31b0b6 test/plan-marshall/build-npm/test_npm_parsers.py::test_npm_errors_success_on_empty
 # A successful install carries no `npm ERR! code` line, so the log is no error at all.
+# The install family's completion line is its passing summary: the success marker is `true`
+# (it was `false` while the parser ignored the completion line), recorded as a deliberate
+# change of this expectation against the original.
 log > npm install
 log added 150 packages in 10s
 status SUCCESS
-success-marker false
+success-marker true
 tests none
 no-tests-ran false
 diagnostic-count 0

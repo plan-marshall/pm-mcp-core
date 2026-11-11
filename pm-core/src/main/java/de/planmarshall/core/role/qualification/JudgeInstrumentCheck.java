@@ -61,17 +61,20 @@ public final class JudgeInstrumentCheck {
         var scored = 0;
         var unscored = 0;
         for (var item : items) {
-            var oracle = scorer.score(new JudgeScorer.JudgePrompt(item.itemId(), item.question(), item.facts(),
-                    item.reference(), item.answer()));
-            var blind = scorer.score(new JudgeScorer.JudgePrompt(item.itemId(), item.question(), item.facts(),
-                    null, item.answer()));
+            var oracle = scorer.score(JudgeScorer.JudgePrompt.builder().itemId(item.itemId())
+                    .question(item.question()).facts(item.facts()).reference(item.reference()).answer(item.answer())
+                    .build());
+            var blind = scorer.score(JudgeScorer.JudgePrompt.builder().itemId(item.itemId())
+                    .question(item.question()).facts(item.facts()).reference(null).answer(item.answer()).build());
             if (oracle.isEmpty() || blind.isEmpty()) {
                 unscored++;
                 var lostTokens = TokenTotal.unmeasured();
-                scores.add(new JudgeCheck.ItemScore(item.itemId(), item.label(),
-                        oracle.map(JudgeScorer.JudgeScore::score).map(Grade::scored).orElseGet(Grade::ungraded),
-                        blind.map(JudgeScorer.JudgeScore::score).map(Grade::scored).orElseGet(Grade::ungraded),
-                        lostTokens, null));
+                scores.add(JudgeCheck.ItemScore.builder().itemId(item.itemId()).label(item.label())
+                        .oracleScore(oracle.map(JudgeScorer.JudgeScore::score).map(Grade::scored)
+                                .orElseGet(Grade::ungraded))
+                        .blindScore(blind.map(JudgeScorer.JudgeScore::score).map(Grade::scored)
+                                .orElseGet(Grade::ungraded))
+                        .totalTokens(lostTokens).build());
                 continue;
             }
             scored++;
@@ -83,13 +86,16 @@ public final class JudgeInstrumentCheck {
             if (blindGrade.judgedRight() == (item.label() == JudgeCheck.Label.RIGHT)) {
                 blindRight++;
             }
-            scores.add(new JudgeCheck.ItemScore(item.itemId(), item.label(), oracleGrade, blindGrade,
-                    oracle.get().totalTokens().plus(blind.get().totalTokens()),
-                    oracle.get().durationMs() + blind.get().durationMs()));
+            scores.add(JudgeCheck.ItemScore.builder().itemId(item.itemId()).label(item.label())
+                    .oracleScore(oracleGrade).blindScore(blindGrade)
+                    .totalTokens(oracle.get().totalTokens().plus(blind.get().totalTokens()))
+                    .durationMs(oracle.get().durationMs() + blind.get().durationMs()).build());
         }
-        return new JudgeCheck.Record(judge.qualificationDigest(), judge.harness(), judge.model(), corpusRevision,
-                scored == 0 ? BigDecimal.ZERO : ConstantBaseline.percent(oracleRight, scored),
-                scored == 0 ? BigDecimal.ZERO : ConstantBaseline.percent(blindRight, scored),
-                JudgeCheck.baseline(items), unscored, clock.instant(), scores);
+        return JudgeCheck.Record.builder().qualificationDigest(judge.qualificationDigest()).harness(judge.harness())
+                .model(judge.model()).corpusRevision(corpusRevision)
+                .oracleAccuracy(scored == 0 ? BigDecimal.ZERO : ConstantBaseline.percent(oracleRight, scored))
+                .blindAccuracy(scored == 0 ? BigDecimal.ZERO : ConstantBaseline.percent(blindRight, scored))
+                .constantBaseline(JudgeCheck.baseline(items)).unscored(unscored).checkedAt(clock.instant())
+                .items(scores).build();
     }
 }

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -47,6 +48,7 @@ import org.jspecify.annotations.Nullable;
  * @param finalizeSteps           the Phase 6 steps of the plan with their order, before pruning
  * @since 0.1
  */
+@Builder
 public record CompositionRequest(String planId, CompositionEvent event, WorkflowDefinition template,
 List<UnitReference> templates, List<SubUnit> subUnits, PlanFacts facts, String configHash,
 @Nullable String realizedFootprintDigest, @Nullable String providersDigest, List<Waiver> waivers,

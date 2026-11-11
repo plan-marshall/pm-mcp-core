@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * One lease in a lease store (PM-IMPL-7): a long-lived claim that is a persisted record and never a lock of the
@@ -23,6 +24,7 @@ import java.util.Objects;
  * @param leaseExpiresAt the instant the lease expires; {@code null} for a lease without a time bound
  * @since 0.1
  */
+@Builder
 public record LeaseRecord(String key, LeaseOwner owner, Instant acquiredAt, Instant leaseExpiresAt) {
 
     /**

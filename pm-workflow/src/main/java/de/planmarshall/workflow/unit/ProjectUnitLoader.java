@@ -228,8 +228,13 @@ public final class ProjectUnitLoader {
     private static Optional<String> read(WorkspaceRoots roots, String path, List<UnitFinding> findings) {
         return switch (PathConfinement.confine(roots, path)) {
             case ConfinementOutcome.Rejected rejected -> {
-                findings.add(new UnitFinding(UnitFinding.Kind.CONFINEMENT, rejected.code(), path, 0,
-                        "the unit file '%s' lies outside the workspace (%s)".formatted(path, rejected.reason())));
+                findings.add(UnitFinding.builder()
+                        .kind(UnitFinding.Kind.CONFINEMENT)
+                        .code(rejected.code())
+                        .file(path)
+                        .line(0)
+                        .message("the unit file '%s' lies outside the workspace (%s)".formatted(path, rejected.reason()))
+                        .build());
                 yield Optional.empty();
             }
             case ConfinementOutcome.Confined(var confinedPath) -> {
@@ -238,19 +243,34 @@ public final class ProjectUnitLoader {
                     var bytes = source.readNBytes((int) Math.min(cap, Integer.MAX_VALUE));
                     if (bytes.length > MAX_UNIT_FILE_BYTES
                             || (bytes.length == Integer.MAX_VALUE && source.read() >= 0)) {
-                        findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_TOO_LARGE, path, 0,
-                                "the project unit '%s' holds more than %d bytes".formatted(path,
-                                        MAX_UNIT_FILE_BYTES)));
+                        findings.add(UnitFinding.builder()
+                                .kind(UnitFinding.Kind.MISSING)
+                                .code(UnitFinding.UNIT_TOO_LARGE)
+                                .file(path)
+                                .line(0)
+                                .message("the project unit '%s' holds more than %d bytes".formatted(path,
+                                        MAX_UNIT_FILE_BYTES))
+                                .build());
                         yield Optional.empty();
                     }
                     yield Optional.of(decode(bytes));
                 } catch (NoSuchFileException _) {
-                    findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING, path, 0,
-                            "the project unit '%s' does not exist".formatted(path)));
+                    findings.add(UnitFinding.builder()
+                            .kind(UnitFinding.Kind.MISSING)
+                            .code(UnitFinding.UNIT_MISSING)
+                            .file(path)
+                            .line(0)
+                            .message("the project unit '%s' does not exist".formatted(path))
+                            .build());
                     yield Optional.empty();
                 } catch (IOException e) {
-                    findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_UNREADABLE, path, 0,
-                            "the project unit '%s' cannot be read: %s".formatted(path, e.getMessage())));
+                    findings.add(UnitFinding.builder()
+                            .kind(UnitFinding.Kind.MISSING)
+                            .code(UnitFinding.UNIT_UNREADABLE)
+                            .file(path)
+                            .line(0)
+                            .message("the project unit '%s' cannot be read: %s".formatted(path, e.getMessage()))
+                            .build());
                     yield Optional.empty();
                 }
             }
@@ -261,8 +281,13 @@ public final class ProjectUnitLoader {
         checkAuthor(path, source, findings);
         return switch (WorkflowParser.parse(path, source, UnitOrigin.PROJECT)) {
             case ParseResult.Refused(var diagnostic) -> {
-                findings.add(new UnitFinding(UnitFinding.Kind.PARSE, diagnostic.rule().name(), path,
-                        diagnostic.line(), diagnostic.message()));
+                findings.add(UnitFinding.builder()
+                        .kind(UnitFinding.Kind.PARSE)
+                        .code(diagnostic.rule().name())
+                        .file(path)
+                        .line(diagnostic.line())
+                        .message(diagnostic.message())
+                        .build());
                 yield Optional.empty();
             }
             case ParseResult.Parsed(var unit) -> {
@@ -292,10 +317,14 @@ public final class ProjectUnitLoader {
      */
     private static void checkAuthor(String path, String source, List<UnitFinding> findings) {
         rawAuthor(source).filter(author -> RESERVED_AUTHOR.equals(normalised(author.value())))
-                .ifPresent(author -> findings.add(new UnitFinding(UnitFinding.Kind.RULE,
-                        UnitFinding.AUTHOR_RESERVED, path, author.line(),
-                        "the project unit '%s' names the author '%s', which only a delivered unit carries"
-                                .formatted(path, RESERVED_AUTHOR))));
+                .ifPresent(author -> findings.add(UnitFinding.builder()
+                        .kind(UnitFinding.Kind.RULE)
+                        .code(UnitFinding.AUTHOR_RESERVED)
+                        .file(path)
+                        .line(author.line())
+                        .message("the project unit '%s' names the author '%s', which only a delivered unit carries"
+                                .formatted(path, RESERVED_AUTHOR))
+                        .build()));
     }
 
     /**

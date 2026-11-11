@@ -304,10 +304,16 @@ public final class WorkerSupervisor {
     private Optional<JobId> startWorker(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
             ModelSlots.Lease lease) {
         try {
-            var result = environment.starter().startWorker(new WorkerStart(launch, environment.enrolment(),
-                    new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null), budgetKey(role),
-                    role.artifact().budgetFloorSeconds(), floorDerivation(), block.writablePaths(environment.home()),
-                    null));
+            var result = environment.starter().startWorker(WorkerStart.builder()
+                    .launch(launch)
+                    .enrolment(environment.enrolment())
+                    .scope(new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null))
+                    .budgetKey(budgetKey(role))
+                    .budgetSeconds(role.artifact().budgetFloorSeconds())
+                    .budgetDerivation(floorDerivation())
+                    .writablePaths(block.writablePaths(environment.home()))
+                    .egressProxy(null)
+                    .build());
             return switch (result) {
                 case JobRunner.StartResult.Started(var jobId) -> Optional.of(jobId);
                 case JobRunner.StartResult.Refused _ -> Optional.empty();
@@ -324,30 +330,71 @@ public final class WorkerSupervisor {
 
     private WorkerGeneration register(EffectiveRole role, WorkerStartRequest request, WorkerLaunch launch, JobId jobId,
             ModelSlots.Lease lease) {
-        var generation = new WorkerGeneration(launch.generationId(), role.artifact().name(), role.harness(),
-                launch.model(), role.form(), request.workdirKind(), request.planId(), launch.workingDirectory(),
-                role.configurationDigest(), environment.clock().instant(), jobId, lease, WorkerLifecycle.STARTING,
-                null, List.of(), 0L, WorkerState.ContextTokens.NOT_MEASURED, null);
+        var generation = WorkerGeneration.builder()
+                .generationId(launch.generationId())
+                .role(role.artifact().name())
+                .harness(role.harness())
+                .model(launch.model())
+                .form(role.form())
+                .workdirKind(request.workdirKind())
+                .planId(request.planId())
+                .workdir(launch.workingDirectory())
+                .configurationDigest(role.configurationDigest())
+                .startedAt(environment.clock().instant())
+                .jobId(jobId)
+                .slot(lease)
+                .lifecycle(WorkerLifecycle.STARTING)
+                .leasedTask(null)
+                .servedTasks(List.of())
+                .idleWakeups(0L)
+                .contextTokens(WorkerState.ContextTokens.NOT_MEASURED)
+                .worktreeMark(null)
+                .build();
         generations.put(generation.generationId(), generation);
         return generation;
     }
 
     private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {
-        environment.starter().refuseWorker(new WorkerStart.Refusal(generationId, role, environment.enrolment(),
-                new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null), budgetKey(role),
-                role.artifact().budgetFloorSeconds(), floorDerivation(),
-                CanonicalJson.write(LaunchComposer.refusalBlock(role, generationId, environment.clock().instant())),
-                refused.reason(), refused.detail()));
+        environment.starter().refuseWorker(WorkerStart.Refusal.builder()
+                .generationId(generationId)
+                .role(role)
+                .enrolment(environment.enrolment())
+                .scope(new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null))
+                .budgetKey(budgetKey(role))
+                .budgetSeconds(role.artifact().budgetFloorSeconds())
+                .budgetDerivation(floorDerivation())
+                .workerBlock(CanonicalJson.write(
+                        LaunchComposer.refusalBlock(role, generationId, environment.clock().instant())))
+                .reason(refused.reason())
+                .detail(refused.detail())
+                .build());
     }
 
     private LaunchRequest launchRequest(EffectiveRole role, WorkerStartRequest request, HeadlessBlock block,
             HarnessEnrolment enrolment, String generationId) {
-        return new LaunchRequest(role, block, enrolment, generationId, environment.runtimeHome(),
-                environment.base().resolve(RUN).resolve(JOBS).resolve(generationId), request.workdirKind(),
-                request.planId(), request.workdir(), environment.relaySocket(), environment.shimParagraph(),
-                environment.skills(), role.form() == RoleForm.FRESH, request.writesFreeText(), request.stateSkills(),
-                request.domainSkills(), request.envelope(), NO_IN_BAND_BOUND, request.zeroToolPrompt(),
-                request.resumeSessionId(), environment.clock());
+        return LaunchRequest.builder()
+                .role(role)
+                .block(block)
+                .enrolment(enrolment)
+                .generationId(generationId)
+                .runtimeHome(environment.runtimeHome())
+                .jobPrivateDirectory(environment.base().resolve(RUN).resolve(JOBS).resolve(generationId))
+                .workdirKind(request.workdirKind())
+                .planId(request.planId())
+                .workdir(request.workdir())
+                .relaySocket(environment.relaySocket())
+                .shimParagraph(environment.shimParagraph())
+                .skills(environment.skills())
+                .fresh(role.form() == RoleForm.FRESH)
+                .writesFreeText(request.writesFreeText())
+                .stateSkills(request.stateSkills())
+                .domainSkills(request.domainSkills())
+                .envelope(request.envelope())
+                .inBandBoundChars(NO_IN_BAND_BOUND)
+                .zeroToolPrompt(request.zeroToolPrompt())
+                .resumeSessionId(request.resumeSessionId())
+                .clock(environment.clock())
+                .build();
     }
 
     /**

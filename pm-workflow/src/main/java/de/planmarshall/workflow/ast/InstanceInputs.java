@@ -11,6 +11,7 @@ package de.planmarshall.workflow.ast;
 
 import java.util.List;
 
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  * @param providersDigest         the digest over the provider configuration, {@code null} when the header names none
  * @since 0.1
  */
+@Builder
 public record InstanceInputs(String configHash, List<UnitRef> templates, List<UnitRef> subUnits,
 CompositionRules compositionRules, String planFactsDigest, @Nullable String realizedFootprintDigest,
 @Nullable String changeType, @Nullable String providersDigest) {
@@ -58,6 +60,7 @@ CompositionRules compositionRules, String planFactsDigest, @Nullable String real
      * @param origin where the unit comes from, {@code default} or {@code project}, as written in the header
      * @since 0.1
      */
+    @Builder
     public record UnitRef(String unit, @Nullable String file, String digest, String origin) {
     }
 

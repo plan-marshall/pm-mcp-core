@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -296,7 +297,12 @@ public final class Enrolments {
             current = sidecar.digest();
         }
         LOGGER.info(INFO.ENROLMENT_REBASELINED, projectId);
-        return new Rebaseline(file, recorded.orElse(null), current, settled);
+        return Rebaseline.builder()
+                .file(file)
+                .recorded(recorded.orElse(null))
+                .current(current)
+                .settled(settled)
+                .build();
     }
 
     /**
@@ -490,6 +496,7 @@ public final class Enrolments {
      *                 bytes may differ from the bytes the operator reviewed
      * @since 0.1
      */
+    @Builder
     public record Rebaseline(Path file, @Nullable StoreDigest recorded, StoreDigest current,
     List<PairRecovery> settled) {
 

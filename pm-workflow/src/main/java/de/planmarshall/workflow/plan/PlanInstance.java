@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import lombok.Builder;
 
 /**
  * One version of a plan instance (PM-IMPL-5): its number, its header, its plan unit and the set of composed files the
@@ -39,6 +40,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param units   the composed phase sub-workflows and bound axis variants of the version, in header order
  * @since 0.1
  */
+@Builder
 public record PlanInstance(int version, PlanInstanceHeader header, WorkflowDefinition unit, String text,
 List<ComposedUnit> units) {
 

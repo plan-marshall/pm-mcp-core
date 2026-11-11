@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.time.Instant;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  * @param orphanedAt     the instant the holder was found dead at a runtime start; {@code null} unless orphaned
  * @since 0.1
  */
+@Builder
 public record LeaseOwner(
 String projectId,
 ScopeType scopeType,

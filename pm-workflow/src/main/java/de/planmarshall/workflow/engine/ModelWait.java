@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import lombok.Builder;
+
 /**
  * A wait the server holds open for a model (PM-WF-8, PM-IMPL-4): either the bounded long-poll or the progress-reset
  * wait, selected by {@link WaitSelection} from the client profile and the request's progress token.
@@ -86,6 +88,7 @@ public sealed interface ModelWait permits ModelWait.Bounded, ModelWait.Progress 
      * @param interval  the interval between two progress frames
      * @since 0.1
      */
+    @Builder
     record Progress(ModelCall call, Instant startedAt, Duration window, Duration interval) implements ModelWait {
 
         /**

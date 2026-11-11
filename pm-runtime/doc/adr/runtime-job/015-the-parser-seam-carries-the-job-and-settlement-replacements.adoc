@@ -5,6 +5,10 @@
 
 Accepted
 
+Superseded in part by link:016-the-npm-passing-summary-is-the-success-marker.adoc[ADR `runtime-job/016`] (2026-11-10):
+the rule of the last bullet of Consequences stays, its list of tools without a positive success marker shrinks to
+`tsc` and ESLint (and any npm tool that prints no summary).
+
 == Date
 
 2026-11-05

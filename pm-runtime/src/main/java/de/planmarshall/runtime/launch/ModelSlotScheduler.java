@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.HolderInstance;
@@ -117,6 +118,7 @@ public final class ModelSlotScheduler {
      *                    the project's workspace scope
      * @since 0.1
      */
+    @Builder
     public record Request(LeaseOwner owner, String jobId, String role, WorkerClass workerClass, Form form,
     @Nullable String planId) {
 

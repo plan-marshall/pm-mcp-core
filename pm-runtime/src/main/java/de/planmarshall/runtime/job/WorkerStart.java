@@ -12,6 +12,7 @@ package de.planmarshall.runtime.job;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
@@ -35,6 +36,7 @@ import de.planmarshall.runtime.launch.WorkerLaunch;
  * @param egressProxy   the loopback URL of the worker's egress proxy; {@code null} when none
  * @since 0.1
  */
+@Builder
 public record WorkerStart(WorkerLaunch launch, ProjectEnrolment enrolment, JobRecord.Scope scope, String budgetKey,
 long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, List<Path> writablePaths,
 @Nullable String egressProxy) {
@@ -67,6 +69,7 @@ long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, List<Path> writ
      * @param detail       the detail both clients show beside the reason
      * @since 0.1
      */
+    @Builder
     public record Refusal(String generationId, EffectiveRole role, ProjectEnrolment enrolment, JobRecord.Scope scope,
     String budgetKey, long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, String workerBlock,
     LaunchRefusal reason, String detail) {
