@@ -82,13 +82,13 @@ class DefaultPlanUnitTest {
 
         assertAll(
                 () -> assertEquals(List.of("phase-1-init", "phase-2-refine", "phase-3-outline", "phase-3-outline",
-                        "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-5-execute", "phase-5-execute",
-                        "phase-6-finalize", "phase-6-finalize", "phase-6-finalize"), calls.stream()
-                        .map(StateBehavior.SubWorkflowCall::subWorkflowId).toList(),
+                                "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-5-execute", "phase-5-execute",
+                                "phase-6-finalize", "phase-6-finalize", "phase-6-finalize"), calls.stream()
+                                .map(StateBehavior.SubWorkflowCall::subWorkflowId).toList(),
                         "the plan unit calls the phases in declaration order"),
                 () -> assertEquals(List.of("start", "start", "start", "light", "rework", "start", "start", "land",
-                        "reentry", "start", "adopt", "hand_back"), calls.stream()
-                        .map(StateBehavior.SubWorkflowCall::entry).toList(),
+                                "reentry", "start", "adopt", "hand_back"), calls.stream()
+                                .map(StateBehavior.SubWorkflowCall::entry).toList(),
                         "each call names the entry it enters the phase at"));
     }
 
@@ -104,11 +104,11 @@ class DefaultPlanUnitTest {
 
         assertAll(
                 () -> assertTrue(init.transitions().stream().anyMatch(transition -> "land".equals(
-                        transition.outcomeName()) && "phases.execute.land".equals(transition.targetStateId())),
+                                transition.outcomeName()) && "phases.execute.land".equals(transition.targetStateId())),
                         "phases.init routes land to the land call"),
                 () -> assertTrue(plan.states().values().stream().filter(state -> !"phases.init".equals(state.id()))
-                        .flatMap(state -> UnitGraph.allTransitions(state.behavior()).stream())
-                        .noneMatch(transition -> "phases.execute.land".equals(transition.targetStateId())),
+                                .flatMap(state -> UnitGraph.allTransitions(state.behavior()).stream())
+                                .noneMatch(transition -> "phases.execute.land".equals(transition.targetStateId())),
                         "no other state of the plan enters the land call"),
                 () -> assertEquals("phase-5-execute", landCall.subWorkflowId()),
                 () -> assertEquals("land", landCall.entry(), "the land call enters the entry land"),
@@ -132,7 +132,7 @@ class DefaultPlanUnitTest {
 
         assertAll(
                 () -> assertEquals(Map.of("deep", "phases.refine", "light", "phases.outline.light", "land",
-                        "phases.execute.land", "adopt", "phases.finalize.adopt"),
+                                "phases.execute.land", "adopt", "phases.finalize.adopt"),
                         init.transitions().stream().filter(transition -> !"stepped_out".equals(
                                 transition.outcomeName())).collect(Collectors.toMap(
                                 OutcomeTransition::outcomeName, OutcomeTransition::targetStateId)),

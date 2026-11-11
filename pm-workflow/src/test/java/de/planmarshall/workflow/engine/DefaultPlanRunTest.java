@@ -126,8 +126,8 @@ class DefaultPlanRunTest {
 
         assertAll(
                 () -> assertEquals(List.of("phase-1-init@start", "phase-2-refine@start", "phase-3-outline@start",
-                        "phase-4-plan@start", "phase-5-execute@start", "phase-3-outline@rework",
-                        "phase-4-plan@start", "phase-5-execute@start", "phase-6-finalize@start"), run.entered(),
+                                "phase-4-plan@start", "phase-5-execute@start", "phase-3-outline@rework",
+                                "phase-4-plan@start", "phase-5-execute@start", "phase-6-finalize@start"), run.entered(),
                         "outline is entered again at its rework entry"),
                 () -> assertDelivered(run, COMPLETED),
                 () -> assertEquals(CORPUS_DEPTH, run.deepest(), "the fix reaches the deepest call stack"));
@@ -142,8 +142,8 @@ class DefaultPlanRunTest {
 
         assertAll(
                 () -> assertEquals(List.of("phase-1-init@start", "phase-2-refine@start", "phase-3-outline@start",
-                        "phase-4-plan@start", "phase-5-execute@start", "phase-6-finalize@start",
-                        "phase-5-execute@reentry", "phase-6-finalize@start"), run.entered(),
+                                "phase-4-plan@start", "phase-5-execute@start", "phase-6-finalize@start",
+                                "phase-5-execute@reentry", "phase-6-finalize@start"), run.entered(),
                         "execute is entered again at its reentry entry"),
                 () -> assertDelivered(run, COMPLETED),
                 () -> assertEquals(2, run.deepest(), "the re-entry nests the commit within a phase"));
@@ -159,8 +159,8 @@ class DefaultPlanRunTest {
 
         assertAll(
                 () -> assertEquals(List.of("phase-1-init@start", "phase-2-refine@start", "phase-3-outline@start",
-                        "phase-4-plan@start", "phase-5-execute@start", "phase-6-finalize@start",
-                        "phase-6-finalize@hand_back"), run.entered(),
+                                "phase-4-plan@start", "phase-5-execute@start", "phase-6-finalize@start",
+                                "phase-6-finalize@hand_back"), run.entered(),
                         "finalize is entered again at its hand_back entry"),
                 () -> assertDelivered(run, "handed_back"),
                 () -> assertEquals(OutcomeClass.FAILURE, run.ended().outcomeClass(),
