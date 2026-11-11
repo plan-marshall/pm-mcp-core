@@ -29,6 +29,11 @@ import org.jspecify.annotations.Nullable;
  * the test name stands as the message. The {@code # tests} / {@code # pass} / {@code # fail} / {@code # skipped} summary
  * supplies the counts.
  * <p>
+ * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
+ * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
+ * zero, an all-skipped run, a printed failing count, a {@code Bail out!} line and a filed diagnostic all keep the marker
+ * {@code false}.
+ * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * occurrence of each summary line, and it trusts {@code # tests} over its parts. This port sums every summary block of a
  * multi-file run, and a total that is not the sum of its parts makes the population {@link TestCounts.Unmeasured}.
@@ -59,6 +64,9 @@ public class TapOutputParser {
 
     /** A `not ok` test point, with or without its description: TAP permits both. */
     private static final Pattern NOT_OK_MARKER = Pattern.compile("^\\s*not ok\\b");
+
+    /** A TAP bailout: the run stopped before its plan was complete, whatever the summaries say. */
+    private static final Pattern BAIL_OUT = Pattern.compile("^\\s*Bail out!");
 
     private static final Pattern LOCATION = Pattern.compile("^(.+):(\\d+):\\d+");
 
@@ -97,22 +105,38 @@ public class TapOutputParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
-        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false)
+        boolean successMarker = printsPassingSummary(status, testCounts);
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
                 .testCounts(testCounts)
-                .noTestsRan(ParsedBuild.noTestsRanFrom(status, false, testCounts, false)).build();
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false)).build();
     }
 
     /**
-     * Whether the log printed a failure marker: a {@code not ok} line or a {@code # fail} count above zero. The status
-     * is what the tool printed, so a failure marker without a filed diagnostic (a {@code not ok} line that names no test
-     * and carries no message) is still red.
+     * Whether the log printed TAP's passing summary: a successful status over a measured population with no failed test
+     * and at least one passed test. A measured zero and an all-skipped run carry no passed test, so they are no marker
+     * either.
+     *
+     * @param status     the status the tool printed
+     * @param testCounts the counts the summary supplied, or {@code null} when it carried none
+     * @return whether the passing summary is the positive success marker
+     */
+    private static boolean printsPassingSummary(BuildStatus status, @Nullable TestCounts testCounts) {
+        return status == BuildStatus.SUCCESS && testCounts instanceof TestCounts.Measured measured
+                && measured.failed() == 0 && measured.passed() > 0;
+    }
+
+    /**
+     * Whether the log printed a failure marker: a {@code not ok} line, a {@code Bail out!} line or a {@code # fail}
+     * count above zero. The status is what the tool printed, so a failure marker without a filed diagnostic (a
+     * {@code not ok} line that names no test and carries no message, or a bailout that stopped the run) is still red.
      *
      * @param lines the log lines
      * @return whether a failure marker was printed
      */
     private static boolean printsFailure(List<String> lines) {
         return lines.stream()
-                .anyMatch(line -> NOT_OK_MARKER.matcher(line).find() || count(FAILED, line).orElse(0L) > 0);
+                .anyMatch(line -> NOT_OK_MARKER.matcher(line).find() || BAIL_OUT.matcher(line).find()
+                        || count(FAILED, line).orElse(0L) > 0);
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {

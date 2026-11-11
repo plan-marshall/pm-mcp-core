@@ -236,6 +236,115 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("a passing Jest run decides succeeded")
+    void jestPassingRun() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Tests:       5 passed, 5 total
+                """);
+
+        assertAll(
+                () -> assertTrue(parse.successMarker(), "the Jest passing summary is the marker"),
+                () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a passing Jest run decides succeeded"));
+    }
+
+    @Test
+    @DisplayName("a passing TAP run decides succeeded")
+    void tapPassingRun() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                TAP version 13
+                1..5
+                ok 1 - a
+                ok 2 - b
+                ok 3 - c
+                ok 4 - d
+                ok 5 - e
+                # tests 5
+                # pass 5
+                # fail 0
+                """);
+
+        assertAll(
+                () -> assertTrue(parse.successMarker(), "the TAP passing summary is the marker"),
+                () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a passing TAP run decides succeeded"));
+    }
+
+    @Test
+    @DisplayName("a TAP bailout after a passing summary is no marker")
+    void tapBailout() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                TAP version 13
+                1..5
+                ok 1 - a
+                # tests 5
+                # pass 5
+                # fail 0
+                Bail out! database unavailable
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a bailout is no passing summary"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a bailout keeps a zero exit indeterminate"));
+    }
+
+    @Test
+    @DisplayName("a failed Jest test suite is no marker")
+    void jestFailedSuite() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Test Suites: 1 failed, 1 passed, 2 total
+                Tests:       3 passed, 3 total
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a failed suite is no passing summary"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a failed suite keeps a zero exit indeterminate"));
+    }
+
+    @Test
+    @DisplayName("an unmeasured Jest summary stays indeterminate")
+    void jestUnmeasuredSummary() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Tests:       7 total
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "an unmeasured summary is no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "an unmeasured summary stays indeterminate"));
+    }
+
+    @Test
+    @DisplayName("a measured TAP zero stays indeterminate")
+    void tapZeroCount() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                TAP version 13
+                1..0
+                # tests 0
+                # pass 0
+                # fail 0
+                # skipped 0
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a measured zero is no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a measured zero stays indeterminate"));
+    }
+
+    @Test
+    @DisplayName("an all-skipped Jest run stays indeterminate")
+    void jestAllSkipped() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/a.test.ts
+                Tests:       3 skipped, 3 total
+                """);
+
+        assertAll(
+                () -> assertFalse(parse.successMarker(), "a skipped-only run is no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(parse, 0), "an all-skipped run stays indeterminate"));
+    }
+
+    @Test
     @DisplayName("a zero count alone is not a success marker")
     void zeroCountIsNoMarker() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
@@ -260,15 +369,54 @@ class BuildOutputParserTest {
     }
 
     @Test
-    @DisplayName("a log no parser recognises yields nothing")
+    @DisplayName("an install completion line decides succeeded instead of nothing")
     void unrecognisedLog() {
+        // Changed deliberately: this log read as NOTHING before the install family's completion line
+        // became its passing summary (PLAN-V2-127, D2).
         var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "up to date, audited 5 packages\n");
+
+        assertAll(
+                () -> assertTrue(parse.successMarker(), "the install completion line is the marker"),
+                () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean install decides succeeded"));
+    }
+
+    @Test
+    @DisplayName("a log no parser recognises still yields nothing")
+    void opaqueLog() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "compiling something\n");
 
         assertAll(
                 () -> assertEquals(ParseResult.NOTHING, parse, "an unrecognised log parses to nothing"),
                 () -> assertEquals(INDETERMINATE, outcome(parse, 0), "nothing with exit 0 is indeterminate"),
                 () -> assertEquals(FAILED_UNPARSED, outcome(parse, failures().next()),
                         "nothing with a failing exit is unparsed"));
+    }
+
+    @Test
+    @DisplayName("an npm error log in the current prefix decides failed")
+    void npmErrorCurrentPrefix() {
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                npm error code E404
+                npm error 404  The requested resource 'missing@1' could not be found or you do not have permission to access it.
+                """);
+
+        assertAll(
+                () -> assertEquals(1, parse.diagnostics(), "the new-prefix error block was filed"),
+                () -> assertEquals(FAILED, outcome(parse, failures().next()),
+                        "a new-prefix npm error decides failed rather than unparsed"));
+    }
+
+    @Test
+    @DisplayName("a clean tsc or ESLint log prints nothing, so exit 0 stays indeterminate")
+    void cleanSyntaxToolLogs() {
+        var typeScript = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
+        var eslint = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
+
+        assertAll(
+                () -> assertEquals(ParseResult.NOTHING, typeScript, "a clean tsc run prints no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(typeScript, 0), "a clean tsc run stays indeterminate"),
+                () -> assertEquals(ParseResult.NOTHING, eslint, "a clean ESLint run prints no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(eslint, 0), "a clean ESLint run stays indeterminate"));
     }
 
     // Build systems the runtime knows no parser for: contract literals of the budget key.

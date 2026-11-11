@@ -146,8 +146,8 @@ The model separates facts a consumer must not conflate (link:../adr/core-build/0
 
 * `status` is what the tool printed. A `testFailureIgnore` run that printed `BUILD SUCCESS` over two errored tests is
   `SUCCESS` with `failed = 2`; the parser does not resolve the contradiction, the gate does.
-* `successMarker` records that the positive banner was seen, so the contradiction stays readable after the status is
-  consumed.
+* `successMarker` records that the positive success marker was seen — the tool's banner or the passing summary it printed —
+  so the contradiction stays readable after the status is consumed.
 * `testCounts` distinguishes three states: absent (`null`, the log carried no count line), `Unmeasured` (counts the parser
   could not aggregate) and `Measured`. Nothing reports a zero in place of an absence (the aggregation defect the
   implementation watch recorded as PM-WATCH-JOB-10, closed by this package and deleted from the watch document).
@@ -205,13 +205,21 @@ longer matches the pinned template; `observed` otherwise, carrying the findings.
 === The Six JavaScript and Python Parsers
 
 The six tools share the result model and the counts rules of the JVM parsers, and each is a scanner over the lines the
-tool prints. None of them prints a positive success banner, so `successMarker` is `false` for the npm tools and for
-pyproject except where a pytest summary reports a passed count.
+tool prints. The marker is the passing summary the tool itself prints: Jest's `Tests:` summary and TAP's `# tests` / `# pass`
+/ `# fail` block are the marker when they report at least one passed test and no failed test, and the install family's
+completion line (`added 150 packages in 10s`, `up to date, audited 5 packages`) is the marker of a clean install. A clean
+`tsc` or ESLint run prints nothing at all, so `successMarker` stays `false` there and a zero exit stays `indeterminate`; a
+pytest summary that reports a passed count is the marker of the pyproject parser. ADR
+link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-success-marker.adoc[`runtime-job/016`] records the decision.
 
-* *npm errors* — every `npm ERR! code` line opens a block. `ERESOLVE` is `NPM_DEPENDENCY`, and its
+* *npm errors* — every `npm ERR! code` line (npm up to 11) or `npm error code` line (npm 12 on) opens a block. `ERESOLVE` is `NPM_DEPENDENCY`, and its
   `Could not resolve dependency:` trailer names the peer dependency and its origin when the trailer carries them; `E404`
   is `NPM_ERROR` and names the quoted package specification it could not find; every other code is `NPM_ERROR` with the
   block's first reportable line, which is the code line itself. Both named forms point into `package.json` without a line.
+  A log with no error block whose install completion line reads `added|removed|changed N packages` or
+  `up to date, audited N packages` is a clean install: it files no diagnostic and sets the success marker. The generic
+  block's message is redacted through `SecretRedactor` before it is cut to the stored length, so a truncated message
+  cannot keep half a secret; the `ERESOLVE` and `E404` messages are built from dependency names and need no redaction.
 * *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
   `TSnnnn: message`. Both forms are scanned over every line, so a log that mixes them keeps all of its diagnostics.
 * *ESLint* — a file-header line sets the file and each `line:col severity message rule` row below it is a `LINT_ERROR`
@@ -377,7 +385,7 @@ compares the figures with literals read out of the report by hand; no test runs 
 
 _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
-`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` keeps the tail of the last `MAX_LINES` (50) lines, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
+`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame, keeps the tail of the last `MAX_LINES` (50) lines, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
 
 == Invariants and Failure Modes
 

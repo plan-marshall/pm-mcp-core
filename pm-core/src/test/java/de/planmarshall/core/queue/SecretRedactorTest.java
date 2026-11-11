@@ -99,6 +99,108 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an npm access token is redacted")
+    void npmAccessToken() {
+        // The documented shape: `npm_` plus 36 alphanumeric characters, the last six a Base62 CRC32
+        // checksum (npm Registry API, "Delete npm access token"; GitHub changelog 2021-09-23).
+        var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+
+        assertEquals("the token is " + SecretRedactor.REDACTED, redactValue("the token is " + token),
+                "the documented npm token shape is redacted");
+    }
+
+    @Test
+    @DisplayName("user information in a URL keeps the scheme and the user")
+    void urlUserInformation() {
+        assertAll("URL user information",
+                () -> assertEquals("request to https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg failed",
+                        redactValue("request to https://deploy:s3cr3t-value@registry.example/pkg failed"),
+                        "a URL's password is masked and its scheme kept"),
+                () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host/x",
+                        redactValue("https://user:p@ss@host/x"),
+                        "a password containing @ is masked whole"));
+    }
+
+    @Test
+    @DisplayName("a credential flag with a space is redacted and keeps the flag")
+    void spacedCredentialFlags() {
+        assertAll("spaced credential flags",
+                () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
+                        redactValue("npm login --password hunter22"), "a spaced password value is masked"),
+                () -> assertEquals("publish --token " + SecretRedactor.REDACTED,
+                        redactValue("publish --token abc12345"), "a spaced token value is masked"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("publish --token \"abcd1234\""), "a double-quoted token value is masked"),
+                () -> assertEquals("npm login --password '" + SecretRedactor.REDACTED + "'",
+                        redactValue("npm login --password 'hunter22'"), "a single-quoted password is masked"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("publish --token \"correct horse battery staple\""),
+                        "a quoted value with spaces is masked whole"),
+                () -> assertEquals("npm login --password \"" + SecretRedactor.REDACTED,
+                        redactValue("npm login --password \"correct horse"),
+                        "an unclosed quoted value is masked to the line end"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED,
+                        redactValue("publish --token \"abc'def"),
+                        "an unclosed quote masks the rest of the line"),
+                () -> assertEquals("publish --token '" + SecretRedactor.REDACTED,
+                        redactValue("publish --token 'abc\"def"),
+                        "an unclosed single quote masks the rest of the line"),
+                () -> assertEquals("publish --token \"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("publish --token \"abc\\\"def ghi\""),
+                        "an escaped quote inside a value is not its close"),
+                () -> assertEquals("npm login --password " + SecretRedactor.REDACTED,
+                        redactValue("npm login --password abcdef,secret"),
+                        "a comma inside an unquoted value is masked with it"),
+                () -> assertEquals("publish --token " + SecretRedactor.REDACTED,
+                        redactValue("publish --token abc"), "a short unquoted value is masked"),
+                () -> assertEquals("--token \"" + SecretRedactor.REDACTED + "\" --name \"x\"",
+                        redactValue("--token \"abc\" --name \"x\""),
+                        "only the credential's quoted value is masked"));
+    }
+
+    @Test
+    @DisplayName("a PEM private key block is redacted")
+    void pemPrivateKeyBlock() {
+        var block = String.join("\n", "-----BEGIN RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA7v0x",
+                "-----END RSA PRIVATE KEY-----");
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue("key:\n" + block),
+                "a PEM private-key block is replaced whole");
+    }
+
+    @Test
+    @DisplayName("an unclosed PEM private-key block masks the rest")
+    void unclosedPemPrivateKeyBlock() {
+        var log = "key:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7v0x";
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
+                "a block without its END line is masked to the end");
+    }
+
+    @Test
+    @DisplayName("shapes that merely resemble a credential stay readable")
+    void shapeNegativeControls() {
+        assertAll("shape negative controls",
+                () -> assertEquals("see https://github.com/org/repo",
+                        redactValue("see https://github.com/org/repo"), "a URL without user information stays"),
+                () -> assertEquals("--password-file notes.txt", redactValue("--password-file notes.txt"),
+                        "a different flag is not a credential flag"),
+                () -> assertEquals("the word token appears here", redactValue("the word token appears here"),
+                        "prose carrying the word token stays readable"),
+                () -> assertEquals("npm_" + "A".repeat(20), redactValue("npm_" + "A".repeat(20)),
+                        "an npm_ string shorter than a token stays"),
+                () -> assertEquals("the RSA private key is rotated daily",
+                        redactValue("the RSA private key is rotated daily"),
+                        "prose naming a key type stays readable"),
+                () -> assertEquals("https://host?next=user:password@other/path",
+                        redactValue("https://host?next=user:password@other/path"),
+                        "a query is not URL user information"),
+                () -> assertEquals("https://host/#user:password@other",
+                        redactValue("https://host/#user:password@other"),
+                        "a fragment is not URL user information"));
+    }
+
+    @Test
     @DisplayName("prose, a path and a commit id are not secrets")
     void keepsOrdinaryText() {
         assertAll(
@@ -115,8 +217,18 @@ class SecretRedactorTest {
     @DisplayName("redacting is idempotent")
     void idempotent() {
         var once = redactValue("password=hunter22");
+        var everyShape = redactValue("""
+                npm_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8
+                https://deploy:s3cr3t-value@registry.example/pkg --password hunter22
+                -----BEGIN RSA PRIVATE KEY-----
+                MIIEowIBAAKCAQEA7v0x
+                -----END RSA PRIVATE KEY-----""");
 
-        assertEquals(once, SecretRedactor.redactText(once).orElseThrow());
+        assertAll("redaction is idempotent",
+                () -> assertEquals(once, SecretRedactor.redactText(once).orElseThrow(),
+                        "redacting a redacted assignment changes nothing"),
+                () -> assertEquals(everyShape, SecretRedactor.redactText(everyShape).orElseThrow(),
+                        "redacting the new shapes twice changes nothing"));
     }
 
     @Test

@@ -28,6 +28,11 @@ import org.jspecify.annotations.Nullable;
  * closed block is a {@link Category#TEST_FAILURE} diagnostic carrying the suite, the line of the first stack frame and
  * the collected frames. The {@code Tests:} summary line supplies the counts.
  * <p>
+ * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
+ * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
+ * zero, an all-skipped run, a printed failing test or suite count and a filed diagnostic all keep the marker
+ * {@code false}.
+ * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * {@code Tests:} block only, and it trusts the block's {@code total} over its parts. This port sums every block of a
  * multi-package run, and a block whose total is not the sum of its parts makes the population
@@ -41,6 +46,8 @@ public class JestOutputParser {
     private static final String TEST_MARKER = "●";
 
     private static final String TESTS_PREFIX = "Tests:";
+
+    private static final String SUITES_PREFIX = "Test Suites:";
 
     private static final String STACK_FRAME = "at ";
 
@@ -84,9 +91,24 @@ public class JestOutputParser {
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = diagnostics.isEmpty() && !printsFailedSummary(lines)
                 ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false)
+        boolean successMarker = printsPassingSummary(status, testCounts);
+        return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
                 .testCounts(testCounts)
-                .noTestsRan(ParsedBuild.noTestsRanFrom(status, false, testCounts, false)).build();
+                .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false)).build();
+    }
+
+    /**
+     * Whether the log printed Jest's passing summary: a successful status over a measured population with no failed
+     * test and at least one passed test. A measured zero and an all-skipped run carry no passed test, so they are no
+     * marker either.
+     *
+     * @param status     the status the tool printed
+     * @param testCounts the counts the summary supplied, or {@code null} when it carried none
+     * @return whether the passing summary is the positive success marker
+     */
+    private static boolean printsPassingSummary(BuildStatus status, @Nullable TestCounts testCounts) {
+        return status == BuildStatus.SUCCESS && testCounts instanceof TestCounts.Measured measured
+                && measured.failed() == 0 && measured.passed() > 0;
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
@@ -186,15 +208,18 @@ public class JestOutputParser {
     }
 
     /**
-     * Whether the log printed a failed test count: a {@code Tests:} block whose failed count is above zero. The status is
-     * what the tool printed, so a failed summary without a filed diagnostic (truncated output) is still red.
+     * Whether the log printed a failed count: a {@code Tests:} block whose failed count is above zero, or a
+     * {@code Test Suites:} block that reports a failed suite. The status is what the tool printed, so a failed summary
+     * without a filed diagnostic (truncated output, or a suite that failed to run) is still red and is never a passing
+     * marker.
      *
      * @param lines the log lines
-     * @return whether a failed test count was printed
+     * @return whether a failed count was printed
      */
     private static boolean printsFailedSummary(List<String> lines) {
         return lines.stream()
-                .filter(line -> line.strip().startsWith(TESTS_PREFIX))
+                .map(String::strip)
+                .filter(line -> line.startsWith(TESTS_PREFIX) || line.startsWith(SUITES_PREFIX))
                 .anyMatch(line -> {
                     Matcher matcher = FAILED_COUNT.matcher(line);
                     while (matcher.find()) {
