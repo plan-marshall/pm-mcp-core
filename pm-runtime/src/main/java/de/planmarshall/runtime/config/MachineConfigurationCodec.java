@@ -359,7 +359,7 @@ public class MachineConfigurationCodec {
             try {
                 return new VerificationResult(passed, at, checks);
             } catch (IllegalArgumentException | NullPointerException e) {
-                throw unreadable("%s: %s".formatted(FIELD_VERIFICATION, e.getMessage()), e);
+                throw unreadable(DETAIL_FORMAT.formatted(FIELD_VERIFICATION, e.getMessage()), e);
             }
         }
 
