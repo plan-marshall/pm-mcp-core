@@ -204,8 +204,9 @@ public final class RelayVersionCheck {
     /** Logs the mismatch and hands its record to the audit sink; called while the version's entry is held. */
     private Handover recordMismatch(String version) {
         LOGGER.warn(WARN.RELAY_VERSION_MISMATCH, version, runtimeVersion);
-        var event = new AuditEvent(RELAY_VERSION_MISMATCH, CATEGORY_OPERATOR, OUTCOME_WARNING,
-                Map.of(DETAIL_RELAY_VERSION, version, DETAIL_RUNTIME_VERSION, runtimeVersion));
+        var event = AuditEvent.builder().event(RELAY_VERSION_MISMATCH).category(CATEGORY_OPERATOR)
+                .outcome(OUTCOME_WARNING)
+                .details(Map.of(DETAIL_RELAY_VERSION, version, DETAIL_RUNTIME_VERSION, runtimeVersion)).build();
         try {
             auditSink.append(event);
             return RECORDED;

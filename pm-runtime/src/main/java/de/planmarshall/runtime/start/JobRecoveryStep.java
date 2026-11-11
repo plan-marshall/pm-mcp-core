@@ -348,9 +348,11 @@ public final class JobRecoveryStep implements RecoveryStep {
      * @return the audit record that notes {@value #ORPHAN_UNIDENTIFIABLE}
      */
     static AuditEvent orphanNote(String projectId, JobId jobId) {
-        return new AuditEvent(JOB_RECOVERED, AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
-                Map.of(AuditEvent.DETAIL_PROJECT_ID, projectId, DETAIL_JOB_ID, jobId.value(), DETAIL_NOTE,
-                        ORPHAN_UNIDENTIFIABLE));
+        return AuditEvent.builder().event(JOB_RECOVERED).category(AuditEvent.CATEGORY_STORE)
+                .outcome(AuditEvent.OUTCOME_SUCCEEDED)
+                .details(Map.of(AuditEvent.DETAIL_PROJECT_ID, projectId, DETAIL_JOB_ID, jobId.value(), DETAIL_NOTE,
+                        ORPHAN_UNIDENTIFIABLE))
+                .build();
     }
 
     private static String report(Map<Rule, Integer> counts, int terminated, int workers) {

@@ -478,10 +478,13 @@ public final class Enrolments {
     }
 
     private static ProjectEnrolment asEnrolled(ProjectEnrolment enrolment, boolean pilot) {
-        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(), pilot,
-                enrolment.containerEngine(), null, enrolment.wrappers(), enrolment.hostTools(), enrolment.build(),
-                enrolment.providers(), enrolment.projectScripts(), enrolment.languageServers(),
-                enrolment.commandBudgets(), enrolment.writePaths(), enrolment.buildEnvironment());
+        return ProjectEnrolment.builder().projectId(enrolment.projectId()).projectRoot(enrolment.projectRoot())
+                .enrolledAt(enrolment.enrolledAt()).pilot(pilot).containerEngine(enrolment.containerEngine())
+                .releasedAt(null).wrappers(enrolment.wrappers()).hostTools(enrolment.hostTools())
+                .build(enrolment.build()).providers(enrolment.providers())
+                .projectScripts(enrolment.projectScripts()).languageServers(enrolment.languageServers())
+                .commandBudgets(enrolment.commandBudgets()).writePaths(enrolment.writePaths())
+                .buildEnvironment(enrolment.buildEnvironment()).build();
     }
 
     /**
