@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -253,7 +254,7 @@ class DefaultPlanRunTest {
     }
 
     private StateNode stateOf(String stateId) {
-        return units.values().stream().map(unit -> unit.states().get(stateId)).filter(state -> state != null)
+        return units.values().stream().map(unit -> unit.states().get(stateId)).filter(Objects::nonNull)
                 .findFirst().orElseThrow();
     }
 
