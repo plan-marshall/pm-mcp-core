@@ -12,11 +12,14 @@ package de.planmarshall.core.build;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.management.ThreadMXBean;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +51,35 @@ class UnparsedEvidenceTest {
         var evidence = UnparsedEvidence.of(PLAN, JOB, log);
 
         assertEquals(String.join("\n", lines.subList(150, 200)), evidence.excerpt(), "the excerpt keeps fifty lines");
+    }
+
+    @Test
+    @DisplayName("a million lines yield the excerpt of the listing algorithm")
+    void keepsTheExcerptOfAMillionLines() {
+        var tailLines = IntStream.range(0, 60).mapToObj(index -> "line " + index).toList();
+        var log = "x\n".repeat(1_000_000 - 60) + String.join("\n", tailLines) + "\n";
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+
+        assertEquals(String.join("\n", tailLines.subList(10, 60)), evidence.excerpt(),
+                "the excerpt is the fifty lines the listing kept");
+    }
+
+    @Test
+    @DisplayName("the tail is taken without listing the whole log")
+    void takesTheTailWithoutListingTheLog() {
+        var log = "x\n".repeat(1_000_000);
+        var allocation = assertInstanceOf(ThreadMXBean.class, ManagementFactory.getThreadMXBean(),
+                "the JVM must account the thread's allocation");
+        UnparsedEvidence.keptTail(log);
+
+        var before = allocation.getCurrentThreadAllocatedBytes();
+        var tail = UnparsedEvidence.keptTail(log);
+        var allocated = allocation.getCurrentThreadAllocatedBytes() - before;
+
+        assertAll(
+                () -> assertEquals(UnparsedEvidence.MAX_LINES, tail.lines().count(), "the tail keeps fifty lines"),
+                () -> assertTrue(allocated < 65_536, "the whole log is never listed, allocation: " + allocated));
     }
 
     @Test

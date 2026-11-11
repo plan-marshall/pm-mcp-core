@@ -10,7 +10,6 @@
 package de.planmarshall.core.build;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Objects;
 
 import de.planmarshall.core.queue.SecretRedactor;
@@ -27,6 +26,8 @@ import de.planmarshall.core.store.JobId;
  * The excerpt is the tail of the raw log: the ANSI escapes are stripped through {@link BuildLogText#stripAnsi}, each
  * carriage-return frame run is reduced to its last frame, and the last {@value #MAX_LINES} lines are kept, bounded to at
  * most {@value #MAX_BYTES} bytes of UTF-8 counted from its end, so the byte bound can cut the earliest retained line.
+ * The tail is taken by scanning back from the log's end, never by listing the log: a log of a million lines costs the
+ * tail it keeps, not a list of every line.
  * Every secret-shaped value is replaced by {@link SecretRedactor}; the bound is applied after the redaction, because a
  * replacement can lengthen a line. The full log itself stays beside the job record as {@code <job_id>.log}, which is the
  * resource the URI names.
@@ -85,10 +86,37 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
 
     private static String tail(String rawLog) {
         String reduced = reduceCarriageReturns(BuildLogText.stripAnsi(rawLog));
-        List<String> lines = reduced.lines().toList();
-        var from = Math.max(0, lines.size() - MAX_LINES);
-        var redacted = SecretRedactor.redactText(String.join("\n", lines.subList(from, lines.size()))).orElseThrow();
-        return capped(redacted);
+        return capped(SecretRedactor.redactText(keptTail(reduced)).orElseThrow());
+    }
+
+    /**
+     * The last {@value #MAX_LINES} lines of a text whose escapes and carriage-return frames are already reduced, taken
+     * by scanning back from its end for line beginnings.
+     * <p>
+     * A build log is untrusted text of any length, and listing its lines would hold every one of them at once to keep
+     * fifty. The scan reads the line ends from the end until it has counted the kept lines, so the memory the tail
+     * costs is the tail's own. The line end of the last line is dropped, as joining the listed lines dropped it.
+     *
+     * @param reduced the log text, its escapes stripped and its carriage-return frames reduced
+     * @return the tail, without the line end of its last line
+     */
+    static String keptTail(String reduced) {
+        var tail = reduced.substring(tailStart(reduced));
+        return tail.endsWith("\n") ? tail.substring(0, tail.length() - 1) : tail;
+    }
+
+    /** The index of the first character of the last {@value #MAX_LINES} lines, or {@code 0} for a shorter text. */
+    private static int tailStart(String text) {
+        var lines = 1;
+        for (var index = text.length() - 1; index >= 0; index--) {
+            if (text.charAt(index) == '\n' && index < text.length() - 1) {
+                lines++;
+                if (lines > MAX_LINES) {
+                    return index + 1;
+                }
+            }
+        }
+        return 0;
     }
 
     /**
