@@ -72,20 +72,20 @@ class MetricsRowBuilderContractTest {
                         canonical.durationMs(), canonical.durationBasis(), canonical.queuedMs(),
                         canonical.consultationOf(), canonical.recordedAt()),
                 "the constructor refuses an absent outcome");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> MetricsRow.builder().queueTaskId(canonical.queueTaskId()).attempt(canonical.attempt())
-                        .role(canonical.role()).jobId(canonical.jobId())
-                        .generationId(canonical.generationId()).harness(canonical.harness())
-                        .harnessVersion(canonical.harnessVersion()).model(canonical.model())
-                        .effort(canonical.effort()).form(canonical.form()).phase(canonical.phase())
-                        .stepId(canonical.stepId()).envelopeId(canonical.envelopeId())
-                        .predictedCost(canonical.predictedCost()).yieldReason(canonical.yieldReason())
-                        .attemptEnd(canonical.attemptEnd()).continuation(canonical.continuation())
-                        .causeClass(canonical.causeClass()).spendClass(canonical.spendClass())
-                        .population(canonical.population()).usage(canonical.usage())
-                        .durationMs(canonical.durationMs()).durationBasis(canonical.durationBasis())
-                        .queuedMs(canonical.queuedMs()).consultationOf(canonical.consultationOf())
-                        .recordedAt(canonical.recordedAt()).build(),
+        var incomplete = MetricsRow.builder().queueTaskId(canonical.queueTaskId()).attempt(canonical.attempt())
+                .role(canonical.role()).jobId(canonical.jobId())
+                .generationId(canonical.generationId()).harness(canonical.harness())
+                .harnessVersion(canonical.harnessVersion()).model(canonical.model())
+                .effort(canonical.effort()).form(canonical.form()).phase(canonical.phase())
+                .stepId(canonical.stepId()).envelopeId(canonical.envelopeId())
+                .predictedCost(canonical.predictedCost()).yieldReason(canonical.yieldReason())
+                .attemptEnd(canonical.attemptEnd()).continuation(canonical.continuation())
+                .causeClass(canonical.causeClass()).spendClass(canonical.spendClass())
+                .population(canonical.population()).usage(canonical.usage())
+                .durationMs(canonical.durationMs()).durationBasis(canonical.durationBasis())
+                .queuedMs(canonical.queuedMs()).consultationOf(canonical.consultationOf())
+                .recordedAt(canonical.recordedAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent outcome");
 
         assertAll(

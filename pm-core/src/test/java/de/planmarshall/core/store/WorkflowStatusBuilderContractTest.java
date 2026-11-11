@@ -59,17 +59,17 @@ class WorkflowStatusBuilderContractTest {
                         canonical.activeJobs(), canonical.activeTasks(), canonical.pendingCondition(),
                         canonical.updatedAt(), canonical.retained()),
                 "the constructor refuses an absent scope type");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> WorkflowStatus.builder().scopeId(canonical.scopeId()).phase(canonical.phase())
-                        .state(canonical.state()).callStack(canonical.callStack())
-                        .loopBackIteration(canonical.loopBackIteration())
-                        .outlineLoopBacks(canonical.outlineLoopBacks())
-                        .policyCounters(canonical.policyCounters())
-                        .waiverRequests(canonical.waiverRequests())
-                        .retryCounters(canonical.retryCounters()).activeJob(canonical.activeJob())
-                        .activeJobs(canonical.activeJobs()).activeTasks(canonical.activeTasks())
-                        .pendingCondition(canonical.pendingCondition()).updatedAt(canonical.updatedAt())
-                        .retained(canonical.retained()).build(),
+        var incomplete = WorkflowStatus.builder().scopeId(canonical.scopeId()).phase(canonical.phase())
+                .state(canonical.state()).callStack(canonical.callStack())
+                .loopBackIteration(canonical.loopBackIteration())
+                .outlineLoopBacks(canonical.outlineLoopBacks())
+                .policyCounters(canonical.policyCounters())
+                .waiverRequests(canonical.waiverRequests())
+                .retryCounters(canonical.retryCounters()).activeJob(canonical.activeJob())
+                .activeJobs(canonical.activeJobs()).activeTasks(canonical.activeTasks())
+                .pendingCondition(canonical.pendingCondition()).updatedAt(canonical.updatedAt())
+                .retained(canonical.retained());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent scope type");
 
         assertAll(
@@ -93,10 +93,10 @@ class WorkflowStatusBuilderContractTest {
                 () -> new CallFrame(null, canonical.callerStateId(), canonical.subworkflowId(),
                         canonical.entry(), canonical.boundArgs(), canonical.pushedAt()),
                 "the constructor refuses an absent caller workflow");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> CallFrame.builder().callerStateId(canonical.callerStateId())
-                        .subworkflowId(canonical.subworkflowId()).entry(canonical.entry())
-                        .boundArgs(canonical.boundArgs()).pushedAt(canonical.pushedAt()).build(),
+        var incomplete = CallFrame.builder().callerStateId(canonical.callerStateId())
+                .subworkflowId(canonical.subworkflowId()).entry(canonical.entry())
+                .boundArgs(canonical.boundArgs()).pushedAt(canonical.pushedAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent caller workflow");
 
         assertAll(
@@ -116,9 +116,9 @@ class WorkflowStatusBuilderContractTest {
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new JobEntry(null, canonical.kind(), canonical.status(), canonical.startedAt()),
                 "the constructor refuses an absent job id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> JobEntry.builder().kind(canonical.kind()).status(canonical.status())
-                        .startedAt(canonical.startedAt()).build(),
+        var incomplete = JobEntry.builder().kind(canonical.kind()).status(canonical.status())
+                .startedAt(canonical.startedAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent job id");
 
         assertAll(
@@ -139,9 +139,9 @@ class WorkflowStatusBuilderContractTest {
                 () -> new TaskEntry(null, canonical.role(), canonical.state(), canonical.outcome(),
                         canonical.reason()),
                 "the constructor refuses an absent queue task id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> TaskEntry.builder().role(canonical.role()).state(canonical.state())
-                        .outcome(canonical.outcome()).reason(canonical.reason()).build(),
+        var incomplete = TaskEntry.builder().role(canonical.role()).state(canonical.state())
+                .outcome(canonical.outcome()).reason(canonical.reason());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent queue task id");
 
         assertAll(
@@ -163,10 +163,10 @@ class WorkflowStatusBuilderContractTest {
                 () -> new PendingCondition(null, canonical.remedyAttempts(), canonical.integrity(),
                         canonical.facts(), canonical.raisedAt()),
                 "the constructor refuses an absent condition kind");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> PendingCondition.builder().remedyAttempts(canonical.remedyAttempts())
-                        .integrity(canonical.integrity()).facts(canonical.facts())
-                        .raisedAt(canonical.raisedAt()).build(),
+        var incomplete = PendingCondition.builder().remedyAttempts(canonical.remedyAttempts())
+                .integrity(canonical.integrity()).facts(canonical.facts())
+                .raisedAt(canonical.raisedAt());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent condition kind");
 
         assertAll(
@@ -187,10 +187,10 @@ class WorkflowStatusBuilderContractTest {
                 () -> new Integrity(null, canonical.store(), canonical.recordedDigest(),
                         canonical.currentDigest()),
                 "the constructor refuses an absent integrity kind");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Integrity.builder().store(canonical.store())
-                        .recordedDigest(canonical.recordedDigest())
-                        .currentDigest(canonical.currentDigest()).build(),
+        var incomplete = Integrity.builder().store(canonical.store())
+                .recordedDigest(canonical.recordedDigest())
+                .currentDigest(canonical.currentDigest());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent integrity kind");
 
         assertAll(

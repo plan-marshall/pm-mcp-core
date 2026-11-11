@@ -64,22 +64,21 @@ class WorkerStateBuilderContractTest {
                         canonical.deliveredSkills(), canonical.endReason(), canonical.startFailure(),
                         canonical.harnessError()),
                 "the constructor refuses an absent role");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> WorkerState.builder().configurationDigest(canonical.configurationDigest())
-                        .roleClass(canonical.roleClass()).form(canonical.form())
-                        .harness(canonical.harness()).harnessVersion(canonical.harnessVersion())
-                        .model(canonical.model()).effort(canonical.effort())
-                        .effortNarrowedFrom(canonical.effortNarrowedFrom())
-                        .generationId(canonical.generationId()).workdir(canonical.workdir())
-                        .promptDigest(canonical.promptDigest())
-                        .jobTokenSha256(canonical.jobTokenSha256())
-                        .connectedAt(canonical.connectedAt()).state(canonical.state())
-                        .stateAt(canonical.stateAt()).task(canonical.task())
-                        .servedTasks(canonical.servedTasks()).worktreeMark(canonical.worktreeMark())
-                        .idleWakeups(canonical.idleWakeups()).contextTokens(canonical.contextTokens())
-                        .deliveredSkills(canonical.deliveredSkills()).endReason(canonical.endReason())
-                        .startFailure(canonical.startFailure()).harnessError(canonical.harnessError())
-                        .build(),
+        var incomplete = WorkerState.builder().configurationDigest(canonical.configurationDigest())
+                .roleClass(canonical.roleClass()).form(canonical.form())
+                .harness(canonical.harness()).harnessVersion(canonical.harnessVersion())
+                .model(canonical.model()).effort(canonical.effort())
+                .effortNarrowedFrom(canonical.effortNarrowedFrom())
+                .generationId(canonical.generationId()).workdir(canonical.workdir())
+                .promptDigest(canonical.promptDigest())
+                .jobTokenSha256(canonical.jobTokenSha256())
+                .connectedAt(canonical.connectedAt()).state(canonical.state())
+                .stateAt(canonical.stateAt()).task(canonical.task())
+                .servedTasks(canonical.servedTasks()).worktreeMark(canonical.worktreeMark())
+                .idleWakeups(canonical.idleWakeups()).contextTokens(canonical.contextTokens())
+                .deliveredSkills(canonical.deliveredSkills()).endReason(canonical.endReason())
+                .startFailure(canonical.startFailure()).harnessError(canonical.harnessError());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent role");
 
         assertAll(

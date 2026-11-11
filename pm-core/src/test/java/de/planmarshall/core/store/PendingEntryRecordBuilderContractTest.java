@@ -46,10 +46,11 @@ class PendingEntryRecordBuilderContractTest {
                         canonical.fromEpic(), canonical.createdAt(), canonical.updatedAt(),
                         canonical.bootstrap()),
                 "the constructor refuses an absent entry id");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> PendingEntryRecord.builder().kind(canonical.kind()).requestedId(canonical.requestedId())
-                        .hint(canonical.hint()).fromEpic(canonical.fromEpic()).createdAt(canonical.createdAt())
-                        .updatedAt(canonical.updatedAt()).bootstrap(canonical.bootstrap()).build(),
+        var incomplete = PendingEntryRecord.builder().kind(canonical.kind())
+                .requestedId(canonical.requestedId()).hint(canonical.hint())
+                .fromEpic(canonical.fromEpic()).createdAt(canonical.createdAt())
+                .updatedAt(canonical.updatedAt()).bootstrap(canonical.bootstrap());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent entry id");
 
         assertAll(
@@ -71,11 +72,10 @@ class PendingEntryRecordBuilderContractTest {
                 () -> new Bootstrap(null, canonical.callStack(), canonical.facts(), canonical.source(),
                         canonical.options(), canonical.pendingCondition(), canonical.lastRefusal()),
                 "the constructor refuses an absent state");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Bootstrap.builder().callStack(canonical.callStack()).facts(canonical.facts())
-                        .source(canonical.source()).options(canonical.options())
-                        .pendingCondition(canonical.pendingCondition()).lastRefusal(canonical.lastRefusal())
-                        .build(),
+        var incomplete = Bootstrap.builder().callStack(canonical.callStack()).facts(canonical.facts())
+                .source(canonical.source()).options(canonical.options())
+                .pendingCondition(canonical.pendingCondition()).lastRefusal(canonical.lastRefusal());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent state");
 
         assertAll(

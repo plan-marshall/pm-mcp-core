@@ -66,17 +66,17 @@ class QuestionRecordBuilderContractTest {
                         canonical.decisionId(), canonical.answer(), canonical.channel(),
                         canonical.deviceId(), canonical.amendmentId(), canonical.reason(), canonical.at()),
                 "the constructor refuses an absent event");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> QuestionRecord.builder().questionId(canonical.questionId())
-                        .questionClass(canonical.questionClass()).origin(canonical.origin())
-                        .sourceEntity(canonical.sourceEntity()).askingRole(canonical.askingRole())
-                        .phase(canonical.phase()).questionSet(canonical.questionSet())
-                        .planTaskId(canonical.planTaskId()).revision(canonical.revision())
-                        .decision(canonical.decision()).envelope(canonical.envelope())
-                        .decisionId(canonical.decisionId()).answer(canonical.answer())
-                        .channel(canonical.channel()).deviceId(canonical.deviceId())
-                        .amendmentId(canonical.amendmentId()).reason(canonical.reason())
-                        .at(canonical.at()).build(),
+        var incomplete = QuestionRecord.builder().questionId(canonical.questionId())
+                .questionClass(canonical.questionClass()).origin(canonical.origin())
+                .sourceEntity(canonical.sourceEntity()).askingRole(canonical.askingRole())
+                .phase(canonical.phase()).questionSet(canonical.questionSet())
+                .planTaskId(canonical.planTaskId()).revision(canonical.revision())
+                .decision(canonical.decision()).envelope(canonical.envelope())
+                .decisionId(canonical.decisionId()).answer(canonical.answer())
+                .channel(canonical.channel()).deviceId(canonical.deviceId())
+                .amendmentId(canonical.amendmentId()).reason(canonical.reason())
+                .at(canonical.at());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent event");
 
         assertAll(
@@ -98,10 +98,10 @@ class QuestionRecordBuilderContractTest {
                 () -> new Decision(null, canonical.header(), canonical.description(), canonical.evidence(),
                         canonical.blocks(), canonical.reversibility()),
                 "the constructor refuses an absent title");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Decision.builder().header(canonical.header()).description(canonical.description())
-                        .evidence(canonical.evidence()).blocks(canonical.blocks())
-                        .reversibility(canonical.reversibility()).build(),
+        var incomplete = Decision.builder().header(canonical.header())
+                .description(canonical.description()).evidence(canonical.evidence())
+                .blocks(canonical.blocks()).reversibility(canonical.reversibility());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent title");
 
         assertAll(
@@ -123,9 +123,9 @@ class QuestionRecordBuilderContractTest {
                 () -> new Interpretation(null, canonical.condition(), canonical.passages(),
                         canonical.queueTaskId()),
                 "the constructor refuses an absent result");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Interpretation.builder().condition(canonical.condition())
-                        .passages(canonical.passages()).queueTaskId(canonical.queueTaskId()).build(),
+        var incomplete = Interpretation.builder().condition(canonical.condition())
+                .passages(canonical.passages()).queueTaskId(canonical.queueTaskId());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent result");
 
         assertAll(
@@ -147,10 +147,10 @@ class QuestionRecordBuilderContractTest {
                 () -> new Answer(null, canonical.branchKeys(), canonical.value(), canonical.ownWords(),
                         canonical.note(), canonical.interpretation(), canonical.afterChat()),
                 "the constructor refuses an absent kind");
-        var fromBuilder = assertThrows(NullPointerException.class,
-                () -> Answer.builder().branchKeys(canonical.branchKeys()).value(canonical.value())
-                        .ownWords(canonical.ownWords()).note(canonical.note())
-                        .interpretation(canonical.interpretation()).afterChat(canonical.afterChat()).build(),
+        var incomplete = Answer.builder().branchKeys(canonical.branchKeys()).value(canonical.value())
+                .ownWords(canonical.ownWords()).note(canonical.note())
+                .interpretation(canonical.interpretation()).afterChat(canonical.afterChat());
+        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent kind");
 
         assertAll(
