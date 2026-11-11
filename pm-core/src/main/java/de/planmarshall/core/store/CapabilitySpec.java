@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -267,6 +268,7 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
      * @param verifiedBy the test files the self-review named as evidence; empty for demonstration or inspection
      * @since 0.1
      */
+    @Builder
     public record Requirement(String name, String text, List<Scenario> scenarios, String planId,
     List<String> verifiedBy) {
 
@@ -334,6 +336,7 @@ public record CapabilitySpec(String capability, String purpose, List<Requirement
      * @param then  the response, 3 to 500 characters
      * @since 0.1
      */
+    @Builder
     public record Scenario(String name, @Nullable String given, String when, String then) {
 
         /**

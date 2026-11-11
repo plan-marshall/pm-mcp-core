@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 /**
  * A plan's {@code intent.json} (Store Schemas § Intent Record): the accepted record as {@code current}, and every
@@ -123,6 +124,7 @@ public record IntentStore(Revision current, List<Revision> history) {
      * @param intentRecord the submitted record
      * @since 0.1
      */
+    @Builder
     public record Revision(int revision, Instant submittedAt, String taskId, IntentRecord intentRecord) {
 
         /**

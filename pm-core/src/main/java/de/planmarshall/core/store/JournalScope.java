@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -54,6 +55,7 @@ import org.jspecify.annotations.Nullable;
  * @param lockKey          the key that guards every store of the scope
  * @since 0.1
  */
+@Builder
 public record JournalScope(JournalScopeType type, @Nullable String scopeId, Path pathBase, Path journalFile,
 Path sidecarFile, List<Path> ownedDirectories, LockKey lockKey) {
 
