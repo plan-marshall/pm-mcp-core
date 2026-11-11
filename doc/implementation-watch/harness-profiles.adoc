@@ -245,3 +245,22 @@ whose turns report its full identifier writes no `model_differs`; a profile with
 `served_models: "unmeasured"`. Matched control: a run whose every turn reports the launch model writes no entry.
 Source:: Article analysis `promise-that-killed-atom-gemini-cli` of plan-marshall-documentation: Gemini CLI routes each turn
 of `auto` between models and falls back without a word in plan mode or for a preview the account cannot use.
+
+[#PM-WATCH-CLIENT-21]
+=== PM-WATCH-CLIENT-21: A turn's usage is counted once
+
+Anchor:: link:../specification/harness-profiles/01-profile-schema.adoc#usage-accumulation[Harness Profiles § One Turn Counted Once],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14]
+Hazard:: A running total is summed as if it were a turn's figure, so a task of ten turns reports about five times its
+tokens; or a harness's final result line, which carries the usage of the whole run, is mapped as one more turn and
+doubles the row; or the usage of one model request is repeated on several lines of its message and counted on each;
+or a running total that restarts (a new thread inside the same worker) is read as a negative turn; or the context size
+of a warm worker is taken from a running total and recycles it far too early.
+Guard:: Parsing fixtures per shipped harness version with a run of at least three turns whose figures are known: the
+row equals the sum of the turns' own figures, for a profile with `accumulation: per_turn` and for a stub harness that
+writes running totals with `accumulation: running_total`; the same run with its final result line added gives the
+same warm-worker rows; a stub whose total restarts records that turn as `0`, never negative. Matched control: a
+one-turn run gives the same row under either accumulation.
+Source:: Article analysis `symphony` of plan-marshall-documentation: Codex reports the thread's running totals beside
+the increment of the last turn, and Symphony's own accounting notes warn against adding the totals.
+
