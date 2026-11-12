@@ -76,6 +76,20 @@ class CoverageReportTest {
                         "The item strictly below is listed"));
     }
 
+    // The counters are the contract: 19999/25000 is 79.996 % and 19985/25000 is 79.94 %, either side of the rounding.
+    @Test
+    @DisplayName("compares the percentage already rounded to two decimals at the threshold")
+    void comparesTheRoundedPercentageAtTheThreshold() {
+        CoverageReport roundsUp = lcov(19_999, 25_000);
+        CoverageReport staysBelow = lcov(19_985, 25_000);
+
+        assertAll(
+                () -> assertEquals(80.0, roundsUp.overall().line(), "79.996 is stored rounded as 80.0"),
+                () -> assertTrue(roundsUp.evaluate(80).passed(), "The rounded 80.0 passes a threshold of 80"),
+                () -> assertEquals(79.94, staysBelow.overall().line(), "79.94 is stored as 79.94"),
+                () -> assertFalse(staysBelow.evaluate(80).passed(), "A rounded 79.94 fails a threshold of 80"));
+    }
+
     @Test
     @DisplayName("lists the items by their line percentage only")
     void listsTheItemsByLineOnly() {
@@ -98,6 +112,11 @@ class CoverageReportTest {
 
         assertThrows(IllegalArgumentException.class, () -> report.evaluate(101), "A threshold above 100 is refused");
         assertThrows(IllegalArgumentException.class, () -> report.evaluate(-1), "A negative threshold is refused");
+    }
+
+    private static CoverageReport lcov(int linesHit, int linesFound) {
+        String report = "SF:a.js\nLF:" + linesFound + "\nLH:" + linesHit + "\nend_of_record\n";
+        return CoverageReportFixtures.reportOf(LcovReportParser.parse(report));
     }
 
     private static CoverageReport report(double overallLine, List<CoverageItem> items) {

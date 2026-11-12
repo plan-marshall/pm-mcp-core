@@ -219,8 +219,14 @@ a package when it is done are stated only in
 ## Git Workflow
 
 The way from a branch to `main` is in Project Setup (_From a Branch to `main`_). The hard rules: `main` is protected by
-rulesets and merges go through the merge queue, so nothing is pushed to `main`; never merge without the user's word;
-commits end with `Co-Authored-By: plan-marshall <noreply@cuioss.de>`.
+rulesets and merges go through the merge queue, so nothing is pushed to `main`; commits end with
+`Co-Authored-By: plan-marshall <noreply@cuioss.de>`.
+
+Who merges: the merge of a plan's pull request is part of the process, so the plan lifecycle (`plan-marshall`) and the
+runbook lane (`runbook-lane`) merge their own pull request through the merge queue when the process reaches that step
+(checks green, review gate met) and do not ask the operator for another permission; the operator's decision to start
+the plan is the permission. Any other work, an ad-hoc change outside a plan or lane, never merges without the user's
+word. No session merges outside the merge queue.
 
 CI: reusable workflows of `cuioss/cuioss-organization`, pinned by full SHA with a version comment; configuration in
 `.github/project.yml`.

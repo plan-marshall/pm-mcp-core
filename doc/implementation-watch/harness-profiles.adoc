@@ -205,11 +205,16 @@ hold on another. A decoy placed only in the redirected data home passes the stag
 Guard:: The isolation stage places its decoy user instruction file and decoy user skill in every user-level location
 the harness documents or is observed to read, at the real home directory, not only below the data home of the launch,
 and fails `extension_isolation` when the worker follows the instruction or knows the skill. Matched control: the same
-worker knows the project's instruction file. Fixtures: a harness stub that reads skills from the home
-directory whatever its data-home variable says (the stage fails), and one that reads them only below the data home
-(the stage passes).
+worker knows the project's instruction file; where the harness has a fallback in its lookup (`claude`: `AGENTS.md`
+only where no `CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or above), the stage runs the control
+once on the fallback file and once with a `CLAUDE.local.md` above the working directory, so that a worker's start
+context is the same on every machine, and fails when the file the worker knew is not the file the table says. Fixtures:
+a harness stub that reads skills from the home directory whatever its data-home variable says (the stage fails), and
+one that reads them only below the data home (the stage passes).
 Source:: Article analysis `claude-code-killer-six-months-goose` of plan-marshall-documentation (goose resolves its global
-skill directories from the home directory, not from its data-home root).
+skill directories from the home directory, not from its data-home root); article analysis
+`cursor-openai-exit-audit` of plan-marshall-documentation (Claude Code reads `AGENTS.md` only where no `CLAUDE.md` is
+found in the working directory or above, and a `CLAUDE.local.md` counts as one).
 
 [#PM-WATCH-CLIENT-18]
 === PM-WATCH-CLIENT-18: A worker loads no project skill and still knows the shim

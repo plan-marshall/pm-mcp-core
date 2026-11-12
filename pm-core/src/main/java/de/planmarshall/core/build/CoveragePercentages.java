@@ -9,15 +9,18 @@
  */
 package de.planmarshall.core.build;
 
+import java.math.BigDecimal;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 
 /**
  * The percentage arithmetic the coverage parsers share.
  * <p>
  * Every parser answers the same two questions — what percentage do these counters give, and what percentage does a rate
- * in {@code 0..1} give — and rounds both the way the ported parser does, to two decimal places. An empty population is a
- * measured {@code 0.0}, never a refusal: the counters the format printed are a zero, while a report the parser cannot
- * read is refused before this arithmetic runs.
+ * in {@code 0..1} give — and rounds both the way the ported parser does, to two decimal places. An empty population is
+ * absent, never a measured {@code 0.0}: nothing was measured, so there is no percentage to report, and each parser
+ * decides what an absent metric means for its report. A rate is read as a plain decimal number, so {@code NaN},
+ * {@code Infinity} and the hexadecimal floating-point forms are refused rather than read.
  *
  * @since 0.1
  */
@@ -29,24 +32,41 @@ class CoveragePercentages {
      *
      * @param covered the covered count, never negative
      * @param total   the total count, never negative
-     * @return the percentage rounded to two decimals, {@code 0.0} for an empty population
+     * @return the percentage rounded to two decimals, or empty for an empty population
      */
-    static double percentage(long covered, long total) {
-        return total <= 0 ? 0.0 : round2(covered * 100.0 / total);
+    static Optional<Double> percentage(long covered, long total) {
+        return total <= 0 ? Optional.empty() : Optional.of(round2(covered * 100.0 / total));
     }
 
     /**
-     * Returns the percentage of a rate in {@code 0..1}.
+     * Returns the percentage of a rate in {@code 0..1}, given as the text the format printed.
      *
-     * @param rate the rate the format printed
+     * @param rate the rate as the format printed it
      * @return the percentage rounded to two decimals
-     * @throws IllegalArgumentException if the rate is not a finite number within {@code 0..1}
+     * @throws IllegalArgumentException if the rate is not a decimal number within {@code 0..1}
      */
-    static double percentageOfRate(double rate) {
-        if (!Double.isFinite(rate) || rate < 0 || rate > 1) {
+    static double percentageOfRate(String rate) {
+        return round2(rate(rate).doubleValue() * 100.0);
+    }
+
+    /**
+     * Reads a rate in {@code 0..1} from the text the format printed.
+     *
+     * @param rate the rate as the format printed it
+     * @return the rate as a decimal number
+     * @throws IllegalArgumentException if the rate is not a decimal number within {@code 0..1}
+     */
+    static BigDecimal rate(String rate) {
+        BigDecimal value;
+        try {
+            value = new BigDecimal(rate.strip());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("the coverage rate is not a decimal number: " + rate, e);
+        }
+        if (value.signum() < 0 || value.compareTo(BigDecimal.ONE) > 0) {
             throw new IllegalArgumentException("the coverage rate must be within 0..1: " + rate);
         }
-        return round2(rate * 100.0);
+        return value;
     }
 
     /**
