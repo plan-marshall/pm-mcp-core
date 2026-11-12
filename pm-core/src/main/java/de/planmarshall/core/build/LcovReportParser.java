@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -27,6 +28,10 @@ import org.jspecify.annotations.Nullable;
  * counter. Each record is one item, with its own line and branch percentages. A {@code DA:} record is per-line detail and
  * never enters a percentage.
  * <p>
+ * A zero denominator measured nothing, so it is absent rather than a {@code 0.0}: a record with {@code LF:0} is not an
+ * item, a {@code BRF:0} or {@code FNF:0} leaves that metric absent overall or for the record, and a report whose summed
+ * {@code LF} is {@code 0} is refused ({@code no lines measured}).
+ * <p>
  * A report that ends inside a record, carries no record at all, prints a counter that is not a number or covers more than
  * it found is refused, naming the format, rather than read as a report of zeros.
  *
@@ -36,6 +41,9 @@ import org.jspecify.annotations.Nullable;
 public class LcovReportParser {
 
     private static final CoverageFormat FORMAT = CoverageFormat.LCOV;
+
+    /** The refusal reason of a report whose summed {@code LH/LF} is {@code 0/0}. */
+    private static final String NO_LINES_MEASURED = "no lines measured";
 
     /**
      * Parses an LCOV report from its text.
@@ -73,6 +81,7 @@ public class LcovReportParser {
     private static final class Walk {
 
         private final List<CoverageItem> items = new ArrayList<>();
+        private int records;
         private long linesFound;
         private long linesHit;
         private long branchesFound;
@@ -90,7 +99,7 @@ public class LcovReportParser {
             if (current != null) {
                 throw new IOException("the report ends inside the record " + current.file);
             }
-            if (items.isEmpty()) {
+            if (records == 0) {
                 throw new IOException("the report carries no file record");
             }
             return result();
@@ -117,7 +126,8 @@ public class LcovReportParser {
             if (current == null) {
                 throw new IOException("end_of_record appears without an SF record");
             }
-            items.add(current.item());
+            current.item().ifPresent(items::add);
+            records++;
             linesFound += current.linesFound;
             linesHit += current.linesHit;
             branchesSeen |= current.branchesFoundSeen || current.branchesHitSeen;
@@ -151,12 +161,15 @@ public class LcovReportParser {
             }
         }
 
-        private CoverageParseResult result() {
-            double line = CoveragePercentages.percentage(linesHit, linesFound);
+        private CoverageParseResult result() throws IOException {
+            double line = CoveragePercentages.percentage(linesHit, linesFound)
+                    .orElseThrow(() -> new IOException(NO_LINES_MEASURED));
             CoverageMetrics overall = CoverageMetrics.builder()
                     .line(line)
-                    .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound) : null)
-                    .function(functionsSeen ? CoveragePercentages.percentage(functionsHit, functionsFound) : null)
+                    .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound).orElse(null) : null)
+                    .function(functionsSeen
+                            ? CoveragePercentages.percentage(functionsHit, functionsFound).orElse(null)
+                            : null)
                     .statement(line)
                     .build();
             return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, overall, items));
@@ -198,7 +211,13 @@ public class LcovReportParser {
             this.file = file;
         }
 
-        private CoverageItem item() throws IOException {
+        /**
+         * Validates the record and returns its item, or empty for a record with {@code LF:0}, which measured no line.
+         *
+         * @return the item, or empty for a record without measured lines
+         * @throws IOException if the record is incomplete or covers more than it found
+         */
+        private Optional<CoverageItem> item() throws IOException {
             if (file.isEmpty()) {
                 throw new IOException("an SF record carries no file name");
             }
@@ -220,15 +239,14 @@ public class LcovReportParser {
             if (functionsHit > functionsFound) {
                 throw new IOException("the record " + file + " covers more functions than it found");
             }
-            return CoverageItem.builder()
-                    .name(file)
-                    .file(file)
-                    .line(CoveragePercentages.percentage(linesHit, linesFound))
-                    .branch(branchesFoundSeen
-                            ? CoveragePercentages.percentage(branchesHit, branchesFound)
-                            : null)
-                    .missedMethods(List.of())
-                    .build();
+            return CoveragePercentages.percentage(linesHit, linesFound)
+                    .map(line -> CoverageItem.builder()
+                            .name(file)
+                            .file(file)
+                            .line(line)
+                            .branch(CoveragePercentages.percentage(branchesHit, branchesFound).orElse(null))
+                            .missedMethods(List.of())
+                            .build());
         }
     }
 }

@@ -121,6 +121,48 @@ class IstanbulSummaryParserTest {
                         """));
     }
 
+    // The totals are the contract: total.lines.total 0 measured no line, whatever pct Istanbul printed beside it.
+    @Test
+    @DisplayName("refuses a summary whose total.lines.total is 0")
+    void refusesASummaryWithoutMeasuredLines() {
+        CoverageParseResult result = IstanbulSummaryParser.parse("""
+                {"total": {"lines": {"total": 0, "covered": 0, "pct": "Unknown"},
+                 "statements": {"total": 0, "covered": 0, "pct": 100},
+                 "functions": {"total": 0, "covered": 0, "pct": 100},
+                 "branches": {"total": 0, "covered": 0, "pct": 100}}}
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A summary with no measured line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul"),
+                () -> assertEquals("istanbul: no lines measured", refused.reason(), "The reason says no line measured"));
+    }
+
+    // The totals are the contract: a file with lines.total 0 is no item, a branches.total of 0 is no branch metric.
+    @Test
+    @DisplayName("omits a file whose lines.total is 0 and keeps a branches.total of 0 absent")
+    void omitsAFileWithoutMeasuredLinesAndKeepsEmptyBranchesAbsent() {
+        CoverageReport report = CoverageReportFixtures.reportOf(IstanbulSummaryParser.parse("""
+                {"total": {"lines": {"total": 10, "covered": 8, "pct": 80},
+                 "statements": {"total": 10, "covered": 8, "pct": 80},
+                 "functions": {"total": 2, "covered": 1, "pct": 50},
+                 "branches": {"total": 0, "covered": 0, "pct": 100}},
+                 "src/empty.js": {"lines": {"total": 0, "covered": 0, "pct": 100},
+                  "branches": {"total": 0, "covered": 0, "pct": 100}},
+                 "src/a.js": {"lines": {"total": 10, "covered": 8, "pct": 80},
+                  "branches": {"total": 0, "covered": 0, "pct": "Unknown"}}}
+                """));
+
+        assertAll(
+                () -> assertEquals(80.0, report.overall().line(), "The total lines.pct is 80"),
+                () -> assertNull(report.overall().branch(), "A total branches.total of 0 is null"),
+                () -> assertEquals(1, report.items().size(), "Only the measured file is an item"),
+                () -> assertEquals("src/a.js", report.items().getFirst().name(), "The measured file is kept"),
+                () -> assertNull(report.items().getFirst().branch(), "A file branches.total of 0 is null"));
+    }
+
     @Test
     @DisplayName("refuses an unreadable report file")
     void refusesAnUnreadableFile() {

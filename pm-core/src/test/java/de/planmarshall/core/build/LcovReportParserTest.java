@@ -194,6 +194,68 @@ class LcovReportParserTest {
                 () -> assertTrue(refused.reason().contains("lcov"), "The reason names the format"));
     }
 
+    // The counters are the contract: every record found no line, so the summed LF is 0.
+    @Test
+    @DisplayName("refuses a report whose summed LF is 0")
+    void refusesAReportWithoutMeasuredLines() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:0
+                LH:0
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A report with no measured line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: no lines measured", refused.reason(), "The reason says no line measured"));
+    }
+
+    // The counters are the contract: a record with LF:0 measured no line and is no item.
+    @Test
+    @DisplayName("omits a record whose LF is 0")
+    void omitsARecordWithoutMeasuredLines() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/empty.js
+                LF:0
+                LH:0
+                end_of_record
+                SF:src/a.js
+                LF:10
+                LH:8
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertEquals(1, report.items().size(), "Only the measured record is an item"),
+                () -> assertEquals("src/a.js", report.items().getFirst().name(), "The measured record is kept"),
+                () -> assertEquals(80.0, report.overall().line(), "The overall line is eight of ten"));
+    }
+
+    // The counters are the contract: BRF:0 and FNF:0 measured no branch and no function.
+    @Test
+    @DisplayName("keeps a branch and function metric of BRF:0 and FNF:0 absent")
+    void keepsTheEmptyBranchAndFunctionAbsent() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                BRF:0
+                BRH:0
+                FNF:0
+                FNH:0
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertNull(report.overall().branch(), "An overall BRF of 0 has no branch metric"),
+                () -> assertNull(report.overall().function(), "An overall FNF of 0 has no function metric"),
+                () -> assertNull(report.items().getFirst().branch(), "A record BRF of 0 has no branch"),
+                () -> assertEquals(80.0, report.overall().statement(), "The statement equals the line"));
+    }
+
     @Test
     @DisplayName("refuses an unreadable report file")
     void refusesAnUnreadableFile() {

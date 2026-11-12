@@ -28,8 +28,13 @@ import org.jspecify.annotations.Nullable;
  * The reader walks the report once through {@link CoverageXmlReader} and takes the root {@code line-rate} and
  * {@code branch-rate} as the overall percentages. Per class it takes the class {@code line-rate} (and the
  * {@code branch-rate} where present) and the methods whose {@code line-rate} is zero as the {@code missed_methods}
- * detail. A missing root {@code line-rate}, a rate that is not a finite number and a document that is not a
- * {@code coverage} report are refusals; a missing {@code branch-rate} leaves the branch metric absent.
+ * detail. A missing root {@code line-rate}, a rate that is not a plain decimal number within {@code 0..1} and a document
+ * that is not a {@code coverage} report are refusals; a missing {@code branch-rate} leaves the branch metric absent.
+ * <p>
+ * The zero rule is decided at the root. A root {@code lines-valid="0"} measured no line, so the report is refused
+ * ({@code no lines measured}). A root {@code branches-valid} of {@code 0}, or none, measured no branch, so the overall
+ * branch metric and the branch rate of every class are absent; under a root that measured branches, a
+ * {@code branch-rate="0"} is a measured {@code 0.0}.
  * <p>
  * The XML hardening is the same as JaCoCo's: a {@code DOCTYPE} is tolerated and never resolved or fetched, and a document
  * that references an entity is refused, never expanded.
@@ -54,6 +59,13 @@ public class CoberturaReportParser {
     private static final String NAME = "name";
 
     private static final String FILENAME = "filename";
+
+    private static final String LINES_VALID = "lines-valid";
+
+    private static final String BRANCHES_VALID = "branches-valid";
+
+    /** The refusal reason of a report whose root {@code lines-valid} is {@code 0}. */
+    private static final String NO_LINES_MEASURED = "no lines measured";
 
     /**
      * Parses a Cobertura XML report from its text.
@@ -92,6 +104,7 @@ public class CoberturaReportParser {
         private boolean rootSeen;
         private double lineRate;
         private @Nullable Double branchRate;
+        private boolean branchesMeasured;
 
         @Override
         public void start(XMLStreamReader reader) {
@@ -105,8 +118,8 @@ public class CoberturaReportParser {
                 if (current != ClassState.NONE) {
                     throw new IllegalArgumentException("a class is nested in another class");
                 }
-                current = new ClassState(requiredName(reader), file(reader).orElse(null), requireRate(reader, LINE_RATE),
-                        rate(reader, BRANCH_RATE).orElse(null));
+                current = new ClassState(requiredName(reader), file(reader).orElse(null),
+                        CoveragePercentages.percentageOfRate(requireRate(reader, LINE_RATE)), branchPercentage(reader));
             } else if (METHOD.equals(local) && current != ClassState.NONE) {
                 current.readMethod(CoverageXmlReader.attribute(reader, NAME), rate(reader, LINE_RATE).orElse(null));
             }
@@ -129,18 +142,45 @@ public class CoberturaReportParser {
                 throw new IllegalArgumentException("the report carries no coverage root");
             }
             CoverageMetrics metrics = CoverageMetrics.builder()
-                    .line(CoveragePercentages.percentageOfRate(lineRate))
-                    .branch(branchRate == null ? null : CoveragePercentages.percentageOfRate(branchRate))
+                    .line(lineRate)
+                    .branch(branchRate)
                     .build();
             return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, metrics, items));
         }
 
+        /**
+         * Reads the root, where the zero rule is decided: {@code lines-valid="0"} refuses the report, and a
+         * {@code branches-valid} of {@code 0} or none makes every branch metric of the report absent.
+         *
+         * @param reader the reader positioned on the root
+         */
         private void readRoot(XMLStreamReader reader) {
             if (path.isEmpty()) {
                 rootSeen = true;
-                lineRate = requireRate(reader, LINE_RATE);
-                branchRate = rate(reader, BRANCH_RATE).orElse(null);
+                if (count(reader, LINES_VALID).orElse(-1L) == 0) {
+                    throw new IllegalArgumentException(NO_LINES_MEASURED);
+                }
+                lineRate = CoveragePercentages.percentageOfRate(requireRate(reader, LINE_RATE));
+                branchesMeasured = count(reader, BRANCHES_VALID).orElse(0L) > 0;
+                branchRate = branchPercentage(reader);
             }
+        }
+
+        private @Nullable Double branchPercentage(XMLStreamReader reader) {
+            Optional<Double> branch = rate(reader, BRANCH_RATE).map(CoveragePercentages::percentageOfRate);
+            return branchesMeasured ? branch.orElse(null) : null;
+        }
+
+        private Optional<Long> count(XMLStreamReader reader, String name) {
+            String value = CoverageXmlReader.attribute(reader, name);
+            if (value.isBlank()) {
+                return Optional.empty();
+            }
+            long count = Long.parseLong(value.strip());
+            if (count < 0) {
+                throw new IllegalArgumentException("the " + name + " is negative: " + count);
+            }
+            return Optional.of(count);
         }
 
         private String requiredName(XMLStreamReader reader) {
@@ -156,12 +196,12 @@ public class CoberturaReportParser {
             return file.isBlank() ? Optional.empty() : Optional.of(file);
         }
 
-        private Optional<Double> rate(XMLStreamReader reader, String name) {
+        private Optional<String> rate(XMLStreamReader reader, String name) {
             String value = CoverageXmlReader.attribute(reader, name);
-            return value.isBlank() ? Optional.empty() : Optional.of(Double.valueOf(value));
+            return value.isBlank() ? Optional.empty() : Optional.of(value);
         }
 
-        private double requireRate(XMLStreamReader reader, String name) {
+        private String requireRate(XMLStreamReader reader, String name) {
             return rate(reader, name)
                     .orElseThrow(() -> new IllegalArgumentException("the " + name + " is absent"));
         }
@@ -176,25 +216,22 @@ public class CoberturaReportParser {
 
         private final String name;
         private final @Nullable String file;
-        private final double lineRate;
-        private final @Nullable Double branchRate;
+        private final double line;
+        private final @Nullable Double branch;
         private final List<String> missedMethods = new ArrayList<>();
 
-        private ClassState(String name, @Nullable String file, double lineRate, @Nullable Double branchRate) {
+        private ClassState(String name, @Nullable String file, double line, @Nullable Double branch) {
             this.name = name;
             this.file = file;
-            this.lineRate = lineRate;
-            this.branchRate = branchRate;
+            this.line = line;
+            this.branch = branch;
         }
 
-        private void readMethod(String name, @Nullable Double lineRate) {
+        private void readMethod(String name, @Nullable String lineRate) {
             if (lineRate == null) {
                 return;
             }
-            if (!Double.isFinite(lineRate) || lineRate < 0 || lineRate > 1) {
-                throw new IllegalArgumentException("a method line-rate must be within 0..1: " + lineRate);
-            }
-            if (lineRate == 0.0 && !name.isBlank()) {
+            if (CoveragePercentages.rate(lineRate).signum() == 0 && !name.isBlank()) {
                 missedMethods.add(name);
             }
         }
@@ -203,8 +240,8 @@ public class CoberturaReportParser {
             return CoverageItem.builder()
                     .name(name)
                     .file(file)
-                    .line(CoveragePercentages.percentageOfRate(lineRate))
-                    .branch(branchRate == null ? null : CoveragePercentages.percentageOfRate(branchRate))
+                    .line(line)
+                    .branch(branch)
                     .missedMethods(missedMethods)
                     .build();
         }

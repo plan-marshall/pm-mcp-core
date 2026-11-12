@@ -231,6 +231,69 @@ class JacocoReportParserTest {
                 () -> assertTrue(report.items().isEmpty(), "The unmeasured class is not listed as an item"));
     }
 
+    // The counter values are the contract: an overall LINE counter of 0/0 measured no line.
+    @Test
+    @DisplayName("refuses a report whose overall line counter is 0/0")
+    void refusesAReportWithoutMeasuredLines() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="no-lines">
+                  <counter type="LINE" missed="0" covered="0"/>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A report with no measured line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: no lines measured", refused.reason(), "The reason says no line measured"));
+    }
+
+    // The counter values are the contract: a 0/0 counter is absent, never a measured 0.0.
+    @Test
+    @DisplayName("reads an overall instruction, branch and method counter of 0/0 as absent")
+    void readsTheEmptyOverallCountersAsAbsent() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="empty-counters">
+                  <counter type="INSTRUCTION" missed="0" covered="0"/>
+                  <counter type="BRANCH" missed="0" covered="0"/>
+                  <counter type="LINE" missed="1" covered="1"/>
+                  <counter type="METHOD" missed="0" covered="0"/>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(50.0, report.overall().line(), "The line counter is 1 of 2"),
+                () -> assertNull(report.overall().instruction(), "An instruction counter of 0/0 is null"),
+                () -> assertNull(report.overall().branch(), "A branch counter of 0/0 is null"),
+                () -> assertNull(report.overall().function(), "A method counter of 0/0 is null"));
+    }
+
+    // The counter values are the contract: a class LINE 0/0 is no item, a class BRANCH 0/0 is no branch.
+    @Test
+    @DisplayName("omits a class whose line counter is 0/0 and keeps a class branch of 0/0 absent")
+    void omitsAClassWithoutMeasuredLines() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="class-zero">
+                  <counter type="LINE" missed="1" covered="1"/>
+                  <package name="p">
+                    <class name="p/Empty">
+                      <counter type="LINE" missed="0" covered="0"/>
+                    </class>
+                    <class name="p/Measured">
+                      <counter type="BRANCH" missed="0" covered="0"/>
+                      <counter type="LINE" missed="1" covered="1"/>
+                    </class>
+                  </package>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(1, report.items().size(), "Only the measured class is an item"),
+                () -> assertEquals("p.Measured", report.items().getFirst().name(), "The measured class is kept"),
+                () -> assertEquals(50.0, report.items().getFirst().line(), "The class line is 1 of 2"),
+                () -> assertNull(report.items().getFirst().branch(), "A class branch counter of 0/0 is null"));
+    }
+
     // The prolog is the contract: a comment that mentions a DOCTYPE precedes the real one, which declares the entity.
     @Test
     @DisplayName("refuses an entity declared behind a comment that mentions a DOCTYPE")
