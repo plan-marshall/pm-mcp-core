@@ -332,9 +332,10 @@ split whole, and a line longer than the line limit of <<_the_bounded_read_of_a_r
 supplies the `pct` of `lines`, `statements`, `functions` and `branches`; every other top-level object is one file item,
 with `lines.pct` as its line percentage and `branches.pct` as its branch percentage. Each metric's `total` is read
 beside its `pct`: a `total` of `0` leaves the metric absent whatever the `pct` says, a file whose `lines.total` is `0`
-is no item, and a summary whose `total.lines.total` is `0` is refused. A truncated document, a metric without a numeric
-`pct`, a document without `total` and a key that appears twice in one object (Jackson's `STRICT_DUPLICATE_DETECTION`, so
-a later `total` can never override an earlier one) are refused.
+is no item, and a summary whose `total.lines.total` is `0` is refused. A metric object without a `total` is refused,
+naming the metric (`total.lines.total is absent`), so a metric is never read from its `pct` alone. A truncated document,
+a metric without a numeric `pct`, a document without `total` and a key that appears twice in one object (Jackson's
+`STRICT_DUPLICATE_DETECTION`, so a later `total` can never override an earlier one) are refused.
 
 === The XML hardening
 

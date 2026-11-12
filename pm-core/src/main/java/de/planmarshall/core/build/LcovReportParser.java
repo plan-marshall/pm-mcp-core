@@ -90,41 +90,6 @@ public class LcovReportParser {
     }
 
     /**
-     * Reads the next line, without its line terminator, refusing one longer than
-     * {@link CoverageReportStream#MAX_LINE_LENGTH} characters before it is read whole.
-     *
-     * @param source the report text
-     * @return the line, or empty at the end of the text
-     * @throws IOException if the line is longer than the limit, or the text cannot be read
-     */
-    private static Optional<String> nextLine(BufferedReader source) throws IOException {
-        var line = new StringBuilder();
-        int next = source.read();
-        if (next < 0) {
-            return Optional.empty();
-        }
-        while (next >= 0 && next != '\n') {
-            line.append((char) next);
-            if (line.length() > CoverageReportStream.MAX_LINE_LENGTH + 1) {
-                throw tooLong();
-            }
-            next = source.read();
-        }
-        if (!line.isEmpty() && line.charAt(line.length() - 1) == '\r') {
-            line.setLength(line.length() - 1);
-        }
-        if (line.length() > CoverageReportStream.MAX_LINE_LENGTH) {
-            throw tooLong();
-        }
-        return Optional.of(line.toString());
-    }
-
-    private static IOException tooLong() {
-        return new IOException("a line is longer than the limit of " + CoverageReportStream.MAX_LINE_LENGTH
-                + " characters");
-    }
-
-    /**
      * The state of one walk over a report.
      */
     private static final class Walk {
@@ -154,6 +119,41 @@ public class LcovReportParser {
                 throw new IOException("the report carries no file record");
             }
             return result();
+        }
+
+        /**
+         * Reads the next line, without its line terminator, refusing one longer than
+         * {@link CoverageReportStream#MAX_LINE_LENGTH} characters before it is read whole.
+         *
+         * @param source the report text
+         * @return the line, or empty at the end of the text
+         * @throws IOException if the line is longer than the limit, or the text cannot be read
+         */
+        private static Optional<String> nextLine(BufferedReader source) throws IOException {
+            var line = new StringBuilder();
+            int next = source.read();
+            if (next < 0) {
+                return Optional.empty();
+            }
+            while (next >= 0 && next != '\n') {
+                line.append((char) next);
+                if (line.length() > CoverageReportStream.MAX_LINE_LENGTH + 1) {
+                    throw tooLong();
+                }
+                next = source.read();
+            }
+            if (!line.isEmpty() && line.charAt(line.length() - 1) == '\r') {
+                line.setLength(line.length() - 1);
+            }
+            if (line.length() > CoverageReportStream.MAX_LINE_LENGTH) {
+                throw tooLong();
+            }
+            return Optional.of(line.toString());
+        }
+
+        private static IOException tooLong() {
+            return new IOException("a line is longer than the limit of " + CoverageReportStream.MAX_LINE_LENGTH
+                    + " characters");
         }
 
         private void accept(String line) throws IOException {

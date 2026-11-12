@@ -94,44 +94,51 @@ class IstanbulSummaryParserTest {
         assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
     }
 
+    // The JSON documents and the reason fragments are the contract: every metric object carries a total, so each
+    // document is refused for the rule its name states and not because a total is absent.
     @ParameterizedTest(name = "{0}")
     @MethodSource("malformedDocuments")
     @DisplayName("refuses a malformed or incomplete document")
-    void refusesAMalformedOrIncompleteDocument(String reason, String json) {
+    void refusesAMalformedOrIncompleteDocument(String name, String json, String expectedReason) {
         CoverageParseResult.Refused refused =
-                assertInstanceOf(CoverageParseResult.Refused.class, IstanbulSummaryParser.parse(json), reason);
+                assertInstanceOf(CoverageParseResult.Refused.class, IstanbulSummaryParser.parse(json), name);
 
-        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
+        assertAll(
+                () -> assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul"),
+                () -> assertTrue(refused.reason().contains(expectedReason),
+                        "The reason names the rule the document breaks"));
     }
 
     static Stream<Arguments> malformedDocuments() {
         return Stream.of(
-                Arguments.of("A missing total is refused", "{\"src/a.js\": {\"lines\": {\"pct\": 90}}}"),
-                Arguments.of("A non-object root is refused", "[]"),
+                Arguments.of("A missing total is refused",
+                        "{\"src/a.js\": {\"lines\": {\"total\": 10, \"pct\": 90}}}",
+                        "the document carries no total"),
+                Arguments.of("A non-object root is refused", "[]", "the document root is not an object"),
                 Arguments.of("A string pct is refused", """
-                        {"total": {"lines": {"pct": "90"}, "statements": {"pct": 90},
-                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
-                        """),
+                        {"total": {"lines": {"total": 10, "pct": "90"}, "statements": {"total": 10, "pct": 90},
+                         "functions": {"total": 10, "pct": 90}, "branches": {"total": 10, "pct": 90}}}
+                        """, "total.lines.pct is not a number"),
                 Arguments.of("A branches object without pct is refused", """
-                        {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
-                         "functions": {"pct": 90}, "branches": {"pct": 90}},
-                         "src/a.js": {"lines": {"pct": 90}, "branches": {}}}
-                        """),
+                        {"total": {"lines": {"total": 10, "pct": 90}, "statements": {"total": 10, "pct": 90},
+                         "functions": {"total": 10, "pct": 90}, "branches": {"total": 10, "pct": 90}},
+                         "src/a.js": {"lines": {"total": 10, "pct": 90}, "branches": {"total": 10}}}
+                        """, "src/a.js.branches.pct is absent"),
                 Arguments.of("Content after the document is refused", """
-                        {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
-                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                        {"total": {"lines": {"total": 10, "pct": 90}, "statements": {"total": 10, "pct": 90},
+                         "functions": {"total": 10, "pct": 90}, "branches": {"total": 10, "pct": 90}}}
                         {}
-                        """),
+                        """, "content after the document"),
                 Arguments.of("A duplicate total key is refused", """
-                        {"total": {"lines": {"pct": 10}, "statements": {"pct": 10},
-                         "functions": {"pct": 10}, "branches": {"pct": 10}},
-                         "total": {"lines": {"pct": 90}, "statements": {"pct": 90},
-                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
-                        """),
+                        {"total": {"lines": {"total": 10, "pct": 10}, "statements": {"total": 10, "pct": 10},
+                         "functions": {"total": 10, "pct": 10}, "branches": {"total": 10, "pct": 10}},
+                         "total": {"lines": {"total": 10, "pct": 90}, "statements": {"total": 10, "pct": 90},
+                         "functions": {"total": 10, "pct": 90}, "branches": {"total": 10, "pct": 90}}}
+                        """, "Duplicate field 'total'"),
                 Arguments.of("A duplicate metric total is refused", """
                         {"total": {"lines": {"total": 0, "total": 10, "pct": 90}, "statements": {"pct": 90},
                          "functions": {"pct": 90}, "branches": {"pct": 90}}}
-                        """));
+                        """, "Duplicate field 'total'"));
     }
 
     // The keys are the contract: a second "total" must never override the first one.
@@ -139,15 +146,47 @@ class IstanbulSummaryParserTest {
     @DisplayName("refuses a duplicate key, naming it in the reason")
     void refusesADuplicateKey() {
         CoverageParseResult result = IstanbulSummaryParser.parse("""
-                {"total": {"lines": {"pct": 10}, "statements": {"pct": 10},
-                 "functions": {"pct": 10}, "branches": {"pct": 10}},
-                 "total": {"lines": {"pct": 90}, "statements": {"pct": 90},
-                 "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                {"total": {"lines": {"total": 10, "pct": 10}, "statements": {"total": 10, "pct": 10},
+                 "functions": {"total": 10, "pct": 10}, "branches": {"total": 10, "pct": 10}},
+                 "total": {"lines": {"total": 10, "pct": 90}, "statements": {"total": 10, "pct": 90},
+                 "functions": {"total": 10, "pct": 90}, "branches": {"total": 10, "pct": 90}}}
                 """);
 
         CoverageParseResult.Refused refused =
                 assertInstanceOf(CoverageParseResult.Refused.class, result, "A duplicate key is refused");
         assertTrue(refused.reason().contains("Duplicate field 'total'"), "The reason names the duplicate key");
+    }
+
+    // The document and the reason text are the contract: a pct without a total measured nothing that can be counted.
+    @Test
+    @DisplayName("refuses an overall metric object that carries a pct but no total")
+    void refusesAnOverallMetricWithoutTotal() {
+        CoverageParseResult result = IstanbulSummaryParser.parse("{\"total\":{\"lines\":{\"pct\":100}}}");
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A metric object without total is refused");
+        assertAll(
+                () -> assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul"),
+                () -> assertEquals("istanbul: total.lines.total is absent", refused.reason(),
+                        "The reason names the missing metric total"));
+    }
+
+    // The document and the reason text are the contract: a file metric is never read from its pct alone either.
+    @Test
+    @DisplayName("refuses a file metric object that carries a pct but no total")
+    void refusesAFileMetricWithoutTotal() {
+        CoverageParseResult result = IstanbulSummaryParser.parse("""
+                {"total": {"lines": {"total": 10, "pct": 90}, "statements": {"total": 10, "pct": 90},
+                 "functions": {"total": 10, "pct": 90}, "branches": {"total": 10, "pct": 90}},
+                 "src/a.js": {"lines": {"pct": 100}}}
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A file metric without total is refused");
+        assertAll(
+                () -> assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul"),
+                () -> assertEquals("istanbul: src/a.js.lines.total is absent", refused.reason(),
+                        "The reason names the missing file metric total"));
     }
 
     // The totals are the contract: total.lines.total 0 measured no line, whatever pct Istanbul printed beside it.

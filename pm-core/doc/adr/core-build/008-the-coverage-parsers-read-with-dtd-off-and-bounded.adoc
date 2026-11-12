@@ -66,7 +66,8 @@ settled the byte cap at 256 MiB.
    elements carry no `lines-valid` or `branches-valid`, so its rule is decided at the root: `lines-valid="0"` refuses the
    report, a `branches-valid` of `0` or none makes the overall branch metric and every class branch rate `null`, and a
    `branch-rate="0"` under a root that measured branches stays a measured `0.0`. Istanbul reads each metric's `total`
-   beside its `pct`. Rates are read as text through `BigDecimal` and checked to `0..1`, so `NaN`, `Infinity` and the
+   beside its `pct`, and refuses a metric object that carries no `total` (`total.lines.total is absent`), so a metric is
+   never read from its `pct` alone. Rates are read as text through `BigDecimal` and checked to `0..1`, so `NaN`, `Infinity` and the
    hexadecimal forms are refused.
 6. *A report is read as a stream, within bounds.* The path overloads open the file through the new package-private
    `CoverageReportStream`, a counting stream that refuses the read once more than `pm.core.build.coverage-max-bytes`
@@ -113,7 +114,7 @@ settled the byte cap at 256 MiB.
   undeclared entity reference in an attribute value is read with that reference dropped.
 * A report that measured no line is a refusal in all four formats, so the gate reports it as unreadable rather than as
   0 % coverage; a metric that measured nothing is `null` and is rendered as absent.
-* A report past 256 MiB, an LCOV line past 8192 characters, an Istanbul document with a duplicate key, a JaCoCo report
+* A report past 256 MiB, an LCOV line past 8192 characters, an Istanbul document with a duplicate key or a metric object without `total`, a JaCoCo report
   with a counter type repeated at the root or within one class and an LCOV record with a repeated counter line are
   refused.
   A report inside the bounds that carries a measured counter yields the same figures as before; the ported fixtures are

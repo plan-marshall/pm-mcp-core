@@ -37,9 +37,10 @@ import org.jspecify.annotations.Nullable;
  * {@code branches.total} of {@code 0} leaves the branch metric absent, and a summary whose {@code total.lines.total} is
  * {@code 0} is refused ({@code no lines measured}).
  * <p>
- * A malformed document — truncated JSON, a metric without a numeric {@code pct}, a missing {@code total}, a key that
- * appears twice in one object — is refused naming the format, never read as a report of zeros. A file is streamed within
- * the bound of {@link CoverageReportStream}.
+ * A malformed document — truncated JSON, a metric without a numeric {@code pct}, a metric object without
+ * {@code total}, a missing {@code total} object, a key that appears twice in one object — is refused naming the format,
+ * never read as a report of zeros. A metric is therefore never read from its {@code pct} alone. A file is streamed
+ * within the bound of {@link CoverageReportStream}.
  *
  * @since 0.1
  */
@@ -182,7 +183,8 @@ public class IstanbulSummaryParser {
      * @param parser the parser positioned on the metric object
      * @param metric the metric path for a refusal reason
      * @return the metric as read
-     * @throws IOException if the metric is not an object or its {@code total} is not a whole number of zero or more
+     * @throws IOException if the metric is not an object, carries no {@code total}, or its {@code total} is not a whole
+     *                     number of zero or more
      */
     private static Metric readMetric(JsonParser parser, String metric) throws IOException {
         if (parser.currentToken() != JsonToken.START_OBJECT) {
@@ -199,7 +201,7 @@ public class IstanbulSummaryParser {
                 pct = value == JsonToken.VALUE_NUMBER_FLOAT || value == JsonToken.VALUE_NUMBER_INT
                         ? parser.getDoubleValue()
                         : null;
-            } else if ("total".equals(field)) {
+            } else if (TOTAL.equals(field)) {
                 if (value != JsonToken.VALUE_NUMBER_INT || parser.getLongValue() < 0) {
                     throw new IOException(metric + ".total is not a whole number of zero or more");
                 }
@@ -208,7 +210,10 @@ public class IstanbulSummaryParser {
                 skip(parser);
             }
         }
-        return new Metric(total != null && total == 0, pctSeen, pct);
+        if (total == null) {
+            throw new IOException(metric + ".total is absent");
+        }
+        return new Metric(total == 0, pctSeen, pct);
     }
 
     /**
