@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -57,9 +56,7 @@ public final class ProfileValidator {
     private static final String NAME_PROFILE_KIND = "profile_kind";
     private static final String NAME_ENDPOINT = "endpoint";
     private static final String NAME_PROTOCOL = "protocol";
-    private static final String NAME_LOCALITY = "locality";
     private static final String NAME_BASE_URL = "base_url";
-    private static final String NAME_CREDENTIAL_KEY = "credential_key";
     private static final String NAME_READINESS_PATH = "readiness_path";
     private static final String NAME_MODELS_PATH = "models_path";
     private static final String NAME_MODELS_POINTER = "models_pointer";
@@ -194,9 +191,9 @@ public final class ProfileValidator {
             NAME_DISPLAY_NAME, NAME_MIN_DAEMON_VERSION, NAME_ICON, NAME_EXECUTABLE, NAME_IDENTITY, NAME_UPDATE_EVIDENCE,
             NAME_ENDPOINT, NAME_MODEL_TIERS, NAME_WEIGHTS_PROBE);
 
-    private static final Set<String> ENDPOINT_BLOCK = Set.of(NAME_PROTOCOL, NAME_LOCALITY, NAME_BASE_URL,
-            NAME_CREDENTIAL_KEY, NAME_READINESS_PATH, NAME_MODELS_PATH, NAME_MODELS_POINTER, NAME_RESULT_SCHEMA,
-            NAME_CONTEXT_TOKENS, NAME_ANSWER_RESERVE_TOKENS, NAME_REQUEST_TIMEOUT_SECONDS);
+    private static final Set<String> ENDPOINT_BLOCK = Set.of(NAME_PROTOCOL, NAME_BASE_URL, NAME_READINESS_PATH,
+            NAME_MODELS_PATH, NAME_MODELS_POINTER, NAME_RESULT_SCHEMA, NAME_CONTEXT_TOKENS, NAME_ANSWER_RESERVE_TOKENS,
+            NAME_REQUEST_TIMEOUT_SECONDS);
 
     private static final Set<String> HEADLESS = Set.of(NAME_EXECUTABLE, NAME_INSTALL_LOCATIONS, NAME_INSTALL_HINT, NAME_AUTH_PROBE,
             NAME_MODELS_PROBE, NAME_WEIGHTS_PROBE, NAME_MODEL_TIERS, NAME_SUPPORTED_VERSIONS, NAME_UPDATE_EVIDENCE, NAME_AGENT_MODE,
@@ -235,9 +232,6 @@ public final class ProfileValidator {
     private static final String MODEL_READABLE_CHARACTERS = " _.:/-$=,()\"{}<>";
 
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
-
-    /** The credential-key grammar of the endpoint profile's {@code credential_key}. */
-    private static final Pattern CREDENTIAL_KEY = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern VARIABLE = Pattern.compile("^[A-Z][A-Z0-9_]{0,63}$");
     private static final Pattern VERSION = Pattern.compile("^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?$");
     private static final Pattern EXECUTABLE = Pattern.compile("^[a-z][a-z0-9-]*$");
@@ -251,10 +245,6 @@ public final class ProfileValidator {
     private static final Pattern ENDPOINT_HOST = Pattern.compile("^[a-z0-9.-]+$");
     private static final Pattern ENDPOINT_PATH = Pattern.compile("^/[A-Za-z0-9._/-]{0,127}$");
     private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
-    private static final Pattern HTTPS_URL = Pattern.compile("^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\\d{1,5})?$");
-
-    /** The port of an {@code https} URL, for the range check the pattern cannot express. */
-    private static final Pattern HTTPS_PORT = Pattern.compile(":(\\d{1,5})$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
     private ProfileValidator() {
@@ -354,8 +344,8 @@ public final class ProfileValidator {
 
         /**
          * Validates an endpoint profile (Client Profiles § Endpoint Profile Schema): the same sets and hardening rules as
-         * a client profile, a closed document of its own members, and the locality combinations the schema cannot
-         * express.
+         * a client profile, a closed document of its own members, the serving program with its identity, and the
+         * loopback URL of its endpoint.
          */
         private void checkEndpointProfile(JsonNode profile) {
             object(profile, "", "endpoint profile", ENDPOINT_TOP_LEVEL, ENDPOINT_TOP_LEVEL);
@@ -380,47 +370,44 @@ public final class ProfileValidator {
             icon(required(profile, "", NAME_ICON), "/icon");
             @Nullable String executable = optionalText(required(profile, "", NAME_EXECUTABLE), PTR_EXECUTABLE,
                     NAME_EXECUTABLE, 64).orElse(null);
-            if (executable != null && !EXECUTABLE.matcher(executable).matches()) {
+            if (executable == null) {
+                throw invalid(PTR_EXECUTABLE, "a loopback endpoint names the program that serves it");
+            }
+            if (!EXECUTABLE.matcher(executable).matches()) {
                 throw invalid(PTR_EXECUTABLE, "not a bare executable name: '%s'".formatted(executable));
             }
             var identityNode = required(profile, "", NAME_IDENTITY);
-            var hasIdentity = !identityNode.isNull();
-            if (hasIdentity) {
-                identity(identityNode, PTR_IDENTITY);
+            if (identityNode.isNull()) {
+                throw invalid(PTR_IDENTITY, "a loopback endpoint names its identity");
             }
+            identity(identityNode, PTR_IDENTITY);
             var evidenceNode = required(profile, "", NAME_UPDATE_EVIDENCE);
             if (!evidenceNode.isNull()) {
                 updateEvidence(evidenceNode, PTR_UPDATE_EVIDENCE);
             }
-            var block = endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
+            endpointBlock(required(profile, "", NAME_ENDPOINT), "/endpoint");
             modelTiers(required(profile, "", NAME_MODEL_TIERS), "/model_tiers");
-            var weightsNode = required(profile, "", NAME_WEIGHTS_PROBE);
-            weightsProbe(weightsNode, "/weights_probe");
-            localityRules(block, executable, hasIdentity, !evidenceNode.isNull(), usesArgvProbe(weightsNode));
-        }
-
-        /** @return whether the profile's weights probe runs a program of this machine */
-        private static boolean usesArgvProbe(JsonNode probe) {
-            return !probe.isNull() && "argv".equals(probe.member(NAME_SOURCE).flatMap(JsonNode::text).orElse(null));
+            weightsProbe(required(profile, "", NAME_WEIGHTS_PROBE), "/weights_probe");
         }
 
         /**
-         * Validates the {@code endpoint} block and returns the values the locality rules read.
+         * Validates the {@code endpoint} block: the protocol {@code openai_chat}, and a plain {@code http} loopback URL
+         * whose port the pattern cannot bound.
          */
-        private EndpointBlock endpointBlock(JsonNode endpoint, String pointer) {
+        private void endpointBlock(JsonNode endpoint, String pointer) {
             object(endpoint, pointer, NAME_ENDPOINT, ENDPOINT_BLOCK, ENDPOINT_BLOCK);
-            var protocol = enumValue(required(endpoint, pointer, NAME_PROTOCOL), pointer + "/protocol", NAME_PROTOCOL,
-                    Set.of("openai_chat", "system_one"));
-            var locality = enumValue(required(endpoint, pointer, NAME_LOCALITY), pointer + "/locality", NAME_LOCALITY,
-                    Set.of("loopback", "remote"));
+            enumValue(required(endpoint, pointer, NAME_PROTOCOL), pointer + "/protocol", NAME_PROTOCOL,
+                    Set.of("openai_chat"));
             var baseUrl = text(required(endpoint, pointer, NAME_BASE_URL), pointer + "/base_url", NAME_BASE_URL, 256);
-            if (!LOOPBACK_URL.matcher(baseUrl).matches() && !HTTPS_URL.matcher(baseUrl).matches()) {
-                throw invalid(PTR_BASE_URL, "not an endpoint URL: '%s'".formatted(baseUrl));
+            var loopback = LOOPBACK_URL.matcher(baseUrl);
+            if (!loopback.matches()) {
+                throw invalid(PTR_BASE_URL,
+                        "a loopback endpoint names http://127.0.0.1:<port> or http://[::1]:<port>: '%s'"
+                                .formatted(baseUrl));
             }
-            @Nullable String credential = optionalText(optional(endpoint, NAME_CREDENTIAL_KEY).orElse(null),
-                    pointer + "/credential_key", NAME_CREDENTIAL_KEY, 32).orElse(null);
-            if (credential != null && !CREDENTIAL_KEY.matcher(credential).matches()) {
-                throw invalid(pointer + "/credential_key", "not a credential key: '%s'".formatted(credential));
+            var port = Integer.parseInt(loopback.group(2));
+            if (port < 1 || port > 65535) {
+                throw invalid(PTR_BASE_URL, "not a port: %d".formatted(port));
             }
             endpointPath(optional(endpoint, NAME_READINESS_PATH).orElse(null), pointer + "/readiness_path",
                     NAME_READINESS_PATH);
@@ -443,83 +430,6 @@ public final class ProfileValidator {
             }
             integer(required(endpoint, pointer, NAME_REQUEST_TIMEOUT_SECONDS), pointer + "/request_timeout_seconds",
                     NAME_REQUEST_TIMEOUT_SECONDS, 5, 3600);
-            return EndpointBlock.builder().protocol(protocol).locality(locality).baseUrl(baseUrl)
-                    .credentialKey(credential).build();
-        }
-
-        /**
-         * Refuses the combinations of {@code locality} the schema cannot express (Client Profiles § Endpoint Profile
-         * Schema, § Remote Form). A loopback endpoint names a plain {@code http} loopback URL, no credential, and the
-         * serving program and its identity. The remote form is the protocol {@code system_one}'s: it names one {@code
-         * https} origin and the Token Lane credential entry it reads, and has no serving program, no identity and no
-         * update evidence, because no owner check applies to a service.
-         */
-        private void localityRules(EndpointBlock block, String executable, boolean hasIdentity,
-                boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
-            if ("remote".equals(block.locality())) {
-                remoteRules(block, executable, hasIdentity, hasUpdateEvidence, hasArgvWeightsProbe);
-            } else {
-                loopbackRules(block, executable, hasIdentity);
-            }
-        }
-
-        private void remoteRules(EndpointBlock block, @Nullable String executable, boolean hasIdentity,
-                boolean hasUpdateEvidence, boolean hasArgvWeightsProbe) {
-            if (hasArgvWeightsProbe) {
-                throw invalid("/weights_probe/source",
-                        "a remote endpoint reads its weights identity from the models listing, never from a program "
-                                + "of this machine");
-            }
-            if (!"system_one".equals(block.protocol())) {
-                throw invalid("/endpoint/locality",
-                        "the remote form is the protocol system_one's; an openai_chat endpoint is a loopback one");
-            }
-            if (!HTTPS_URL.matcher(block.baseUrl()).matches()) {
-                throw invalid(PTR_BASE_URL,
-                        "a remote endpoint names the https origin of one service: '%s'".formatted(block.baseUrl()));
-            }
-            var port = HTTPS_PORT.matcher(block.baseUrl());
-            if (port.find()) {
-                var value = Integer.parseInt(port.group(1));
-                if (value < 1 || value > 65535) {
-                    throw invalid(PTR_BASE_URL, "not a port: %d".formatted(value));
-                }
-            }
-            if (block.credentialKey() == null) {
-                throw invalid("/endpoint/credential_key",
-                        "a remote endpoint names the Token Lane credential entry it reads");
-            }
-            if (executable != null) {
-                throw invalid(PTR_EXECUTABLE, "a remote endpoint has a null executable");
-            }
-            if (hasIdentity) {
-                throw invalid(PTR_IDENTITY, "a remote endpoint has a null identity");
-            }
-            if (hasUpdateEvidence) {
-                throw invalid(PTR_UPDATE_EVIDENCE, "a remote endpoint has a null update_evidence");
-            }
-        }
-
-        private void loopbackRules(EndpointBlock block, @Nullable String executable, boolean hasIdentity) {
-            var loopback = LOOPBACK_URL.matcher(block.baseUrl());
-            if (!loopback.matches()) {
-                throw invalid(PTR_BASE_URL,
-                        "a loopback endpoint names http://127.0.0.1:<port> or http://[::1]:<port>: '%s'"
-                                .formatted(block.baseUrl()));
-            }
-            var port = Integer.parseInt(loopback.group(2));
-            if (port < 1 || port > 65535) {
-                throw invalid(PTR_BASE_URL, "not a port: %d".formatted(port));
-            }
-            if (block.credentialKey() != null) {
-                throw invalid("/endpoint/credential_key", "a loopback endpoint has a null credential_key");
-            }
-            if (executable == null) {
-                throw invalid(PTR_EXECUTABLE, "a loopback endpoint names the program that serves it");
-            }
-            if (!hasIdentity) {
-                throw invalid(PTR_IDENTITY, "a loopback endpoint names its identity");
-            }
         }
 
         private void endpointPath(@Nullable JsonNode path, String pointer, String name) {
@@ -539,12 +449,6 @@ public final class ProfileValidator {
         private Optional<String> optionalText(@Nullable JsonNode node, String pointer, String name, int max) {
             return node == null || node.isNull() ? Optional.empty()
                     : Optional.of(text(node, pointer, name, max));
-        }
-
-        /** The values of the {@code endpoint} block the locality rules read. */
-        @Builder
-        record EndpointBlock(String protocol, String locality, String baseUrl,
-        @Nullable String credentialKey) {
         }
 
         private void icon(JsonNode icon, String pointer) {

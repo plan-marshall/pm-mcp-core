@@ -34,37 +34,32 @@ import de.planmarshall.core.profile.ProfileStages.UsageCoverage;
 /**
  * The stages {@code isolation}, {@code egress} and {@code usage} record the profile values they settle, and the usage
  * stage compares the parsed figures with the harness's own record field by field (PM-CLIENT-5, Profile Verification).
- * The stages of an endpoint are held here too, a judgment endpoint's without the {@code classes} stage.
+ * The stages of an endpoint are held here too: every endpoint runs all four, {@code classes} included.
  */
 @EnableGeneratorController
 @DisplayName("Profile verification stages")
 class ProfileStagesTest {
 
-    private static final String JUDGE_MODEL = Generators.letterStrings(5, 20).next();
+    private static final String ENDPOINT_MODEL = Generators.letterStrings(5, 20).next();
     private static final String WRITER_MODEL = Generators.letterStrings(3, 10).next();
     private static final String READ_ONLY_MODEL = WRITER_MODEL + "-b";
 
     @Test
-    @DisplayName("a judgment endpoint records three stages and settles no executable")
-    void judgmentEndpointStages() {
-        var identity = new ProfileStages.EndpointIdentity(true, null, null, List.of(JUDGE_MODEL), Map.of());
+    @DisplayName("an endpoint verification refuses a stage list without the classes stage")
+    void endpointStagesWithoutClassesRefused() {
+        var identity = new ProfileStages.EndpointIdentity(true, null, null, List.of(ENDPOINT_MODEL), Map.of());
         var launch = new ProfileStages.EndpointLaunch(true, true, "enforced", true,
                 Map.of("two_options_ascending", "valid", "one_option", "valid"));
-        var verification = ProfileStages.EndpointVerification.judgment(identity, launch,
-                new ProfileStages.EndpointLimits(false, 0));
+        var limits = new ProfileStages.EndpointLimits(false, 0);
+        // The stage names are the wire names of the verification record.
+        var withoutClasses = List.of("identity", "launch", "limits");
 
         assertAll(
-                () -> assertTrue(verification.judgment()),
-                () -> assertNull(verification.classes()),
-                () -> assertEquals(List.of("identity", "launch", "limits"), verification.stages()),
-                () -> assertEquals(Map.of("identity", "passed", "launch", "passed", "limits", "not_run"),
-                        verification.stageStatuses()),
-                () -> assertEquals("valid", verification.launch().probes().get("one_option")),
-                () -> assertEquals(ProfileStages.EndpointValueStatus.NOT_MEASURED,
-                        verification.values().stream()
-                                .filter(value -> "/executable".equals(value.pointer())).findFirst().orElseThrow()
-                                .status()),
-                () -> assertFalse(verification.refusesDraft()));
+                () -> assertEquals(List.of("identity", "launch", "classes", "limits"), ProfileStages.ENDPOINT_STAGES,
+                        "An endpoint runs all four stages"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new ProfileStages.EndpointVerification(identity, launch, null, limits, withoutClasses),
+                        "A stage list without classes is refused"));
     }
 
     private static LoadedProfile profile() {

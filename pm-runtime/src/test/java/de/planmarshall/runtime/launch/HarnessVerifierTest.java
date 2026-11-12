@@ -50,7 +50,7 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  *
  * <p>
  * The instants, the HMAC key, the stale digests, the versions inside and outside the fixture profile's supported
- * range, the operator-added client id, the endpoint origin and credential key and the probed texts are generated. The
+ * range, the operator-added client id and the probed texts are generated. The
  * literals that stay are the contract: the fixture profile's client id {@code claude} and its supported range
  * {@code >=1.0.0 <2.0.0}, which the versions are drawn against, the version pattern under test, the store's file name
  * {@code harnesses.json}, the shell script shape of the fixture executable, and the usage figure and event names with
@@ -98,21 +98,6 @@ class HarnessVerifierTest {
                 "a harness not enrolled refuses the launch");
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                 RuntimeLogMessages.WARN.WORKER_LAUNCH_REFUSED.resolveIdentifierString());
-    }
-
-    @Test
-    @DisplayName("an endpoint-form entry of the client refuses the launch as not enrolled")
-    void endpointEntry() {
-        store.enrol(HarnessEnrolment.endpoint(CLIENT, "https://" + shortWords().next() + ".example.test",
-                shortWords().next(), now,
-                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of())));
-
-        var verification = verifier().verify(CLIENT, LaunchFixtures.block());
-
-        assertEquals(LaunchRefusal.HARNESS_NOT_ENROLLED, refusal(verification),
-                "an endpoint entry is no enrolled harness");
-        assertTrue(audit.stream().noneMatch(event -> AuditEvent.HARNESS_UPDATED.equals(event.event())),
-                "an endpoint entry audits no harness update");
     }
 
     @Test

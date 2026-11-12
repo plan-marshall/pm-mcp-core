@@ -67,7 +67,6 @@ public final class HarnessEnrolmentStore {
     private static final Set<PosixFilePermission> OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
     private static final String HARNESSES = "harnesses";
     private static final String FORMAT_VERSION_MEMBER = "format_version";
-    private static final String ENDPOINT = "endpoint";
     private static final String EXECUTABLE_PATH = "executable_path";
     private static final String SHA256 = "sha256";
     private static final String VERSION = "version";
@@ -77,13 +76,9 @@ public final class HarnessEnrolmentStore {
     private static final String USAGE_REPORT = "usage_report";
     private static final String EVENTS = "events";
 
-    /** The members of a serving program's entry. */
-    private static final Set<String> PROGRAM_MEMBERS = Set.of(EXECUTABLE_PATH, SHA256, VERSION, ENROLLED_AT,
+    /** The members of an entry. */
+    private static final Set<String> ENTRY_MEMBERS = Set.of(EXECUTABLE_PATH, SHA256, VERSION, ENROLLED_AT,
             UPDATED_AT, WEIGHTS, USAGE_REPORT, EVENTS);
-
-    /** The members of a remote endpoint's entry. */
-    private static final Set<String> ENDPOINT_MEMBERS = Set.of(ENDPOINT, ENROLLED_AT, UPDATED_AT, WEIGHTS,
-            USAGE_REPORT, EVENTS);
 
     private final Path base;
     private final Path file;
@@ -260,17 +255,7 @@ public final class HarnessEnrolmentStore {
     }
 
     private static HarnessEnrolment entry(String clientId, JsonNode node) {
-        var binding = node.member(ENDPOINT).orElse(null);
-        if (binding != null) {
-            if (!binding.isObject()) {
-                throw new IllegalArgumentException("the member '%s' is not an object".formatted(ENDPOINT));
-            }
-            onlyMembers(node, clientId, ENDPOINT_MEMBERS);
-            return new HarnessEnrolment(clientId, null, null, null, Instant.parse(text(node, ENROLLED_AT)),
-                    Instant.parse(text(node, UPDATED_AT)), usageReport(node), events(node), weights(node),
-                    new HarnessEnrolment.Binding(text(binding, "origin"), text(binding, "credential_key")));
-        }
-        onlyMembers(node, clientId, PROGRAM_MEMBERS);
+        onlyMembers(node, clientId);
         return new HarnessEnrolment(clientId, Path.of(text(node, EXECUTABLE_PATH)), text(node, SHA256),
                 text(node, VERSION), Instant.parse(text(node, ENROLLED_AT)),
                 Instant.parse(text(node, UPDATED_AT)), usageReport(node), events(node), weights(node));
@@ -279,15 +264,14 @@ public final class HarnessEnrolmentStore {
     /**
      * @param node     the entry
      * @param clientId the client id, for the refusal
-     * @param allowed  the members of the form the entry takes
-     * @throws IllegalArgumentException if the entry carries a member of the other form or an undeclared one, so a mixed
-     *                                  entry is refused instead of being read as one of its halves
+     * @throws IllegalArgumentException if the entry carries an undeclared member, so an entry of another shape is refused
+     *                                  instead of being read in part
      */
-    private static void onlyMembers(JsonNode node, String clientId, Set<String> allowed) {
+    private static void onlyMembers(JsonNode node, String clientId) {
         for (var member : node.members().keySet()) {
-            if (!allowed.contains(member)) {
+            if (!ENTRY_MEMBERS.contains(member)) {
                 throw new IllegalArgumentException(
-                        "the entry '%s' carries the member '%s', which is not a member of the entry's form"
+                        "the entry '%s' carries the member '%s', which is not a member of an entry"
                                 .formatted(clientId, member));
             }
         }
@@ -399,14 +383,9 @@ public final class HarnessEnrolmentStore {
 
     private static JsonNode entry(HarnessEnrolment enrolment) {
         var members = new LinkedHashMap<String, JsonNode>();
-        if (enrolment.binding() != null) {
-            members.put(ENDPOINT, JsonNode.object(Map.of("origin", JsonNode.string(enrolment.binding().origin()),
-                    "credential_key", JsonNode.string(enrolment.binding().credentialKey()))));
-        } else {
-            members.put(EXECUTABLE_PATH, JsonNode.string(enrolment.executablePath().toString()));
-            members.put(SHA256, JsonNode.string(enrolment.sha256()));
-            members.put(VERSION, JsonNode.string(enrolment.version()));
-        }
+        members.put(EXECUTABLE_PATH, JsonNode.string(enrolment.executablePath().toString()));
+        members.put(SHA256, JsonNode.string(enrolment.sha256()));
+        members.put(VERSION, JsonNode.string(enrolment.version()));
         members.put(ENROLLED_AT, JsonNode.string(enrolment.enrolledAt().toString()));
         members.put(UPDATED_AT, JsonNode.string(enrolment.updatedAt().toString()));
         var figures = new TreeMap<String, JsonNode>();

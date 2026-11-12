@@ -24,8 +24,8 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * Proves that the builder of {@link HarnessEnrolment} builds the value its canonical constructor builds, including its
- * null refusal for the client id. Every value is generated; the entry is the local form with an absolute executable
- * path and its digest, one reported event, and one recorded weights identity.
+ * null refusal for the client id. Every value is generated; the entry has an absolute executable path and its digest,
+ * one reported event, and one recorded weights identity.
  */
 @EnableGeneratorController
 @DisplayName("HarnessEnrolment builder")
@@ -46,7 +46,7 @@ class HarnessEnrolmentRecordsTest {
                 Generators.letterStrings(1, 64).next(), enrolledAt));
 
         var constructed = new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updatedAt,
-                usageReport, events, weights, null);
+                usageReport, events, weights);
         var built = HarnessEnrolment.builder()
                 .clientId(clientId)
                 .executablePath(executablePath)
@@ -57,7 +57,6 @@ class HarnessEnrolmentRecordsTest {
                 .usageReport(usageReport)
                 .events(events)
                 .weights(weights)
-                .binding(null)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same harness enrolment");
