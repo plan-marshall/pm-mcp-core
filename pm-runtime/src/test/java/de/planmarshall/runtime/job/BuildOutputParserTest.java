@@ -373,7 +373,8 @@ class BuildOutputParserTest {
     void unrecognisedLog() {
         // Changed deliberately: this log read as NOTHING before the install family's completion line
         // became its passing summary (PLAN-V2-127, D2).
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "up to date, audited 5 packages\n");
+        // Moved to the install verb: the completion line is a marker only for an install job (PLAN-V2-138, D5).
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:install"), "up to date, audited 5 packages\n");
 
         assertAll(
                 () -> assertTrue(parse.successMarker(), "the install completion line is the marker"),
@@ -482,6 +483,63 @@ class BuildOutputParserTest {
             assertAll(
                     () -> assertEquals(1, parse.diagnostics(), "the stripped npm error block is filed"),
                     () -> assertEquals(FAILED, outcome(parse, failures().next()), "a colour-coded npm error fails"));
+        }
+    }
+
+    /**
+     * The install family's completion line is a marker only under an install verb. The verbs {@code install},
+     * {@code clean-install} and {@code module-tests} are contract literals of the budget key; the module is generated.
+     */
+    @Nested
+    @DisplayName("the install completion line")
+    class InstallVerb {
+
+        @Test
+        @DisplayName("is no marker for an unscanned runner after npm ci under a non-install verb")
+        void nonInstallVerbGivesNoMarker() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:module-tests"), """
+                    added 12 packages, and audited 13 packages in 2s
+
+                      3 passing (12ms)
+                    """);
+
+            assertAll(
+                    () -> assertFalse(parse.successMarker(), "an install line is no marker for module-tests"),
+                    () -> assertEquals(INDETERMINATE, outcome(parse, 0), "the unscanned runner stays indeterminate"));
+        }
+
+        @Test
+        @DisplayName("is the marker under the install verb")
+        void installVerbGivesMarker() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:install"), "added 12 packages in 2s\n");
+
+            assertAll(
+                    () -> assertTrue(parse.successMarker(), "the install line is the marker of an install"),
+                    () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean install decides succeeded"));
+        }
+
+        @Test
+        @DisplayName("is the marker under the clean-install verb with a module")
+        void cleanInstallVerbGivesMarker() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:clean-install@" + words().next()),
+                    "added 12 packages in 2s\n");
+
+            assertAll(
+                    () -> assertTrue(parse.successMarker(), "the install line is the marker of clean-install"),
+                    () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean clean-install decides succeeded"));
+        }
+
+        @Test
+        @DisplayName("keeps the npm error diagnostics under a non-install verb")
+        void nonInstallVerbKeepsDiagnostics() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    npm error code E404
+                    npm error 404  'missing@1' is not in this registry.
+                    """);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm error block is still filed"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error still fails"));
         }
     }
 }
