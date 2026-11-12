@@ -30,9 +30,10 @@ import de.planmarshall.core.queue.SecretRedactor;
  * {@code Could not resolve dependency:} trailer names one; an {@code E404} block is {@link Category#NPM_ERROR} and names
  * the quoted package when the block carries the {@code '<package>' is not in this registry} form of npm up to 11,
  * otherwise it reports the package as not found (npm 12 prints the "requested resource" wording). Every other code is
- * {@link Category#NPM_ERROR} whose message is the code and the first line of the block, redacted through
- * {@link SecretRedactor} before the stored-length cut so a truncated message cannot keep half a secret. Both named forms
- * point into {@code package.json} without a line, as in the original.
+ * {@link Category#NPM_ERROR} whose message is the code and the first line of the block. Every message — the generic one
+ * and the two named forms, whose specifier and {@code peer}/{@code from} tokens are log text as well — is redacted
+ * through {@link SecretRedactor} before the stored-length cut, so a truncated message cannot keep half a secret. Both
+ * named forms point into {@code package.json} without a line, as in the original.
  * <p>
  * The install family prints no error block; its completion line ({@code added 150 packages in 10s},
  * {@code up to date, audited 5 packages}) is the tool's positive success marker ({@link #printsInstallSummary}), so a
@@ -154,9 +155,9 @@ public class NpmErrorParser {
 
     private static Diagnostic diagnostic(String code, List<String> block) {
         return switch (code) {
-            case ERESOLVE -> Diagnostic.builder().file(PACKAGE_JSON).message(eresolveMessage(block))
+            case ERESOLVE -> Diagnostic.builder().file(PACKAGE_JSON).message(storedRedacted(eresolveMessage(block)))
                     .category(Category.NPM_DEPENDENCY).severity(Severity.ERROR).build();
-            case E404 -> Diagnostic.builder().file(PACKAGE_JSON).message(e404Message(block))
+            case E404 -> Diagnostic.builder().file(PACKAGE_JSON).message(storedRedacted(e404Message(block)))
                     .category(Category.NPM_ERROR).severity(Severity.ERROR).build();
             default -> Diagnostic.builder().message(storedRedacted(code + ": " + firstLine(block)))
                     .category(Category.NPM_ERROR).severity(Severity.ERROR).build();
@@ -164,9 +165,10 @@ public class NpmErrorParser {
     }
 
     /**
-     * Redacts a generic block's composed message before the stored-length cut, so a cut value cannot keep a prefix the
-     * redactor would have matched whole. The dedicated {@code ERESOLVE} and {@code E404} messages are built from
-     * dependency names and need no redaction.
+     * Redacts a block's composed message before the stored-length cut, so a cut value cannot keep a prefix the redactor
+     * would have matched whole. Every message passes through here: the generic one, and the dedicated {@code ERESOLVE}
+     * and {@code E404} messages, whose package specifier and {@code peer}/{@code from} tokens are copied from the log
+     * text and can carry a secret (a registry URL with user information, say).
      *
      * @param message the composed message
      * @return the redacted message, cut to the stored length

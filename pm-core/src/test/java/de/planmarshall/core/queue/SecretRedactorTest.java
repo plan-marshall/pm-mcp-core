@@ -11,6 +11,7 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -437,5 +438,50 @@ class SecretRedactorTest {
                 () -> assertEquals("curl -H 'Authorization: Bearer " + SecretRedactor.REDACTED + "'",
                         SecretRedactor.redact(call).tool().target()),
                 () -> assertEquals("src/secret/config.properties", SecretRedactor.redact(changed).path()));
+    }
+
+    @Test
+    @DisplayName("an escape sequence between a label and its value does not hide the value (SGR codes)")
+    void entryTextEscapeSplitLabel() {
+        // ESC[1m and ESC[0m are the SGR bold and reset sequences of a colour-coded terminal line
+        var value = Generators.letterStrings(8, 16).next();
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.HARNESS)
+                .kind(ActivityEntry.Kind.TEXT)
+                .text("login \u001B[1mpassword\u001B[0m=" + value)
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var redacted = SecretRedactor.redact(entry);
+
+        assertAll("escape-split label in a text entry",
+                () -> assertEquals("login password=" + SecretRedactor.REDACTED, redacted.text(),
+                        "the escape-split password value is masked"),
+                () -> assertFalse(redacted.text().contains(value), "the secret value is gone from the text"),
+                () -> assertFalse(redacted.text().contains("\u001B"), "the stored text carries no escape"));
+    }
+
+    @Test
+    @DisplayName("an escape sequence inside a tool target does not hide a credential flag (SGR codes)")
+    void entryToolTargetEscapeSplitFlag() {
+        // ESC[33m and ESC[0m are the SGR yellow and reset sequences of a colour-coded terminal line
+        var value = Generators.letterStrings(8, 16).next();
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.HARNESS)
+                .kind(ActivityEntry.Kind.TOOL_CALL)
+                .tool(new ActivityEntry.Tool("bash", "npm login \u001B[33m--password\u001B[0m " + value))
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var target = SecretRedactor.redact(entry).tool().target();
+
+        assertAll("escape-split flag in a tool target",
+                () -> assertEquals("npm login --password " + SecretRedactor.REDACTED, target,
+                        "the escape-split flag value is masked"),
+                () -> assertFalse(target.contains(value), "the secret value is gone from the target"));
     }
 }

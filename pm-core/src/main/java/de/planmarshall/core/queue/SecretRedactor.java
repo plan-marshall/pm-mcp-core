@@ -15,6 +15,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.build.BuildLogText;
+
 /**
  * Masks a secret-shaped value before an activity entry is written (Store Schemas § Activity Journal: every text and
  * target is masked like every job log; Job Runtime § Pipeline and Subprocesses names the component `SecretRedactor`).
@@ -46,6 +48,10 @@ import org.jspecify.annotations.Nullable;
  * The residue: a PEM or PGP block whose {@code BEGIN} line lies before the excerpt window, so that the text starts
  * inside the block, is not masked, because nothing in the text marks the key body as one. The window is not widened to
  * reach the marker. The redactor is idempotent: redacting redacted text changes nothing.
+ * <p>
+ * On the journal path ({@link #redact(ActivityEntry)}) the terminal escape sequences are stripped before the shapes are
+ * matched, so a colour code between a label and its value does not hide the value; {@link #redactText(String)} leaves
+ * escape sequences to its caller.
  *
  * @since 0.1
  */
@@ -210,24 +216,37 @@ public final class SecretRedactor {
     }
 
     /**
+     * Redacts the parts of an activity entry that are written to the journal.
+     * <p>
+     * The text, the tool target and the link target are stripped of their terminal escape sequences
+     * ({@link BuildLogText#stripAnsi(String)}, the expression the unparsed-evidence excerpt uses) before they are
+     * redacted, so an escape sequence that splits a label from its value ({@code ESC[1mpassword ESC[0m=value}) cannot
+     * hide the value from the label patterns. The stored journal text therefore carries no escape sequence. The bound of
+     * each part is applied after the redaction.
+     *
      * @param entry an activity entry as the runtime read it
-     * @return the entry with its text, tool target and link target redacted
+     * @return the entry with its text, tool target and link target stripped of escape sequences and redacted
      */
     public static ActivityEntry redact(ActivityEntry entry) {
         var masked = entry;
         if (entry.text() != null) {
-            var redacted = cut(redactText(entry.text()).orElseThrow(), ActivityEntry.TEXT_BOUND);
+            var redacted = cut(stripAndRedact(entry.text()), ActivityEntry.TEXT_BOUND);
             masked = masked.withText(redacted.value()).withTruncated(entry.truncated() || redacted.cut());
         }
         if (entry.tool() != null && entry.tool().target() != null) {
             masked = masked.withTool(new ActivityEntry.Tool(entry.tool().name(),
-                    cutUtf16(redactText(entry.tool().target()).orElseThrow(), 1000).value()));
+                    cutUtf16(stripAndRedact(entry.tool().target()), 1000).value()));
         }
         if (entry.link() != null && entry.link().target() != null) {
             masked = masked.withLink(new ActivityEntry.Link(entry.link().rel(),
-                    cutUtf16(redactText(entry.link().target()).orElseThrow(), 128).value()));
+                    cutUtf16(stripAndRedact(entry.link().target()), 128).value()));
         }
         return masked;
+    }
+
+    /** Strips the terminal escape sequences of a journal value, then redacts it. */
+    private static String stripAndRedact(String value) {
+        return redactText(BuildLogText.stripAnsi(value)).orElseThrow();
     }
 
     /**
