@@ -30,8 +30,9 @@ value from outside the formats.
 
 The records that copy the schemas (`ImportedItem`, `ImportedItem.Origin`, `SourceManifest`,
 `SourceManifest.SourceFile`, `SourceOverlay`) are what an import reads a source through. They
-matched their whole value but had no length check beside their patterns either, so a source could
-carry a value the schema refuses through the codec before the validator ever saw it.
+matched their whole value but had no length check beside their patterns either, so a bound added to
+a schema alone would leave the codec looser than the schema: the import reads a source through the
+records before the validator sees the document.
 
 == Decision
 
@@ -86,10 +87,10 @@ and low enough that the pattern is not what refuses a hostile one.
 *The ceilings are above the formats' own values, never below them.* A bound under a value a shipped
 source holds would narrow the format silently. The figures were therefore checked against the corpus
 of `plan-marshall-mcp` before they were fixed: `ProductCorpusValidationTest` accepted that
-checkout's manifests, overlays and items with the bounds in place, and it skips, naming the path,
-when the checkout the `pm.product.root` property names is absent. The corpus's own items are checked
-against the corpus's own schema, so that run compares the manifests and the overlays with the
-ceilings, not the ids of the corpus's items.
+checkout's manifests and overlays with the bounds in place, and it skips, naming the path, when the
+checkout the `pm.product.root` property names is absent. The corpus's own items are checked against
+the corpus's own schema, so that run compares the manifests and the overlays with the ceilings, not
+the ids of the corpus's items.
 
 In the records the bounds are the constants `SourceManifest.NAME_MAX_LENGTH` (64),
 `COMMIT_MAX_LENGTH` (40), `SHA256_MAX_LENGTH` (64), `LICENCE_MAX_LENGTH` (64),
