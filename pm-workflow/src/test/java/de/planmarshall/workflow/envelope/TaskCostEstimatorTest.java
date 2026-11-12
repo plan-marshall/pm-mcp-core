@@ -14,13 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.workflow.envelope.TaskCostEstimator.TaskSignals;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,6 +27,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.workflow.envelope.TaskCostEstimator.TaskSignals;
 
 /**
  * The cost sizing of a plan task: the score, its bands, the profile weights and the size-to-token table.
