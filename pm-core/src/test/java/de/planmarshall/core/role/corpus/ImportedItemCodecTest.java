@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import lombok.Builder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -435,5 +436,54 @@ class ImportedItemCodecTest {
                     () -> assertEquals(ANSWER_SCHEMA, input(ANSWER_SCHEMA).answerSchema()),
                     () -> assertNull(input(null).answerSchema()));
         }
+    }
+
+    /** One string member of the imported item: its value at the bound, one code point over, and its refusal. */
+    @Builder
+    record Bound(String name, String original, String atBound, String overBound, String refusal) {
+    }
+
+    static Stream<Bound> boundedValues() {
+        var idPrefix = "screening/sample-set/";
+        return Stream.of(
+                new Bound("id", "\"id\" : \"screening/sample-set/q-1\"",
+                        "\"id\" : \"" + idPrefix + "a".repeat(256 - idPrefix.length()) + "\"",
+                        "\"id\" : \"" + idPrefix + "a".repeat(257 - idPrefix.length()) + "\"",
+                        "'id' is longer than 256 characters"),
+                new Bound("title", "\"title\" : \"sample question\"", "\"title\" : \"" + "t".repeat(120) + "\"",
+                        "\"title\" : \"" + "t".repeat(121) + "\"", "'title' is longer than 120 characters"),
+                new Bound("commit", "\"commit\" : \"" + COMMIT + "\"", "\"commit\" : \"" + "a".repeat(40) + "\"",
+                        "\"commit\" : \"" + "a".repeat(41) + "\"", "'commit' is longer than 40 characters"),
+                new Bound("path", "\"path\" : \"data/test.csv\"", "\"path\" : \"" + "a".repeat(1024) + "\"",
+                        "\"path\" : \"" + "a".repeat(1025) + "\"", "'path' is longer than 1024 characters"),
+                new Bound("repository", "\"repository\" : \"https://github.com/example/sample-set\"",
+                        "\"repository\" : \"https://h.test/" + "p".repeat(2033) + "\"",
+                        "\"repository\" : \"https://h.test/" + "p".repeat(2034) + "\"",
+                        "'repository' is longer than 2048 characters"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("boundedValues")
+    @DisplayName("a value of exactly the bound reads and one code point over is refused for its length")
+    void boundedValue(Bound bound) {
+        var fixture = text(closedItem());
+        assertTrue(fixture.contains(bound.original()), () -> "the fixture carries " + bound.original());
+        var atBound = fixture.replace(bound.original(), bound.atBound());
+
+        var read = ImportedItemCodec.read(FILE, atBound.getBytes(StandardCharsets.UTF_8));
+
+        assertAll(
+                () -> assertEquals(atBound, text(read), "the value at the bound round-trips unchanged"),
+                () -> assertUnreadable(refusalOf(fixture.replace(bound.original(), bound.overBound())),
+                        bound.refusal()));
+    }
+
+    @Test
+    @DisplayName("a topic one code point over its bound is refused for its length, before its pattern")
+    void topicOverItsBound() {
+        var document = text(closedItem()).replace("\"topic\" : \"screening/sample-set\"",
+                "\"topic\" : \"" + "a".repeat(257) + "\"");
+
+        assertUnreadable(refusalOf(document), "'topic' is longer than 256 characters");
     }
 }
