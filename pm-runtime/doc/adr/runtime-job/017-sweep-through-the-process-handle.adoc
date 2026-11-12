@@ -50,10 +50,11 @@ a test.
   `LLM` job's descendants are still swept by its tracker; a job of any other kind has no tracker, so its descendants are
   not swept on this path.
 * `SubprocessJobRunner.pidReused` gains a package-private overload that takes the handle lookup as a `LongFunction`,
-  with the existing method delegating to it through `ProcessHandle::of`. It exists because a real handle exposes the
-  unreadable-instant state only through a race between two reads — the process exits between them — which a test cannot
-  produce deterministically, so the table of four would otherwise be unprovable on Linux and macOS. The production path
-  is unchanged; the overload is not a second decision.
+  with the existing method delegating to it through `ProcessHandle::of`. It exists because the unreadable-instant state
+  cannot be produced with a real handle in a deterministic test: on a platform that reports no start instant it is
+  structural, and on Linux and macOS it arises only through the exit race between the handle lookup and the info read.
+  The table of four would otherwise be unprovable there. The production path is unchanged; the overload is not a second
+  decision.
 
 == Reading of the JDK
 
