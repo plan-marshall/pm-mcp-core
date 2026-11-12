@@ -1165,9 +1165,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * The same decision over the seam a test replaces: where the handle of the PID is read. A platform that reports a
-     * start instant for every process it lists cannot produce the states of an unreadable instant with a real handle,
-     * so the decision is taken over the lookup and the table of its four answers is exercised through this overload.
+     * The same decision over the seam a test replaces: where the handle of the PID is read. A real handle exposes the
+     * unreadable-instant state only through a race between two reads — the process exits between them — which a test
+     * cannot produce deterministically, so the decision is taken over the lookup and the table of its four answers is
+     * exercised through this overload.
      *
      * @param launched the started process, with the PID the caller recorded
      * @param handles  where the handle of a PID is read; {@link ProcessHandle#of(long)} in production

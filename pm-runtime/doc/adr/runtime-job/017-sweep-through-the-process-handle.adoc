@@ -18,11 +18,13 @@ Cancellation Protocol], step 3a). `ProcessTreeTracker` records each descendant t
 PID answers now before it sent `SIGTERM` and `SIGKILL` through `ProcessGroupSignals.signalProcess(pid, signal)` — a
 numeric `kill(2)`. Between that check and the call the process could exit, the kernel could reap it, and the PID could be
 handed to another process, which the numeric signal would then end. The window is microseconds wide and unproven as an
-exploit; the operating system refuses a signal to a process of another user, and the runtime runs as the operator.
+exploit; the operating system's signal permissions bound it — by default a process signals only a target of the same
+user or one whose real or saved set-user-ID matches, and a process with `CAP_KILL` in the target's user namespace can
+reach further (link:https://man7.org/linux/man-pages/man2/kill.2.html[`kill(2)`]); the runtime runs as the operator.
 
 The question the plan had to answer from the sources, not from memory: does the JDK's `ProcessHandle.destroy()` /
 `destroyForcibly()` compare the start time recorded in the handle before it sends the signal? If it does, the sweep can
-hand the decision back to the JDK and close the window with no clock-length window of its own.
+hand the check back to the JDK and replace its own wider check-then-signal window with the JDK's narrower one.
 
 The second lead of the CodeRabbit review of #135 was that `SubprocessJobRunner.pidReused` answers `true` when a platform
 reports no start instant, and that a cancelled or over-budget job would then be left running. `pidReused` answers `true`
@@ -44,13 +46,14 @@ a test.
   (`TerminationProtocol`, `ProcessGroupSignals`, `KillBinding` and their `kill(2)` descriptor are unchanged).
 * Lead (2) is documented as refuted behaviour with its test: a launched process whose own start instant is unreadable is
   a reused PID (`pidReused` answers `true`), and `terminateByHandle` then signals nothing by PID and destroys the process
-  through its handle exactly once. The cost is stated: the process *group* of such a job is not signalled either, so its
-  descendants are not swept either — only a probe and a worker carry a tracker, and a tracker needs start instants too.
+  through its handle exactly once. The cost is stated: the process *group* of such a job is not signalled. A `PROBE` or
+  `LLM` job's descendants are still swept by its tracker; a job of any other kind has no tracker, so its descendants are
+  not swept on this path.
 * `SubprocessJobRunner.pidReused` gains a package-private overload that takes the handle lookup as a `LongFunction`,
-  with the existing method delegating to it through `ProcessHandle::of`. It exists because a platform that reports a
-  start instant for every listed process cannot produce the unreadable-instant state with a real handle, and the table of
-  four would otherwise be untestable on Linux and macOS. The production path is unchanged; the overload is not a second
-  decision.
+  with the existing method delegating to it through `ProcessHandle::of`. It exists because a real handle exposes the
+  unreadable-instant state only through a race between two reads — the process exits between them — which a test cannot
+  produce deterministically, so the table of four would otherwise be unprovable on Linux and macOS. The production path
+  is unchanged; the overload is not a second decision.
 
 == Reading of the JDK
 
@@ -100,8 +103,10 @@ actual behaviour is stated in its Javadoc.
 * A reused PID is not selected when the reuse precedes the sweep's check, so the sweep does not signal it. A reuse
   between that check and the JDK's `kill(2)` is the JDK's own check-then-signal sequence: `destroy0` reads the start
   time immediately before it calls `kill`, so the window is two adjacent system calls wide, not zero. It is accepted:
-  the operating system refuses a signal to a process of another user, and the runtime runs as the operator, so the
-  residual window reaches only same-user processes, and a reuse inside it is a microsecond-scale race.
+  the operating system's signal permissions bound it — by default `kill(2)` may signal only a target of the same user or
+  one whose real or saved set-user-ID matches, and `CAP_KILL` in the target's user namespace widens that
+  (link:https://man7.org/linux/man-pages/man2/kill.2.html[`kill(2)`]) — and a reuse inside the microsecond-scale window is
+  unlikely. The bound is therefore the operating system's, not the runtime's own.
 * The sweep depends on the JDK's start-time comparison; a JDK change to it would change this guarantee, which is why
   this ADR records the reading.
 * `ProcessGroupSignals` remains the termination protocol's primitive; the sweep no longer uses it, and a test asserts

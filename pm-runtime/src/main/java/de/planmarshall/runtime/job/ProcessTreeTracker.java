@@ -61,8 +61,9 @@ public final class ProcessTreeTracker {
 
     /**
      * One descendant as it was seen: its PID, the start instant that tells a reused PID from it, and the
-     * {@link ProcessHandle} it was read from. The handle carries that start instant, so a signal sent through it is
-     * refused once the PID belongs to another process.
+     * {@link ProcessHandle} it was read from. The handle carries that start instant; the JDK's destroy checks it
+     * immediately before it signals, so a PID that moved before that check is not signalled, and a reuse between the
+     * check and the {@code kill(2)} is the residual window ADR {@code runtime-job/017} records as accepted.
      *
      * @param pid       its PID
      * @param startedAt the start instant the handle was read with
