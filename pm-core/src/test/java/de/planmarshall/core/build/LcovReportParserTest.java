@@ -341,6 +341,78 @@ class LcovReportParserTest {
         assertEquals(80.0, report.overall().line(), "The last line without a break is read");
     }
 
+    // The counters are the contract: a second LH line would turn a 0-hit record into a fully covered one.
+    @Test
+    @DisplayName("refuses a record that carries the LH line twice")
+    void refusesARepeatedLinesHit() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:0
+                LH:10
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A repeated LH line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: the record src/a.js carries the LH line twice", refused.reason(),
+                        "The reason names the repeated LH line"));
+    }
+
+    // The counters are the contract: a second LF line would replace the record's found count.
+    @Test
+    @DisplayName("refuses a record that carries the LF line twice")
+    void refusesARepeatedLinesFound() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LF:20
+                LH:8
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A repeated LF line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: the record src/a.js carries the LF line twice", refused.reason(),
+                        "The reason names the repeated LF line"));
+    }
+
+    // The counters are the contract: each counter line once per record, also across two records.
+    @Test
+    @DisplayName("reads records that carry each counter line once")
+    void readsEachCounterLineOnce() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/a.js
+                FNF:2
+                FNH:1
+                LF:10
+                LH:8
+                BRF:4
+                BRH:2
+                end_of_record
+                SF:src/b.js
+                FNF:2
+                FNH:1
+                LF:10
+                LH:8
+                BRF:4
+                BRH:2
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertEquals(80.0, report.overall().line(), "The overall line is 16 of 20"),
+                () -> assertEquals(50.0, report.overall().branch(), "The overall branch is 4 of 8"),
+                () -> assertEquals(50.0, report.overall().function(), "The overall function is 2 of 4"),
+                () -> assertEquals(2, report.items().size(), "Both records are items"));
+    }
+
     /**
      * Returns a {@code TN:} line whose content after the prefix has the given length, so the line is three longer.
      *

@@ -75,8 +75,12 @@ settled the byte cap at 256 MiB.
    line and refuses a line longer than `pm.core.build.coverage-max-line-length` (8192 characters), naming the limit.
    Both values are data of `pm-core/src/main/resources/de/planmarshall/core/build/coverage-limits.properties`, read with
    `LimitProperties` when `CoverageReportStream` initialises, with no literal default.
-7. *Istanbul refuses a duplicate key.* The Jackson factory enables `STRICT_DUPLICATE_DETECTION`, so a second `total`
-   (or any key repeated in one object) is a refusal rather than a silent override.
+7. *A repeated counter is refused in JaCoCo, LCOV and Istanbul.* A later counter never silently overrides an earlier one.
+   The Istanbul Jackson factory enables `STRICT_DUPLICATE_DETECTION`, so a second `total` (or any key repeated in one
+   object) is a refusal. JaCoCo refuses a counter type that appears twice at the report root or twice directly within
+   one class, naming the repeated type. LCOV refuses a record that carries one of the counter lines `LF`, `LH`, `BRF`,
+   `BRH`, `FNF` or `FNH` twice, naming the repeated line type; otherwise a later `LH` could turn a record with no line hit
+   into a fully covered one. The operator decided on 2026-11-12 to close the JaCoCo and LCOV cases in this plan.
 8. *A file that cannot be read is named by its file name.* A file-system failure (`NoSuchFileException`,
    `AccessDeniedException` and the other `FileSystemException` types) carries the full path in its message, so
    `CoverageRefusals` names the file name and the kind of failure instead of passing the message through.
@@ -106,10 +110,12 @@ settled the byte cap at 256 MiB.
 
 * The XML readers no longer refuse a report only because its DTD carries an internal subset; such a subset is skipped
   without being resolved, and only a reference that reaches the element content is refused. A report that hides an
-  entity reference in an attribute value is read with that reference dropped.
+  undeclared entity reference in an attribute value is read with that reference dropped.
 * A report that measured no line is a refusal in all four formats, so the gate reports it as unreadable rather than as
   0 % coverage; a metric that measured nothing is `null` and is rendered as absent.
-* A report past 256 MiB, an LCOV line past 8192 characters and an Istanbul document with a duplicate key are refused.
+* A report past 256 MiB, an LCOV line past 8192 characters, an Istanbul document with a duplicate key, a JaCoCo report
+  with a counter type repeated at the root or within one class and an LCOV record with a repeated counter line are
+  refused.
   A report inside the bounds that carries a measured counter yields the same figures as before; the ported fixtures are
   unchanged.
 * The bounds are data: editing `coverage-limits.properties` changes them, and the specification includes both values by
@@ -121,5 +127,6 @@ settled the byte cap at 256 MiB.
 * Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Native Coverage Report Parsers]
 * Developer guide: link:../../developer/core-build.adoc[`core.build` § The Coverage Reports]
 * Origin: the three-layer analysis of PLAN-V2-18 (`f97bc7f2`); the operator's decisions of 2026-11-10 (the 256 MiB cap)
-  and 2026-11-12 (case (e) accepted without an attribute-level refusal); requirements `PM-EXEC-6`, `PM-TEST-2`,
+  and 2026-11-12 (case (e) accepted without an attribute-level refusal; the repeated JaCoCo and LCOV counters refused
+  in this plan); requirements `PM-EXEC-6`, `PM-TEST-2`,
   `PM-ARCH-8` and `PM-IMPL-5`.

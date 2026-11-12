@@ -320,6 +320,81 @@ class JacocoReportParserTest {
                 () -> assertEquals(ENTITY_REFUSAL, refused.reason(), "The parser refuses the entity reference"));
     }
 
+    // The counters are the contract: a LINE counter written twice at the report root.
+    @Test
+    @DisplayName("refuses a report that carries a root counter type twice")
+    void refusesARepeatedRootCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="repeated-root">
+                  <counter type="LINE" missed="9" covered="0"/>
+                  <counter type="LINE" missed="0" covered="9"/>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A repeated root counter is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: the report carries the LINE counter twice", refused.reason(),
+                        "The reason names the repeated counter type"));
+    }
+
+    // The counters are the contract: a LINE counter written twice directly within one class.
+    @Test
+    @DisplayName("refuses a class that carries a counter type twice")
+    void refusesARepeatedClassCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="repeated-class">
+                  <counter type="LINE" missed="1" covered="1"/>
+                  <package name="p">
+                    <class name="p/A">
+                      <counter type="LINE" missed="2" covered="0"/>
+                      <counter type="LINE" missed="0" covered="2"/>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A repeated class counter is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: the class p.A carries the LINE counter twice", refused.reason(),
+                        "The reason names the class and counter type"));
+    }
+
+    // The counters are the contract: each type once at the root and once per class, as JaCoCo writes them.
+    @Test
+    @DisplayName("reads a report that carries each counter type once at the root and per class")
+    void readsEachCounterTypeOnce() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="once">
+                  <package name="p">
+                    <class name="p/A">
+                      <method name="run">
+                        <counter type="LINE" missed="1" covered="0"/>
+                        <counter type="METHOD" missed="1" covered="0"/>
+                      </method>
+                      <counter type="BRANCH" missed="1" covered="1"/>
+                      <counter type="LINE" missed="1" covered="3"/>
+                      <counter type="METHOD" missed="1" covered="0"/>
+                    </class>
+                  </package>
+                  <counter type="BRANCH" missed="1" covered="1"/>
+                  <counter type="LINE" missed="1" covered="3"/>
+                  <counter type="METHOD" missed="1" covered="0"/>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(75.0, report.overall().line(), "The overall line counter is 3 of 4"),
+                () -> assertEquals(50.0, report.overall().branch(), "The overall branch counter is 1 of 2"),
+                () -> assertEquals(1, report.items().size(), "The report carries one class"),
+                () -> assertEquals(75.0, report.items().getFirst().line(), "The class line counter is 3 of 4"),
+                () -> assertEquals(List.of("run"), report.items().getFirst().missedMethods(),
+                        "The missed method is run"));
+    }
+
     private static CoverageParseResult.Refused assertRefused(CoverageParseResult result, String message) {
         return assertInstanceOf(CoverageParseResult.Refused.class, result, message);
     }

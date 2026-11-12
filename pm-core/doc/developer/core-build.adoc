@@ -299,7 +299,8 @@ with an overall `LINE` counter of `0/0`, is refused. A class without a `LINE` co
 of the measured items. Per class it takes the `LINE` counter (and the `BRANCH` counter where present, `null` at `0/0`);
 each method whose `METHOD` counter has a missed part contributes its name to `missedMethods`, and `<init>` and `<clinit>`
 are excluded because they are not methods a test is expected to call. The class name is dotted (`com/example/A` becomes
-`com.example.A`).
+`com.example.A`). A counter type that appears twice at the report root, or twice directly within one class, is refused,
+naming the repeated type, so a later counter can never override an earlier one.
 
 === Cobertura
 
@@ -320,7 +321,9 @@ overall percentages: `line` from `LH/LF`, `branch` from `BRH/BRF`, `function` fr
 `line` because LCOV has no statement counter. A metric no record carries is `null`, not a zero, and so is a `BRF:0` or
 `FNF:0`. Each record is an item, except a record with `LF:0`, and a report whose summed `LF` is `0` is refused. A `DA:`
 record is per-line detail and never enters a percentage. A record that is not terminated, or carries no `LF/LH`
-counter, is a truncation and is refused, as is a covered count above its total. The report is read line by line, never
+counter, is a truncation and is refused, as is a covered count above its total. A record that carries one of the
+counter lines `LF`, `LH`, `BRF`, `BRH`, `FNF` or `FNH` twice is refused, naming the repeated line type, so a later `LH`
+can never turn a record with no line hit into a fully covered one. The report is read line by line, never
 split whole, and a line longer than the line limit of <<_the_bounded_read_of_a_report>> is refused, naming the limit.
 
 === Istanbul
@@ -493,6 +496,8 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 * *A coverage document is untrusted.* The XML readers tolerate a `DOCTYPE` without resolving it, refuse an entity
   reference in element content and drop an undeclared one in an attribute value, never expanding or resolving either; a malformed or
   duplicate-keyed JSON summary is a refusal, not a zero; and a report is read within a byte cap.
+* *A repeated counter is refused, never an override.* JaCoCo refuses a counter type repeated at the report root or within
+  one class, LCOV a counter line repeated within one record, and Istanbul a key repeated within one object.
 * *A counter that measured nothing is absent.* A `0/0` counter is never a measured `0.0`.
 
 == Specification Tracing

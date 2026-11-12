@@ -37,7 +37,9 @@ import org.jspecify.annotations.Nullable;
  * {@code LF} is {@code 0} is refused ({@code no lines measured}).
  * <p>
  * A report that ends inside a record, carries no record at all, prints a counter that is not a number or covers more than
- * it found is refused, naming the format, rather than read as a report of zeros.
+ * it found is refused, naming the format, rather than read as a report of zeros. A record that carries one of the counter
+ * lines {@code LF}, {@code LH}, {@code BRF}, {@code BRH}, {@code FNF} or {@code FNH} twice is refused, naming the
+ * repeated line type, so a later line can never silently override an earlier one.
  * <p>
  * The report is read line by line, never whole: a file is streamed within the bound of {@link CoverageReportStream}, and
  * a line longer than {@link CoverageReportStream#MAX_LINE_LENGTH} characters is refused, naming the limit, before it is
@@ -190,23 +192,42 @@ public class LcovReportParser {
 
         private void readCounter(String line) throws IOException {
             if (line.startsWith("LF:")) {
+                once(current.linesFoundSeen, "LF");
                 current.linesFound = number(line, 3);
                 current.linesFoundSeen = true;
             } else if (line.startsWith("LH:")) {
+                once(current.linesHitSeen, "LH");
                 current.linesHit = number(line, 3);
                 current.linesHitSeen = true;
             } else if (line.startsWith("BRF:")) {
+                once(current.branchesFoundSeen, "BRF");
                 current.branchesFound = number(line, 4);
                 current.branchesFoundSeen = true;
             } else if (line.startsWith("BRH:")) {
+                once(current.branchesHitSeen, "BRH");
                 current.branchesHit = number(line, 4);
                 current.branchesHitSeen = true;
             } else if (line.startsWith("FNF:")) {
+                once(current.functionsFoundSeen, "FNF");
                 current.functionsFound = number(line, 4);
                 current.functionsFoundSeen = true;
             } else if (line.startsWith("FNH:")) {
+                once(current.functionsHitSeen, "FNH");
                 current.functionsHit = number(line, 4);
                 current.functionsHitSeen = true;
+            }
+        }
+
+        /**
+         * Refuses a counter line the current record already carries, so a later line can never override an earlier one.
+         *
+         * @param seen whether the record already carries the counter line
+         * @param type the counter line type, for the refusal reason
+         * @throws IOException if the record already carries the counter line
+         */
+        private void once(boolean seen, String type) throws IOException {
+            if (seen) {
+                throw new IOException("the record " + current.file + " carries the " + type + " line twice");
             }
         }
 

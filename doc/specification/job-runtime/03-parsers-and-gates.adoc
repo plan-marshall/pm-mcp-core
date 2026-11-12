@@ -67,7 +67,7 @@ An LCOV line longer than the line limit of the same resource is refused, naming 
 
 include::../../../pm-core/src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-line-length]
 
-An Istanbul summary that carries a key twice in one object is refused, so a later value never overrides an earlier one, and a report file that cannot be read is refused naming its file name, never its directory.
+A repeated counter is refused, so a later value never overrides an earlier one: a JaCoCo report that carries a counter type twice at the report root or twice within one class, an LCOV record that carries one of the counter lines `LF`, `LH`, `BRF`, `BRH`, `FNF` or `FNH` twice, and an Istanbul summary that carries a key twice in one object. A report file that cannot be read is refused naming its file name, never its directory.
 
 Remaining: the runtime wiring that evaluates a coverage report after test execution and renders its figures in the job facts.
 

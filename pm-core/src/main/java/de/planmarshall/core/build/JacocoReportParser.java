@@ -17,10 +17,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import javax.xml.stream.XMLStreamReader;
 import lombok.experimental.UtilityClass;
 
@@ -36,6 +38,10 @@ import lombok.experimental.UtilityClass;
  * methods whose {@code METHOD} counter has a missed part as the {@code missed_methods} detail; a class without a
  * {@code LINE} counter or with one of {@code 0/0} is not an item. The constructors {@code <init>} and {@code <clinit>} are never part of that detail, because they are not
  * methods a test is expected to call.
+ * <p>
+ * JaCoCo writes each counter type at most once per element. A counter type that appears twice at the report root, or
+ * twice directly within one class, is refused, naming the repeated type, so a later counter can never silently override
+ * an earlier one.
  * <p>
  * JaCoCo writes a {@code DOCTYPE} with a system identifier; the reader tolerates the declaration and never resolves or
  * fetches it, and a document that references an entity is refused, never expanded.
@@ -158,7 +164,9 @@ public class JacocoReportParser {
             int missed = count(reader, "missed");
             int covered = count(reader, "covered");
             if (REPORT.equals(parent) && path.size() == 1) {
-                overall.put(type, new int[]{missed, covered});
+                if (overall.putIfAbsent(type, new int[]{missed, covered}) != null) {
+                    throw new IllegalArgumentException("the report carries the " + type + " counter twice");
+                }
             } else if (current != ClassState.NONE) {
                 current.readCounter(parent, type, missed, covered);
             }
@@ -198,6 +206,7 @@ public class JacocoReportParser {
 
         private final String name;
         private final List<String> missedMethods = new ArrayList<>();
+        private final Set<String> classCounterTypes = new HashSet<>();
         private int lineMissed;
         private int lineCovered;
         private boolean lineSeen;
@@ -224,6 +233,10 @@ public class JacocoReportParser {
         }
 
         private void readCounter(String parent, String type, int missed, int covered) {
+            if (CLASS.equals(parent) && !classCounterTypes.add(type)) {
+                throw new IllegalArgumentException(
+                        "the class " + name.replace('/', '.') + " carries the " + type + " counter twice");
+            }
             if (CLASS.equals(parent) && LINE.equals(type)) {
                 lineMissed = missed;
                 lineCovered = covered;
