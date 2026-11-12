@@ -47,14 +47,26 @@ List<SourceFile> files) {
     /** A source name: the directory of the source below {@code sources/}. */
     public static final Pattern NAME_PATTERN = PythonRegex.compile("^[a-z][a-z0-9-]{1,63}$");
 
+    /** The longest source name, in characters: the pattern admits two to 64. */
+    public static final int NAME_MAX_LENGTH = 64;
+
     /** A pinned commit: the full object id of SHA-1 git. */
     public static final Pattern COMMIT_PATTERN = PythonRegex.compile("^[0-9a-f]{40}$");
+
+    /** The length of a pinned commit, in characters: the pattern admits exactly 40. */
+    public static final int COMMIT_MAX_LENGTH = 40;
 
     /** A SHA-256 in lower-case hexadecimal digits. */
     public static final Pattern SHA256 = PythonRegex.compile("^[0-9a-f]{64}$");
 
+    /** The length of a SHA-256, in characters: the pattern admits exactly 64. */
+    public static final int SHA256_MAX_LENGTH = 64;
+
     /** An SPDX licence identifier, or an SPDX expression of identifiers joined by {@code -}, {@code .} or {@code +}. */
     public static final Pattern LICENCE_PATTERN = PythonRegex.compile("^[A-Za-z0-9][A-Za-z0-9.+-]*$");
+
+    /** The longest licence identifier, in characters: the pattern bounds no length. */
+    public static final int LICENCE_MAX_LENGTH = 64;
 
     /**
      * A repository-relative path: segments joined by {@code /}, none empty, {@code .} or {@code ..}. A {@code ..}
@@ -63,6 +75,12 @@ List<SourceFile> files) {
      */
     public static final Pattern RELATIVE_PATH =
             PythonRegex.compile("^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$");
+
+    /** The longest repository-relative path, in characters: the pattern bounds no length. */
+    public static final int RELATIVE_PATH_MAX_LENGTH = 1024;
+
+    /** The longest repository URI, in characters: {@link #requireRepository} checks it before the URI's own rule. */
+    public static final int REPOSITORY_MAX_LENGTH = 2048;
 
     /**
      * One file of a source.
@@ -78,8 +96,8 @@ List<SourceFile> files) {
          * @throws IllegalArgumentException if the path is not repository-relative or the hash is not a SHA-256
          */
         public SourceFile {
-            require(path, RELATIVE_PATH, "path");
-            require(sha256, SHA256, "sha256");
+            require(path, RELATIVE_PATH_MAX_LENGTH, RELATIVE_PATH, "path");
+            require(sha256, SHA256_MAX_LENGTH, SHA256, "sha256");
         }
     }
 
@@ -119,10 +137,10 @@ List<SourceFile> files) {
      * @throws IllegalArgumentException if a value is outside the format or a path is named twice
      */
     public SourceManifest {
-        require(name, NAME_PATTERN, "name");
+        require(name, NAME_MAX_LENGTH, NAME_PATTERN, "name");
         requireRepository(repository);
-        require(commit, COMMIT_PATTERN, "commit");
-        require(licence, LICENCE_PATTERN, "licence");
+        require(commit, COMMIT_MAX_LENGTH, COMMIT_PATTERN, "commit");
+        require(licence, LICENCE_MAX_LENGTH, LICENCE_PATTERN, "licence");
         Objects.requireNonNull(fetch, "fetch");
         files = List.copyOf(Objects.requireNonNull(files, "files"));
         if (files.isEmpty()) {
@@ -150,16 +168,39 @@ List<SourceFile> files) {
      * share this rule, so every item generated from a manifest the codec accepts is accepted too.
      *
      * @param repository the repository URI
-     * @throws IllegalArgumentException if the URI is outside the rule
+     * @throws IllegalArgumentException if the URI is outside the rule or longer than {@link #REPOSITORY_MAX_LENGTH}
      */
     static void requireRepository(URI repository) {
         Objects.requireNonNull(repository, "repository");
+        var uri = repository.toString();
+        if (uri.codePointCount(0, uri.length()) > REPOSITORY_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "'repository' is longer than " + REPOSITORY_MAX_LENGTH + " characters");
+        }
         if (!repository.isAbsolute() || !"https".equals(repository.getScheme()) || repository.getHost() == null
                 || repository.getRawQuery() != null || repository.getRawFragment() != null
                 || repository.getRawUserInfo() != null) {
             throw new IllegalArgumentException(
                     "'repository' must be an absolute https URI without user, query or fragment: " + repository);
         }
+    }
+
+    /**
+     * Requires a value no longer than a bound, and only then its pattern, so an over-long value never reaches the
+     * regular expression engine the way {@link SchemaSubset} checks the length before the pattern.
+     *
+     * @param value     the value
+     * @param maxLength the longest value, in code points
+     * @param pattern   the pattern of the value
+     * @param field     the name of the member, named by a refusal
+     * @throws IllegalArgumentException if the value is longer than the bound or does not match the pattern
+     */
+    static void require(String value, int maxLength, Pattern pattern, String field) {
+        Objects.requireNonNull(value, field);
+        if (value.codePointCount(0, value.length()) > maxLength) {
+            throw new IllegalArgumentException("'" + field + "' is longer than " + maxLength + " characters");
+        }
+        require(value, pattern, field);
     }
 
     static void require(String value, Pattern pattern, String field) {

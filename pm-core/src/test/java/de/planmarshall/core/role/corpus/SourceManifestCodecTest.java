@@ -266,4 +266,41 @@ class SourceManifestCodecTest {
 
         assertUnreadable(refusalOf(text.getBytes(StandardCharsets.UTF_8)), "content after the document");
     }
+
+    /** One string member of the manifest: its value at the bound, one code point over, and the refusal of the latter. */
+    record Bound(String name, String field, String atBound, String overBound, String refusal) {
+    }
+
+    static Stream<Bound> boundedValues() {
+        var path = "a".repeat(1024);
+        return Stream.of(
+                new Bound("name", "name", quoted("a".repeat(64)), quoted("a".repeat(65)),
+                        "'name' is longer than 64 characters"),
+                new Bound("repository", "repository", quoted("https://h.test/" + "p".repeat(2033)),
+                        quoted("https://h.test/" + "p".repeat(2034)), "'repository' is longer than 2048 characters"),
+                new Bound("commit", "commit", quoted("a".repeat(40)), quoted("a".repeat(41)),
+                        "'commit' is longer than 40 characters"),
+                new Bound("licence", "licence", quoted("A".repeat(64)), quoted("A".repeat(65)),
+                        "'licence' is longer than 64 characters"),
+                new Bound("a file path", "files", "[" + file(path, HASH, false) + "]",
+                        "[" + file(path + "a", HASH, false) + "]", "'path' is longer than 1024 characters"),
+                new Bound("a file sha256", "files", "[" + file("data/test.csv", "a".repeat(64), false) + "]",
+                        "[" + file("data/test.csv", "a".repeat(65), false) + "]",
+                        "'sha256' is longer than 64 characters"));
+    }
+
+    private static String quoted(String value) {
+        return "\"" + value + "\"";
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("boundedValues")
+    @DisplayName("a value of exactly the bound reads and one code point over is refused for its length")
+    void boundedValue(Bound bound) {
+        var atBound = SourceManifestCodec.read(FILE, with(bound.field(), bound.atBound()));
+
+        assertAll(
+                () -> assertEquals(atBound, SourceManifestCodec.read(FILE, SourceManifestCodec.write(atBound))),
+                () -> assertUnreadable(refusalOf(with(bound.field(), bound.overBound())), bound.refusal()));
+    }
 }

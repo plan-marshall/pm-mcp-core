@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.role.corpus.ImportedItem.Origin;
+import de.planmarshall.core.role.corpus.JsonValue.JsonNumber;
 import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
 import de.planmarshall.core.role.corpus.JsonValue.JsonString;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
@@ -77,6 +78,17 @@ class CorpusPatternParityTest {
 
     /** The pattern constants of the records that copy no schema pattern: a position key is the record's own form. */
     private static final Set<Pattern> RECORD_ONLY = Set.of(SourceOverlay.POSITION);
+
+    /**
+     * The schema {@code maxLength} members no bound constant of a record copies, as {@code <resource> <path>}: a date is
+     * a {@link java.time.LocalDate} in the record, and the codec accepts only the one shape whose text is ten code
+     * points, {@link CorpusJson#DATE_PATTERN}.
+     */
+    private static final Set<String> SCHEMA_ONLY_BOUNDS = Set.of(
+            OVERLAY + " created",
+            OVERLAY + " rows/items/review/date",
+            ITEM + " provenance/created",
+            ITEM + " review/date");
 
     /** The records whose pattern constants, with those of their nested types, copy schema patterns. */
     private static final List<Class<?>> RECORDS = List.of(SourceManifest.class, ImportedItem.class,
@@ -252,6 +264,132 @@ class CorpusPatternParityTest {
                 () -> assertEquals(List.of(), both, "a record-only constraint also has a case"));
     }
 
+    /** The bound of one record constant and the schema member it copies. */
+    private static int maxLengthAt(String resource, String... path) {
+        return ((JsonNumber) ((JsonObject) schemaAt(resource, path)).get("maxLength").orElseThrow()).value()
+                .intValueExact();
+    }
+
+    static Stream<Arguments> bounds() {
+        return Stream.of(
+                Arguments.of("SourceManifest.NAME_MAX_LENGTH / manifest name", SourceManifest.NAME_MAX_LENGTH,
+                        MANIFEST, new String[]{"name"}),
+                Arguments.of("SourceManifest.NAME_MAX_LENGTH / overlay source", SourceManifest.NAME_MAX_LENGTH,
+                        OVERLAY, new String[]{"source"}),
+                Arguments.of("SourceManifest.COMMIT_MAX_LENGTH / manifest commit", SourceManifest.COMMIT_MAX_LENGTH,
+                        MANIFEST, new String[]{"commit"}),
+                Arguments.of("SourceManifest.COMMIT_MAX_LENGTH / item origin commit",
+                        SourceManifest.COMMIT_MAX_LENGTH, ITEM, new String[]{"provenance", "origin", "commit"}),
+                Arguments.of("SourceManifest.SHA256_MAX_LENGTH / manifest file sha256",
+                        SourceManifest.SHA256_MAX_LENGTH, MANIFEST, new String[]{"files", "items", "sha256"}),
+                Arguments.of("SourceManifest.LICENCE_MAX_LENGTH / manifest licence",
+                        SourceManifest.LICENCE_MAX_LENGTH, MANIFEST, new String[]{"licence"}),
+                Arguments.of("SourceManifest.RELATIVE_PATH_MAX_LENGTH / manifest file path",
+                        SourceManifest.RELATIVE_PATH_MAX_LENGTH, MANIFEST, new String[]{"files", "items", "path"}),
+                Arguments.of("SourceManifest.RELATIVE_PATH_MAX_LENGTH / overlay file",
+                        SourceManifest.RELATIVE_PATH_MAX_LENGTH, OVERLAY, new String[]{"file"}),
+                Arguments.of("SourceManifest.RELATIVE_PATH_MAX_LENGTH / item origin path",
+                        SourceManifest.RELATIVE_PATH_MAX_LENGTH, ITEM, new String[]{"provenance", "origin", "path"}),
+                Arguments.of("SourceManifest.REPOSITORY_MAX_LENGTH / manifest repository",
+                        SourceManifest.REPOSITORY_MAX_LENGTH, MANIFEST, new String[]{"repository"}),
+                Arguments.of("SourceManifest.REPOSITORY_MAX_LENGTH / item origin repository",
+                        SourceManifest.REPOSITORY_MAX_LENGTH, ITEM,
+                        new String[]{"provenance", "origin", "repository"}),
+                Arguments.of("ImportedItem.ID_MAX_LENGTH / item id", ImportedItem.ID_MAX_LENGTH, ITEM,
+                        new String[]{"id"}),
+                Arguments.of("ImportedItem.TOPIC_MAX_LENGTH / item topic", ImportedItem.TOPIC_MAX_LENGTH, ITEM,
+                        new String[]{"topic"}),
+                Arguments.of("ImportedItem.TOPIC_MAX_LENGTH / overlay row topic", ImportedItem.TOPIC_MAX_LENGTH,
+                        OVERLAY, new String[]{"rows", "items", "topic"}),
+                Arguments.of("ImportedItem.SLUG_MAX_LENGTH / overlay row id", ImportedItem.SLUG_MAX_LENGTH, OVERLAY,
+                        new String[]{"rows", "items", "id"}),
+                Arguments.of("ImportedItem.TITLE_MAX_LENGTH / item title", ImportedItem.TITLE_MAX_LENGTH, ITEM,
+                        new String[]{"title"}),
+                Arguments.of("ImportedItem.TITLE_MAX_LENGTH / overlay row title", ImportedItem.TITLE_MAX_LENGTH,
+                        OVERLAY, new String[]{"rows", "items", "title"}));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("bounds")
+    @DisplayName("every bound of a record is the maxLength of the schema member it copies")
+    void boundEqualsSchema(String name, int bound, String resource, String[] path) {
+        assertEquals(bound, maxLengthAt(resource, path), name);
+    }
+
+    /**
+     * @param schema   a schema
+     * @param resource the name the keys carry
+     * @return the keys of every schema below the given one that carries a {@code maxLength}
+     */
+    private static Set<String> schemaBounds(JsonValue schema, String resource) {
+        var found = new TreeSet<String>();
+        collectBounds(schema, resource, List.of(), found);
+        return found;
+    }
+
+    private static void collectBounds(JsonValue schema, String resource, List<String> path, Set<String> found) {
+        if (!(schema instanceof JsonObject object)) {
+            return;
+        }
+        if (object.get("maxLength").isPresent()) {
+            found.add(key(resource, path.toArray(String[]::new)));
+        }
+        if (object.get("properties").orElse(null) instanceof JsonObject properties) {
+            properties.members().forEach((name, child) -> collectBounds(child, resource, append(path, name), found));
+        }
+        object.get("items").ifPresent(items -> collectBounds(items, resource, append(path, "items"), found));
+    }
+
+    @Test
+    @DisplayName("every schema maxLength has one bound case, or is a listed schema-only bound")
+    void everySchemaBoundHasACase() {
+        var found = new TreeSet<String>();
+        for (var resource : List.of(MANIFEST, OVERLAY, ITEM)) {
+            found.addAll(schemaBounds(JsonValue.parse(CorpusSchemaResourcesTest.resource(resource).getBytes(UTF_8)),
+                    resource));
+        }
+        var cases = bounds().map(Arguments::get).map(arguments -> key((String) arguments[2], (String[]) arguments[3]))
+                .toList();
+        var covered = new TreeSet<>(cases);
+        covered.addAll(SCHEMA_ONLY_BOUNDS);
+
+        assertAll(
+                () -> assertEquals(found, covered, "schema bounds without a case, or cases without a bound"),
+                () -> assertEquals(cases.size(), Set.copyOf(cases).size(), "a schema bound has more than one case"),
+                () -> assertEquals(found.size(), cases.size() + SCHEMA_ONLY_BOUNDS.size(),
+                        "a schema-only bound also has a case"));
+    }
+
+    private static Stream<Field> intConstants(Class<?> type) {
+        return Stream.concat(
+                Arrays.stream(type.getDeclaredFields()).filter(field -> field.getType() == int.class
+                        && Modifier.isStatic(field.getModifiers()) && !Modifier.isPrivate(field.getModifiers())),
+                Arrays.stream(type.getDeclaredClasses()).flatMap(CorpusPatternParityTest::intConstants));
+    }
+
+    @Test
+    @DisplayName("every bound constant of the records has a case")
+    void everyRecordBoundHasACase() {
+        var declared = RECORDS.stream().flatMap(CorpusPatternParityTest::intConstants)
+                .map(CorpusPatternParityTest::constantName).toList();
+        var cases = bounds().map(Arguments::get).map(arguments -> constantName((String) arguments[0])).toList();
+        var uncovered = declared.stream().filter(constant -> !cases.contains(constant)).toList();
+        var both = cases.stream().filter(constant -> !declared.contains(constant)).toList();
+
+        assertAll(
+                () -> assertFalse(declared.isEmpty(), "the records declare bound constants"),
+                () -> assertEquals(List.of(), uncovered, "record bound constants without a case"),
+                () -> assertEquals(List.of(), both, "a bound case for a constant no record declares"));
+    }
+
+    private static String constantName(Field constant) {
+        return constant.getDeclaringClass().getSimpleName() + "." + constant.getName();
+    }
+
+    private static String constantName(String caseName) {
+        return caseName.substring(0, caseName.indexOf(" / "));
+    }
+
     @Test
     @DisplayName("the inventory walk finds a pattern in a property, in the items of an array and below both")
     void walkFindsNestedPatterns() {
@@ -333,10 +471,11 @@ class CorpusPatternParityTest {
     @Test
     @DisplayName("a value ending in one line feed is admitted by the schema's $ and refused by the record")
     void finalLineFeedStricter() {
-        var commit = COMMIT + "\n";
+        var name = "sample-set\n";
 
         assertAll(
-                () -> assertTrue(schemaAccepts(commit, MANIFEST, "commit"), "Python's $ matches before a final \\n"),
-                () -> assertFalse(SourceManifest.COMMIT_PATTERN.matcher(commit).matches(), "the record matches it whole"));
+                () -> assertTrue(schemaAccepts(name, MANIFEST, "name"), "Python's $ matches before a final \\n"),
+                () -> assertFalse(SourceManifest.NAME_PATTERN.matcher(name).matches(),
+                        "the record matches it whole"));
     }
 }
