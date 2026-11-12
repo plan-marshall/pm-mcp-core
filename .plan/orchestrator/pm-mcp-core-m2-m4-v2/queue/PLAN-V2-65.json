@@ -2,10 +2,10 @@
   "id": "PLAN-V2-65",
   "slug": "corpus-schema-length-bounds",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-65-corpus-schema-length-bounds",
+  "pr": "#389",
+  "landing": "landings/PLAN-V2-65.md",
   "seq": 65
 }
