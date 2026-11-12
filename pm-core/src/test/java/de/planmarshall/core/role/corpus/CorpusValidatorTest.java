@@ -69,6 +69,9 @@ class CorpusValidatorTest {
     private static final String MANIFEST = "sources/alpha/manifest.json";
     private static final String OVERLAY = "sources/alpha/overlay.json";
 
+    /** An item id one code point over the schema's bound of 256: {@code "screening/"} and 244 letters, then the slug. */
+    private static final String ID_OVER_BOUND = "screening/" + "a".repeat(244) + "/q-1";
+
     /** The item schema of the fixture corpus: a closed schema of the keyword subset, written for this test. */
     private static final String ITEM_SCHEMA = """
             {"type":"object","additionalProperties":false,
@@ -549,6 +552,14 @@ class CorpusValidatorTest {
                 Arguments.of("the manifest has an undeclared member", MANIFEST, Rule.MANIFEST,
                         (Mutation) f -> f.write(MANIFEST, new String(SourceManifestCodec.write(manifest("alpha",
                                 SOURCE_FILE)), UTF_8).replace("\"licence\"", "\"homepage\" : \"x\", \"licence\""))),
+                Arguments.of("the manifest names a commit over its bound", MANIFEST, Rule.MANIFEST,
+                        (Mutation) f -> f.write(MANIFEST, new String(SourceManifestCodec.write(manifest("alpha",
+                                SOURCE_FILE)), UTF_8).replace("\"" + COMMIT + "\"", "\"" + "g".repeat(41) + "\""))),
+                Arguments.of("the overlay names a creation date over its bound", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.write(OVERLAY, new String(SourceOverlayCodec.write(overlay("alpha",
+                                SOURCE_FILE)), UTF_8).replace("\"2026-10-14\"", "\"2026-10-141\""))),
+                Arguments.of("a generated item has an id over its bound", ID_OVER_BOUND, Rule.IMPORTED_ITEM,
+                        (Mutation) f -> f.generated(with(importedItem(ID_OVER_BOUND), "title", "a short title"))),
                 Arguments.of("the manifest names another source", MANIFEST, Rule.MANIFEST,
                         (Mutation) f -> f.manifest(manifest("beta", SOURCE_FILE))),
                 Arguments.of("the manifest is no JSON", MANIFEST, Rule.MANIFEST, (Mutation) f -> f.write(MANIFEST, "[")),
@@ -721,6 +732,22 @@ class CorpusValidatorTest {
             assertEquals(List.of("the section '## alpha' appears 2 times, not once"),
                     violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations));
         }
+    }
+
+    @Test
+    @DisplayName("the schema reports a value over its bound as the length, and never reaches its pattern")
+    void schemaChecksTheLengthBeforeThePattern() throws Exception {
+        fixture.write(MANIFEST, new String(SourceManifestCodec.write(manifest("alpha", SOURCE_FILE)), UTF_8)
+                .replace("\"" + COMMIT + "\"", "\"" + "g".repeat(41) + "\""));
+        fixture.write(OVERLAY, new String(SourceOverlayCodec.write(overlay("alpha", SOURCE_FILE)), UTF_8)
+                .replace("\"2026-10-14\"", "\"2026-10-141\""));
+
+        var violations = validate();
+
+        assertAll(
+                () -> assertEquals(2, violations.size(), () -> report(violations)),
+                () -> assertEquals(List.of("$.commit: longer than 40", "$.created: longer than 10"),
+                        violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations)));
     }
 
     @Test

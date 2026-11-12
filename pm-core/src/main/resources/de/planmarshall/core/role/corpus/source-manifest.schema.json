@@ -19,21 +19,25 @@
     },
     "name": {
       "type": "string",
+      "maxLength": 64,
       "pattern": "^[a-z][a-z0-9-]{1,63}$",
       "description": "the source name, the directory below sources/"
     },
     "repository": {
       "type": "string",
+      "maxLength": 2048,
       "pattern": "^https://[^/?#@\\s]+(/[^?#\\s]*)?$",
       "description": "the repository the files are fetched from, an absolute https URI without user, query or fragment"
     },
     "commit": {
       "type": "string",
+      "maxLength": 40,
       "pattern": "^[0-9a-f]{40}$",
       "description": "the pinned commit"
     },
     "licence": {
       "type": "string",
+      "maxLength": 64,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*$",
       "description": "the SPDX licence identifier of the dataset"
     },
@@ -58,11 +62,13 @@
         "properties": {
           "path": {
             "type": "string",
+            "maxLength": 1024,
             "pattern": "^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$",
             "description": "the repository-relative path of the file"
           },
           "sha256": {
             "type": "string",
+            "maxLength": 64,
             "pattern": "^[0-9a-f]{64}$",
             "description": "the SHA-256 of the file, or of the LFS object if the file is an LFS pointer"
           },

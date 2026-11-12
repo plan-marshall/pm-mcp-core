@@ -23,11 +23,13 @@
     },
     "id": {
       "type": "string",
+      "maxLength": 256,
       "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$",
       "description": "<topic path>/<slug>"
     },
     "topic": {
       "type": "string",
+      "maxLength": 256,
       "pattern": "^[a-z0-9-]+(/[a-z0-9-]+)*$"
     },
     "role": {
@@ -160,6 +162,7 @@
         },
         "created": {
           "type": "string",
+          "maxLength": 10,
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
         },
         "origin": {
@@ -174,16 +177,19 @@
           "properties": {
             "repository": {
               "type": "string",
+              "maxLength": 2048,
               "pattern": "^https://[^/?#@\\s]+(/[^?#\\s]*)?$",
               "description": "the repository of the source, as the manifest names it: an absolute https URI without user, query or fragment"
             },
             "commit": {
               "type": "string",
+              "maxLength": 40,
               "pattern": "^[0-9a-f]{40}$",
               "description": "the pinned commit of the source"
             },
             "path": {
               "type": "string",
+              "maxLength": 1024,
               "pattern": "^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$",
               "description": "the repository-relative path of the file"
             },
@@ -223,6 +229,7 @@
         },
         "date": {
           "type": "string",
+          "maxLength": 10,
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
         },
         "notes": {
