@@ -2,10 +2,10 @@
   "id": "PLAN-V2-129",
   "slug": "deferred-code-removal",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-129-deferred-code-removal",
+  "pr": "#396, #397",
+  "landing": "landings/PLAN-V2-129.md",
   "seq": 117
 }

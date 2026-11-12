@@ -2,10 +2,10 @@
   "id": "PLAN-V2-66",
   "slug": "process-tree-sweep-pid-reuse",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-66-process-tree-sweep-pid-reuse",
+  "pr": "#390",
+  "landing": "landings/PLAN-V2-66.md",
   "seq": 66
 }
