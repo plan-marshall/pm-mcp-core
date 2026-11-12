@@ -46,21 +46,30 @@ a test.
   through its handle exactly once. The cost is stated: the process *group* of such a job is not signalled either, so its
   descendants are left to the tracker — which needs start instants as well, and therefore records no member on a platform
   that reports none.
+* `SubprocessJobRunner.pidReused` gains a package-private overload that takes the handle lookup as a `LongFunction`,
+  with the existing method delegating to it through `ProcessHandle::of`. It exists because a platform that reports a
+  start instant for every listed process cannot produce the unreadable-instant state with a real handle, and the table of
+  four would otherwise be untestable on Linux and macOS. The production path is unchanged; the overload is not a second
+  decision.
 
 == Reading of the JDK
 
-OpenJDK 25 (Temurin 25+36), `src/java.base`:
+OpenJDK 25 (Temurin 25+36), `src/java.base`; the files are cited at the `jdk-25-ga` tag:
 
 * `java.lang.ProcessHandleImpl.destroyProcess(boolean force)` refuses the current process and calls
   `destroy0(pid, startTime, force)`, passing the start time the handle was created with; `destroy()` and
   `destroyForcibly()` are that call with `force` false and true. The Javadoc of the native says the process "is
   signaled only if its start time matches the known start time".
+  (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/lang/ProcessHandleImpl.java[`ProcessHandleImpl.java`])
 * `ProcessHandleImpl_unix.c`, `Java_java_lang_ProcessHandleImpl_destroy0` (shared by Linux and macOS) reads the PID's
   current start time through the same `isAlive0` the handle factory uses and calls `kill(pid, sig)` only when
   `start == startTime || start == 0 || startTime == 0`; otherwise it returns `JNI_FALSE` and no signal is sent.
+  (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c[`ProcessHandleImpl_unix.c`])
 * `isAlive0` is `os_getParentPidAndTimings`: Linux reads `/proc/<pid>/stat` (field 22, start time in clock ticks, plus
   the boot time of `/proc/stat`); macOS reads `sysctl KERN_PROC_PID` and `kp_proc.p_starttime`. Both report a start time
   for every process they list, so on the two supported platforms the comparison is effective.
+  (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/linux/native/libjava/ProcessHandleImpl_linux.c[`ProcessHandleImpl_linux.c`],
+  link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/macosx/native/libjava/ProcessHandleImpl_macosx.c[`ProcessHandleImpl_macosx.c`])
 * The `start == 0 || startTime == 0` escape is the STARTTIME_ANY case, where the operating system cannot report a start
   time. On such a platform `ProcessHandle.info().startInstant()` is empty, and `Descendants.system()` drops a member
   whose start instant is empty, so the sweep records no member there in the first place: the case has nothing to signal.
@@ -106,5 +115,6 @@ actual behaviour is stated in its Javadoc.
   (`Java_java_lang_ProcessHandleImpl_destroy0`, `isAlive0`), `ProcessHandleImpl_linux.c` and
   `ProcessHandleImpl_macosx.c` (`os_getParentPidAndTimings`)
 * `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessTreeTracker.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java` (the test seam of `pidReused`),
   `pm-runtime/src/test/java/de/planmarshall/runtime/job/ProcessTreeTrackerTest.java`,
   `pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerPidReuseTest.java`

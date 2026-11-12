@@ -30,9 +30,11 @@ starts every probe itself; a worker is started by the supervisor, which does not
   still known at the job's end.
 * `sweep()` sends `SIGTERM` to every remembered member that still runs, waits `SWEEP_GRACE` while it probes, and sends
   `SIGKILL` to those left. A remembered PID whose current process started at another instant was reused and is never
-  signalled; the tracker follows the same rule as ADR 010. A member still alive after the `SIGKILL` is answered as a
-  `Survivor`, and the runner writes it as the security audit record `job_descendant_survived` with its PID and
-  executable; a sink that refuses the record is logged and does not stop the settlement.
+  signalled; the tracker follows the same rule as ADR 010. Since link:017-sweep-through-the-process-handle.adoc[ADR 017]
+  both signals go through the member's own `ProcessHandle`, which re-checks the start time inside the JDK. A member still
+  alive after the `SIGKILL` is answered as a `Survivor`, and the runner writes it as the security audit record
+  `job_descendant_survived` with its PID and executable; a sink that refuses the record is logged and does not stop the
+  settlement.
 * `SubprocessJobRunner` wires the tracker for a probe right after the process is started, so the report wait and every
   fallback path are covered, refreshes it at least once per second during the report wait and from the waiting loop
   (whose wait is therefore bounded by `REFRESH_INTERVAL`, not only by the budget) and sweeps it on the normal end, on the

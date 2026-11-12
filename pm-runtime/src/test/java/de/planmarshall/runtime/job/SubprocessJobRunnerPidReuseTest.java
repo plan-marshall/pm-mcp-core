@@ -14,6 +14,7 @@ import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,7 +43,7 @@ import de.planmarshall.core.store.JobId;
  * The data are generated: the PIDs and the start instants. The literals that stay are the contract — the signals the
  * termination protocol would send and the handle calls it replaced.
  * <p>
- * The tests build the runner they need themselves; {@link SubprocessJobRunnerTest} is not edited.
+ * The class builds the runner it needs itself; it takes no helper from {@link SubprocessJobRunnerTest}.
  */
 @EnableGeneratorController
 @DisplayName("PID reuse of a started process")
@@ -104,9 +105,9 @@ class SubprocessJobRunnerPidReuseTest {
     }
 
     /** @return the decision over the launched process and the handle the PID lookup answers */
-    private static boolean reused(Process process, Optional<Instant> currentStartInstant) {
+    private boolean reused(Process process, Optional<Instant> currentStartInstant) {
         LongFunction<Optional<ProcessHandle>> handles = ignored -> Optional.of(handle(currentStartInstant));
-        return SubprocessJobRunner.pidReused(new PmExecLauncher.Launched(process, 1L), handles);
+        return SubprocessJobRunner.pidReused(new PmExecLauncher.Launched(process, pid), handles);
     }
 
     @Test
@@ -157,8 +158,8 @@ class SubprocessJobRunnerPidReuseTest {
         var cancelBeforeGroup = runner.terminateByHandle(JobId.random(JobId.Kind.GIT), launched);
 
         assertAll(
-                () -> assertFalse(cancelBeforeGroup, "an unreadable instant cancels before no group"),
-                () -> verify(process),
-                () -> verify(signalling));
+                () -> assertFalse(cancelBeforeGroup, "an unreadable instant reaches no group"),
+                () -> assertDoesNotThrow(() -> verify(process), "the process is destroyed through its handle"),
+                () -> assertDoesNotThrow(() -> verify(signalling), "no numeric signal is sent by the termination"));
     }
 }

@@ -66,7 +66,6 @@ public final class ProcessTreeTracker {
      * @param pid       its PID
      * @param startedAt the start instant the handle was read with
      * @param handle    the handle the descendants were read from
-     * @throws NullPointerException if the start instant or the handle is {@code null}
      */
     public record Member(long pid, Instant startedAt, ProcessHandle handle) {
 
@@ -131,8 +130,8 @@ public final class ProcessTreeTracker {
     /**
      * @param root    the job PID, the root of the tree
      * @param signals the signalling primitive of the termination protocol; the sweep ends a member through the
-     *                    {@link ProcessHandle} it was read from and sends no signal through this primitive, so the
-     *                    parameter is accepted only to keep the call sites that pass the protocol's own primitive
+     *                {@link ProcessHandle} it was read from and sends no signal through this primitive, so the parameter
+     *                is accepted only to keep the call sites that pass the protocol's own primitive unchanged
      * @throws NullPointerException if an argument is {@code null}
      */
     public ProcessTreeTracker(long root, ProcessGroupSignals signals) {
@@ -143,7 +142,7 @@ public final class ProcessTreeTracker {
      * @param root        the job PID, the root of the tree
      * @param descendants where the tree is read
      * @param starts      where the start instant of a PID is read
-     * @param signals     the signalling primitive of the termination protocol; no longer used by the sweep, see
+     * @param signals     the signalling primitive of the termination protocol; the sweep no longer reads it, see
      *                    {@link #ProcessTreeTracker(long, ProcessGroupSignals)}
      * @param clock       the clock of the grace period
      * @param pause       how the sweep waits
@@ -212,7 +211,8 @@ public final class ProcessTreeTracker {
         if (interrupted) {
             Thread.currentThread().interrupt();
         }
-        return left.stream().filter(member -> survivors().contains(member))
+        var killed = left.stream().map(Member::pid).collect(Collectors.toUnmodifiableSet());
+        return survivors().stream().filter(member -> killed.contains(member.pid()))
                 .map(member -> new Survivor(member.pid(), member.handle().info().command().orElse(null)))
                 .toList();
     }
