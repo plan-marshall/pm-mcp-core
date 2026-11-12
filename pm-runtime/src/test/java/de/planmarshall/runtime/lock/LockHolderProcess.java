@@ -40,8 +40,8 @@ import de.planmarshall.core.store.LockLevel;
  * ends it with an exception and another exit code.
  * <p>
  * Every datum of this class is a contract: the protocol lines {@link #HELD}, {@link #LEAF}, {@link #MAILBOX},
- * {@link #REPAIR}, {@link #READ} and {@link #JOURNAL} are the protocol with the starting process, and the project, plan
- * and task ids arrive as arguments from the test that drew them.
+ * {@link #REPAIR}, {@link #READ}, {@link #JOURNAL} and {@link #LINES_PREFIX} are the protocol with the starting
+ * process, and the project, plan and task ids arrive as arguments from the test that drew them.
  */
 final class LockHolderProcess {
 

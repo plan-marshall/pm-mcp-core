@@ -129,7 +129,7 @@ The runtime (`pm-mcpd`) persists machine-wide configuration and the machine's ot
 └── logs/                                # Diagnostic logs and structured security audit
     ├── daemon.log                       # Rolling runtime diagnostic log (mode 0600)
     ├── audit.jsonl                      # Append-only audit (mode 0600); leaf lock, its OS lock on the sidecar beside it
-    ├── audit.jsonl.lock                 # Sidecar of the audit leaf key's OS lock (mode 0600), never a channel on the log
+    ├── audit.jsonl.lock                 # Sidecar of the audit leaf key's OS lock (mode 0600); no store channel opens it
     ├── audit-<first_event_id>.jsonl     # Rotated audit files, closed by a checkpoint record
     ├── audit-index.jsonl                # Hash-chained index of rotated audit files
     └── audit.head                       # HMAC-anchored head: file, record count, last event_id, head hash

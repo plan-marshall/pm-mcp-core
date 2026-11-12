@@ -53,9 +53,10 @@ import de.planmarshall.core.store.LockLevel;
  * <p>
  * The other process is ended after every test, also after a failed one, and never waited for without a bound.
  * <p>
- * The project and plan ids are generated and passed to the other process. The literals that stay are the contract:
- * the child-process protocol (its arguments, the {@link LockHolderProcess#HELD} line and the
- * {@link LockHolderProcess#LEAF} mode), its exit code 0 and the process and observation bounds.
+ * The project, plan and queue task ids are generated and passed to the other process. The literals that stay are the
+ * contract: the child-process protocol (its arguments, the mode argument, the {@link LockHolderProcess#HELD} line and
+ * the {@link LockHolderProcess#LINES_PREFIX} line of the read mode), its exit code 0 and the process and observation
+ * bounds.
  */
 @EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
@@ -116,20 +117,33 @@ class FileLockManagerTwoProcessIT {
                 .start();
         var reader = new BufferedReader(new InputStreamReader(holder.getInputStream(), StandardCharsets.UTF_8));
         // Reading the lines cannot be interrupted, so it is waited for from outside; ending the process ends the read
-        var lines = CompletableFuture.supplyAsync(() -> {
+        var protocol = CompletableFuture.supplyAsync(() -> {
             try {
                 var collected = new ArrayList<String>();
                 String line;
-                while ((line = reader.readLine()) != null && !LockHolderProcess.HELD.equals(line)) {
+                while ((line = reader.readLine()) != null) {
+                    if (LockHolderProcess.HELD.equals(line)) {
+                        return new Protocol(collected, true);
+                    }
                     collected.add(line);
                 }
-                return collected;
+                return new Protocol(collected, false);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }).get(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS);
         protocolLines.clear();
-        protocolLines.addAll(lines);
+        protocolLines.addAll(protocol.lines());
+        assertTrue(protocol.held(), "the other process did not report that it holds the lock");
+    }
+
+    /**
+     * The protocol the other process wrote before it said it holds its key.
+     *
+     * @param lines the protocol lines that preceded {@link LockHolderProcess#HELD}
+     * @param held  whether {@link LockHolderProcess#HELD} was read at all
+     */
+    private record Protocol(List<String> lines, boolean held) {
     }
 
     /** Lets the other process release the lock and end, and returns its exit code. */
