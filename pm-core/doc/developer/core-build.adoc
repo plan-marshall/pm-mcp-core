@@ -283,9 +283,10 @@ the boundary).
 === A zero denominator is absent
 
 A counter whose denominator is zero measured nothing, so it has no percentage: `CoveragePercentages.percentage` returns
-an empty `Optional` for a zero total, and no parser writes `0.0` for it. In every format an item whose line counter is
-`0/0` is no item, a branch, function or instruction counter of `0/0` leaves that metric `null`, and a report whose
-overall line counter is `0/0` is refused with the reason `no lines measured`. A rate is read as text through
+an empty `Optional` for a zero total, and no parser writes `0.0` for it. Where a format reports a line counter per item,
+an item whose line counter is `0/0` is no item (a Cobertura class carries no counter of its own, so Cobertura decides at
+the root, where a `lines-valid` of `0` refuses the report); a branch, function or instruction counter of `0/0` leaves
+that metric `null`, and a report whose overall line counter is `0/0` is refused with the reason `no lines measured`. A rate is read as text through
 `BigDecimal` and checked to `0..1`, so `NaN`, `Infinity` and the hexadecimal floating-point forms are refused rather
 than read.
 
@@ -339,8 +340,8 @@ there is no text scan before it. The factory turns DTD support off, turns extern
 references from being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries
 to reach a file or a URL reads nothing. With DTD support off the JDK reader still parses JaCoCo's own `DOCTYPE` with a
 system identifier, so the declaration is tolerated and never resolved or fetched. The walk refuses an `ENTITY_REFERENCE`
-event, so an entity reference in element content is refused, never expanded. An entity reference in an attribute value
-raises no such event: the reader drops it from the value, so it is never expanded and never resolved either, and the
+event, so an entity reference in element content is refused, never expanded. An undeclared entity reference in an
+attribute value raises no such event: the reader drops it from the value, so it is never expanded and never resolved either, and the
 report is read without it. The decisions, with the measured behaviour of the JDK reader, are recorded in
 link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`], which
 supersedes the hardening part of
@@ -490,7 +491,7 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 * *The threshold reads the line only.* `CoverageReport.evaluate` compares the overall line percentage and each item's
   line percentage, and no other metric changes either.
 * *A coverage document is untrusted.* The XML readers tolerate a `DOCTYPE` without resolving it, refuse an entity
-  reference in element content and drop one in an attribute value, never expanding or resolving either; a malformed or
+  reference in element content and drop an undeclared one in an attribute value, never expanding or resolving either; a malformed or
   duplicate-keyed JSON summary is a refusal, not a zero; and a report is read within a byte cap.
 * *A counter that measured nothing is absent.* A `0/0` counter is never a measured `0.0`.
 

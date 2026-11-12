@@ -27,9 +27,9 @@ import lombok.experimental.UtilityClass;
  * and never resolved or fetched. The factory turns DTD support off, turns external entities off, keeps entity references
  * from being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a
  * file or a URL reads nothing. The walk refuses an {@code ENTITY_REFERENCE} event, so a document that references an
- * entity in element content is refused, never expanded. An entity reference in an attribute value raises no such event:
- * the reader drops it from the value, so it is never expanded and never resolved either. The decisions are recorded in
- * {@code core-build/008}, which supersedes the hardening part of {@code core-build/005}.
+ * entity in element content is refused, never expanded. An undeclared entity reference in an attribute value raises no
+ * such event: the reader drops it from the value, so it is never expanded and never resolved either. The decisions are
+ * recorded in {@code core-build/008}, which supersedes the hardening part of {@code core-build/005}.
  *
  * @since 0.1
  */

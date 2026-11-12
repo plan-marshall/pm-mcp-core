@@ -29,8 +29,8 @@ settled the byte cap at 256 MiB.
 1. *DTD support is off and the prefilter is gone.* `CoverageXmlReader` sets `SUPPORT_DTD` to `false`, keeps external
    entities off, keeps entity references from being replaced and keeps the empty-stream `XMLResolver`; the text scan is
    deleted. A `DOCTYPE` is tolerated and never resolved or fetched. The walk keeps refusing an `ENTITY_REFERENCE` event,
-   so an entity reference in element content is refused, never expanded. An entity reference in an attribute value is
-   dropped from the value, never expanded or resolved; the report is read without it.
+   so an entity reference in element content is refused, never expanded. An undeclared entity reference in an attribute
+   value is dropped from the value, never expanded or resolved; the report is read without it.
 2. *The two StAX premises are measured, not assumed.* Hypothesis 1 holds: with DTD support off the JDK reader still
    reports one `DTD` event before the root of `jacoco-high.xml`, and `jacoco-high.xml` and `jacoco-low.xml` parse to
    their unchanged figures. Hypothesis 2 splits: a BOM-less UTF-16 report (declared `encoding="UTF-16"`) is detected from
@@ -42,8 +42,9 @@ settled the byte cap at 256 MiB.
    prologs (a) to (f) of the plan spec through `CoverageXmlReader` with a resolver that counts its calls, and through
    the JaCoCo and Cobertura parsers; the LCOV and Istanbul parsers read no XML, so no prolog applies to them. Each probe
    of (a) to (e) was run against `f97bc7f2` first and failed there: (a) a quoted `>` hiding an internal subset and (b)
-   the same document as BOM-less UTF-16LE and UTF-16BE called the resolver once and were refused by the prefilter rather
-   than the parser; (c) an external subset at `http://host/x.dtd` and at `file:///nonexistent/x.dtd` called the resolver
+   the same document as BOM-less UTF-16LE and UTF-16BE called the resolver once and were refused by the old
+   `ENTITY_REFERENCE` backstop (the quoted `>` or the missing byte-order mark hid the subset from the text scan, so the
+   reference reached the walk) rather than by the parser; (c) an external subset at `http://host/x.dtd` and at `file:///nonexistent/x.dtd` called the resolver
    once; (d) an unused internal subset declaring a parameter entity was refused by the text scan, where the new contract
    tolerates it without resolving it; (e) an entity reference in an attribute value called the resolver once. The
    negative control (f), a comment and a CDATA section that mention a `DOCTYPE`, parses on both versions. No probe was
