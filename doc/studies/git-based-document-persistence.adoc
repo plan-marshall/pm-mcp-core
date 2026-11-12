@@ -1,12 +1,12 @@
-= Study: Git as the Persistence of Versioned Documents (OWASP SAMM, ISMS)
+= Study: Git as the Persistence of Versioned Documents (OWASP SAMM, Threat Models, ISMS)
 :nofooter:
 :toc: macro
 :toclevels: 2
 
 A preliminary study for a project outside PM-MCP. It records the conclusions of an exploratory discussion held on
 2026-11-12: whether a server-side Git repository can serve as the persistence of an application in which users
-maintain versioned documents, first OWASP SAMM assessments and, as an extension, an ISMS. Nothing in this document
-binds `pm-mcp-core`; the repository only hosts it. Statements marked _(unverified)_ come from general knowledge and
+maintain versioned documents: OWASP SAMM assessments, threat model reports and, as an extension, an ISMS. Nothing in
+this document binds `pm-mcp-core`; the repository only hosts it. Statements marked _(unverified)_ come from general knowledge and
 were not checked against a current source; they need verification before a decision rests on them.
 
 toc::[]
@@ -18,15 +18,21 @@ the persistence only, not a user-facing tool. The organisations that use the app
 organisations that already operate a maintained Git server (GitHub, GitLab, Gitea, Bitbucket) with backups. Every
 additional database brings operating effort; reusing the existing Git server avoids it.
 
-Two scenarios are in scope:
+Three categories of information are in scope:
 
 . *OWASP SAMM*: users maintain SAMM assessments per scope (organisation, team, application) and date; the
   assessments are versioned, released and compared over time. This is the core.
+. *Threat models*: users fill in and maintain threat model reports per application, guided by recipes for threat
+  modelling. A second category on the same engine.
 . *ISMS*: an information security management system on the same foundation. This is an extension.
 
+User authentication and the OAuth flows against the Git server are provided by Token Sheriff, a system of its own in
+a parallel repository; this study takes them as given.
+
 The questions were: does a finished Java module for Git-based persistence exist, is building one a good idea, how
-do drafts, multiple users, local and remote operation and user identities work, what does the GDPR demand, which
-gaps remain and how they are closed, and how the approach compares with an established ISMS product (verinice).
+do drafts, multiple users, local and remote operation and user identities work, what does the GDPR demand and how
+pseudonymisation works without a further store, which gaps remain and how they are closed, where threat models
+belong, and how the approach compares with an established ISMS product (verinice).
 
 == Existing Solutions
 
@@ -215,8 +221,9 @@ the application checks the rights. The simplest start.
 |b) Push with the user's token
 |JGit takes the token per push (`UsernamePasswordCredentialsProvider`). The token comes from an OAuth login against
 the Git server (GitHub App or OAuth App, GitLab OAuth), which can be the application's own login; with another
-identity provider the user authorises the Git server once in addition. The server stores tokens encrypted and
-refreshes them (GitHub App user tokens: eight hours plus refresh token _(unverified)_). Gain: the Git server
+identity provider the user authorises the Git server once in addition. Token Sheriff provides these flows, keeps the
+tokens and refreshes them (GitHub App user tokens: eight hours plus refresh token _(unverified)_); the library only
+consumes the token per push. Gain: the Git server
 enforces the rights and its audit log names the real pusher. A protected `main` usually rejects a user's direct
 push; the user then pushes the assessment branch and release runs as a pull or merge request.
 
@@ -251,17 +258,80 @@ retention, restriction of processing (Art. 18) replaces erasure.
 Commits themselves are personal data when the author is a named person. The design therefore keeps personal data
 out of the history:
 
-* *Pseudonymous commits*: the author is an opaque user id or the Git server's user name; the mapping to the person
-  lives outside Git and is deletable.
+* *Pseudonymous commits*: the author is an opaque pseudonym; the mapping of pseudonym to person lies encrypted in Git
+  and is erased by key rotation (see the next section).
 * *Roles instead of persons* in documents (`owner: role:it-security-lead`); the identity provider resolves the role.
-* *Crypto-shredding* for personal fields that must be in a document: encrypted with a key per data subject held
-  outside Git; destroying the key erases the data in effect. Whether this counts as erasure is not settled; agree it
-  with the data protection officer.
+* *Crypto-shredding* for personal fields that must be in a document: encrypted with the data key of the data subject
+  (the same keyring as the pseudonym mapping); destroying the key erases the data in effect. Whether this counts as
+  erasure is not settled; agree it with the data protection officer.
 * *No personal interview notes* in free-text fields; the UI says so.
 * *Repositories per retention period* (see below): after the period the whole repository is deleted; no history is
   rewritten.
 
 This is a technical assessment, not legal advice.
+
+=== Pseudonymisation without a Further Store: an Encrypted Keyring in Git
+
+Pseudonymisation needs a mapping of pseudonym to person, and that mapping must be deletable. A store of its own for
+it would bring back the operating effort Git was meant to avoid. The mapping can instead lie in Git, symmetrically
+encrypted with a key supplied from outside.
+
+*One fixed key is not enough.* The mapping changes: erasing a person writes a new encrypted version without the
+entry. The old versions stay in the Git history, encrypted with the same key; whoever holds the key decrypts
+yesterday's version and has the person back. For the controller, who holds the key, the entry is not erased.
+
+*Rotating the key on erasure works.* When the key is changed on erasure and the old one destroyed, all old versions
+in the history become unreadable at once. Envelope encryption keeps this cheap:
+
+----
+Git
+ ├─ persons/<pseudonym>.enc   ← personal data, each encrypted with its own data key (DEK);
+ │                              never rewritten
+ └─ keys/keyring.enc          ← all DEKs, encrypted with the key-encryption key (KEK, version n);
+                                small, rewritten on every erasure
+
+Outside Git: only the KEK (supplied from outside, versioned)
+----
+
+Erasing a person:
+
+. Remove the person's DEK from the keyring.
+. Encrypt the keyring with a new KEK (version n+1) and commit it.
+. Destroy KEK version n.
+
+All old versions of the keyring in the history are unreadable, because their KEK is gone; with them the DEKs of the
+erased persons are gone, and their `persons/*.enc` are noise, although they stay in Git. The data of everyone else
+remain readable, because their DEKs are in the new keyring; only the small keyring is encrypted anew. The same
+mechanism serves personal fields in documents (notes on an incident, for example) encrypted with the DEK of the
+data subject: pseudonymisation and crypto-shredding run on one technique.
+
+What has to be done right:
+
+* *Really destroy the KEK.* This is the hard part. The KEK needs backups, or the loss of it loses all mappings; at
+  the same time the old version has to vanish everywhere, backups included. The clean solution is a KMS or Vault
+  (transit) that manages key versions and destroys old versions selectively. A key as a plain configuration value
+  works too, but then every rotation is a manual operating step. Whether Token Sheriff can hold versioned secrets
+  and serve as the source of the KEK is open.
+* *Batch erasures.* Rotate daily, for example, not per erasure. The GDPR asks for an answer without undue delay and
+  within one month at the latest (Art. 12(3)); the maximal delay belongs into the erasure concept.
+* *Evidence of erasure.* A commit "KEK v7 destroyed on …, concerns pseudonyms X, Y" (without the key), anchored with
+  an RFC 3161 timestamp like every new state of `main`.
+* *No home-made cryptography.* AES-256-GCM as authenticated encryption, with the path and the key version as
+  associated data so that no blob can be swapped; random nonces, never reused. Google Tink (Java) provides envelope
+  encryption and KMS integration _(unverified)_; for the new project it would be a deliberate dependency decision.
+* *Longevity.* The ciphertext stays in Git for good, in every clone and in every backup of the Git server. Hence
+  AES-256, not AES-128, as a reserve against future attacks, quantum computers included. After the erasure the
+  protection rests entirely on the destruction of the KEK.
+* *At run time* the application needs the current KEK at start, decrypts the keyring and holds the mapping in
+  memory, like the index. The keyring is a single file and thereby a hot spot for compare-and-swap; with few new
+  persons per day this is uncritical, otherwise it is split.
+
+Legally, encrypted data stay personal data for the controller as long as the key exists: encryption is a protective
+measure, not an erasure. After the destruction of the KEK the remaining ciphertext is in common practice in effect
+anonymous; this is not settled and is agreed with the data protection officer.
+
+The result: no further store. Everything lies in Git; outside it lies one secret, the KEK, not a data store.
+Operators manage secrets anyway.
 
 == Repositories per Confidentiality and Retention Class
 
@@ -273,12 +343,97 @@ isms-core            → policies, scope, statement of applicability   (widely r
 isms-register        → assets, risks, controls                       (restricted)
 isms-incidents-2026  → incidents of one year                         (strongly restricted, retention period)
 samm-assessments     → SAMM                                           (development and security)
+threat-models        → threat model reports, where not in the application's repository (restricted)
 ----
 
 With pushes in the user's name (identity level b) the Git server enforces the rights itself. References across
 repositories use stable ids (`isms-register:risk/R-042`, `samm:assessment/team-a-2026-q4`); the application checks
 on save that the target exists, and a CI pipeline on the pull request can validate schemas (JSON Schema) and
 references with the existing infrastructure.
+
+== Threat Models
+
+Threat model reports are a second category of information on the same engine. Recipes for threat modelling guide
+the filling in, by people or assisted by a model; the result is a structured report that is maintained over the life
+of the application.
+
+=== Existing Tools
+
+[cols="1,2,1,2"]
+|===
+|Tool |Kind |Storage |Assessment
+
+|OWASP Threat Dragon
+|Open source, web and desktop, diagram editor (STRIDE, LINDDUN and others)
+|JSON files; the web application stores directly in GitHub, GitLab, Bitbucket or locally
+|Best candidate to connect to; shows that Git as storage is common here
+
+|OWASP pytm _(unverified)_
+|Threat model as Python code, generates diagrams and report
+|In the application's repository
+|For developers, no UI
+
+|Threagile _(unverified)_
+|Threat model as YAML, risk rules
+|In the application's repository
+|Fits YAML in Git; whether it is still maintained is to verify
+
+|Microsoft Threat Modeling Tool
+|Free, Windows only
+|`.tm7` files
+|Rather a single-seat tool
+
+|IriusRisk, ThreatModeler, SD Elements
+|Commercial, with a database
+|Own platform
+|Complete solution, but operation or SaaS and cost
+
+|Open Threat Model (OTM)
+|Open exchange format (JSON or YAML)
+|Format, no tool
+|Threat Dragon carries a schema for it since v2.1.3; its adoption is not verified
+|===
+
+No existing system known to this study maintains threat models across many applications, evaluates them and
+detects that they are outdated, without additional operation. That gap is the place of this approach.
+
+=== Where a Threat Model Lives
+
+A threat model describes one application and has to change with its architecture. That raises the question of
+place:
+
+* *A: in the application's repository* (`threat-model/` beside the code), recommended as the source of truth. It is
+  versioned with the code and reviewed in pull requests; a release has its threat model. Outdated models become
+  detectable: the architecture changed since the last commit of the threat model (new interfaces, dependencies,
+  infrastructure files), so a review is due. This works through Git diffs, and only when model and code share the
+  repository. The application reads many repositories, which the repository layer does anyway, and writes through
+  pull requests in the user's name (Token Sheriff), because the `main` of the applications is protected.
+* *B: a central repository `threat-models`*, like SAMM. Simpler where teams allow no writes into their repositories
+  or the applications are not in Git; outdated models are then detected only through references to the
+  applications' repositories.
+
+Both are supported by configuration over the same repository layer.
+
+=== What the Application Contributes
+
+Not a diagram editor; Threat Dragon has one. The value lies in the life cycle:
+
+. *Recipes* guide the filling in; the result is a structured report in an open format.
+. *Format*: OTM or the JSON of Threat Dragon instead of an own schema, so teams can go on editing the diagram in
+  Threat Dragon and the application reads the same file.
+. *Maintenance*: detection of outdated models, due dates, review by pull request, approval trailers.
+. *Evaluation across applications*: open threats per application, untreated risks, age of the models.
+. *Links*: threat modelling is a stream of the SAMM practice _Threat Assessment_ (business function _Design_), so
+  maintained threat models are direct evidence for that maturity level in a SAMM assessment; accepted or untreated
+  threats become entries of the ISMS risk register (`isms-register:risk/…`), countermeasures become issues.
+
+=== What to Observe
+
+* *Confidentiality*: threat models describe attack paths. In the application's repository everyone with read access
+  to the code sees them; internally that is mostly intended, for public repositories it is excluded, and variant B
+  with a restricted repository applies.
+* *Personal data*: hardly any, apart from owners; roles instead of names, as elsewhere.
+* *Diagrams* are stored as data (OTM or JSON); images are generated, so diffs stay readable.
 
 == The ISMS on Git
 
@@ -349,8 +504,9 @@ Every store beside Git falls into one of three classes:
 |no
 
 |Personal, deletable data
-|Identity provider, ticket system, or encrypted in Git with keys in Vault or a KMS
-|only without Vault or KMS
+|Encrypted keyring in Git with rotation of the KEK on erasure; persons themselves in the identity provider,
+operational details in the ticket system
+|one secret (the KEK); Vault or KMS where present
 
 |Read-access log (who read a confidential risk, logins)
 |The organisation's existing logging or SIEM (ISO 27001 A.8.15)
@@ -465,8 +621,9 @@ Positioning: do not compete with verinice as a complete ISMS; complement it.
 
 == Decision on a Library
 
-Building the Git-based interaction as a library of its own is recommended. The application logic of SAMM and of the
-ISMS is domain logic; the Git layer underneath is generic and is needed identically by both. Separating it keeps the
+Building the Git-based interaction as a library of its own is recommended. The application logic of SAMM, of the
+threat models and of the ISMS is domain logic; the Git layer underneath is generic and is needed identically by all
+of them. Separating it keeps the
 domains free of JGit, makes the layer testable on its own against an in-memory or local repository, and lets
 further domains reuse it.
 
@@ -489,7 +646,8 @@ further domains reuse it.
 
 === Not in Scope
 
-The UI, the domain schemas (SAMM model, ISMS entities), the OAuth flows (the library only consumes credentials),
+The UI, the domain schemas (SAMM model, threat model format, ISMS entities), the OAuth flows (Token Sheriff; the
+library only consumes credentials),
 the identity provider, the issue-tracker and ticket integrations, and the timestamp authority client (an optional
 module of its own).
 
@@ -498,6 +656,8 @@ module of its own).
 * `foundation`: the generic JGit layer shared with `pm-provider-git` (see below).
 * `document-store`: drafts, saving, identity, index and outbox on top of the foundation.
 * `timestamp` (optional): RFC 3161 anchoring through the post-commit outbox.
+* `crypto` (optional): the encrypted keyring (a DEK per data subject, the KEK from a key source behind an interface:
+  configuration value, Vault or KMS), rotation of the KEK on erasure, the evidence of erasure as a commit.
 * `testing`: fixtures for local and in-memory repositories and a local remote for push and fetch tests.
 
 === Relation to `pm-mcp-core`: a Shared Foundation
@@ -591,7 +751,12 @@ Java), because the weight lies in `pm-core`, `pm-runtime` and `pm-workflow`.
 . Push and fetch with token credentials against GitHub, GitLab and Gitea; token lifetimes and refresh of the hosts
   _(unverified)_.
 . Choose a timestamp authority (qualified under eIDAS or internal).
-. Agree the GDPR rules (pseudonymisation, crypto-shredding, retention classes) with the data protection officer.
+. Agree the GDPR rules (pseudonymisation, crypto-shredding, retention classes) with the data protection officer,
+  and whether destroying the KEK counts as erasure.
+. Choose the key source of the KEK (KMS, Vault, configuration value) and clarify whether Token Sheriff can hold
+  versioned secrets; verify Google Tink for envelope encryption.
+. Decide the threat model format (OTM or Threat Dragon JSON); verify the state of pytm, Threagile and OTM.
+. Prototype the detection of outdated threat models from Git diffs of the application's repository.
 . Verify the verinice statements (versioning, approval, licence of veo, catalogue coverage) with a demo instance.
 . Draft the library API and the SAMM repository schema.
 
@@ -609,6 +774,10 @@ Java), because the weight lies in `pm-core`, `pm-runtime` and `pm-workflow`.
   https://owaspsamm.org/release-notes-v2/[Key changes in SAMM v2],
   https://owaspsamm.org/blog/2020/01/31/samm2-release[SAMM v2 release (YAML model)],
   https://owaspsamm.org/model/[SAMM model]
+* OWASP Threat Dragon: https://owasp.org/www-project-threat-dragon/docs-2/introduction[Threat Dragon 2.0 introduction],
+  https://owasp.org/www-project-threat-dragon/docs-2/install-webapp[Installing the web application (repository access)],
+  https://owasp.org/www-project-threat-dragon/docs-2/bitbucket-repo[Bitbucket repository access],
+  https://www.github.com/OWASP/threat-dragon[Threat Dragon on GitHub]
 * verinice: https://verinice.com/en/ressources/learn/technical-background[Technical details],
   https://verinice.com/en/ressources/learn/interfaces-apis[Interfaces and APIs],
   https://verinice.com/en/veo[verinice.veo],
