@@ -1248,9 +1248,8 @@ link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043
 |===
 
 Tested by `UsagePointersTest` (each column of a recorded output, a missing figure with its reason, a not-applicable
-component counting zero, an unparsed output), `MetricsStoreTest` (the round trip, a second row of the task refused, the
-end of the attempt for every value of the enum, a refused task's row, the foreign row kept, the inconsistent total
-refused, the sidecar entry and the out-of-band edit of the store, the row partition of a plan, an epic and the
+component counting zero, an unparsed output), `MetricsStoreTest` (the round trip, a second row of the task refused, a
+refused task's row, the foreign row kept, the inconsistent total refused, the sidecar entry and the out-of-band edit of the store, the row partition of a plan, an epic and the
 workspace), `BuildTimingsStoreTest` (the first observation, the blend, the escalation and its clearing, a timeout feeding
 no baseline), `WorkerBudgetTest` (the first match of the four sources and the floor), `ChangeLedgerTest` (the round trip,
 the unavailable digest, the task-diff and baseline rules, a refused line reported with its number, the sidecar entry and
@@ -2595,8 +2594,10 @@ read and the aggregate carries its coverage.
 == The Intent Record
 
 `intent.json` beside `request.md` is the plan's intent record (Store Schemas § Intent Record; Phase Workflows § The
-Intent Record). `IntentRecord` is the model-supplied document and the named parameter schema `intent-record`: it
-refuses a member out of its bounds, a criterion that is not in EARS form, a `fix` criterion without its current
+Intent Record). `IntentRecord` is the model-supplied document and the named parameter schema `intent-record`. A
+criterion carries `id`, `text`, `kind` and `verified_by`; the record holds one to 30 criteria and up to 20 non-goals
+(`non_goals` is bounded `0` to `20`, so a record without non-goals is a valid record; the deep lane's rule of at least
+one non-goal is a check of the acceptance, below). It refuses a member out of its bounds, a `fix` criterion without its current
 behaviour and an `unchanged` criterion, a `current_behaviour` without a `fix` criterion or outside
 `WHEN <condition> THEN THE <system> <behaviour>`, an unverified assumption without exactly one riskiest one, a repeated
 identifier, and a source claim that lands in no item of the record.
@@ -2609,20 +2610,21 @@ transaction on the plan lock.
 
 `IntentAcceptance` checks what needs the plan: an `operator` or `quorum` decision cites a part of an answered question
 record of this plan through the matching channel, a `fact` decision names an evidence path that exists (or a `pm://`
-URI), a capability link's `added`, `modified` or `removed` requirement agrees with the tree's fingerprints, and every
-claim an epic seeds appears among the `source_claims`. `EpicIntent` derives those claims from the plan row's own
-`done_when` and the epic's non-goals.
+URI), and every claim an epic seeds appears among the `source_claims`. `EpicIntent` derives those claims from the plan row's own
+`done_when` and the epic's non-goals. It also checks what needs the entry point: a record submitted through
+`submit:refine` carries at least one non-goal (server check 7, non-goals on the deep lane), refused otherwise with a
+detail naming `non_goals`; the light envelope's `submit:outline` and a re-planning accept a record without one. The
+rule lives in the acceptance and not in the record's bounds, because the record without non-goals stays valid.
 
 `ClarifiedRequestRenderer` renders `## Clarified Request` from the current record, each item with its identifier, and
-lists the model's own calls under their own heading. `EarsForm` is the grammar: the structural words `WHERE`, `WHILE`,
-`WHEN`, `IF`/`THEN`, `THE`, `SHALL` and `CONTINUE TO` are uppercase English tokens, the clause text between them is
-written in the model language, and an uppercase structural word inside clause text is the documented exception.
+lists the model's own calls under their own heading. Each criterion is rendered with its kind and its `verified_by`;
+the non-goals, like the constraints and the assumptions, get their heading only when the record holds one.
 
 == The Outline Record
 
 `outline.json` is the plan's solution outline (Store Schemas § Outline Record). `OutlineRecord` is the model-supplied
 document (`outline-record`): its deliverables carry their profiles, affected files with their intents, the change per
-file, the verification commands, the `satisfies` entries, the added dependencies, interfaces and key links. It refuses
+file, the verification commands, the `satisfies` entries and the added dependencies. It refuses
 a dependency on a deliverable the outline does not hold, a dependency on itself, a dependency named twice, a repeated
 deliverable number, a `write-conditional` file without its gate and a file of another intent that carries one.
 
@@ -2635,17 +2637,5 @@ rendered document is never read back.
 an item of the record, every criterion is covered, no deliverable's `satisfies` is empty, and the guard of an
 `unchanged` criterion verified by `test` does not depend, directly or through others, on the deliverable that changes
 it.
-
-== Capability Specs
-
-`.marshall/capabilities/<capability>.json` is a git-tracked team file (Store Schemas § Capability Spec).
-`CapabilitySpec` holds the capability, its purpose and its requirements with their scenarios; it refuses a repeated
-requirement name, a text that is not in EARS form and a requirement without a scenario. `Requirement#fingerprint()` is
-the SHA-256 of the RFC 8785 canonical JSON of the requirement without `plan_id` and `verified_by`, so a renamed test
-changes no fingerprint.
-
-`CapabilityIndex.read(projectRoot)` reads the tree's specs, refuses a file whose name is not its capability, and serves
-both the planning roles' `facts.capability_index` (`facts()`) and the acceptance's capability checks
-(`fingerprint(capability, requirement)`).
 
 A store record carries its absent state as `@Nullable`: `ScopeIntegrity.Mismatch.current`, `LessonResolution.StoreTampered.current`, `ProjectResolver.Match.refusal`, `HarnessUsage.costUsd` and `HarnessUsage.unmeasuredReason`, `IntentAcceptance.Context.epic` and the builder fields of `MetricsCodec` are nullable, and a codec writes the absent member exactly as it wrote `Optional.empty()` (link:../../../doc/adr/021-optional-fields-parameters-and-record-components-are-nullable-states.adoc[repository ADR 021]). The codec's `required(...)` helper takes a nullable value and refuses it with the same `StoreRefusal` as before.

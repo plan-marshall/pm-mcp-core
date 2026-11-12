@@ -29,7 +29,10 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +49,8 @@ import de.planmarshall.core.role.corpus.ImportedItem.Review;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
 import de.planmarshall.core.role.corpus.ImportedItem.Target;
+import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
+import de.planmarshall.core.role.corpus.JsonValue.JsonString;
 import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceOverlay.Row;
@@ -204,10 +209,99 @@ class CorpusSchemaResourcesTest {
         assertEquals(List.of(), problems);
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {MANIFEST_SCHEMA, OVERLAY_SCHEMA, ITEM_SCHEMA})
+    @DisplayName("every string member a non-trivial pattern matches carries a maxLength")
+    void everyPatternedStringHasABound(String schemaName) {
+        var unbounded = stringSchemas(schemaName).entrySet().stream()
+                .filter(entry -> patternOf(entry.getValue()) != null
+                        && !LITERAL_PATTERN.equals(patternOf(entry.getValue()))
+                        && maxLengthOf(entry.getValue()).isEmpty())
+                .map(Map.Entry::getKey)
+                .toList();
+
+        assertEquals(List.of(), unbounded, "a string with a non-trivial pattern and no maxLength");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {MANIFEST_SCHEMA, OVERLAY_SCHEMA, ITEM_SCHEMA})
+    @DisplayName("the literal pattern . carries no bound")
+    void literalPatternIsUnbounded(String schemaName) {
+        var bounded = stringSchemas(schemaName).entrySet().stream()
+                .filter(entry -> LITERAL_PATTERN.equals(patternOf(entry.getValue()))
+                        && maxLengthOf(entry.getValue()).isPresent())
+                .map(Map.Entry::getKey)
+                .toList();
+
+        assertEquals(List.of(), bounded, "a literal pattern with a maxLength");
+    }
+
+    @Test
+    @DisplayName("a member with a non-trivial pattern and no bound is reported, so a member added without one fails")
+    void unboundedPatternReported() {
+        var sample = "{\"type\": \"object\", \"properties\": {"
+                + "\"a\": {\"type\": \"string\", \"pattern\": \"x\"},"
+                + "\"b\": {\"type\": \"array\", \"items\": {\"type\": \"string\", \"pattern\": \"y\"}},"
+                + "\"c\": {\"type\": \"string\", \"pattern\": \".\"},"
+                + "\"d\": {\"type\": \"string\", \"pattern\": \"z\", \"maxLength\": 4}}}";
+        var schemas = stringSchemasOf(JsonValue.parse(sample.getBytes(UTF_8)));
+
+        assertAll(
+                () -> assertEquals(List.of("$.a", "$.b[]"), schemas.keySet().stream()
+                        .filter(path -> patternOf(schemas.get(path)) != null
+                                && !LITERAL_PATTERN.equals(patternOf(schemas.get(path)))
+                                && maxLengthOf(schemas.get(path)).isEmpty())
+                        .toList(), "the patterned members without a bound"),
+                () -> assertEquals(List.of("$.d"), schemas.keySet().stream()
+                        .filter(path -> maxLengthOf(schemas.get(path)).isPresent())
+                        .toList(), "the members that carry a bound"));
+    }
+
     @Test
     @DisplayName("an object schema that names no property is rejected when it is not closed")
     void objectSchemaWithoutPropertiesIsRejected() throws Exception {
         assertFalse(problemsOf("{\"type\": \"object\"}").isEmpty());
+    }
+
+    /** The literal pattern of the members that admit any text: the schema's {@code .}. */
+    private static final String LITERAL_PATTERN = ".";
+
+    /** @return the string schemas of a schema resource, by path, as {@code properties} and {@code items} nest them */
+    private static Map<String, JsonObject> stringSchemas(String schemaName) {
+        return stringSchemasOf(JsonValue.parse(resource(schemaName).getBytes(UTF_8)));
+    }
+
+    /**
+     * @param schema a schema document
+     * @return the string schemas below it, by path, each with the {@code pattern} or {@code maxLength} it carries
+     */
+    private static Map<String, JsonObject> stringSchemasOf(JsonValue schema) {
+        var found = new LinkedHashMap<String, JsonObject>();
+        collect(schema, "$", found);
+        return found;
+    }
+
+    private static void collect(JsonValue schema, String path, Map<String, JsonObject> found) {
+        if (!(schema instanceof JsonObject object)) {
+            return;
+        }
+        if (object.get("pattern").isPresent() || object.get("maxLength").isPresent()) {
+            found.put(path, object);
+        }
+        if (object.get("properties").orElse(null) instanceof JsonObject properties) {
+            properties.members().forEach((name, child) -> collect(child, path + "." + name, found));
+        }
+        object.get("items").ifPresent(items -> collect(items, path + "[]", found));
+    }
+
+    /** @return the pattern of a schema member, or {@code null} when it carries none */
+    private static String patternOf(JsonObject schema) {
+        return schema.get("pattern").orElse(null) instanceof JsonString(var pattern) ? pattern : null;
+    }
+
+    /** @return the maxLength of a schema member; empty when it carries none */
+    private static Optional<JsonValue> maxLengthOf(JsonObject schema) {
+        return schema.get("maxLength");
     }
 
     @Test

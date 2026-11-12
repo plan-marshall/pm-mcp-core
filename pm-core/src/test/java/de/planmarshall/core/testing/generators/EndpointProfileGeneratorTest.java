@@ -37,6 +37,8 @@ class EndpointProfileGeneratorTest {
         assertAll("generated endpoint profiles",
                 () -> assertNotNull(first, "The generator yields a value"),
                 () -> assertNotEquals(first, second, "Two calls yield distinct values"),
+                () -> assertNotNull(first.executable(), "A loopback endpoint names its program"),
+                () -> assertNotNull(first.identity(), "A loopback endpoint names its identity"),
                 () -> assertEquals("openai_chat", first.endpoint().protocol(), "The protocol is the chat protocol"),
                 () -> assertTrue(first.endpoint().baseUrl().startsWith("http://127.0.0.1:"),
                         "The base URL is a loopback endpoint"),

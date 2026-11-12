@@ -41,13 +41,11 @@ import de.planmarshall.runtime.launch.HarnessEnrolment.UsageSource;
 import de.planmarshall.runtime.lock.FileLockManager;
 
 /**
- * {@link HarnessEnrolmentStore} keeps parity with the schema of Store Schemas § Harness Enrolment Store for the program
- * form of an entry: a written entry carries the schema's required members, the members of the optional {@code weights}
- * member are the schema's, the usage report and its source values are the schema's, and the format version is the
- * schema's {@code const}. The store writes canonical JSON, whose members are sorted, so the parity is stated over the
- * member sets rather than the schema's order. The remote-endpoint form (ADR {@code runtime-endpoint/005}) is a member the
- * schema block of this work package does not state yet, so this test states the program form only. The schema is the
- * file {@code harnesses.schema.json} beside the store in
+ * {@link HarnessEnrolmentStore} keeps parity with the schema of Store Schemas § Harness Enrolment Store for an entry: a
+ * written entry carries the schema's required members, the members of the optional {@code weights} member are the
+ * schema's, the usage report and its source values are the schema's, and the format version is the schema's
+ * {@code const}. The store writes canonical JSON, whose members are sorted, so the parity is stated over the member sets
+ * rather than the schema's order. The schema is the file {@code harnesses.schema.json} beside the store in
  * {@code pm-runtime/src/main/resources/de/planmarshall/runtime/launch/}, read from the class path through
  * {@link SchemaResource}. The member names, the source values and the results are contracts; the ids, the digest, the
  * version and the instants are generated.

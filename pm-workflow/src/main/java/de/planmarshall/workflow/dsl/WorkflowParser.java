@@ -85,9 +85,10 @@ import org.jspecify.annotations.Nullable;
  * {@code {<unit id> -> n}}. It is admitted only in a {@link UnitOrigin#PROJECT} unit: a default unit derives from
  * nothing, so the clause is refused there, and a revision of zero is refused for every origin.
  * <p>
- * The parser checks the grammar alone. The static verification rules of a unit (identifier length bounds, the
- * reachability, call-site and link-form rules) and the project-unit refusal of an {@code instance} line are the work of
- * later stages.
+ * The parser checks the grammar alone. The static verification rules of a unit, among them the reachability,
+ * call-site and link-form rules, are checked by {@link de.planmarshall.workflow.verify.WorkflowValidator}; a project
+ * unit of the type {@code instance} that replaces a default unit is refused by the general invariant {@code INV-GEN-1}
+ * ({@code GeneralInvariants} of {@code workflow.verify}).
  *
  * @since 0.1
  */

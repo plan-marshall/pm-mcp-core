@@ -93,7 +93,7 @@ final class IntentFixtures {
         var text = kind == CriterionKind.UNCHANGED
                 ? "WHEN a plan is refined THE system SHALL CONTINUE TO keep the previous record intact"
                 : "WHEN a plan is refined THE system SHALL write the intent record beside request.md";
-        return new Criterion(id, text, kind, verifiedBy, null);
+        return new Criterion(id, text, kind, verifiedBy);
     }
 
     static Decision operatorDecision(String id, String questionId) {
@@ -106,13 +106,12 @@ final class IntentFixtures {
     }
 
     static Context context(Path treeRoot) {
-        return new Context(PLAN_ID, questionId -> Optional.empty(), (capability, requirement) -> Optional.empty(),
-                null, treeRoot);
+        return new Context(PLAN_ID, questionId -> Optional.empty(), null, treeRoot);
     }
 
     static Context answered(Path treeRoot, String questionId, String planId, AnswerChannel channel) {
         return new Context(PLAN_ID, asked -> questionId.equals(asked)
                 ? Optional.of(new AnsweredPart(planId, channel))
-                : Optional.empty(), (capability, requirement) -> Optional.empty(), null, treeRoot);
+                : Optional.empty(), null, treeRoot);
     }
 }

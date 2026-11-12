@@ -70,20 +70,20 @@ never a server entry; a journal whose excess lies in server entries alone keeps 
 cut. It masks the entry it writes and offers `archiveInto(task, directory)` and `delete(task)` for the plan's archive
 and its cleanup (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]).
 
-`ActivityEventMapping`, `SecretRedactor` and the navigation figures::
-The projection of the profile's `headless.events` block (`ActivityEventMapping`), the redaction of what the journal
-writes (`SecretRedactor`) and the figures derived from a task's activity beside its tokens (`Figure`,
-`NavigationVocabulary`, `SkillResidency`, `NavigationFigures`). `SecretRedactor` masks a credential-shaped assignment, a
+`ActivityEventMapping` and `SecretRedactor`::
+The projection of the profile's `headless.events` block (`ActivityEventMapping`) and the redaction of what the journal
+writes (`SecretRedactor`). `SecretRedactor` masks a credential-shaped assignment, a
 bearer value, the provider token shapes (GitHub, Slack and the npm `npm_` access token), the user information of a URL,
 the value of a spaced `--password`/`--token` flag, and a PEM private-key block carried inside one text; each shape is
 anchored to its own form so prose cannot match it (its Javadoc names them). The line mapper `ActivityEventMapper` itself lives in
 `pm-runtime` (`runtime.worker`) and reads the projection; the mapping is never read from the profile on the stream path
 (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]) and the journal redacts at its write boundary
-(link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). Each figure carries its population
-or the `indeterminate`/`unmeasured` sentinel
-(link:../adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR 009]). `ActivityEventMapping.of`
+(link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). `ActivityEventMapping.of`
 answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `null` is `Optional.empty()`, never a
 `null` value, because every production package is `@NullMarked`.
+
+ADR number 009 of this package is retired: it decided the navigation figures, which the work package
+`deferred-code-removal` deleted with the record. The next ADR of `core-queue` takes 010.
 
 == How to use and extend it
 
@@ -123,5 +123,3 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
   again would lock a different inode. The runtime singleton lock is what excludes that second runtime.
 * Every text, tool target and link target is masked before the write; a masked value is stored masked, and a secret is
   never in the journal at rest.
-* A navigation figure is either measured with a population or one of the two sentinels; an absent population is never
-  rendered as `0`.

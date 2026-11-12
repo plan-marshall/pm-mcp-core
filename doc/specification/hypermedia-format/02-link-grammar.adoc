@@ -122,7 +122,7 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |`submit:refine` and the light `submit:outline` (`intent:schema[intent-record]`), and the re-planning action that changes intent
 
 |`outline-record`
-|The solution outline of a plan: `summary`, `overview`, `scope_estimate`, and its `deliverables` with their fields (`number`, `title`, `intent_gloss`, `change_type`, `execution_mode`, `domain`, `module`, `depends`, `design_notes`, `profiles`, `affected_files` with intents, `change_per_file`, `verification`, `satisfies`, `added_dependencies` with justification, `interfaces`, `key_links`); definition in link:../store-schemas/06-task-and-references.adoc#outline-record-store[Store Schemas Specification, Outline Record]
+|The solution outline of a plan: `summary`, `overview`, `scope_estimate`, and its `deliverables` with their fields (`number`, `title`, `intent_gloss`, `change_type`, `execution_mode`, `domain`, `module`, `depends`, `design_notes`, `profiles`, `affected_files` with intents, `change_per_file`, `verification`, `satisfies`, `added_dependencies` with justification); definition in link:../store-schemas/06-task-and-references.adoc#outline-record-store[Store Schemas Specification, Outline Record]
 |`submit:outline` (`outline:schema[outline-record]`), deep and light
 
 |`builder-questions`

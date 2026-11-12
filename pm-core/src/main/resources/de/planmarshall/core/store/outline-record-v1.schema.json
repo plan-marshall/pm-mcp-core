@@ -55,9 +55,7 @@
           "change_per_file",
           "verification",
           "satisfies",
-          "added_dependencies",
-          "interfaces",
-          "key_links"
+          "added_dependencies"
         ],
         "additionalProperties": false,
         "properties": {
@@ -241,68 +239,6 @@
                   "minLength": 10,
                   "maxLength": 500,
                   "description": "The simpler alternative considered and why it was rejected."
-                }
-              }
-            }
-          },
-          "interfaces": {
-            "type": "array",
-            "maxItems": 30,
-            "items": {
-              "type": "object",
-              "required": [
-                "direction",
-                "symbol",
-                "signature"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "direction": {
-                  "type": "string",
-                  "enum": [
-                    "produces",
-                    "consumes"
-                  ]
-                },
-                "symbol": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 300
-                },
-                "signature": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 1000
-                }
-              }
-            }
-          },
-          "key_links": {
-            "type": "array",
-            "maxItems": 20,
-            "items": {
-              "type": "object",
-              "required": [
-                "from",
-                "to",
-                "pattern"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "from": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 512
-                },
-                "to": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 300
-                },
-                "pattern": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 500
                 }
               }
             }

@@ -49,7 +49,8 @@ skill.
 The machine-wide `harnesses.json` and its HMAC sidecar. Every read verifies the pair under the enrolment integrity key
 first; every write holds `locks/harnesses.lock` and writes the canonical file and its sidecar owner-only. One API
 serves the onboarding's `harness.enrol` and `pm-operator enrol-harness`. A file that fails its check is re-baselined by
-the next enrolment with the named client only.
+the next enrolment with the named client only. Every entry names a serving program by its executable path, digest and
+version; an entry that carries an undeclared member is refused `harness_store_unreadable`.
 
 `HarnessVerifier`::
 Verifies the harness before every spawn: the store's integrity, the enrolment, the digest of the executable, and,

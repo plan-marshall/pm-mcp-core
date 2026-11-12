@@ -18,11 +18,13 @@
     },
     "source": {
       "type": "string",
+      "maxLength": 64,
       "pattern": "^[a-z][a-z0-9-]{1,63}$",
       "description": "the name of the source, the name of its manifest"
     },
     "file": {
       "type": "string",
+      "maxLength": 1024,
       "pattern": "^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$",
       "description": "the repository-relative path of the file the rows are read from, a file of the manifest"
     },
@@ -36,6 +38,7 @@
     },
     "created": {
       "type": "string",
+      "maxLength": 10,
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
       "description": "the date the overlay was written, the creation date of its items"
     },
@@ -70,11 +73,13 @@
           },
           "id": {
             "type": "string",
+            "maxLength": 256,
             "pattern": "^[a-z0-9][a-z0-9-]*$",
             "description": "the slug of the item: its file name below the topic without .json"
           },
           "topic": {
             "type": "string",
+            "maxLength": 256,
             "pattern": "^[a-z0-9-]+(/[a-z0-9-]+)*$"
           },
           "role": {
@@ -239,6 +244,7 @@
                   "string",
                   "null"
                 ],
+                "maxLength": 10,
                 "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
               },
               "notes": {

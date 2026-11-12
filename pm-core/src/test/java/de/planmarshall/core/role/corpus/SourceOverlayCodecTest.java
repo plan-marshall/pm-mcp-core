@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.Builder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -534,5 +535,42 @@ class SourceOverlayCodecTest {
                             "screening/sample-set", "screening", "t", List.of(), null, "q", "f", null, null,
                             target, grading, review, "")));
         }
+    }
+
+    /** One string member of the overlay: its value at the bound, one code point over, and the refusal of the latter. */
+    @Builder
+    record Bound(String name, boolean rowScoped, String field, String atBound, String overBound, String refusal) {
+    }
+
+    private static String quoted(String value) {
+        return "\"" + value + "\"";
+    }
+
+    static Stream<Bound> boundedValues() {
+        return Stream.of(
+                new Bound("source", false, "source", quoted("a".repeat(64)), quoted("a".repeat(65)),
+                        "'source' is longer than 64 characters"),
+                new Bound("file", false, "file", quoted("a".repeat(1024)), quoted("a".repeat(1025)),
+                        "'file' is longer than 1024 characters"),
+                new Bound("a row id", true, "id", quoted("a".repeat(256)), quoted("a".repeat(257)),
+                        "'id' is longer than 256 characters"),
+                new Bound("a row topic", true, "topic", quoted("a".repeat(256)), quoted("a".repeat(257)),
+                        "'topic' is longer than 256 characters"),
+                new Bound("a row title", true, "title", quoted("t".repeat(120)), quoted("t".repeat(121)),
+                        "'title' is longer than 120 characters"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("boundedValues")
+    @DisplayName("a value of exactly the bound reads and one code point over is refused for its length")
+    void boundedValue(Bound bound) {
+        var atBound = SourceOverlayCodec.read(FILE, bound.rowScoped() ? withRow(bound.field(), bound.atBound())
+                : with(bound.field(), bound.atBound()));
+
+        assertAll(
+                () -> assertEquals(atBound, SourceOverlayCodec.read(FILE, SourceOverlayCodec.write(atBound)),
+                        "the value at the bound round-trips unchanged"),
+                () -> assertUnreadable(refusalOf(bound.rowScoped() ? withRow(bound.field(), bound.overBound())
+                        : with(bound.field(), bound.overBound())), bound.refusal()));
     }
 }

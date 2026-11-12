@@ -85,7 +85,7 @@ final class ValidationFixtures {
         var text = kind == CriterionKind.UNCHANGED
                 ? "WHEN a plan is refined THE system SHALL CONTINUE TO keep the previous record intact"
                 : "WHEN a plan is refined THE system SHALL write the intent record beside request.md";
-        return new Criterion(id, text, kind, verifiedBy, null);
+        return new Criterion(id, text, kind, verifiedBy);
     }
 
     static OutlineRecord outline(Deliverable... deliverables) {
@@ -100,6 +100,6 @@ final class ValidationFixtures {
                         null)),
                 DELIVERABLE_CHANGE + " " + number,
                 List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies),
-                List.of(), List.of(), List.of());
+                List.of());
     }
 }

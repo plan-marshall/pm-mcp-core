@@ -9,8 +9,10 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT_MAX_LENGTH;
 import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT_PATTERN;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
+import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH_MAX_LENGTH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 import static de.planmarshall.core.role.corpus.SourceManifest.requireRepository;
 
@@ -66,11 +68,20 @@ public record ImportedItem(String id, String topic, String role, String title, L
     /** An item id: a topic path and a slug. */
     public static final Pattern ID_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
 
+    /** The longest item id, in characters: the pattern bounds no length, so the ceiling is stated. */
+    public static final int ID_MAX_LENGTH = 256;
+
     /** A topic: the directory of an item below the corpus root. */
     public static final Pattern TOPIC_PATTERN = PythonRegex.compile("^[a-z0-9-]+(/[a-z0-9-]+)*$");
 
+    /** The longest topic, in characters: the pattern bounds no length, so the ceiling is stated. */
+    public static final int TOPIC_MAX_LENGTH = 256;
+
     /** The slug of an item: the file name below its topic, without {@code .json}. */
     public static final Pattern SLUG_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*$");
+
+    /** The longest slug of an item, in characters: the pattern bounds no length, so the ceiling is stated. */
+    public static final int SLUG_MAX_LENGTH = 256;
 
     /** The longest title, in characters. */
     public static final int TITLE_MAX_LENGTH = 120;
@@ -261,8 +272,8 @@ public record ImportedItem(String id, String topic, String role, String title, L
          */
         public Origin {
             requireRepository(repository);
-            require(commit, COMMIT_PATTERN, "commit");
-            require(path, RELATIVE_PATH, "path");
+            require(commit, COMMIT_MAX_LENGTH, COMMIT_PATTERN, "commit");
+            require(path, RELATIVE_PATH_MAX_LENGTH, RELATIVE_PATH, "path");
             if (line < 1) {
                 throw new IllegalArgumentException("'line' must be at least 1: " + line);
             }
@@ -329,8 +340,8 @@ public record ImportedItem(String id, String topic, String role, String title, L
      *                                  items share an id
      */
     public ImportedItem {
-        require(id, ID_PATTERN, "id");
-        require(topic, TOPIC_PATTERN, "topic");
+        require(id, ID_MAX_LENGTH, ID_PATTERN, "id");
+        require(topic, TOPIC_MAX_LENGTH, TOPIC_PATTERN, "topic");
         if (!id.substring(0, id.lastIndexOf('/')).equals(topic)) {
             throw new IllegalArgumentException("'id' %s is not an item of the topic %s".formatted(id, topic));
         }

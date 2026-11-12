@@ -28,14 +28,12 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * <p>
  * The row keeps each usage figure as it was measured ({@link HarnessUsage}); the total is derived from the five token
  * components and never parsed. Beside the figures it carries what they depend on — role, harness, the harness version
- * probed at the worker's spawn, model, effort, form, phase — and {@code attempt_end}, the end of the attempt the queue
- * task record holds, so the share of attempts that ended cleanly without a submission is read per role, harness
- * version, model and effort.
+ * probed at the worker's spawn, model, effort, form and phase.
  * <p>
  * A task closed without an attempt yields a row whose every usage column is {@code unmeasured}, whose
- * {@code cause_class} is {@code refused}, and whose {@code attempt}, {@code attempt_end}, {@code job_id},
- * {@code generation_id}, {@code harness}, {@code harness_version}, {@code model}, {@code form} and
- * {@code duration_basis} are {@code null}; {@link #refused} builds it.
+ * {@code cause_class} is {@code refused}, and whose {@code attempt}, {@code job_id}, {@code generation_id},
+ * {@code harness}, {@code harness_version}, {@code model}, {@code form} and {@code duration_basis} are {@code null};
+ * {@link #refused} builds it.
  *
  * @param queueTaskId       the queue task the row measures
  * @param attempt           the attempt, at least {@code 1}; {@code null} only for a task closed without an attempt
@@ -53,10 +51,10 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param predictedCost     the summed predicted cost of the envelope, or {@code null}
  * @param yieldReason       the early-end exit of an envelope task, or {@code null}
  * @param outcome           the outcome of the task
- * @param attemptEnd        how the attempt ended; {@code null} only for a refused task
  * @param continuation      the form of the continuation the row's usage belongs to; {@code null} when the task never
  *                          continued
- * @param causeClass        the cause class of the task * @param spendClass        what the tokens were spent on
+ * @param causeClass        the cause class of the task
+ * @param spendClass        what the tokens were spent on
  * @param population        the population of the figures
  * @param usage             the usage figures of the attempt
  * @param durationMs        the measured duration, or {@code null}
@@ -73,7 +71,7 @@ public record MetricsRow(@Nullable String queueTaskId, @Nullable Integer attempt
 @Nullable String harnessVersion, @Nullable String model, @Nullable String effort, @Nullable Form form,
 @Nullable Phase phase, @Nullable String stepId, @Nullable String envelopeId,
 @Nullable PredictedCost predictedCost, @Nullable YieldReason yieldReason, Outcome outcome,
-@Nullable AttemptEnd attemptEnd, @Nullable ContinuationMark continuation, CauseClass causeClass,
+@Nullable ContinuationMark continuation, CauseClass causeClass,
 SpendClass spendClass, Population population, HarnessUsage usage,
 @Nullable Long durationMs, @Nullable DurationBasis durationBasis, @Nullable Long queuedMs,
 @Nullable String consultationOf, Instant recordedAt) {
@@ -277,8 +275,8 @@ SpendClass spendClass, Population population, HarnessUsage usage,
 
     /**
      * The form of the continuation the row's usage belongs to (Model Work § Continuing after a Question, Accounting).
-     * The vocabulary is declared here, as {@link AttemptEnd} is, because {@code core.queue} depends on {@code core.store}
-     * and not the other way round; {@code ContinuationMarkParityTest} keeps the two equal.
+     * The vocabulary is declared here because {@code core.queue} depends on {@code core.store} and not the other way
+     * round; {@code ContinuationMarkParityTest} keeps the two equal.
      *
      * @since 0.1
      */
@@ -427,7 +425,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
         Objects.requireNonNull(population, "population");
         Objects.requireNonNull(usage, "usage");
         Objects.requireNonNull(recordedAt, "recorded_at");
-        requireAttempt(attempt, attemptEnd, causeClass);
+        requireAttempt(attempt, causeClass);
         requireRefusedColumns(causeClass, jobId, generationId, harness, harnessVersion, model, form, durationBasis);
         requireOptionalPattern(jobId, JOB_ID_PATTERN, "job_id");
         requireOptionalPattern(generationId, JOB_ID_PATTERN, "generation_id");
@@ -468,12 +466,9 @@ SpendClass spendClass, Population population, HarnessUsage usage,
                 .recordedAt(recordedAt).build();
     }
 
-    private static void requireAttempt(@Nullable Integer attempt, @Nullable AttemptEnd attemptEnd,
-            CauseClass causeClass) {
-        var refused = causeClass == CauseClass.REFUSED;
-        if (refused != (attempt == null) || refused != (attemptEnd == null)) {
-            throw new IllegalArgumentException(
-                    "'attempt' and 'attempt_end' are null exactly for a task closed without an attempt");
+    private static void requireAttempt(@Nullable Integer attempt, CauseClass causeClass) {
+        if ((causeClass == CauseClass.REFUSED) != (attempt == null)) {
+            throw new IllegalArgumentException("'attempt' is null exactly for a task closed without an attempt");
         }
         if (attempt != null && attempt < 1) {
             throw new IllegalArgumentException("'attempt' must be at least 1: " + attempt);

@@ -42,7 +42,6 @@
 |PM_RUNTIME-36 |Worker generation '%s' of role '%s' started on harness '%s'
 |PM_RUNTIME-37 |Worker generation '%s' of role '%s' ended with cause '%s'
 |PM_RUNTIME-38 |Worker generation '%s' of role '%s' recycled for '%s'
-|PM_RUNTIME-39 |Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms)
 |PM_RUNTIME-40 |The credential store '%s' passed its check (write, read back, delete)
 |PM_RUNTIME-41 |Provider '%s' verified (%s check lines)
 |===

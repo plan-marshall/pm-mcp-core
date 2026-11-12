@@ -31,7 +31,7 @@
  * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentCheck}: the enrolment check over the snapshots of the file and
  * its sidecar, run by the project's recovery as its first step before the project is served and by the
  * verify-not-resolve check of jobs as its first stage ({@code VerifyNotResolvePipeline} of {@code runtime.job});
- * {@code enter} and the operator verbs do not run it yet. A refused project ({@code enrolment_tampered},
+ * the operator writes of {@code Enrolments} do not run it, they share its refusals. A refused project ({@code enrolment_tampered},
  * {@code enrolment_insecure}, and a refused strict read, audited as {@code enrolment_invalid}) blocks only
  * itself.</li>
  * <li>{@link de.planmarshall.runtime.enrolment.HarnessesSidecarCheck}: the verification of the harness enrolment
