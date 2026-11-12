@@ -26,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.Builder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -268,6 +269,7 @@ class SourceManifestCodecTest {
     }
 
     /** One string member of the manifest: its value at the bound, one code point over, and the refusal of the latter. */
+    @Builder
     record Bound(String name, String field, String atBound, String overBound, String refusal) {
     }
 

@@ -251,10 +251,10 @@ class CorpusSchemaResourcesTest {
                         .filter(path -> patternOf(schemas.get(path)) != null
                                 && !LITERAL_PATTERN.equals(patternOf(schemas.get(path)))
                                 && maxLengthOf(schemas.get(path)).isEmpty())
-                        .toList()),
+                        .toList(), "the patterned members without a bound"),
                 () -> assertEquals(List.of("$.d"), schemas.keySet().stream()
                         .filter(path -> maxLengthOf(schemas.get(path)).isPresent())
-                        .toList()));
+                        .toList(), "the members that carry a bound"));
     }
 
     @Test

@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import lombok.Builder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -438,6 +439,7 @@ class ImportedItemCodecTest {
     }
 
     /** One string member of the imported item: its value at the bound, one code point over, and its refusal. */
+    @Builder
     record Bound(String name, String original, String atBound, String overBound, String refusal) {
     }
 
