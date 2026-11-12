@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-07
 origin: the three-layer analysis of PLAN-V2-18 (`landings/PLAN-V2-18.md`: layer 1 L1-1 and L1-2, layer 3 L3-1 to L3-7), the Open Defect "PLAN-V2-18 (`f97bc7f2`): the XML hardening of the coverage parsers rests on a text prefilter and an unmeasured premise" of `epic.md`, and the operator's decision of 2026-11-10 ("1": stage a small fix plan `coverage-parser-hardening`)
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (lane changed from `runbook` to `plan-marshall` on 2026-11-12 under the operator's standing emit format of 2026-11-05: a normal plan, five deliverables with a security-relevant parser change, is emitted for the plan lifecycle; residue and small plans stay on the runbook lane).
 > Lives at `plans/PLAN-V2-132-coverage-parser-hardening.md` and is queued as one row file, `queue/PLAN-V2-132.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -103,10 +103,16 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`, `doc/Traceabi
 - Overlaps with (class level): PLAN-V2-127 (`npm-parser-success-and-redaction`, running at staging: `core-build.adoc`, `job-runtime/03-parsers-and-gates.adoc` and the `core-build/` ADR numbers — emit this plan after 127 has landed, so the three documents and the ADR number start from its tree), PLAN-V2-131 (`build-log-bounds`: the same two documents and the ADR directory; it edits other classes of `core.build` — `BuildLogText` and the log parsers — so the code is disjoint, the documents are not; the two are sequenced in either order, the second takes the first's ADR number), PLAN-V2-125 (the test conformance of the coverage test classes: `IstanbulSummaryParserTest`, `CoverageReportTest`, `CoverageMetricsTest`, `CoverageItemTest`, `JacocoReportParserTest`, `LcovReportParserTest` — emit this plan first or hand the rewritten cases over), PLAN-V2-100 and 108 (`@Builder` on records of `core.build`: `CoverageItem`, `CoverageMetrics`, `CoverageReport`), PLAN-V2-94 (`@UtilityClass`: `CoverageXmlReader`, `CoveragePercentages` already carry it).
 - Adjacent to: PLAN-V2-28 and 08 (the build-output parsers that share `core.build`; untouched), PLAN-V2-36 (the adapter that puts the parsers on the settlement path; untouched).
 
+## Landing
+
+This plan runs under the plan lifecycle (`/plan-marshall`; lane changed from `runbook` to `plan-marshall` on 2026-11-12 under the operator's standing emit format, because it is a normal plan and not a residue or a small one). Its `request.md` `source_id` points at this spec, so `orchestrator inbox detect` classifies it as orchestrated and its phase 6 files one `landing` message in the epic inbox with the `landing-facts` block of `standards/landing-payload-spec.md`; the orchestrator reconciles the row from it and from the pull request. The plan writes nothing else under `.plan/orchestrator/`.
+
+State at the emit (2026-11-12): PLAN-V2-127 is shipped (#353) and PLAN-V2-131 is merged (#382, `4ef5c7d6`), so the two documents (`core-build.adoc`, `job-runtime/03-parsers-and-gates.adoc`) and the `core-build/` ADR directory start from their trees: ADR `core-build/007` is taken by PLAN-V2-131, so the next free number at `origin/main` is taken (R11). PLAN-V2-125 and PLAN-V2-94 are still staged and follow this plan.
+
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-132-coverage-parser-hardening.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-132-coverage-parser-hardening.md"
 ```
 
 ## Write-Boundary
