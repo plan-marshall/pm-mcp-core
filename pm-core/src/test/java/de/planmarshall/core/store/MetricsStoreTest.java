@@ -31,15 +31,11 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
@@ -53,8 +49,8 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
 
 /**
  * The metrics store (Store Schemas § Metrics &amp; Quality Report): the row of a task and of a worker's idle turns,
- * written through the scope's transaction and read back with every column, the end of the attempt it copies, and the
- * partition of the rows over the scopes it serves. The store documents written as text blocks, the store paths and the
+ * written through the scope's transaction and read back with every column, the row of a task closed without an
+ * attempt, and the partition of the rows over the scopes it serves. The store documents written as text blocks, the store paths and the
  * column and enum names are wire contracts.
  */
 @EnableGeneratorController
@@ -106,7 +102,7 @@ class MetricsStoreTest {
                 .jobId(jobId).generationId(jobId).harness(harness).harnessVersion(harnessVersion).model(model)
                 .effort(lowerName()).form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step-" + lowerName())
                 .envelopeId(null).predictedCost(null).yieldReason(null).outcome(Outcome.SUBMITTED)
-                .attemptEnd(AttemptEnd.CLOSED).continuation(null).causeClass(CauseClass.BENIGN)
+                .continuation(null).causeClass(CauseClass.BENIGN)
                 .spendClass(SpendClass.SUBMITTED).population(Population.MODEL_JOB).usage(usage)
                 .durationMs(Generators.longs(0, 1_000_000L).next()).durationBasis(DurationBasis.PROCESS)
                 .queuedMs(Generators.longs(0, 1_000_000L).next()).consultationOf(null).recordedAt(recordedAt).build();
@@ -179,7 +175,7 @@ class MetricsStoreTest {
     class TaskRow {
 
         @Test
-        @DisplayName("round-trips with each usage column, the derived total and the attempt end")
+        @DisplayName("round-trips with each usage column and the derived total")
         void roundTrip() {
             var row = row(taskId, usage());
 
@@ -201,8 +197,7 @@ class MetricsStoreTest {
                     () -> assertEquals(Measurement.measured(toolUses), read.usage().toolUses(),
                             "the tool uses should round-trip"),
                     () -> assertEquals(OptionalLong.of(input + output + cacheRead + cacheCreation + reasoning),
-                            read.totalTokens(), "the total should be the sum of the token columns"),
-                    () -> assertEquals(AttemptEnd.CLOSED, read.attemptEnd(), "the attempt end should round-trip"));
+                            read.totalTokens(), "the total should be the sum of the token columns"));
         }
 
         @Test
@@ -391,29 +386,11 @@ class MetricsStoreTest {
     }
 
     @Nested
-    @DisplayName("the end of the attempt")
-    class AttemptEnds {
-
-        static Stream<Arguments> values() {
-            return Stream.of(AttemptEnd.values()).map(value -> Arguments.of(value, value.wireName()));
-        }
-
-        @ParameterizedTest(name = "{0}")
-        @MethodSource("values")
-        @DisplayName("is copied from the queue task record for every value of the enum")
-        void copiesEveryValue(AttemptEnd end, String wireName) {
-            var row = row(taskId, usage()).withAttemptEnd(end);
-
-            append(row);
-
-            assertAll(
-                    () -> assertEquals(end, store.snapshot().taskRows().getFirst().attemptEnd(),
-                            "the attempt end should be copied"),
-                    () -> assertEquals(wireName, end.wireName(), "the wire name should be the enum's own"));
-        }
+    @DisplayName("the task closed without an attempt")
+    class RefusedTask {
 
         @Test
-        @DisplayName("is null, with the cause class refused, for a task closed without an attempt")
+        @DisplayName("round-trips with no attempt and the cause class refused")
         void refusedTask() {
             var refused = MetricsRow.refused(taskId, role, Phase.PHASE_5_EXECUTE,
                     Outcome.LOST, SpendClass.UNMEASURED, Population.MODEL_TASK, recordedAt);
@@ -422,7 +399,7 @@ class MetricsStoreTest {
 
             var read = store.snapshot().taskRows().getFirst();
             assertAll(
-                    () -> assertNull(read.attemptEnd(), "a refused task should have no attempt end"),
+                    () -> assertEquals(refused, read, "the refused row should round-trip unchanged"),
                     () -> assertNull(read.attempt(), "a refused task should have no attempt"),
                     () -> assertEquals(CauseClass.REFUSED, read.causeClass(),
                             "the cause class should be refused"),
@@ -487,7 +464,7 @@ class MetricsStoreTest {
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
                      "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
-                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","continuation":null,"cause_class":"benign",
+                     "yield_reason":null,"outcome":"submitted","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":9,
                      "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
                      "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
@@ -507,7 +484,7 @@ class MetricsStoreTest {
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
                      "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
-                     "yield_reason":null,"outcome":"submitted","attempt_end":"closed","continuation":null,"cause_class":"benign",
+                     "yield_reason":null,"outcome":"submitted","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":2,
                      "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
                      "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
@@ -526,22 +503,24 @@ class MetricsStoreTest {
     class Validation {
 
         @Test
-        @DisplayName("refuses an attempt without its end or its end without an attempt")
-        void attemptAndEnd() {
-            var withoutEnd = row(taskId, usage()).toBuilder().attemptEnd(null);
+        @DisplayName("refuses a task row without an attempt and a refused row with one")
+        void attemptAndCause() {
             var withoutAttempt = row(taskId, usage()).toBuilder().attempt(null);
+            var refusedWithAttempt = MetricsRow.refused(taskId, role, Phase.PHASE_5_EXECUTE,
+                    Outcome.LOST, SpendClass.UNMEASURED, Population.MODEL_TASK, recordedAt).toBuilder()
+                    .attempt(Generators.integers(1, 9).next());
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, withoutEnd::build,
-                            "an attempt without its end should fail"),
                     () -> assertThrows(IllegalArgumentException.class, withoutAttempt::build,
-                            "an end without its attempt should fail"));
+                            "a task row without its attempt should fail"),
+                    () -> assertThrows(IllegalArgumentException.class, refusedWithAttempt::build,
+                            "a refused row with an attempt should fail"));
         }
 
         @Test
         @DisplayName("refuses a refused row that carries a worker, and a broken identifier (grammar violation)")
         void refusedColumns() {
-            var refusedWithWorker = row(taskId, usage()).toBuilder().attempt(null).attemptEnd(null)
+            var refusedWithWorker = row(taskId, usage()).toBuilder().attempt(null)
                     .causeClass(CauseClass.REFUSED);
             var badId = row(taskId, usage()).toBuilder().queueTaskId("qt-not-an-id");
             var negativeCost = -Generators.longs(2, 1_000L).next();
@@ -589,7 +568,7 @@ class MetricsStoreTest {
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
                      "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
-                     "yield_reason":null,"outcome":null,"attempt_end":"closed","continuation":null,"cause_class":"benign",
+                     "yield_reason":null,"outcome":null,"continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":2,
                      "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
                      "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
