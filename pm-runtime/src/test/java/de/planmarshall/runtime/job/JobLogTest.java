@@ -203,7 +203,7 @@ class JobLogTest {
             Files.writeString(path, report + "\n" + filler + "\n" + marker + "\n", StandardCharsets.UTF_8);
 
             var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a log at the cap is complete");
-            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(), "the report is read");
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(), "the launch report is read");
 
             assertAll(
                     () -> assertEquals(JobLog.MAX_BYTES, Files.size(path), "the log is exactly at the cap"),

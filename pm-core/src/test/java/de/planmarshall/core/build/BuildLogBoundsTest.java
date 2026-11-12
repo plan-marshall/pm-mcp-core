@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
@@ -78,6 +79,10 @@ class BuildLogBoundsTest {
             "CUI_REWRITE-10", ": Finding detected at ", ": Finding pre-existing at ", " by ", "y", ": ", "1", "12", ".5",
             "s", "passed", "failed", "skipped", " in ", "in 1.5s", "took 2s", "E", "=", "\r", "\u2028", "x");
 
+    /** A line the ported finding expression matches, so the differential test is never vacuous. */
+    private static final String VALID_FINDING =
+            "CUI_REWRITE-100: Finding detected at src/Foo.java:12:3 by com.example.Recipe: a message";
+
     private static String fit(String unit, int length) {
         var builder = new StringBuilder(length + unit.length());
         while (builder.length() < length) {
@@ -87,7 +92,7 @@ class BuildLogBoundsTest {
     }
 
     private static String generatedLine() {
-        var count = Generators.integers(0, 8).next();
+        var count = Generators.integers(0, 12).next();
         var builder = new StringBuilder();
         for (var index = 0; index < count; index++) {
             builder.append(FRAGMENTS.get(Generators.integers(0, FRAGMENTS.size() - 1).next()));
@@ -197,12 +202,16 @@ class BuildLogBoundsTest {
     @DisplayName("hostile rewrite finding lines at the limit return inside the bound")
     void boundsRepeatedRewriteFindingLines() {
         var hostile = fit("CUI_REWRITE-100: Finding detected at x", LIMIT);
-        OpenRewriteLogParser.parse("--- rewrite:run (\n", true);
+        var log = "--- rewrite:run (\n" + hostile + "\n";
+        OpenRewriteLogParser.parse(log, true);
 
-        var result = assertTimeoutPreemptively(HOSTILE_BOUND,
-                () -> OpenRewriteLogParser.parse("--- rewrite:run (\n" + (hostile + "\n").repeat(LINES_AT_THE_LIMIT),
-                        true),
-                "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
+        var result = assertTimeoutPreemptively(HOSTILE_BOUND, () -> {
+            var answered = OpenRewriteLogParser.parse(log, true);
+            for (var index = 0; index < LINES_AT_THE_LIMIT; index++) {
+                answered = OpenRewriteLogParser.parse(log, true);
+            }
+            return answered;
+        }, "the parser answers " + LINES_AT_THE_LIMIT + " hostile lines of " + LIMIT + " characters");
 
         assertSame(RewriteVerdict.PARSE_ERROR, result.verdict(), "the hostile line is a parse error");
     }
@@ -256,8 +265,14 @@ class BuildLogBoundsTest {
     @Test
     @DisplayName("the finding pre-test never hides a finding")
     void findingPreTestNeverHidesAFinding() {
+        assertTrue(PORTED_FINDING.matcher(VALID_FINDING).find(), "the valid finding line must match the ported form");
+        var lines = new ArrayList<String>();
+        lines.add(VALID_FINDING);
         for (var index = 0; index < GENERATED_LINES; index++) {
-            var line = generatedLine();
+            lines.add(generatedLine());
+        }
+
+        for (var line : lines) {
             if (PORTED_FINDING.matcher(line).find()) {
                 assertTrue(OpenRewriteLogParser.mayBeFinding(line),
                         () -> "a finding line must pass the pre-test: " + line);

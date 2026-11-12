@@ -188,7 +188,8 @@ public record JobLog(Path path) {
      * line, and a launcher failure is decided from it: a tail read alone would report {@code Unreported} and lose the
      * launcher-failure decision. The cut is not {@link LogState#TRUNCATED}: that state means the log is shorter than
      * what the runtime already read from it, and an over-cap log is longer, not shorter. A first line longer than the
-     * cap cannot be taken by a bounded read, and the head alone is answered.
+     * cap cannot be taken by a bounded read, and the head alone is answered. A log that shrinks between the size read
+     * and the read of its content is {@link LogState#TRUNCATED} too: a short read is never reported as a complete log.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -206,6 +207,10 @@ public record JobLog(Path path) {
                 return truncated(size, observedLength);
             }
             var text = size <= MAX_BYTES ? whole(channel, size) : capped(channel, size);
+            var remaining = channel.size();
+            if (remaining != size) {
+                return truncated(remaining, size);
+            }
             return new Complete(LaunchReport.read(text), size);
         } catch (NoSuchFileException _) {
             return missing();
