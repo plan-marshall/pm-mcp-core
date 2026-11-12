@@ -58,14 +58,17 @@ class BuildLogBoundsTest {
     private static final int GENERATED_LINES = 500;
 
     /** The ported Maven header expression, as it was before the pre-test was added. */
+    @SuppressWarnings("java:S8786") // the reference the rewrite is held to: deliberately the ported, super-linear form
     private static final Pattern PORTED_EXECUTION_HEADER =
             Pattern.compile("---\\s+([\\w.\\-]+):[\\w.\\-]+:[\\w.\\-]+\\s.*@.*---");
 
     /** The ported pytest summary expression, as it was before it was answered in two steps. */
+    @SuppressWarnings("java:S8786") // the reference the rewrite is held to: deliberately the ported, super-linear form
     private static final Pattern PORTED_SUMMARY_LINE =
             Pattern.compile("^.*\\b(?:passed|failed|skipped)\\b.*\\bin\\s+[\\d.]+s.*$");
 
     /** The ported OpenRewrite finding expression, as it was before the pre-test was added. */
+    @SuppressWarnings("java:S8786") // the reference the rewrite is held to: deliberately the ported, super-linear form
     private static final Pattern PORTED_FINDING = Pattern.compile(
             "CUI_REWRITE-(10[01]): Finding (?:detected|pre-existing) at (.+?):(\\d+):(\\d+) by (.+?): (.*)$");
 

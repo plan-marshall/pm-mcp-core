@@ -138,30 +138,47 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
         while (index < text.length()) {
             char current = text.charAt(index);
             if (current == '\r') {
-                var run = index;
-                while (run < text.length() && text.charAt(run) == '\r') {
-                    run++;
-                }
-                if (run < text.length() && text.charAt(run) == '\n') {
-                    appendLineEnd(reduced);
-                    frameStart = reduced.length();
-                    index = run + 1;
-                } else if (run == text.length()) {
-                    index = run;
-                } else {
-                    reduced.setLength(frameStart);
-                    index = run;
-                }
-            } else if (current == '\n') {
+                index = reduceFrameRun(text, reduced, index, frameStart);
+                frameStart = reduced.length();
+                continue;
+            }
+            if (current == '\n') {
                 appendLineEnd(reduced);
                 frameStart = reduced.length();
                 index++;
-            } else {
-                reduced.append(current);
-                index++;
+                continue;
             }
+            reduced.append(current);
+            index++;
         }
         return reduced.toString();
+    }
+
+    /**
+     * Reduces one {@code \r} run to its last frame and answers where the pass continues: after the line end of a
+     * {@code \r\n}, past a run that ends the text, and past a run that opens a further frame of the same line, whose
+     * earlier frames are dropped.
+     *
+     * @param text       the text, with its ANSI escapes already stripped
+     * @param reduced    the text reduced so far
+     * @param from       where the run begins
+     * @param frameStart where the current line's current frame begins in {@code reduced}
+     * @return the index to continue the pass at
+     */
+    private static int reduceFrameRun(String text, StringBuilder reduced, int from, int frameStart) {
+        var run = from;
+        while (run < text.length() && text.charAt(run) == '\r') {
+            run++;
+        }
+        if (run == text.length()) {
+            return run;
+        }
+        if (text.charAt(run) == '\n') {
+            appendLineEnd(reduced);
+            return run + 1;
+        }
+        reduced.setLength(frameStart);
+        return run;
     }
 
     /**

@@ -95,30 +95,47 @@ public class OpenRewriteLogParser {
         }
         var findings = new ArrayList<RewriteFinding>();
         for (String rawLine : bounded.split("\n", -1)) {
-            String line = stripCarriageReturn(rawLine);
-            if (mayBeFinding(line)) {
-                Matcher match = FINDING.matcher(line);
-                if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
-                    Optional<Integer> lineNumber = digits(match.group(3));
-                    Optional<Integer> column = digits(match.group(4));
-                    if (lineNumber.isEmpty() || column.isEmpty()) {
-                        return parseError(line, "the finding location is outside the int range");
-                    }
-                    findings.add(RewriteFinding.builder().path(match.group(2)).line(lineNumber.get())
-                            .column(column.get()).recipe(match.group(5)).message(match.group(6))
-                            .classification(
-                                    "100".equals(match.group(1))
-                                            ? RewriteClassification.NEWLY_DETECTED
-                                            : RewriteClassification.PRE_EXISTING)
-                            .build());
-                    continue;
-                }
-            }
-            if (FINDING_IDENTIFIER.matcher(line).find()) {
-                return parseError(line, "the finding line does not match the pinned template");
+            var error = accept(stripCarriageReturn(rawLine), findings);
+            if (error.isPresent()) {
+                return error.get();
             }
         }
         return new RewriteLogResult(RewriteVerdict.OBSERVED, findings, null);
+    }
+
+    /**
+     * Reads one line for a finding, or refuses it: a finding line adds its finding, and a line that carries the finding
+     * identifier without matching the pinned template is a {@link RewriteVerdict#PARSE_ERROR}.
+     *
+     * @param line     the line to read
+     * @param findings the findings the parse has collected, appended to
+     * @return the failure to answer with, or empty when the line carried nothing to answer
+     */
+    private static Optional<RewriteLogResult> accept(String line, List<RewriteFinding> findings) {
+        if (mayBeFinding(line)) {
+            Matcher match = FINDING.matcher(line);
+            if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()) {
+                return addFinding(line, match, findings);
+            }
+        }
+        return FINDING_IDENTIFIER.matcher(line).find()
+                ? Optional.of(parseError(line, "the finding line does not match the pinned template"))
+                : Optional.empty();
+    }
+
+    private static Optional<RewriteLogResult> addFinding(String line, Matcher match, List<RewriteFinding> findings) {
+        Optional<Integer> lineNumber = digits(match.group(3));
+        Optional<Integer> column = digits(match.group(4));
+        if (lineNumber.isEmpty() || column.isEmpty()) {
+            return Optional.of(parseError(line, "the finding location is outside the int range"));
+        }
+        findings.add(RewriteFinding.builder().path(match.group(2)).line(lineNumber.get()).column(column.get())
+                .recipe(match.group(5)).message(match.group(6))
+                .classification("100".equals(match.group(1))
+                        ? RewriteClassification.NEWLY_DETECTED
+                        : RewriteClassification.PRE_EXISTING)
+                .build());
+        return Optional.empty();
     }
 
     /**
