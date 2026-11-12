@@ -45,7 +45,7 @@ public record CoverageReport(CoverageFormat format, CoverageMetrics overall, Lis
      * The comparison is {@code >=}: a line percentage exactly at the threshold passes. No other metric is consulted.
      * <p>
      * The percentages compared are the ones the parser stored, already rounded to two decimals, so the rounding happens
-     * before the comparison: a line coverage of {@code 79.995} is stored as {@code 80.0} and passes a threshold of
+     * before the comparison: a line coverage of {@code 79.996} is stored as {@code 80.0} and passes a threshold of
      * {@code 80}.
      *
      * @param threshold the minimum line percentage to pass, within {@code 0..100}
