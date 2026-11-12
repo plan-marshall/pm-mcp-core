@@ -1,0 +1,98 @@
+= Category: Incident Response Reports
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+Incident response reports are written in Confluence today. A form system that produces AsciiDoc and takes care of
+review, approval and deadlines is the alternative examined here.
+
+== Handling and Report Are Two Things
+
+* *Handling the incident* (alerting, coordination, escalation in real time) does not belong in Git. Chat, ticket
+  system and on-call service do that.
+* *The report on the incident* (course, cause, impact, lessons, measures, notification duties) is a document with
+  structure, review and approval. It fits the Git approach very well.
+
+The live phase therefore stays in Confluence, the chat or the ticket system; only the report moves into the form
+system, ideally with an import of the timeline from the ticket or the chat.
+
+== What a Form System Gains over Confluence
+
+. *Mandatory fields and deadlines are enforced.* Security incidents carry hard notification deadlines: GDPR Art. 33
+  (notification within 72 hours; documentation of every personal data breach, para. 5) and, where it applies, NIS2
+  (early warning within 24 hours, notification within 72 hours, final report within one month) _(unverified;
+  whether NIS2 applies depends on sector and size)_. A form with a schema shows the deadlines and checks the
+  mandatory fields; a Confluence page cannot.
+. *Review and approval* by pull request, with a passkey approval where configured, immutable after approval,
+  timestamped: evidence for ISO 27001
+  A.5.24–5.28 (among them 5.27, learning from incidents, and 5.28, collection of evidence).
+. *Machine-readable*: evaluations across all incidents (categories, time to detection and resolution, recurring
+  causes); in Confluence that is free text.
+. *Links*: an incident creates risks in the ISMS register, measures as issues and, where it applies, a review of
+  the threat model of the affected application.
+. *Data protection and confidentiality* as designed in link:data-protection.adoc[Data Protection]: a repository per year
+  with a retention period (`isms-incidents-2026`), personal details encrypted through the keyring, read access for a
+  small circle.
+
+Where Confluence is better: joint live editing and commenting, familiarity for non-technical participants, and it
+runs already. That is why the live phase stays there.
+
+== AsciiDoc Is the Output, Not the Truth
+
+When the form produces AsciiDoc and someone edits that AsciiDoc by hand, the form can no longer load it cleanly.
+Hence:
+
+----
+incidents/<id>/
+  incident.yaml        ← structured fields (schema): times, category, severity, affected services (service:…),
+                         notifications, measures
+  narrative/*.adoc     ← free-text sections (course, root-cause analysis, lessons) as AsciiDoc fragments
+  report.adoc          ← generated: a template joins the YAML and the fragments
+----
+
+The structured data stay in YAML; free text may be AsciiDoc with tables and images. `report.adoc` is generated
+reproducibly and committed as readable evidence; a CI check makes sure it matches the YAML. PDF for authorities or
+customers is generated from it as well.
+
+== Existing Alternatives
+
+[cols="1,2,2"]
+|===
+|Tool |Kind |Assessment
+
+|incident.io, FireHydrant, Rootly, PagerDuty
+|Commercial SaaS, focused on operational incidents (SRE)
+|Strong in the live phase with chat integration, produce postmortems; the data lie with the vendor
+
+|Jira Service Management with Confluence templates
+|Commercial, Atlassian
+|Close to the current setup, but free text without a schema
+
+|Netflix Dispatch
+|Open source incident management with Slack
+|Live phase; whether it is still actively maintained is not verified
+
+|DFIR-IRIS _(unverified)_
+|Open source handling of security incidents (forensics), report templates
+|Closest for security incidents; a database and operation of its own
+
+|TheHive _(unverified)_
+|Platform for security incidents in a SOC
+|For SOC teams; commercial licence since v5 to this study's knowledge
+
+|Postmortems as Markdown in Git
+|Established practice (template of the Google SRE book)
+|Shows that the approach carries, but without form, schema and deadlines
+|===
+
+No tool known to this study structures reports, reviews them, stores them without additional operation and links
+them to the ISMS, the threat models and the notification duties. The gap is the same as for SAMM and threat models.
+
+== Sources
+
+* Netflix Dispatch: https://github.com/Netflix/dispatch[Dispatch on GitHub]

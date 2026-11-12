@@ -1,0 +1,120 @@
+= Data Protection: GDPR, Pseudonymisation and Repository Cut
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+== GDPR
+
+Declaring the persistence "not deletable" does not exempt it from the GDPR. As soon as personal data lie in the
+repository, the right to erasure (Art. 17) applies, and Art. 25 (privacy by design) demands a system that can serve
+the data subjects' rights. Exceptions exist (Art. 17(3)), above all statutory retention duties, but only for the
+data they cover and only for their period; afterwards storage limitation (Art. 5(1)(e)) requires deletion. During
+retention, restriction of processing (Art. 18) replaces erasure.
+
+Commits themselves are personal data when the author is a named person. The design therefore keeps personal data
+out of the history:
+
+* *Pseudonymous commits*: the author is an opaque pseudonym; the mapping of pseudonym to person lies encrypted in Git
+  and is erased by key rotation (see the next section).
+* *Roles instead of persons* in documents (`owner: role:it-security-lead`); the directory resolves the role
+  (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
+* *Crypto-shredding* for personal fields that must be in a document: encrypted with the data key of the data subject
+  (the same keyring as the pseudonym mapping); destroying the key erases the data in effect. Whether this counts as
+  erasure is not settled; agree it with the data protection officer.
+* *No personal interview notes* in free-text fields; the UI says so.
+* *Repositories per retention period* (see the last section): after the period the whole repository is deleted; no
+  history is rewritten.
+
+This is a technical assessment, not legal advice.
+
+=== Pseudonymisation without a Further Store: an Encrypted Keyring in Git
+
+Pseudonymisation needs a mapping of pseudonym to person, and that mapping must be deletable. A store of its own for
+it would bring back the operating effort Git was meant to avoid. The mapping can instead lie in Git, symmetrically
+encrypted with a key supplied from outside.
+
+*One fixed key is not enough.* The mapping changes: erasing a person writes a new encrypted version without the
+entry. The old versions stay in the Git history, encrypted with the same key; whoever holds the key decrypts
+yesterday's version and has the person back. For the controller, who holds the key, the entry is not erased.
+
+*Rotating the key on erasure works.* When the key is changed on erasure and the old one destroyed, all old versions
+in the history become unreadable at once. Envelope encryption keeps this cheap:
+
+----
+Git (the repository `directory`)
+ ├─ persons/<pseudonym>.enc   ← the entry of a person, encrypted with the person's own data key (DEK);
+ │                              rewritten only when the person changes it
+ └─ keys/keyring.enc          ← per pseudonym its DEK and the `sub` of the identity provider, encrypted with the
+                                key-encryption key (KEK, version n); small, rewritten on every erasure
+
+Outside Git: only the KEK (supplied from outside, versioned)
+----
+
+The keyring and the entries of persons live in the repository `directory` (see
+link:directory-and-catalogs.adoc[Directory and Catalogs]); personal fields in documents of other repositories use
+the same keyring.
+
+Erasing a person:
+
+. Remove the person's entry (DEK and `sub`) from the keyring.
+. Encrypt the keyring with a new KEK (version n+1) and commit it.
+. Destroy KEK version n.
+
+All old versions of the keyring in the history are unreadable, because their KEK is gone; with them the DEKs of the
+erased persons are gone, and their `persons/*.enc` are noise, although they stay in Git. The data of everyone else
+remain readable, because their DEKs are in the new keyring; only the small keyring is encrypted anew. The same
+mechanism serves personal fields in documents (notes on an incident, for example) encrypted with the DEK of the
+data subject: pseudonymisation and crypto-shredding run on one technique.
+
+What has to be done right:
+
+* *Really destroy the KEK.* This is the hard part. The KEK needs backups, or the loss of it loses all mappings; at
+  the same time the old version has to vanish everywhere, backups included. The clean solution is a KMS or Vault
+  (transit) that manages key versions and destroys old versions selectively. A key as a plain configuration value
+  works too, but then every rotation is a manual operating step. Whether Token Sheriff can hold versioned secrets
+  and serve as the source of the KEK is open.
+* *Batch erasures.* Rotate daily, for example, not per erasure. The GDPR asks for an answer without undue delay and
+  within one month at the latest (Art. 12(3)); the maximal delay belongs into the erasure concept.
+* *Evidence of erasure.* A commit "KEK v7 destroyed on …, concerns pseudonyms X, Y" (without the key), anchored with an
+  RFC 3161 timestamp like every new state of `main` (see
+  link:evidence-and-companion-stores.adoc[Evidence and Companion Stores]).
+* *No home-made cryptography.* AES-256-GCM as authenticated encryption, with the path and the key version as
+  associated data so that no blob can be swapped; random nonces, never reused. Google Tink (Java) provides envelope
+  encryption and KMS integration _(unverified)_; for the new project it would be a deliberate dependency decision.
+* *Longevity.* The ciphertext stays in Git for good, in every clone and in every backup of the Git server. Hence
+  AES-256, not AES-128, as a reserve against future attacks, quantum computers included. After the erasure the
+  protection rests entirely on the destruction of the KEK.
+* *At run time* the application needs the current KEK at start, decrypts the keyring and holds the mapping in
+  memory, like the index. The keyring is a single file and thereby a hot spot for compare-and-swap; with few new
+  persons per day this is uncritical, otherwise it is split.
+
+Legally, encrypted data stay personal data for the controller as long as the key exists: encryption is a protective
+measure, not an erasure. After the destruction of the KEK the remaining ciphertext is in common practice in effect
+anonymous; this is not settled and is agreed with the data protection officer.
+
+The result: no further store. Everything lies in Git; outside it lies one secret, the KEK, not a data store.
+Operators manage secrets anyway.
+
+== Repositories per Confidentiality and Retention Class
+
+Git grants rights per repository only. Cutting the data into repositories by confidentiality turns that into an
+advantage; cutting them by retention period solves deletion:
+
+----
+isms-core            → policies, scope, statement of applicability   (widely readable)
+isms-register        → assets, risks, controls                       (restricted)
+isms-incidents-2026  → incidents of one year                         (strongly restricted, retention period)
+samm-assessments     → SAMM                                           (development and security)
+threat-models        → threat model reports, where not in the application's repository (restricted)
+directory            → catalogs (widely readable), entries of persons and keyring (encrypted)
+----
+
+With pushes in the user's name (identity level b, link:identity-and-signing.adoc[Identity and Signing]) the Git server
+enforces the rights itself. References across repositories use stable ids (`isms-register:risk/R-042`,
+`samm:assessment/team-a-2026-q4`); the application checks on save that the target exists, and a CI pipeline on the pull
+request can validate schemas (JSON Schema) and references with the existing infrastructure.

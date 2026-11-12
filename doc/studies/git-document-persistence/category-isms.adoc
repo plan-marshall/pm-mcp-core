@@ -1,0 +1,135 @@
+= Category: ISMS and the Comparison with verinice
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+== The ISMS on Git
+
+ISO 27001 clause 7.5 asks for the control of documented information: versioning, review and approval, availability,
+protection against change, traceable changes. Git maps onto it directly:
+
+[cols="1,1"]
+|===
+|Clause 7.5 |Git
+
+|Versioning, change history |commits, diff
+|Review and approval |pull or merge request with review, protected `main`
+|Protection against unauthorised change |repository rights, protected branches and tags
+|Availability and retention |the Git server and its backup
+|===
+
+The ISMS artefacts sort into three groups:
+
+. *Documents, very well suited*: policies, scope, risk methodology, statement of applicability, internal audit and
+  management review reports. Rarely changed, approval-centred, diffable.
+. *Registers, well suited*, with the pattern of link:category-samm.adoc[SAMM] (one file per entry, in-memory index,
+  compare-and-swap): risks, controls, suppliers, nonconformities, and the assets that are no applications. Even a
+  mid-sized ISMS holds a few thousand entries.
+. *Operational data, referenced instead of stored*: tasks and deadlines (issue tracker of the Git server or Jira), the
+  live handling of incidents (ticket system; the report on an incident is a schema-driven document, see
+  link:category-incident-reports.adoc[Incident Response Reports]), training records per employee (learning platform or
+  HR system). Persons, roles, teams and the applications as assets come from the
+  link:directory-and-catalogs.adoc[directory and its catalogs].
+
+Additional mechanisms:
+
+* *Portable approvals*: approvals of a pull request live in the Git server's database. On merge the application
+  writes them as commit trailers, so the evidence survives a change of Git server (see
+  link:identity-and-signing.adoc[Identity and Signing]).
+* *Running numbers* (R-042) under concurrent creation: a ULID as file name; the readable number is assigned on save
+  through a counter file in the same commit, made unique by the compare-and-swap.
+* *Reporting dates*: "statement of applicability and risk register as of the audit on 1 March" is a tag or the
+  commit of that date; the index is built from it.
+* *Deadlines and reminders* are computed from the index; notifications are runtime state of the application, not
+  persistence.
+
+The bridge to SAMM: a released assessment becomes evidence for the secure-development controls (Annex A 8.25 ff.)
+by a reference to its tag; target maturity levels become measures in the issue tracker. Both domains run on one
+engine.
+
+Limits: real-time incident handling with escalation is no case for Git (connect a ticket system); queries across
+many repositories need an instance that may read all of them, or queries run with the user's rights and show only
+what the user may see; Git replaces no document management system an auditor knows as such, so the process
+description of the control of documented information has to be written once.
+
+== Comparison with verinice
+
+verinice (SerNet) is an established ISMS product. The classic product is a desktop client (Eclipse RCP) with the
+server verinice.PRO and a database, strong in BSI IT-Grundschutz, ISO 27001 and data protection. verinice.veo is
+the new web application: microservices on PostgreSQL, Keycloak and RabbitMQ, orchestrated by Kubernetes, offered as
+SaaS or on premise.
+
+[cols="1,2,2"]
+|===
+|Criterion |Git approach |verinice / verinice.veo
+
+|Domain content
+|Built by the project. The Grundschutz compendium is free; the texts of ISO 27001 are copyrighted and may not be
+shipped, only own wording and numbers
+|Catalogues, methodology and modelling logic included, matured over years
+
+|Reports (statement of applicability, Grundschutz check, risk report)
+|Built by the project
+|Available, widely used in audits
+
+|Operation
+|Application and existing Git server; backup, rights and reviews exist
+|veo: Kubernetes, PostgreSQL, Keycloak, RabbitMQ, or SaaS with the data at the vendor
+
+|Versioning, diff, reporting dates
+|Native and complete
+|Rather status and release attributes on objects than a full history with diff _(unverified)_
+
+|Approval, four eyes
+|Pull request review, protected branches, commit trailers, graded signatures up to passkeys
+|Workflow functions of the application (scope to verify)
+
+|Tamper evidence
+|Hash chain, signed commits and RFC 3161 timestamps, verifiable externally
+|Depends on the database and the administrators' rights
+
+|Rights
+|Coarse per repository, cut by confidentiality; enforced by the application, or by the Git server when
+pushing in the user's name
+|Fine-grained per object and role in the application
+
+|Audience
+|Development organisations working with pull requests; editing also directly in the repository (YAML and CI checks)
+|Security officers and business units without Git
+
+|Data sovereignty
+|Plain YAML or Markdown, readable without any software
+|Database, export through exchange formats or REST API
+
+|Integration
+|Everything is files: CI pipelines, scripts, SAMM, issue tracker
+|REST API (veo), import and export
+
+|Acceptance by auditors
+|Has to be explained (process description of the control of documented information)
+|Known, especially for Grundschutz certification
+
+|Time to use
+|SAMM: weeks to months; a complete ISMS at verinice level: rather years
+|Introduction in weeks
+|===
+
+Positioning: do not compete with verinice as a complete ISMS; complement it.
+
+. *Core*: the SAMM tool on Git; no established competitor follows this approach.
+. *Extension*: a lean "ISMS as code" for development organisations: policies, statement-of-applicability extracts
+  for secure development, risks from SAMM gaps.
+. *Bridge*: where an organisation already runs verinice, the tool delivers released SAMM assessments as evidence
+  through the REST API of veo, a supplier to the main ISMS rather than a competitor.
+
+== Sources
+
+* verinice: https://verinice.com/en/ressources/learn/technical-background[Technical details],
+  https://verinice.com/en/ressources/learn/interfaces-apis[Interfaces and APIs],
+  https://verinice.com/en/veo[verinice.veo],
+  https://github.com/SerNet/verinice-veo-web[verinice-veo-web on GitHub]

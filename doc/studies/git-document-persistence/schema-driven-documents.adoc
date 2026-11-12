@@ -1,0 +1,39 @@
+= Schema-Driven Documents
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+SAMM assessments, threat models, incident response reports, the documents of the ISMS and the entries of the
+directory share one shape:
+
+----
+schema (form) → data in YAML + free text in AsciiDoc → output as AsciiDoc through a template
+             → review and approval → immutable in Git
+             with deadlines, links and evaluations
+----
+
+That argues for a generic layer of schema-driven documents above the document store:
+
+* *Schema*: a JSON Schema per category produces the form and validates the data, in the UI and in CI.
+* *Template*: a template per category produces the AsciiDoc output (and PDF from it).
+* *Workflow*: states (draft, review, approved, superseded) with the transitions mapped onto drafts, saving, pull
+  requests and tags; deadlines per state (notification duties, review intervals); the signature level per state
+  (see link:identity-and-signing.adoc[Identity and Signing]).
+* *Links*: typed references across categories and repositories (`service:payment-api`, `isms-register:risk/R-042`).
+
+The categories then become configuration (schema, template, workflow, repository), not code:
+
+----
+git-core → git-store → git-forms (schema, template, workflow, deadlines, signature levels)
+                          ├─ samm
+                          ├─ threat-models
+                          ├─ incident-reports
+                          └─ isms …
+----
+
+Further categories become cheap: exception approvals, supplier assessments, access reviews.

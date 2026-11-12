@@ -1,0 +1,101 @@
+= Category: Threat Models
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+Threat model reports are a second category of information on the same engine. Recipes for threat modelling guide
+the filling in, by people or assisted by a model; the result is a structured report that is maintained over the life
+of the application.
+
+== Existing Tools
+
+[cols="1,2,1,2"]
+|===
+|Tool |Kind |Storage |Assessment
+
+|OWASP Threat Dragon
+|Open source, web and desktop, diagram editor (STRIDE and further methods)
+|JSON files; the web application stores directly in GitHub, GitLab, Bitbucket or locally
+|Best candidate to connect to; shows that Git as storage is common here
+
+|OWASP pytm _(unverified)_
+|Threat model as Python code, generates diagrams and report
+|In the application's repository
+|For developers, no UI
+
+|Threagile _(unverified)_
+|Threat model as YAML, risk rules
+|In the application's repository
+|Fits YAML in Git; whether it is still maintained is to verify
+
+|Microsoft Threat Modeling Tool
+|Free, Windows only
+|`.tm7` files
+|Rather a single-seat tool
+
+|IriusRisk, ThreatModeler, SD Elements
+|Commercial, with a database
+|Own platform
+|Complete solution, but operation or SaaS and cost
+
+|Open Threat Model (OTM)
+|Open exchange format (JSON or YAML)
+|Format, no tool
+|Threat Dragon carries a schema for it since v2.1.3; its adoption is not verified
+|===
+
+No existing system known to this study maintains threat models across many applications, evaluates them and
+detects that they are outdated, without additional operation. That gap is the place of this approach.
+
+== Where a Threat Model Lives
+
+A threat model describes one application and has to change with its architecture. That raises the question of
+place:
+
+* *A: in the application's repository* (`threat-model/` beside the code), recommended as the source of truth. It is
+  versioned with the code and reviewed in pull requests; a release has its threat model. Outdated models become
+  detectable: the architecture changed since the last commit of the threat model (new interfaces, dependencies,
+  infrastructure files), so a review is due. This works through Git diffs, and only when model and code share the
+  repository. The application reads many repositories, which the repository layer does anyway, and writes through
+  pull requests, because the `main` of the applications is protected: by the technical user with the signed
+  trailers of the user, or in the user's name (see link:identity-and-signing.adoc[Identity and Signing]).
+* *B: a central repository `threat-models`*, like link:category-samm.adoc[SAMM]. Simpler where teams allow no writes
+  into their repositories or the applications are not in Git; outdated models are then detected only through references
+  to the applications' repositories.
+
+Both are supported by configuration over the same repository layer.
+
+== What the Application Contributes
+
+Not a diagram editor; Threat Dragon has one. The value lies in the life cycle:
+
+. *Recipes* guide the filling in; the result is a structured report in an open format.
+. *Format*: OTM or the JSON of Threat Dragon instead of an own schema, so teams can go on editing the diagram in
+  Threat Dragon and the application reads the same file.
+. *Maintenance*: detection of outdated models, due dates, review by pull request, approval trailers.
+. *Evaluation across applications*: open threats per application, untreated risks, age of the models.
+. *Links*: threat modelling is a stream of the SAMM practice _Threat Assessment_ (business function _Design_), so
+  maintained threat models are direct evidence for that maturity level in a SAMM assessment; accepted or untreated
+  threats become entries of the ISMS risk register (`isms-register:risk/…`), countermeasures become issues.
+
+== What to Observe
+
+* *Confidentiality*: threat models describe attack paths. In the application's repository everyone with read access
+  to the code sees them; internally that is mostly intended, for public repositories it is excluded, and variant B
+  with a restricted repository applies.
+* *Personal data*: hardly any, apart from owners; roles instead of names, as elsewhere.
+* *Service*: every threat model refers to its entry in the service catalog (`service:…`), which names its repositories
+  (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
+* *Diagrams* are stored as data (OTM or JSON); images are generated, so diffs stay readable.
+
+== Sources
+
+* OWASP Threat Dragon: https://owasp.org/www-project-threat-dragon/docs-2/introduction[Threat Dragon 2.0 introduction],
+  https://owasp.org/www-project-threat-dragon/docs-2/install-webapp[Installing the web application (repository access)],
+  https://owasp.org/www-project-threat-dragon/docs-2/bitbucket-repo[Bitbucket repository access],
+  https://www.github.com/OWASP/threat-dragon[Threat Dragon on GitHub]
