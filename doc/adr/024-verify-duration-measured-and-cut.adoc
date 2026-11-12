@@ -377,8 +377,8 @@ bounded tolerance, beside the recording-primitive tests that carry the decisive 
 |5.0
 |Fixture setup: an HTTPS mock web server per test (`@EnableMockWebServer(useHttps = true)`) and the limits stage's
 bisection, which sends one request per step.
-|fix in 4: read where the time goes (TLS per test or the number of bisection steps) and shorten it without changing the
-stages asserted.
+|dropped: the class and the remote endpoint form it tested were deleted on `main` by #396 before Deliverable 4 started
+(<<test-level-changes>>).
 |===
 
 Two further costs are above the cut-off but outside the reference gate:
@@ -576,6 +576,89 @@ audited; parallel JVMs not applied, the test phases (about 10 s each) leave no g
 Because no module runs its tests in parallel, no test class is marked to run alone (JUnit `@Isolated` or
 `@ResourceLock`) and no module POM carries a parallel switch; a module admitted later marks its non-parallel classes
 in the same change that switches it on.
+
+[#test-level-changes]
+=== The Test-Level Changes
+
+The ranked rows decided *fix in 4* were taken up after the branch was brought onto `main` at `e07bf737`, which already
+held #389, #390 and #396 to #400. Those changes deleted about 20 test classes of `pm-core` and `pm-runtime` and changed
+`SubprocessJobRunnerTest`, so the class lists and counts of <<baseline-tests>> describe the tree before them; the final
+measurement of this plan takes the baseline again. Every class below was checked to exist on the rebased tree before it
+was touched. The times per test come from the Surefire reports of the module runs of Deliverable 3, taken with
+`reuseForks` `true` (change A) and without the coverage agent, so they differ from the ranked figures.
+
+[cols="1,2,4,4,2",options="header"]
+|===
+|Row |Class |Where the time goes |Change |Measured
+
+|10
+|`LspClientTest`
+|13.9 s for 6 tests: `timeout` 5.4 s waits out its 5 s request bound; `startFailures` 5.3 s, because the server that
+dies before `initialize` leaves the `initialize` request unanswered, so the start waits out its 5 s bound before it
+reports `START_FAILED`; `stubborn` 2.3 s waits out its 2 s exit bound once. The fixture server's JVM answers
+`initialize` in 0.3 s to 0.5 s on an idle host (the tests that wait for nothing take 0.28 s to 0.50 s each).
+|The three waited bounds are one constant of 2 s: the two 5 s bounds come down to it, the stubborn server's 2 s bound
+stays. It is not lower because `LspClient.start` bounds `initialize` with the same value, and under load the fixture's
+start reached 1.3 s; a bound below a second would fail the start, not the assertion. Every assertion stays as it was:
+the refusal is a `TIMEOUT`, the dying server a `START_FAILED`, the stubborn server is terminated with the
+`LSP_SHUTDOWN_FAILED` warning.
+|6 s less waited time (two bounds of 5 s now 2 s), all 6 tests green. The run after the change took 14.1 s at a load
+average of 38 on 16 CPUs, where the tests that wait for nothing took 1.0 s to 1.3 s each; its wall time is not a
+reference, the final measurement takes it idle.
+
+|11
+|`GitLabCiProviderTest`
+|9.3 s for 72 tests. 4.5 s of it are two tests that read the merge-request diffs up to the page cap,
+`GitLabClient.MAX_PAGES` (50) requests each at about 45 ms per request: `reportsPageCap` (2.2 s) and the third case of
+`reportsProviderResultCap` (2.3 s). Without them a test costs 69 ms against 44 ms in `GitHubCiProviderTest`, whose one
+page-cap test takes 1.4 s. So a GitLab test does not cost twice a GitHub one; the class does, by its second walk to the
+cap.
+|None. The two walks assert different branches of `GitLabCiProvider.completeness`: a list cut by the cap without
+GitLab's diff limit is `PAGE_CAP`, and a cut list beside a `changes_count` of `1000+` is still `PAGE_CAP` because the
+local cap comes first. A change that reported `COMPLETE` for the first case would pass the second test, and a change
+that put the provider cap first would pass the first, so neither is a duplicate. The cap is a constant of the
+production class with no seam, and a walk short of it does not reach the branch.
+|keep, 9.3 s
+
+|14
+|`OutboundCallsArchTest`
+|6.8 s for 19 tests, of which the tests take about 3.3 s (the two rules on the main classes 0.83 s and 0.54 s) and the
+class-level import of the main classes of `pm-runtime` and `pm-core` the rest.
+|None. Limiting the import's resolution of referenced classes from the class path would leave the JDK supertypes of a
+referenced class unresolved, and the rule recognises a connection type by `isAssignableTo` along that hierarchy: a
+dependency on `SSLSocket` or a `JarURLConnection` subtype would then escape it, which weakens the evidence the row asked
+to keep.
+|keep, 6.8 s
+
+|17
+|`TerminationProtocolTest`
+|5.5 s for 16 tests, of which `Real.ignoringSigtermKilledWithGroup` takes 5.3 s: it waits out the compiled grace period
+(`TerminationProtocol.GRACE_PERIOD`) of a real process group before the `SIGKILL`. Every other test takes at most
+0.13 s.
+|None. The recorded test `killedAfterGrace` asserts the order of the calls against the recording primitive; the real
+test asserts what only the operating system shows: the descendant dies with the group, the leader dies of `SIGKILL`
+(exit status 137), and the kill comes no earlier than the grace period. The observables differ, so the two are no
+duplicates; the grace period is the specified one and the protocol's real-clock constructor takes no other.
+|keep, 5.5 s
+
+|18
+|`JudgmentVerificationTest`
+|Deleted on `main` by #396 with the remote endpoint form it tested.
+|Dropped from this deliverable.
+|none
+|===
+
+No test was removed or merged: the reading of rows 11 and 17 found no two tests that assert the same observable with
+the same input, so the retention table below has no row. A later removal or merge adds its row here: the removed test,
+the retained test, the assertions that carry the behaviour, and the break-the-code evidence (the production line broken
+and the retained test that failed).
+
+[cols="2,2,3,3",options="header"]
+|===
+|Removed test |Retained test |Assertions carrying the behaviour |Break-the-code evidence
+
+4+|none
+|===
 
 [#operator-leads]
 === Leads for the Operator
