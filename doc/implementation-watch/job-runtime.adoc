@@ -615,6 +615,24 @@ worker that ended `succeeded` feeds its spawn-to-exit duration; matched control:
 `killed`, or `timed_out` feeds nothing.
 Source:: design review.
 
+[#PM-WATCH-JOB-49]
+=== PM-WATCH-JOB-49: A join that finds nothing is not a list of nothing
+
+Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#changed-uncovered[Job Runtime § Changed Lines without Coverage],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
+Hazard:: The changed lines come from a diff in repository paths, the coverage report names its files by package path or
+by a path relative to a source root, and its line numbers belong to the tree the build compiled. A name that does not
+map, a report left in `target/` by an earlier run, or a diff taken after a later edit joins to no line, and an empty
+list reads as "every changed line is covered"; a line number from the older tree names a different line, so the worker
+adds a test for code it did not write.
+Guard:: Fixtures: a changed file whose JaCoCo package path matches no source root records `not_derived` with
+`file_not_reported`, never an empty list; an Istanbul summary alone records `no_line_data`; a report older than the job
+records `stale_report`; a file edited after the report was written is refused the same way; a changed file with two
+uncovered ranges renders those two ranges and no line of an unchanged file. Matched control: the same change with every
+changed executable line run records an empty list with no cause.
+Source:: Article analysis `agentic-frontend-qa` of plan-marshall-documentation: the team hands its agent a compact
+coverage diff, and the join with the change is where an empty result can mean a miss.
+
 == Working-Tree Hash (`worktree_sha`)
 
 [#PM-WATCH-JOB-24]
