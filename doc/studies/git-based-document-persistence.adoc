@@ -495,18 +495,81 @@ module of its own).
 
 === Possible Module Cut
 
-* `core`: the JGit-based store described above.
+* `foundation`: the generic JGit layer shared with `pm-provider-git` (see below).
+* `document-store`: drafts, saving, identity, index and outbox on top of the foundation.
 * `timestamp` (optional): RFC 3161 anchoring through the post-commit outbox.
 * `testing`: fixtures for local and in-memory repositories and a local remote for push and fetch tests.
 
-=== Relation to `pm-mcp-core`
+=== Relation to `pm-mcp-core`: a Shared Foundation
 
-`pm-provider-git` is no dependency for the new library: its contract is cut for PM-MCP (cache repositories, fetch
-of single commits, linked working trees) and the product is proprietary. Its patterns are worth taking over:
-result types instead of exceptions (`GitResult`, `GitOutcome`), a policy of permitted remotes (`RemotePolicy`), a
-file system that refuses hooks and process starts (`RefusingFS`), and the resolution of references and commit ids
-(`GitIdentity`). Whether code is taken over, and under which licence the new library is published, is the owner's
-decision.
+`pm-provider-git` as it stands is no dependency for the new library: its contract is cut for PM-MCP (cache
+repositories, fetch of single commits, linked working trees). About half of it is generic, though, and the
+document store needs exactly that half. Both therefore stand on one shared foundation instead of each carrying its
+own copy:
+
+[cols="1,1"]
+|===
+|Generic, needed by the document store as well |Specific to PM-MCP
+
+|Hardened opening of repositories (`RefusingFS`: no hooks, no process starts)
+|Linked working trees on disk (`LinkedWorktrees`, `worktreeAdd`, `worktreeList`, `worktreeRemove`)
+
+|The policy of permitted remotes (`RemotePolicy`) and its check before fetch and push
+|`WorktreeShaDigest`
+
+|Fetch and push with credentials, mapped to result types (`GitResult`, `GitOutcome`)
+|The contract `GitOperations` with inputs cut for PM-MCP
+
+|Opening a bare cache, reading a file at a commit, the log
+|`fetchCommit` for the corpus cache, `JGitSourceRepository`
+
+|Resolution of references and commit ids (`GitIdentity`)
+|
+|===
+
+The document store adds what PM-MCP has not needed so far: in-core commits, compare-and-swap reference updates,
+in-core merge, draft references and `git notes`.
+
+----
+git-foundation                         (repository of its own, own releases)
+  ├─ hardened repository factory (RefusingFS), RemotePolicy
+  ├─ transport: fetch and push with a credentials strategy → result types
+  ├─ reading: blob at commit, log, reference resolution
+  └─ writing: in-core commits, compare-and-swap, in-core merge, notes
+        ▲                                   ▲
+pm-provider-git                      git-document-store
+  (working trees, PM-MCP contract,     (drafts, save and push, identity,
+   corpus cache)                        index, outbox, timestamps)
+----
+
+Gains: the hardening and the transport exist once, so a security fix reaches both products; one test base runs
+against real local remotes; `pm-provider-git` shrinks to working trees and the PM-MCP contract.
+
+Constraints:
+
+* *The foundation does not live in `pm-mcp-core`.* That repository is proprietary, publishes only to the
+  organisation's registry and deploys `SNAPSHOT` versions that are never released; another project must not hang on
+  that life cycle. The foundation gets a repository of its own with real versions.
+* *Two life cycles are coupled.* PM-MCP is pre-1.0 and changes contracts without deprecation cycles; the foundation
+  stays small and stable and carries no domain term of either side.
+* *Formal steps in `pm-mcp-core`.* The new dependency needs the owner's explicit decision; the allowed dependencies
+  of the modules are stated in the Module Structure Specification in the documentation repository and change there;
+  the switch is a work package of its own with an ADR; the native-image metadata of JGit travels with the module
+  that uses JGit and moves along, verified by the native build of `pm-mcpd`.
+* *Licence.* If the foundation is published as open source, the code taken over from `pm-provider-git` has to be
+  released for it. The other direction is unproblematic: a proprietary product may depend on an open-source library.
+
+Order:
+
+. Build `git-foundation` and `git-document-store` in a repository of their own. Take over the generic code of
+  `pm-provider-git` and cut it so that `pm-provider-git` can later use it one to one.
+. Once the foundation is stable and a first version is released, a work package in `pm-mcp-core` switches
+  `pm-provider-git` onto it, with the dependency decision, the change of the specification and an ADR.
+
+The new project never depends on PM-MCP, and PM-MCP gets the shared foundation once it has proven itself. The
+extraction also fits the wish to move parts of `pm-mcp-core` into repositories of their own; it reduces the size of
+the repository only slightly, though (`pm-provider-git` holds about 2,000 of more than 150,000 lines of production
+Java), because the weight lies in `pm-core`, `pm-runtime` and `pm-workflow`.
 
 == Risks and Limits
 
