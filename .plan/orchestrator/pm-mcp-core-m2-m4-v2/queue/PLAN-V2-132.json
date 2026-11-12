@@ -2,10 +2,10 @@
   "id": "PLAN-V2-132",
   "slug": "coverage-parser-hardening",
   "workstream": "WS-07",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-132-coverage-parser-hardening",
+  "pr": "#388",
+  "landing": "landings/PLAN-V2-132.md",
   "seq": 120
 }
