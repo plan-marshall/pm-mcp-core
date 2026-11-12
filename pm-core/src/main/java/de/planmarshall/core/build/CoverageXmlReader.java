@@ -12,6 +12,7 @@ package de.planmarshall.core.build;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLResolver;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -25,13 +26,18 @@ import lombok.experimental.UtilityClass;
  * and never resolved or fetched. The factory turns DTD support off, turns external entities off, keeps entity references
  * from being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a
  * file or a URL reads nothing. The walk refuses an {@code ENTITY_REFERENCE} event, so a document that references an
- * entity is refused, never expanded. The decisions are recorded in {@code core-build/008}, which supersedes the hardening
- * part of {@code core-build/005}.
+ * entity in element content is refused, never expanded. An entity reference in an attribute value raises no such event:
+ * the reader drops it from the value, so it is never expanded and never resolved either. The decisions are recorded in
+ * {@code core-build/008}, which supersedes the hardening part of {@code core-build/005}.
  *
  * @since 0.1
  */
 @UtilityClass
 class CoverageXmlReader {
+
+    /** The production resolver: every external reference reads an empty stream, so nothing is fetched. */
+    private static final XMLResolver EMPTY_RESOLVER =
+            (publicId, systemId, baseUri, namespace) -> new ByteArrayInputStream(new byte[0]);
 
     /**
      * The format-specific part of a walk: what to do at each element and what the walk produced.
@@ -71,7 +77,23 @@ class CoverageXmlReader {
      * @return the handler's result, or a refusal naming the format
      */
     static CoverageParseResult parse(String xml, CoverageFormat format, Handler handler) {
-        try (Reader source = open(xml)) {
+        return parse(xml, format, handler, EMPTY_RESOLVER);
+    }
+
+    /**
+     * Walks the given XML text with the given handler, handing every external reference to the given resolver.
+     * <p>
+     * The parsers call the overload without a resolver, which passes the empty-stream resolver; a test passes one that
+     * counts its calls, to show that the reader asks for nothing.
+     *
+     * @param xml      the XML text
+     * @param format   the format whose refusal names the parser
+     * @param handler  the format-specific walk
+     * @param resolver the resolver every external reference is handed to
+     * @return the handler's result, or a refusal naming the format
+     */
+    static CoverageParseResult parse(String xml, CoverageFormat format, Handler handler, XMLResolver resolver) {
+        try (Reader source = new Reader(factory(resolver).createXMLStreamReader(new StringReader(xml)))) {
             return walk(source.stream(), format, handler);
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
@@ -87,7 +109,20 @@ class CoverageXmlReader {
      * @return the handler's result, or a refusal naming the format
      */
     static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler) {
-        try (Reader source = open(xml)) {
+        return parse(xml, format, handler, EMPTY_RESOLVER);
+    }
+
+    /**
+     * Walks the given XML bytes with the given handler, handing every external reference to the given resolver.
+     *
+     * @param xml      the XML bytes
+     * @param format   the format whose refusal names the parser
+     * @param handler  the format-specific walk
+     * @param resolver the resolver every external reference is handed to
+     * @return the handler's result, or a refusal naming the format
+     */
+    static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler, XMLResolver resolver) {
+        try (Reader source = new Reader(factory(resolver).createXMLStreamReader(new ByteArrayInputStream(xml)))) {
             return walk(source.stream(), format, handler);
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
@@ -123,19 +158,15 @@ class CoverageXmlReader {
     }
 
     static Reader open(String xml) throws XMLStreamException {
-        return new Reader(factory().createXMLStreamReader(new StringReader(xml)));
+        return new Reader(factory(EMPTY_RESOLVER).createXMLStreamReader(new StringReader(xml)));
     }
 
-    private static Reader open(byte[] xml) throws XMLStreamException {
-        return new Reader(factory().createXMLStreamReader(new ByteArrayInputStream(xml)));
-    }
-
-    private static XMLInputFactory factory() {
+    private static XMLInputFactory factory(XMLResolver resolver) {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.FALSE);
-        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> new ByteArrayInputStream(new byte[0]));
+        factory.setXMLResolver(resolver);
         return factory;
     }
 
