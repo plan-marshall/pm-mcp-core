@@ -36,9 +36,6 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * The metrics store and its task row keep parity with {@code store-schemas/05}: the document's members and required
  * members are the file's, the task row carries every member the file declares for it, and the enumerations of the row
  * are the file's closed sets. The two negative controls prove the comparison reports a member only one side has.
- * <p>
- * The task row deviates from its file in exactly one member: the codec writes {@code attempt_end}, which the file's
- * {@code taskRow} does not declare. The test pins that drift; the landing message reports it.
  */
 @EnableGeneratorController
 @SuppressWarnings("java:S5778")
@@ -61,7 +58,7 @@ class MetricsSchemaParityTest {
         return MetricsRow.builder().queueTaskId(QUEUE_TASK_ID).attempt(1).role("implementer").jobId(ID)
                 .generationId(ID).harness("opencode").harnessVersion("1").model("model").effort("high")
                 .form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step").envelopeId(null).predictedCost(null)
-                .yieldReason(null).outcome(Outcome.SUBMITTED).attemptEnd(AttemptEnd.CLOSED).continuation(null)
+                .yieldReason(null).outcome(Outcome.SUBMITTED).continuation(null)
                 .causeClass(CauseClass.BENIGN).spendClass(SpendClass.SUBMITTED).population(Population.MODEL_JOB)
                 .usage(usage).durationMs(1L).durationBasis(DurationBasis.PROCESS).queuedMs(1L).consultationOf(null)
                 .recordedAt(Instant.parse("2026-11-07T10:00:00Z")).build();
@@ -92,22 +89,22 @@ class MetricsSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the task row deviates from its file only in the extra attempt_end")
+    @DisplayName("the members of the task row are the file's, with no deviation")
     void taskRowMembers() {
         var schema = SchemaParity.object(SchemaParity.object(SchemaParity.load(RESOURCE).get("$defs"))
                 .get(TASK_ROW));
 
         assertAll(
-                () -> assertEquals(Set.of("record-only:attempt_end"),
-                        Set.copyOf(SchemaParity.memberDiffs(SchemaParity.members(taskRow()), schema)),
-                        "the task row's recorded drift should not change silently"),
+                () -> assertFalse(SchemaParity.properties(schema).isEmpty(), "the task row schema declares members"),
+                () -> assertEquals(List.of(), SchemaParity.memberDiffs(SchemaParity.members(taskRow()), schema),
+                        "the task row members should equal the schema"),
                 () -> assertTrue(Set.copyOf(SchemaParity.members(taskRow()))
                                 .containsAll(SchemaParity.required(schema)),
                         "the task row should carry every required member"));
     }
 
     @Test
-    @DisplayName("the row refuses an attempt below the file's minimum and requires its undeclared attempt_end")
+    @DisplayName("the row refuses an attempt below the file's minimum")
     void taskRowLimits() {
         var schema = SchemaParity.object(SchemaParity.object(SchemaParity.load(RESOURCE).get("$defs"))
                 .get(TASK_ROW));
@@ -116,11 +113,7 @@ class MetricsSchemaParityTest {
                 () -> assertEquals(1, SchemaParity.bound(SchemaParity.member(schema, "attempt"), "minimum"),
                         "the file's attempt minimum stays 1"),
                 () -> assertThrows(IllegalArgumentException.class, () -> row().withAttempt(0),
-                        "the row should refuse an attempt below its minimum"),
-                () -> assertFalse(SchemaParity.required(schema).contains("attempt_end"),
-                        "the file does not declare attempt_end"),
-                () -> assertThrows(IllegalArgumentException.class, () -> row().withAttemptEnd(null),
-                        "the row requires attempt_end when it carries an attempt"));
+                        "the row should refuse an attempt below its minimum"));
     }
 
     @Test

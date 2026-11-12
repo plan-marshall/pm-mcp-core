@@ -44,7 +44,7 @@ class MetricsRowBuilderContractTest {
                 Measurement.measured(1), null, null);
         var canonical = new MetricsRow("qt-0123456789abcdef", 1, role, "l-0123456789abcdef",
                 "l-0123456789abcdef", harness, harnessVersion, model, null, Form.FRESH,
-                Phase.PHASE_5_EXECUTE, null, null, null, null, Outcome.SUBMITTED, AttemptEnd.CLOSED, null,
+                Phase.PHASE_5_EXECUTE, null, null, null, null, Outcome.SUBMITTED, null,
                 CauseClass.BENIGN, SpendClass.SUBMITTED, Population.MODEL_TASK, usage, null,
                 DurationBasis.TASK, null, null, Instant.parse("2026-10-22T10:00:00Z"));
 
@@ -54,7 +54,7 @@ class MetricsRowBuilderContractTest {
                 .effort(canonical.effort()).form(canonical.form()).phase(canonical.phase())
                 .stepId(canonical.stepId()).envelopeId(canonical.envelopeId())
                 .predictedCost(canonical.predictedCost()).yieldReason(canonical.yieldReason())
-                .outcome(canonical.outcome()).attemptEnd(canonical.attemptEnd())
+                .outcome(canonical.outcome())
                 .continuation(canonical.continuation()).causeClass(canonical.causeClass())
                 .spendClass(canonical.spendClass()).population(canonical.population()).usage(canonical.usage())
                 .durationMs(canonical.durationMs()).durationBasis(canonical.durationBasis())
@@ -67,7 +67,7 @@ class MetricsRowBuilderContractTest {
                         canonical.harnessVersion(), canonical.model(), canonical.effort(), canonical.form(),
                         canonical.phase(), canonical.stepId(), canonical.envelopeId(),
                         canonical.predictedCost(), canonical.yieldReason(), null,
-                        canonical.attemptEnd(), canonical.continuation(), canonical.causeClass(),
+                        canonical.continuation(), canonical.causeClass(),
                         canonical.spendClass(), canonical.population(), canonical.usage(),
                         canonical.durationMs(), canonical.durationBasis(), canonical.queuedMs(),
                         canonical.consultationOf(), canonical.recordedAt()),
@@ -79,7 +79,7 @@ class MetricsRowBuilderContractTest {
                 .effort(canonical.effort()).form(canonical.form()).phase(canonical.phase())
                 .stepId(canonical.stepId()).envelopeId(canonical.envelopeId())
                 .predictedCost(canonical.predictedCost()).yieldReason(canonical.yieldReason())
-                .attemptEnd(canonical.attemptEnd()).continuation(canonical.continuation())
+                .continuation(canonical.continuation())
                 .causeClass(canonical.causeClass()).spendClass(canonical.spendClass())
                 .population(canonical.population()).usage(canonical.usage())
                 .durationMs(canonical.durationMs()).durationBasis(canonical.durationBasis())

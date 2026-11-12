@@ -151,7 +151,8 @@ and which ends the worker through `EndCause.OFF_TRACK` (see `agent_started` belo
 link:{src}/LossSignal.java[`LossSignal`] carries the reason, the generation, the instant the loss was observed, the
 deadline that was crossed (equal to the observation instant for an exit), whether the first call was made, and the
 leased task. link:{src}/LossReason.java[`LossReason`] maps the reason to the job record's `WorkerState.EndReason` and to
-the attempt end the queue task carries: `EXIT` → `EXITED_WITHOUT_SUBMIT`, `ACK_MISSED` and `SILENCE` → `WORKER_LOST`.
+the attempt end the queue task record carries (`QueueTaskRecord.AttemptEnd`): `EXIT` → `EXITED_WITHOUT_SUBMIT`,
+`ACK_MISSED` and `SILENCE` → `WORKER_LOST`.
 Every deadline rides an injected clock and injected timers (ADR 004).
 
 == Ending, Fencing and Drain
