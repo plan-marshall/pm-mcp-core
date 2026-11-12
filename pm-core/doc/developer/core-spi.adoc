@@ -402,8 +402,8 @@ previous section. They return the accepted value or a refusal that names the ite
   `unchanged` criterion verified by `test` (Phase Workflows § 6).
 * `BuilderCheck` — the builder check's submission: every question is sorted, every item it names is in the record, and
   a question that names a constraint or more than one criterion is the operator's, never the builder's own call. Its
-  `facts` carry the intent record and the capability index only, and a `minor` question becomes a decision of decider
-  `model`, marked as the builder check's.
+  `facts` carry the intent record only, and a `minor` question becomes a decision of decider `model`, marked as the
+  builder check's.
 * `SelfReviewSubmission` — one result per criterion, constraint, non-goal and decision. A missing item is refused
   naming it; a respected constraint and a followed decision name their evidence; a violated constraint, a crossed
   non-goal, a departed decision and a not-met criterion are findings, and a not-verified item is a non-blocking

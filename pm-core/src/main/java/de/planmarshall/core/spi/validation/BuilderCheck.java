@@ -10,14 +10,12 @@
 package de.planmarshall.core.spi.validation;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Builder;
 
-import de.planmarshall.core.store.CapabilityIndex;
 import de.planmarshall.core.store.IntentRecord;
 import de.planmarshall.core.store.IntentRecord.Decider;
 import de.planmarshall.core.store.IntentRecord.Decision;
@@ -32,8 +30,8 @@ import de.planmarshall.core.store.IntentRecord.Decision;
  * constraint rules out are the operator's judgment, never the builder's. A {@code minor} answer is the builder's own
  * call and becomes a decision of decider {@code model}, marked as the builder check's, in a new revision.
  * <p>
- * The facts of the check carry the intent record and the capability index only: no member of {@code request.md}'s
- * original input or clarifications and no earlier submission reaches the task.
+ * The facts of the check carry the intent record only: no member of {@code request.md}'s original input or
+ * clarifications and no earlier submission reaches the task.
  *
  * @since 0.1
  */
@@ -203,20 +201,15 @@ public final class BuilderCheck {
     }
 
     /**
-     * The facts the check's task receives: the intent record and the capability index, and nothing of the conversation
-     * that produced the record (PM-WATCH-PHASE-109).
+     * The facts the check's task receives: the intent record, and nothing of the conversation that produced it
+     * (PM-WATCH-PHASE-109).
      *
      * @param intentRecord the record
-     * @param capabilities the project's capability index
      * @return the facts, by their names
      */
-    public static Map<String, Object> facts(IntentRecord intentRecord, CapabilityIndex capabilities) {
+    public static Map<String, Object> facts(IntentRecord intentRecord) {
         Objects.requireNonNull(intentRecord, INTENT_RECORD);
-        Objects.requireNonNull(capabilities, "capabilities");
-        var facts = new LinkedHashMap<String, Object>();
-        facts.put("intent_record", intentRecord);
-        facts.put("capability_index", capabilities.facts());
-        return Map.copyOf(facts);
+        return Map.of("intent_record", intentRecord);
     }
 
     private static Optional<String> refusal(Question question, IntentRecord intentRecord) {
