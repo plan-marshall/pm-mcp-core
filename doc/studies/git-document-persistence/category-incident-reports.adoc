@@ -8,7 +8,6 @@ _(unverified)_ come from general knowledge and were not checked against a curren
 
 toc::[]
 
-
 Incident response reports are written in Confluence today. A form system that produces AsciiDoc and takes care of
 review, approval and deadlines is the alternative examined here.
 
@@ -29,7 +28,8 @@ system, ideally with an import of the timeline from the ticket or the chat.
   (early warning within 24 hours, notification within 72 hours, final report within one month) _(unverified;
   whether NIS2 applies depends on sector and size)_. A form with a schema shows the deadlines and checks the
   mandatory fields; a Confluence page cannot.
-. *Review and approval* by pull request, immutable after approval, timestamped: evidence for ISO 27001
+. *Review and approval* by pull request, with a passkey approval where configured, immutable after approval,
+  timestamped: evidence for ISO 27001
   A.5.24–5.28 (among them 5.27, learning from incidents, and 5.28, collection of evidence).
 . *Machine-readable*: evaluations across all incidents (categories, time to detection and resolution, recurring
   causes); in Confluence that is free text.
@@ -49,7 +49,8 @@ Hence:
 
 ----
 incidents/<id>/
-  incident.yaml        ← structured fields (schema): times, category, severity, notifications, measures
+  incident.yaml        ← structured fields (schema): times, category, severity, affected services (service:…),
+                         notifications, measures
   narrative/*.adoc     ← free-text sections (course, root-cause analysis, lessons) as AsciiDoc fragments
   report.adoc          ← generated: a template joins the YAML and the fragments
 ----

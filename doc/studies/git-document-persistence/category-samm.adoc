@@ -12,7 +12,7 @@ An OWASP SAMM assessment is a self-contained document at a date: answers per que
 evidence, and scores computed from them. Its value is the comparison over time. It is edited as a draft, then
 released and frozen as audit evidence. It refers to the SAMM model version it was taken with; since version 2 the
 model itself is published as YAML files with semantic versioning. The data volume is small, and the only personal
-data are the assessors, whom the Git server already knows.
+data are the assessors, kept as pseudonyms and resolved through the directory.
 
 Git therefore fits: the model is already YAML in Git, an assessment as YAML diffs well, release maps to a merge and
 a tag, and the history, rights, reviews and backups come from the existing infrastructure. Drafts, the branch per
@@ -22,7 +22,7 @@ assessment and its release are described in link:storage-engine.adoc[The Storage
 
 ----
 samm.yaml                              # pinned SAMM model version(s)
-scopes/<scope-id>/scope.yaml           # team / application / organisation
+scopes/<scope-id>/scope.yaml           # refers to a team:, a service: or the organisation (directory)
 scopes/<scope-id>/assessments/<assessment-id>/
     assessment.yaml                    # header: date, model version, status, assessors
     answers/<practice-id>.yaml         # one file per practice: parallel editing without conflicts

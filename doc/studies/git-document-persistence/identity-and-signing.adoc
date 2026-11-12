@@ -38,18 +38,9 @@ the Git server's API are signed by the server itself, at the price of binding to
 below replaces this level.
 |===
 
-One push per save keeps every push to the commits of exactly one user.
-
-[cols="1,1,1,1"]
-|===
-| |Local |Remote, technical user |Remote, user's token
-
-|Drafts survive logout |yes |yes |yes
-|Drafts survive restart |with persistent volume |with persistent volume |with persistent volume
-|Secured after save |operator's backup |remote |remote
-|Rights checked by |application |application |Git server and application
-|Audit "who" |signed trailers |signed trailers |signed trailers and pusher
-|===
+One push per save keeps every push to the commits of exactly one user. Who may read and write a repository through
+the application comes from the identity provider through Token Sheriff; in the first iteration no right is derived
+from the roles of the directory (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
 
 == What a Signature of the Application Shows
 
@@ -66,6 +57,9 @@ Auth-Time: 2026-11-12T14:03:11Z
 Auth-Context: mfa                     ← acr / amr of the token
 Session: hmac:3b1e…                   ← HMAC of the session id, not the session id itself
 ----
+
+A release commit carries in addition the approvals, so the evidence survives a change of Git server:
+`Approved-by: p-91c2d0 (role:ciso)` and `Review: <url of the pull request>`.
 
 What it shows:
 
@@ -156,6 +150,9 @@ state. An example:
 * Intermediate saves: level 1.
 * Release of a SAMM assessment: level 2.
 * Release of an incident response report or a policy: level 3.
+
+In the first iteration an approval needs no particular role of the directory; who may approve is a matter of access,
+not of the catalog of roles.
 
 == What Has to Be Done Right
 

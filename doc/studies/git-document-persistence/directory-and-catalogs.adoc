@@ -31,8 +31,10 @@ directory (repository)
   catalog/teams.yaml            ← catalog of teams, not personal, plain text
   catalog/services/<id>.yaml    ← one file per application or service, not personal, plain text
   persons/<pseudonym>.enc       ← one entry per person, encrypted with the data key of the person
-keys/keyring.enc                ← see link:data-protection.adoc[Data Protection]
+  keys/keyring.enc              ← the data keys and the `sub` per pseudonym, encrypted with the KEK
 ----
+
+The keyring and its erasure by key rotation are described in link:data-protection.adoc[Data Protection].
 
 The directory gets a repository of its own. The catalogs are widely readable; the entries of persons are encrypted
 anyway. One file per person and per service keeps concurrent saves free of conflicts; the small catalogs of roles

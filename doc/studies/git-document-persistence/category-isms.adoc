@@ -28,8 +28,8 @@ The ISMS artefacts sort into three groups:
 . *Documents, very well suited*: policies, scope, risk methodology, statement of applicability, internal audit and
   management review reports. Rarely changed, approval-centred, diffable.
 . *Registers, well suited*, with the pattern of link:category-samm.adoc[SAMM] (one file per entry, in-memory index,
-  compare-and-swap): assets, risks, controls, suppliers, nonconformities. Even a mid-sized ISMS holds a few thousand
-  entries.
+  compare-and-swap): risks, controls, suppliers, nonconformities, and the assets that are no applications. Even a
+  mid-sized ISMS holds a few thousand entries.
 . *Operational data, referenced instead of stored*: tasks and deadlines (issue tracker of the Git server or Jira), the
   live handling of incidents (ticket system; the report on an incident is a schema-driven document, see
   link:category-incident-reports.adoc[Incident Response Reports]), training records per employee (learning platform or
@@ -39,8 +39,8 @@ The ISMS artefacts sort into three groups:
 Additional mechanisms:
 
 * *Portable approvals*: approvals of a pull request live in the Git server's database. On merge the application
-  writes them as commit trailers (`Approved-by: role:ciso (u-7f3a)`, `Review: <url>`), so the evidence survives a
-  change of Git server.
+  writes them as commit trailers, so the evidence survives a change of Git server (see
+  link:identity-and-signing.adoc[Identity and Signing]).
 * *Running numbers* (R-042) under concurrent creation: a ULID as file name; the readable number is assigned on save
   through a counter file in the same commit, made unique by the compare-and-swap.
 * *Reporting dates*: "statement of applicability and risk register as of the audit on 1 March" is a tag or the
@@ -86,15 +86,16 @@ shipped, only own wording and numbers
 |Rather status and release attributes on objects than a full history with diff _(unverified)_
 
 |Approval, four eyes
-|Pull request review, protected branches, commit trailers
+|Pull request review, protected branches, commit trailers, graded signatures up to passkeys
 |Workflow functions of the application (scope to verify)
 
 |Tamper evidence
-|Hash chain and RFC 3161 timestamps, verifiable externally
+|Hash chain, signed commits and RFC 3161 timestamps, verifiable externally
 |Depends on the database and the administrators' rights
 
 |Rights
-|Coarse per repository, enforced by the Git server; cut by confidentiality
+|Coarse per repository, cut by confidentiality; enforced by the application, or by the Git server when
+pushing in the user's name
 |Fine-grained per object and role in the application
 
 |Audience

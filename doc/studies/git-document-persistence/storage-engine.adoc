@@ -9,7 +9,8 @@ _(unverified)_ come from general knowledge and were not checked against a curren
 toc::[]
 
 How the application reads and writes its documents in Git: one API for local and remote repositories, no working trees,
-drafts and saving, multiple users, and the in-memory index.
+drafts and saving, multiple users, and the in-memory index. The examples use a SAMM assessment; the same holds for
+the documents of every category.
 
 == Overview
 
@@ -37,8 +38,9 @@ with one push.
 A Git branch is no working area; it is a reference, a pointer to a commit. Any number of them can exist for any
 number of users at the same time. A working tree is a checked-out state on disk, and only one exists per branch.
 `pm-mcp-core` needs linked working trees because agents and build tools work on files on disk (`LinkedWorktrees` of
-`pm-provider-git`; JGit only reads linked working trees, since 7.0). The application here holds the content in
-memory anyway, so it writes blobs, trees and commits directly into the object database and moves the reference.
+`pm-provider-git`; JGit 7.0 added read support for linked working trees, and writing them is not supported
+_(unverified for later versions)_). The application here holds the content in memory anyway, so it writes blobs,
+trees and commits directly into the object database and moves the reference.
 
 [source,java]
 ----
@@ -61,10 +63,10 @@ try (ObjectInserter ins = repo.newObjectInserter();
     CommitBuilder cb = new CommitBuilder();
     cb.setTreeId(index.writeTree(ins));
     cb.setParentId(parent);
-    cb.setAuthor(userIdent);          // the logged-in user
+    cb.setAuthor(userIdent);          // the pseudonym of the logged-in user
     cb.setCommitter(serviceIdent);    // the technical user
-    cb.setMessage("Update " + path);
-    ObjectId commit = ins.insert(cb);
+    cb.setMessage("Update " + path);  // plus the trailers of the user's claims, see Identity and Signing
+    ObjectId commit = ins.insert(cb); // signed by the application, see Identity and Signing
     ins.flush();
     RefUpdate ru = repo.updateRef(ref.getName());
     ru.setExpectedOldObjectId(parent);   // compare-and-swap
@@ -95,8 +97,10 @@ merge onto the remote state, push, retry on rejection; delete the draft referenc
 |Yes, in remote mode
 |===
 
-Draft references are never pushed; the push refspec carries `refs/heads/*` only. A user who logs in again finds the
-drafts under `refs/drafts/<user>/` and continues. Conditions:
+Draft references are not pushed: the push refspec carries `refs/heads/*`, the tags and `refs/notes/*` (timestamps,
+approvals), never `refs/drafts/*`. An organisation that wants drafts secured as well can push them to restricted
+references of their own (see link:evidence-and-companion-stores.adoc[Evidence and Companion Stores]). A user who
+logs in again finds the drafts under `refs/drafts/<user>/` and continues. Conditions:
 
 * The repository directory needs persistent storage (a persistent volume in a container platform); without it a
   restart loses every unsaved draft, not only a crash.
@@ -106,12 +110,16 @@ drafts under `refs/drafts/<user>/` and continues. Conditions:
 * On a real conflict (the same question changed in parallel) nothing is pushed; the UI shows the conflict and the
   draft is kept.
 
-== Branch Granularity
+== When Others See a Change
 
-* *A: one branch per assessment, shared by all editors* (recommended for SAMM, which is mostly filled in jointly in
-  workshops). Every save is a small commit with compare-and-swap; the UI remembers the blob id it loaded (like an
-  ETag) to detect a concurrent change of the same file.
-* *B: one draft reference per user and assessment, merged on save.* Drafts stay private until submitted.
+Every assessment has one working branch (`refs/heads/assessments/<id>`), shared by all its editors; the draft
+reference of each user lies above it. Two ways of using that pair:
+
+* *A: save often* (recommended for SAMM, which is mostly filled in jointly in workshops). Every explicit save lands
+  on the working branch at once, as a small commit with compare-and-swap; the draft only holds what is not yet
+  saved. The UI remembers the blob id it loaded (like an ETag) to detect a concurrent change of the same file.
+* *B: private until submitted.* The user works on the draft for longer and saves once; only then the others see
+  the changes, merged in core into the working branch.
 
 Release is a merge of the assessment branch into `main` and a tag `assessment/<id>`; protected branches and tags of
 the Git server make it immutable. Optionally release opens a pull or merge request whose review is the four-eyes
@@ -126,11 +134,5 @@ if one is ever wanted, it is a disposable cache (embedded SQLite or H2).
 
 == Sources
 
-* JGit: https://projects.eclipse.org/projects/technology.jgit[Eclipse JGit project],
-  https://projects.eclipse.org/node/30057[JGit 7.0.0 release (read support for worktrees)],
-  https://gerrit.googlesource.com/jgit/+/refs/heads/next/README.md[JGit README],
+* JGit: https://projects.eclipse.org/node/30057[JGit 7.0.0 release (read support for worktrees)],
   https://www.eclipse.org/lists/jgit-dev/msg02873.html[jgit-dev: commit without working tree through DirCache and ObjectInserter]
-* Gerrit NoteDb: https://gerrit.googlesource.com/gerrit/+/HEAD/Documentation/note-db.txt[note-db.txt],
-  https://gerrit.googlesource.com/homepage/+/md-pages/docs/Notedb.md[What is NoteDb]
-* CrafterCMS: https://craftercms.com/docs/3.1/developers/developer-workflow/developer-workflow.html[Developer workflow (Sandbox and Published)],
-  https://craftercms.com/blog/technical/git-based-cms-what-it-is-and-why-you-need-it[Git-based CMS]

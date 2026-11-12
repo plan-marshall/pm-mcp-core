@@ -8,8 +8,8 @@ _(unverified)_ come from general knowledge and were not checked against a curren
 
 toc::[]
 
-
-SAMM assessments, threat models and incident response reports share one shape:
+SAMM assessments, threat models, incident response reports, the documents of the ISMS and the entries of the
+directory share one shape:
 
 ----
 schema (form) → data in YAML + free text in AsciiDoc → output as AsciiDoc through a template
@@ -24,16 +24,16 @@ That argues for a generic layer of schema-driven documents above the document st
 * *Workflow*: states (draft, review, approved, superseded) with the transitions mapped onto drafts, saving, pull
   requests and tags; deadlines per state (notification duties, review intervals); the signature level per state
   (see link:identity-and-signing.adoc[Identity and Signing]).
-* *Links*: typed references across categories and repositories (`threat-models:app-x`, `isms-register:risk/R-042`).
+* *Links*: typed references across categories and repositories (`service:payment-api`, `isms-register:risk/R-042`).
 
-The categories then become configuration (schema, template, workflow, repository, rights), not code:
+The categories then become configuration (schema, template, workflow, repository), not code:
 
 ----
-foundation → document store → forms (schema, template, workflow, deadlines)
-                                 ├─ samm
-                                 ├─ threat-models
-                                 ├─ incident-reports
-                                 └─ isms …
+git-core → git-store → git-forms (schema, template, workflow, deadlines, signature levels)
+                          ├─ samm
+                          ├─ threat-models
+                          ├─ incident-reports
+                          └─ isms …
 ----
 
 Further categories become cheap: exception approvals, supplier assessments, access reviews.

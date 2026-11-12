@@ -11,6 +11,7 @@ toc::[]
 Which gaps remain beside Git, which systems close them without a database of their own, how the history is anchored
 externally, and how Git and the other systems stay consistent.
 
+== Three Classes of Stores
 
 Every store beside Git falls into one of three classes:
 
@@ -29,12 +30,13 @@ Every store beside Git falls into one of three classes:
 |no or minimal
 
 |Approvals live in the Git server's database
-|Commit trailers on merge
+|Commit trailers on merge; passkey approvals as notes (see
+link:identity-and-signing.adoc[Identity and Signing])
 |no
 
 |Personal, deletable data
-|Encrypted keyring in Git with rotation of the KEK on erasure; persons themselves in the identity provider,
-operational details in the ticket system
+|Entries of persons encrypted in the directory, erased by rotation of the KEK (see
+link:data-protection.adoc[Data Protection]); operational details in the ticket system
 |one secret (the KEK); Vault or KMS where present
 
 |Read-access log (who read a confidential risk, logins)
@@ -42,7 +44,7 @@ operational details in the ticket system
 |no
 
 |Unsecured drafts
-|Accepted risk, or drafts pushed as restricted private references
+|Accepted risk by default, or drafts pushed to restricted references of their own
 |no
 
 |Search, evaluations, reporting-date views
@@ -72,9 +74,9 @@ from an independent proof, the external anchor of the hash chain:
 * Complementary data by reference only: Git holds `incident: TICKET-4711`, never Git content in the ticket system.
 
 ----
-Git (truth: documents, registers, assessments, approval trailers, timestamps as notes)
+Git (truth: documents, registers, assessments, directory, approval trailers and notes, timestamps as notes)
  ├─ derived:        index, search (volatile, rebuildable from Git)
- ├─ complementary:  identity provider (persons), issue and ticket system (operations),
+ ├─ complementary:  identity provider (authentication, groups), issue and ticket system (operations),
  │                  Vault/KMS (keys), SIEM (read-access log)
  └─ assuring:       RFC 3161 timestamps (+ optional mirror)
 ----

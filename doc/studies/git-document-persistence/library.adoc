@@ -1,4 +1,4 @@
-= The Library: Decision, Parts, Packaging and the Shared Foundation
+= The Library: Decision, Modules and the Shared Foundation
 :nofooter:
 :toc: macro
 :toclevels: 2
@@ -45,12 +45,11 @@ The pattern is proven (Gerrit, CrafterCMS); a reusable persistence module for it
 == Decision on a Library
 
 Building the Git-based interaction as a library of its own is recommended. The application logic of SAMM, of the
-threat models and of the ISMS is domain logic; the Git layer underneath is generic and is needed identically by all
-of them. Separating it keeps the
-domains free of JGit, makes the layer testable on its own against an in-memory or local repository, and lets
-further domains reuse it.
+threat models, of the incident response reports and of the ISMS is domain logic; the Git layer underneath is
+generic and is needed identically by all of them. Separating it keeps the domains free of JGit, makes the layer
+testable on its own against an in-memory or local repository, and lets further domains reuse it.
 
-=== Scope (`git-entity-store`, working title)
+=== Scope of the Engine
 
 * *Repositories*: local or remote mode by configuration; bare clone as disposable cache; a registry of several
   repositories (confidentiality and retention classes) with stable aliases.
@@ -69,46 +68,34 @@ further domains reuse it.
 
 === Not in Scope
 
-The UI, the domain schemas (SAMM model, threat model format, ISMS entities), the OAuth flows (Token Sheriff; the
-library only consumes credentials),
-the identity provider, the issue-tracker and ticket integrations, and the timestamp authority client (an optional
-module of its own).
+The UI, the domain schemas (SAMM model, threat model format, incident report, ISMS entities), the OAuth flows
+(Token Sheriff; the library only consumes credentials), the identity provider, and the issue-tracker and ticket
+integrations. The client of the timestamp authority lives in the optional module `git-timestamp`, not in the store.
 
-=== Parts of the Engine
+=== Modules of the Engine
 
-* `foundation`: the generic JGit layer shared with `pm-provider-git` (`git-core`, `git-worktrees`; see below).
-* `store`: drafts, saving, identity, index and outbox on top of the foundation.
-* `forms`: schema-driven documents (schema, template, workflow, deadlines, links) on top of the store.
-* `timestamp` (optional): RFC 3161 anchoring through the post-commit outbox.
-* `crypto` (optional): the encrypted keyring (a DEK per data subject, the KEK from a key source behind an interface:
-  configuration value, Vault or KMS), rotation of the KEK on erasure, the evidence of erasure as a commit.
-* `signing` (optional): the commit signature of the application through an exchangeable key source (KMS, HSM, file),
-  the trailer schema of the user's claims, the registration of WebAuthn keys, approval notes and the signature check
-  for the application and CI (see link:identity-and-signing.adoc[Identity and Signing]).
-* `directory` (optional): the directory of persons and the catalogs of roles, teams and services, the first-login
-  form and the resolution of references (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
-* `testing`: fixtures for local and in-memory repositories and a local remote for push and fetch tests.
+The engine is a core repository `git-foundation` with one artifact per module, released together and consumed
+separately; a consumer of `git-core` pulls none of the third-party dependencies of the optional modules, and the
+module boundaries enforce the layering.
 
-The categories (SAMM, threat models, incident reports, ISMS) are configuration of `forms` (schemas, templates,
-workflows), not parts of the engine.
+* `git-core`, `git-worktrees`, `git-testing`: the JGit level, taken over from `pm-provider-git` and shared with it.
+* `git-store`: drafts, saving, identity per save, index and outbox
+  (link:storage-engine.adoc[The Storage Engine on Git]).
+* `git-forms`: schema-driven documents (link:schema-driven-documents.adoc[Schema-Driven Documents]).
+* `git-crypto` (optional): the encrypted keyring and the erasure by rotation of the KEK
+  (link:data-protection.adoc[Data Protection]).
+* `git-signing` (optional): the commit signature, the trailers of the user's claims, passkey approvals and the
+  signature check (link:identity-and-signing.adoc[Identity and Signing]).
+* `git-timestamp` (optional): RFC 3161 anchoring through the outbox
+  (link:evidence-and-companion-stores.adoc[Evidence and Companion Stores]).
+* `git-directory` (optional): the directory of persons and the catalogs of roles, teams and services
+  (link:directory-and-catalogs.adoc[Directory and Catalogs]).
 
-=== Packaging: a Core Repository with Modules
-
-An earlier version of this study recommended one module to start, with the parts as packages, and named three
-triggers to split: the shared foundation for `pm-provider-git`, optional dependencies that would become mandatory,
-and a layering that one module does not enforce. The owner has since decided for the cut those triggers lead to:
-a core repository `git-foundation` with the extended JGit functionality and its helper classes, and the aspects as
-modules of their own beside it.
-
-* `git-core`, `git-worktrees` and `git-testing` hold the JGit level, taken over from `pm-provider-git`.
-* `git-store`, `git-forms`, `git-crypto`, `git-signing`, `git-timestamp` and `git-directory` hold the aspects of the
-  document store.
-* Each module is an artifact of its own, released together with the others; a consumer of `git-core` pulls none of
-  the third-party dependencies of the optional modules, and the module boundaries enforce the layering.
-* The application with its categories and its UI lives outside the core repository; the categories are
-  configuration of `git-forms`.
-
-The cut, the inventory of `pm-provider-git` it rests on and the changes in `pm-mcp-core` are described in
+The application with its categories and its UI lives outside the core repository; the categories are configuration
+of `git-forms`. An earlier version of this study recommended one module to start; the owner decided for this cut,
+which removes the three reasons that would have forced a split later: the foundation shared with `pm-provider-git`,
+optional dependencies that would become mandatory, and a layering one module does not enforce. The inventory of
+`pm-provider-git` and the changes in `pm-mcp-core` are described in
 link:extraction-from-pm-mcp-core.adoc[Extraction from `pm-mcp-core`].
 
 === Relation to `pm-mcp-core`: a Shared Foundation
@@ -148,9 +135,7 @@ Constraints:
 == Sources
 
 * JGit: https://projects.eclipse.org/projects/technology.jgit[Eclipse JGit project],
-  https://projects.eclipse.org/node/30057[JGit 7.0.0 release (read support for worktrees)],
-  https://gerrit.googlesource.com/jgit/+/refs/heads/next/README.md[JGit README],
-  https://www.eclipse.org/lists/jgit-dev/msg02873.html[jgit-dev: commit without working tree through DirCache and ObjectInserter]
+  https://gerrit.googlesource.com/jgit/+/refs/heads/next/README.md[JGit README]
 * Gerrit NoteDb: https://gerrit.googlesource.com/gerrit/+/HEAD/Documentation/note-db.txt[note-db.txt],
   https://gerrit.googlesource.com/homepage/+/md-pages/docs/Notedb.md[What is NoteDb]
 * CrafterCMS: https://craftercms.com/docs/3.1/developers/developer-workflow/developer-workflow.html[Developer workflow (Sandbox and Published)],

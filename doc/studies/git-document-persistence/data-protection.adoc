@@ -28,8 +28,7 @@ out of the history:
   erasure is not settled; agree it with the data protection officer.
 * *No personal interview notes* in free-text fields; the UI says so.
 * *Repositories per retention period* (see the last section): after the period the whole repository is deleted; no
-  history is
-  rewritten.
+  history is rewritten.
 
 This is a technical assessment, not legal advice.
 
@@ -47,18 +46,22 @@ yesterday's version and has the person back. For the controller, who holds the k
 in the history become unreadable at once. Envelope encryption keeps this cheap:
 
 ----
-Git
- ├─ persons/<pseudonym>.enc   ← personal data, each encrypted with its own data key (DEK);
- │                              never rewritten
- └─ keys/keyring.enc          ← all DEKs, encrypted with the key-encryption key (KEK, version n);
-                                small, rewritten on every erasure
+Git (the repository `directory`)
+ ├─ persons/<pseudonym>.enc   ← the entry of a person, encrypted with the person's own data key (DEK);
+ │                              rewritten only when the person changes it
+ └─ keys/keyring.enc          ← per pseudonym its DEK and the `sub` of the identity provider, encrypted with the
+                                key-encryption key (KEK, version n); small, rewritten on every erasure
 
 Outside Git: only the KEK (supplied from outside, versioned)
 ----
 
+The keyring and the entries of persons live in the repository `directory` (see
+link:directory-and-catalogs.adoc[Directory and Catalogs]); personal fields in documents of other repositories use
+the same keyring.
+
 Erasing a person:
 
-. Remove the person's DEK from the keyring.
+. Remove the person's entry (DEK and `sub`) from the keyring.
 . Encrypt the keyring with a new KEK (version n+1) and commit it.
 . Destroy KEK version n.
 
@@ -108,6 +111,7 @@ isms-register        → assets, risks, controls                       (restrict
 isms-incidents-2026  → incidents of one year                         (strongly restricted, retention period)
 samm-assessments     → SAMM                                           (development and security)
 threat-models        → threat model reports, where not in the application's repository (restricted)
+directory            → catalogs (widely readable), entries of persons and keyring (encrypted)
 ----
 
 With pushes in the user's name (identity level b, link:identity-and-signing.adoc[Identity and Signing]) the Git server

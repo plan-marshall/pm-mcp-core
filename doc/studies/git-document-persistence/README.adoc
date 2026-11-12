@@ -81,7 +81,7 @@ Read in this order:
 ** link:category-threat-models.adoc[Threat Models]
 ** link:category-incident-reports.adoc[Incident Response Reports]
 ** link:category-isms.adoc[ISMS and the Comparison with verinice]
-. link:library.adoc[The Library]: existing solutions, the decision, its parts, packaging and the foundation shared with
+. link:library.adoc[The Library]: existing solutions, the decision, the modules and the foundation shared with
   `pm-provider-git`, risks and limits.
 . link:extraction-from-pm-mcp-core.adoc[Extraction from `pm-mcp-core`]: the inventory of `pm-provider-git`, the core
   repository and its modules, what stays, what changes in `pm-mcp-core`, the order and the decisions it needs.

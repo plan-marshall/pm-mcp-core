@@ -84,7 +84,7 @@ git-foundation (repository)
   ├─ git-crypto        encrypted keyring, erasure by key rotation               (optional)
   ├─ git-signing       commit signature, user claims, passkey approvals          (optional)
   ├─ git-timestamp     RFC 3161 anchoring                                        (optional)
-  ├─ git-forms         schema-driven documents: schema, template, workflow       (optional)
+  ├─ git-forms         schema-driven documents: schema, template, workflow
   └─ git-directory     directory of persons, catalogs of roles, teams, services   (optional)
 ----
 
@@ -141,14 +141,16 @@ git-core ← git-store ← git-forms
            git-forms, git-crypto ← git-directory
 ----
 
-No module below `git-forms` knows a term of a category. The optional modules carry their own third-party dependencies
-(Tink, a timestamp client, a template engine), so a consumer of `git-core` alone pulls none of them.
+No module knows a term of a category; the categories are configuration of `git-forms`. The modules above `git-core`
+carry their own third-party dependencies (YAML and a template engine in `git-forms`, Tink in `git-crypto`, a
+timestamp client in `git-timestamp`), so a consumer of `git-core` alone pulls none of them.
 
 == What Stays in `pm-provider-git`
 
 * `JGitSourceRepository`, the adapter to the corpus interface of `pm-core`.
 * `WorktreeShaDigest` with its ported tests and fixtures (`ported/`, `ported/worktree-sha/*.txt`): its framing is a
-  contract of the job runtime specification of PM-MCP. It is built on the working-tree status of `git-worktrees`.
+  contract of the job runtime specification of PM-MCP. It can then build on the working-tree status of
+  `git-worktrees`.
 * `GitOperations` as the contract of PM-MCP, now a facade over `RepositoryOperations` and `WorktreeOperations`, so the
   assembly in `plan-marshall-mcp` keeps its interface for the first step.
 

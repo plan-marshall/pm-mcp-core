@@ -8,7 +8,6 @@ _(unverified)_ come from general knowledge and were not checked against a curren
 
 toc::[]
 
-
 Threat model reports are a second category of information on the same engine. Recipes for threat modelling guide
 the filling in, by people or assisted by a model; the result is a structured report that is maintained over the life
 of the application.
@@ -20,7 +19,7 @@ of the application.
 |Tool |Kind |Storage |Assessment
 
 |OWASP Threat Dragon
-|Open source, web and desktop, diagram editor (STRIDE, LINDDUN and others)
+|Open source, web and desktop, diagram editor (STRIDE and further methods)
 |JSON files; the web application stores directly in GitHub, GitLab, Bitbucket or locally
 |Best candidate to connect to; shows that Git as storage is common here
 
@@ -63,7 +62,8 @@ place:
   detectable: the architecture changed since the last commit of the threat model (new interfaces, dependencies,
   infrastructure files), so a review is due. This works through Git diffs, and only when model and code share the
   repository. The application reads many repositories, which the repository layer does anyway, and writes through
-  pull requests in the user's name (Token Sheriff), because the `main` of the applications is protected.
+  pull requests, because the `main` of the applications is protected: by the technical user with the signed
+  trailers of the user, or in the user's name (see link:identity-and-signing.adoc[Identity and Signing]).
 * *B: a central repository `threat-models`*, like link:category-samm.adoc[SAMM]. Simpler where teams allow no writes
   into their repositories or the applications are not in Git; outdated models are then detected only through references
   to the applications' repositories.
