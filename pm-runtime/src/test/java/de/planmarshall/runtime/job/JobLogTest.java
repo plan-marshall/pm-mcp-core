@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 import de.planmarshall.runtime.job.JobLog.Complete;
@@ -191,6 +193,50 @@ class JobLogTest {
             var whole = assertInstanceOf(Unavailable.class, log.readWhole(0), "a missing log is unavailable");
 
             assertEquals(LogState.MISSING, whole.state(), "the ended log is missing");
+        }
+
+        @Test
+        @DisplayName("at the cap: the whole log is answered, never a cut")
+        void atTheCap() throws Exception {
+            var marker = "last line " + line();
+            var filler = "x".repeat(JobLog.MAX_BYTES - report.length() - marker.length() - 3);
+            Files.writeString(path, report + "\n" + filler + "\n" + marker + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "a log at the cap is complete");
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(), "the launch report is read");
+
+            assertAll(
+                    () -> assertEquals(JobLog.MAX_BYTES, Files.size(path), "the log is exactly at the cap"),
+                    () -> assertEquals(Files.size(path), whole.length(), "the length is the size of the log"),
+                    () -> assertEquals(filler + "\n" + marker + "\n", reading.jobOutput(),
+                            "the whole log follows the report, uncut"));
+        }
+
+        @Test
+        @DisplayName("over the cap: the first line and the last bytes, never truncated")
+        void overTheCap() throws Exception {
+            var middle = "middle marker " + line();
+            var marker = "tail marker " + line();
+            Files.writeString(path, report + "\n" + middle + "\n" + "x".repeat(JobLog.MAX_BYTES) + "\n" + marker
+                    + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(Files.size(path)), "an over-cap log is complete");
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(),
+                    "the report survives the cut");
+
+            assertAll(
+                    () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
+                    () -> assertEquals(Files.size(path), whole.length(), "the length is the real file length"),
+                    () -> assertTrue(reading.jobOutput().contains(marker), "the tail of the log is read"),
+                    () -> assertFalse(reading.jobOutput().contains(middle), "the middle of the log is cut"),
+                    () -> assertTrue(reading.jobOutput().startsWith(marker), "the cut starts at a line beginning"));
+        }
+
+        @Test
+        @DisplayName("the cap is read from the module's limits resource")
+        void capIsReadFromTheLimitsResource() {
+            assertEquals(JobLog.MAX_BYTES, LimitProperties.read(JobLog.LIMITS, JobLog.MAX_BYTES_KEY),
+                    "the cap must come from the resource");
         }
 
         @Test

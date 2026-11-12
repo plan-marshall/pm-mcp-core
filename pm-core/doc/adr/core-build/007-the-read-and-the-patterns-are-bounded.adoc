@@ -1,0 +1,88 @@
+= ADR 007: The Read of a Build Log and the Patterns on It Are Bounded
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-11
+
+== Context
+
+A build log is written by the operator's own build, but a dependency or a test can put any line in it. The settlement
+path read the file whole — `BuildLogText.read` and `JobLog.readWhole`, each through `Files.readAllBytes` — and ran
+unbounded patterns over every line: the Maven execution header and the OpenRewrite finding line, and three pytest
+patterns of `PyprojectOutputParser`, backtrack over a line of repeated tokens, and `UnparsedEvidence` listed every line
+of the log to keep the last fifty. The exposure is a stalled daemon and a job record left `running`, not a remote
+attack, and no log has done it. On 2026-11-10 the operator settled the two values — 16 MiB for the read, 8192
+characters for a line — and asked that both be data of a properties resource, changed by editing it and nothing else.
+
+== Decision
+
+* The read is capped. `BuildLogText.read` and `JobLog.readWhole` take at most the cap of their module's limits resource,
+  counted from the end of the file, read with `de.planmarshall.core.config.LimitProperties` when the class initialises:
+  `pm.core.build.log-max-bytes` in `pm-core/src/main/resources/de/planmarshall/core/build/build-limits.properties` and
+  `pm.runtime.job.log-max-bytes` in `pm-runtime/src/main/resources/de/planmarshall/runtime/job/job-log-limits.properties`.
+  There is no literal in the code and no runtime or operator override.
+* The read is a tail read. A log longer than the cap is read from its end — the count lines, the summary and the
+  failure tail are there — and the cut starts at the first line beginning inside the tail. `BuildLogText.read` documents
+  the cut. `JobLog.readWhole` keeps its answer type and reads an over-cap log as its first line plus its last cap bytes
+  aligned to a line start, because the first line is the launch report that `SubprocessJobRunner.settle` takes the
+  launcher-failure decision from; `Complete.length` carries the file's length, and `LogState.TRUNCATED` is never answered
+  for an over-cap log, because that state means the log grew shorter than what the runtime already read from it.
+* Every line is cut before a pattern of the three parsers of this plan sees it. `BuildLogText.boundLines` cuts a line at
+  `pm.core.build.max-line-length` of the same resource, and `MavenOutputParser`, `OpenRewriteLogParser` and
+  `PyprojectOutputParser` apply it once at the entry of their parse, so one cut bounds every expression of such a parser
+  at once, including one a later change adds. The package's other six parsers are bounded by the cap of the read, not yet
+  by a line cut.
+* Three patterns are rewritten on top of the cut, each held to the ported expression's result by a differential test
+  over generated lines: the Maven execution header and the OpenRewrite finding line are asked a necessary-condition
+  pre-test first (a header needs an `@`, a finding line needs both its identifier prefix and ` by `), and the pytest
+  summary line is answered in two steps — the earliest verdict word, then the `in <seconds>s` tail after it, with
+  possessive quantifiers on the tail. The pytest exception and section patterns measured linear and are not rewritten.
+* `UnparsedEvidence` takes the excerpt's tail by scanning back from the log's end for line beginnings instead of listing
+  every line.
+
+== Alternatives Considered
+
+* *A time bound on the patterns, an interrupt-based guard.* `java.util.regex` has no timeout; a guard would need a
+  watching thread and an interrupt, and an interrupted thread cannot be relied on to stop inside the engine. The
+  per-line cut bounds the same cost without one.
+* *A literal cap in the code.* Refused by the operator's decision of 2026-11-10: both values are data of the module's
+  properties resource, changed by editing it.
+* *Cutting only in front of the patterns the analyses named.* Refused: one cut in front of the parse bounds every
+  pattern of the parser, so a pattern added later is bounded by the same value.
+* *Reading the head of an over-cap log instead of its tail.* Refused: the count lines, the summary and the failure tail
+  are at the end. The first line is kept only where a report lives there, which is `JobLog`'s case.
+* *Listing the lines of a log and keeping the last fifty.* Refused: it holds every line at once to keep fifty, which is
+  56 MB for a million-line log, and the excerpt is the tail alone.
+
+== Consequences
+
+* A parser result changes only for a log over the cap or, in the three parsers that cut a line, for a line over the
+  bound. A log inside both reads as it was written for them, so their fixtures are unchanged.
+* `GradleOutputParser`, `NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and
+  `TapOutputParser` are bounded by the cap but not yet by a line cut; a plan that touches one applies `boundLines` at the
+  entry of its parse in the same way.
+* A new parser is bounded by calling `BuildLogText.boundLines` at the entry of its parse; a pattern added to one of the
+  three cut parsers is already inside the cut.
+* `JobLog.readLines`, the incremental read, is not capped: a reader that follows a growing log reads from the offset it
+  names.
+* The cut of a read can leave a partial ANSI escape at the head of the tail. `BuildLogText.stripAnsi` does not match it
+  and the fragment stays in the text, where no parser pattern reads it as a marker.
+* The two Maven-side pre-tests reject a line that cannot match; a line that carries the token they test still backtracks
+  inside the expression, so its cost is the square of the line's length — bounded by the per-line cut to one line's
+  worth, not made linear. The pytest summary is linear for every line without a line terminator; a line that carries one
+  is answered by the ported expression, whose cost the terminator does not change. A linear expression for the two
+  Maven-side patterns needs the anchored rewrite, which this plan did not take.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-131-build-log-bounds.md[PLAN-V2-131]
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Native Build Output Parsers]
+* Developer guides: link:../../developer/core-build.adoc[`core.build`] and
+  link:../../../../pm-runtime/doc/developer/runtime-job.adoc[`runtime.job`]
+* Origin: the landings of PLAN-V2-08 (C3), PLAN-V2-28 (C1, I2) and PLAN-V2-36 (C4), and the operator's decision of
+  2026-11-10 on the two values.

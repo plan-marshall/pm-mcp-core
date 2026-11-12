@@ -11,17 +11,21 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.config.LimitProperties;
 
 /**
  * Reads build-log text and strips the terminal control sequences a colour-coded log carries.
@@ -75,5 +79,95 @@ class BuildLogTextTest {
                 "A missing log is reported as an unreadable log");
 
         assertTrue(failure.getMessage().contains("absent.log"), "The refusal names the missing log");
+    }
+
+    @Test
+    @DisplayName("the cap is read from the module's limits resource")
+    void capIsReadFromTheLimitsResource() {
+        assertEquals(BuildLogText.MAX_BYTES, LimitProperties.read(BuildLogText.LIMITS, BuildLogText.MAX_BYTES_KEY),
+                "the cap must come from the resource");
+    }
+
+    @Test
+    @DisplayName("an alternate resource yields its own cap, never a fixed one")
+    void capOfAnAlternateResource() {
+        var alternate = "/de/planmarshall/core/build/alternate-build-limits.properties";
+
+        assertEquals(42, LimitProperties.read(alternate, BuildLogText.MAX_BYTES_KEY),
+                "the reader must return the value of the resource");
+    }
+
+    @Test
+    @DisplayName("a log one byte under the cap is read whole")
+    void readsALogUnderTheCapWhole(@TempDir Path directory) throws Exception {
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES - 2);
+        Path log = directory.resolve("under.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertAll(
+                () -> assertEquals(BuildLogText.MAX_BYTES - 1, text.length(), "the whole log is read"),
+                () -> assertTrue(text.startsWith("h"), "the head of the log is kept"),
+                () -> assertTrue(text.endsWith("a"), "the end of the log is kept"));
+    }
+
+    @Test
+    @DisplayName("a log exactly at the cap is read whole")
+    void readsALogAtTheCapWhole(@TempDir Path directory) throws Exception {
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES - 1);
+        Path log = directory.resolve("at.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertEquals(content, text, "a log at the cap is read as it was written");
+    }
+
+    @Test
+    @DisplayName("a cut that begins at a line start keeps that line")
+    void cutAtALineStartKeepsTheLine(@TempDir Path directory) throws Exception {
+        var content = "x\n" + "a".repeat(100) + "\n" + "a".repeat(BuildLogText.MAX_BYTES - 101);
+        Path log = directory.resolve("aligned.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertAll(
+                () -> assertEquals(BuildLogText.MAX_BYTES, text.length(), "the whole window is read"),
+                () -> assertTrue(text.startsWith("a".repeat(100)), "the line at the cut's start is kept"));
+    }
+
+    @Test
+    @DisplayName("a log one byte over the cap is read from its end")
+    void readsALogOverTheCapFromItsEnd(@TempDir Path directory) throws Exception {
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES);
+        Path log = directory.resolve("over.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertAll(
+                () -> assertEquals(BuildLogText.MAX_BYTES, text.length(), "at most the cap is read"),
+                () -> assertFalse(text.startsWith("h"), "the head of the log is cut"),
+                () -> assertTrue(text.endsWith("a"), "the end of the log is kept"));
+    }
+
+    @Test
+    @DisplayName("a cut log starts at a line beginning")
+    void cutLogStartsAtALineBeginning(@TempDir Path directory) throws Exception {
+        var line = "line " + Generators.letterStrings(1, 8).next() + "\n";
+        var content = "head\n" + line.repeat(BuildLogText.MAX_BYTES / line.length() + 2);
+        Path log = directory.resolve("lines.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertAll(
+                () -> assertTrue(text.getBytes(StandardCharsets.UTF_8).length <= BuildLogText.MAX_BYTES,
+                        "at most the cap is read"),
+                () -> assertTrue(text.startsWith("line "), "the cut starts at a line beginning"),
+                () -> assertFalse(text.contains("head"), "the head of the log is cut"),
+                () -> assertTrue(text.endsWith(line), "the last line is kept whole"));
     }
 }

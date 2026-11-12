@@ -13,14 +13,15 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.config.LimitProperties;
 import de.planmarshall.runtime.job.JobEvidence.LogState;
 
 /**
@@ -47,6 +48,20 @@ import de.planmarshall.runtime.job.JobEvidence.LogState;
  */
 public record JobLog(Path path) {
 
+    /** The classpath location of the limits of the job log. */
+    static final String LIMITS = "/de/planmarshall/runtime/job/job-log-limits.properties";
+
+    /** The key of the most bytes of a job log that are read, counted from its end. */
+    static final String MAX_BYTES_KEY = "pm.runtime.job.log-max-bytes";
+
+    /**
+     * The most bytes a whole read takes from a log; a longer log is read as its first line and its last
+     * {@code MAX_BYTES} bytes.
+     * <p>
+     * Read from {@link #LIMITS} when the class initializes, so the value is changed by editing that resource.
+     */
+    public static final int MAX_BYTES = Math.toIntExact(LimitProperties.read(LIMITS, MAX_BYTES_KEY));
+
     /** @throws NullPointerException if the path is {@code null} */
     public JobLog {
         Objects.requireNonNull(path, "path");
@@ -61,7 +76,7 @@ public record JobLog(Path path) {
     }
 
     /**
-     * What the read of the whole log of an ended job answered.
+     * What the read of the log of an ended job answered.
      *
      * @since 0.1
      */
@@ -92,9 +107,10 @@ public record JobLog(Path path) {
     }
 
     /**
-     * The whole log of an ended job, read to its end.
+     * The log of an ended job as the whole read answers it: the launch report and the job's output after it.
      *
-     * @param reading the launch report and the job's output after it, or the whole log when it carries no report
+     * @param reading the launch report and the job's output after it, or the log when it carries no report; a log over
+     *                {@link #MAX_BYTES} is read as its first line and its last {@link #MAX_BYTES} bytes
      * @param length  the length of the log in bytes
      * @since 0.1
      */
@@ -165,7 +181,16 @@ public record JobLog(Path path) {
     }
 
     /**
-     * Reads the whole log of a job that has ended.
+     * Reads the log of a job that has ended.
+     * <p>
+     * A log longer than {@link #MAX_BYTES} is cut: it is read as its first line and its last {@link #MAX_BYTES} bytes,
+     * counted from the first line beginning inside them. The first line is kept because the launch report is the first
+     * line, and a launcher failure is decided from it: a tail read alone would report {@code Unreported} and lose the
+     * launcher-failure decision. The cut is not {@link LogState#TRUNCATED}: that state means the log is shorter than
+     * what the runtime already read from it, and an over-cap log is longer, not shorter. A first line longer than the
+     * cap cannot be taken by a bounded read, and the head alone is answered. A log that shrinks between the size read
+     * and the read of its content is {@link LogState#TRUNCATED} too: a short read is never reported as a complete log. A
+     * log that grows instead loses nothing and is answered as the content read, with the length read before.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -177,18 +202,77 @@ public record JobLog(Path path) {
         if (observedLength < 0) {
             throw new IllegalArgumentException("observedLength must not be negative: " + observedLength);
         }
-        byte[] bytes;
-        try {
-            bytes = Files.readAllBytes(path);
+        try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            var size = channel.size();
+            if (size < observedLength) {
+                return truncated(size, observedLength);
+            }
+            var text = size <= MAX_BYTES ? whole(channel, size) : capped(channel, size);
+            var remaining = channel.size();
+            if (remaining < size) {
+                return truncated(remaining, size);
+            }
+            return new Complete(LaunchReport.read(text), size);
         } catch (NoSuchFileException _) {
             return missing();
         } catch (IOException e) {
             return unreadable(e);
         }
-        if (bytes.length < observedLength) {
-            return truncated(bytes.length, observedLength);
+    }
+
+    private static String whole(FileChannel channel, long size) throws IOException {
+        return new String(read(channel, 0, size), StandardCharsets.UTF_8);
+    }
+
+    /** The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. */
+    private static String capped(FileChannel channel, long size) throws IOException {
+        var head = read(channel, 0, MAX_BYTES);
+        var end = firstLineEnd(head);
+        if (end < 0) {
+            return new String(head, StandardCharsets.UTF_8);
         }
-        return new Complete(LaunchReport.read(new String(bytes, StandardCharsets.UTF_8)), bytes.length);
+        return new String(head, 0, end + 1, StandardCharsets.UTF_8) + new String(tail(channel, size),
+                StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
+     * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
+     */
+    private static byte[] tail(FileChannel channel, long size) throws IOException {
+        var from = size - MAX_BYTES;
+        var bytes = read(channel, from, size);
+        if (bytes.length == 0) {
+            return bytes;
+        }
+        var previous = read(channel, from - 1, from);
+        return previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
+    }
+
+    /**
+     * The end of the first line of a head, or {@code -1} when the head holds no complete line: the first line is then
+     * longer than the whole head, so no bounded read can take it and the head is all there is to answer with.
+     */
+    private static int firstLineEnd(byte[] head) {
+        for (var index = 0; index < head.length; index++) {
+            if (head[index] == '\n') {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Drops the head of a cut that begins inside a line, so the output after the first line starts at a line beginning.
+     * A cut with none is one long line and is kept as it is.
+     */
+    private static byte[] fromLineStart(byte[] bytes) {
+        for (var index = 0; index < bytes.length; index++) {
+            if (bytes[index] == '\n') {
+                return Arrays.copyOfRange(bytes, index + 1, bytes.length);
+            }
+        }
+        return bytes;
     }
 
     private static byte[] read(FileChannel channel, long offset, long size) throws IOException {
