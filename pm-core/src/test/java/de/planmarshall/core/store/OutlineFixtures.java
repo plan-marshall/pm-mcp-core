@@ -18,11 +18,8 @@ import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
-import de.planmarshall.core.store.OutlineRecord.Direction;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
-import de.planmarshall.core.store.OutlineRecord.Interface;
-import de.planmarshall.core.store.OutlineRecord.KeyLink;
 import de.planmarshall.core.store.OutlineRecord.Profile;
 import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
@@ -57,13 +54,11 @@ final class OutlineFixtures {
                 List.of(Profile.IMPLEMENTATION, Profile.MODULE_TESTING),
                 List.of(new AffectedFile(path, FileIntent.WRITE_NEW, null)),
                 text(10, 80),
-                List.of(new Verification(text(1, 40), text(5, 60))),
+                // The command carries a regular expression with backslashes: the round trip must escape them.
+                List.of(new Verification(text(1, 40) + " '\\d+\\.'", text(5, 60))),
                 List.of(satisfies),
                 // Coordinate grammar: the record admits only a maven:, npm: or pypi: prefixed coordinate.
-                List.of(new AddedDependency("maven:" + identifier(), note + ' ' + text(10, 60), text(10, 60))),
-                List.of(new Interface(Direction.PRODUCES, identifier(), text(1, 60))),
-                // The pattern is a regular expression, so it carries backslashes: the round trip must escape them.
-                List.of(new KeyLink(path, identifier(), "new " + identifier() + "\\(\\)")));
+                List.of(new AddedDependency("maven:" + identifier(), note + ' ' + text(10, 60), text(10, 60))));
     }
 
     static Revision revision(int number, OutlineRecord outlineRecord) {

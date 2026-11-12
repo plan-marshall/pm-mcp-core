@@ -94,18 +94,6 @@ public final class OutlineRenderer {
                     .append(" (rejected: ").append(dependency.rejectedAlternative()).append(")\n"));
             out.append('\n');
         }
-        if (!deliverable.interfaces().isEmpty()) {
-            out.append("**Interfaces:**\n");
-            deliverable.interfaces().forEach(contract -> out.append("- ").append(contract.direction().wireName())
-                    .append(" `").append(contract.symbol()).append("`: `").append(contract.signature()).append("`\n"));
-            out.append('\n');
-        }
-        if (!deliverable.keyLinks().isEmpty()) {
-            out.append("**Key links:**\n");
-            deliverable.keyLinks().forEach(link -> out.append("- `").append(link.from()).append("` → ")
-                    .append(link.to()).append(": `").append(link.pattern()).append("`\n"));
-            out.append('\n');
-        }
         if (deliverable.designNotes() != null) {
             out.append("**Design notes:** ").append(deliverable.designNotes()).append("\n\n");
         }

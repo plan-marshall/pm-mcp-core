@@ -2621,7 +2621,7 @@ the non-goals, like the constraints and the assumptions, get their heading only 
 
 `outline.json` is the plan's solution outline (Store Schemas § Outline Record). `OutlineRecord` is the model-supplied
 document (`outline-record`): its deliverables carry their profiles, affected files with their intents, the change per
-file, the verification commands, the `satisfies` entries, the added dependencies, interfaces and key links. It refuses
+file, the verification commands, the `satisfies` entries and the added dependencies. It refuses
 a dependency on a deliverable the outline does not hold, a dependency on itself, a dependency named twice, a repeated
 deliverable number, a `write-conditional` file without its gate and a file of another intent that carries one.
 
