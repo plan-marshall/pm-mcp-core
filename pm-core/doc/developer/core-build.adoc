@@ -276,48 +276,96 @@ low-coverage list from **each item's line percentage only** (`>=` passes). A bra
 percentage never changes either: a report whose branch coverage is below the threshold passes when its line coverage is
 above it, and a high branch percentage does not rescue a low line.
 
+The percentages compared are the ones the parser stored, already rounded to two decimals, so the rounding happens before
+the comparison: a line coverage of 79.996 % is stored as `80.0` and passes a threshold of 80 (`CoverageReportTest` pins
+the boundary).
+
+=== A zero denominator is absent
+
+A counter whose denominator is zero measured nothing, so it has no percentage: `CoveragePercentages.percentage` returns
+an empty `Optional` for a zero total, and no parser writes `0.0` for it. In every format an item whose line counter is
+`0/0` is no item, a branch, function or instruction counter of `0/0` leaves that metric `null`, and a report whose
+overall line counter is `0/0` is refused with the reason `no lines measured`. A rate is read as text through
+`BigDecimal` and checked to `0..1`, so `NaN`, `Infinity` and the hexadecimal floating-point forms are refused rather
+than read.
+
 === JaCoCo
 
-`JacocoReportParser.parse` walks the report once through {@link CoverageXmlReader} and takes the {@code INSTRUCTION},
-{@code BRANCH}, {@code LINE} and {@code METHOD} counters of the report element as the overall percentages, each
-{@code covered / (missed + covered)}; a counter the report does not carry leaves its metric `null`, a report without a
-`LINE` counter is refused, and a class without one is left out of the measured items. Per class it takes the `LINE`
-counter (and the `BRANCH` counter where present); each method whose `METHOD` counter has a missed part contributes its
-name to `missedMethods`, and `<init>` and `<clinit>` are excluded because they are not methods a test is expected to call.
-The class name is dotted (`com/example/A` becomes `com.example.A`).
+`JacocoReportParser.parse` walks the report once through `CoverageXmlReader` and takes the `INSTRUCTION`, `BRANCH`,
+`LINE` and `METHOD` counters of the report element as the overall percentages, each `covered / (missed + covered)`; a
+counter the report does not carry, or one of `0/0`, leaves its metric `null`, and a report without a `LINE` counter, or
+with an overall `LINE` counter of `0/0`, is refused. A class without a `LINE` counter, or with one of `0/0`, is left out
+of the measured items. Per class it takes the `LINE` counter (and the `BRANCH` counter where present, `null` at `0/0`);
+each method whose `METHOD` counter has a missed part contributes its name to `missedMethods`, and `<init>` and `<clinit>`
+are excluded because they are not methods a test is expected to call. The class name is dotted (`com/example/A` becomes
+`com.example.A`).
 
 === Cobertura
 
 `CoberturaReportParser.parse` takes the root `line-rate` and `branch-rate` as the overall percentages — a missing root
 `line-rate` is a refusal and a missing `branch-rate` leaves the branch metric `null` — and each class's `line-rate` as
 an item, naming its `filename`. A method whose `line-rate` is zero contributes its name to `missedMethods`. A rate that
-is not a finite number is refused.
+is not a plain decimal number within `0..1` is refused.
+
+Cobertura's `class` elements carry no `lines-valid` or `branches-valid`, so the zero rule is decided at the root. A root
+`lines-valid="0"` refuses the report (`no lines measured`). A root `branches-valid` of `0`, or none, measured no branch,
+so the overall branch metric and the branch rate of every class are `null`; under a root that measured branches, a
+`branch-rate="0"` is a measured `0.0`.
 
 === LCOV
 
 `LcovReportParser.parse` reads the line-oriented records from `SF:` to `end_of_record` and sums every record into the
 overall percentages: `line` from `LH/LF`, `branch` from `BRH/BRF`, `function` from `FNH/FNF`, and `statement` equals
-`line` because LCOV has no statement counter. A metric no record carries is `null`, not a zero. Each record is an item. A
-`DA:` record is per-line detail and never enters a percentage. A record that is not terminated, or carries no `LF/LH`
-counter, is a truncation and is refused, as is a covered count above its total.
+`line` because LCOV has no statement counter. A metric no record carries is `null`, not a zero, and so is a `BRF:0` or
+`FNF:0`. Each record is an item, except a record with `LF:0`, and a report whose summed `LF` is `0` is refused. A `DA:`
+record is per-line detail and never enters a percentage. A record that is not terminated, or carries no `LF/LH`
+counter, is a truncation and is refused, as is a covered count above its total. The report is read line by line, never
+split whole, and a line longer than the line limit of <<_the_bounded_read_of_a_report>> is refused, naming the limit.
 
 === Istanbul
 
 `IstanbulSummaryParser.parse` streams the document with Jackson rather than binding it to a tree. The `total` object
 supplies the `pct` of `lines`, `statements`, `functions` and `branches`; every other top-level object is one file item,
-with `lines.pct` as its line percentage and `branches.pct` as its branch percentage. A truncated document, a metric
-without a numeric `pct` and a document without `total` are refused.
+with `lines.pct` as its line percentage and `branches.pct` as its branch percentage. Each metric's `total` is read
+beside its `pct`: a `total` of `0` leaves the metric absent whatever the `pct` says, a file whose `lines.total` is `0`
+is no item, and a summary whose `total.lines.total` is `0` is refused. A truncated document, a metric without a numeric
+`pct`, a document without `total` and a key that appears twice in one object (Jackson's `STRICT_DUPLICATE_DETECTION`, so
+a later `total` can never override an earlier one) are refused.
 
 === The XML hardening
 
-Both XML parsers read their report as untrusted input through `CoverageXmlReader`. The factory keeps DTD support on — so
-JaCoCo's own `DOCTYPE` with a system identifier parses — turns external entities off, keeps entity references from being
-replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file or a
-URL reads nothing. A document whose DTD carries an internal subset is refused before it is read, because that is where
-a general or parameter entity is declared; the parsers also refuse an `ENTITY_REFERENCE` event as a backstop. A report
-that declares and uses an external entity is therefore refused, never expanded; a `DOCTYPE` declaration alone is
-tolerated without resolution. The decision is recorded in
-link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
+Both XML parsers read their report as untrusted input through `CoverageXmlReader`, and the parser itself is the defence:
+there is no text scan before it. The factory turns DTD support off, turns external entities off, keeps entity
+references from being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries
+to reach a file or a URL reads nothing. With DTD support off the JDK reader still parses JaCoCo's own `DOCTYPE` with a
+system identifier, so the declaration is tolerated and never resolved or fetched. The walk refuses an `ENTITY_REFERENCE`
+event, so an entity reference in element content is refused, never expanded. An entity reference in an attribute value
+raises no such event: the reader drops it from the value, so it is never expanded and never resolved either, and the
+report is read without it. The decisions, with the measured behaviour of the JDK reader, are recorded in
+link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`], which
+supersedes the hardening part of
+link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`]. The hostile prologs are
+probed by `CoverageXmlHardeningTest` through a resolver that counts its calls.
+
+=== The bounded read of a report
+
+_Requirements:_ link:{docs}/Requirements.adoc#PM-ARCH-8[PM-ARCH-8], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
+
+A coverage report is read as a stream, never whole: the `parse(Path)` overloads open the file through
+`CoverageReportStream`, a counting stream that refuses the read once more than the cap of the module's coverage limits
+resource has been read, naming the cap. The XML parsers hand that stream to `CoverageXmlReader.parse(InputStream)`, which
+honours the document's own encoding declaration and byte-order mark; LCOV reads it as UTF-8 through a `BufferedReader`,
+and Istanbul through Jackson.
+
+include::../../src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-bytes]
+
+An LCOV line longer than the line limit of the same resource is refused before it is read whole:
+
+include::../../src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-line-length]
+
+Both values are data, read with `LimitProperties` when `CoverageReportStream` initialises; there is no literal in the code.
+A report file that cannot be read is refused naming its file name only (`CoverageRefusals`): a file-system failure carries
+the full path in its message, so its message is never passed through.
 
 == The Bounds of a Read and of a Parse
 
@@ -441,8 +489,10 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
   which carries the format and the reason; there is no result in which a refusal has been turned into percentages.
 * *The threshold reads the line only.* `CoverageReport.evaluate` compares the overall line percentage and each item's
   line percentage, and no other metric changes either.
-* *A coverage document is untrusted.* The XML readers tolerate a `DOCTYPE` without resolving it and refuse an external
-  entity; a malformed JSON summary is a refusal, not a zero.
+* *A coverage document is untrusted.* The XML readers tolerate a `DOCTYPE` without resolving it, refuse an entity
+  reference in element content and drop one in an attribute value, never expanding or resolving either; a malformed or
+  duplicate-keyed JSON summary is a refusal, not a zero; and a report is read within a byte cap.
+* *A counter that measured nothing is absent.* A `0/0` counter is never a measured `0.0`.
 
 == Specification Tracing
 
@@ -450,4 +500,4 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
   PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
   by every parser of the package
-* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening]
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening], link:../adr/core-build/006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR 006 the redactor shapes and the npm diagnostic redaction], link:../adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR 007 the read and the patterns are bounded], link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR 008 the coverage parsers read with DTD off and bounded]

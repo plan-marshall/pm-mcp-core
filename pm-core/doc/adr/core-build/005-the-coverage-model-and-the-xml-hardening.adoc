@@ -5,6 +5,11 @@
 
 Accepted
 
+Partly superseded by link:008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`]: Decision 4,
+Alternative 3 and the hardening paragraph of the Consequences no longer describe the code. The XML readers run with DTD
+support off and without the internal-subset text scan; an entity reference in element content is refused and one in an
+attribute value is dropped, never expanded or resolved. The rest of this record stands as written.
+
 == Date
 
 2026-11-09

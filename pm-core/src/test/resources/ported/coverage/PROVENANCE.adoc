@@ -43,7 +43,8 @@ derives them (`test_coverage_parse.py`).
 == The deliberate fixtures
 
 The files headed `deliberate-` are not the original's; they assert a behaviour the port decides on top of it, recorded in
-`pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc`:
+`pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc` and, for the XML hardening,
+`pm-core/doc/adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc`:
 
 [cols="2,3",options="header"]
 |===
@@ -57,8 +58,11 @@ threshold neither fails a report whose line is above it nor rescues one whose li
 |The constructors `<init>` and `<clinit>` are never part of `missed_methods`.
 
 |`deliberate-jacoco-external-entity.xml`, `deliberate-jacoco-external-entity-content.xml`, `deliberate-cobertura-external-entity.xml`
-|A report whose DTD carries an internal subset (where an entity is declared) is refused, never expanded, whether the
-entity sits in an attribute or in element content; a `DOCTYPE` declaration alone is tolerated.
+|A report that uses its declared external entity is refused by the parser itself, never expanded and never resolved:
+the reference in element content (`deliberate-jacoco-external-entity-content.xml`,
+`deliberate-cobertura-external-entity.xml`) by the reader's entity-reference refusal, and the reference in an attribute
+value (`deliberate-jacoco-external-entity.xml`) by the XML rule that forbids an external entity there. The `DOCTYPE`
+itself is tolerated without resolution (ADR `core-build/008`).
 
 |`deliberate-jacoco-truncated.xml`, `deliberate-cobertura-truncated.xml`, `deliberate-lcov-truncated.info`, `deliberate-istanbul-malformed.json`
 |An unreadable or truncated report is a refusal naming the format, never a report of zeros.

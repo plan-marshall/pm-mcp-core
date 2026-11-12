@@ -55,7 +55,19 @@ The runtime (`pm-mcpd`) persists observed execution durations per project in `<P
 
 === Native Coverage Report Parsers
 
-Implemented by `JacocoReportParser`, `CoberturaReportParser`, `LcovReportParser` and `IstanbulSummaryParser` in `pm-core` package `core.build` (link:../../../pm-core/doc/developer/core-build.adoc#_the_coverage_reports[`core.build` Developer Guide § The Coverage Reports]) over the model `CoverageReport` with its `CoverageMetrics`, `CoverageItem` and `CoverageVerdict`, each parser returning a `CoverageParseResult` — a parsed report or a refusal that names the format, never a report of zeros. The parser tests are ported from `plan-marshall`'s `_coverage_parse.py` and its pytest suite (link:../store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification, Ported-Primitive Tests]); the model and the XML hardening are recorded in link:../../../pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`]. The rules stated below stay binding: the threshold verdict (`passed`) and the low-coverage list compare the **line** percentage only, every other metric is parsed and rendered and never feeds a threshold, and an XML report that declares and uses an external entity is refused, never expanded.
+Implemented by `JacocoReportParser`, `CoberturaReportParser`, `LcovReportParser` and `IstanbulSummaryParser` in `pm-core` package `core.build` (link:../../../pm-core/doc/developer/core-build.adoc#_the_coverage_reports[`core.build` Developer Guide § The Coverage Reports]) over the model `CoverageReport` with its `CoverageMetrics`, `CoverageItem` and `CoverageVerdict`, each parser returning a `CoverageParseResult` — a parsed report or a refusal that names the format, never a report of zeros. The parser tests are ported from `plan-marshall`'s `_coverage_parse.py` and its pytest suite (link:../store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification, Ported-Primitive Tests]); the model is recorded in link:../../../pm-core/doc/adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`], and the XML hardening, the zero-denominator rule and the read bounds in link:../../../pm-core/doc/adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`]. The rules stated below stay binding: the threshold verdict (`passed`) and the low-coverage list compare the **line** percentage only, every other metric is parsed and rendered and never feeds a threshold, and an XML report is read by a parser with DTD support off: a `DOCTYPE` is tolerated and never resolved or fetched, an entity reference in element content is refused, never expanded, and an entity reference in an attribute value is dropped from the value, never expanded or resolved.
+
+A counter with a zero denominator measured nothing, so its metric is absent rather than a measured `0.0`: an item whose line counter is `0/0` is no item, a branch, function or instruction counter of `0/0` leaves that metric absent, and a report whose overall line counter is `0/0` is refused (`no lines measured`). The percentages compared with a threshold are the ones already rounded to two decimals.
+
+A report is read as a stream, never whole, and the read is bounded (PM-ARCH-8, PM-IMPL-5). A report file larger than the cap of the module's coverage limits resource is refused, naming the cap:
+
+include::../../../pm-core/src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-bytes]
+
+An LCOV line longer than the line limit of the same resource is refused, naming the limit:
+
+include::../../../pm-core/src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-line-length]
+
+An Istanbul summary that carries a key twice in one object is refused, so a later value never overrides an earlier one, and a report file that cannot be read is refused naming its file name, never its directory.
 
 Remaining: the runtime wiring that evaluates a coverage report after test execution and renders its figures in the job facts.
 
