@@ -1,0 +1,80 @@
+= Evidence and Companion Stores
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+Which gaps remain beside Git, which systems close them without a database of their own, how the history is anchored
+externally, and how Git and the other systems stay consistent.
+
+
+Every store beside Git falls into one of three classes:
+
+. *Derived*: rebuildable from Git at any time (index, search, dashboards); local, volatile, no backup.
+. *Complementary*: data that must not be in Git (mutable, deletable, personal); they belong in a system the
+  organisation already operates, not in a new store.
+. *Assuring*: an independent append-only proof about Git ("these commits existed at this time"); it must lie
+  outside the control of the Git administrator.
+
+[cols="2,3,1"]
+|===
+|Gap |Solution |New infrastructure
+
+|History rewritten (force push by an administrator)
+|Hash journal: every new state of `main` anchored externally with a timestamp
+|no or minimal
+
+|Approvals live in the Git server's database
+|Commit trailers on merge
+|no
+
+|Personal, deletable data
+|Encrypted keyring in Git with rotation of the KEK on erasure; persons themselves in the identity provider,
+operational details in the ticket system
+|one secret (the KEK); Vault or KMS where present
+
+|Read-access log (who read a confidential risk, logins)
+|The organisation's existing logging or SIEM (ISO 27001 A.8.15)
+|no
+
+|Unsecured drafts
+|Accepted risk, or drafts pushed as restricted private references
+|no
+
+|Search, evaluations, reporting-date views
+|In-memory index, optionally SQLite or Lucene as a cache
+|no, disposable
+|===
+
+== The External Anchor
+
+A copy of all commits in a second store adds nothing; Git already is an append-only, hash-chained store. Value comes
+from an independent proof, the external anchor of the hash chain:
+
+. *Mirror* to a second Git server under another responsibility, pushed after every save; a force push on the main
+  server shows at the mirror at once.
+. *RFC 3161 timestamps*: the hash of every new state of `main` is signed by a timestamp authority and stored as
+  `git notes` (`refs/notes/timestamps`) in the repository itself; the proof travels with the repository. Qualified
+  timestamps under eIDAS carry legal weight. *Recommended*, optionally together with 1.
+. *WORM storage* (object storage with object lock), only where the organisation already has it.
+. *Public transparency logs* (Sigstore/Rekor): elegant but public; not recommended for internal ISMS data.
+
+== Consistency between Git and the Other Systems
+
+* Git first; everything else afterwards and derived from Git: after every successful push the application walks the
+  new commits and writes journal, timestamps and index from them (an outbox whose outbox is Git).
+* Idempotent by commit hash; after a failure the application resumes from the last processed hash, remembered in a
+  reference (`refs/notes` or `refs/meta`), again in Git.
+* Complementary data by reference only: Git holds `incident: TICKET-4711`, never Git content in the ticket system.
+
+----
+Git (truth: documents, registers, assessments, approval trailers, timestamps as notes)
+ ├─ derived:        index, search (volatile, rebuildable from Git)
+ ├─ complementary:  identity provider (persons), issue and ticket system (operations),
+ │                  Vault/KMS (keys), SIEM (read-access log)
+ └─ assuring:       RFC 3161 timestamps (+ optional mirror)
+----

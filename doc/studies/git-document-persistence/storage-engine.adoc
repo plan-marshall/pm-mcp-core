@@ -1,0 +1,136 @@
+= The Storage Engine on Git
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+How the application reads and writes its documents in Git: one API for local and remote repositories, no working trees,
+drafts and saving, multiple users, and the in-memory index.
+
+== Overview
+
+----
+ UI ──► application server ──► repository layer (JGit, in process)
+                                 │
+                                 ├─ local bare clone (disposable cache in remote mode)
+                                 │     └─ in-memory index (built from the references)
+                                 │
+                                 └─ sync ──► remote Git server   ← source of truth and backup
+----
+
+== Two Modes, One API
+
+* *Local*: no remote; the bare repository on the server's disk is the source of truth. The operator backs up the
+  directory. JGit creates it; no `git` installation is needed.
+* *Remote*: the remote repository is the source of truth; the local bare clone is a cache that can be deleted and
+  re-cloned. Saving adds a fetch and a push.
+
+Both modes run the same code; the configuration says `remote: none` or names the remote. A remote can be added later
+with one push.
+
+== No Working Trees
+
+A Git branch is no working area; it is a reference, a pointer to a commit. Any number of them can exist for any
+number of users at the same time. A working tree is a checked-out state on disk, and only one exists per branch.
+`pm-mcp-core` needs linked working trees because agents and build tools work on files on disk (`LinkedWorktrees` of
+`pm-provider-git`; JGit only reads linked working trees, since 7.0). The application here holds the content in
+memory anyway, so it writes blobs, trees and commits directly into the object database and moves the reference.
+
+[source,java]
+----
+// Set answers/governance-strategy.yaml on the assessment branch to `content` (sketch, untested)
+Ref ref = repo.exactRef("refs/heads/assessments/" + id);
+try (ObjectInserter ins = repo.newObjectInserter();
+     ObjectReader reader = repo.newObjectReader();
+     RevWalk walk = new RevWalk(reader)) {
+    RevCommit parent = walk.parseCommit(ref.getObjectId());
+    DirCache index = DirCache.read(reader, parent.getTree());     // in-core index, no files
+    ObjectId blob = ins.insert(Constants.OBJ_BLOB, content);
+    DirCacheEditor editor = index.editor();
+    editor.add(new DirCacheEditor.PathEdit(path) {
+        @Override public void apply(DirCacheEntry e) {
+            e.setFileMode(FileMode.REGULAR_FILE);
+            e.setObjectId(blob);
+        }
+    });
+    editor.finish();
+    CommitBuilder cb = new CommitBuilder();
+    cb.setTreeId(index.writeTree(ins));
+    cb.setParentId(parent);
+    cb.setAuthor(userIdent);          // the logged-in user
+    cb.setCommitter(serviceIdent);    // the technical user
+    cb.setMessage("Update " + path);
+    ObjectId commit = ins.insert(cb);
+    ins.flush();
+    RefUpdate ru = repo.updateRef(ref.getName());
+    ru.setExpectedOldObjectId(parent);   // compare-and-swap
+    ru.setNewObjectId(commit);
+    RefUpdate.Result result = ru.update(walk);   // LOCK_FAILURE: someone was faster, retry
+}
+----
+
+The last step carries multi-user operation: *compare-and-swap*. The reference moves only if it still points to the
+commit the change was built on. Of two concurrent writers one wins; the other reloads and applies its operation
+("set file X to content Y") again on the new state, a rebase of one operation without a textual merge.
+
+== Two Levels of Saving
+
+[cols="1,2,1,1"]
+|===
+|Level |What happens |Where it lives |Secured
+
+|Intermediate save (automatic)
+|Commit on `refs/drafts/<user>/<assessment>`
+|The server's repository only
+|No
+
+|Save (explicit)
+|Merge the draft in core into the assessment branch (optionally squashed), compare-and-swap; in remote mode fetch,
+merge onto the remote state, push, retry on rejection; delete the draft reference
+|Locally and remotely
+|Yes, in remote mode
+|===
+
+Draft references are never pushed; the push refspec carries `refs/heads/*` only. A user who logs in again finds the
+drafts under `refs/drafts/<user>/` and continues. Conditions:
+
+* The repository directory needs persistent storage (a persistent volume in a container platform); without it a
+  restart loses every unsaved draft, not only a crash.
+* With several application instances a draft lives on the instance that wrote it: one instance, sticky sessions or
+  a shared volume (JGit's lock files keep the compare-and-swap safe).
+* Abandoned drafts expire after a configured period; a garbage collection removes their objects.
+* On a real conflict (the same question changed in parallel) nothing is pushed; the UI shows the conflict and the
+  draft is kept.
+
+== Branch Granularity
+
+* *A: one branch per assessment, shared by all editors* (recommended for SAMM, which is mostly filled in jointly in
+  workshops). Every save is a small commit with compare-and-swap; the UI remembers the blob id it loaded (like an
+  ETag) to detect a concurrent change of the same file.
+* *B: one draft reference per user and assessment, merged on save.* Drafts stay private until submitted.
+
+Release is a merge of the assessment branch into `main` and a tag `assessment/<id>`; protected branches and tags of
+the Git server make it immutable. Optionally release opens a pull or merge request whose review is the four-eyes
+approval.
+
+== Reading and Queries
+
+At start and after every fetch the application reads `main` and the open assessment branches into an in-memory
+index; even hundreds of assessments with about ninety answers each are a few megabytes. Dashboards, trends and heat
+maps are computed from it. A periodic fetch or a webhook of the Git server refreshes it. A database is not needed;
+if one is ever wanted, it is a disposable cache (embedded SQLite or H2).
+
+== Sources
+
+* JGit: https://projects.eclipse.org/projects/technology.jgit[Eclipse JGit project],
+  https://projects.eclipse.org/node/30057[JGit 7.0.0 release (read support for worktrees)],
+  https://gerrit.googlesource.com/jgit/+/refs/heads/next/README.md[JGit README],
+  https://www.eclipse.org/lists/jgit-dev/msg02873.html[jgit-dev: commit without working tree through DirCache and ObjectInserter]
+* Gerrit NoteDb: https://gerrit.googlesource.com/gerrit/+/HEAD/Documentation/note-db.txt[note-db.txt],
+  https://gerrit.googlesource.com/homepage/+/md-pages/docs/Notedb.md[What is NoteDb]
+* CrafterCMS: https://craftercms.com/docs/3.1/developers/developer-workflow/developer-workflow.html[Developer workflow (Sandbox and Published)],
+  https://craftercms.com/blog/technical/git-based-cms-what-it-is-and-why-you-need-it[Git-based CMS]

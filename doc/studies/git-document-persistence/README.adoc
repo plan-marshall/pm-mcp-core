@@ -1,0 +1,79 @@
+= Study: Git as the Persistence of Versioned Documents
+:nofooter:
+
+A preliminary study for a project outside PM-MCP. It records the conclusions of an exploratory discussion held on
+2026-11-12: whether a server-side Git repository can serve as the persistence of an application in which users
+maintain versioned documents. Nothing in this study binds `pm-mcp-core`; the repository only hosts it. Statements
+marked _(unverified)_ come from general knowledge and were not checked against a current source; they need
+verification before a decision rests on them.
+
+== Question and Assumptions
+
+The application is always server-based: one server manages the Git repositories; no client holds a clone. Git is the
+persistence only, not a user-facing tool. The organisations that use the application are development organisations
+that already operate a maintained Git server (GitHub, GitLab, Gitea, Bitbucket) with backups. Every additional
+database brings operating effort; reusing the existing Git server avoids it. User authentication and the OAuth flows
+against the Git server are provided by Token Sheriff, a system of its own in a parallel repository; this study takes
+them as given.
+
+Four categories of information are in scope:
+
+. *OWASP SAMM assessments*: maintained per scope and date, versioned, released and compared over time. The core.
+. *Threat models*: filled in and maintained per application, guided by recipes for threat modelling.
+. *Incident response reports*: today written in Confluence; a form system that produces AsciiDoc and takes care of
+  review, approval and deadlines.
+. *ISMS*: an information security management system on the same foundation. An extension.
+
+== Conclusions in Brief
+
+* *No finished library* has this shape; the pattern is proven (Gerrit NoteDb, CrafterCMS). Building one on JGit is
+  recommended.
+* *No working trees*: a branch is a reference, not a working area. The application writes blobs, trees and commits in
+  memory and moves references by compare-and-swap; drafts are references per user, saving is a merge and a push.
+  Local and remote repositories share one API.
+* *Identity by signature*: the technical user pushes; the application signs every commit with the claims of the
+  logged-in user as trailers, and approvals can be raised to MFA or a passkey signature. Pushing in the user's name
+  stays optional.
+* *GDPR without a further store*: the pseudonym mapping lies in Git in an encrypted keyring; erasure rotates the
+  key-encryption key and destroys the old one. Repositories are cut by confidentiality and retention class.
+* *Evidence*: RFC 3161 timestamps as `git notes` anchor the history externally; everything else beside Git is either
+  derived (index) or lives in systems the organisation already runs.
+* *One shape for all categories*: schema, YAML data with AsciiDoc free text, generated AsciiDoc output, review and
+  approval, deadlines and links. The categories become configuration of one layer of schema-driven documents.
+* *Packaging*: one module in one repository to start; the foundation is extracted when `pm-provider-git` switches onto
+  it.
+* *Positioning*: complement established ISMS products such as verinice rather than replace them.
+
+----
+foundation → store → forms (schema, template, workflow, deadlines, signature levels)
+   │           │        ├─ samm
+   │           │        ├─ threat-models
+   │           │        ├─ incident-reports
+   │           │        └─ isms …
+   │           ├─ crypto     (encrypted keyring, erasure by key rotation)
+   │           ├─ signing    (commit signature, user claims, passkey approvals)
+   │           └─ timestamp  (RFC 3161 anchoring)
+   └─ shared later with pm-provider-git
+----
+
+== Documents
+
+Read in this order:
+
+. link:storage-engine.adoc[The Storage Engine on Git]: modes, no working trees, drafts and saving, multiple users,
+  index.
+. link:identity-and-signing.adoc[Identity and Signing]: technical user or user token, the signature of the
+  application, graded traceability up to passkey approvals.
+. link:data-protection.adoc[Data Protection]: GDPR, the encrypted keyring, repositories per confidentiality and
+  retention class.
+. link:evidence-and-companion-stores.adoc[Evidence and Companion Stores]: the remaining gaps, the external anchor,
+  consistency between Git and other systems.
+. link:schema-driven-documents.adoc[Schema-Driven Documents]: the common shape of all categories.
+. The categories:
+** link:category-samm.adoc[OWASP SAMM Assessments]
+** link:category-threat-models.adoc[Threat Models]
+** link:category-incident-reports.adoc[Incident Response Reports]
+** link:category-isms.adoc[ISMS and the Comparison with verinice]
+. link:library.adoc[The Library]: existing solutions, the decision, its parts, packaging and the foundation shared with
+  `pm-provider-git`, risks and limits.
+. link:open-points.adoc[Open Points and Next Steps].

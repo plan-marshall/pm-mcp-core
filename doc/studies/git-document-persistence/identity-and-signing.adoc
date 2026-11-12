@@ -1,0 +1,214 @@
+= Identity and Signing
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+Who wrote a change, and how strongly that can be shown. Pushing in each user's name costs effort: every user needs an
+account and rights on the Git server, and many users of the ISMS or of incident response reports have none. A signing
+key of the application, combined with the claims of the logged-in user, gives graded traceability without that
+effort.
+
+== Pushing: Technical User or the Logged-in User
+
+[cols="1,3"]
+|===
+|Level |Meaning
+
+|a) Technical user pushes, the author is the user
+|The commit carries `author = p-7f3a9c`, `committer = samm-bot`. The author is metadata the Git server does not check;
+the application checks the rights. The simplest start.
+
+|b) Push with the user's token
+|JGit takes the token per push (`UsernamePasswordCredentialsProvider`). The token comes from an OAuth login against
+the Git server (GitHub App or OAuth App, GitLab OAuth), which can be the application's own login; with another
+identity provider the user authorises the Git server once in addition. Token Sheriff provides these flows, keeps the
+tokens and refreshes them (GitHub App user tokens: eight hours plus refresh token _(unverified)_); the library only
+consumes the token per push. Gain: the Git server enforces the rights and its audit log names the real pusher. A
+protected `main` usually rejects a user's direct push; the user then pushes the working branch and release runs as a
+pull or merge request.
+
+|c) Commits signed by the user's own Git key
+|Not feasible server-side through a JGit push, because it would need the user's signing key. Commits created through
+the Git server's API are signed by the server itself, at the price of binding to one vendor. The graded signature
+below replaces this level.
+|===
+
+One push per save keeps every push to the commits of exactly one user.
+
+[cols="1,1,1,1"]
+|===
+| |Local |Remote, technical user |Remote, user's token
+
+|Drafts survive logout |yes |yes |yes
+|Drafts survive restart |with persistent volume |with persistent volume |with persistent volume
+|Secured after save |operator's backup |remote |remote
+|Rights checked by |application |application |Git server and application
+|Audit "who" |signed trailers |signed trailers |signed trailers and pusher
+|===
+
+== What a Signature of the Application Shows
+
+When the application signs a commit with its own key, the signature covers the whole commit object: the tree (and
+with it all content), the parents, author, committer and the commit message with its trailers. When the application
+writes the identity of the logged-in user as trailers into the message, that statement is signed with it:
+
+----
+Update answers/governance-strategy.yaml
+
+Actor: p-7f3a9c                       ← pseudonym from the keyring
+Actor-Issuer: https://idp.example     ← who authenticated the user
+Auth-Time: 2026-11-12T14:03:11Z
+Auth-Context: mfa                     ← acr / amr of the token
+Session: hmac:3b1e…                   ← HMAC of the session id, not the session id itself
+----
+
+What it shows:
+
+* *Integrity and origin*: the commit came through the application and has not been changed since. Whoever has Git
+  access only (an administrator, a direct push) cannot forge such a commit; a commit without a valid signature shows at
+  once in a check.
+* *Binding to an authenticated identity*: the author field can be set freely; the signed trailer says "the
+  application confirms: this change came from a user whom identity provider X authenticated at T with MFA".
+* *Correlation with logs*: the HMAC of the session id links the commit to the login logs of the identity provider or
+  Token Sheriff without disclosing the session id.
+
+What it does not show:
+
+* *That the user acted in person*, in the sense of a signature of their own. The application can sign for every user;
+  whoever compromises the server can produce commits in the name of any user.
+* The trust lies in the application, the protection of its key and the quality of the authentication.
+
+=== Which Identifier Goes into the Trailer
+
+In an OIDC token `sub` is the stable identifier of the user and `sid` the identifier of the session. Both are
+pseudonymous, hence personal, identifiers, and they would stay in the history for good. Therefore:
+
+* *The own pseudonym from the keyring instead of `sub`.* The mapping pseudonym → `sub` lies in the keyring and is
+  erasable through the rotation of the key-encryption key (see link:data-protection.adoc[Data Protection]).
+* *Only an HMAC of `sid`.* That suffices to correlate with logs. The `sid` is no access token, but it is not stored in
+  clear text for good either.
+
+== Graded Traceability
+
+[cols="1,3,3,2"]
+|===
+|Level |How |Statement |Effort for the user
+
+|0
+|Author field only
+|No checked statement
+|none
+
+|1
+|The application signs the commit with the trailers (pseudonym, issuer, time of authentication, session HMAC)
+|"The application confirms the authenticated user"
+|none
+
+|2
+|Level 1 and a renewed authentication with MFA before an approval (step-up), with `acr` / `amr` in the trailer
+|"… and the user confirmed this very approval with MFA"
+|one MFA confirmation per approval
+
+|3
+|Level 2 and an approval with a passkey (WebAuthn): the browser signs the commit id with the user's passkey; stored as
+`git notes`
+|"A key held only by the user's device approved exactly this state"
+|fingerprint or Windows Hello per approval
+
+|4
+|Qualified electronic signature under eIDAS through a remote signing service
+|Legally equal to a handwritten signature
+|High; only where the law demands it
+|===
+
+=== Level 3: Approval with a Passkey
+
+Level 3 answers the effort problem: users shy away from own Git accounts or GPG keys, but they often have passkeys
+already (Windows Hello, Touch ID, security keys). The flow:
+
+. On approval the application passes the commit id to WebAuthn as the challenge.
+. The device signs it after the user confirms (flag _user verification_).
+. The application checks the signature with the registered public key and stores it as a note on the commit
+  (`refs/notes/approvals`).
+
+The commit id covers content and history, so the approval binds to exactly this state, with a key the server does
+not hold. The approval cannot sign the commit itself, because the commit id presupposes the commit; hence a note.
+
+Limits:
+
+* It is no qualified signature.
+* The list of registered public keys has to be kept trustworthily itself, versioned and signed.
+* With synchronised passkeys (iCloud, Google) the key is bound to the account, not to one device.
+
+For internal approvals of an ISMS level 3 is strong nonetheless. This kind of transaction signing through the
+challenge is used in practice to this study's knowledge _(unverified)_; for this case it has to be tried first.
+
+=== Configuration per Category
+
+The level is part of the workflow of the link:schema-driven-documents.adoc[schema-driven documents], per category and
+state. An example:
+
+* Intermediate saves: level 1.
+* Release of a SAMM assessment: level 2.
+* Release of an incident response report or a policy: level 3.
+
+== What Has to Be Done Right
+
+. *Protect the signing key.* Best in a KMS or HSM: the application signs through its interface and never sees the
+  key. A key as a file is the weakest variant.
+. *Verify independently of the Git server.*
+** A file `allowed_signers` in the repository, after the principle of Git's SSH signatures, with validity periods, so
+   commits stay verifiable after a change of key.
+** The application and a CI job check that every commit on `main` carries a valid signature.
+** The Git server can additionally require signed commits; for it to show "Verified", the key has to be registered
+   with the bot account.
+. *Combine with the RFC 3161 timestamps.* The external timestamp proves that a signed commit existed before a point in
+  time. If the signing key is compromised or expires later, older commits stay credible; only commits after the time
+  of compromise are suspect. Without timestamps the key would devalue the whole history (see
+  link:evidence-and-companion-stores.adoc[Evidence and Companion Stores]).
+. *Separate responsibilities.* When the Git administration and the operation of the application (or of the KMS) lie
+  with different people, a forgery needs both; a good argument towards auditors.
+. *JGit.* Signing runs through an own implementation of JGit's signer interface, so that the KMS or HSM signs; SSH or
+  GPG format by choice. Which JGit version writes SSH signatures is to verify _(unverified)_.
+
+== Relation to Pushing in the User's Name
+
+Both complement each other, but the signature is the more viable basis here:
+
+[cols="1,2,2"]
+|===
+| |Push with the user's token (Token Sheriff) |Signature of the application with levels
+
+|User needs an account and rights on the Git server
+|yes
+|no; important for users of the ISMS and of incident handling, who often have no Git account
+
+|The evidence lies
+|in the audit log of the Git server
+|in the repository itself, portable, verifiable without the Git server
+
+|Rights enforced by
+|the Git server
+|the application
+
+|Evidence about the user
+|the Git server authenticated them
+|levels 1 to 3, up to a key on the user's device
+|===
+
+Recommendation:
+
+* *Level 1 by default for every commit.* The push runs through the technical user; the signed trailers make the origin
+  traceable.
+* *Level 2 or 3 for approvals*, configurable per category.
+* *Pushing in the user's name stays optional* for organisations whose users have Git accounts anyway and who want the
+  Git server to enforce the rights in addition.
+
+In the engine this is the part `signing` (see link:library.adoc[The Library]): the commit signature through an
+exchangeable key source, the trailer schema, the registration of WebAuthn keys, approval notes and the signature check
+for the application and CI.

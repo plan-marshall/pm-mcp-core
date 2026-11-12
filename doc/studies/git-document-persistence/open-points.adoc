@@ -1,0 +1,35 @@
+= Open Points and Next Steps
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+
+. Prototype of the store: concurrent saves against one branch, measuring conflicts and retries.
+. Verify the JGit API used in the sketch (`DirCache.read`, `DirCacheEditor`, in-core merge, `RefUpdate` results) and
+  the `git notes` support (`NoteMap`) against the JGit version in use.
+. Push and fetch with token credentials against GitHub, GitLab and Gitea; token lifetimes and refresh of the hosts
+  _(unverified)_.
+. Choose a timestamp authority (qualified under eIDAS or internal).
+. Agree the GDPR rules (pseudonymisation, crypto-shredding, retention classes) with the data protection officer,
+  and whether destroying the KEK counts as erasure.
+. Choose the key source of the KEK (KMS, Vault, configuration value) and clarify whether Token Sheriff can hold
+  versioned secrets; verify Google Tink for envelope encryption.
+. Decide the threat model format (OTM or Threat Dragon JSON); verify the state of pytm, Threagile and OTM.
+. Prototype the detection of outdated threat models from Git diffs of the application's repository.
+. Draft the schema of incident response reports with the notification deadlines (GDPR Art. 33; NIS2 where it
+  applies), after checking the deadlines and the applicability of NIS2; design the import of the timeline from the
+  ticket system or the chat.
+. Verify the state and licences of DFIR-IRIS, TheHive and Dispatch.
+. Choose the template engine for the AsciiDoc output and the schema language of the forms (JSON Schema).
+. Decide the packaging (one module to start, as recommended, or a split from the beginning).
+. Verify the verinice statements (versioning, approval, licence of veo, catalogue coverage) with a demo instance.
+. Draft the library API and the SAMM repository schema.
+. Prototype the graded signature: commit signature through a KMS with JGit's signer interface, the trailer schema,
+  `allowed_signers` with validity periods, and the approval with a passkey (WebAuthn challenge = commit id) as a note.
+. Clarify with Token Sheriff which claims (`sub`, `sid`, `acr`, `amr`, `auth_time`) reach the application and how
+  the step-up authentication for approvals is triggered.

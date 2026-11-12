@@ -1,0 +1,214 @@
+= The Library: Decision, Parts, Packaging and the Shared Foundation
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+== Existing Solutions
+
+No finished Java library provides this shape: drafts per user, merge on save, local or remote by configuration,
+the same API for both. There are building blocks and reference designs:
+
+[cols="1,2,1"]
+|===
+|Candidate |What it is |Use
+
+|JGit
+|Git in pure Java. Builds commits without a working tree (`ObjectInserter`, in-core `DirCache`), merges in core,
+updates references atomically; pluggable object storage (DFS, `InMemoryRepository`).
+|Foundation
+
+|Gerrit NoteDb
+|Gerrit keeps all review metadata in Git references and writes them with atomic multi-reference `BatchRefUpdate`.
+|Architectural reference, not a library
+
+|CrafterCMS
+|A Java CMS on Git with two repositories per project: _Sandbox_ for drafts, _Published_ for released content,
+optionally with a remote upstream.
+|Functional reference, but a whole product
+
+|Spring Cloud Config _(unverified)_
+|Reads configuration from Git through JGit.
+|Read-only, unsuitable
+
+|Dolt, Irmin, Gollum, Decap CMS
+|Git-like databases or Git-based content tools outside Java.
+|Comparison only
+|===
+
+The pattern is proven (Gerrit, CrafterCMS); a reusable persistence module for it does not exist.
+
+== Decision on a Library
+
+Building the Git-based interaction as a library of its own is recommended. The application logic of SAMM, of the
+threat models and of the ISMS is domain logic; the Git layer underneath is generic and is needed identically by all
+of them. Separating it keeps the
+domains free of JGit, makes the layer testable on its own against an in-memory or local repository, and lets
+further domains reuse it.
+
+=== Scope (`git-entity-store`, working title)
+
+* *Repositories*: local or remote mode by configuration; bare clone as disposable cache; a registry of several
+  repositories (confidentiality and retention classes) with stable aliases.
+* *Writing*: in-core commits (blob, tree, commit) without working trees; compare-and-swap reference updates with
+  retry; in-core merge; deterministic file content through a codec interface.
+* *Drafts and saving*: draft references per user and entity; intermediate save; save as merge, compare-and-swap,
+  fetch, push, retry on rejection; conflict results per path; expiry and garbage collection of drafts.
+* *Identity*: author and committer per save; a credentials strategy per push (technical user or user token); commit
+  trailers for approvals.
+* *Reading*: snapshots of a reference or a commit (reporting dates), change history per path, diff of two states,
+  an index interface the domain fills.
+* *Post-commit processing*: an outbox over the new commits, idempotent by hash, with its progress kept in a
+  reference; the hook for timestamps, mirror and index.
+* *Notes*: reading and writing `git notes` for timestamps and other annotations.
+* *Results instead of exceptions* for the expected outcomes (saved, conflict, rejected, credentials expired).
+
+=== Not in Scope
+
+The UI, the domain schemas (SAMM model, threat model format, ISMS entities), the OAuth flows (Token Sheriff; the
+library only consumes credentials),
+the identity provider, the issue-tracker and ticket integrations, and the timestamp authority client (an optional
+module of its own).
+
+=== Parts of the Engine
+
+* `foundation`: the generic JGit layer shared with `pm-provider-git` (see below).
+* `store`: drafts, saving, identity, index and outbox on top of the foundation.
+* `forms`: schema-driven documents (schema, template, workflow, deadlines, links) on top of the store.
+* `timestamp` (optional): RFC 3161 anchoring through the post-commit outbox.
+* `crypto` (optional): the encrypted keyring (a DEK per data subject, the KEK from a key source behind an interface:
+  configuration value, Vault or KMS), rotation of the KEK on erasure, the evidence of erasure as a commit.
+* `signing` (optional): the commit signature of the application through an exchangeable key source (KMS, HSM, file),
+  the trailer schema of the user's claims, the registration of WebAuthn keys, approval notes and the signature check
+  for the application and CI (see link:identity-and-signing.adoc[Identity and Signing]).
+* `testing`: fixtures for local and in-memory repositories and a local remote for push and fetch tests.
+
+The categories (SAMM, threat models, incident reports, ISMS) are configuration of `forms` (schemas, templates,
+workflows), not parts of the engine.
+
+=== Packaging: One Module or Several
+
+The owner's current preference is one module that holds everything. Two questions have to be kept apart: one
+repository or several, and one Maven module or several.
+
+* *One repository* for the engine and the categories is right: they change together, and a repository of their own
+  for the Git storage would only add a second release cycle without a second consumer.
+* *One module to start with* is acceptable and the pragmatic choice as long as the application is the only
+  consumer: one artifact, one build, no versions to align, and splitting later costs little when the packages are
+  clean.
+
+One module carries three costs, each of which names the moment to split:
+
+. *The shared foundation.* `pm-provider-git` is to consume the foundation later. It must not pull the store, the
+  forms, YAML, a template engine and cryptography along with it. The switch of `pm-provider-git` is therefore the
+  trigger to extract `foundation` as an artifact of its own.
+. *Optional dependencies become mandatory.* Tink for `crypto` and a timestamp client for `timestamp` reach every
+  consumer of one module. As long as the application is the only consumer this does not matter; with a second
+  consumer that needs neither, they are split off.
+. *Layering is not enforced by the build.* In one module nothing stops `foundation` from using a type of `forms`.
+  A test of the package dependencies (`foundation` ← `store` ← `forms`, `crypto`, `signing` and `timestamp` beside
+  them, no category term below `forms`) replaces the module boundary until the split.
+
+Recommendation: start with one module in one repository, with the parts above as packages and the dependency rule
+as a test; extract `foundation` as an artifact of its own when `pm-provider-git` switches onto it, and `crypto` and
+`timestamp` when a consumer needs the engine without them. The categories stay configuration and need no module.
+
+=== Relation to `pm-mcp-core`: a Shared Foundation
+
+`pm-provider-git` as it stands is no dependency for the new library: its contract is cut for PM-MCP (cache
+repositories, fetch of single commits, linked working trees). About half of it is generic, though, and the
+document store needs exactly that half. Both therefore stand on one shared foundation instead of each carrying its
+own copy:
+
+[cols="1,1"]
+|===
+|Generic, needed by the document store as well |Specific to PM-MCP
+
+|Hardened opening of repositories (`RefusingFS`: no hooks, no process starts)
+|Linked working trees on disk (`LinkedWorktrees`, `worktreeAdd`, `worktreeList`, `worktreeRemove`)
+
+|The policy of permitted remotes (`RemotePolicy`) and its check before fetch and push
+|`WorktreeShaDigest`
+
+|Fetch and push with credentials, mapped to result types (`GitResult`, `GitOutcome`)
+|The contract `GitOperations` with inputs cut for PM-MCP
+
+|Opening a bare cache, reading a file at a commit, the log
+|`fetchCommit` for the corpus cache, `JGitSourceRepository`
+
+|Resolution of references and commit ids (`GitIdentity`)
+|
+|===
+
+The document store adds what PM-MCP has not needed so far: in-core commits, compare-and-swap reference updates,
+in-core merge, draft references and `git notes`.
+
+----
+git-foundation                         (artifact of the new project, own releases)
+  ├─ hardened repository factory (RefusingFS), RemotePolicy
+  ├─ transport: fetch and push with a credentials strategy → result types
+  ├─ reading: blob at commit, log, reference resolution
+  └─ writing: in-core commits, compare-and-swap, in-core merge, notes
+        ▲                                   ▲
+pm-provider-git                      git-document-store
+  (working trees, PM-MCP contract,     (drafts, save and push, identity,
+   corpus cache)                        index, outbox, timestamps)
+----
+
+Gains: the hardening and the transport exist once, so a security fix reaches both products; one test base runs
+against real local remotes; `pm-provider-git` shrinks to working trees and the PM-MCP contract.
+
+Constraints:
+
+* *The foundation does not live in `pm-mcp-core`.* That repository is proprietary, publishes only to the
+  organisation's registry and deploys `SNAPSHOT` versions that are never released; another project must not hang on
+  that life cycle. The foundation lives in the repository of the new project and is released with real versions.
+* *Two life cycles are coupled.* PM-MCP is pre-1.0 and changes contracts without deprecation cycles; the foundation
+  stays small and stable and carries no domain term of either side.
+* *Formal steps in `pm-mcp-core`.* The new dependency needs the owner's explicit decision; the allowed dependencies
+  of the modules are stated in the Module Structure Specification in the documentation repository and change there;
+  the switch is a work package of its own with an ADR; the native-image metadata of JGit travels with the module
+  that uses JGit and moves along, verified by the native build of `pm-mcpd`.
+* *Licence.* If the foundation is published as open source, the code taken over from `pm-provider-git` has to be
+  released for it. The other direction is unproblematic: a proprietary product may depend on an open-source library.
+
+Order:
+
+. Build the engine in the repository of the new project, first as one module with `foundation` as a package (see
+  _Packaging_ above). Take over the generic code of `pm-provider-git` and cut the package so that `pm-provider-git` can
+  later use it one to one.
+. Once the foundation is stable, extract it as an artifact of its own and release a first version; then a work
+  package in `pm-mcp-core` switches `pm-provider-git` onto it, with the dependency decision, the change of the
+  specification and an ADR.
+
+The new project never depends on PM-MCP, and PM-MCP gets the shared foundation once it has proven itself. The
+extraction also fits the wish to move parts of `pm-mcp-core` into repositories of their own; it reduces the size of
+the repository only slightly, though (`pm-provider-git` holds about 2,000 of more than 150,000 lines of production
+Java), because the weight lies in `pm-core`, `pm-runtime` and `pm-workflow`.
+
+== Risks and Limits
+
+* Many concurrent writers on one branch cause retries; for assessments maintained by few people over days this is
+  uncritical.
+* Several application instances: safe through compare-and-swap on push, but each index is only as fresh as its last
+  fetch; use webhooks.
+* A conflict in the same file is resolved per question in the YAML structure; a real conflict goes to the UI.
+* Removing data from the history stays expensive; hence the rules of link:data-protection.adoc[Data Protection].
+* Using the Git server's content API instead of a clone would be simpler but binds to one vendor and runs into rate
+  limits; a JGit clone works with any Git server.
+* JGit's LFS support is limited _(unverified)_; evidence stays a link.
+
+== Sources
+
+* JGit: https://projects.eclipse.org/projects/technology.jgit[Eclipse JGit project],
+  https://projects.eclipse.org/node/30057[JGit 7.0.0 release (read support for worktrees)],
+  https://gerrit.googlesource.com/jgit/+/refs/heads/next/README.md[JGit README],
+  https://www.eclipse.org/lists/jgit-dev/msg02873.html[jgit-dev: commit without working tree through DirCache and ObjectInserter]
+* Gerrit NoteDb: https://gerrit.googlesource.com/gerrit/+/HEAD/Documentation/note-db.txt[note-db.txt],
+  https://gerrit.googlesource.com/homepage/+/md-pages/docs/Notedb.md[What is NoteDb]
+* CrafterCMS: https://craftercms.com/docs/3.1/developers/developer-workflow/developer-workflow.html[Developer workflow (Sandbox and Published)],
+  https://craftercms.com/blog/technical/git-based-cms-what-it-is-and-why-you-need-it[Git-based CMS]

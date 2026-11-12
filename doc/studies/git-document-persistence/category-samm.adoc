@@ -1,0 +1,42 @@
+= Category: OWASP SAMM Assessments
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+An OWASP SAMM assessment is a self-contained document at a date: answers per question of the model, comments,
+evidence, and scores computed from them. Its value is the comparison over time. It is edited as a draft, then
+released and frozen as audit evidence. It refers to the SAMM model version it was taken with; since version 2 the
+model itself is published as YAML files with semantic versioning. The data volume is small, and the only personal
+data are the assessors, whom the Git server already knows.
+
+Git therefore fits: the model is already YAML in Git, an assessment as YAML diffs well, release maps to a merge and
+a tag, and the history, rights, reviews and backups come from the existing infrastructure. Drafts, the branch per assessment and its release are described in
+link:storage-engine.adoc[The Storage Engine on Git].
+
+== Repository Layout
+
+----
+samm.yaml                              # pinned SAMM model version(s)
+scopes/<scope-id>/scope.yaml           # team / application / organisation
+scopes/<scope-id>/assessments/<assessment-id>/
+    assessment.yaml                    # header: date, model version, status, assessors
+    answers/<practice-id>.yaml         # one file per practice: parallel editing without conflicts
+    evidence.yaml                      # evidence as links, not as files
+scopes/<scope-id>/targets.yaml         # target maturity, roadmap
+----
+
+* One file per practice keeps concurrent edits of different practices conflict-free.
+* Deterministic serialisation (fixed key order, stable formatting) makes diffs show real changes only.
+* Evidence as links (wiki, ticket, pipeline) avoids large files and Git LFS.
+
+== Sources
+
+* OWASP SAMM: https://owasp.org/2020/02/11/SAMM-v2.html[SAMM v2.0 released],
+  https://owaspsamm.org/release-notes-v2/[Key changes in SAMM v2],
+  https://owaspsamm.org/blog/2020/01/31/samm2-release[SAMM v2 release (YAML model)],
+  https://owaspsamm.org/model/[SAMM model]
