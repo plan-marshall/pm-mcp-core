@@ -1,0 +1,153 @@
+= ADR 009: Every Patterned String of the Corpus Formats Carries a Bound
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-12
+
+== Context
+
+`SchemaSubset` evaluates the JSON Schema subset of the verification corpus (PM-WORK-6). Since ADR
+008 it checks `maxLength` before `pattern`, counted in code points, so an over-long value never
+reaches the backtracking regular expression engine and its pattern is not even compiled. The
+enrolled-schema path of the same keyword subset bounds its patterned strings with
+`ArgumentSchema.PATTERN_MAX_LENGTH_CEILING` (256); the corpus path had no ceiling at all.
+
+The three schema resources of this package carried a `maxLength` only on `title`, a member without
+a pattern. Every other string a non-trivial `pattern` matched was unbounded:
+`imported-item.schema.json` had nine patterns, `source-overlay.schema.json` ten and
+`source-manifest.schema.json` six, and the only bound sat on fields the patterns do not read. A long
+value of a project- or hash-pinned source therefore reached the pattern of an id, a topic, a
+repository, a commit, a path, a licence, a source name or a SHA-256 without a length check in front
+of it. The risk is low — the patterns read as linear or constant-time, and the lane of PLAN-95
+refuted that a corpus schema can be attacker-controlled — but the inconsistency is the point: the
+same keyword subset guards one path and not the other, and a value from a project's text is still a
+value from outside the formats.
+
+The records that copy the schemas (`ImportedItem`, `ImportedItem.Origin`, `SourceManifest`,
+`SourceManifest.SourceFile`, `SourceOverlay`) are what an import reads a source through. They
+matched their whole value but had no length check beside their patterns either, so a source could
+carry a value the schema refuses through the codec before the validator ever saw it.
+
+== Decision
+
+Every string member of the three schema resources that carries a pattern other than the literal
+`.`, and every record that copies one, carries the same bound. `maxLength` sits beside the `pattern`
+in the schema; in the record a constant sits beside the pattern constant it bounds, and the bound is
+checked before the pattern is matched.
+
+The bound is exact where the pattern fixes the length, and a stated ceiling otherwise:
+
+[cols="2,1,3",options="header"]
+|===
+|Resource |Member |Bound and why
+
+|`imported-item.schema.json` |`id` |256, a stated ceiling: `^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$` bounds no length
+|`imported-item.schema.json` |`topic` |256, a stated ceiling
+|`imported-item.schema.json` |`title` |120, unchanged: the ceiling the format already stated
+|`imported-item.schema.json` |`provenance.created` |10, exact: `^[0-9]{4}-[0-9]{2}-[0-9]{2}$` admits ten code points
+|`imported-item.schema.json` |`provenance.origin.repository` |2048, a stated ceiling
+|`imported-item.schema.json` |`provenance.origin.commit` |40, exact: `^[0-9a-f]{40}$`
+|`imported-item.schema.json` |`provenance.origin.path` |1024, a stated ceiling
+|`imported-item.schema.json` |`review.date` |10, exact, as `provenance.created`
+|`source-overlay.schema.json` |`source` |64, exact: `^[a-z][a-z0-9-]{1,63}$` admits two to 64
+|`source-overlay.schema.json` |`file` |1024, a stated ceiling
+|`source-overlay.schema.json` |`created` |10, exact
+|`source-overlay.schema.json` |`rows[].id` |256, a stated ceiling
+|`source-overlay.schema.json` |`rows[].topic` |256, a stated ceiling
+|`source-overlay.schema.json` |`rows[].title` |120, unchanged
+|`source-overlay.schema.json` |`rows[].review.date` |10, exact
+|`source-manifest.schema.json` |`name` |64, exact, as the overlay's `source`
+|`source-manifest.schema.json` |`repository` |2048, a stated ceiling
+|`source-manifest.schema.json` |`commit` |40, exact
+|`source-manifest.schema.json` |`licence` |64, a stated ceiling: an SPDX identifier is short, the pattern bounds no length
+|`source-manifest.schema.json` |`files[].path` |1024, a stated ceiling
+|`source-manifest.schema.json` |`files[].sha256` |64, exact
+|===
+
+The two schema patterns that are the literal `.` (a group and a contamination note, a key and a key
+field) admit any text with one character and get no bound: their match is constant-time and a bound
+would say nothing the format does not.
+
+The ceiling of an item id, a topic and a slug is the figure of the enrolled path,
+`ArgumentSchema.PATTERN_MAX_LENGTH_CEILING` (256), so the two callers of the keyword subset state
+one number. A repository URI gets 2048, a repository-relative path 1024 and an SPDX licence
+identifier 64: three ceilings far above any value the shipped sources and the product corpus carry,
+and low enough that the pattern is not what refuses a hostile one.
+
+*The ceilings are above the formats' own values, never below them.* A bound under a value a shipped
+source or the product corpus holds would narrow the format silently; the figures were run against
+the corpus of `plan-marshall-mcp` (the product corpus validation) before they were fixed.
+
+In the records the bounds are the constants `SourceManifest.NAME_MAX_LENGTH` (64),
+`COMMIT_MAX_LENGTH` (40), `SHA256_MAX_LENGTH` (64), `LICENCE_MAX_LENGTH` (64),
+`RELATIVE_PATH_MAX_LENGTH` (1024) and `REPOSITORY_MAX_LENGTH` (2048), and
+`ImportedItem.ID_MAX_LENGTH` (256), `TOPIC_MAX_LENGTH` (256) and `SLUG_MAX_LENGTH` (256), next to
+`TITLE_MAX_LENGTH` (120). `SourceManifest.require` has an overload that counts the code points,
+answers `'<field>' is longer than <N> characters` and only then matches the pattern;
+`requireRepository` counts the URI before its own rule. A value over its bound is refused with the
+same `IllegalArgumentException` shape the records already use, and never reaches the pattern.
+
+The dates are the one member whose record form is not a string: `created` and a review `date` are a
+`LocalDate` in the record, and the codec reads them only in the one shape whose text is ten code
+points (`CorpusJson.DATE_PATTERN`). No record constant copies their `maxLength`, and
+`CorpusPatternParityTest` lists them as schema-only bounds.
+
+`CorpusPatternParityTest` checks the inventory on both sides, as it already did for patterns: every
+`maxLength` of the three schemas has a case unless it is a date, and every bound constant of the
+records has a case whose `maxLength` equals it. A `maxLength` added to a schema, or a bound constant
+added to a record, without a case fails the test. `CorpusSchemaResourcesTest` fails for a schema
+member that carries a non-trivial pattern and no bound, and for a literal `.` that carries one.
+
+== Alternatives Considered
+
+1. *Leave the schemas unbounded because the patterns are linear.* Not taken: the consistency of the
+   keyword subset is the point. The enrolled path bounds its patterned strings at 256 and the corpus
+   path did not, so the same schema text had a different guarantee depending on which path read it,
+   and every new pattern would have to be argued linear again.
+2. *A timeout or a step budget on the regular expression engine.* Not taken: `PythonRegex` offers
+   neither and the JVM's engine gives no portable per-match step limit (ADR 008, alternative 2). A
+   length bound is the cheap guard the schema already declares.
+3. *Bound the schemas only, not the records.* Not taken: the import reads a source through the
+   codecs, so a record that accepts a value its schema refuses lets a malformed source be fetched,
+   and the validator would report what the import had already acted on. The records already copy
+   every pattern for that reason (ADR 005); they copy the bounds for the same one.
+4. *One ceiling of 256 for every member.* Not taken: a date, a commit and a SHA-256 have a length
+   the pattern fixes, and a bound above it would state a figure the format never admits. A
+   repository URI and a path are legitimately longer than 256 and would be narrowed.
+
+== Consequences
+
+* An over-long value is refused as the length on both paths: the schema reports
+  `<path>: longer than <N>` and the record throws `'<field>' is longer than <N> characters`, in both
+  cases without compiling or matching the pattern.
+* The three schemas now refuse a value the format admitted before: an item id, a topic, a
+  repository, a path or a licence over the ceilings. No shipped source and no item of the product
+  corpus reaches them; a corpus value that would is reported as a violation, not narrowed.
+* In an imported item the topic is a prefix of the id (`id = topic + "/" + slug`), so the id's own
+  bound of 256 is the binding one: a topic of 256 code points cannot form an id within 256. The
+  topic check keeps its place as a guard on the member itself, and the overlay row — whose slug is a
+  separate member — reaches it directly.
+* The records are stricter than the schemas' `re.search` for a value ending in one `\n`, as before;
+  the example that shows it is now a source name inside its bound, because a commit of 41 code
+  points is refused by the length first.
+* The corpus's own item schema in `plan-marshall-mcp`,
+  `test/model/verification/schema/verification-item.schema.json`, is the corpus's and is untouched
+  (ADR 004): its patterns are not bounded by this decision, and the pull request body states whether
+  they are bounded there.
+
+== Source
+
+* Specification: link:../../../../doc/specification/model-work/01-roles-and-configuration.adoc#qualification-topics[Roles
+  and Configuration § Qualification Topics] (PM-WORK-6, the verification corpus)
+* link:008-length-checked-before-pattern.adoc[ADR 008], the length checked before the pattern
+* link:005-corpus-patterns-evaluated-with-python-re-meaning.adoc[ADR 005], every pattern of a record
+  the schema's pattern compiled with Python's meaning
+* `ArgumentSchema.PATTERN_MAX_LENGTH_CEILING` (256), the ceiling of the enrolled path
+* Staged plan spec `.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-65-corpus-schema-length-bounds.md`
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] §
+  Formats and § Validation
