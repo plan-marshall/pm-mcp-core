@@ -1,7 +1,7 @@
 # Plan Marshall standing rules (OpenCode bridge bridge-version: 1)
 
 source: CLAUDE.md
-source-sha256: 77ae2dd4acfc41f8e1e5e311f3d05d6af051dbaec6dd7b1846e94da7f03c6357
+source-sha256: b6c7c323a3a664a7a4225253363342fd433c0ea1de020be8ecfedd8de6458fce
 
 <!-- Generated from CLAUDE.md; edit the baseline, not this file. -->
 
@@ -27,14 +27,14 @@ never repeat the listing here. The specifications this repository implements liv
 documented in. The requirements, use cases, roadmap, the shared specifications (`module-structure.adoc` among them),
 `implementation-watch/cross-cutting.adoc`, and the concept and user documentation live in the documentation
 repository `plan-marshall/plan-marshall-documentation`; the developer documentation of a package and the architectural
-decision records (ADRs) live in the module (section "Module Documentation"). The code documentation (Javadoc and
+decision-log records (ADRs) live in the module (section "Module Documentation"). The code documentation (Javadoc and
 `package-info.java`) and the work package files with their index below `doc/plans/` live here as well. A plan changes
 the specification, watch and traceability here in its own pull request; it opens a pull request in the documentation
 only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there. Every concrete
 implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
 the same names here only point to them. Links here are relative, also into the documentation (sibling paths); check
 them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
-(`BROKEN LINKS 0`); the workflow `links.yml` of the documentation runs it over both trees.
+(`BROKEN LINKS 0`, `INLINE SCHEMA BLOCKS 0`); no workflow runs it, so it runs locally before every merge.
 
 ## Project Setup
 
@@ -92,20 +92,28 @@ its own pull request.
 
 ### Generator Artifacts
 
-Four modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
-`SNAPSHOT` like every other artifact of the repository. The three new generator artifacts carry only their generator
-package; `pm-runtime:tests` carries its whole test scope, because the assembly already consumes `TestBases` and the
+Six modules publish their test scope as a `tests`-classified test JAR, built by `verify` and deployed with the
+`SNAPSHOT` like every other artifact of the repository. The five generator artifacts carry only their generator
+package, and `pm-core:tests` also the schema loader `SchemaResource` (ADR `doc/adr/016`); `pm-runtime:tests` carries
+its whole test scope, because the assembly already consumes `TestBases` and the
 fakes there:
 
 - `pm-core:tests` — consumable by `pm-workflow`, `pm-runtime` and every provider module.
 - `pm-provider-http:tests` — consumable by `pm-provider-github`, `pm-provider-gitlab` and `pm-provider-sonar`.
+- `pm-provider-ci:tests` — consumable by `pm-provider-github` and `pm-provider-gitlab`.
+- `pm-provider-git:tests` — no consumer in this repository; the assembly `plan-marshall-mcp` may consume it.
 - `pm-workflow:tests` and `pm-runtime:tests` — consumable by the assembly `plan-marshall-mcp` only, because neither
   may depend on the other and the rules forbid `pm-runtime` and the providers to depend on the engine.
+
+The two provider artifacts `pm-provider-ci:tests` and `pm-provider-git:tests` are the operator's decision of
+2026-11-06 (PLAN-V2-92): a provider module that needs a generator for its own type in two or more of its own test
+classes publishes it.
 
 A consumer declares the artifact as a test-scope dependency of type `test-jar`; its version comes from the root
 POM's `dependencyManagement`, never from a literal. The generators live in
 `de.planmarshall.<module>.testing.generators`, one `TypedGenerator<T>` per type, registered by the module's factory
-(`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`). The convention is recorded in
+(`CoreGenerators`, `WorkflowGenerators`, `RuntimeGenerators`, `HttpGenerators`, `CiGenerators`, `GitGenerators`). The
+convention and the consumers of each artifact are recorded in
 `doc/adr/012-generator-artifacts.adoc`.
 
 ## Dependencies and Versions
@@ -139,6 +147,10 @@ them with a fixture project below `src/guard-controls`:
   CI provider and depends on no CI module.
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
+- No class of `pm-runtime` or `pm-core` opens a connection (a client socket, an HTTP client, a URL connection)
+  except the four classes the exception map of the guard names with their reasons, and only the destination classes of
+  the closed list use `cui-http`'s client; `OutboundCallsArchTest` of `pm-runtime` proves both
+  (link:pm-runtime/doc/developer/runtime-guard.adoc[Outbound-Call Guard Developer Guide]).
 - The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven
   Central, and the group id filter of `.mvn/rrf` (switched on in `.mvn/maven.config`) lets it be asked for
   `de.planmarshall` only. This check is inherited from the parent POM; its fixture here has its own `.mvn` with Maven
@@ -177,8 +189,9 @@ them with a fixture project below `src/guard-controls`:
   string, a golden file or a fixture path — and the test says so in its display name or a one-line comment. No
   `Random`, no `UUID.randomUUID()` as test data. The reusable generators of a module live in that module's
   generator artifact (a test JAR deployed with the `SNAPSHOT`): `pm-core`'s are usable by `pm-workflow`,
-  `pm-runtime` and the providers; `pm-provider-http`'s by `-github`, `-gitlab` and `-sonar`; those of `pm-workflow`
-  and `pm-runtime` by the assembly only. A test that needs a generator for another module's type takes it from that
+  `pm-runtime` and the providers; `pm-provider-http`'s by `-github`, `-gitlab` and `-sonar`; `pm-provider-ci`'s by
+  `-github` and `-gitlab`; `pm-provider-git`'s by no module here (the assembly may); those of `pm-workflow` and
+  `pm-runtime` by the assembly only. A test that needs a generator for another module's type takes it from that
   module's artifact.
 - A class with a hand-written `equals`/`hashCode` (not a record or an enum) has a contract test through
   `ShouldHandleObjectContracts` (`cui-test-value-objects`).
@@ -206,19 +219,21 @@ add a deployment target, without the user's explicit decision.
 ## Work Packages
 
 The work of this repository is planned as work packages in `doc/plans/`, one file per package, with the index
-`doc/plans/README.adoc`, the only place that states the status of a package and what it depends on (also packages
-of the other repositories). A package is ready when it is open and depends on no package still listed (in another repository: on none not done); the roadmap milestone it serves says for which exit it
-is needed, not when it may start. The plan files hold the tasks only: requirements, specifications and watch
-items are linked, those of this repository by relative paths, those of `plan-marshall-documentation` by relative
-paths that assume the repositories checked out beside each other. A package is worked in the usual plan-marshall flow
-of Project Setup, _Planning the Work_ (branch, commits, pull request at finalize); within those commits its row leaves the
-index and its package file is deleted.
+`doc/plans/README.adoc`. How the work is planned, what a package file holds, when a package is ready, and what happens to
+a package when it is done are stated only in
+[Project Setup § Planning the Work](../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work).
 
 ## Git Workflow
 
 The way from a branch to `main` is in Project Setup (_From a Branch to `main`_). The hard rules: `main` is protected by
-rulesets and merges go through the merge queue, so nothing is pushed to `main`; never merge without the user's word;
-commits end with `Co-Authored-By: plan-marshall <noreply@cuioss.de>`.
+rulesets and merges go through the merge queue, so nothing is pushed to `main`; commits end with
+`Co-Authored-By: plan-marshall <noreply@cuioss.de>`.
+
+Who merges: the merge of a plan's pull request is part of the process, so the plan lifecycle (`plan-marshall`) and the
+runbook lane (`runbook-lane`) merge their own pull request through the merge queue when the process reaches that step
+(checks green, review gate met) and do not ask the operator for another permission; the operator's decision to start
+the plan is the permission. Any other work, an ad-hoc change outside a plan or lane, never merges without the user's
+word. No session merges outside the merge queue.
 
 CI: reusable workflows of `cuioss/cuioss-organization`, pinned by full SHA with a version comment; configuration in
 `.github/project.yml`.
