@@ -69,8 +69,8 @@ class CorpusValidatorTest {
     private static final String MANIFEST = "sources/alpha/manifest.json";
     private static final String OVERLAY = "sources/alpha/overlay.json";
 
-    /** An item id one code point over the schema's bound of 256: {@code "screening/"} and 244 letters, then the slug. */
-    private static final String ID_OVER_BOUND = "screening/" + "a".repeat(244) + "/q-1";
+    /** An item id one code point over the schema's bound of 256: {@code "screening/"} and 243 letters, then the slug. */
+    private static final String ID_OVER_BOUND = "screening/" + "a".repeat(243) + "/q-1";
 
     /** The item schema of the fixture corpus: a closed schema of the keyword subset, written for this test. */
     private static final String ITEM_SCHEMA = """

@@ -368,6 +368,17 @@ class CorpusPatternParityTest {
     }
 
     @Test
+    @DisplayName("every schema-only bound is the ten code points of the date shape")
+    void everySchemaOnlyBoundIsTheDateShape() {
+        var measured = SCHEMA_ONLY_BOUNDS.stream()
+                .map(key -> key.split(" "))
+                .map(parts -> maxLengthAt(parts[0], parts[1].split("/")))
+                .toList();
+
+        assertEquals(List.of(10, 10, 10, 10), measured, "each date member is bounded by its ten-code-point shape");
+    }
+
+    @Test
     @DisplayName("every bound constant of the records has a case")
     void everyRecordBoundHasACase() {
         var declared = RECORDS.stream().flatMap(CorpusPatternParityTest::intConstants)

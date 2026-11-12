@@ -257,7 +257,13 @@ class CorpusSchemaResourcesTest {
                         .toList()));
     }
 
-    /** The literal pattern of the two members that admit any text: the schema's {@code .}. */
+    @Test
+    @DisplayName("an object schema that names no property is rejected when it is not closed")
+    void objectSchemaWithoutPropertiesIsRejected() throws Exception {
+        assertFalse(problemsOf("{\"type\": \"object\"}").isEmpty());
+    }
+
+    /** The literal pattern of the members that admit any text: the schema's {@code .}. */
     private static final String LITERAL_PATTERN = ".";
 
     /** @return the string schemas of a schema resource, by path, as {@code properties} and {@code items} nest them */
