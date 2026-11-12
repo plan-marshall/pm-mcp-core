@@ -534,7 +534,7 @@ as a start failure.
 
 The failure-mode coverage is the fault matrix of PM-TEST-4 and the scenarios of `SupervisorScenarioTest`.
 
-== Activity, the Signals and the Navigation Figures
+== Activity and the Signals
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-7[PM-WORK-7]
 
@@ -573,10 +573,6 @@ evaluated: `over_size` without a predicted cost and `outside_footprint` outside 
 
 `WorkerTaskActivity` is the boundary that supplies the attempt, the role and the two plan-task figures; the assembly
 adapts it from the queue record and the envelope. The runtime reads neither.
-
-`core.queue.NavigationFigures` derives the four navigation figures and the per-skill residency from the same journal,
-beside the tokens; the figures are evidence, never a limit
-(link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`]).
 
 == Specification Tracing
 

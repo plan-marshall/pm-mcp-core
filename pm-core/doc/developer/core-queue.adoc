@@ -78,11 +78,12 @@ the value of a spaced `--password`/`--token` flag, and a PEM private-key block c
 anchored to its own form so prose cannot match it (its Javadoc names them). The line mapper `ActivityEventMapper` itself lives in
 `pm-runtime` (`runtime.worker`) and reads the projection; the mapping is never read from the profile on the stream path
 (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]) and the journal redacts at its write boundary
-(link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). Each figure carries its population
-or the `indeterminate`/`unmeasured` sentinel
-(link:../adr/core-queue/009-a-navigation-figure-carries-its-population.adoc[ADR 009]). `ActivityEventMapping.of`
+(link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). `ActivityEventMapping.of`
 answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `null` is `Optional.empty()`, never a
 `null` value, because every production package is `@NullMarked`.
+
+ADR number 009 of this package is retired: it decided the navigation figures, which the work package
+`deferred-code-removal` deleted with the record. The next ADR of `core-queue` takes 010.
 
 == How to use and extend it
 
