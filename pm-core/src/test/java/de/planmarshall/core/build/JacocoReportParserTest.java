@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,9 @@ import org.junit.jupiter.api.Test;
  */
 @DisplayName("JacocoReportParser")
 class JacocoReportParserTest {
+
+    /** The refusal reason of the entity-reference backstop; the reason text is the contract. */
+    private static final String ENTITY_REFUSAL = "jacoco: entity reference refused";
 
     @Test
     @DisplayName("reads the overall counters of a fully covered report")
@@ -132,15 +136,21 @@ class JacocoReportParserTest {
         assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
     }
 
+    // The reason text "absent.xml: no such file" is the contract: the file name, never the directory.
     @Test
-    @DisplayName("refuses an unreadable report file")
+    @DisplayName("refuses an unreadable report file, naming its file name only")
     void refusesAnUnreadableFile() {
-        CoverageParseResult result =
-                JacocoReportParser.parse(CoverageReportFixtures.path("jacoco-high.xml").resolveSibling("absent.xml"));
+        Path absent = CoverageReportFixtures.path("jacoco-high.xml").resolveSibling("absent.xml");
+
+        CoverageParseResult result = JacocoReportParser.parse(absent);
 
         CoverageParseResult.Refused refused = assertRefused(result, "A missing report file is refused");
-
-        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: absent.xml: no such file", refused.reason(),
+                        "The reason names the file name only"),
+                () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
+                        "The reason never names the directory"));
     }
 
     @Test
@@ -154,8 +164,7 @@ class JacocoReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
-                () -> assertTrue(refused.reason().contains("internal subset"),
-                        "The reason names the refused internal subset"));
+                () -> assertEquals(ENTITY_REFUSAL, refused.reason(), "The parser refuses the entity reference"));
     }
 
     @Test
@@ -229,23 +238,161 @@ class JacocoReportParserTest {
                 () -> assertTrue(report.items().isEmpty(), "The unmeasured class is not listed as an item"));
     }
 
+    // The counter values are the contract: an overall LINE counter of 0/0 measured no line.
     @Test
-    @DisplayName("refuses an internal subset behind a comment that mentions a DOCTYPE")
-    void refusesAnInternalSubsetBehindAComment() {
+    @DisplayName("refuses a report whose overall line counter is 0/0")
+    void refusesAReportWithoutMeasuredLines() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="no-lines">
+                  <counter type="LINE" missed="0" covered="0"/>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A report with no measured line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: no lines measured", refused.reason(), "The reason says no line measured"));
+    }
+
+    // The counter values are the contract: a 0/0 counter is absent, never a measured 0.0.
+    @Test
+    @DisplayName("reads an overall instruction, branch and method counter of 0/0 as absent")
+    void readsTheEmptyOverallCountersAsAbsent() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="empty-counters">
+                  <counter type="INSTRUCTION" missed="0" covered="0"/>
+                  <counter type="BRANCH" missed="0" covered="0"/>
+                  <counter type="LINE" missed="1" covered="1"/>
+                  <counter type="METHOD" missed="0" covered="0"/>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(50.0, report.overall().line(), "The line counter is 1 of 2"),
+                () -> assertNull(report.overall().instruction(), "An instruction counter of 0/0 is null"),
+                () -> assertNull(report.overall().branch(), "A branch counter of 0/0 is null"),
+                () -> assertNull(report.overall().function(), "A method counter of 0/0 is null"));
+    }
+
+    // The counter values are the contract: a class LINE 0/0 is no item, a class BRANCH 0/0 is no branch.
+    @Test
+    @DisplayName("omits a class whose line counter is 0/0 and keeps a class branch of 0/0 absent")
+    void omitsAClassWithoutMeasuredLines() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="class-zero">
+                  <counter type="LINE" missed="1" covered="1"/>
+                  <package name="p">
+                    <class name="p/Empty">
+                      <counter type="LINE" missed="0" covered="0"/>
+                    </class>
+                    <class name="p/Measured">
+                      <counter type="BRANCH" missed="0" covered="0"/>
+                      <counter type="LINE" missed="1" covered="1"/>
+                    </class>
+                  </package>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(1, report.items().size(), "Only the measured class is an item"),
+                () -> assertEquals("p.Measured", report.items().getFirst().name(), "The measured class is kept"),
+                () -> assertEquals(50.0, report.items().getFirst().line(), "The class line is 1 of 2"),
+                () -> assertNull(report.items().getFirst().branch(), "A class branch counter of 0/0 is null"));
+    }
+
+    // The prolog is the contract: a comment that mentions a DOCTYPE precedes the real one, which declares the entity.
+    @Test
+    @DisplayName("refuses an entity declared behind a comment that mentions a DOCTYPE")
+    void refusesAnEntityDeclaredBehindAComment() {
         CoverageParseResult result = JacocoReportParser.parse("""
                 <?xml version="1.0"?>
                 <!-- <!DOCTYPE fake > -->
                 <!DOCTYPE report [<!ENTITY probe SYSTEM "file:///nonexistent">]>
-                <report name="a"><counter type="LINE" missed="0" covered="1"/></report>
+                <report name="a"><counter type="LINE" missed="0" covered="1"/>&probe;</report>
                 """);
 
         CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
-                "The real DOCTYPE's internal subset is refused");
+                "The parser refuses the declared entity");
 
         assertAll(
                 () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
-                () -> assertTrue(refused.reason().contains("internal subset"),
-                        "The reason names the refused internal subset"));
+                () -> assertEquals(ENTITY_REFUSAL, refused.reason(), "The parser refuses the entity reference"));
+    }
+
+    // The counters are the contract: a LINE counter written twice at the report root.
+    @Test
+    @DisplayName("refuses a report that carries a root counter type twice")
+    void refusesARepeatedRootCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="repeated-root">
+                  <counter type="LINE" missed="9" covered="0"/>
+                  <counter type="LINE" missed="0" covered="9"/>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A repeated root counter is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: the report carries the LINE counter twice", refused.reason(),
+                        "The reason names the repeated counter type"));
+    }
+
+    // The counters are the contract: a LINE counter written twice directly within one class.
+    @Test
+    @DisplayName("refuses a class that carries a counter type twice")
+    void refusesARepeatedClassCounter() {
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="repeated-class">
+                  <counter type="LINE" missed="1" covered="1"/>
+                  <package name="p">
+                    <class name="p/A">
+                      <counter type="LINE" missed="2" covered="0"/>
+                      <counter type="LINE" missed="0" covered="2"/>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A repeated class counter is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: the class p.A carries the LINE counter twice", refused.reason(),
+                        "The reason names the class and counter type"));
+    }
+
+    // The counters are the contract: each type once at the root and once per class, as JaCoCo writes them.
+    @Test
+    @DisplayName("reads a report that carries each counter type once at the root and per class")
+    void readsEachCounterTypeOnce() {
+        CoverageReport report = CoverageReportFixtures.reportOf(JacocoReportParser.parse("""
+                <report name="once">
+                  <package name="p">
+                    <class name="p/A">
+                      <method name="run">
+                        <counter type="LINE" missed="1" covered="0"/>
+                        <counter type="METHOD" missed="1" covered="0"/>
+                      </method>
+                      <counter type="BRANCH" missed="1" covered="1"/>
+                      <counter type="LINE" missed="1" covered="3"/>
+                      <counter type="METHOD" missed="1" covered="0"/>
+                    </class>
+                  </package>
+                  <counter type="BRANCH" missed="1" covered="1"/>
+                  <counter type="LINE" missed="1" covered="3"/>
+                  <counter type="METHOD" missed="1" covered="0"/>
+                </report>
+                """));
+
+        assertAll(
+                () -> assertEquals(75.0, report.overall().line(), "The overall line counter is 3 of 4"),
+                () -> assertEquals(50.0, report.overall().branch(), "The overall branch counter is 1 of 2"),
+                () -> assertEquals(1, report.items().size(), "The report carries one class"),
+                () -> assertEquals(75.0, report.items().getFirst().line(), "The class line counter is 3 of 4"),
+                () -> assertEquals(List.of("run"), report.items().getFirst().missedMethods(),
+                        "The missed method is run"));
     }
 
     private static CoverageParseResult.Refused assertRefused(CoverageParseResult result, String message) {

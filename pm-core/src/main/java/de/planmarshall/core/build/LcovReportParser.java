@@ -9,12 +9,17 @@
  */
 package de.planmarshall.core.build;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -27,8 +32,18 @@ import org.jspecify.annotations.Nullable;
  * counter. Each record is one item, with its own line and branch percentages. A {@code DA:} record is per-line detail and
  * never enters a percentage.
  * <p>
+ * A zero denominator measured nothing, so it is absent rather than a {@code 0.0}: a record with {@code LF:0} is not an
+ * item, a {@code BRF:0} or {@code FNF:0} leaves that metric absent overall or for the record, and a report whose summed
+ * {@code LF} is {@code 0} is refused ({@code no lines measured}).
+ * <p>
  * A report that ends inside a record, carries no record at all, prints a counter that is not a number or covers more than
- * it found is refused, naming the format, rather than read as a report of zeros.
+ * it found is refused, naming the format, rather than read as a report of zeros. A record that carries one of the counter
+ * lines {@code LF}, {@code LH}, {@code BRF}, {@code BRH}, {@code FNF} or {@code FNH} twice is refused, naming the
+ * repeated line type, so a later line can never silently override an earlier one.
+ * <p>
+ * The report is read line by line, never whole: a file is streamed within the bound of {@link CoverageReportStream}, and
+ * a line longer than {@link CoverageReportStream#MAX_LINE_LENGTH} characters is refused, naming the limit, before it is
+ * read whole.
  *
  * @since 0.1
  */
@@ -36,6 +51,9 @@ import org.jspecify.annotations.Nullable;
 public class LcovReportParser {
 
     private static final CoverageFormat FORMAT = CoverageFormat.LCOV;
+
+    /** The refusal reason of a report whose summed {@code LH/LF} is {@code 0/0}. */
+    private static final String NO_LINES_MEASURED = "no lines measured";
 
     /**
      * Parses an LCOV report from its text.
@@ -45,24 +63,28 @@ public class LcovReportParser {
      */
     public static CoverageParseResult parse(String report) {
         Objects.requireNonNull(report, "report");
-        try {
-            return new Walk().parse(report);
+        try (BufferedReader source = new BufferedReader(new StringReader(report))) {
+            return new Walk().parse(source);
         } catch (IOException | IllegalArgumentException e) {
             return CoverageRefusals.of(FORMAT, e);
         }
     }
 
     /**
-     * Parses an LCOV report from a file.
+     * Parses an LCOV report from a file, streaming it as UTF-8 within the bound of {@link CoverageReportStream}.
      *
      * @param reportFile the report file
-     * @return the parsed report, or a refusal naming the format and the reason
+     * @return the parsed report, or a refusal naming the format and the reason; a file that cannot be read is refused
+     *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try {
-            return new Walk().parse(Files.readString(reportFile));
-        } catch (IOException | IllegalArgumentException e) {
+        try (BufferedReader source = new BufferedReader(new InputStreamReader(
+                     new CoverageReportStream(Files.newInputStream(reportFile)), StandardCharsets.UTF_8.newDecoder()))) {
+            return new Walk().parse(source);
+        } catch (IOException e) {
+            return CoverageRefusals.of(FORMAT, reportFile, e);
+        } catch (IllegalArgumentException e) {
             return CoverageRefusals.of(FORMAT, e);
         }
     }
@@ -73,6 +95,7 @@ public class LcovReportParser {
     private static final class Walk {
 
         private final List<CoverageItem> items = new ArrayList<>();
+        private int records;
         private long linesFound;
         private long linesHit;
         private long branchesFound;
@@ -83,17 +106,54 @@ public class LcovReportParser {
         private boolean functionsSeen;
         private @Nullable Record current;
 
-        private CoverageParseResult parse(String report) throws IOException {
-            for (String raw : report.split("\n", -1)) {
-                accept(raw.strip());
+        private CoverageParseResult parse(BufferedReader source) throws IOException {
+            Optional<String> raw = nextLine(source);
+            while (raw.isPresent()) {
+                accept(raw.get().strip());
+                raw = nextLine(source);
             }
             if (current != null) {
                 throw new IOException("the report ends inside the record " + current.file);
             }
-            if (items.isEmpty()) {
+            if (records == 0) {
                 throw new IOException("the report carries no file record");
             }
             return result();
+        }
+
+        /**
+         * Reads the next line, without its line terminator, refusing one longer than
+         * {@link CoverageReportStream#MAX_LINE_LENGTH} characters before it is read whole.
+         *
+         * @param source the report text
+         * @return the line, or empty at the end of the text
+         * @throws IOException if the line is longer than the limit, or the text cannot be read
+         */
+        private static Optional<String> nextLine(BufferedReader source) throws IOException {
+            var line = new StringBuilder();
+            int next = source.read();
+            if (next < 0) {
+                return Optional.empty();
+            }
+            while (next >= 0 && next != '\n') {
+                line.append((char) next);
+                if (line.length() > CoverageReportStream.MAX_LINE_LENGTH + 1) {
+                    throw tooLong();
+                }
+                next = source.read();
+            }
+            if (!line.isEmpty() && line.charAt(line.length() - 1) == '\r') {
+                line.setLength(line.length() - 1);
+            }
+            if (line.length() > CoverageReportStream.MAX_LINE_LENGTH) {
+                throw tooLong();
+            }
+            return Optional.of(line.toString());
+        }
+
+        private static IOException tooLong() {
+            return new IOException("a line is longer than the limit of " + CoverageReportStream.MAX_LINE_LENGTH
+                    + " characters");
         }
 
         private void accept(String line) throws IOException {
@@ -117,7 +177,8 @@ public class LcovReportParser {
             if (current == null) {
                 throw new IOException("end_of_record appears without an SF record");
             }
-            items.add(current.item());
+            current.item().ifPresent(items::add);
+            records++;
             linesFound += current.linesFound;
             linesHit += current.linesHit;
             branchesSeen |= current.branchesFoundSeen || current.branchesHitSeen;
@@ -131,32 +192,54 @@ public class LcovReportParser {
 
         private void readCounter(String line) throws IOException {
             if (line.startsWith("LF:")) {
+                once(current.linesFoundSeen, "LF");
                 current.linesFound = number(line, 3);
                 current.linesFoundSeen = true;
             } else if (line.startsWith("LH:")) {
+                once(current.linesHitSeen, "LH");
                 current.linesHit = number(line, 3);
                 current.linesHitSeen = true;
             } else if (line.startsWith("BRF:")) {
+                once(current.branchesFoundSeen, "BRF");
                 current.branchesFound = number(line, 4);
                 current.branchesFoundSeen = true;
             } else if (line.startsWith("BRH:")) {
+                once(current.branchesHitSeen, "BRH");
                 current.branchesHit = number(line, 4);
                 current.branchesHitSeen = true;
             } else if (line.startsWith("FNF:")) {
+                once(current.functionsFoundSeen, "FNF");
                 current.functionsFound = number(line, 4);
                 current.functionsFoundSeen = true;
             } else if (line.startsWith("FNH:")) {
+                once(current.functionsHitSeen, "FNH");
                 current.functionsHit = number(line, 4);
                 current.functionsHitSeen = true;
             }
         }
 
-        private CoverageParseResult result() {
-            double line = CoveragePercentages.percentage(linesHit, linesFound);
+        /**
+         * Refuses a counter line the current record already carries, so a later line can never override an earlier one.
+         *
+         * @param seen whether the record already carries the counter line
+         * @param type the counter line type, for the refusal reason
+         * @throws IOException if the record already carries the counter line
+         */
+        private void once(boolean seen, String type) throws IOException {
+            if (seen) {
+                throw new IOException("the record " + current.file + " carries the " + type + " line twice");
+            }
+        }
+
+        private CoverageParseResult result() throws IOException {
+            double line = CoveragePercentages.percentage(linesHit, linesFound)
+                    .orElseThrow(() -> new IOException(NO_LINES_MEASURED));
             CoverageMetrics overall = CoverageMetrics.builder()
                     .line(line)
-                    .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound) : null)
-                    .function(functionsSeen ? CoveragePercentages.percentage(functionsHit, functionsFound) : null)
+                    .branch(branchesSeen ? CoveragePercentages.percentage(branchesHit, branchesFound).orElse(null) : null)
+                    .function(functionsSeen
+                            ? CoveragePercentages.percentage(functionsHit, functionsFound).orElse(null)
+                            : null)
                     .statement(line)
                     .build();
             return new CoverageParseResult.Parsed(new CoverageReport(FORMAT, overall, items));
@@ -198,7 +281,13 @@ public class LcovReportParser {
             this.file = file;
         }
 
-        private CoverageItem item() throws IOException {
+        /**
+         * Validates the record and returns its item, or empty for a record with {@code LF:0}, which measured no line.
+         *
+         * @return the item, or empty for a record without measured lines
+         * @throws IOException if the record is incomplete or covers more than it found
+         */
+        private Optional<CoverageItem> item() throws IOException {
             if (file.isEmpty()) {
                 throw new IOException("an SF record carries no file name");
             }
@@ -220,15 +309,14 @@ public class LcovReportParser {
             if (functionsHit > functionsFound) {
                 throw new IOException("the record " + file + " covers more functions than it found");
             }
-            return CoverageItem.builder()
-                    .name(file)
-                    .file(file)
-                    .line(CoveragePercentages.percentage(linesHit, linesFound))
-                    .branch(branchesFoundSeen
-                            ? CoveragePercentages.percentage(branchesHit, branchesFound)
-                            : null)
-                    .missedMethods(List.of())
-                    .build();
+            return CoveragePercentages.percentage(linesHit, linesFound)
+                    .map(line -> CoverageItem.builder()
+                            .name(file)
+                            .file(file)
+                            .line(line)
+                            .branch(CoveragePercentages.percentage(branchesHit, branchesFound).orElse(null))
+                            .missedMethods(List.of())
+                            .build());
         }
     }
 }

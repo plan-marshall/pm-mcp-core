@@ -1,0 +1,133 @@
+= ADR 008: The Coverage Parsers Read with DTD Off, Mark an Empty Counter Absent and Read Within Bounds
+:nofooter:
+
+== Status
+
+Accepted. Supersedes Decision 4, Alternative 3 and the hardening paragraph of the Consequences of
+link:005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
+
+== Date
+
+2026-11-12
+
+== Context
+
+The XML hardening of the coverage parsers (PLAN-V2-18, `f97bc7f2`) kept `SUPPORT_DTD` on and refused an internal subset
+by a text scan before the parser saw the document (`refuseInternalSubset`, `doctypeIndex`, `decode`). The defence was a
+string prefilter, not the parser, and it rested on two premises that were never measured: that DTD support off would make
+a real `jacoco.xml` unreadable, and that a BOM-less UTF-16 or UTF-32 report needs a hand-written decode
+(ADR `core-build/005`, Alternative 3: "the DTD-off variant was not measured"). The three-layer analysis of PLAN-V2-18
+found further defects in the same parsers: a counter with a zero denominator was read as a measured `0.0` (an overall
+line of `0/0` even failed a gate as 0 % coverage), Cobertura read `branch-rate="0"` as measured where the root said no
+branch was valid, Istanbul ignored the `total` beside each `pct` and let a duplicate key override an earlier one, rates
+went through `Double.valueOf` (which accepts `NaN`, `Infinity` and hexadecimal forms), every path overload read the whole
+file into memory with no bound, and the refusal of an unreadable file carried its full path. On 2026-11-10 the operator
+settled the byte cap at 256 MiB.
+
+== Decision
+
+1. *DTD support is off and the prefilter is gone.* `CoverageXmlReader` sets `SUPPORT_DTD` to `false`, keeps external
+   entities off, keeps entity references from being replaced and keeps the empty-stream `XMLResolver`; the text scan is
+   deleted. A `DOCTYPE` is tolerated and never resolved or fetched. The walk keeps refusing an `ENTITY_REFERENCE` event,
+   so an entity reference in element content is refused, never expanded. An undeclared entity reference in an attribute
+   value is dropped from the value, never expanded or resolved; the report is read without it.
+2. *The two StAX premises are measured, not assumed.* Hypothesis 1 holds: with DTD support off the JDK reader still
+   reports one `DTD` event before the root of `jacoco-high.xml`, and `jacoco-high.xml` and `jacoco-low.xml` parse to
+   their unchanged figures. Hypothesis 2 splits: a BOM-less UTF-16 report (declared `encoding="UTF-16"`) is detected from
+   its bytes and reads like the same text, so no decode is needed; a BOM-less UTF-32 report (declared
+   `encoding="UTF-32"`) is refused, because the JDK reader reads up to the end of the declaration and rejects the name
+   `UTF-32` as an invalid encoding (`ParseError at [row,col]:[1,40]`). It is refused, never misread, and the removed
+   decode never handled UTF-32 either. `CoverageXmlReaderTest` pins both outcomes.
+3. *The hostile prologs are probed against the parser and against the old code.* `CoverageXmlHardeningTest` feeds the
+   prologs (a) to (f) of the plan spec through `CoverageXmlReader` with a resolver that counts its calls, and through
+   the JaCoCo and Cobertura parsers; the LCOV and Istanbul parsers read no XML, so no prolog applies to them. Each probe
+   of (a) to (e) was run against `f97bc7f2` first and failed there: (a) a quoted `>` hiding an internal subset and (b)
+   the same document as BOM-less UTF-16LE and UTF-16BE called the resolver once and were refused by the old
+   `ENTITY_REFERENCE` backstop (the quoted `>` or the missing byte-order mark hid the subset from the text scan, so the
+   reference reached the walk) rather than by the parser; (c) an external subset at `http://host/x.dtd` and at `file:///nonexistent/x.dtd` called the resolver
+   once; (d) an unused internal subset declaring a parameter entity was refused by the text scan, where the new contract
+   tolerates it without resolving it; (e) an entity reference in an attribute value called the resolver once. The
+   negative control (f), a comment and a CDATA section that mention a `DOCTYPE`, parses on both versions. No probe was
+   dropped. A BOM-less UTF-32 variant of (b) was not kept, because the reader refuses the declared name before the
+   `DOCTYPE` on both versions, so it cannot fail. On the way the old scan was found to refuse a valid report whose CDATA
+   section mentions an internal subset, a false positive the parser does not have.
+4. *An attribute-level refusal for case (e) was not built.* The plan's contingency was a minimal refusal of an entity
+   reference in an attribute value, so that "a report that references an entity is refused" would hold everywhere. The
+   run showed that with DTD support off the JDK reader silently drops an undeclared entity reference from an attribute
+   value (`name="a&x;b"` is delivered as `ab`): no `ENTITY_REFERENCE` event, no exception, and nothing in the event
+   stream a walk could refuse. A refusal would need a text scan of the raw tag — the kind of prefilter Decision 1 removes —
+   and would not survive the streaming read of Decision 6. The operator decided on 2026-11-12 to accept the contract as
+   it stands: *a reference in element content is refused; one in an attribute value is dropped, never expanded or
+   resolved.* The probe (e) asserts exactly that, with zero resolver calls as the observable that differs from
+   `f97bc7f2`.
+5. *A zero denominator is absent.* `CoveragePercentages.percentage` returns an empty `Optional` for a zero total. In all
+   four formats an item whose line counter is `0/0` is no item, a branch, function or instruction counter of `0/0` is
+   `null`, and a report whose overall line counter is `0/0` is refused with `no lines measured`. Cobertura's `class`
+   elements carry no `lines-valid` or `branches-valid`, so its rule is decided at the root: `lines-valid="0"` refuses the
+   report, a `branches-valid` of `0` or none makes the overall branch metric and every class branch rate `null`, and a
+   `branch-rate="0"` under a root that measured branches stays a measured `0.0`. Istanbul reads each metric's `total`
+   beside its `pct`, and refuses a metric object that carries no `total` (`total.lines.total is absent`), so a metric is
+   never read from its `pct` alone. Rates are read as text through `BigDecimal` and checked to `0..1`, so `NaN`, `Infinity` and the
+   hexadecimal forms are refused.
+6. *A report is read as a stream, within bounds.* The path overloads open the file through the new package-private
+   `CoverageReportStream`, a counting stream that refuses the read once more than `pm.core.build.coverage-max-bytes`
+   (268435456, 256 MiB) bytes have been read, naming the cap. `CoverageXmlReader.parse(byte[])` is replaced by
+   `parse(InputStream)`, which honours the document's own encoding declaration and byte-order mark. LCOV reads line by
+   line and refuses a line longer than `pm.core.build.coverage-max-line-length` (8192 characters), naming the limit.
+   Both values are data of `pm-core/src/main/resources/de/planmarshall/core/build/coverage-limits.properties`, read with
+   `LimitProperties` when `CoverageReportStream` initialises, with no literal default.
+7. *A repeated counter is refused in JaCoCo, LCOV and Istanbul.* A later counter never silently overrides an earlier one.
+   The Istanbul Jackson factory enables `STRICT_DUPLICATE_DETECTION`, so a second `total` (or any key repeated in one
+   object) is a refusal. JaCoCo refuses a counter type that appears twice at the report root or twice directly within
+   one class, naming the repeated type. LCOV refuses a record that carries one of the counter lines `LF`, `LH`, `BRF`,
+   `BRH`, `FNF` or `FNH` twice, naming the repeated line type; otherwise a later `LH` could turn a record with no line hit
+   into a fully covered one. The operator decided on 2026-11-12 to close the JaCoCo and LCOV cases in this plan.
+8. *A file that cannot be read is named by its file name.* A file-system failure (`NoSuchFileException`,
+   `AccessDeniedException` and the other `FileSystemException` types) carries the full path in its message, so
+   `CoverageRefusals` names the file name and the kind of failure instead of passing the message through.
+9. *The rounding rule is kept and documented.* `CoverageReport.evaluate` compares the percentages the parser already
+   rounded to two decimals, so 79.996 % is stored as `80.0` and passes a threshold of 80. The behaviour is unchanged;
+   its Javadoc states it and `CoverageReportTest` pins the boundary.
+
+== Alternatives Considered
+
+* *Keep the text prefilter beside DTD support off.* Not taken: the parser itself now declines to resolve or expand, so the
+  scan adds a second grammar that can disagree with the parser — it refused a valid CDATA-bearing report — and it reads
+  the document whole, which the streaming read of Decision 6 removes.
+* *Refuse an entity reference in an attribute value (the case (e) contingency).* Not built, by the operator's decision
+  of 2026-11-12 (Decision 4): the reader gives a walk nothing to refuse, a raw-tag text scan would reintroduce the
+  prefilter, and the reference is never expanded or resolved either way.
+* *Keep a hand-written decode for BOM-less UTF-32.* Not taken: the JDK reader refuses the declared name, which is the
+  fail-closed direction, and the old decode did not handle it either.
+* *Read an empty counter as `0.0`, as the original does.* Not taken: it makes "nothing was measured" the same value as
+  "nothing was covered", and an overall line of `0/0` would fail a gate as 0 % coverage.
+* *Read the report whole and check its size first.* Not taken: a size check and a later read are two observations of a
+  file that can change between them, and the read still holds the whole report in memory. The counting stream bounds the
+  bytes actually read.
+* *Compare the unrounded percentage with the threshold.* Not taken: the stored figure is the one the operator sees, and a
+  verdict that disagrees with the shown figure would be harder to explain than the documented rounding.
+
+== Consequences
+
+* The XML readers no longer refuse a report only because its DTD carries an internal subset; such a subset is skipped
+  without being resolved, and only a reference that reaches the element content is refused. A report that hides an
+  undeclared entity reference in an attribute value is read with that reference dropped.
+* A report that measured no line is a refusal in all four formats, so the gate reports it as unreadable rather than as
+  0 % coverage; a metric that measured nothing is `null` and is rendered as absent.
+* A report past 256 MiB, an LCOV line past 8192 characters, an Istanbul document with a duplicate key or a metric object without `total`, a JaCoCo report
+  with a counter type repeated at the root or within one class and an LCOV record with a repeated counter line are
+  refused.
+  A report inside the bounds that carries a measured counter yields the same figures as before; the ported fixtures are
+  unchanged.
+* The bounds are data: editing `coverage-limits.properties` changes them, and the specification includes both values by
+  tag.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-132-coverage-parser-hardening.md[PLAN-V2-132]
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Native Coverage Report Parsers]
+* Developer guide: link:../../developer/core-build.adoc[`core.build` § The Coverage Reports]
+* Origin: the three-layer analysis of PLAN-V2-18 (`f97bc7f2`); the operator's decisions of 2026-11-10 (the 256 MiB cap)
+  and 2026-11-12 (case (e) accepted without an attribute-level refusal; the repeated JaCoCo and LCOV counters refused
+  in this plan); requirements `PM-EXEC-6`, `PM-TEST-2`,
+  `PM-ARCH-8` and `PM-IMPL-5`.
