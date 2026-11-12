@@ -950,6 +950,8 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/JobRecordSchemaParityTe
 link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest],
 link:../pm-core/src/test/java/de/planmarshall/core/service/JobRunnerTest.java[JobRunnerTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerTest.java[SubprocessJobRunnerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerPidReuseTest.java[SubprocessJobRunnerPidReuseTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProcessTreeTrackerTest.java[ProcessTreeTrackerTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/PmExecLauncherTest.java[PmExecLauncherTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportTest.java[LaunchReportTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java[JobLogTest],
@@ -969,13 +971,15 @@ link:../pm-runtime/doc/developer/runtime-job.adoc#_the_runner[Job Runtime Develo
 link:../pm-runtime/doc/developer/runtime-job.adoc#_launch_and_launch_report[§ Launch and Launch Report],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_job_log[§ Job Log],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_termination[§ Termination],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_descendants[§ Descendants Outside the Group],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_outcome_derivation[§ Outcome Derivation],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_build_output_parsing[§ Build Output Parsing],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_settlement[§ Settlement],
 link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[§ Probe Jobs],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant],
-link:../pm-runtime/doc/adr/runtime-job/015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR runtime-job/015]
+link:../pm-runtime/doc/adr/runtime-job/015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR runtime-job/015],
+link:../pm-runtime/doc/adr/runtime-job/017-sweep-through-the-process-handle.adoc[ADR runtime-job/017]
 
 [#PM-EXEC-5]
 === PM-EXEC-5: Git & Provider Operations: Native and CLI Variants

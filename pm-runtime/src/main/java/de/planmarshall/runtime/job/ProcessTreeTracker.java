@@ -21,8 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
-import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
-
 /**
  * Records the process tree of a job while it runs and ends the descendants that are still alive when it ends
  * (termination step 3a of the job runtime specification; the runtime side, on every platform).
@@ -30,10 +28,14 @@ import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
  * A descendant that left the job's process group or started a new session is no longer reached by
  * {@code kill(-pgid, sig)}. It is still the job's descendant to others: {@link ProcessHandle#descendants()} lists it
  * while it hangs below the job, whatever group it moved to. The tracker is refreshed while the job runs and remembers
- * every PID it saw with the process start it saw it with, so a member that detaches between two refreshes is still
- * known at the job's end. The sweep sends {@code SIGTERM} to every remembered member that still runs, waits the sweep
- * grace period, and sends {@code SIGKILL} to those left; a PID whose process started at another instant was reused and
- * is never signalled. The members still alive after the {@code SIGKILL} are answered as {@link Survivor}s, for the
+ * every member it saw with the {@link ProcessHandle} it was read from and the process start that handle carries, so a
+ * member that detaches between two refreshes is still known at the job's end. The sweep sends {@code SIGTERM} to every
+ * remembered member that still runs through that member's own handle ({@link ProcessHandle#destroy()}), waits the sweep
+ * grace period, and sends {@code SIGKILL} through it ({@link ProcessHandle#destroyForcibly()}) to those left. The JDK's
+ * destroy checks the start time of the PID immediately before its {@code kill(2)} and refuses a PID that moved since the
+ * handle was read, so a reuse before that check is not signalled; a reuse between the check and the call is the JDK's
+ * own two-system-call window, which ADR 017 records as accepted. The sweep sends no numeric signal of its own. The
+ * members still alive after the {@code SIGKILL} are answered as {@link Survivor}s, for the
  * {@code job_descendant_survived} audit record.
  * <p>
  * On Linux the specification's primary mechanism is the launcher: {@code pm-exec} marks itself child subreaper and
@@ -57,12 +59,22 @@ public final class ProcessTreeTracker {
     /** How often the sweep probes its members during the grace period. */
     static final Duration POLL_INTERVAL = Duration.ofMillis(100);
 
-    /** One descendant as it was seen: its PID and the start instant that tells a reused PID from it. */
-    public record Member(long pid, Instant startedAt) {
+    /**
+     * One descendant as it was seen: its PID, the start instant that tells a reused PID from it, and the
+     * {@link ProcessHandle} it was read from. The handle carries that start instant; the JDK's destroy checks it
+     * immediately before it signals, so a PID that moved before that check is not signalled, and a reuse between the
+     * check and the {@code kill(2)} is the residual window ADR {@code runtime-job/017} records as accepted.
+     *
+     * @param pid       its PID
+     * @param startedAt the start instant the handle was read with
+     * @param handle    the handle the descendants were read from
+     */
+    public record Member(long pid, Instant startedAt, ProcessHandle handle) {
 
-        /** @throws NullPointerException if the start instant is {@code null} */
+        /** @throws NullPointerException if the start instant or the handle is {@code null} */
         public Member {
             Objects.requireNonNull(startedAt, "startedAt");
+            Objects.requireNonNull(handle, "handle");
         }
     }
 
@@ -91,11 +103,11 @@ public final class ProcessTreeTracker {
          */
         Set<Member> of(long root);
 
-        /** @return the descendants the process table answers for a PID */
+        /** @return the descendants the process table answers for a PID, each with the handle it was read from */
         static Descendants system() {
             return root -> ProcessHandle.of(root).map(handle -> handle.descendants()
                     .map(member -> member.info().startInstant()
-                            .map(startedAt -> new Member(member.pid(), startedAt)))
+                            .map(startedAt -> new Member(member.pid(), startedAt, member)))
                     .flatMap(Optional::stream)
                     .collect(Collectors.toUnmodifiableSet())).orElse(Set.of());
         }
@@ -112,15 +124,16 @@ public final class ProcessTreeTracker {
     private final long root;
     private final Descendants descendants;
     private final Starts starts;
-    private final ProcessGroupSignals signals;
     private final InstantSource clock;
     private final TerminationProtocol.Pause pause;
-    private final Map<Long, Instant> members = new ConcurrentHashMap<>();
+    private final Map<Long, Member> members = new ConcurrentHashMap<>();
     private final @Nullable Instant rootStartedAt;
 
     /**
-     * @param root     the job PID, the root of the tree
-     * @param signals  the signalling primitive, the same one the termination uses
+     * @param root    the job PID, the root of the tree
+     * @param signals the signalling primitive of the termination protocol; the sweep ends a member through the
+     *                {@link ProcessHandle} it was read from and sends no signal through this primitive, so the parameter
+     *                is accepted only to keep the call sites that pass the protocol's own primitive unchanged
      * @throws NullPointerException if an argument is {@code null}
      */
     public ProcessTreeTracker(long root, ProcessGroupSignals signals) {
@@ -131,7 +144,8 @@ public final class ProcessTreeTracker {
      * @param root        the job PID, the root of the tree
      * @param descendants where the tree is read
      * @param starts      where the start instant of a PID is read
-     * @param signals     the signalling primitive
+     * @param signals     the signalling primitive of the termination protocol; the sweep no longer reads it, see
+     *                    {@link #ProcessTreeTracker(long, ProcessGroupSignals)}
      * @param clock       the clock of the grace period
      * @param pause       how the sweep waits
      * @throws NullPointerException if an argument is {@code null}
@@ -141,7 +155,7 @@ public final class ProcessTreeTracker {
         this.root = root;
         this.descendants = Objects.requireNonNull(descendants, "descendants");
         this.starts = Objects.requireNonNull(starts, "starts");
-        this.signals = Objects.requireNonNull(signals, "signals");
+        Objects.requireNonNull(signals, "signals");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pause = Objects.requireNonNull(pause, "pause");
         this.rootStartedAt = this.starts.of(root).orElse(null);
@@ -157,7 +171,7 @@ public final class ProcessTreeTracker {
             return;
         }
         for (var member : descendants.of(root)) {
-            members.put(member.pid(), member.startedAt());
+            members.put(member.pid(), member);
         }
     }
 
@@ -167,9 +181,11 @@ public final class ProcessTreeTracker {
     }
 
     /**
-     * Ends the remembered descendants that are still alive: {@code SIGTERM} to each, the sweep grace period, and
-     * {@code SIGKILL} to those left. A remembered PID whose process started at another instant was reused and is not
-     * signalled.
+     * Ends the remembered descendants that are still alive: {@code SIGTERM} through the handle of each, the sweep grace
+     * period, and {@code SIGKILL} through the handle of those left. A remembered member whose PID now belongs to a
+     * process that started at another instant was reused: the sweep does not select it, and the JDK's destroy refuses a
+     * PID that moved before its own check. A reuse between that check and its {@code kill(2)} is the residual window
+     * ADR 017 records as accepted.
      *
      * @return the members still alive after the {@code SIGKILL}, with their executables; empty when the sweep ended them
      */
@@ -178,8 +194,8 @@ public final class ProcessTreeTracker {
         if (targets.isEmpty()) {
             return List.of();
         }
-        for (var pid : targets) {
-            signals.signalProcess(pid, Signal.SIGTERM);
+        for (var member : targets) {
+            member.handle().destroy();
         }
         var interrupted = false;
         var deadline = clock.instant().plus(SWEEP_GRACE);
@@ -188,8 +204,8 @@ public final class ProcessTreeTracker {
             interrupted = !sleep(remaining.compareTo(POLL_INTERVAL) < 0 ? remaining : POLL_INTERVAL);
         }
         var left = survivors();
-        for (var pid : left) {
-            signals.signalProcess(pid, Signal.SIGKILL);
+        for (var member : left) {
+            member.handle().destroyForcibly();
         }
         if (!left.isEmpty()) {
             // give SIGKILL a moment, so a process it ended is not reported as a survivor
@@ -198,17 +214,16 @@ public final class ProcessTreeTracker {
         if (interrupted) {
             Thread.currentThread().interrupt();
         }
-        return left.stream().filter(pid -> survivors().contains(pid))
-                .map(pid -> new Survivor(pid,
-                        ProcessHandle.of(pid).flatMap(handle -> handle.info().command()).orElse(null)))
+        var killed = left.stream().map(Member::pid).collect(Collectors.toUnmodifiableSet());
+        return survivors().stream().filter(member -> killed.contains(member.pid()))
+                .map(member -> new Survivor(member.pid(), member.handle().info().command().orElse(null)))
                 .toList();
     }
 
-    /** @return the remembered PID of every member that is still the process it was, and still runs */
-    private Set<Long> survivors() {
-        return members.entrySet().stream()
-                .filter(member -> starts.of(member.getKey()).filter(member.getValue()::equals).isPresent())
-                .map(Map.Entry::getKey)
+    /** @return the remembered member of every PID that is still the process it was, and still runs */
+    private Set<Member> survivors() {
+        return members.values().stream()
+                .filter(member -> starts.of(member.pid()).filter(member.startedAt()::equals).isPresent())
                 .collect(Collectors.toUnmodifiableSet());
     }
 

@@ -42,6 +42,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
@@ -1160,7 +1161,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * through its handle, never by its PID.
      */
     static boolean pidReused(Launched launched) {
-        var handle = ProcessHandle.of(launched.pid());
+        return pidReused(launched, ProcessHandle::of);
+    }
+
+    /**
+     * The same decision over the seam a test replaces: where the handle of the PID is read. No single platform produces
+     * the four answers with real handles deterministically: a platform that reports no start instant yields the
+     * unreadable state but cannot produce the two readable rows, and on Linux and macOS the unreadable state arises only
+     * through the exit race between the handle lookup and the info read. The decision is therefore taken over the
+     * lookup, and the table of its four answers is exercised through this overload.
+     *
+     * @param launched the started process, with the PID the caller recorded
+     * @param handles  where the handle of a PID is read; {@link ProcessHandle#of(long)} in production
+     * @return whether the recorded PID names another process than the one the runner started
+     */
+    static boolean pidReused(Launched launched, LongFunction<Optional<ProcessHandle>> handles) {
+        var handle = handles.apply(launched.pid());
         if (handle.isEmpty()) {
             return false;
         }

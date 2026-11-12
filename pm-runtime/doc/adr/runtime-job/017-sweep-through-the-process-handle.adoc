@@ -1,0 +1,133 @@
+= ADR 017: The Sweep Ends a Member Through Its Handle, Not by Its PID
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-12
+
+== Context
+
+Termination step 3a needs the runtime to end the descendants of a job that left its process group
+(link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Process Termination &
+Cancellation Protocol], step 3a). `ProcessTreeTracker` records each descendant together with the start instant
+`ProcessHandle.info().startInstant()` reported, and `sweep()` checked that the recorded instant still matched the one the
+PID answers now before it sent `SIGTERM` and `SIGKILL` through `ProcessGroupSignals.signalProcess(pid, signal)` — a
+numeric `kill(2)`. Between that check and the call the process could exit, the kernel could reap it, and the PID could be
+handed to another process, which the numeric signal would then end. The window is microseconds wide and unproven as an
+exploit; the operating system's signal permissions bound it — by default a process signals only a target of the same
+user or one whose real or saved set-user-ID matches, and a process with `CAP_KILL` in the target's user namespace can
+reach further (link:https://man7.org/linux/man-pages/man2/kill.2.html[`kill(2)`]); the runtime runs as the operator.
+
+The question the plan had to answer from the sources, not from memory: does the JDK's `ProcessHandle.destroy()` /
+`destroyForcibly()` compare the start time recorded in the handle before it sends the signal? If it does, the sweep can
+hand the check back to the JDK and replace its own wider check-then-signal window with the JDK's narrower one.
+
+The second lead of the CodeRabbit review of #135 was that `SubprocessJobRunner.pidReused` answers `true` when a platform
+reports no start instant, and that a cancelled or over-budget job would then be left running. `pidReused` answers `true`
+when either of the two instants is empty, and both callers end the started process through its handle in that case:
+`terminateByHandle` in its `finally` block when the termination did not reach the process, and the cancel path of the
+supervisor with `process.destroyForcibly()` when `pidReused` holds. The behaviour was already right; what was missing was
+a test.
+
+== Decision
+
+* The sweep ends a member through the `ProcessHandle` it was read from: `Member` carries that handle together with the
+  PID and the start instant, and `sweep()` calls `handle.destroy()` for `SIGTERM` and `handle.destroyForcibly()` for
+  `SIGKILL`. It sends no numeric signal at all. The start-instant check that selects the members is unchanged, so a
+  member whose PID was reused before the sweep is not selected; a reuse between the selection and the call is narrowed
+  to the JDK's own check, which `destroy0` performs immediately before its `kill(2)`. The JDK's check and its `kill` are
+  two system calls, so that residual window remains; it is accepted and stated under Consequences.
+* `ProcessTreeTracker` keeps its `ProcessGroupSignals` parameter so the call sites that pass the termination protocol's
+  primitive stay unchanged, but the sweep no longer reads it: the primitive remains the termination protocol's
+  (`TerminationProtocol`, `ProcessGroupSignals`, `KillBinding` and their `kill(2)` descriptor are unchanged).
+* Lead (2) is documented as refuted behaviour with its test: a launched process whose own start instant is unreadable is
+  a reused PID (`pidReused` answers `true`), and `terminateByHandle` then signals nothing by PID and destroys the process
+  through its handle exactly once. The cost is stated: the process *group* of such a job is not signalled. A `PROBE` or
+  `LLM` job's descendants are still swept by its tracker; a job of any other kind has no tracker, so its descendants are
+  not swept on this path.
+* `SubprocessJobRunner.pidReused` gains a package-private overload that takes the handle lookup as a `LongFunction`,
+  with the existing method delegating to it through `ProcessHandle::of`. It exists so the table of four answers can be
+  exercised on one platform: a platform that reports no start instant produces the unreadable state with a real handle
+  but cannot produce the two readable rows, and on Linux and macOS the unreadable state arises only through the exit race
+  between the handle lookup and the info read. The production path is unchanged; the overload is not a second decision.
+
+== Reading of the JDK
+
+OpenJDK 25 (Temurin 25+36), `src/java.base`; the files are cited at the `jdk-25-ga` tag:
+
+* `java.lang.ProcessHandleImpl.destroyProcess(boolean force)` refuses the current process and calls
+  `destroy0(pid, startTime, force)`, passing the start time the handle was created with; `destroy()` and
+  `destroyForcibly()` are that call with `force` false and true. The Javadoc of the native says the process "is
+  signaled only if its start time matches the known start time".
+  (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/lang/ProcessHandleImpl.java[`ProcessHandleImpl.java`])
+* `ProcessHandleImpl_unix.c`, `Java_java_lang_ProcessHandleImpl_destroy0` (shared by Linux and macOS) reads the PID's
+  current start time through the same `isAlive0` the handle factory uses and calls `kill(pid, sig)` only when
+  `start == startTime || start == 0 || startTime == 0`; otherwise it returns `JNI_FALSE` and no signal is sent. The read
+  and the `kill` are two system calls: a reuse between them is signalled, which is the residual window under
+  Consequences.
+  (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c[`ProcessHandleImpl_unix.c`])
+* `isAlive0` is `os_getParentPidAndTimings`: Linux reads `/proc/<pid>/stat` (field 22, start time in clock ticks, plus
+  the boot time of `/proc/stat`); macOS reads `sysctl KERN_PROC_PID` and `kp_proc.p_starttime`. Both report a start time
+  for every process they list, so on the two supported platforms the comparison is effective. An instant can still be
+  unreadable in a race: `ProcessHandle.of(pid)` and a later `info()` are two reads, and a process that exits between them
+  answers an empty instant; `pidReused` then treats the PID as reused.
+  (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/linux/native/libjava/ProcessHandleImpl_linux.c[`ProcessHandleImpl_linux.c`],
+  link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/macosx/native/libjava/ProcessHandleImpl_macosx.c[`ProcessHandleImpl_macosx.c`])
+* The `start == 0 || startTime == 0` escape is the STARTTIME_ANY case, where the operating system cannot report a start
+  time. On such a platform `ProcessHandle.info().startInstant()` is empty, and `Descendants.system()` drops a member
+  whose start instant is empty, so the sweep records no member there in the first place: the case has nothing to signal.
+
+== Alternatives Considered
+
+1. *Keep the numeric signal and accept the wider window.*
+_Rejected_: the JDK's destroy checks the start time immediately before its `kill(2)`, so signalling through the handle
+narrows the check-then-signal window from a process-table read and a later `kill` to two adjacent system calls; keeping
+the numeric signal would keep the wider window for no reason.
+2. *Re-check the start instant and then signal numerically.*
+_Rejected_: that is the existing check-then-signal shape with a narrower but still non-zero window; it does not remove
+the hazard.
+3. *Call `destroy0` through FFM from the tracker.*
+_Rejected_: the JDK owns the native descriptor of the check and its `errno` handling; binding it again duplicates
+machinery the runtime already depends on and adds a native downcall for no gain (R16 (1)).
+4. *Remove the `ProcessGroupSignals` parameter from the tracker.*
+_Rejected for now_: two production call sites pass the termination protocol's primitive, one of them a class another live
+plan of the epic declares; the parameter is retained so this fix does not ripple into a shared file, and the sweep's
+actual behaviour is stated in its Javadoc.
+
+== Consequences
+
+* A reused PID is not selected when the reuse precedes the sweep's check, so the sweep does not signal it. A reuse
+  between that check and the JDK's `kill(2)` is the JDK's own check-then-signal sequence: `destroy0` reads the start
+  time immediately before it calls `kill`, so the window is two adjacent system calls wide, not zero. It is accepted:
+  the operating system's signal permissions bound it — by default `kill(2)` may signal only a target of the same user or
+  one whose real or saved set-user-ID matches, and `CAP_KILL` in the target's user namespace widens that
+  (link:https://man7.org/linux/man-pages/man2/kill.2.html[`kill(2)`]) — and a reuse inside the microsecond-scale window is
+  unlikely. The bound is therefore the operating system's, not the runtime's own.
+* The sweep depends on the JDK's start-time comparison; a JDK change to it would change this guarantee, which is why
+  this ADR records the reading.
+* `ProcessGroupSignals` remains the termination protocol's primitive; the sweep no longer uses it, and a test asserts
+  that no numeric signal is sent.
+* A job whose start instant is unreadable is ended through its handle, never by its PID, and its process group is not
+  signalled. An instant is unreadable on a platform that reports none, and on Linux and macOS when the process exits
+  before its information is read. A `PROBE` or `LLM` job leaves its descendants to the tracker; a job of any other kind
+  has no tracker, so its descendants are not swept on this path.
+* `Member` now carries the handle it was read from; a test that builds a `Member` supplies one.
+
+== Source
+
+* Work package: PLAN-V2-66 `process-tree-sweep-pid-reuse` of the epic `pm-mcp-core-m2-m4-v2`; it settles the two
+  unverified leads of the CodeRabbit review of #135 (PLAN-84 `job-runner-residuals`).
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Process Termination &
+  Cancellation Protocol] (step 3a)
+* link:010-signal-only-the-jobs-process.adoc[ADR 010], link:013-record-and-sweep-descendants.adoc[ADR 013]
+* OpenJDK 25: `java.lang.ProcessHandleImpl.destroyProcess`/`destroy0`, `ProcessHandleImpl_unix.c`
+  (`Java_java_lang_ProcessHandleImpl_destroy0`, `isAlive0`), `ProcessHandleImpl_linux.c` and
+  `ProcessHandleImpl_macosx.c` (`os_getParentPidAndTimings`)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessTreeTracker.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java` (the test seam of `pidReused`),
+  `pm-runtime/src/test/java/de/planmarshall/runtime/job/ProcessTreeTrackerTest.java`,
+  `pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerPidReuseTest.java`

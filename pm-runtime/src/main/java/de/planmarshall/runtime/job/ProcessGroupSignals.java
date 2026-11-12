@@ -14,9 +14,11 @@ package de.planmarshall.runtime.job;
  * group ({@code kill(-pgid, sig)}) or its PID ({@code kill(pid, sig)}), answering what the call answered as a value:
  * {@link Delivered}, {@link NoSuchProcess} for {@code ESRCH}, or {@link Refused} with any other {@code errno}.
  * <p>
- * Everything that signals a job goes through this interface, so a test replaces it with a recording fake and asserts
- * at the lowest signalling call, also that none was made. {@link #system()} is the binding of the C library's
- * {@code kill} through FFM (no JNI library).
+ * Everything the termination protocol signals a job with goes through this interface, so a test replaces it with a
+ * recording fake and asserts at the lowest signalling call, also that none was made. The descendants' sweep is the one
+ * path that ends a member through the {@link ProcessHandle} it was read from instead of signalling numerically
+ * (ADR {@code runtime-job/017}). {@link #system()} is the binding of the C library's {@code kill} through FFM (no JNI
+ * library).
  * <p>
  * Native image: the foreign downcall descriptor of {@code kill} (two {@code int} parameters, an {@code int} result,
  * {@code errno} captured, so the entry carries the linker option {@code captureCallState}) is registered in the

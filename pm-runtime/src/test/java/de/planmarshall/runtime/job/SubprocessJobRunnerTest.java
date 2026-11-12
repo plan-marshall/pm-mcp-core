@@ -1624,8 +1624,11 @@ class SubprocessJobRunnerTest {
                 }
             };
             int root = Generators.integers(2, 4_000_000).next();
+            ProcessHandle throwingHandle = createMock(ProcessHandle.class);
+            expect(throwingHandle.destroy()).andThrow(new IllegalStateException(failureMessage));
+            replay(throwingHandle);
             var tracker = new ProcessTreeTracker(root, ignoredRoot -> Set.of(new ProcessTreeTracker.Member(root + 1,
-                            start)),
+                            start, throwingHandle)),
                     pid -> Optional.of(start), throwing, InstantSource.system(), duration -> {
                     });
             tracker.refresh();
