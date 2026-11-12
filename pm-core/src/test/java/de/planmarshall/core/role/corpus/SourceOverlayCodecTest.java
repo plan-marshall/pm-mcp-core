@@ -568,7 +568,8 @@ class SourceOverlayCodecTest {
                 : with(bound.field(), bound.atBound()));
 
         assertAll(
-                () -> assertEquals(atBound, SourceOverlayCodec.read(FILE, SourceOverlayCodec.write(atBound))),
+                () -> assertEquals(atBound, SourceOverlayCodec.read(FILE, SourceOverlayCodec.write(atBound)),
+                        "the value at the bound round-trips unchanged"),
                 () -> assertUnreadable(refusalOf(bound.rowScoped() ? withRow(bound.field(), bound.overBound())
                         : with(bound.field(), bound.overBound())), bound.refusal()));
     }

@@ -473,7 +473,7 @@ class ImportedItemCodecTest {
         var read = ImportedItemCodec.read(FILE, atBound.getBytes(StandardCharsets.UTF_8));
 
         assertAll(
-                () -> assertEquals(atBound, text(read)),
+                () -> assertEquals(atBound, text(read), "the value at the bound round-trips unchanged"),
                 () -> assertUnreadable(refusalOf(fixture.replace(bound.original(), bound.overBound())),
                         bound.refusal()));
     }

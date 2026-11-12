@@ -302,7 +302,8 @@ class SourceManifestCodecTest {
         var atBound = SourceManifestCodec.read(FILE, with(bound.field(), bound.atBound()));
 
         assertAll(
-                () -> assertEquals(atBound, SourceManifestCodec.read(FILE, SourceManifestCodec.write(atBound))),
+                () -> assertEquals(atBound, SourceManifestCodec.read(FILE, SourceManifestCodec.write(atBound)),
+                        "the value at the bound round-trips unchanged"),
                 () -> assertUnreadable(refusalOf(with(bound.field(), bound.overBound())), bound.refusal()));
     }
 }

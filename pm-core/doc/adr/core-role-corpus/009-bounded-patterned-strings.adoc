@@ -36,7 +36,8 @@ carry a value the schema refuses through the codec before the validator ever saw
 == Decision
 
 Every string member of the three schema resources that carries a pattern other than the literal
-`.`, and every one of the five records that copies such a member, carries the same bound.
+`.`, and every one of the five records and the overlay's row that copy such a member, carries the
+same bound.
 `maxLength` sits beside the `pattern` in the schema; in the record a constant sits beside the
 pattern constants it bounds, and the bound is checked before the pattern is matched. The LFS
 pointer's own `oid` (`LfsPointer`) is no schema member and keeps its three-argument check: its
@@ -83,10 +84,12 @@ identifier 64: three ceilings far above any value the shipped sources and the pr
 and low enough that the pattern is not what refuses a hostile one.
 
 *The ceilings are above the formats' own values, never below them.* A bound under a value a shipped
-source or the product corpus holds would narrow the format silently. The figures were therefore
-checked against the corpus of `plan-marshall-mcp` before they were fixed:
-`ProductCorpusValidationTest` accepted that checkout's corpus with the bounds in place, and it skips,
-naming the path, when the checkout the `pm.product.root` property names is absent.
+source holds would narrow the format silently. The figures were therefore checked against the corpus
+of `plan-marshall-mcp` before they were fixed: `ProductCorpusValidationTest` accepted that
+checkout's manifests, overlays and items with the bounds in place, and it skips, naming the path,
+when the checkout the `pm.product.root` property names is absent. The corpus's own items are checked
+against the corpus's own schema, so that run compares the manifests and the overlays with the
+ceilings, not the ids of the corpus's items.
 
 In the records the bounds are the constants `SourceManifest.NAME_MAX_LENGTH` (64),
 `COMMIT_MAX_LENGTH` (40), `SHA256_MAX_LENGTH` (64), `LICENCE_MAX_LENGTH` (64),
@@ -131,8 +134,11 @@ member that carries a non-trivial pattern and no bound, and for a literal `.` th
   `<path>: longer than <N>` and the record throws `'<field>' is longer than <N> characters`, in both
   cases without compiling or matching the pattern.
 * The three schemas now refuse a value the format admitted before: an item id, a topic, a
-  repository, a path or a licence over the ceilings. No shipped source and no item of the product
-  corpus reaches them; a corpus value that would is reported as a violation, not narrowed.
+  repository, a path or a licence over the ceilings. The manifests and the overlays of the shipped
+  sources, and the items an import generates, are accepted by the corpus validation with the bounds
+  in place. The corpus's own items are checked against the corpus's own item schema, which carries
+  no such bound (ADR 004), so this decision does not narrow them and their ids are not compared with
+  the ceilings here.
 * In an imported item the topic is a prefix of the id (`id = topic + "/" + slug`), so the id's own
   bound of 256 is the binding one: a topic of 256 code points cannot form an id within 256. The
   topic check keeps its place as a guard on the member itself, and the overlay row — whose slug is a
