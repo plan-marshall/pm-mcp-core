@@ -18,6 +18,8 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.build.BuildLogText;
 
@@ -219,6 +221,65 @@ class SecretRedactorTest {
                 () -> assertEquals("--token \"" + SecretRedactor.REDACTED + "\" --name \"x\"",
                         redactValue("--token \"abc\" --name \"x\""),
                         "only the credential's quoted value is masked"));
+    }
+
+    @Test
+    @DisplayName("a credential flag is matched whatever its case")
+    void credentialFlagCaseInsensitive() {
+        assertAll("case-insensitive credential flags",
+                () -> assertEquals("--PASSWORD " + SecretRedactor.REDACTED, redactValue("--PASSWORD x"),
+                        "an upper-case password flag is masked"),
+                () -> assertEquals("publish --Token " + SecretRedactor.REDACTED,
+                        redactValue("publish --Token abcd1234"), "a mixed-case token flag is masked"));
+    }
+
+    @ParameterizedTest(name = "--{0}")
+    @ValueSource(strings = {"auth-token", "api-key", "apikey", "access-token", "client-secret", "otp"})
+    @DisplayName("each added credential flag name is masked (the specified name list)")
+    void addedCredentialFlagNames(String name) {
+        var value = Generators.letterStrings(4, 16).next();
+
+        assertEquals("cli --" + name + " " + SecretRedactor.REDACTED, redactValue("cli --" + name + " " + value),
+                "the value of an added credential flag is masked");
+    }
+
+    @Test
+    @DisplayName("a flag value holding a semicolon, a quote or a line end is masked whole")
+    void credentialFlagValueShapes() {
+        assertAll("credential flag value shapes",
+                () -> assertEquals("--password " + SecretRedactor.REDACTED, redactValue("--password pa;ss"),
+                        "a semicolon inside a value is masked with it"),
+                () -> assertEquals("--password '" + SecretRedactor.REDACTED + "'",
+                        redactValue("--password 'abc\"def'"), "a quoted value holding the other quote is masked"),
+                () -> assertEquals("--password " + SecretRedactor.REDACTED, redactValue("--password abc\"def"),
+                        "an unquoted value holding a quote is masked"),
+                () -> assertEquals("--password " + SecretRedactor.REDACTED, redactValue("--password abc'def"),
+                        "an unquoted value holding an apostrophe is masked"),
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED + "\" done",
+                        redactValue("--password \"first line\nsecond line\" done"),
+                        "a quoted value across one line end is masked"));
+    }
+
+    @Test
+    @DisplayName("flags and prose outside the credential flag list stay readable")
+    void credentialFlagNegativeControls() {
+        assertAll("credential flag negative controls",
+                () -> assertEquals("--password-file notes.txt", redactValue("--password-file notes.txt"),
+                        "a different flag is not a credential flag"),
+                () -> assertEquals("publish --token\nnext line", redactValue("publish --token\nnext line"),
+                        "a token flag at the end of a line stays"),
+                () -> assertEquals("store the password in a vault", redactValue("store the password in a vault"),
+                        "prose naming the word password stays"),
+                () -> assertEquals("--key value", redactValue("--key value"),
+                        "a flag outside the closed list stays"));
+    }
+
+    @Test
+    @DisplayName("a usage line naming a credential flag masks its placeholder (the stated cost)")
+    void credentialFlagFalsePositiveCost() {
+        assertEquals("usage: publish --token " + SecretRedactor.REDACTED + " the access token",
+                redactValue("usage: publish --token <token> the access token"),
+                "the word after a credential flag is masked");
     }
 
     @Test

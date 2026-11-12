@@ -23,9 +23,9 @@ import org.jspecify.annotations.Nullable;
  * negative writes a credential to a store: it replaces the value of an explicit credential-shaped assignment (a
  * password, token, secret, API key or authorization header), a bearer value, a provider token shape (including the npm
  * {@code npm_} access token), the user-information form of a URL ({@code scheme://user:secret@host}), the value of a
- * spaced credential flag ({@code --password <value>}, quoted or not; a quoted value is matched through its closing
- * quote, spaces included, and an unclosed quote masks the rest of the line) and a PEM private-key block carried inside one
- * text, and it leaves every other text alone. Each non-assignment shape is anchored
+ * spaced credential flag of a closed list, whatever its case ({@code --password <value>}, quoted or not; a quoted value
+ * is matched through its closing quote, spaces and at most one line end included, and an unclosed quote masks the rest
+ * of the line) and a PEM private-key block carried inside one text, and it leaves every other text alone. Each non-assignment shape is anchored
  * to its own form — a URL needs its {@code scheme://} and {@code @}, a flag needs its leading {@code --} and a following
  * space — so prose cannot match. A hash, a commit id, a path and a prose sentence that merely contains the word
  * {@code token} are not secrets and stay readable.
@@ -103,26 +103,37 @@ public final class SecretRedactor {
                     + ":((?:[^\\s@]++|@(?=[^\\s@]*+@))++)@");
 
     /**
-     * A credential flag whose value is separated by whitespace instead of {@code :} or {@code =}. The leading
-     * {@code --} anchors the shape, so {@code --password-file notes.txt} is a different flag and stays readable. The
-     * quoted forms are matched first: a quoted value runs to the first unescaped closing quote, and an unclosed quote
-     * masks the rest of the line; an unquoted value runs to the next whitespace and may carry a comma.
+     * The closed list of credential flags whose value is separated by whitespace instead of {@code :} or {@code =}.
+     * The flag name is matched whatever its case ({@code --PASSWORD x}). The leading {@code --} anchors the shape, so
+     * {@code --password-file notes.txt} is a different flag and stays readable, and a flag outside the list
+     * ({@code --key value}, an operator decision) stays readable as well. The quoted forms are matched first: a quoted
+     * value runs to the first unescaped closing quote, also across one line end to its closing quote on the next line
+     * (never further), and a quote that does not close on its own line or the next masks the rest of its line; an
+     * unquoted value runs to the next whitespace and may carry a comma, a {@code ;} or a quote.
+     * <p>
+     * The false-positive cost: the word after a listed flag is read as its value, so usage text such as
+     * {@code --token <token>} masks the placeholder {@code <token>}.
      */
-    private static final String CREDENTIAL_FLAG_NAMES = "password|passwd|passphrase|token|secret";
+    private static final String CREDENTIAL_FLAG_NAMES =
+            "password|passwd|passphrase|token|secret|auth-token|api-key|apikey|access-token|client-secret|otp";
 
     /** The shared head of a credential-flag pattern: the flag name and the whitespace after it, kept as groups 1 and 2. */
     private static final String CREDENTIAL_FLAG_HEAD =
             "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
 
+    /** One line of a quoted flag value: an escape pair or any character but a backslash, the quote and a line end. */
+    private static final String QUOTED_LINE = "(?:\\\\[^\\r\\n]|(?!\\3)[^\\\\\\r\\n])*";
+
     @SuppressWarnings("java:S5998") // the alternatives are disjoint (escape pair vs non-backslash), so the repetition is linear
-    private static final Pattern QUOTED_CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])((?:\\\\[^\\r\\n]|(?!\\3)[^\\\\\\r\\n])*)\\3");
+    private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
+            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_LINE + "(?:(?:\\r\\n|\\r|\\n)" + QUOTED_LINE + ")?)\\3",
+            Pattern.CASE_INSENSITIVE);
 
-    private static final Pattern UNCLOSED_CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([\"'])(?![^\\r\\n]*\\3)([^\\r\\n]*)");
+    private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
+            CREDENTIAL_FLAG_HEAD + "([\"'])(?![^\\r\\n]*\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
 
-    private static final Pattern CREDENTIAL_FLAG =
-            Pattern.compile(CREDENTIAL_FLAG_HEAD + "([^\\s\"';]+)");
+    private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
+            CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);
 
     /**
      * A PEM private-key block carried inside one text. A window that starts inside a block (its {@code BEGIN} line
