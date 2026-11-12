@@ -1,0 +1,622 @@
+= ADR 024: The Duration of the Full Verify, Measured and Cut
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-12
+
+== Context
+
+The operator reported on 2026-11-12 that a full `verify -Ppre-commit` of this repository takes about 22 minutes on the
+local host, too long to run whole inside the build daemon's bound of 1120 s, so every plan splits it into per-module
+runs. Earlier landings of the epic record gate lengths between 673 s and 1275 s on the same host; they corroborate the
+figure but do not decompose it. The question is where the time goes, which share of it is test execution, and which
+causes can be removed without lowering the quality of the tests.
+
+[#baseline-runs]
+=== The Measured Runs
+
+All runs were taken on the head of the plan's branch (unchanged against `main` at the time), as a full reactor, routed
+through the build daemon. The host has 16 CPUs and is shared with the plans that run beside; the load average (1, 5 and
+15 minutes) was read before each run and after it, and the host was checked for a competing Maven or Surefire process at
+the start. The pre-commit gate rewrote no file in any run: the working tree was clean after each of them.
+
+[cols="1,3,1,1,4,2",options="header"]
+|===
+|Run |Command |Wrapper |Maven total |Host load |Classification
+
+|1
+|`verify -Ppre-commit`
+|845 s
+|14:04 min
+|before 4.03 7.66 18.29, 6 runnable of 1468; another plan's `test` build ran in a different worktree (its `pm-workflow`
+Surefire fork at about 257 % CPU); after 3.69 5.30 6.74
+|loaded, not the reference
+
+|2
+|`verify -Ppre-commit`
+|654 s
+|10:52 min
+|before 3.02 5.07 6.64, 2 runnable of 1414; no competing build; after 3.22 3.80 5.17 (the 5-minute figure is largely
+this build itself)
+|idle, reference
+
+|3
+|`verify -Ppre-commit`
+|650 s
+|10:49 min
+|before 2.72 3.67 5.12, 1 runnable of 1380; no competing build; after 3.45 3.71 4.49
+|idle, reference
+
+|4
+|`verify -Pcoverage`
+|1278 s
+|21:17 min
+|before 3.45 3.71 4.49; no competing build at the start; after 9.22 9.20 8.08 (the coverage lane itself is heavier; a
+competing build towards the end is not excluded)
+|idle at the start, not proven idle throughout
+
+|5
+|`verify -Ppre-commit -DskipTests`
+|138 s
+|2:13 min
+|before about 9.6 to 10.2 (other sessions' Python processes at 100 to 150 % CPU each); after 6.79 8.68 8.14
+|loaded, an upper bound for the work outside test execution
+|===
+
+The reference of this ADR is the pair of idle runs 2 and 3, whose Maven totals differ by 3 s; their reactor figures
+are those of run 3 below. Runs 1 and 5 were taken under load and are not the reference; run 1 is kept as the evidence of
+what a shared host adds (about 190 s, or 29 %).
+
+[#baseline-modules]
+=== Wall Time per Module and Phase
+
+The reactor summary gives the wall time of each module. The split into the work outside test execution (compilation
+with annotation processing, the rewrite recipes, the licence and import checks, packaging of the main and test JARs) and
+the test phase comes from run 5, which skips test execution only; the test phase is the difference to the idle run 3.
+Because run 5 was loaded, its figures are upper bounds and the test-phase figures derived from them are lower bounds.
+
+[cols="2,1,1,1,1,1",options="header"]
+|===
+|Module |Run 1 (loaded) |Run 2 (idle) |Run 3 (idle, reference) |Run 5 without tests (loaded) |Test phase (run 3 − run 5)
+
+|`pm-mcp-core` (root) |15.3 s |13.2 s |13.5 s |21.1 s |none (no tests)
+|`pm-core` |354 s |244 s |240 s |32.2 s |208 s
+|`pm-workflow` |126 s |99 s |99 s |17.6 s |81 s
+|`pm-providers` (aggregator) |2.0 s |1.9 s |1.8 s |1.9 s |none (no tests)
+|`pm-provider-git` |23.5 s |17.3 s |17.0 s |6.9 s |10.1 s
+|`pm-provider-http` |13.1 s |10.7 s |10.7 s |6.0 s |4.7 s
+|`pm-provider-ci` |11.8 s |8.2 s |8.5 s |6.2 s |2.3 s
+|`pm-provider-github` |19.8 s |15.9 s |16.3 s |6.3 s |10.0 s
+|`pm-provider-gitlab` |20.3 s |18.8 s |18.6 s |5.9 s |12.7 s
+|`pm-provider-sonar` |11.2 s |8.3 s |8.1 s |5.1 s |3.0 s
+|`pm-runtime` |245 s |213 s |213 s |22.8 s |190 s
+|*Sum* |*842 s* |*650 s* |*647 s* |*132 s* |*522 s*
+|===
+
+Over the whole reactor the difference is 515 s (647 s − 132 s): the root module took 7.6 s longer in the loaded run 5
+than in run 3, which the per-module column does not count.
+
+The split is a two-part one: the measurement ran the phase decomposition as the single run 5, not as separate
+invocations of `compile`, `test-compile` and `test` per module, so the work outside test execution is not broken down
+further and `test-compile` is counted with it. Plain `verify` (without a profile) and the integration-test lane
+(`-Pintegration-tests`) were not measured. Whether a per-phase run is still owed is decided by the ranking below.
+
+[#baseline-tests]
+=== Tests per Module
+
+The test classes, the tests and the sum of the test times come from the Surefire reports of the coverage lane (run 4),
+the last full run, which overwrote the reports of runs 1 to 3. The times therefore include the JaCoCo agent and are upper
+bounds for the pre-commit gate. The assertion calls are counted over the test sources (`src/test/java`) of each module.
+
+[cols="2,1,1,1,1,1",options="header"]
+|===
+|Module |Test classes run |Tests run |Sum of test times |Test source files |Assertion calls
+
+|`pm-core` |345 |4827 |107.6 s |393 |9083
+|`pm-workflow` |132 |2419 |47.6 s |160 |3797
+|`pm-runtime` |202 |2367 |139.9 s |264 |7536
+|`pm-provider-git` |14 |179 |9.0 s |21 |387
+|`pm-provider-http` |9 |61 |2.4 s |14 |139
+|`pm-provider-ci` |5 |117 |1.0 s |8 |210
+|`pm-provider-github` |7 |132 |9.2 s |8 |304
+|`pm-provider-gitlab` |5 |99 |12.1 s |5 |245
+|`pm-provider-sonar` |3 |38 |2.3 s |3 |53
+|*Sum* |*722* |*10239* |*331.1 s* |*876* |*21754*
+|===
+
+The slowest 15 classes of each module (every class of a module with fewer), with their times in the coverage lane:
+
+* `pm-core`: `AnalysisBoundaryArchTest` 3.39 s, `ProviderNeutralityArchTest` 3.09 s, `JobRunnerTest` 2.73 s,
+  `LessonStoreTest` 1.84 s, `CorpusImportTest` 1.50 s, `LessonResolverTest` 1.11 s, `LessonClaimTest` 1.03 s,
+  `CorpusValidatorTest` 0.94 s, `EnrolmentStoreTest` 0.84 s, `ProfileValidatorTest` 0.84 s, `LessonStoreCrashTest`
+  0.84 s, `ItemGeneratorTest` 0.83 s, `CorpusSchemaResourcesTest` 0.82 s, `LessonRetirementTest` 0.79 s,
+  `BuildLogTextTest` 0.77 s.
+* `pm-workflow`: `PlanInstanceComposerTest` 2.04 s, `CompiledInvariantsTest` 2.00 s, `ProjectUnitLoaderTest` 1.59 s,
+  `PlanInstanceStoreTest` 1.53 s, `TaskProtocolInterleavingTest` 1.33 s, `WorkflowValidatorTest` 1.27 s,
+  `WorkflowParserRefusalTest` 1.09 s, `ProjectStepBindingTest` 0.93 s, `WorkflowEngineTest` 0.92 s,
+  `ScenarioReplayRunnerTest` 0.81 s, `PlanInstanceHeaderTest` 0.80 s, `DiffSummaryTest` 0.79 s, `PlanProcessStatesTest`
+  0.75 s, `OperatorWaitTest` 0.71 s, `WorkflowPrinterTest` 0.69 s.
+* `pm-runtime`: `ProbeJobTest` 17.43 s, `LspClientTest` 15.28 s, `OutboundCallsArchTest` 7.50 s,
+  `SubprocessJobRunnerTest` 5.70 s, `TerminationProtocolTest` 5.65 s, `JudgmentVerificationTest` 5.03 s,
+  `HuggingFaceSourceRepositoryTest` 3.59 s, `WebTlsTest` 3.36 s, `SupervisorScenarioTest` 3.08 s, `LfsBatchClientTest`
+  2.57 s, `WorkerJobTest` 2.20 s, `JobDrainParticipantTest` 1.79 s, `JudgmentEndpointRemoteTest` 1.75 s,
+  `CredentialStoreMoveTest` 1.49 s, `OffTrackScenarioTest` 1.36 s.
+* `pm-provider-git`: `JGitSourceRepositoryTest` 1.65 s, `JGitOperationsTest` 1.45 s, `JGitCacheRepositoryTest` 1.43 s,
+  `WorktreeShaPortedTest` 1.39 s, `GitIdentityTest` 0.96 s, `RefusingFSTest` 0.49 s, `RemotePolicyTest` 0.40 s,
+  `UnservedWantTest` 0.38 s, `GitCredentialGeneratorTest` 0.22 s, `LinkedWorktreesTest` 0.17 s,
+  `WorktreeShaDigestTest` 0.14 s, `GitOperationsContractTest` 0.12 s, `GitOperationsRecordsTest` 0.11 s,
+  `AbsenceContractsTest` 0.10 s.
+* `pm-provider-http`: `HttpClientTest` 1.20 s, `JsonTest` 0.42 s, `EndpointTest` 0.24 s, `EndpointGeneratorTest`
+  0.14 s, `ResponseBuilderTest` 0.09 s, `ResponseGeneratorTest` 0.08 s, `PagedResultGeneratorTest` 0.08 s,
+  `AbsenceContractsTest` 0.08 s, `ResultRecordsTest` 0.07 s.
+* `pm-provider-ci`: `ForgeUrlTest` 0.29 s, `CiProvidersTest` 0.22 s, `RepositoryRefGeneratorTest` 0.20 s,
+  `PullRequestTest` 0.19 s, `ValueTypesTest` 0.12 s.
+* `pm-provider-github`: `GitHubCiProviderTest` 4.98 s, `GitHubClientTest` 1.55 s, `InstallationTokensTest` 1.49 s,
+  `GitHubAppJwtTest` 0.85 s, `GitHubOperationTest` 0.17 s, `GitHubClientRecordsTest` 0.09 s, `AbsenceContractsTest`
+  0.07 s.
+* `pm-provider-gitlab`: `GitLabCiProviderTest` 9.74 s, `GitLabClientTest` 1.67 s, `GlabCommandsTest` 0.41 s,
+  `GitLabClientRecordsTest` 0.15 s, `AbsenceContractsTest` 0.11 s.
+* `pm-provider-sonar`: `SonarClientTest` 2.07 s, `SonarIssueKeyTest` 0.16 s, `SonarProviderTest` 0.06 s.
+
+[#baseline-quality]
+=== The Quality Baseline
+
+The later changes of this plan are measured against these figures: instruction and branch coverage per module from the
+report-level counters of `jacoco.xml` of the coverage lane (run 4), together with the test and assertion counts of the
+table above.
+
+[cols="2,2,2",options="header"]
+|===
+|Module |Instruction coverage |Branch coverage
+
+|`pm-core` |92.72 % (120146 of 129576) |85.73 % (9249 of 10788)
+|`pm-workflow` |93.27 % (60443 of 64803) |85.22 % (4877 of 5723)
+|`pm-runtime` |90.98 % (58052 of 63806) |82.39 % (4014 of 4872)
+|`pm-provider-git` |92.69 % (3223 of 3477) |80.45 % (251 of 312)
+|`pm-provider-http` |96.28 % (1321 of 1372) |93.89 % (123 of 131)
+|`pm-provider-ci` |97.38 % (1488 of 1528) |88.89 % (200 of 225)
+|`pm-provider-github` |98.92 % (3010 of 3043) |89.67 % (191 of 213)
+|`pm-provider-gitlab` |98.22 % (2147 of 2186) |88.95 % (153 of 172)
+|`pm-provider-sonar` |100.00 % (512 of 512) |94.23 % (49 of 52)
+|===
+
+The coverage lane itself took 1278 s (21:17 min): `pm-core` 577 s, `pm-workflow` 201 s, `pm-runtime` 418 s, the
+provider modules between 4.7 s and 23.2 s each.
+
+[#baseline-verdict]
+=== The Verdict on the 22 Minutes
+
+The reported 22 minutes do not hold for `verify -Ppre-commit` on an idle host, which takes 650 s and 654 s (10:49 and
+10:52 min), of which about 515 s (79 %) is the test phase; they match the coverage lane `verify -Pcoverage` (21:17 min,
+1278 s), and a shared host adds about 29 % to the gate (run 1, 14:04 min).
+
+The sum of the test times in the reports (331 s, measured with the coverage agent) is smaller than the test phase of the
+gate (515 s): at least 184 s of the test phase is spent outside the test methods — in the start of the test JVM, class
+loading, the extensions and the class-level setup the reports do not attribute to a test.
+
+[#ranked-costs]
+=== The Ranked Cost
+
+Every build phase and test class above the cut-off of 5 s, ranked by its duration. The phase figures are those of the
+reference run 3 and the two-part split above; the class figures come from the coverage lane and carry the JaCoCo agent,
+so a class close to the cut-off (`JudgmentVerificationTest` 5.03 s above it, `GitHubCiProviderTest` 4.98 s below it)
+is ranked on an upper bound. The decision names where the item is dealt with: *fix in 3* (a build-level change in the
+repository's own configuration, kept only when the reference run shows the gain), *fix in 4* (a test-level change),
+*finding for 5* (recorded as an input of the test-design findings), or *keep* with its reason.
+
+Two configuration facts carry the largest items:
+
+* The test JVM. The parent `pm-mcp-parent` 0.1.1 configures `maven-surefire-plugin` with `reuseForks` `false` and the
+  default `forkCount` of 1, so Surefire starts one fresh JVM per test class, one after the other: 345 JVMs in
+  `pm-core`, 202 in `pm-runtime`, 132 in `pm-workflow`. Each pays the start of the JVM, the loading of its classes and
+  the warm-up of the JIT before its first test, and none runs beside another.
+* The reactor. `.mvn/maven.config` holds `-T1`. It was set by `0e0d128a` (2026-10-08), the commit that split the engine
+  modules into this repository; neither its message nor a later commit gives a reason. `.mvn/jvm.config` holds only
+  `--enable-native-access=ALL-UNNAMED`. After `pm-core`, the modules `pm-workflow`, `pm-runtime` and the provider
+  modules depend on nothing but `pm-core` and two provider modules, yet run one after the other.
+
+[cols="1,3,2,1,5,5",options="header"]
+|===
+|# |Item |Module |Seconds |Cause |Decision
+
+|1
+|Modules after `pm-core` run one after the other
+|all
+|393
+|Reactor serialisation: `-T1` runs `pm-workflow` (99 s), the provider modules (89 s) and `pm-runtime` (213 s) in
+sequence, although none of them depends on another except the providers on `pm-provider-http` and `pm-provider-ci`. A
+parallel reactor would bring the path after `pm-core` down to its longest module, `pm-runtime`, about 180 s less.
+|considered in 3, not applied: after change A the gate meets the target with a wide margin, and the remaining gain does
+not outweigh the risk (<<build-level-changes>>, change B).
+
+|2
+|Test phase of `pm-core`
+|`pm-core`
+|208
+|Phase repetition per class: 345 fresh JVMs one after the other (`reuseForks` `false`), at least 100 s of the phase
+outside the test methods (208 s phase against 107.6 s of test time, which itself includes cold starts); the 4827 tests
+have no class above 3.4 s.
+|fixed in 3: `reuseForks` `true` in the repository's own Surefire configuration, 240 s down to 45 s for the module
+(<<build-level-changes>>, change A); a `forkCount` above 1 considered and not applied (change C). The parent stays
+unchanged; its setting is a lead for the operator. finding for 5: the volume of small classes.
+
+|3
+|Test phase of `pm-runtime`
+|`pm-runtime`
+|190
+|Phase repetition per class: 202 fresh JVMs one after the other, at least 50 s outside the test methods (190 s against
+139.9 s); six classes above the cut-off (rows 9, 10, 14, 16 to 18) carry 56.6 s of the test time.
+|fixed in 3 as row 2: 213 s down to 101 s for the module; parallel forks not applied (change C).
+
+|4
+|Test phase of `pm-workflow`
+|`pm-workflow`
+|81
+|Phase repetition per class: 132 fresh JVMs one after the other, at least 34 s outside the test methods (81 s against
+47.6 s); no class above 2.1 s.
+|fixed in 3 as row 2: 99 s down to 25.3 s for the module.
+
+|5
+|Work outside test execution of `pm-core`
+|`pm-core`
+|32.2
+|Compilation with annotation processing under `failOnWarning`, the OpenRewrite recipes and licence check of the
+`pre-commit` profile, packaging of the JAR and the test JAR (upper bound, run 5 was loaded).
+|keep, because the checks are the gate's purpose and are defined by the parent's `pre-commit` profile (a lead for the
+operator if they are to change); `pm-core` is first in the reactor, so a parallel reactor cannot overlap it.
+
+|6
+|Work outside test execution of `pm-runtime`
+|`pm-runtime`
+|22.8
+|As row 5.
+|keep, because of row 5; a parallel reactor (row 1) overlaps it with the other modules.
+
+|7
+|Work outside test execution of `pm-workflow`
+|`pm-workflow`
+|17.6
+|As row 5.
+|keep, because of row 5; overlapped by row 1.
+
+|8
+|The root module
+|`pm-mcp-core`
+|13.5
+|The plugin executions of the root, a `pom` module without sources: the enforcer rules and the `pre-commit` goals bound to
+every module (21.1 s in the loaded run 5).
+|read in 3, keep: every goal the root runs is bound by the parent — the enforcer rules that guard the POMs, and the
+`pre-commit` profile's `rewrite:run` and `javadoc:javadoc`, each of which forks its own lifecycle and so runs the
+enforcer and licence executions a second and third time on a module without sources. Leaving them out at the root
+would take a plugin override of the parent's profile in this repository; it is a lead for the operator
+(<<operator-leads>>).
+
+|9
+|`ProbeJobTest`
+|`pm-runtime`
+|17.4
+|Sleep/timeout: `overBudget` waits out the 15 s budget of a version probe (`ProbeBudget.VERSION_SECONDS`, PM-EXEC-4),
+which `SubprocessJobRunner` reads through `ProbeBudget.of` with no clock or budget seam; the `detach` mode of the probe
+script sleeps 1.5 s; a launcher process per test.
+|keep the 15 s, because it is the specified budget and the runner takes no clock; a seam would be a production change
+for a test (a lead for the operator). Overlapped by parallel forks (row 3). finding for 5: tests that wait out a
+specified budget in real time.
+
+|10
+|`LspClientTest`
+|`pm-runtime`
+|15.3
+|Process spawn and sleep/timeout: a fixture language server process per test (6 tests); `timeout` waits out a 5 s request
+bound and `stubborn` a 2 s shutdown bound.
+|fix in 4: the bound is a parameter of `LspClient.start`, so the two tests can pass a bound well below a second and assert
+the same refusal and termination.
+
+|11
+|Test phase of `pm-provider-gitlab` with `GitLabCiProviderTest`
+|`pm-provider-gitlab`
+|12.7 (class 9.7)
+|Fixture setup: a mock web server and an HTTP client per test (72 tests, about 0.13 s each), twice the cost per test of
+`GitHubCiProviderTest` (81 tests in 4.98 s), for a reason not yet read.
+|fix in 4: read why a GitLab test costs twice a GitHub test and remove that cost; the mock web server stays
+`@EnableMockWebServer` (R20).
+
+|12
+|Test phase of `pm-provider-git`
+|`pm-provider-git`
+|10.1
+|Real file I/O: JGit repositories built per test below a temporary directory; no class above 1.7 s.
+|keep, because no class reaches the cut-off and the repositories are the behaviour under test; overlapped by row 1.
+
+|13
+|Test phase of `pm-provider-github`
+|`pm-provider-github`
+|10.0
+|Fixture setup: a mock web server per test; `GitHubCiProviderTest` 4.98 s stays below the cut-off.
+|keep, because no class reaches the cut-off; overlapped by row 1.
+
+|14
+|`OutboundCallsArchTest`
+|`pm-runtime`
+|7.5
+|Fixture setup: one ArchUnit import of every main class of `de.planmarshall.runtime` and `de.planmarshall.core`
+(`@BeforeAll`), with ArchUnit resolving the classes they reference from the class path, and 19 rule evaluations.
+|fix in 4: measure whether the import cost lies in the resolution of referenced classes and whether limiting it keeps the
+rule's evidence (the non-vacuous import and the two-way exemption checks); keep otherwise.
+
+|15
+|Work outside test execution of the provider modules
+|`pm-provider-git`, `-ci`, `-github`, `-http`, `-gitlab`, `-sonar`
+|6.9, 6.2, 6.3, 6.0, 5.9, 5.1
+|The fixed cost per module of the same plugin executions as row 5 on a small module.
+|keep, because of row 5; overlapped by row 1.
+
+|16
+|`SubprocessJobRunnerTest`
+|`pm-runtime`
+|5.7
+|Process spawn: a real launcher process per test (101 tests, about 56 ms each).
+|keep, because the process is the behaviour under test and the cost per test is small; overlapped by row 3.
+
+|17
+|`TerminationProtocolTest`
+|`pm-runtime`
+|5.7
+|Sleep/timeout and process spawn: on Linux, jobs in real process groups waited for the compiled grace period plus a
+bounded tolerance, beside the recording-primitive tests that carry the decisive assertions.
+|fix in 4: read whether a real-group test asserts the same observable as a recording-primitive test with the same input
+(duplication); keep the real-group tests otherwise, because they are the evidence against the operating system.
+
+|18
+|`JudgmentVerificationTest`
+|`pm-runtime`
+|5.0
+|Fixture setup: an HTTPS mock web server per test (`@EnableMockWebServer(useHttps = true)`) and the limits stage's
+bisection, which sends one request per step.
+|fix in 4: read where the time goes (TLS per test or the number of bisection steps) and shorten it without changing the
+stages asserted.
+|===
+
+Two further costs are above the cut-off but outside the reference gate:
+
+* *The coverage lane* (`verify -Pcoverage`, 1278 s): the JaCoCo agent and its reports on top of the per-class forks;
+  `pm-core` 577 s, `pm-runtime` 418 s, `pm-workflow` 201 s. Decision: keep the agent; the change of rows 2 to 4 applies
+  to the lane as well and takes it to 131 s (run 9, <<build-level-changes>>, change A), coverage per module not below
+  the quality baseline.
+* *The shared host* (run 1, about 190 s more than the reference): the plans running beside on the same 16 CPUs.
+  Decision: keep, because it is not a setting of this repository; every figure states its load.
+
+The integration-test lane (`-Pintegration-tests`, with `BuildGuardsIT`, which starts a nested Maven build per fixture
+project) is outside the gate and was not measured; it keeps its role.
+
+A per-phase run (`compile`, `test-compile` and `test` as separate invocations per module) is not owed for these
+decisions: every decision above rests on the two-part split and the reports, and each build-level change is measured
+against the reference run before it is kept.
+
+[#shared-state-audit]
+=== The Shared-State Audit
+
+The audit decides which module is admitted to parallel test execution and in which form: test classes in parallel JVMs
+(`forkCount` above 1, which shares only the operating system: files outside a temporary directory, ports, processes,
+the session bus), or tests in parallel threads of one JVM (the JUnit platform's parallel mode, which in addition shares
+every static field, system property and the working directory). It was taken by a content search over
+`src/test/java` of each module for the kinds named below, not by reading every class; the three green module runs of
+Deliverable 3 confirm it.
+
+[cols="2,3,2,2,2,2,2,3",options="header"]
+|===
+|Module |Static state |System properties |Working directory |Fixed ports |File locks |Temporary directories |Admission
+
+|`pm-core`
+|`@EnableTestLogger` in 5 classes (a process-global JUL handler); the default format locale, set per test by the extension `NonLatinDigits`
+|none written
+|none
+|none (the address literals of the profile tests are data)
+|`AtomicStoreFileTest`, `StoreSnapshotTest`, `AuditLogSinkTest`, below `@TempDir`
+|`@TempDir` per test
+|parallel JVMs; not parallel threads (logger and default locale)
+
+|`pm-workflow`
+|`@EnableTestLogger` in 4 classes
+|none
+|none
+|none
+|none
+|`@TempDir` per test
+|parallel JVMs; not parallel threads (logger)
+
+|`pm-runtime`
+|`@EnableTestLogger` in 40 classes
+|read or written in `AuditRotationTest`, `HuggingFaceSourceRepositoryTest`, `LfsBatchClientTest`
+|none written
+|address literals in `StartupSequenceTest`, `RuntimeDrainTest`, `EndpointFixtures` (to be read in 3)
+|`FileLockManagerTest`, `StaleLeaseSweepTest` (and the integration test `FileLockManagerTwoProcessIT`)
+|`@TempDir` per test
+|parallel JVMs only after three green module runs, with the process-group, lock and Secret Service tests marked to run
+alone if a run fails; not parallel threads (logger, properties, processes)
+
+|`pm-provider-git`
+|`@EnableTestLogger` in `JGitSourceRepositoryTest`; JGit's process-global system reader
+|none
+|none
+|none
+|none
+|`@TempDir` per test
+|parallel JVMs; not parallel threads
+
+|`pm-provider-http`
+|none found
+|none
+|none
+|none (mock servers on ephemeral ports; the literal in `EndpointTest` is data)
+|none
+|none
+|not admitted: 2.4 s of tests, no gain
+
+|`pm-provider-ci`, `pm-provider-sonar`
+|none found
+|none
+|none
+|none
+|none
+|none
+|not admitted: 1.0 s and 2.3 s of tests, no gain
+
+|`pm-provider-github`, `pm-provider-gitlab`
+|none found; the generator controller's behaviour under parallel threads is not audited
+|none
+|none
+|none (mock servers on ephemeral ports)
+|none
+|none
+|not admitted to parallel threads until the generator controller is audited; the gain (at most about 10 s) is overlapped
+by the parallel reactor
+|===
+
+== Decision
+
+The reference of every figure in this ADR is the median of idle runs of the full reactor routed through the build
+daemon, with the host load stated per run; a figure taken under load is marked and is not the reference. The target is
+a full `verify -Ppre-commit` of at most 600 s on an idle host (median of three runs), inside the daemon's 1120 s bound
+without a split, and the ranking covers every test class and build phase above a cut-off of 5 s (operator's decision of
+2026-11-12 at refine).
+
+Every item of the ranked cost carries the decision stated in its row. The fresh JVM per test class is removed in the
+repository's own configuration; with that one change the gate takes 247 s (median of three consecutive green runs: 256 s,
+243 s and 247 s) against the target of 600 s, and the coverage lane 131 s instead of 1278 s, so the 22 minutes the
+operator reported, which were the coverage lane, are removed by the same change. The serial
+reactor and a single test JVM per module are kept, and no module runs its tests in parallel, neither in parallel JVMs
+nor in parallel threads of one JVM.
+
+[#build-level-changes]
+=== The Build-Level Changes
+
+Each change was measured on its own against the idle reference (runs 2 and 3, 650 s and 654 s) and kept only for a
+measured gain; a change that does not shorten the reference run is reverted and recorded as tried.
+
+[cols="1,4,2,2,4",options="header"]
+|===
+|Change |What |Measured |Verdict |Reason
+
+|A
+|`reuseForks` `true` for `maven-surefire-plugin`, in the `pluginManagement` of the root POM; `forkCount` stays at the
+parent's 1, so each module runs its test classes one after the other in one JVM instead of one JVM per class
+|run 6: 256 s wrapper, 4:15 min Maven (−394 s, about −61 %); `pm-core` 45.0 s (was 240 s), `pm-workflow` 25.3 s (was
+99 s), `pm-runtime` 101 s (was 213 s), the provider modules 7.9 s to 17.7 s (`pm-provider-git` 11.0 s, was 17.0 s);
+10200 tests executed, all green; the gate rewrote no file. Runs 7 and 8 on the same configuration: 243 s (4:01 min)
+and 247 s (4:06 min), both green, 10200 tests, no rewritten file; run 7 was idle at the start, with another plan's
+build on the host towards its end. Median of the three consecutive green runs 6 to 8: *247 s* (target 600 s).
+Coverage lane run 9 (`verify -Pcoverage`): 131 s wrapper, 2:10 min Maven (was 1278 s, 21:17 min, run 4); `pm-core`
+17.9 s (was 577 s), `pm-workflow` 8.5 s (was 201 s), `pm-runtime` 75 s (was 418 s); 10200 tests, all green;
+instruction and branch coverage per module not below the quality baseline (`pm-core` 92.73 % / 85.76 % against
+92.72 % / 85.73 %, every other module identical)
+|kept
+|The largest single cause of the ranked cost (rows 2 to 4) at a cost of nothing in the test design: the classes of a
+module still run one after the other, so the shared-state audit's parallel-thread findings do not apply. What the
+change does share between classes is the JVM itself (static fields, system properties, the JUL handler of
+`@EnableTestLogger`); three consecutive green runs of the final configuration are its evidence that no class depends on
+starting in a fresh JVM.
+
+|B
+|A reactor thread count above 1 (for example `-T1C`) in `.mvn/maven.config` in place of `-T1`
+|not measured
+|considered, not applied
+|What it would still buy: after `pm-core` (45 s, which nothing overlaps), the modules now take 25 s (`pm-workflow`),
+70 s (the providers) and 101 s (`pm-runtime`) one after the other; a parallel reactor would bring that path down to
+`pm-runtime` alone, at most about 95 s of the 247 s. Against it: `.mvn/maven.config` is read by every caller — the
+build daemon, the lanes and the CI — so the change reaches all of them at once; the `pre-commit` profile's rewriting
+goals (OpenRewrite, licence headers) are not established as safe in a parallel reactor; the modules' logs interleave in
+the one build log the wrapper parses; and the timing-bound tests of `pm-runtime` (`TerminationProtocolTest`,
+`LspClientTest`, `ProbeJobTest`) would run beside the compilation and tests of the other modules on a host that is
+shared with other plans. With 353 s of margin to the target, the gain does not outweigh that risk. It stays the first
+lever if the gate grows towards the target again.
+
+|C
+|A `forkCount` above 1 (parallel test JVMs per module)
+|not measured
+|considered, not applied
+|What it would still buy: the two modules with a test phase worth splitting are `pm-runtime` (101 s) and `pm-core`
+(45 s); two forks would save perhaps 40 s and 20 s of them. Against it: the audit admits `pm-runtime` only after its
+lock tests (`FileLockManagerTest`, `StaleLeaseSweepTest`), its process-group tests and the address literals of
+`StartupSequenceTest`, `RuntimeDrainTest` and `EndpointFixtures` are read and shown free of shared ports, locks and
+working directories, which this plan has not done, and every fork adds a JVM to a shared host. The gain is small next
+to the margin; the open audit items stay the precondition for taking it up.
+|===
+
+`.mvn/jvm.config` holds only `--enable-native-access=ALL-UNNAMED`; the ranking names no JVM option of the Maven
+process, so it is unchanged. `src/guard-controls/` was surveyed: each fixture project carries its own `.mvn`, none
+asserts the `-T1` of this repository, and none is modified. No module POM is changed: the one kept change lives in the
+root POM's `pluginManagement` and reaches every module from there.
+
+[#parallel-verdict]
+=== The Parallel-Execution Verdict per Module
+
+[cols="2,2,2,4",options="header"]
+|===
+|Module |Parallel JVMs (`forkCount` above 1) |Parallel threads (JUnit platform) |Reason
+
+|`pm-core` |no |no |Admitted by the audit, not applied (change C); parallel threads excluded by the process-global
+test logger and default locale.
+|`pm-workflow` |no |no |Admitted by the audit, not applied: 25.3 s of module time leaves no gain worth a change;
+parallel threads excluded by the test logger.
+|`pm-runtime` |no |no |Not admitted: the audit items of change C are open; parallel threads excluded by the test
+logger, the system properties and the processes.
+|`pm-provider-git` |no |no |Admitted by the audit, not applied: 11.0 s of module time; parallel threads excluded by
+JGit's process-global system reader.
+|`pm-provider-http`, `pm-provider-ci`, `pm-provider-sonar` |no |no |Not admitted: 2.4 s, 1.0 s and 2.3 s of tests,
+no gain.
+|`pm-provider-github`, `pm-provider-gitlab` |no |no |Not admitted to parallel threads until the generator controller is
+audited; parallel JVMs not applied, the test phases (about 10 s each) leave no gain worth a change.
+|===
+
+Because no module runs its tests in parallel, no test class is marked to run alone (JUnit `@Isolated` or
+`@ResourceLock`) and no module POM carries a parallel switch; a module admitted later marks its non-parallel classes
+in the same change that switches it on.
+
+[#operator-leads]
+=== Leads for the Operator
+
+Findings outside this repository's own configuration are not changed by this plan:
+
+* *The parent's `reuseForks`.* `pm-mcp-parent` 0.1.1 configures `maven-surefire-plugin` with `reuseForks` `false`, which
+  starts a fresh JVM for every test class. This repository overrides it (change A); every other repository built on the
+  parent pays the same cost. Setting `reuseForks` `true` in the parent would give them the gain and let this
+  repository drop its override.
+* *The forked lifecycles of the `pre-commit` profile.* The parent's `rewrite:run` forks the lifecycle up to
+  `process-test-classes` and `javadoc:javadoc` up to `generate-sources`, so the `validate` executions run up to three
+  times per module, and both run on the `pom` modules (the root, `pm-providers`), where they process nothing; the root
+  takes 13.5 s (ranked row 8). Binding the profile's goals without a forked lifecycle, or skipping them for `pom`
+  packaging, is a change of the parent.
+* *CI and dependencies.* The measurement names no CI workflow setting and no dependency as a cost above the cut-off.
+
+== Alternatives Considered
+
+* *Taking the operator's 22 minutes as the baseline without a measurement:* not taken, because the plan fixes only what
+  the measurement shows; the measurement attributes the 22 minutes to the coverage lane, not to the pre-commit gate.
+* *Taking the loaded run 1 as the reference:* not taken, because the host is shared and a loaded figure measures the
+  other plans as much as this build.
+* *Changing the parent's `reuseForks` instead of overriding it here:* not taken, because a parent change is outside
+  this plan; it is a lead for the operator (<<operator-leads>>).
+* *Applying all three build-level changes together:* not taken, because each change is kept only on its own measured
+  gain; after change A the remaining two did not justify their risk (<<build-level-changes>>).
+
+== Consequences
+
+* Every later figure of this plan is compared with the idle reference of 650 s and with the quality baseline per module;
+  coverage per module may not fall below it.
+* The per-class times above carry the coverage agent; a ranking that relies on them states so.
+* Plain `verify` and the integration-test lane have no measured baseline in this ADR.
+* The test classes of a module share one JVM. A new test class that changes process-global state (a static field, a
+  system property, the default locale) restores it, because the class after it now runs in the same JVM.
+* `.mvn/maven.config` keeps `-T1`; a parallel reactor (change B) and parallel test JVMs (change C) are the levers left
+  if the gate grows towards the target again, each to be measured before it is kept.
+
+== Source
+
+The plan `PLAN-V2-140` (`verify-duration-and-test-design`) of the epic `pm-mcp-core-m2-m4-v2`; the operator's
+instruction of 2026-11-12 and the answers of the refine round (target 600 s, cut-off 5 s); the build commands of
+link:../../CLAUDE.md[`CLAUDE.md`].
