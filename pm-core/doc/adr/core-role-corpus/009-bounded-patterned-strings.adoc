@@ -136,10 +136,11 @@ member that carries a non-trivial pattern and no bound, and for a literal `.` th
   cases without compiling or matching the pattern.
 * The three schemas now refuse a value the format admitted before: an item id, a topic, a
   repository, a path or a licence over the ceilings. The manifests and the overlays of the shipped
-  sources, and the items an import generates, are accepted by the corpus validation with the bounds
-  in place. The corpus's own items are checked against the corpus's own item schema, which carries
-  no such bound (ADR 004), so this decision does not narrow them and their ids are not compared with
-  the ceilings here.
+  sources are accepted by the corpus validation with the bounds in place. That validation does not
+  compose overlay rows into items, so a row can pass it and still be refused at import, as the
+  consequence below describes. The corpus's own items are checked against the corpus's own item
+  schema, which carries no such bound (ADR 004), so this decision does not narrow them and their ids
+  are not compared with the ceilings here.
 * In an imported item the topic is a prefix of the id (`id = topic + "/" + slug`), so the id's own
   bound of 256 is the binding one: a topic of 256 code points cannot form an id within 256. The
   topic check keeps its place as a guard on the member itself, and the overlay row — whose slug is a
