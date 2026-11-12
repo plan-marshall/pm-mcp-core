@@ -248,6 +248,12 @@ the phase unit on the stack, the phase unit of the current unit (`Phase.ofUnit`)
 as a workspace or an epic unit, records none. An ended status whose phase already matches is returned unchanged, so a
 resume does not rewrite it.
 
+The end of a top-level unit sets the phase by the terminal's outcome id, not by its outcome class: the outcome id
+`aborted` (`plan.aborted`, `epic.aborted`) takes the phase `aborted`, and every other end takes `completed`, the
+delivery terminals `completed`, `handed_back` and `returned` included, although `handed_back` and `returned` report
+the class `failure`. `Ended` reports the outcome and its class unchanged, so the outcome tells the delivery terminals
+apart (link:../adr/workflow-engine/015-end-phase-keyed-by-the-outcome-id.adoc[ADR 015]).
+
 The call stack holds at most five frames: the plan unit, a phase, and three nested calls. `CallStack.MAX_DEPTH` and
 `WorkflowStatus.MAX_CALL_DEPTH` state the limit, and the push of a sixth frame is refused
 (link:../adr/workflow-engine/014-five-call-frames-and-the-derived-phase.adoc[ADR 014]).

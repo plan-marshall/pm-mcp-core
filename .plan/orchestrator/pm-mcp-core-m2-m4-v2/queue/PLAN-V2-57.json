@@ -2,10 +2,10 @@
   "id": "PLAN-V2-57",
   "slug": "default-plan-lanes-and-run",
   "workstream": "WS-02",
-  "status": "staged",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-57-default-plan-lanes-and-run",
+  "pr": "#378",
+  "landing": "landings/PLAN-V2-57.md",
   "seq": 57
 }

@@ -47,6 +47,11 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
  * {@code remediation.qgate-findings}. No phase file is merged into another: every phase is a unit of its own, and the
  * compiled invariants are decided over the call-resolved graph of the plan.
  * <p>
+ * The plan unit routes the four lanes at {@code phases.init}: {@code deep} through refine, outline, plan, execute and
+ * finalize; {@code light} through the light entry of outline, plan, execute and finalize; {@code land} straight into
+ * the land entry of execute and then finalize, passing no refine, outline or plan phase; {@code adopt} into the adopt
+ * entry of finalize alone.
+ * <p>
  * The units name the primitives of {@link #registry()} and the entity kinds of {@link #entityKinds()}, which are
  * written for the tests as well. A refusing unit is the passing source with one named {@link Mutation}: a text that
  * occurs exactly once in one file, replaced by another.
@@ -340,7 +345,7 @@ public final class InvariantFixtures {
      * @param units the sub-workflows a call may name
      * @return a catalog of the units and of the entity unit {@code entity}
      */
-    static WorkflowCatalog catalog(Collection<WorkflowDefinition> units) {
+    public static WorkflowCatalog catalog(Collection<WorkflowDefinition> units) {
         var definitions = new ArrayList<>(units);
         definitions.add(entityUnit());
         return new WorkflowCatalog(definitions);
@@ -535,7 +540,7 @@ public final class InvariantFixtures {
     }
 
     enum LaneOutcome implements PrimitiveOutcome {
-        DEEP("deep"), LIGHT("light");
+        DEEP("deep"), LIGHT("light"), LAND("land"), ADOPT("adopt");
 
         private final String wireName;
 
@@ -615,7 +620,7 @@ public final class InvariantFixtures {
     }
 
     enum RouteOutcome implements PrimitiveOutcome {
-        EXECUTE("execute"), LAND("land");
+        EXECUTE("execute");
 
         private final String wireName;
 

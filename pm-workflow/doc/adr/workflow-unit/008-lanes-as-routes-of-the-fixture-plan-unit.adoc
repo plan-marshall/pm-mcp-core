@@ -1,0 +1,61 @@
+= ADR 008: The Lanes as Routes of the Fixture Plan Unit
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-11
+
+== Context
+
+The fixture corpus `unit-fixtures/defaults/` holds the plan unit and its phase sub-workflows the tests of
+`pm-workflow` verify and run; it is written for the tests and never copied from the product. Its plan unit split only
+the `deep` and `light` lanes at `phases.init`; the `land` lane left the plan phase on an exit `land` of
+`phase-4-plan`, so it passed the refine, outline and plan phases first, and the `adopt` lane had no route at all. The
+specification states otherwise: a lane is the plan unit's choice of phases, the land lane calls no refine, outline or
+plan phase, and the adopt lane calls `init` and then `finalize`
+(link:../../../../doc/specification/state-catalogue/03-plan-phases-4-5-land.adoc[State Catalogue, Plan Phases 4-5
+and Land]; link:../../../../doc/specification/store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store
+Schemas § Phases as Sub-Workflows]). No test could show which phases each lane enters, and no test ran the plan unit
+through the engine.
+
+== Decision
+
+* The lanes are routes of the plan unit at `phases.init`: `phase-1-init` leaves on one exit per lane, `deep`,
+  `light`, `land` and `adopt`, each reached from `init.ready` through `test.lane`.
+* `deep` calls refine, outline at `start`, plan, execute at `start` and finalize at `start`; `light` calls outline at
+  `light` and then the same phases but refine.
+* `land` calls `phase-5-execute` at its `land` entry straight from `phases.init`, and then finalize. The exit `land`
+  of `phase-4-plan`, its terminal `plan.land-exit` and the outcome `land` of `test.route` are removed: the plan phase
+  is on no land path.
+* `adopt` calls `phase-6-finalize` at its `adopt` entry through the new call state `phases.finalize.adopt`, whose
+  exits are routed like those of `phases.finalize`.
+* The fixtures deliberately leave out the asking axis `phases.ask` and the routing state `phases.route` of the
+  product's plan unit; the lanes split at `init.ready` alone.
+* `DefaultPlanUnitTest` proves the phases each lane enters over the call-resolved graph, with a matched control that
+  routes `land` through the plan phase; `DefaultPlanRunTest` runs the four lanes, the rework loop-back, the finalize
+  re-entry and the hand-back through `WorkflowEngine` on the scripted primitives of `DefaultPlanPrimitives`.
+
+== Alternatives Considered
+
+1. *Keep the land lane behind the plan phase.* Rejected: it contradicts the specified land lane, and a lane proof
+  would have had to assert the contradiction.
+2. *Model `phases.ask` and `phases.route` in the fixtures as well.* Rejected for this package: the lanes do not
+  depend on them, and the composer tests model the asking axis in a template of their own.
+
+== Consequences
+
+`INV-PLAN-1`, every path into Phase 5 passes `plan.qgate`, no longer covers the land entry of execute, which the
+land lane reaches without a plan phase; the invariant compares a unit against its default, so the corpus still
+passes. The composer fixture `plan/per-lane-rework.pmwf` routes the new lane outcomes of `test.lane` as well. The
+corpus nests at most three call frames below the plan unit (execute, the Q-Gate remediation, the commit it calls),
+which the rework run reaches and pops; the depth five the call stack admits is not reached by the corpus.
+
+== Source
+
+* Work package `PLAN-V2-57`.
+* State Catalogue, Plan Phases 4-5 and Land (the land lane calls no refine, outline or plan phase).
+* Store Schemas § Phases as Sub-Workflows and the Phase of a Record (a lane is a choice of phases).

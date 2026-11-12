@@ -154,7 +154,9 @@ link:../adr/runtime-lock/003-stale-lease-sweep-by-holder-liveness.adoc[ADR 003].
 link:{test}/FileLockManagerTest.java[`FileLockManagerTest`]:: acquisition and release, the refusal with nothing
 acquired, the modes of the lock files, the entries kept only while in use, and re-entry.
 link:{test}/FileLockManagerTwoProcessIT.java[`FileLockManagerTwoProcessIT`]:: the lock excludes a second JVM in both
-directions, through `LockHolderProcess` (`-Pintegration-tests`).
+directions, through `LockHolderProcess` (`-Pintegration-tests`), and one test per leaf mode shows that the OS lock on
+the sidecar survives the store operation: the audit append, its torn-tail repair, its last-line read, the mailbox
+append and a journal-shaped key.
 link:{test}/StaleLeaseSweepTest.java[`StaleLeaseSweepTest`]:: every rule, the reasons of a sweep that removed nothing,
 the audit-free result, and the project overload: two projects with dead holders, only the selected one orphaned and the
 other byte-identical.

@@ -222,6 +222,45 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 6. **Values, not exceptions**: every refusal is a `UnitFinding`; only a `null` argument throws.
 7. **No content in the module**: the module carries no unit. Its tests read units written for them below `unit-fixtures/defaults/`; no test reads the root `workflows/`.
 
+[#_the_fixture_corpus]
+== The Fixture Corpus
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+The tests of the module read the twelve units of `src/test/resources/unit-fixtures/defaults/`, written for the tests
+and never copied from the product: the plan unit `plan.pmwf`, the six phase sub-workflows `init.pmwf`, `refine.pmwf`,
+`outline.pmwf`, `phase-4-plan.pmwf`, `execute.pmwf` and `finalize.pmwf`, the land lane `land.pmwf`, and the
+project-ownable sub-workflows `adjudicate-decisions.pmwf`, `replan.pmwf`, `git-commit-and-push.pmwf` and
+`remediation-qgate-findings.pmwf`. `InvariantFixtures` of `workflow.verify` reads them, with the primitives and entity
+kinds they name.
+
+The lanes are routes of the plan unit at `phases.init`: `phase-1-init` leaves on one exit per lane, chosen at
+`init.ready` (link:../adr/workflow-unit/008-lanes-as-routes-of-the-fixture-plan-unit.adoc[ADR 008]).
+
+[cols="1,3",options="header"]
+|===
+|Lane |Phases called, each at its entry
+
+|`deep` |`phase-1-init` at `start`, `phase-2-refine` at `start`, `phase-3-outline` at `start`, `phase-4-plan` at
+`start`, `phase-5-execute` at `start`, `phase-6-finalize` at `start`
+|`light` |`phase-1-init` at `start`, `phase-3-outline` at `light`, `phase-4-plan` at `start`, `phase-5-execute` at
+`start`, `phase-6-finalize` at `start`
+|`land` |`phase-1-init` at `start`, `phase-5-execute` at `land` (which calls `land`), `phase-6-finalize` at `start`
+|`adopt` |`phase-1-init` at `start`, `phase-6-finalize` at `adopt`
+|===
+
+The plan phase is on no land path: `phase-4-plan` has no `land` exit, and the land lane enters execute straight from
+`phases.init`, as the land lane calls no refine, outline or plan phase
+(link:../../../doc/specification/state-catalogue/03-plan-phases-4-5-land.adoc[State Catalogue, Plan Phases 4-5 and
+Land]). The fixtures leave out what the lanes do not need of the product's plan unit: the asking axis `phases.ask` and
+the routing state `phases.route`.
+
+`DefaultPlanUnitTest` proves the phases each lane enters over the call-resolved graph of the plan unit, with a matched
+control that routes `land` through the plan phase. `DefaultPlanRunTest` of `workflow.engine` runs the plan unit end to
+end through `WorkflowEngine` on the executable scripted primitives of `DefaultPlanPrimitives`: the four lanes to
+`completed`, the rework loop-back, the finalize re-entry and the hand-back after an exhausted gate; it asserts the
+phases entered, the end phase and the deepest call stack the corpus reaches, three frames below the plan unit.
+
 == Testing
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
@@ -231,9 +270,11 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `ProjectUnitLoaderTest` and `ProjectStepBindingTest` cover every refusal of a project load and every binding disagreement; the log records are asserted with cui-test-juli-logger.
 The plan unit and the six phase sub-workflows are twelve units of the fixture corpus, each verified on its own (`DefaultUnitLoaderTest`); a project unit with the author `plan-marshall`, `Plan-Marshall`, `PLAN-MARSHALL`, a full-width form or a zero-width character is refused with `author_reserved` at its file and line, a near miss such as `plan-marshal` loads, and a file at the size cap loads while one byte and four times past it are refused with `unit_too_large` (`ProjectUnitLoaderTest`).
 Every unit text of the tests opens with its frontmatter: `plan-marshall` as author for a unit loaded as a default, a person's name for a unit loaded as a project unit.
+`DefaultPlanUnitTest` (`workflow.verify`) proves the phases each lane of the fixture plan unit enters, and
+`DefaultPlanRunTest` (`workflow.engine`) runs the plan unit end to end (<<_the_fixture_corpus>>).
 
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
 * Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]
-* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 007; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005], its normalised comparison and the file size bound in link:../adr/workflow-unit/006-reserved-author-compared-normalised.adoc[ADR 006], and the plan unit that calls its phases in link:../adr/workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR 007]
+* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 008; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005], its normalised comparison and the file size bound in link:../adr/workflow-unit/006-reserved-author-compared-normalised.adoc[ADR 006], the plan unit that calls its phases in link:../adr/workflow-unit/007-the-plan-unit-calls-its-phases.adoc[ADR 007], and the lanes as routes of the fixture plan unit in link:../adr/workflow-unit/008-lanes-as-routes-of-the-fixture-plan-unit.adoc[ADR 008]
