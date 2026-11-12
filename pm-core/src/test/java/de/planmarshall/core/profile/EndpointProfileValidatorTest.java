@@ -27,8 +27,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * The endpoint profile schema and its validation (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema, § Loopback
  * Only Here): the document of the profile sets is told apart by {@code profile_kind}, carries none of the client
- * profile's blocks, and every combination of {@code locality} the schema cannot express is refused with the member
- * named.
+ * profile's blocks, names a loopback endpoint of the protocol {@code openai_chat} served by a program with its identity,
+ * and every rule the schema cannot express is refused with the member named.
  */
 // Every datum in this class is a contract: the endpoint wire names, the schema member names and the refusal pointers.
 @DisplayName("Endpoint profile validation")
@@ -40,20 +40,27 @@ class EndpointProfileValidatorTest {
         var profile = EndpointProfile.of(EndpointProfileFixtures.valid());
 
         assertAll(
-                () -> assertEquals("local-runner", profile.clientId()),
-                () -> assertEquals("ollama", profile.executable()),
-                () -> assertEquals(List.of("--version"), profile.identity().versionProbe()),
-                () -> assertEquals("version ([0-9.]+)", profile.identity().versionPattern()),
-                () -> assertFalse(profile.updateEvidence().verifiable()),
-                () -> assertEquals("openai_chat", profile.endpoint().protocol()),
-                () -> assertEquals("loopback", profile.endpoint().locality()),
-                () -> assertEquals("http://127.0.0.1:11434", profile.endpoint().baseUrl()),
-                () -> assertEquals("/api/tags", profile.endpoint().readinessOrModelsPath()),
-                () -> assertEquals(7168, profile.endpoint().contextBudgetTokens()),
-                () -> assertTrue(profile.endpoint().sendsResultSchema()),
-                () -> assertEquals("models_listing", profile.weightsProbe().source()),
-                () -> assertEquals("/digest", profile.weightsProbe().pointer()),
-                () -> assertEquals(Map.of("frontier", "big", "standard", "mid", "fast", "small"), profile.modelTiers()));
+                () -> assertEquals("local-runner", profile.clientId(), "The client id is projected"),
+                () -> assertEquals("ollama", profile.executable(), "The serving program is projected"),
+                () -> assertEquals(List.of("--version"), profile.identity().versionProbe(),
+                        "The version probe is projected"),
+                () -> assertEquals("version ([0-9.]+)", profile.identity().versionPattern(),
+                        "The version pattern is projected"),
+                () -> assertFalse(profile.updateEvidence().verifiable(), "Update evidence 'none' is not verifiable"),
+                () -> assertEquals("openai_chat", profile.endpoint().protocol(), "The protocol is projected"),
+                () -> assertEquals("http://127.0.0.1:11434", profile.endpoint().baseUrl(),
+                        "The loopback base URL is projected"),
+                () -> assertEquals("/api/tags", profile.endpoint().readinessOrModelsPath(),
+                        "The readiness path is projected"),
+                () -> assertEquals(7168, profile.endpoint().contextBudgetTokens(),
+                        "The budget is context less the reserve"),
+                () -> assertTrue(profile.endpoint().sendsResultSchema(), "An enforced result schema is sent"),
+                () -> assertEquals("models_listing", profile.weightsProbe().source(),
+                        "The weights probe source is projected"),
+                () -> assertEquals("/digest", profile.weightsProbe().pointer(),
+                        "The weights probe pointer is projected"),
+                () -> assertEquals(Map.of("frontier", "big", "standard", "mid", "fast", "small"), profile.modelTiers(),
+                        "The model tiers are projected"));
     }
 
     @Test
@@ -63,8 +70,9 @@ class EndpointProfileValidatorTest {
         var client = ProfileValidator.validate(bytes, "profiles/acme-cli.json", ProfileRules.none());
 
         assertAll(
-                () -> assertFalse(ProfileValidator.isEndpoint(client)),
-                () -> assertThrows(IllegalArgumentException.class, () -> EndpointProfile.of(client)));
+                () -> assertFalse(ProfileValidator.isEndpoint(client), "A client profile is not an endpoint"),
+                () -> assertThrows(IllegalArgumentException.class, () -> EndpointProfile.of(client),
+                        "A client profile is refused as an endpoint"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -82,8 +90,8 @@ class EndpointProfileValidatorTest {
                     + "| /endpoint/base_url",
             "a loopback endpoint names no loopback host | http://127.0.0.1:11434 | http://10.0.0.2:11434 "
                     + "| /endpoint/base_url",
-            "a loopback endpoint names a credential key | \"credential_key\": null | \"credential_key\": "
-                    + "\"remote-token\" | /endpoint/credential_key",
+            "a loopback endpoint names a port above the range | http://127.0.0.1:11434 | http://127.0.0.1:99999 "
+                    + "| /endpoint/base_url",
             "a loopback endpoint names no executable | \"executable\": \"ollama\" | \"executable\": null | /executable",
             "a loopback endpoint names no identity | \"identity\": {\"version_probe\": [\"--version\"], "
                     + "\"version_pattern\": \"version ([0-9.]+)\"} | \"identity\": null | /identity",
@@ -96,11 +104,35 @@ class EndpointProfileValidatorTest {
     void refusedWithMemberNamed(String name, String from, String to, String pointer) {
         var document = EndpointProfileFixtures.variant(from, to);
 
-        var refusal = assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(document));
+        var refusal = assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(document),
+                "The variant profile is refused");
 
         assertAll(
-                () -> assertEquals(pointer, refusal.pointer()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()));
+                () -> assertEquals(pointer, refusal.pointer(), "The refusal names the offending member"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                        "The refusal outcome is profile_invalid"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "the protocol system_one | \"protocol\": \"openai_chat\" | \"protocol\": \"system_one\" "
+                    + "| /endpoint/protocol",
+            "a locality member | \"protocol\": \"openai_chat\", | \"protocol\": \"openai_chat\", \"locality\": "
+                    + "\"loopback\", | /endpoint/locality",
+            "a credential_key member | \"protocol\": \"openai_chat\", | \"protocol\": \"openai_chat\", "
+                    + "\"credential_key\": null, | /endpoint/credential_key"
+    })
+    @DisplayName("a member or value of the deleted remote and judgment forms refuses the profile")
+    void deletedFormRefused(String name, String from, String to, String pointer) {
+        var document = EndpointProfileFixtures.variant(from, to);
+
+        var refusal = assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(document),
+                "A deleted form's member is refused");
+
+        assertAll(
+                () -> assertEquals(pointer, refusal.pointer(), "The refusal names the deleted member"),
+                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                        "The refusal outcome is profile_invalid"));
     }
 
     @Test
@@ -109,83 +141,10 @@ class EndpointProfileValidatorTest {
         var shipped = ShippedProfiles.read().shipped();
 
         assertAll(
-                () -> assertFalse(shipped.isEmpty()),
+                () -> assertFalse(shipped.isEmpty(), "The shipped profile set is not empty"),
                 () -> assertTrue(shipped.values().stream().noneMatch(profile -> ProfileValidator.isEndpoint(
-                        ProfileValidator.validate(profile.document(), "shipped", ProfileRules.none())))));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @CsvSource(delimiter = '|', value = {
-            "the remote form is not the protocol system_one | \"protocol\": \"system_one\" | \"protocol\": "
-                    + "\"openai_chat\" | /endpoint/locality",
-            "a remote endpoint names an http origin | https://judge.example.test | http://127.0.0.1:11434 "
-                    + "| /endpoint/base_url",
-            "a remote endpoint names a port above the range | https://judge.example.test | "
-                    + "https://judge.example.test:99999 | /endpoint/base_url",
-            "a remote endpoint names no credential key | \"credential_key\": \"judge-token\" | \"credential_key\": "
-                    + "null | /endpoint/credential_key",
-            "a remote endpoint names a one-character credential key | \"credential_key\": \"judge-token\" | "
-                    + "\"credential_key\": \"x\" | /endpoint/credential_key",
-            "a remote endpoint names an executable | \"executable\": null | \"executable\": \"ollama\" | /executable",
-            "a remote endpoint names an identity | \"identity\": null | \"identity\": {\"version_probe\": "
-                    + "[\"--version\"], \"version_pattern\": \"version ([0-9.]+)\"} | /identity",
-            "a remote endpoint names update evidence | \"update_evidence\": null | \"update_evidence\": "
-                    + "{\"method\": \"none\", \"signer\": null} | /update_evidence",
-            "a remote endpoint runs an argv weights probe | \"weights_probe\": null | \"weights_probe\": "
-                    + "{\"source\": \"argv\", \"pointer\": null, \"argv\": [\"probe\", \"{{model}}\"], "
-                    + "\"pattern\": \"(.*)\"} | /weights_probe/source"
-    })
-    @DisplayName("a rule the remote form states refuses the profile with the member named")
-    void remoteRefusedWithMemberNamed(String name, String from, String to, String pointer) {
-        var document = EndpointProfileFixtures.remoteVariant(from, to);
-
-        var refusal = assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(document));
-
-        assertAll(
-                () -> assertEquals(pointer, refusal.pointer()),
-                () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome()));
-    }
-
-    @Test
-    @DisplayName("a remote-form document validates and projects the credential key it reads")
-    void remoteFormValidated() {
-        var profile = EndpointProfile.of(EndpointProfileFixtures.remote());
-
-        assertAll(
-                () -> assertEquals("hosted-judge", profile.clientId()),
-                () -> assertNull(profile.executable()),
-                () -> assertNull(profile.identity()),
-                () -> assertNull(profile.updateEvidence()),
-                () -> assertEquals("system_one", profile.endpoint().protocol()),
-                () -> assertEquals("remote", profile.endpoint().locality()),
-                () -> assertEquals("https://judge.example.test", profile.endpoint().baseUrl()),
-                () -> assertEquals("judge-token", profile.endpoint().credentialKey()),
-                () -> assertTrue(profile.endpoint().remote()),
-                () -> assertTrue(profile.endpoint().judgment()),
-                () -> assertEquals(7680, profile.endpoint().contextBudgetTokens()));
-    }
-
-    @Test
-    @DisplayName("the protocol system_one is admitted on a loopback endpoint too")
-    void judgmentOnLoopbackAdmitted() {
-        var document = EndpointProfileFixtures.variant("\"protocol\": \"openai_chat\"",
-                "\"protocol\": \"system_one\"");
-
-        var profile = EndpointProfile.of(EndpointProfileFixtures.validate(document));
-
-        assertAll(
-                () -> assertTrue(profile.endpoint().judgment()),
-                () -> assertFalse(profile.endpoint().remote()),
-                () -> assertNull(profile.endpoint().credentialKey()));
-    }
-
-    @Test
-    @DisplayName("the stage list of a judgment endpoint leaves the classes stage out")
-    void judgmentStages() {
-        assertAll(
-                () -> assertEquals(List.of("identity", "launch", "classes", "limits"),
-                        ProfileStages.stagesFor("openai_chat")),
-                () -> assertEquals(List.of("identity", "launch", "limits"), ProfileStages.stagesFor("system_one")));
+                        ProfileValidator.validate(profile.document(), "shipped", ProfileRules.none()))),
+                        "No shipped profile is an endpoint profile"));
     }
 
     @Test
@@ -197,8 +156,9 @@ class EndpointProfileValidatorTest {
         var profile = EndpointProfile.of(EndpointProfileFixtures.validate(document));
 
         assertAll(
-                () -> assertNull(profile.endpoint().readinessPath()),
-                () -> assertEquals("/api/tags", profile.endpoint().readinessOrModelsPath()));
+                () -> assertNull(profile.endpoint().readinessPath(), "A null readiness path is projected as null"),
+                () -> assertEquals("/api/tags", profile.endpoint().readinessOrModelsPath(),
+                        "The models path stands in for readiness"));
     }
 
     @Test
@@ -217,8 +177,10 @@ class EndpointProfileValidatorTest {
                 ProfileRules.none());
 
         assertAll(
-                () -> assertEquals("models_listing", EndpointProfile.weightsProbeOf(endpoint).orElseThrow().source()),
+                () -> assertEquals("models_listing", EndpointProfile.weightsProbeOf(endpoint).orElseThrow().source(),
+                        "The endpoint's weights probe is read"),
                 () -> assertTrue(EndpointProfile.weightsProbeOf(client).isEmpty(), "A client without probe is empty"),
-                () -> assertEquals("/digest", EndpointProfile.weightsProbeOf(clientWithProbe).orElseThrow().pointer()));
+                () -> assertEquals("/digest", EndpointProfile.weightsProbeOf(clientWithProbe).orElseThrow().pointer(),
+                        "The client's weights probe is read"));
     }
 }

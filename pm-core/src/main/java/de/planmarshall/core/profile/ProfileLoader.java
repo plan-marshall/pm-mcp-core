@@ -270,7 +270,7 @@ public final class ProfileLoader {
 
     /** The pointers that say which endpoint harness a project endpoint profile describes. */
     private static final List<String> ENDPOINT_IDENTITY_POINTERS = List.of("/identity", "/executable",
-            "/endpoint/protocol", "/endpoint/locality", "/endpoint/base_url", "/endpoint/credential_key");
+            "/endpoint/protocol", "/endpoint/base_url");
 
     /**
      * Reads a value below a profile whose parent may be JSON {@code null}: a project profile of a harness without a

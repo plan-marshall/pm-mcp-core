@@ -38,7 +38,8 @@ import de.planmarshall.core.role.RoleValidationReason;
  * absent or invalid refuses with {@code role_undefined} naming the role, the state and the validation reason; a role
  * whose class does not fit its use, and a consulted {@code zero_tool} role, refuse with {@code class_mismatch} naming the
  * role, its class, the state and the required class. The controls compose the writer's envelope kind, the screener's
- * screen kind and the judge's {@code zero_tool} kind with their roles.
+ * screen kind and the judge's {@code zero_tool} kind with their roles; a {@code zero_tool} role on the vote kind is
+ * refused, because the vote kind requires {@code read_only}.
  */
 @EnableGeneratorController
 @DisplayName("Role composition")
@@ -72,11 +73,24 @@ class RoleCompositionTest {
     }
 
     @Test
-    @DisplayName("a zero_tool role composes on the decision kind as a judgment role")
-    void zeroToolOnDecisionComposes() {
+    @DisplayName("a zero_tool role on the decision or vote kind is class_mismatch: no judgment role votes")
+    void zeroToolOnDecisionMismatches() {
         var composition = composition(Map.of("judge", role(RoleClass.ZERO_TOOL, RoleForm.FRESH)));
 
-        composes(composition, RoleUse.forModelJob(STATE, "decision", "judge"));
+        var decision = refused(composition, RoleUse.forModelJob(STATE, "decision", "judge"));
+        var vote = refused(composition, RoleUse.forModelJob(STATE, "vote", "judge"));
+
+        assertAll(
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, decision.reason(),
+                        "a zero_tool decision role is a mismatch"),
+                () -> assertEquals(RoleClass.ZERO_TOOL, decision.roleClass().orElseThrow(),
+                        "the refusal names the zero_tool class"),
+                () -> assertEquals(Set.of(RoleClass.READ_ONLY), decision.requiredClasses(),
+                        "the decision kind requires read_only only"),
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, vote.reason(),
+                        "a zero_tool vote role is a mismatch"),
+                () -> assertEquals(Set.of(RoleClass.READ_ONLY), vote.requiredClasses(),
+                        "the vote kind requires read_only only"));
     }
 
     @Test
@@ -87,8 +101,10 @@ class RoleCompositionTest {
         var refusal = refused(composition, RoleUse.forModelJob(STATE, "decision", "implement"));
 
         assertAll(
-                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason()),
-                () -> assertEquals(Set.of(RoleClass.READ_ONLY, RoleClass.ZERO_TOOL), refusal.requiredClasses()));
+                () -> assertEquals(CompositionRefusal.Reason.CLASS_MISMATCH, refusal.reason(),
+                        "a writer decision role is a mismatch"),
+                () -> assertEquals(Set.of(RoleClass.READ_ONLY), refusal.requiredClasses(),
+                        "the decision kind requires read_only only"));
     }
 
     @Test

@@ -56,9 +56,6 @@ No class of `pm-runtime` may depend on `de.cuioss.http.client..` except the dest
 |===
 |Destination class |Sentence it implements
 
-|`de.planmarshall.runtime.endpoint.JudgmentClient`
-|the remote judgment endpoint the operator enrolled (Client Profiles § Judgment Endpoint)
-
 |`de.planmarshall.runtime.endpoint.EndpointClient`
 |the loopback endpoint of a client profile (Client Profiles § The Request)
 
@@ -96,7 +93,7 @@ The map holds the four classes the sweep of the head finds, and the specificatio
 
 Both maps are proved load-bearing in both directions.
 A test evaluates rule A without its exemptions over the same import and asserts that the violating top-level classes are exactly the keys of the map, so an entry that no longer violates fails as stale and a violation without an entry fails as unlisted; rule B asserts the same equality between the classes that depend on `de.cuioss.http.client..` and the allow-list.
-The import is asserted non-vacuous (it contains `HuggingFaceSourceRepository`, `WorkerEgressProxy` and `ShippedRoles`), so a changed import path cannot make rule A pass on nothing; rule B asserts its own non-vacuity on `EndpointClient`, `JudgmentClient` and `HuggingFaceSourceRepository`.
+The import is asserted non-vacuous (it contains `HuggingFaceSourceRepository`, `WorkerEgressProxy` and `ShippedRoles`), so a changed import path cannot make rule A pass on nothing; rule B asserts its own non-vacuity on `EndpointClient` and `HuggingFaceSourceRepository`.
 
 == How to add an outbound call
 
@@ -149,6 +146,6 @@ A parameterised test pairs each hazard fixture with the forbidden target its fai
 
 == Specification Tracing
 
-* Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[Credentials & Enrolment § Closed List of Outbound Calls], link:{docs}/specification/client-profiles/04-judgment-endpoint.adoc[Client Profiles § Judgment Endpoint], link:{spec}/model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work § Corpus Sources]
+* Specification: link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[Credentials & Enrolment § Closed List of Outbound Calls], link:{spec}/model-work/01-roles-and-configuration.adoc#corpus-sources[Model Work § Corpus Sources]
 * Requirements: link:{docs}/Requirements.adoc#PM-ARCH-2[PM-ARCH-2], link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5], link:{docs}/Requirements.adoc#PM-TECH-2[PM-TECH-2], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
 * Decisions: link:../../../doc/adr/023-the-outbound-call-guard-lives-in-pm-runtime.adoc[repository ADR 023], link:../../../pm-runtime/doc/developer/runtime-corpus.adoc[`runtime-corpus.adoc`]

@@ -304,19 +304,6 @@ class LaunchComposerTest {
         return new LaunchComposer().compose(request(role, fresh, LaunchRequest.WorkdirKind.PLAN_WORKTREE, freeText));
     }
 
-    @Test
-    @DisplayName("an endpoint-form enrolment composes no worker launch")
-    void endpointEnrolmentComposesNoWorker() {
-        var role = roleWithoutResume(RoleClass.ZERO_TOOL);
-        var enrolled = HarnessEnrolment.endpoint("claude", "https://" + shortWords().next() + ".example.test",
-                shortWords().next(), LaunchFixtures.clock().instant(), new HarnessEnrolment.UsageReport(
-                        HarnessEnrolment.UsageSource.DECLARED, Map.of()));
-        var request = request(role, true, LaunchRequest.WorkdirKind.PLAN_WORKTREE, false, enrolled);
-
-        assertThrows(LaunchComposer.CompositionException.class, () -> new LaunchComposer().compose(request),
-                "an endpoint enrolment composes no worker");
-    }
-
     private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,
             boolean freeText) {
         return request(role, fresh, kind, freeText, LaunchFixtures.enrolment(LaunchFixtures

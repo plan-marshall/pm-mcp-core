@@ -33,8 +33,8 @@ link:https://github.com/plan-marshall/pm-mcp-core/blob/main/pm-core/doc/develope
   absent or invalid role closes the task with `role_undefined`, naming the validation reason where there is one.
 . *Class fit*: the entity kind decides the class the task requires. `RoleUse.classesOf` maps the screener's `screen` and
   the judge's grading kind `zero_tool` to `zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`,
-  `simplify-apply` and `conflict` to `writer`; `vote` and the registry's `decision` to `read_only` or `zero_tool`; and
-  every other kind to `read_only`, the class of the planning, review and triage kinds. A consultation admits every class
+  `simplify-apply` and `conflict` to `writer`; and every other kind to `read_only`, the class of the planning, review and
+  triage kinds and of `vote` and the registry's `decision`. A consultation admits every class
   but `zero_tool`. A mismatch, or a consulted `zero_tool` role, closes the task with `class_mismatch`.
 . *Qualify*: a lookup by the role's qualification digest. Without a record the task closes with `role_unqualified`; a
   warm artifact that only qualifies fresh runs fresh and the result carries `formDowngraded`. The `judge` and the
@@ -65,12 +65,9 @@ as the judge, and a `zero_tool` role cannot be consulted.
 == Why the Class Travels with the Use
 
 The specification says every entity kind declares, with its registration, the class its tasks require. This package keeps
-that declaration with the *use* (`RoleUse`) rather than adding a member to `verify.EntityKind`, because one kind admits
-two classes: the vote kind is `read_only`, or `zero_tool` as a judgment role on a `system_one` endpoint of the protocol.
-The class set admits both; whether a `zero_tool` vote is permitted on the endpoint's protocol is not checked
-here: the judgment role is deferred (link:https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/later-improvements.adoc#L-39[L-39]). A single class member on the kind could not express the two
-classes without a second registration; a set on the use can, and a unit that registers a new kind passes its own set. The
-compiled mapping in `RoleUse.classesOf` is the table for the shipped kinds. See
+that declaration with the *use* (`RoleUse`) rather than adding a member to `verify.EntityKind`, because a use admits a
+set of classes: a consultation admits every class but `zero_tool`, and a unit that registers a new kind passes its own
+set. The compiled mapping in `RoleUse.classesOf` is the table for the shipped kinds. See
 link:../adr/workflow-model/001-model-caller-and-classes-at-use.adoc[ADR workflow-model/001].
 
 == The Grading Run and the Qualification Lookup

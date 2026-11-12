@@ -53,7 +53,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.planmarshall.core.role.ShippedRoles;
 import de.planmarshall.runtime.corpus.HuggingFaceSourceRepository;
 import de.planmarshall.runtime.endpoint.EndpointClient;
-import de.planmarshall.runtime.endpoint.JudgmentClient;
 import de.planmarshall.runtime.guard.fixtures.ChannelFixture;
 import de.planmarshall.runtime.guard.fixtures.ClientSocketFixture;
 import de.planmarshall.runtime.guard.fixtures.CuiHttpFixture;
@@ -156,9 +155,6 @@ class OutboundCallsArchTest {
      * the sentence of the specification it implements. A class not on this list may not use the client at all.
      */
     private static final List<DestinationClass> DESTINATION_CLASSES = List.of(
-            new DestinationClass("de.planmarshall.runtime.endpoint.JudgmentClient",
-                    "Credentials & Enrolment § Closed List of Outbound Calls: the remote judgment endpoint the "
-                            + "operator enrolled (Client Profiles § Judgment Endpoint)"),
             new DestinationClass("de.planmarshall.runtime.endpoint.EndpointClient",
                     "Credentials & Enrolment § Closed List of Outbound Calls: the loopback endpoint of a client "
                             + "profile (Client Profiles § The Request)"),
@@ -360,7 +356,6 @@ class OutboundCallsArchTest {
         @DisplayName("the rule holds, and the import is not empty")
         void ruleHolds() {
             var nonVacuous = mainClasses.contain(EndpointClient.class)
-                    && mainClasses.contain(JudgmentClient.class)
                     && mainClasses.contain(HuggingFaceSourceRepository.class);
 
             assertTrue(nonVacuous, "The import contains the destination classes");

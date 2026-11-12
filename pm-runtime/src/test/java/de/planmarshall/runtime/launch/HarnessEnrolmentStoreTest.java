@@ -10,10 +10,8 @@
 package de.planmarshall.runtime.launch;
 
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,9 +41,9 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * The harness enrolment store: its HMAC sidecar, the re-baseline of a tampered file and the client ordering.
  *
  * <p>
- * The client ids, versions, digests, instants, origins, credential keys, models and the HMAC key are generated. The
- * literals that stay are the contract: the store's file names ({@code harnesses.json} and its {@code .hmac} sidecar),
- * the stored JSON documents of the malformed-entry tests (the store's wire format), the usage figure and event names
+ * The client ids, versions, digests, instants, models and the HMAC key are generated. The literals that stay are the
+ * contract: the store's file names ({@code harnesses.json} and its {@code .hmac} sidecar), the stored JSON documents
+ * of the malformed-entry and endpoint-member tests (the store's wire format), the usage figure and event names
  * with their stage results ({@code reported}, {@code missing}, {@code not_applicable}), the role classes of a start
  * context and the file permissions {@code rw-------} the store requires.
  */
@@ -196,57 +194,30 @@ class HarnessEnrolmentStoreTest {
     }
 
     @Test
-    @DisplayName("the remote form of a judgment endpoint round-trips its origin and credential key")
-    void endpointEntryRoundTrip() {
-        var client = clientId();
-        var origin = "https://" + shortWords().next() + ".example.test";
-        var credentialKey = shortWords().next();
-        var endpoint = HarnessEnrolment.endpoint(client, origin, credentialKey, now,
-                new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED,
-                        Map.of("input", "reported")));
-
-        store.enrol(endpoint);
-        var read = store.find(client).orElseThrow();
-
-        assertAll(
-                () -> assertTrue(read.isEndpoint(), "the read entry is of the remote form"),
-                () -> assertEquals(origin, read.binding().origin(), "the endpoint's origin round-trips"),
-                () -> assertEquals(credentialKey, read.binding().credentialKey(),
-                        "the endpoint's credential key round-trips"),
-                () -> assertNull(read.executablePath(), "an endpoint has no executable path"),
-                () -> assertNull(read.sha256(), "an endpoint has no executable digest"),
-                () -> assertNull(read.version(), "an endpoint has no program version"),
-                () -> assertEquals(endpoint, read, "the whole endpoint entry round-trips"));
-    }
-
-    @Test
-    @DisplayName("an entry of the remote form without its required members is refused, not read as a program")
-    void malformedEndpointEntry() throws Exception {
-        assertUnreadable(endpointDocument("{\"origin\":\"https://judge.example.test\"}"));
-        assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":null,"
-                + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
-                + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}");
-        assertUnreadable(endpointDocument("{\"origin\":\"http://judge.example.test\",\"credential_key\":"
-                + "\"judge-token\"}"));
-    }
-
-    @Test
-    @DisplayName("an entry that carries members of both forms is refused, not read as one of its halves")
-    void mixedFormEntry() throws Exception {
+    @DisplayName("an entry that carries an endpoint member is refused, not read as a program in part")
+    void endpointMemberRefused() throws Exception {
         assertUnreadable("{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":{\"origin\":"
-                + "\"https://judge.example.test\",\"credential_key\":\"judge-token\"},\"executable_path\":"
-                + "\"/usr/local/bin/claude\",\"sha256\":\"" + "a".repeat(64) + "\",\"version\":\"1.5.0\","
+                + "\"https://judge.example.test\",\"credential_key\":\"judge-token\"},"
                 + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
                 + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}");
-        assertUnreadable(entryDocument(",\"endpoint\":{\"origin\":\"https://judge.example.test\","
-                + "\"credential_key\":\"judge-token\"}"));
+        assertUnreadable(entryDocument(",\"events\":{},\"weights\":{},\"endpoint\":{\"origin\":"
+                + "\"https://judge.example.test\",\"credential_key\":\"judge-token\"}"));
     }
 
-    /** @param endpoint the members of the remote form's {@code endpoint} object, in the store's wire format */
-    private static String endpointDocument(String endpoint) {
-        return "{\"format_version\":1,\"harnesses\":{\"hosted-judge\":{\"endpoint\":" + endpoint + ","
-                + "\"enrolled_at\":\"2026-10-24T10:00:00Z\",\"updated_at\":\"2026-10-24T10:00:00Z\","
-                + "\"usage_report\":{\"source\":\"declared\",\"figures\":{}},\"events\":{}}}}";
+    @Test
+    @DisplayName("the same program entry without the endpoint member is read")
+    void programEntryWithoutEndpointMemberRead() throws Exception {
+        var bytes = entryDocument(",\"events\":{},\"weights\":{}").getBytes(StandardCharsets.UTF_8);
+        var file = base.resolve(STORE_FILE);
+        var sidecar = base.resolve(SIDECAR_FILE);
+        Files.write(file, bytes);
+        Files.write(sidecar, EnrolmentHmac.sidecar(key, bytes).write());
+        var restricted = PosixFilePermissions.fromString("rw-------");
+        Files.setPosixFilePermissions(file, restricted);
+        Files.setPosixFilePermissions(sidecar, restricted);
+
+        // the version of the fixture document in the store's wire format
+        assertEquals("1.5.0", store.find("claude").orElseThrow().version(), "the program entry is read");
     }
 
     private HarnessEnrolment enrolment(String clientId, String version) {

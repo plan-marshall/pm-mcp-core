@@ -52,7 +52,7 @@ final class EndpointFixtures {
         return new EndpointProfile("local-runner", executableName(),
                 new EndpointProfile.Identity(List.of("--version"), "version ([0-9.]+)"),
                 new EndpointProfile.UpdateEvidence("none", null),
-                new EndpointProfile.Endpoint("openai_chat", "loopback", baseUrl, "/ready", "/models", "/models",
+                new EndpointProfile.Endpoint("openai_chat", baseUrl, "/ready", "/models", "/models",
                         resultSchema, 8192, 1024, 30),
                 Map.of("frontier", "big", "standard", "mid", "fast", "small"),
                 new EndpointProfile.WeightsProbe("models_listing", "/digest", null, null));

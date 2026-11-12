@@ -528,18 +528,6 @@ public final class ProfileStages {
     /** The stages of the verification of an endpoint, in the order they run. */
     public static final List<String> ENDPOINT_STAGES = List.of(IDENTITY, LAUNCH, CLASSES, LIMITS);
 
-    /** The stages of the verification of a judgment endpoint (Client Profiles § Verification of a Judgment Endpoint). */
-    public static final List<String> JUDGMENT_STAGES = List.of(IDENTITY, LAUNCH, LIMITS);
-
-    /**
-     * @param protocol the profile's {@code endpoint.protocol}
-     * @return the stages the verification of an endpoint of that protocol runs: a judgment endpoint has no {@code
-     *         classes} stage, because the server never sends tools
-     */
-    public static List<String> stagesFor(String protocol) {
-        return "system_one".equals(protocol) ? JUDGMENT_STAGES : ENDPOINT_STAGES;
-    }
-
     /** The status of one value the endpoint stages write into the verification record. The set is closed. */
     public enum EndpointValueStatus {
         /** The stage observed the value on the endpoint. */
@@ -688,12 +676,11 @@ public final class ProfileStages {
     }
 
     /**
-     * The result of the stages of an endpoint's verification. A judgment endpoint runs no {@code classes} stage
-     * (Client Profiles § Verification of a Judgment Endpoint), so its result carries none.
+     * The result of the stages of an endpoint's verification.
      *
      * @param identity the stage {@code identity}
      * @param launch   the stage {@code launch}
-     * @param classes  the stage {@code classes}; {@code null} when the protocol has no such stage
+     * @param classes  the stage {@code classes}
      * @param limits   the stage {@code limits}
      * @param stages   the stages this verification ran, in the order they ran
      * @since 0.1
@@ -704,15 +691,15 @@ public final class ProfileStages {
 
         /**
          * @throws NullPointerException     if a stage that applies is {@code null}
-         * @throws IllegalArgumentException if the stage list is not one of an endpoint's, or a stage is present that the
-         *                                  list does not name
+         * @throws IllegalArgumentException if the stage list is not an endpoint's, or a stage is present that the list
+         *                                  does not name
          */
         public EndpointVerification {
             Objects.requireNonNull(identity, IDENTITY);
             Objects.requireNonNull(launch, LAUNCH);
             Objects.requireNonNull(limits, LIMITS);
             stages = List.copyOf(stages);
-            if (!ENDPOINT_STAGES.equals(stages) && !JUDGMENT_STAGES.equals(stages)) {
+            if (!ENDPOINT_STAGES.equals(stages)) {
                 throw new IllegalArgumentException("Not a stage list of an endpoint: " + stages);
             }
             if (stages.contains(CLASSES) != (classes != null)) {
@@ -731,22 +718,6 @@ public final class ProfileStages {
             this(identity, launch, classes, limits, ENDPOINT_STAGES);
         }
 
-        /**
-         * @param identity the stage {@code identity}
-         * @param launch   the stage {@code launch}
-         * @param limits   the stage {@code limits}
-         * @return the verification of a judgment endpoint, which runs no {@code classes} stage
-         */
-        public static EndpointVerification judgment(EndpointIdentity identity, EndpointLaunch launch,
-                EndpointLimits limits) {
-            return new EndpointVerification(identity, launch, null, limits, JUDGMENT_STAGES);
-        }
-
-        /** @return whether this verification ran the stages of a judgment endpoint */
-        public boolean judgment() {
-            return JUDGMENT_STAGES.equals(stages);
-        }
-
         /** @return whether a failed {@code identity} or {@code launch} refuses the draft */
         public boolean refusesDraft() {
             return !identity.passed() || !launch.passed();
@@ -759,9 +730,7 @@ public final class ProfileStages {
             var statuses = new LinkedHashMap<String, String>();
             statuses.put(IDENTITY, identity.passed() ? PASSED : "failed");
             statuses.put(LAUNCH, launch.passed() ? PASSED : "failed");
-            if (classes != null) {
-                statuses.put(CLASSES, PASSED);
-            }
+            statuses.put(CLASSES, PASSED);
             statuses.put(LIMITS, limits.passed() ? PASSED : "not_run");
             return Collections.unmodifiableMap(statuses);
         }

@@ -20,8 +20,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The validated values of an endpoint profile (PM-CLIENT-2, Client Profiles § Endpoint Profile Schema): the profile of
- * a model this machine serves on the loopback interface, or of the remote form of the protocol {@code system_one} that
- * one hosted service answers (Client Profiles § Remote Form).
+ * a model this machine serves on the loopback interface.
  * <p>
  * The projection reads what the runtime needs and nothing else: the serving program and its identity, the endpoint
  * block with its request settings, the model tiers and the weights probe. It is made from a document
@@ -29,8 +28,8 @@ import org.jspecify.annotations.Nullable;
  * refused with {@link IllegalArgumentException}, because the caller selected the wrong kind.
  *
  * @param clientId       the client id, in the namespace of the client profiles
- * @param executable     the bare name of the serving program; {@code null} in the remote form
- * @param identity       the version probe of the serving program; {@code null} in the remote form
+ * @param executable     the bare name of the serving program
+ * @param identity       the version probe of the serving program
  * @param updateEvidence the evidence a changed program must pass; {@code null} when the profile declares none
  * @param endpoint       the endpoint block
  * @param modelTiers     the model of each tier of the default assignment
@@ -38,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 @Builder
-public record EndpointProfile(String clientId, @Nullable String executable, @Nullable Identity identity,
+public record EndpointProfile(String clientId, String executable, Identity identity,
 @Nullable UpdateEvidence updateEvidence, Endpoint endpoint, Map<String, String> modelTiers,
 @Nullable WeightsProbe weightsProbe) {
 
@@ -48,6 +47,8 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
     /** Copies the tiers. */
     public EndpointProfile {
         Objects.requireNonNull(clientId, "clientId");
+        Objects.requireNonNull(executable, "executable");
+        Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(endpoint, "endpoint");
         modelTiers = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(modelTiers, "modelTiers")));
     }
@@ -86,9 +87,8 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
     /**
      * The {@code endpoint} block of the profile.
      *
-     * @param protocol              {@code openai_chat} or {@code system_one}
-     * @param locality              {@code loopback} or {@code remote}
-     * @param baseUrl               the origin of the endpoint
+     * @param protocol              {@code openai_chat}
+     * @param baseUrl               the loopback origin of the endpoint
      * @param readinessPath         the readiness path; {@code null} when the models path is the readiness check
      * @param modelsPath            the path of the models listing
      * @param modelsPointer         the JSON Pointer to the model array in the listing
@@ -97,47 +97,16 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
      * @param contextTokens         the largest request the endpoint accepts
      * @param answerReserveTokens   the part of {@code contextTokens} kept for the answer
      * @param requestTimeoutSeconds the timeout of one request
-     * @param credentialKey         the Token Lane credential entry a {@code remote} endpoint reads; {@code null} in the
-     *                              loopback form
      * @since 0.1
      */
     @Builder
-    public record Endpoint(String protocol, String locality, String baseUrl, @Nullable String readinessPath,
-    String modelsPath, String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
-    int requestTimeoutSeconds, @Nullable String credentialKey) {
-
-        /**
-         * @param protocol              {@code openai_chat} or {@code system_one}
-         * @param locality              {@code loopback} or {@code remote}
-         * @param baseUrl               the origin of the endpoint
-         * @param readinessPath         the readiness path; {@code null} when the models path is the readiness check
-         * @param modelsPath            the path of the models listing
-         * @param modelsPointer         the JSON Pointer to the model array in the listing
-         * @param resultSchema          what the endpoint does with a result schema
-         * @param contextTokens         the largest request the endpoint accepts
-         * @param answerReserveTokens   the part of {@code contextTokens} kept for the answer
-         * @param requestTimeoutSeconds the timeout of one request
-         */
-        public Endpoint(String protocol, String locality, String baseUrl, String readinessPath, String modelsPath,
-                String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
-                int requestTimeoutSeconds) {
-            this(protocol, locality, baseUrl, readinessPath, modelsPath, modelsPointer, resultSchema, contextTokens,
-                    answerReserveTokens, requestTimeoutSeconds, null);
-        }
+    public record Endpoint(String protocol, String baseUrl, @Nullable String readinessPath, String modelsPath,
+    String modelsPointer, String resultSchema, int contextTokens, int answerReserveTokens,
+    int requestTimeoutSeconds) {
 
         /** The context budget of a role on the harness: {@code context_tokens} less {@code answer_reserve_tokens}. */
         public int contextBudgetTokens() {
             return contextTokens - answerReserveTokens;
-        }
-
-        /** @return whether the endpoint is the remote form of one service, enrolled by the operator only */
-        public boolean remote() {
-            return "remote".equals(locality);
-        }
-
-        /** @return whether the endpoint speaks the protocol {@code system_one}, the judgment endpoint */
-        public boolean judgment() {
-            return "system_one".equals(protocol);
         }
 
         /** @return the readiness path, or the models path when the profile declares none */
@@ -194,8 +163,8 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
         }
         var block = profile.member("endpoint").orElseThrow();
         return new EndpointProfile(ProfileValidator.clientId(profile),
-                member(profile, "executable").orElse(null),
-                identity(profile).orElse(null),
+                member(profile, "executable").orElseThrow(),
+                identity(profile).orElseThrow(),
                 updateEvidence(profile).orElse(null),
                 endpoint(block),
                 tiers(profile),
@@ -236,7 +205,6 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
 
     private static Endpoint endpoint(JsonNode block) {
         return new Endpoint(block.member("protocol").flatMap(JsonNode::text).orElseThrow(),
-                block.member("locality").flatMap(JsonNode::text).orElseThrow(),
                 block.member("base_url").flatMap(JsonNode::text).orElseThrow(),
                 member(block, "readiness_path").orElse(null),
                 block.member("models_path").flatMap(JsonNode::text).orElseThrow(),
@@ -244,8 +212,7 @@ public record EndpointProfile(String clientId, @Nullable String executable, @Nul
                 block.member("result_schema").flatMap(JsonNode::text).orElseThrow(),
                 integer(block, "context_tokens"),
                 integer(block, "answer_reserve_tokens"),
-                integer(block, "request_timeout_seconds"),
-                member(block, "credential_key").orElse(null));
+                integer(block, "request_timeout_seconds"));
     }
 
     private static Map<String, String> tiers(JsonNode profile) {
