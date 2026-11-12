@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.planmarshall.core.store.AttemptEnd;
 import de.planmarshall.core.store.HarnessUsage;
 import de.planmarshall.core.store.Measurement;
 import de.planmarshall.core.store.MetricsRow;
@@ -57,7 +56,7 @@ class PlanTokensTest {
                 .harness(Generators.letterStrings(2, 12).next().toLowerCase(Locale.ROOT))
                 .harnessVersion(Generators.letterStrings(1, 12).next())
                 .model(Generators.letterStrings(1, 24).next()).effort(Generators.letterStrings(1, 8).next())
-                .form(MetricsRow.Form.FRESH).outcome(MetricsRow.Outcome.SUBMITTED).attemptEnd(AttemptEnd.CLOSED)
+                .form(MetricsRow.Form.FRESH).outcome(MetricsRow.Outcome.SUBMITTED)
                 .causeClass(MetricsRow.CauseClass.BENIGN).spendClass(MetricsRow.SpendClass.SUBMITTED)
                 .population(MetricsRow.Population.MODEL_JOB).usage(usage)
                 .durationMs((long) Generators.integers(1, 10_000).next())

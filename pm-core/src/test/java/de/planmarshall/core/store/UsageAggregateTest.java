@@ -98,7 +98,7 @@ class UsageAggregateTest {
         return MetricsRow.builder().queueTaskId(id).attempt(1).role(rowRole).jobId(jobId)
                 .generationId(jobId).harness(harness).harnessVersion(harnessVersion)
                 .model(model).effort(effort).form(Form.FRESH).phase(phase).outcome(Outcome.SUBMITTED)
-                .attemptEnd(AttemptEnd.CLOSED).causeClass(causeClass).spendClass(spendClass).population(population)
+                .causeClass(causeClass).spendClass(spendClass).population(population)
                 .usage(usage).durationMs(Generators.longs(1L, 100_000L).next()).durationBasis(DurationBasis.PROCESS)
                 .recordedAt(recordedAt).build();
     }

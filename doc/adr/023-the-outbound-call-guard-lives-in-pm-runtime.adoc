@@ -15,10 +15,13 @@ Credentials & Enrolment § Outbound HTTPS Security and § Closed List of Outboun
 (link:../specification/credentials-and-enrolment/03-audit-and-outbound-https.adoc#closed-outbound-list[`03-audit-and-outbound-https.adoc`])
 require the runtime's listed calls to be its only outbound calls, and `PM-ARCH-2` ("local, no telemetry") to be held by two
 tests of `PM-TEST-5` rather than by review: a static architecture rule and an integration test behind a recording test
-network. Neither existed; the ADR of the endpoint harness
-(link:../../pm-runtime/doc/adr/runtime-endpoint/006-system-one-through-cui-http-pinned-origin-no-redirect.adoc[`runtime-endpoint/006`])
-recorded both as "not part of this package" and the repository-wide rule as "owed … reported to the milestone exit", and it
-was owed there still when this decision was taken.
+network. Neither existed; the ADR of the endpoint harness (`runtime-endpoint/006`) recorded both as "not part of this
+package" and the repository-wide rule as "owed … reported to the milestone exit", and it was owed there still when this
+decision was taken.
+
+NOTE: Amended by the work package `deferred-code-removal` (PLAN-V2-129). ADR `runtime-endpoint/006` and the remote
+judgment endpoint it decided were deleted with that package, so the links to it were removed and it is named here as
+plain text only, as the record this decision answered. Nothing of this decision depended on that endpoint.
 
 The question was where the rule lives, what it checks, and how a legitimate local socket is exempted without weakening it.
 
@@ -50,8 +53,8 @@ The integration test of the same section stays owed: it needs `check_updates`, w
 assembly `pm-mcp-server`, which lies outside this repository. It remains "the owed half" in the specification and is a
 deliverable of a later plan.
 
-This decision settles, for the repository-wide rule, what `runtime-endpoint/006` called "owed … reported to the milestone
-exit".
+This decision settles, for the repository-wide rule, what the deleted ADR `runtime-endpoint/006` called "owed … reported
+to the milestone exit".
 
 == Alternatives Considered
 
@@ -77,4 +80,4 @@ exit".
 
 The pull request of the plan `PLAN-V2-53` (`outbound-calls-guard`) of the epic `pm-mcp-core-m2-m4-v2`; Credentials &
 Enrolment § Outbound HTTPS Security and § Closed List of Outbound Calls; Client Profiles § Judgment Endpoint and § The
-Request; Model Work § Corpus Sources; ADR `runtime-endpoint/006`.
+Request; Model Work § Corpus Sources; ADR `runtime-endpoint/006` (deleted by `deferred-code-removal`).

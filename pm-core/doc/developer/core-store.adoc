@@ -1248,9 +1248,8 @@ link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043
 |===
 
 Tested by `UsagePointersTest` (each column of a recorded output, a missing figure with its reason, a not-applicable
-component counting zero, an unparsed output), `MetricsStoreTest` (the round trip, a second row of the task refused, the
-end of the attempt for every value of the enum, a refused task's row, the foreign row kept, the inconsistent total
-refused, the sidecar entry and the out-of-band edit of the store, the row partition of a plan, an epic and the
+component counting zero, an unparsed output), `MetricsStoreTest` (the round trip, a second row of the task refused, a
+refused task's row, the foreign row kept, the inconsistent total refused, the sidecar entry and the out-of-band edit of the store, the row partition of a plan, an epic and the
 workspace), `BuildTimingsStoreTest` (the first observation, the blend, the escalation and its clearing, a timeout feeding
 no baseline), `WorkerBudgetTest` (the first match of the four sources and the floor), `ChangeLedgerTest` (the round trip,
 the unavailable digest, the task-diff and baseline rules, a refused line reported with its number, the sidecar entry and

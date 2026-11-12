@@ -418,8 +418,7 @@ previous section. They return the accepted value or a refusal that names the ite
   link:{spec}/phase-workflows/01-planning-phases-1-2.adoc#builder-check[§ Builder Check] (the submission validators)
 * Decisions: link:../adr/core-spi/001-typed-primitive-spi-refused-at-registration.adoc[ADR 001] the typed primitive SPI
   refused at registration, link:../adr/core-spi/002-content-validators-report-violations-as-values.adoc[ADR 002]
-  content validators report violations as values, link:../adr/core-spi/003-ears-keywords-are-uppercase-structural-tokens.adoc[ADR 003]
-  the EARS keywords are uppercase structural tokens, link:../adr/core-spi/004-the-self-review-judges-constraints-beside-criteria.adoc[ADR 004]
+  content validators report violations as values, link:../adr/core-spi/004-the-self-review-judges-constraints-beside-criteria.adoc[ADR 004]
   the self-review judges constraints, non-goals and decisions beside the criteria, link:../adr/core-spi/005-a-name-is-an-outcome-only-where-the-graph-continues-differently.adoc[ADR 005]
   a name is an outcome only where the graph continues differently, link:../adr/core-spi/006-the-reason-is-a-closed-enum-behind-a-small-interface.adoc[ADR 006]
   the reason is a closed enum behind a small interface, link:../adr/core-spi/007-the-reason-type-belongs-to-the-outcome.adoc[ADR 007]

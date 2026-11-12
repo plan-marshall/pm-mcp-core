@@ -18,9 +18,7 @@ engine and the packages that compose a unit.
 
 The composition check needs the class each use requires. The specification says every entity kind declares, with its
 registration, the class its tasks require. The existing `verify.EntityKind` carries a name, an optional entity unit and
-the return-evaluation primitive — not a class. One kind admits two classes: the vote kind is `read_only`, or `zero_tool`
-as a judgment role on a `system_one` endpoint of the protocol. A single class member could not express that without a
-second registration and a judgment-endpoint lookup inside the kind registry.
+the return-evaluation primitive — not a class.
 
 == Decision
 
@@ -37,17 +35,22 @@ session id, and the caller neither starts nor resumes a worker.
 The required class travels with the **use**, not with the entity-kind record: `RoleUse` holds the state, the role and the
 set of classes its use admits, with compiled factories for a model state (`RoleUse.forModelJob`) and a consultation
 (`RoleUse.forConsultation`). The compiled table names the shipped kinds — `screen` and the judge's `zero_tool` are
-`zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`, `simplify-apply` and `conflict` are `writer`; `vote`
-and the kind registry's `decision` are `read_only` or `zero_tool`; every other kind requires `read_only`. The vote kind's
-`zero_tool` admission is the kind's; whether the endpoint's protocol (`system_one`) permits it belongs to the judgment-vote
-package, which owns the endpoint profiles. `RoleComposition` resolves each use and refuses with `CompositionRefusal`. The same class set is applied at task
-creation (`ModelJob.accepts`), so an artifact edit that changes a role's class closes the task with `class_mismatch`.
+`zero_tool`; `envelope`, `task`, `remediation-fix`, `commit-fix`, `simplify-apply` and `conflict` are `writer`; every
+other kind, `vote` and the kind registry's `decision` among them, requires `read_only`. `RoleComposition` resolves each
+use and refuses with `CompositionRefusal`. The same class set is applied at task creation (`ModelJob.accepts`), so an
+artifact edit that changes a role's class closes the task with `class_mismatch`.
+
+NOTE: Amended by the work package `deferred-code-removal` (PLAN-V2-129). This record stated that the vote kind and
+`decision` admit `zero_tool` as a judgment role on a `system_one` endpoint, and that the judgment-vote package decides
+whether the endpoint's protocol permits it. The protocol `system_one` and the judgment vote were deleted with that
+package, so both statements were removed here, in the context and in the first alternative; the two kinds now require
+`read_only` alone. The decision itself — the class
+travels with the use — is unchanged.
 
 == Alternatives Considered
 
-* *Add the required class to `verify.EntityKind`.* Refused: the vote kind admits two classes and the judgment-endpoint
-  exception needs more than one value; a set member plus a judgment-endpoint lookup would put role knowledge into the
-  verifier's record and make every existing constructor carry it. The use is the place the class is actually decided.
+* *Add the required class to `verify.EntityKind`.* Refused: a class member would put role knowledge into the verifier's
+  record and make every existing constructor carry it. The use is the place the class is actually decided.
 * *Let the caller read the stores and the qualification records itself.* Refused: the stores are other packages', and the
   specification asks the package to read the assignment stores "through a port". The ports also keep the tests on fixture
   stores.

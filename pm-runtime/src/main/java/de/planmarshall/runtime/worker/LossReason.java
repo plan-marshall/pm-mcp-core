@@ -9,7 +9,7 @@
  */
 package de.planmarshall.runtime.worker;
 
-import de.planmarshall.core.store.AttemptEnd;
+import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.store.WorkerState;
 
 /**

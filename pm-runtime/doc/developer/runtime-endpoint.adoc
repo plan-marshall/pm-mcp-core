@@ -21,6 +21,9 @@ The package reads the values of an endpoint profile through `core.profile.Endpoi
 document itself. The profile is validated by `core.profile.ProfileValidator` at load time.
 
 Specification: `doc/specification/harness-profiles/03-endpoint-harness.adoc`. Design decisions: `adr/runtime-endpoint/`.
+ADR numbers 005 to 007 of this package are retired: they decided the remote endpoint form, the protocol `system_one`
+and the judgment verification, which the work package `deferred-code-removal` deleted. The next ADR of
+`runtime-endpoint` takes 008.
 
 == Main types
 
@@ -115,9 +118,6 @@ task, then hand the harness's enrolment and the request to `EndpointHarness.task
 A new protocol is a change of the closed `protocol` list of the endpoint profile and of the code, made once for all
 endpoints: a new `EndpointClient` call for its request format, and the answer reading in `EndpointOutcome`. A new keyword
 of the result-schema subset is added to `AnswerSchema` together with the refusal that ends an answer.
-
-The Token Lane entry and the redaction registry are seams (`TokenLaneCredential`, `SecretRegistry`): the operator channel
-implements them, and this package consumes them.
 
 == Invariants and failure modes
 
