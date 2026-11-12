@@ -43,7 +43,8 @@ public interface GradingHarness {
      * @param item     the corpus item
      * @param form     the form it is offered in
      * @param checkout where it must run
-     * @param run      the run of the item, from {@code 1}; above one for the screener's repeated runs
+     * @param run      the run of the item, from {@code 1} up to the {@code runsPerItem} the caller requested, one by
+     *                 default
      * @since 0.1
      */
     @Builder

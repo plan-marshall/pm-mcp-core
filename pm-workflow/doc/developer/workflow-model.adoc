@@ -88,7 +88,8 @@ one place that turns a corpus into a qualification record, and it uses the ports
   otherwise `JudgeInstrumentCheck` runs and writes the project set's `judge-check.json`, and a check without a verdict or
   one that does not pass refuses `judge_unchecked` before any item is offered.
 . *Topics and forms*: the role's topics come from the corpus items' `role` field. Every item is offered fresh and, unless
-  the role is `zero_tool`, warm; the screener's profile offers each item five times. An item of the project's repository
+  the role is `zero_tool`, warm; every role's item is offered the runs the caller's `GradingProfile` requests, one by
+  default. An item of the project's repository
   whose commit is present runs at that commit (`Checkout.ITEM_COMMIT`); a missing commit runs in the checkout
   (`Checkout.CURRENT`).
 . *Scoring*: a closed answer is scored deterministically; a rubric answer goes to the judge. A lost answer or judge task
@@ -127,7 +128,7 @@ lets its state take the conservative fallback.
 `ModelCallerTest` (the order, the four closure reasons, the form downgrade, the judge and steward skipping Qualify, the
 class mismatch, the unavailable role), `RoleCompositionTest` (`role_undefined`, `class_mismatch`, the matched controls of
 the shipped kinds and a consultation), `RoleGraderTest` (the record and its tokens, the consent, the import verdicts, the
-judge check and its reuse, the scorer independence, the screener's runs, the checkout, the lost items and the re-grading
+judge check and its reuse, the scorer independence, the requested runs of every role, the checkout, the lost items and the re-grading
 of only the ungraded ones), `RecordedQualificationTest` (the levels at every check, the warm downgrade and the stale
 record).
 

@@ -30,11 +30,14 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The enrolment check (PM-EXEC-2, PM-SEC-4, PM-SEC-5): what the runtime runs before it trusts anything in a project's
- * enrolment file. The project's recovery runs it as its first step ({@code EnrolmentIntegrityStep},
- * {@code RecoveryStep.Name.ENROLMENT_INTEGRITY}) before the project is first served, and the verify-not-resolve check
- * of the project's jobs runs it as its first stage ({@code VerifyNotResolvePipeline} of {@code runtime.job}). The
- * {@code enter} request and the operator verbs must run it too and do not yet, because no {@code enter} or
- * operator-verb path exists in the runtime.
+ * enrolment file. Two callers run it: the project's recovery as its first step
+ * ({@link de.planmarshall.runtime.start.EnrolmentIntegrityStep},
+ * {@link de.planmarshall.runtime.start.RecoveryStep.Name#ENROLMENT_INTEGRITY}) before the project is first served, and
+ * the verify-not-resolve check of the project's jobs as its first stage
+ * ({@link de.planmarshall.runtime.job.VerifyNotResolvePipeline}). The operator writes of {@link Enrolments} do not run
+ * it: they write or re-baseline the pair the check verifies, and refuse through the same paths ({@code enrolment_tampered},
+ * {@code enrolment_insecure}, {@code enrolment_invalid}) so a refusal reads and is recorded the same wherever it arises. The runtime has no
+ * {@code enter} request, so nothing runs the check there.
  * <p>
  * The check runs under the project's enrolment lock, in this order, and the first failure refuses:
  * <ol>

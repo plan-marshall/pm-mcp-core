@@ -23,8 +23,8 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  * item graded otherwise counts as not agreeing, and an item with a rubric reference is in the denominator but never in a
  * numerator.
  * <p>
- * The baseline is recomputed from the item results of the form, so the repeated runs of the screener count run by run,
- * like the topic's agreement.
+ * The baseline is recomputed from the item results of the form, so the repeated runs the caller requests (a profile
+ * that is {@link GradingProfile#repeated()}) count run by run, like the topic's agreement.
  *
  * @since 0.1
  */
