@@ -42,8 +42,6 @@ import de.planmarshall.core.store.IntentRecord.AdrRef;
 import de.planmarshall.core.store.IntentRecord.AdrRelation;
 import de.planmarshall.core.store.IntentRecord.Assumption;
 import de.planmarshall.core.store.IntentRecord.AssumptionStatus;
-import de.planmarshall.core.store.IntentRecord.CapabilityChange;
-import de.planmarshall.core.store.IntentRecord.CapabilityLink;
 import de.planmarshall.core.store.IntentRecord.Constraint;
 import de.planmarshall.core.store.IntentRecord.ConstraintSource;
 import de.planmarshall.core.store.IntentRecord.Criterion;
@@ -93,10 +91,6 @@ public class IntentCodec {
     private static final String FIELD_TEXT = "text";
     private static final String FIELD_KIND = "kind";
     private static final String FIELD_VERIFIED_BY = "verified_by";
-    private static final String FIELD_CAPABILITY = "capability";
-    private static final String FIELD_REQUIREMENT = "requirement";
-    private static final String FIELD_CHANGE = "change";
-    private static final String FIELD_BASE = "base";
     private static final String FIELD_SOURCE = "source";
     private static final String FIELD_EVIDENCE = "evidence";
     private static final String FIELD_OPTIONS_WEIGHED = "options_weighed";
@@ -242,17 +236,6 @@ public class IntentCodec {
         generator.writeStringField(FIELD_TEXT, criterion.text());
         generator.writeStringField(FIELD_KIND, criterion.kind().wireName());
         generator.writeStringField(FIELD_VERIFIED_BY, criterion.verifiedBy().wireName());
-        if (criterion.capability() == null) {
-            generator.writeNullField(FIELD_CAPABILITY);
-        } else {
-            var capability = criterion.capability();
-            generator.writeObjectFieldStart(FIELD_CAPABILITY);
-            generator.writeStringField(FIELD_CAPABILITY, capability.capability());
-            generator.writeStringField(FIELD_REQUIREMENT, capability.requirement());
-            generator.writeStringField(FIELD_CHANGE, capability.change().wireName());
-            writeNullableString(generator, FIELD_BASE, capability.base());
-            generator.writeEndObject();
-        }
         generator.writeEndObject();
     }
 
@@ -381,7 +364,6 @@ public class IntentCodec {
         @Nullable String text = null;
         @Nullable CriterionKind kind = null;
         @Nullable VerifiedBy verifiedBy = null;
-        @Nullable CapabilityLink capability = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -391,39 +373,12 @@ public class IntentCodec {
                 case FIELD_KIND -> kind = required(CriterionKind.fromWireName(string(parser, field)).orElse(null), field);
                 case FIELD_VERIFIED_BY ->
                     verifiedBy = required(VerifiedBy.fromWireName(string(parser, field)).orElse(null), field);
-                case FIELD_CAPABILITY -> capability = parser.currentToken() == JsonToken.VALUE_NULL ? null
-                        : readCapability(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, name, FIELD_ID, FIELD_TEXT, FIELD_KIND, FIELD_VERIFIED_BY, FIELD_CAPABILITY);
+        requireFields(seen, name, FIELD_ID, FIELD_TEXT, FIELD_KIND, FIELD_VERIFIED_BY);
         try {
-            return new Criterion(id, text, kind, verifiedBy, capability);
-        } catch (IllegalArgumentException e) {
-            throw unreadable(e.getMessage(), e);
-        }
-    }
-
-    private static CapabilityLink readCapability(JsonParser parser, String name) throws IOException {
-        requireObject(parser, name);
-        @Nullable String capability = null;
-        @Nullable String requirement = null;
-        @Nullable CapabilityChange change = null;
-        @Nullable String base = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_CAPABILITY -> capability = string(parser, field);
-                case FIELD_REQUIREMENT -> requirement = string(parser, field);
-                case FIELD_CHANGE -> change = required(CapabilityChange.fromWireName(string(parser, field)).orElse(null), field);
-                case FIELD_BASE -> base = nullableString(parser, field).orElse(null);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, name, FIELD_CAPABILITY, FIELD_REQUIREMENT, FIELD_CHANGE, FIELD_BASE);
-        try {
-            return new CapabilityLink(capability, requirement, change, base);
+            return new Criterion(id, text, kind, verifiedBy);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }

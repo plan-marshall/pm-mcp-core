@@ -27,20 +27,19 @@ import org.jspecify.annotations.Nullable;
  * Intent Record).
  * <p>
  * This type is the {@code intent-record} named parameter schema: it refuses a document the JSON schema refuses, and it
- * checks the rules the specification puts beyond the schema — the EARS form of every criterion, the triple a
- * {@code fix} criterion carries, true deciders, the riskiest assumption, unique identifiers and the preservation of
- * every source claim. The identifiers are those of the Identifier Registry ({@code intent item identifier}): the
+ * checks the rules the specification puts beyond the schema — the triple a {@code fix} criterion carries, true
+ * deciders, the riskiest assumption, unique identifiers and the preservation of every source claim. The identifiers are those of the Identifier Registry ({@code intent item identifier}): the
  * criterion {@code AC-<n>}, non-goal {@code NG-<n>}, constraint {@code CN-<n>}, decision {@code DC-<n>}, assumption
  * {@code AN-<n>} and deferred item {@code DF-<n>}, each stable across revisions.
  * <p>
- * The type validates one revision in isolation. The server checks that need the plan — a decision's question record,
- * a capability's fingerprint in the tree, the required claims of the epic row — are those of {@link IntentAcceptance}.
+ * The type validates one revision in isolation. The server checks that need the plan — a decision's question record
+ * and the required claims of the epic row — are those of {@link IntentAcceptance}.
  *
  * @param why             the problem, who has it and why now, 20 to 1000 characters
  * @param goal            the outcome sentence a check can decide, 10 to 300 characters
  * @param criteria        one to 30 acceptance criteria
  * @param currentBehaviour the behaviour a {@code fix} criterion replaces; {@code null} when the record has no fix
- * @param nonGoals        one to 20 non-goals
+ * @param nonGoals        up to 20 non-goals
  * @param constraints     up to 20 constraints, each ruling something out
  * @param decisions       up to 30 decisions
  * @param assumptions     up to 20 assumptions
@@ -72,9 +71,6 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
     /** The pattern of a deferred-item identifier. */
     public static final Pattern DEFERRED_ID = Pattern.compile("DF-\\d{1,4}");
 
-    /** The pattern of a requirement's base fingerprint. */
-    public static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{64}");
-
     private static final Set<String> DROPPED_OR_GOAL = Set.of("goal", "why", "dropped");
 
     private static final String THEN_THE = " THEN THE ";
@@ -90,7 +86,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
         bounded(goal, "goal", 10, 300);
         criteria = copy(criteria, "criteria", 1, 30);
         currentBehaviour = optionalBounded(currentBehaviour, "current_behaviour", 10, 500).orElse(null);
-        nonGoals = copy(nonGoals, "non_goals", 1, 20);
+        nonGoals = copy(nonGoals, "non_goals", 0, 20);
         constraints = copy(constraints, "constraints", 0, 20);
         decisions = copy(decisions, "decisions", 0, 30);
         assumptions = copy(assumptions, "assumptions", 0, 20);
@@ -316,18 +312,16 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
      * One acceptance criterion.
      *
      * @param id         the identifier {@code AC-<n>}
-     * @param text       the statement in EARS form
+     * @param text       the statement, 10 to 500 characters
      * @param kind       whether the plan adds, fixes or keeps the behaviour
      * @param verifiedBy how the criterion is verified
-     * @param capability the capability requirement the criterion changes; {@code null} for the plan's own criterion
      * @since 0.1
      */
     @Builder
-    public record Criterion(String id, String text, CriterionKind kind, VerifiedBy verifiedBy,
-    @Nullable CapabilityLink capability) {
+    public record Criterion(String id, String text, CriterionKind kind, VerifiedBy verifiedBy) {
 
         /**
-         * @throws IllegalArgumentException if a member is out of its bounds or the text is not in EARS form
+         * @throws IllegalArgumentException if a member is out of its bounds
          * @throws NullPointerException     if a value is {@code null}
          */
         public Criterion {
@@ -337,81 +331,7 @@ List<OpenQuestion> openQuestions, List<Deferred> deferred, List<SourceClaim> sou
             }
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(verifiedBy, "verifiedBy");
-            var checked = bounded(text, "criteria[].text", 10, 500);
-            EarsForm.violation(checked, kind == CriterionKind.UNCHANGED)
-                    .ifPresent(reason -> {
-                        throw new IllegalArgumentException("the criterion '%s' is not in EARS form: %s".formatted(id,
-                                reason));
-                    });
-        }
-    }
-
-    /**
-     * The capability requirement a criterion changes.
-     *
-     * @param capability the capability name
-     * @param requirement the requirement name within the capability
-     * @param change     whether the requirement is added, modified or removed
-     * @param base       for modified and removed, the requirement's base fingerprint; {@code null} for added
-     * @since 0.1
-     */
-    @Builder
-    public record CapabilityLink(String capability, String requirement, CapabilityChange change,
-    @Nullable String base) {
-
-        private static final Pattern NAME =
-                Pattern.compile("[a-z0-9][a-z0-9-]{0,62}[a-z0-9](/[a-z0-9][a-z0-9-]{0,62}[a-z0-9]){0,3}");
-
-        /**
-         * @throws IllegalArgumentException if a name is malformed or the base does not go with the change
-         * @throws NullPointerException     if a value is {@code null}
-         */
-        public CapabilityLink {
-            Objects.requireNonNull(capability, "capability");
-            Objects.requireNonNull(requirement, "requirement");
-            Objects.requireNonNull(change, "change");
-            if (!NAME.matcher(capability).matches()) {
-                throw new IllegalArgumentException("not a capability name: " + capability);
-            }
-            if (requirement.length() < 3 || requirement.length() > 120) {
-                throw new IllegalArgumentException("a requirement name is 3 to 120 characters: " + requirement);
-            }
-            if (change == CapabilityChange.ADDED && base != null) {
-                throw new IllegalArgumentException("an added requirement carries no base fingerprint");
-            }
-            if (change != CapabilityChange.ADDED && (base == null || !FINGERPRINT.matcher(base).matches())) {
-                throw new IllegalArgumentException(
-                        "a %s requirement carries its 64-digit base fingerprint".formatted(change.wireName()));
-            }
-        }
-    }
-
-    /** The changes a criterion makes to a capability requirement. */
-    public enum CapabilityChange {
-        /** The requirement is new. */
-        ADDED("added"),
-        /** The requirement exists and changes. */
-        MODIFIED("modified"),
-        /** The requirement is removed. */
-        REMOVED("removed");
-
-        private final String wireName;
-
-        CapabilityChange(String wireName) {
-            this.wireName = wireName;
-        }
-
-        /** @return the name of the value in a record */
-        public String wireName() {
-            return wireName;
-        }
-
-        /**
-         * @param wireName the name of a value in a record
-         * @return the value of that name; empty if no value has it
-         */
-        public static Optional<CapabilityChange> fromWireName(String wireName) {
-            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
+            bounded(text, "criteria[].text", 10, 500);
         }
     }
 

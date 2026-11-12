@@ -82,18 +82,15 @@ public final class ClarifiedRequestRenderer {
         for (var criterion : criteria) {
             out.append("- `").append(criterion.id()).append("` — ").append(criterion.text())
                     .append(" (`").append(criterion.kind().wireName()).append("`, verified by `")
-                    .append(criterion.verifiedBy().wireName()).append("`)");
-            if (criterion.capability() != null) {
-                out.append(", changes `").append(criterion.capability().capability()).append("/")
-                        .append(criterion.capability().requirement()).append("` (")
-                        .append(criterion.capability().change().wireName()).append(")");
-            }
-            out.append('\n');
+                    .append(criterion.verifiedBy().wireName()).append("`)\n");
         }
         out.append('\n');
     }
 
     private static void nonGoals(StringBuilder out, List<IntentRecord.NonGoal> nonGoals) {
+        if (nonGoals.isEmpty()) {
+            return;
+        }
         out.append("### Non-Goals\n\n");
         nonGoals.forEach(item -> out.append("- `").append(item.id()).append("` — ").append(item.text())
                 .append('\n'));
