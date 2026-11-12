@@ -17,20 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.spi.validation.BuilderCheck.Accepted;
 import de.planmarshall.core.spi.validation.BuilderCheck.Question;
 import de.planmarshall.core.spi.validation.BuilderCheck.Refused;
 import de.planmarshall.core.spi.validation.BuilderCheck.Sort;
 import de.planmarshall.core.spi.validation.BuilderCheck.Submission;
-import de.planmarshall.core.store.CapabilityIndex;
 import de.planmarshall.core.store.IntentRecord;
 import de.planmarshall.core.store.IntentRecord.Constraint;
 import de.planmarshall.core.store.IntentRecord.ConstraintSource;
@@ -112,16 +109,16 @@ class BuilderCheckTest {
         assertInstanceOf(Refused.class, BuilderCheck.validate(new Submission(List.of(two)), intentRecord()));
     }
 
-    @DisplayName("The facts carry the record and the capability index only")
+    @DisplayName("The facts carry the intent record only")
     @Test
-    void factsCarryTheRecordAndTheCapabilityIndex(@TempDir Path root) {
-        var facts = BuilderCheck.facts(intentRecord(), CapabilityIndex.read(root));
-        assertEquals(List.of("capability_index", "intent_record"), facts.keySet().stream().sorted().toList());
-        assertInstanceOf(IntentRecord.class, facts.get("intent_record"));
-        assertEquals(List.of(), facts.get("capability_index"));
-        assertFalse(facts.containsKey("request"));
-        assertFalse(facts.containsKey("original_input"));
-        assertFalse(facts.containsKey("clarifications"));
+    void factsCarryTheRecordOnly() {
+        var facts = BuilderCheck.facts(intentRecord());
+        assertEquals(List.of("intent_record"), List.copyOf(facts.keySet()), "the facts hold the intent record alone");
+        assertInstanceOf(IntentRecord.class, facts.get("intent_record"), "the fact is the intent record");
+        assertFalse(facts.containsKey("capability_index"), "the facts carry no capability index");
+        assertFalse(facts.containsKey("request"), "the facts carry no request document");
+        assertFalse(facts.containsKey("original_input"), "the facts carry no original input");
+        assertFalse(facts.containsKey("clarifications"), "the facts carry no clarifications");
     }
 
     @DisplayName("A minor decision too long for the record is refused, not thrown")
@@ -163,10 +160,10 @@ class BuilderCheckTest {
 
     @DisplayName("The facts are an immutable map")
     @Test
-    void factsAreImmutable(@TempDir Path root) {
-        var facts = BuilderCheck.facts(intentRecord(), CapabilityIndex.read(root));
+    void factsAreImmutable() {
+        var facts = BuilderCheck.facts(intentRecord());
         assertThrows(UnsupportedOperationException.class,
-                () -> facts.put("request", Map.of()));
+                () -> facts.put("request", Map.of()), "the facts refuse a further member");
     }
 
     private static IntentRecord intentRecord() {
@@ -174,10 +171,10 @@ class BuilderCheckTest {
                 WHY,
                 GOAL,
                 List.of(new Criterion("AC-1", "WHEN a plan is refined THE system SHALL write the intent record",
-                                CriterionKind.NEW, VerifiedBy.TEST, null),
+                                CriterionKind.NEW, VerifiedBy.TEST),
                         new Criterion("AC-2",
                                 "WHEN a plan is refined THE system SHALL CONTINUE TO keep the previous record intact",
-                                CriterionKind.UNCHANGED, VerifiedBy.TEST, null)),
+                                CriterionKind.UNCHANGED, VerifiedBy.TEST)),
                 null,
                 List.of(new NonGoal("NG-1", NON_GOAL)),
                 List.of(new Constraint("CN-1", CONSTRAINT, ConstraintSource.OPERATOR, null)),

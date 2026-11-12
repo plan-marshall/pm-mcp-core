@@ -30,7 +30,7 @@ import de.planmarshall.core.role.corpus.ImportedItem;
  * Only items with {@code review.status} {@code draft} or {@code confirmed} count; items of the topic {@code judge/}
  * grade no role. A {@code writer} or {@code read_only} role without items of its own has the topic {@code generic}
  * alone; a {@code zero_tool} role has the topic {@code own} alone and, without items of its own, no topics at all, so it
- * cannot qualify. A judgment role's topic is {@code generic} alone, made of the {@code decision/question} items.
+ * cannot qualify.
  *
  * @param topics the topics the record must hold; unmodifiable, in declaration order
  * @since 0.1

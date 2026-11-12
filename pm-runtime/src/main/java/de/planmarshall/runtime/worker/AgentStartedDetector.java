@@ -120,7 +120,6 @@ public final class AgentStartedDetector {
         tree.refresh();
         var operatorPath = realPath(operator);
         var enrolled = enrolments.get().stream()
-                .filter(enrolment -> !enrolment.isEndpoint())
                 .map(enrolment -> new EnrolledExecutable(realPath(enrolment.executablePath()), enrolment.sha256()))
                 .toList();
         for (var pid : tree.members().stream().sorted().toList()) {

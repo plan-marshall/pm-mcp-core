@@ -98,7 +98,7 @@ class EndpointRequestTest {
     void noSchemaWhereTheEndpointRefusesIt() {
         var profile = new EndpointProfile("local-runner", "ollama",
                 new EndpointProfile.Identity(List.of("--version"), "version ([0-9.]+)"), null,
-                new EndpointProfile.Endpoint("openai_chat", "loopback", EndpointFixtures.BASE_URL, null, "/models",
+                new EndpointProfile.Endpoint("openai_chat", EndpointFixtures.BASE_URL, null, "/models",
                         "/models", "none", 8192, 1024, 30),
                 Map.of(), null);
 

@@ -24,7 +24,6 @@ import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcher;
 import de.cuioss.test.mockwebserver.dispatcher.ModuleDispatcherElement;
 import java.net.Inet6Address;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
-import de.planmarshall.runtime.launch.HarnessEnrolment;
 
 /**
  * One task on an endpoint harness (PM-CLIENT-2, Client Profiles § The Request, § Enrolment): the owner check refuses a
@@ -54,17 +52,14 @@ import de.planmarshall.runtime.launch.HarnessEnrolment;
  * JSON field names {@code choices}, {@code message}, {@code content}, {@code usage}, {@code prompt_tokens},
  * {@code completion_tokens}, {@code models}, {@code id}, {@code stream} and {@code tools}); the status codes; the
  * client id and the result schema modes of the fixture profile; the wording of the refusal details. The launch
- * prompt, the task, the model, the answer, the token counts, the listed model, the judge origin and token and the
- * detail of an owner lookup are generated.
+ * prompt, the task, the model, the answer, the token counts, the listed model and the detail of an owner lookup are
+ * generated.
  */
 @EnableMockWebServer
 @EnableGeneratorController
 @ModuleDispatcher
 @DisplayName("Endpoint harness")
 class EndpointHarnessTest {
-
-    /** The client id of the fixture profile (contract of {@link EndpointFixtures}). */
-    private static final String CLIENT_ID = "local-runner";
 
     /** Canned responses by {@code METHOD target}; each answers every request to its target. */
     private final Map<String, MockResponse> routes = new ConcurrentHashMap<>();
@@ -150,23 +145,6 @@ class EndpointHarnessTest {
 
     private static EndpointHarness enrolledHarness() {
         return harness(owner(EndpointFixtures.enrolment().executablePath().toString()));
-    }
-
-    @Test
-    @DisplayName("an endpoint-form enrolment is refused before any request")
-    void endpointEnrolmentRefused() {
-        on("POST", EndpointClient.CHAT_PATH, 200, chatAnswer());
-        var enrolled = HarnessEnrolment.endpoint(CLIENT_ID, "https://" + word() + ".example.test", word(),
-                Instant.EPOCH, new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()));
-
-        var outcome = harness(owner(EndpointFixtures.executablePath()))
-                .task(EndpointFixtures.profile(base), enrolled, request(), null);
-
-        assertAll("the refused endpoint enrolment",
-                () -> assertEquals(EndpointOutcome.Fate.REFUSED, outcome.fate(), outcome::detail),
-                () -> assertEquals(EndpointOutcome.Reason.HARNESS_NOT_ENROLLED, outcome.reason(),
-                        "the refusal names the missing enrolment"),
-                () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"));
     }
 
     @Test

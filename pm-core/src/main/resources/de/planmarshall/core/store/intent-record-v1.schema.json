@@ -12,12 +12,13 @@
       "type": "array", "minItems": 1, "maxItems": 30,
       "items": {
         "type": "object",
-        "required": ["id", "text", "kind"],
+        "required": ["id", "text", "kind", "verified_by"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^AC-[0-9]{1,4}$" },
           "text": { "type": "string", "minLength": 10, "maxLength": 500 },
-          "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] }
+          "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] },
+          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] }
         }
       }
     },

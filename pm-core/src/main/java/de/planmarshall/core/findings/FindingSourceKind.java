@@ -46,8 +46,6 @@ public enum FindingSourceKind {
     CODE_REVIEW("code_review"),
     /** The server's pre-merge dependency delta check. */
     DEPENDENCY_DELTA("dependency_delta"),
-    /** The server's pre-merge capability test guard. */
-    CAPABILITY_TESTS("capability_tests"),
     /** The server's pre-merge fix proof guard. */
     FIX_PROOF("fix_proof"),
     /** The server's pre-merge added-line scan. */

@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -302,19 +301,6 @@ class LaunchComposerTest {
 
     private WorkerLaunch compose(EffectiveRole role, boolean fresh, boolean freeText) {
         return new LaunchComposer().compose(request(role, fresh, LaunchRequest.WorkdirKind.PLAN_WORKTREE, freeText));
-    }
-
-    @Test
-    @DisplayName("an endpoint-form enrolment composes no worker launch")
-    void endpointEnrolmentComposesNoWorker() {
-        var role = roleWithoutResume(RoleClass.ZERO_TOOL);
-        var enrolled = HarnessEnrolment.endpoint("claude", "https://" + shortWords().next() + ".example.test",
-                shortWords().next(), LaunchFixtures.clock().instant(), new HarnessEnrolment.UsageReport(
-                        HarnessEnrolment.UsageSource.DECLARED, Map.of()));
-        var request = request(role, true, LaunchRequest.WorkdirKind.PLAN_WORKTREE, false, enrolled);
-
-        assertThrows(LaunchComposer.CompositionException.class, () -> new LaunchComposer().compose(request),
-                "an endpoint enrolment composes no worker");
     }
 
     private LaunchRequest request(EffectiveRole role, boolean fresh, LaunchRequest.WorkdirKind kind,

@@ -35,8 +35,6 @@ import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
-import de.planmarshall.core.store.OutlineRecord.Interface;
-import de.planmarshall.core.store.OutlineRecord.KeyLink;
 import de.planmarshall.core.store.OutlineRecord.Profile;
 import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
@@ -89,8 +87,6 @@ class OutlineRecordTest {
                 () -> assertTrue(outline.contains("**Verification:**"), "the verification should be rendered"),
                 () -> assertTrue(outline.contains("**Added dependencies:**"),
                         "the added dependencies should be rendered"),
-                () -> assertTrue(outline.contains("**Interfaces:**"), "the interfaces should be rendered"),
-                () -> assertTrue(outline.contains("**Key links:**"), "the key links should be rendered"),
                 () -> assertTrue(outline.contains("**Intent gloss:**"), "the intent gloss should be rendered"),
                 () -> assertTrue(outline.contains("**Profiles:** implementation, module_testing"),
                         "the profiles should be rendered in order"));
@@ -175,8 +171,6 @@ class OutlineRecordTest {
         List<Profile> noProfiles = List.of();
         List<AffectedFile> noFiles = List.of();
         List<AddedDependency> noDependencies = List.of();
-        List<Interface> noInterfaces = List.of();
-        List<KeyLink> noLinks = List.of();
         // Lengths within the member bounds, so that only the profiles break the record.
         var verification = List.of(new Verification(text(5, 30), text(5, 30)));
         var satisfies = List.of(criterion());
@@ -187,13 +181,13 @@ class OutlineRecordTest {
         var change = text(10, 60);
         assertThrows(IllegalArgumentException.class, () -> new Deliverable(1, title, goal,
                         ChangeType.FEATURE, ExecutionMode.AUTOMATED, domain, module, noDepends, null, noProfiles,
-                        noFiles, change, verification, satisfies, noDependencies, noInterfaces, noLinks),
+                        noFiles, change, verification, satisfies, noDependencies),
                 "a deliverable without a profile should fail");
         var duplicatedProfiles = List.of(Profile.IMPLEMENTATION, Profile.IMPLEMENTATION);
         assertThrows(IllegalArgumentException.class, () -> new Deliverable(1, title, goal,
                         ChangeType.FEATURE, ExecutionMode.AUTOMATED, domain, module, noDepends, null,
                         duplicatedProfiles, noFiles, change,
-                        verification, satisfies, noDependencies, noInterfaces, noLinks),
+                        verification, satisfies, noDependencies),
                 "a duplicated profile should be refused");
     }
 
@@ -231,7 +225,7 @@ class OutlineRecordTest {
                 ExecutionMode.AUTOMATED, text().toLowerCase(Locale.ROOT), text().toLowerCase(Locale.ROOT),
                 List.of(1, 1), null, List.of(Profile.IMPLEMENTATION), List.of(), text(10, 60),
                 List.of(new Verification(text(5, 30), text(5, 30))),
-                List.of(criterion()), List.of(), List.of(), List.of());
+                List.of(criterion()), List.of());
         var deliverables = List.of(deliverable(1, text(), List.of(), criterion(), text()), duplicatedDependency);
         assertThrows(IllegalArgumentException.class,
                 () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, deliverables),

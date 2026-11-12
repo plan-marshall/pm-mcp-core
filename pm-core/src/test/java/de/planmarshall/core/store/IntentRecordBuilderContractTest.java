@@ -20,7 +20,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.IntentRecord.AssumptionStatus;
-import de.planmarshall.core.store.IntentRecord.CapabilityChange;
 import de.planmarshall.core.store.IntentRecord.ConstraintSource;
 import de.planmarshall.core.store.IntentRecord.CriterionKind;
 import de.planmarshall.core.store.IntentRecord.Decider;
@@ -72,14 +71,14 @@ class IntentRecordBuilderContractTest {
     void shouldBuildCriterionLikeTheConstructorAndRefuseAnAbsentId() {
         var canonical = IntentFixtures.criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST);
         var built = IntentRecord.Criterion.builder().id(canonical.id()).text(canonical.text())
-                .kind(canonical.kind()).verifiedBy(canonical.verifiedBy()).capability(canonical.capability()).build();
+                .kind(canonical.kind()).verifiedBy(canonical.verifiedBy()).build();
 
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new IntentRecord.Criterion(null, canonical.text(), CriterionKind.NEW,
-                                    VerifiedBy.TEST, null),
+                                    VerifiedBy.TEST),
                             "the constructor refuses a null criterion id");
                     var incomplete = IntentRecord.Criterion.builder().text(canonical.text())
                             .kind(CriterionKind.NEW).verifiedBy(VerifiedBy.TEST);
@@ -87,30 +86,6 @@ class IntentRecordBuilderContractTest {
                             "the builder refuses a missing criterion id");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
                             "both refuse an absent criterion id with the same message");
-                });
-    }
-
-    @Test
-    @DisplayName("the capability link builder builds the constructor's value and refuses an absent capability")
-    void shouldBuildCapabilityLinkLikeTheConstructorAndRefuseAnAbsentCapability() {
-        var canonical = new IntentRecord.CapabilityLink("store-schema", "records-are-valid", CapabilityChange.ADDED,
-                null);
-        var built = IntentRecord.CapabilityLink.builder().capability(canonical.capability())
-                .requirement(canonical.requirement()).change(canonical.change()).base(canonical.base()).build();
-
-        assertAll(
-                () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
-                () -> {
-                    var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new IntentRecord.CapabilityLink(null, "records-are-valid", CapabilityChange.ADDED,
-                                    null),
-                            "the constructor refuses a null capability");
-                    var incomplete = IntentRecord.CapabilityLink.builder().requirement("records-are-valid")
-                            .change(CapabilityChange.ADDED);
-                    var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
-                            "the builder refuses a missing capability");
-                    assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
-                            "both refuse an absent capability with the same message");
                 });
     }
 

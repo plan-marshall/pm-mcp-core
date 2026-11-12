@@ -46,8 +46,6 @@ import de.planmarshall.core.store.IntentRecord.AdrRef;
 import de.planmarshall.core.store.IntentRecord.AdrRelation;
 import de.planmarshall.core.store.IntentRecord.Assumption;
 import de.planmarshall.core.store.IntentRecord.AssumptionStatus;
-import de.planmarshall.core.store.IntentRecord.CapabilityChange;
-import de.planmarshall.core.store.IntentRecord.CapabilityLink;
 import de.planmarshall.core.store.IntentRecord.Constraint;
 import de.planmarshall.core.store.IntentRecord.ConstraintSource;
 import de.planmarshall.core.store.IntentRecord.Criterion;
@@ -189,22 +187,6 @@ class IntentRecordTest {
                 "a model decision cannot contradict an ADR");
     }
 
-    @DisplayName("A capability requirement's presence and base fingerprint are checked")
-    @Test
-    void checksCapabilityRequirements() {
-        var added = withCriteria(List.of(
-                new Criterion("AC-1", "WHEN a plan is refined THE system SHALL write the intent record",
-                        CriterionKind.NEW, VerifiedBy.TEST,
-                        new CapabilityLink("intent-record", "round-trip", CapabilityChange.ADDED, null)),
-                criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
-        var facts = new IntentAcceptance.Context(PLAN_ID, question -> Optional.empty(),
-                (capability, requirement) -> Optional.of("a".repeat(64)), null, FILE);
-
-        var refusal = assertInstanceOf(Refused.class,
-                accept(null, IntentSubmission.REFINE, revision(1, added), facts), "the outcome is a refusal");
-        assertTrue(refusal.detail().contains("already exists"), "the refusal names the existing capability");
-    }
-
     @DisplayName("The epic's required claims are seeded and must appear in the record")
     @Test
     void seedsRequiredClaimsFromEpic() {
@@ -213,7 +195,6 @@ class IntentRecordTest {
                         "The simplify step runs"),
                 List.of("No chat integration"), List.of());
         var seeded = new IntentAcceptance.Context(PLAN_ID, question -> Optional.empty(),
-                (capability, requirement) -> Optional.empty(),
                 new IntentAcceptance.EpicSeed(epic, "The plan lands with its records"), FILE);
 
         var refused = accept(null, IntentSubmission.REFINE, revision(1, valid()), seeded);
@@ -401,21 +382,54 @@ class IntentRecordTest {
                 "the removed identifier is reported alone");
     }
 
-    @DisplayName("A capability link round-trips through the codec")
-    @Test
-    void capabilityLinkRoundTrips() {
-        var intentRecord = withCriteria(List.of(new Criterion("AC-1",
-                        "WHEN a plan is refined THE system SHALL write the intent record", CriterionKind.NEW,
-                        VerifiedBy.TEST, new CapabilityLink("intent-record", "round-trip", CapabilityChange.ADDED, null)),
+    @DisplayName("A criterion's verified_by round-trips through the codec and is rendered")
+    @ParameterizedTest
+    @EnumSource(VerifiedBy.class)
+    void verifiedByRoundTrips(VerifiedBy verifiedBy) {
+        var intentRecord = withCriteria(List.of(criterion("AC-1", CriterionKind.NEW, verifiedBy),
                 criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)));
         var store = assertInstanceOf(Accepted.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord), context(FILE)),
-                "the record with a capability link is accepted").store();
+                "the record with the criterion is accepted").store();
 
         var reread = IntentCodec.read(FILE, IntentCodec.write(store));
-        assertEquals(store, reread, "the capability link round-trips through the codec");
-        assertEquals("intent-record", reread.current().intentRecord().criterion("AC-1").orElseThrow().capability()
-                .capability(), "the capability link keeps its capability name");
+        assertEquals(store, reread, "the criterion round-trips through the codec");
+        assertEquals(verifiedBy, reread.current().intentRecord().criterion("AC-1").orElseThrow().verifiedBy(),
+                "the criterion keeps how it is verified");
+        assertTrue(ClarifiedRequestRenderer.render(reread).contains("verified by `" + verifiedBy.wireName() + "`"),
+                "the render states how the criterion is verified");
+    }
+
+    @DisplayName("A record without non-goals is valid, round-trips and renders without the non-goals heading")
+    @Test
+    void recordWithoutNonGoalsIsValid() {
+        var store = IntentStore.first(revision(1, withoutNonGoals()));
+
+        assertTrue(store.current().intentRecord().nonGoals().isEmpty(), "the valid record holds no non-goal");
+        assertEquals(store, IntentCodec.read(FILE, IntentCodec.write(store)),
+                "the record without non-goals round-trips");
+        assertFalse(ClarifiedRequestRenderer.render(store).contains("### Non-Goals"),
+                "the render has no non-goals heading");
+    }
+
+    @DisplayName("Check 7: submit:refine refuses a record without non-goals, naming the member")
+    @Test
+    void refineRefusesRecordWithoutNonGoals() {
+        var outcome = accept(null, IntentSubmission.REFINE, revision(1, withoutNonGoals()), context(FILE));
+
+        var refusal = assertInstanceOf(Refused.class, outcome, "the refine submission is refused");
+        assertTrue(refusal.detail().contains("non_goals"), "the refusal names the member non_goals");
+        assertTrue(refusal.detail().contains("submit:refine"), "the refusal names the entry point");
+    }
+
+    @DisplayName("Check 7 applies to submit:refine alone: the other entry points accept a record without non-goals")
+    @ParameterizedTest
+    @EnumSource(value = IntentSubmission.class, names = "REFINE", mode = EnumSource.Mode.EXCLUDE)
+    void otherEntryPointsAcceptRecordWithoutNonGoals(IntentSubmission submission) {
+        var outcome = accept(null, submission, revision(1, withoutNonGoals()), context(FILE));
+
+        var store = assertInstanceOf(Accepted.class, outcome, "the record without non-goals is accepted").store();
+        assertTrue(store.current().intentRecord().nonGoals().isEmpty(), "the accepted record holds no non-goal");
     }
 
     @DisplayName("A current behaviour without a fix criterion, or outside its form, is refused")
@@ -429,7 +443,7 @@ class IntentRecordTest {
                 "a current behaviour without a fix criterion is refused");
 
         var fix = new Criterion("AC-1", "WHEN a plan is refined THE system SHALL write the record",
-                CriterionKind.FIX, VerifiedBy.TEST, null);
+                CriterionKind.FIX, VerifiedBy.TEST);
         var unchanged = criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST);
         var withFix = List.of(fix, unchanged);
         assertThrows(IllegalArgumentException.class,
@@ -511,6 +525,13 @@ class IntentRecordTest {
             List<Assumption> assumptions) {
         return new IntentRecord(base.why(), base.goal(), criteria, currentBehaviour, base.nonGoals(),
                 base.constraints(), base.decisions(), assumptions, base.openQuestions(), base.deferred(),
+                base.sourceClaims());
+    }
+
+    private static IntentRecord withoutNonGoals() {
+        var base = valid();
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), List.of(),
+                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
                 base.sourceClaims());
     }
 

@@ -23,7 +23,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
-import de.planmarshall.core.store.OutlineRecord.Direction;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
@@ -32,8 +31,9 @@ import de.planmarshall.core.store.OutlineStore.DeliveryStatus;
 import de.planmarshall.core.store.OutlineStore.Revision;
 
 /**
- * The outline store and the outline record keep parity with the schema files of {@code store-schemas/06}: their members
- * and every enumeration are the files', every required member a record shares with its file is carried, and the two
+ * The outline store and the outline record keep parity with the schema files of {@code store-schemas/06}: their members,
+ * the members of a deliverable and every enumeration are the files', every required member a record shares with its
+ * file is carried, and the two
  * negative controls prove the comparison reports a member only one side has.
  */
 @EnableGeneratorController
@@ -90,6 +90,21 @@ class OutlineSchemaParityTest {
     }
 
     @Test
+    @DisplayName("the members and required members of a deliverable are the file's")
+    void deliverableMembers() {
+        var schema = SchemaParity.load(RECORD);
+        var declaration = SchemaParity.object(SchemaParity.member(schema, "deliverables").get("items"));
+        var written = SchemaParity.object(SchemaParity.array(recordDocument().get("deliverables")).getFirst());
+        var members = SchemaParity.members(written);
+
+        assertAll(
+                () -> assertEquals(List.of(), SchemaParity.memberDiffs(members, declaration),
+                        "the deliverable members should equal the schema"),
+                () -> assertTrue(Set.copyOf(members).containsAll(SchemaParity.required(declaration)),
+                        "the deliverable should carry every required member"));
+    }
+
+    @Test
     @DisplayName("the record refuses a summary below the file's minimum length")
     void recordLimits() {
         var schema = SchemaParity.load(RECORD);
@@ -111,7 +126,6 @@ class OutlineSchemaParityTest {
         var schema = SchemaParity.load(RECORD);
         var deliverable = SchemaParity.object(SchemaParity.member(schema, "deliverables").get("items"));
         var affectedFile = SchemaParity.object(SchemaParity.member(deliverable, "affected_files").get("items"));
-        var interfaceMember = SchemaParity.object(SchemaParity.member(deliverable, "interfaces").get("items"));
         var status = SchemaParity.object(SchemaParity.member(SchemaParity.load(STORE), "deliverable_status")
                 .get("additionalProperties"));
 
@@ -131,9 +145,6 @@ class OutlineSchemaParityTest {
                 () -> assertEquals(SchemaParity.enumOf(affectedFile, "intent"),
                         SchemaParity.wireNames(FileIntent.values(), FileIntent::wireName),
                         "the file intents should equal the schema enum"),
-                () -> assertEquals(SchemaParity.enumOf(interfaceMember, "direction"),
-                        SchemaParity.wireNames(Direction.values(), Direction::wireName),
-                        "the interface directions should equal the schema enum"),
                 () -> assertEquals(SchemaParity.values(status),
                         SchemaParity.wireNames(DeliveryStatus.values(), DeliveryStatus::wireName),
                         "the delivery statuses should equal the schema enum"));

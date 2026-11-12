@@ -12,17 +12,14 @@ package de.planmarshall.core.profile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import de.cuioss.test.generator.Generators;
-import java.util.Locale;
 
 /**
  * A valid endpoint profile and its variants, for the tests of the endpoint profile schema (Client Profiles § Endpoint
- * Profile Schema).
+ * Profile Schema). The endpoint is a loopback one, the only form the schema admits.
  */
 public final class EndpointProfileFixtures {
 
     private static final String LOCAL_NAME = "Local " + Generators.letterStrings(3, 10).next();
-    private static final String REMOTE_NAME = "Hosted " + Generators.letterStrings(3, 10).next();
-    private static final String REMOTE_MODEL = "p" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
     private EndpointProfileFixtures() {
     }
@@ -41,9 +38,7 @@ public final class EndpointProfileFixtures {
               "update_evidence": {"method": "none", "signer": null},
               "endpoint": {
                 "protocol": "openai_chat",
-                "locality": "loopback",
                 "base_url": "http://127.0.0.1:11434",
-                "credential_key": null,
                 "readiness_path": "/api/tags",
                 "models_path": "/api/tags",
                 "models_pointer": "/models",
@@ -58,40 +53,6 @@ public final class EndpointProfileFixtures {
             """.formatted(LOCAL_NAME);
 
     /**
-     * The valid document of the remote form (Client Profiles § Remote Form): one hosted service, enrolled by the
-     * operator, with no serving program, no identity and no update evidence.
-     */
-    public static final String REMOTE = """
-            {
-              "profile_kind": "endpoint",
-              "schema_version": 1,
-              "client_id": "hosted-judge",
-              "display_name": "%1$s",
-              "min_daemon_version": "0.1.0",
-              "icon": null,
-              "executable": null,
-              "identity": null,
-              "update_evidence": null,
-              "endpoint": {
-                "protocol": "system_one",
-                "locality": "remote",
-                "base_url": "https://judge.example.test",
-                "credential_key": "judge-token",
-                "readiness_path": null,
-                "models_path": "/v1/models",
-                "models_pointer": "/data",
-                "result_schema": "enforced",
-                "context_tokens": 8192,
-                "answer_reserve_tokens": 512,
-                "request_timeout_seconds": 60
-              },
-              "model_tiers": {"frontier": "%2$s", "standard": "%2$s",
-                "fast": "%2$s"},
-              "weights_probe": null
-            }
-            """.formatted(REMOTE_NAME, REMOTE_MODEL);
-
-    /**
      * @param document a profile document
      * @return the validated tree
      */
@@ -102,20 +63,6 @@ public final class EndpointProfileFixtures {
     /** @return the validated endpoint profile */
     public static JsonNode valid() {
         return validate(VALID);
-    }
-
-    /** @return the validated endpoint profile of the remote form */
-    public static JsonNode remote() {
-        return validate(REMOTE);
-    }
-
-    /**
-     * @param from the text of the remote document to replace
-     * @param to   the replacement
-     * @return the variant of the remote document
-     */
-    public static String remoteVariant(String from, String to) {
-        return REMOTE.replace(from, to);
     }
 
     /** @return the loaded endpoint profile */
