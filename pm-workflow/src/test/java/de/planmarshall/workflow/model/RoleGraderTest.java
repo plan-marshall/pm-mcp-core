@@ -55,8 +55,8 @@ import de.planmarshall.core.role.qualification.Topic;
 /**
  * One grading run of a role's configuration (Model Work § Grading; § Judge Instrument Check; § Corpus Sources): a run
  * starts only on the operator's consent and never on a failed import; it checks the judge as an instrument first; it
- * offers every item in the fresh form and, for a role that is not zero-tool, the warm form; a screener's items are
- * offered five times; an item of the project's repository is graded at its origin commit, or in the checkout when that
+ * offers every item in the fresh form and, for a role that is not zero-tool, the warm form; every role's items are
+ * offered the runs the caller requested, one by default; an item of the project's repository is graded at its origin commit, or in the checkout when that
  * commit is missing; and the record holds every item's tokens and the form's totals.
  */
 @EnableGeneratorController
@@ -146,7 +146,7 @@ class RoleGraderTest {
             assertFalse(graded.entry().form(RoleForm.WARM).isPresent());
             assertNull(graded.entry().warmFreshGap(),
                     "a fresh-only grading has no warm-fresh gap");
-            assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
+            assertEquals(1, graded.entry().items().size(), "the default profile grades each item once");
         }
     }
 
@@ -275,8 +275,8 @@ class RoleGraderTest {
     class Items {
 
         @Test
-        @DisplayName("the screener's items are offered five times even when the caller asks for one run")
-        void screenerRuns() {
+        @DisplayName("the screener's suspicious item is offered once when the caller asks for one run")
+        void screenerSingleRun() {
             var fixtures = new Fixtures();
             var screener = ModelFixtures.role("screener", RoleClass.ZERO_TOOL, RoleForm.FRESH);
             var item = GraderFixtures.item("screen/injected", "screener", "suspicious").build();
@@ -287,9 +287,59 @@ class RoleGraderTest {
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(GradingProfile.SCREENER_RUNS, fixtures.harness.offered().size());
-            assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
-            assertEquals(5, fixtures.harness.offered().stream().map(GradingHarness.Offered::run).distinct().count());
+            assertEquals(1, fixtures.harness.offered().size(), "the screener's item is offered once");
+            assertEquals(1, graded.entry().items().size(), "the record holds one run of the item");
+        }
+
+        @Test
+        @DisplayName("the screener's suspicious item is offered exactly the runs the caller requested")
+        void screenerRequestedRuns() {
+            var fixtures = new Fixtures();
+            int runs = Generators.integers(2, 6).next();
+            var screener = ModelFixtures.role("screener", RoleClass.ZERO_TOOL, RoleForm.FRESH);
+            var item = GraderFixtures.item("screen/injected", "screener", "suspicious").build();
+            fixtures.harness.answers("screen/injected", "clean");
+            var plan = GraderFixtures.plan(screener, List.of(item), fixtures.judgeConfiguration(),
+                    GraderFixtures.complete(), new GradingProfile(runs), Optional.empty(), ItemCheckout.none());
+
+            var graded = assertInstanceOf(GradingOutcome.Graded.class,
+                    fixtures.grader.grade(plan, GradingConsent.GRANTED));
+
+            assertEquals(runs, fixtures.harness.offered().size(), "the item is offered the requested runs");
+            assertEquals(runs, graded.entry().items().size(), "the record holds every requested run");
+            assertEquals(runs, fixtures.harness.offered().stream().map(GradingHarness.Offered::run).distinct()
+                    .count(), "every requested run has its own number");
+        }
+
+        @Test
+        @DisplayName("a role that is not the screener is offered the requested runs in every form")
+        void otherRoleRequestedRuns() {
+            var fixtures = new Fixtures();
+            int runs = Generators.integers(2, 4).next();
+            var plan = GraderFixtures.plan(GraderFixtures.role(), corpus(), fixtures.judgeConfiguration(),
+                    GraderFixtures.complete(), new GradingProfile(runs), Optional.empty(), ItemCheckout.none());
+
+            assertInstanceOf(GradingOutcome.Graded.class, fixtures.grader.grade(plan, GradingConsent.GRANTED));
+
+            assertEquals(2 * 2 * runs, fixtures.harness.offered().size(), "two items in two forms, each run");
+        }
+
+        @Test
+        @DisplayName("every role is offered one run by default")
+        void defaultSingleRun() {
+            var fixtures = new Fixtures();
+            var screener = ModelFixtures.role("screener", RoleClass.ZERO_TOOL, RoleForm.FRESH);
+            var item = GraderFixtures.item("screen/injected", "screener", "suspicious").build();
+            var screenerPlan = GraderFixtures.plan(screener, List.of(item), fixtures.judgeConfiguration(),
+                    GraderFixtures.complete());
+
+            fixtures.grader.grade(screenerPlan, GradingConsent.GRANTED);
+            var screenerOffered = fixtures.harness.offered().size();
+            fixtures.harness.offered().clear();
+            fixtures.grader.grade(plan(fixtures, GraderFixtures.complete()), GradingConsent.GRANTED);
+
+            assertEquals(1, screenerOffered, "the screener is offered its item once by default");
+            assertEquals(4, fixtures.harness.offered().size(), "two items in two forms, once each by default");
         }
 
         @Test
@@ -382,20 +432,21 @@ class RoleGraderTest {
         }
 
         @Test
-        @DisplayName("a reused record is topped up to the runs the plan requires")
+        @DisplayName("a reused record is topped up to the runs the caller requested")
         void reuseToppedUp() {
             var fixtures = new Fixtures();
+            int runs = Generators.integers(2, 6).next();
             var screener = ModelFixtures.role("screener", RoleClass.ZERO_TOOL, RoleForm.FRESH);
             var item = GraderFixtures.item("screen/injected", "screener", "suspicious").build();
             var plan = GraderFixtures.plan(screener, List.of(item), fixtures.judgeConfiguration(),
-                    GraderFixtures.complete(), GradingProfile.single(), Optional.of(screenerRecord(screener, item)),
+                    GraderFixtures.complete(), new GradingProfile(runs), Optional.of(screenerRecord(screener, item)),
                     ItemCheckout.none());
 
             var graded = assertInstanceOf(GradingOutcome.Graded.class,
                     fixtures.grader.grade(plan, GradingConsent.GRANTED));
 
-            assertEquals(GradingProfile.SCREENER_RUNS - 1, fixtures.harness.offered().size());
-            assertEquals(GradingProfile.SCREENER_RUNS, graded.entry().items().size());
+            assertEquals(runs - 1, fixtures.harness.offered().size(), "only the missing runs are offered");
+            assertEquals(runs, graded.entry().items().size(), "the record holds every requested run");
         }
 
         @Test

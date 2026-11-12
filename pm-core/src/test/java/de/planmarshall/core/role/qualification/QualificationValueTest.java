@@ -151,9 +151,11 @@ class QualificationValueTest {
                 repository, single, judge, inCheckout, noPrevious));
         assertThrows(IllegalArgumentException.class, () -> new GradingOffer("implement", noTopics, 0, noForms,
                 1, 0, 0));
-        assertEquals(5, GradingProfile.screener().runsPerItem());
-        assertTrue(GradingProfile.screener().repeated());
-        assertFalse(GradingProfile.single().repeated());
+        int requested = Generators.integers(2, 10).next();
+        assertEquals(requested, new GradingProfile(requested).runsPerItem(), "the profile keeps the requested runs");
+        assertTrue(new GradingProfile(requested).repeated(), "more than one requested run is repeated");
+        assertEquals(1, single.runsPerItem(), "the default profile offers one run");
+        assertFalse(single.repeated(), "the default profile is not repeated");
         assertThrows(IllegalArgumentException.class, () -> new GradingProfile(0));
         assertThrows(IllegalArgumentException.class, () -> new GradingOutcome.Declined(false));
         var detail = Generators.letterStrings(3, 20).next();
@@ -179,23 +181,21 @@ class QualificationValueTest {
     }
 
     @Test
-    @DisplayName("a suspicious item of another role does not raise this role's runs")
-    void suspiciousOfAnotherRole() {
+    @DisplayName("an item with the reference 'suspicious' does not raise the requested runs")
+    void suspiciousKeepsRequestedRuns() {
+        // "suspicious" is the reference literal the screener's items carry (QualificationCheck.SUSPICIOUS)
         var judge = judge();
         var topics = "t" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
         var own = QualificationFixtures.item(
-                topics + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), "review-code",
-                "c" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT)).build();
-        var foreign = QualificationFixtures.item(
-                "u" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT) + "/"
-                        + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT),
-                "f" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), "suspicious").build();
-        var plan = new GradingPlan(QualificationFixtures.role("review-code", RoleClass.READ_ONLY,
-                        RoleForm.FRESH), List.of(own, foreign), new ImportResult(List.of(), List.of()),
-                QualificationFixtures.CORPUS_REVISION, QualificationFixtures.REPOSITORY, GradingProfile.single(),
-                judge, ItemCheckout.none(), null);
+                topics + "/" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT), "screen",
+                QualificationCheck.SUSPICIOUS).build();
+        int requested = Generators.integers(1, 4).next();
+        var plan = new GradingPlan(QualificationFixtures.role("screen", RoleClass.ZERO_TOOL, RoleForm.FRESH),
+                List.of(own), new ImportResult(List.of(), List.of()), QualificationFixtures.CORPUS_REVISION,
+                QualificationFixtures.REPOSITORY, new GradingProfile(requested), judge, ItemCheckout.none(), null);
 
-        assertEquals(1, GradingOffer.runs(plan));
+        assertEquals(requested, GradingOffer.runs(plan), "a suspicious item keeps the requested runs");
+        assertEquals(requested, GradingOffer.of(plan).runsPerItem(), "the offer shows the requested runs");
     }
 
     @Test
