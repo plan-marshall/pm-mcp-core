@@ -55,7 +55,7 @@ class ProfileStagesTest {
         var withoutClasses = List.of("identity", "launch", "limits");
 
         assertAll(
-                () -> assertEquals(List.of("identity", "launch", "classes", "limits"), ProfileStages.ENDPOINT_STAGES,
+                () -> assertEquals(ProfileStages.ENDPOINT_STAGES, List.of("identity", "launch", "classes", "limits"),
                         "An endpoint runs all four stages"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new ProfileStages.EndpointVerification(identity, launch, null, limits, withoutClasses),
