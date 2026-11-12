@@ -2596,7 +2596,8 @@ read and the aggregate carries its coverage.
 `intent.json` beside `request.md` is the plan's intent record (Store Schemas § Intent Record; Phase Workflows § The
 Intent Record). `IntentRecord` is the model-supplied document and the named parameter schema `intent-record`. A
 criterion carries `id`, `text`, `kind` and `verified_by`; the record holds one to 30 criteria and up to 20 non-goals
-(`non_goals` is bounded `0` to `20`). It refuses a member out of its bounds, a `fix` criterion without its current
+(`non_goals` is bounded `0` to `20`, so a record without non-goals is a valid record; the deep lane's rule of at least
+one non-goal is a check of the acceptance, below). It refuses a member out of its bounds, a `fix` criterion without its current
 behaviour and an `unchanged` criterion, a `current_behaviour` without a `fix` criterion or outside
 `WHEN <condition> THEN THE <system> <behaviour>`, an unverified assumption without exactly one riskiest one, a repeated
 identifier, and a source claim that lands in no item of the record.
@@ -2610,7 +2611,10 @@ transaction on the plan lock.
 `IntentAcceptance` checks what needs the plan: an `operator` or `quorum` decision cites a part of an answered question
 record of this plan through the matching channel, a `fact` decision names an evidence path that exists (or a `pm://`
 URI), and every claim an epic seeds appears among the `source_claims`. `EpicIntent` derives those claims from the plan row's own
-`done_when` and the epic's non-goals.
+`done_when` and the epic's non-goals. It also checks what needs the entry point: a record submitted through
+`submit:refine` carries at least one non-goal (server check 7, non-goals on the deep lane), refused otherwise with a
+detail naming `non_goals`; the light envelope's `submit:outline` and a re-planning accept a record without one. The
+rule lives in the acceptance and not in the record's bounds, because the record without non-goals stays valid.
 
 `ClarifiedRequestRenderer` renders `## Clarified Request` from the current record, each item with its identifier, and
 lists the model's own calls under their own heading. Each criterion is rendered with its kind and its `verified_by`;
