@@ -16,7 +16,9 @@ During Phase 4 (`plan`), the workflow engine does not create a task of model wor
 [#cost-sizing]
 === Cost Sizing (`derive-cost-size`), Envelope Budget & Minimum Task Work
 
-The cost model (size rubric, size-to-token table, and Next-Fit packing under the budget) is `plan-marshall`'s (`manage-tasks/scripts/_tasks_cost.py`, `manage-tasks/scripts/_tasks_envelope.py`, the defaults in `manage-config/scripts/_config_defaults.py`, and `extension-api/standards/dispatch-granularity.md` § 1.2), verified at commit `88fcfc9ef`; re-verify against the latest `plan-marshall` version before implementing. `plan-marshall`'s packer packs on the budget alone; envelope sharing by module and role (item 5) and the below-minimum merge (item 6) are deliberate changes. It predicts the token consumption of a task's work (generation, reasoning, and in-context skill loads), not wall-clock time; the build count is deliberately not a signal, because a build is token-cheap whatever its duration. The dominant cost of an envelope task is the per-plan-task work, not the envelope's re-establishment overhead, so bundling tasks amortises only that minor share.
+Implemented by `pm-workflow` package `workflow.envelope` (link:../../../pm-workflow/doc/developer/workflow-envelope.adoc[`workflow.envelope` Developer Guide]) as a pure computation over plain values: `TaskCostEstimator` with `CostSize` (items 1 and 2), `SizeTokenTable` (item 3), `EnvelopeBudget` (item 4) and `EnvelopePacker` (items 5 and 6 and the next section). The decisions are link:../../../pm-workflow/doc/adr/workflow-envelope/001-cost-size-and-the-records-follow-the-coding-rules.adoc[ADR `workflow-envelope/001`] (`CostSize` top-level, `@Builder` on the records, the derived `belowMinimum()`), link:../../../pm-workflow/doc/adr/workflow-envelope/002-the-size-token-table-is-an-argument.adoc[ADR `workflow-envelope/002`] (the table passed in with its basis) and link:../../../pm-workflow/doc/adr/workflow-envelope/003-the-budget-is-resolved-from-plain-values.adoc[ADR `workflow-envelope/003`] (the budget's precedence, cap and `aboveThreshold`). Remaining: the wiring into `plan.describe-tasks` and the stamping of `cost_size`, `predicted_cost_tokens` and `predicted_cost_basis` on the task record; the recalibration into the derived fact `cost_calibration`; the reading of `envelope_budget_tokens` from `local-config.json`; the profile member `headless.long_context_thresholds` that supplies the threshold of item 4; the rendering of the fact `below_minimum_task`.
+
+The cost model (size rubric, size-to-token table, and Next-Fit packing under the budget) is `plan-marshall`'s (`manage-tasks/scripts/_tasks_cost.py`, `manage-tasks/scripts/_tasks_envelope.py`, the defaults in `manage-config/scripts/_config_defaults.py`, and `extension-api/standards/dispatch-granularity.md` § 1.2), re-verified against `plan-marshall` 0.1.2116 when it was implemented. `plan-marshall`'s packer packs on the budget alone; envelope sharing by module and role (item 5) and the below-minimum merge (item 6) are deliberate changes. It predicts the token consumption of a task's work (generation, reasoning, and in-context skill loads), not wall-clock time; the build count is deliberately not a signal, because a build is token-cheap whatever its duration. The dominant cost of an envelope task is the per-plan-task work, not the envelope's re-establishment overhead, so bundling tasks amortises only that minor share.
 
 1. *Size Rubric*: For every plan task $t$, `TaskCostEstimator` (the `derive-cost-size` function) computes a deterministic weighted score from four signals of the task record (link:../store-schemas/06-task-and-references.adoc#_task_record_schema_taskstask_nnn_json[Store Schemas Specification, Task Record]):
 +
@@ -36,138 +38,19 @@ where $N_{\text{steps}}(t)$ is the number of the task's `steps` (the dominant te
 |`XL` |$300 \le \text{score} < 700$ |`260K`
 |`XXL` |$\text{score} \ge 700$ |`520K`
 |===
-3. *Size-to-Token Table*: `predicted_cost_tokens(t)` is defined as the value of the task's `cost_size` in the size-to-token table; it is a table lookup, never a per-task computation. The table is derived, never configured: its compiled defaults are the column above, and a hand-set table could only be less accurate than the calibration (*deliberate change vs. `plan-marshall`*: `PM-MCP` has no counterpart of `plan-marshall`'s configurable `plan.phase-5-execute.cost_size_token_table`). The table's values are labelled `uncalibrated` until the server recalibrates them from a measured `metrics.json` population (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]: per envelope task the summed `predicted_cost_tokens` beside the measured token components); a recalibrated table carries `basis: calibrated` with its population count and is kept as the derived fact `cost_calibration` of the project's `derived-facts.json` (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas Specification, Derived fact kinds]), and every figure derived from a table (`predicted_cost_tokens`) carries the basis of the table it used.
-4. *Envelope Budget*: Envelopes are packed Next-Fit under a per-envelope budget derived from the context budget of the envelope role's artifact (`context_budget_tokens`, xref:01-roles-and-configuration.adoc#role-artifact[Roles & Configuration, Role Artifact Schema]), because it depends on the model's context window, which the artifact names; where the artifact does not set it, the harness fallback of the harness profile of its harness applies (`headless.context_budget_tokens`, link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Profile Schema]), and without either the compiled fallback `400K`; either fallback is capped at the long-context threshold of the role's model where its profile names one (link:../harness-profiles/01-profile-schema.adoc#long-context-thresholds[Harness Profiles Specification, Long-Context Price Tier]); the operator may override it per project (`envelope_budget_tokens` in `local-config.json`, link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]); a team file never sets it. The budget is a plan-time packing bound over summed `predicted_cost_tokens`, never a runtime comparand: a worker cannot measure its own context use mid-turn, and a worker that runs short of context leaves through `yield:envelope-M` (link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]). A task whose predicted cost alone exceeds the budget (an `XXL` task under the defaults) is placed alone in its envelope.
+3. *Size-to-Token Table*: `predicted_cost_tokens(t)` is the value of the task's `cost_size` in the size-to-token table, a lookup, and carries the table's basis. The table is derived, never configured (*deliberate change vs. `plan-marshall`*: no counterpart of its `plan.phase-5-execute.cost_size_token_table`); its compiled defaults are the column above with the basis `uncalibrated`. Remaining: the recalibration from a measured `metrics.json` population (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]: per envelope task the summed `predicted_cost_tokens` beside the measured token components) into a table with `basis: calibrated` and its population count, kept as the derived fact `cost_calibration` (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas Specification, Derived fact kinds]).
+4. *Envelope Budget*: Envelopes are packed Next-Fit under a per-envelope budget: the operator's override per project (`envelope_budget_tokens` in `local-config.json`, link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]; a team file never sets it), else the context budget of the envelope role's artifact (`context_budget_tokens`, xref:01-roles-and-configuration.adoc#role-artifact[Roles & Configuration, Role Artifact Schema]), else the harness fallback of its harness profile (`headless.context_budget_tokens`, link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Profile Schema]), else the compiled fallback `400K`; either fallback is capped at the long-context threshold of the role's model where its profile names one (link:../harness-profiles/01-profile-schema.adoc#long-context-thresholds[Harness Profiles Specification, Long-Context Price Tier]), and an operator or role value above it is kept and flagged `aboveThreshold`. The budget is a plan-time packing bound over summed `predicted_cost_tokens`, never a runtime comparand: a worker cannot measure its own context use mid-turn, and a worker that runs short of context leaves through `yield:envelope-M` (link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]). A task whose predicted cost alone exceeds the budget (an `XXL` task under the defaults) is placed alone in its envelope.
 5. *Envelope Sharing*: Plan tasks share an envelope only when they target the same module and the execute unit names the same role for them; the execution profile is not a sharing criterion, so a deliverable's `implementation` and `module_testing` tasks share one envelope. *Deliberate change vs. `plan-marshall`*: its packer (`_tasks_envelope.py`) closes an envelope only on the budget and has no module or role compatibility, so one envelope could mix modules and roles under a single configuration.
-6. *Minimum Task Work (10K)*: `10K` tokens is the minimum judgement work that justifies an envelope task of its own (`plan-marshall`'s `dispatch-granularity.md` § 1.2), not an envelope ceiling. An envelope whose summed `predicted_cost_tokens` stays below `10K` (for example a lone `XS` task) is merged by the server into its adjacent envelope of the same module and role, the preceding one first; without such a neighbour it stays alone, and the plan representation lists it in the fact `below_minimum_task`. Every such merge produces an envelope over the budget: Next-Fit closes an envelope only on an incompatible task or on the budget, so two adjacent compatible envelopes were split by the budget alone, and a merge only enlarges envelopes. The minimum task work therefore takes precedence over the budget by design. *Deliberate change vs. `plan-marshall`*: its packer has no below-minimum merge; an envelope below `10K` is dispatched alone.
+6. *Minimum Task Work (10K)*: `10K` tokens is the minimum judgement work that justifies an envelope task of its own (`plan-marshall`'s `dispatch-granularity.md` § 1.2), not an envelope ceiling. An envelope whose summed `predicted_cost_tokens` stays below `10K` (for example a lone `XS` task) is merged by the server into its adjacent envelope of the same module and role, the preceding one first; without such a neighbour it stays alone, and the plan representation lists it in the fact `below_minimum_task`. Every such merge produces an envelope over the budget, because two adjacent compatible envelopes were split by the budget alone; the minimum task work takes precedence over the budget by design. *Deliberate change vs. `plan-marshall`*: its packer has no below-minimum merge; an envelope below `10K` is dispatched alone.
 
 The rubric prices a byte when it enters a context and ignores how long it stays resident. Isolating work in a separate envelope is justified only when re-creating the envelope's starting context (created bytes bill 1.25) costs less than the residency it removes (read bytes bill 0.1 per remaining turn); this condition is evaluated per split, never assumed. The server supplies both inputs: `record-metrics` publishes per envelope the `predicted_cost_tokens` beside the measured token components, and per envelope split (`yield:envelope-M`) the re-creation and residency terms, or `not_derivable` when a component is unmeasured.
 
 === Deterministic Envelope Packing Algorithm (`EnvelopePacker`)
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-1[PM-WATCH-DISP-1]_
 
-Given the ordered sequence of plan tasks $T = [t_1, t_2, \dots, t_n]$ produced during Phase 4 (`plan`), each stamped with its `predicted_cost_tokens` (<<cost-sizing>>), `EnvelopePacker` runs automatically in-process upon `plan.describe-tasks` submission to partition $T$ into an ordered list of envelopes, each a contiguous slice of $T$, so topological dependency order is preserved. The packer never re-derives a task's cost; it only sums the stamped values:
+Given the ordered sequence of plan tasks $T = [t_1, t_2, \dots, t_n]$ produced during Phase 4 (`plan`), each stamped with its `predicted_cost_tokens` (<<cost-sizing>>), `EnvelopePacker` runs automatically in-process upon `plan.describe-tasks` submission to partition $T$ into an ordered list of envelopes, each a contiguous slice of $T$, so topological dependency order is preserved. The packer never re-derives a task's cost; it only sums the stamped values.
 
-[source,java]
-----
-package de.planmarshall.workflow.envelope;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
-public final class EnvelopePacker {
-
-    /** Minimum predicted work that justifies an envelope task of its own (dispatch-granularity § 1.2). */
-    public static final long MIN_JOB_TOKENS = 10_000;
-
-    public enum CostSize { XS, S, M, L, XL, XXL }
-
-    public record PlannedTaskSummary(
-            String taskId,
-            String moduleId,
-            String role,
-            Set<String> skillUris,
-            CostSize costSize,
-            long predictedCostTokens,
-            List<String> dependsOnTaskIds
-    ) {}
-
-    public record PackedEnvelope(
-            String envelopeId,
-            String moduleId,
-            String role,
-            List<String> taskIds,
-            List<String> unionSkillUris,
-            long totalPredictedCostTokens
-    ) {}
-
-    /**
-     * @param orderedTasks         topological order over depends_on, ties broken by task_id
-     * @param envelopeBudgetTokens the configured per-envelope budget (default 400K)
-     */
-    public List<PackedEnvelope> packEnvelopes(List<PlannedTaskSummary> orderedTasks, long envelopeBudgetTokens) {
-        List<List<PlannedTaskSummary>> groups = new ArrayList<>();
-        List<PlannedTaskSummary> current = new ArrayList<>();
-        long currentTotal = 0;
-
-        // Next-Fit in task order: close the open envelope when the next task is
-        // incompatible or would push it past the budget; a task over budget sits alone.
-        for (PlannedTaskSummary task : orderedTasks) {
-            boolean fits = !current.isEmpty()
-                    && canShareEnvelope(current.getFirst(), task)
-                    && currentTotal + task.predictedCostTokens() <= envelopeBudgetTokens;
-            if (!fits && !current.isEmpty()) {
-                groups.add(current);
-                current = new ArrayList<>();
-                currentTotal = 0;
-            }
-            current.add(task);
-            currentTotal += task.predictedCostTokens();
-        }
-        if (!current.isEmpty()) {
-            groups.add(current);
-        }
-
-        mergeBelowMinimum(groups);
-
-        List<PackedEnvelope> envelopes = new ArrayList<>();
-        for (List<PlannedTaskSummary> group : groups) {
-            envelopes.add(sealEnvelope(envelopes.size() + 1, group));
-        }
-        return List.copyOf(envelopes);
-    }
-
-    private boolean canShareEnvelope(PlannedTaskSummary first, PlannedTaskSummary candidate) {
-        // Same module and same role; the execution profile is not a criterion
-        return first.moduleId().equals(candidate.moduleId())
-                && first.role().equals(candidate.role());
-    }
-
-    private void mergeBelowMinimum(List<List<PlannedTaskSummary>> groups) {
-        // An envelope below the minimum task work joins its adjacent compatible
-        // envelope (preceding first); adjacent compatible envelopes were split only by
-        // the budget, so every merge yields an over-budget envelope. Contiguity is kept.
-        for (int i = 0; i < groups.size(); i++) {
-            List<PlannedTaskSummary> small = groups.get(i);
-            if (total(small) >= MIN_JOB_TOKENS) {
-                continue;
-            }
-            int target = -1;
-            if (i > 0 && canShareEnvelope(groups.get(i - 1).getFirst(), small.getFirst())) {
-                target = i - 1;
-            } else if (i + 1 < groups.size() && canShareEnvelope(groups.get(i + 1).getFirst(), small.getFirst())) {
-                target = i + 1;
-            }
-            if (target < 0) {
-                continue; // stays alone; reported in the fact below_minimum_task
-            }
-            if (target < i) {
-                groups.get(target).addAll(small);
-            } else {
-                groups.get(target).addAll(0, small);
-            }
-            groups.remove(i);
-            i--;
-        }
-    }
-
-    private static long total(List<PlannedTaskSummary> group) {
-        return group.stream().mapToLong(PlannedTaskSummary::predictedCostTokens).sum();
-    }
-
-    private PackedEnvelope sealEnvelope(int index, List<PlannedTaskSummary> group) {
-        PlannedTaskSummary head = group.getFirst();
-        List<String> taskIds = group.stream().map(PlannedTaskSummary::taskId).toList();
-        List<String> skills = group.stream()
-                .flatMap(t -> t.skillUris().stream())
-                .distinct()
-                .sorted()
-                .toList();
-        return new PackedEnvelope("envelope-" + index, head.moduleId(), head.role(), taskIds, skills, total(group));
-    }
-}
-----
+Implemented by `EnvelopePacker.packEnvelopes` in `pm-workflow` package `workflow.envelope` (link:../../../pm-workflow/doc/developer/workflow-envelope.adoc#_from_signals_to_envelopes[`workflow.envelope` Developer Guide § From Signals to Envelopes]) over `PlannedTaskSummary` (task id, module, role, skills, `CostSize`, predicted tokens, `depends_on`) and `PackedEnvelope`: Next-Fit in task order closes the open envelope on a task of another module or role or on the budget, and a task over the budget sits alone; an envelope below `MIN_JOB_TOKENS` (10 000) is merged into its adjacent envelope of the same module and role, the preceding one first, else the following one, else it stays alone and reports `belowMinimum()`; the envelopes are sealed as `envelope-1`, `envelope-2`, … with the sorted distinct union of their tasks' skills and the sum of their predicted tokens. The specification's former Java block is the implementation, with the shape changes of link:../../../pm-workflow/doc/adr/workflow-envelope/001-cost-size-and-the-records-follow-the-coding-rules.adoc[ADR `workflow-envelope/001`]. Remaining: the call upon `plan.describe-tasks` submission.
 
 *Dependency Order*: The ordered input $T$ is the topological order of the task graph persisted in each task's `depends_on` (link:../store-schemas/06-task-and-references.adoc#_task_record_schema_taskstask_nnn_json[Store Schemas Specification, Task Record]; Kahn's algorithm, ties broken by `task_id`), and `PlannedTaskSummary.dependsOnTaskIds` is that field, so no envelope places a task before one of its dependencies. The same field governs execution: a plan task is yielded only when every plan task in its `depends_on` is `completed`, and an envelope task is queued only when its first plan task is yieldable (link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]); a plan task whose dependency ended `infeasible` or `removed` is never yielded.
 

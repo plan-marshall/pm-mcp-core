@@ -63,6 +63,7 @@ artifact.
 * link:doc/developer/workflow-diagram.adoc[Workflow Diagrams (`workflow.diagram`)]
 * link:doc/developer/workflow-dsl.adoc[Workflow DSL (`workflow.dsl`)]
 * link:doc/developer/workflow-engine.adoc[Workflow Engine (`workflow.engine`)]
+* link:doc/developer/workflow-envelope.adoc[Task Envelopes (`workflow.envelope`)]
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
 * link:doc/developer/workflow-log.adoc[Log Messages (`workflow.log`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]
@@ -76,6 +77,7 @@ artifact.
 * link:doc/adr/workflow-diagram/[`doc/adr/workflow-diagram/`]: the documentation generator of a workflow unit.
 * link:doc/adr/workflow-dsl/[`doc/adr/workflow-dsl/`]: the parser and printer of the workflow language.
 * link:doc/adr/workflow-engine/[`doc/adr/workflow-engine/`]: the interpreter of the state machine.
+* link:doc/adr/workflow-envelope/[`doc/adr/workflow-envelope/`]: the cost sizing, the size-to-token table and the envelope budget.
 * link:doc/adr/workflow-finalize/[`doc/adr/workflow-finalize/`]: the finalize step descriptor and the pipeline checks.
 * link:doc/adr/workflow-scenario/[`doc/adr/workflow-scenario/`]: the scenario replay harness.
 * link:doc/adr/workflow-setup/[`doc/adr/workflow-setup/`]: the setup gate the machine's onboarding decides.

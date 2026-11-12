@@ -85,6 +85,7 @@ The repository:
 * link:../../pm-workflow/doc/adr/workflow-diagram/[`pm-workflow/doc/adr/workflow-diagram/`]: the documentation generator of a workflow unit.
 * link:../../pm-workflow/doc/adr/workflow-dsl/[`pm-workflow/doc/adr/workflow-dsl/`]: the parser and printer of the workflow language.
 * link:../../pm-workflow/doc/adr/workflow-engine/[`pm-workflow/doc/adr/workflow-engine/`]: the interpreter of the state machine.
+* link:../../pm-workflow/doc/adr/workflow-envelope/[`pm-workflow/doc/adr/workflow-envelope/`]: the cost sizing, the size-to-token table and the envelope budget.
 * link:../../pm-workflow/doc/adr/workflow-scenario/[`pm-workflow/doc/adr/workflow-scenario/`]: the scenario replay harness.
 * link:../../pm-workflow/doc/adr/workflow-verify/[`pm-workflow/doc/adr/workflow-verify/`]: the static verifier and the fuzzer.
 

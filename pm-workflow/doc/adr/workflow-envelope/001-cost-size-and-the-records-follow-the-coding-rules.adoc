@@ -1,0 +1,41 @@
+= ADR 001: `CostSize` and the Records Follow the Coding Rules of the Repository
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-12
+
+== Context
+
+The specification states the packer as a Java block (link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#_deterministic_envelope_packing_algorithm_envelopepacker[Model Work § Deterministic Envelope Packing Algorithm]): `CostSize` nested in `EnvelopePacker`, the records `PlannedTaskSummary` and `PackedEnvelope` with canonical constructors, and the packer as an instance class. The estimator `TaskCostEstimator` needs `CostSize` as well, and the repository's coding rules require `@Builder` on a record of four or more components and `@UtilityClass` on a class of static methods only. The fact `below_minimum_task` is derived from an envelope's total, which the block computes inline.
+
+== Decision
+
+* `CostSize` is a top-level enum of the package, so the estimator does not depend on the packer for its result type.
+* `PlannedTaskSummary`, `PackedEnvelope`, `TaskCostEstimator.TaskSignals` and `EnvelopeBudget.Resolution` carry `@Builder`; their compact constructors refuse a `null` required component and copy the collections.
+* `EnvelopePacker`, `TaskCostEstimator` and `EnvelopeBudget` are `@UtilityClass` classes with static methods.
+* `PackedEnvelope.belowMinimum()` derives whether the total stays below `MIN_JOB_TOKENS`, so a caller never repeats the comparison.
+
+The algorithm of the block is kept statement for statement.
+
+== Alternatives Considered
+
+1. *Keep `CostSize` nested in `EnvelopePacker`.*
+   _Rejected_: the estimator would import its result type from the packer, which it otherwise does not use.
+2. *Keep the records with canonical constructors only.*
+   _Rejected_: the repository's coding rule requires `@Builder` for four or more components, and a positional call of seven components is easy to misorder.
+3. *Leave the below-minimum test to the caller.*
+   _Rejected_: every caller would restate the threshold comparison.
+
+== Consequences
+
+* The specification's Java block and the code differ in shape, not in behaviour; `EnvelopePackerTest` checks the behaviour of the block.
+* A reader who follows the block finds `CostSize` at `de.planmarshall.workflow.envelope.CostSize`.
+
+== Source
+
+Work package `envelope-packing`; link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing, Envelope Budget & Minimum Task Work].

@@ -1,0 +1,36 @@
+= ADR 002: The Size-to-Token Table Is an Argument
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-12
+
+== Context
+
+The predicted cost of a plan task is the value of its size in the size-to-token table (link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing], item 3). The table is derived, never configured: its compiled defaults carry the basis `uncalibrated`, and the server recalibrates it from measured metrics into the derived fact `cost_calibration`, after which it carries the basis `calibrated`. Every figure derived from a table carries that table's basis. The recalibration and the derived-facts store are not part of this package.
+
+== Decision
+
+`SizeTokenTable` is a record of the tokens per `CostSize` and its `Basis`; `COMPILED_DEFAULTS` holds 5K, 25K, 60K, 130K, 260K and 520K with `Basis.UNCALIBRATED`. `TaskCostEstimator.estimate` takes the table as an argument and returns the size, the tokens of that size and the table's basis. The table refuses a missing size and a negative value. The package reads no configuration and no store for it.
+
+== Alternatives Considered
+
+1. *A configurable table, as `plan-marshall`'s `plan.phase-5-execute.cost_size_token_table`.*
+   _Rejected_: the specification makes the table derived, never configured; a hand-set table could only be less accurate than the calibration.
+2. *Read `cost_calibration` from the derived facts inside the estimator.*
+   _Rejected_: it would tie a pure computation to a store, and the recalibration does not exist yet.
+3. *Return the tokens without the basis.*
+   _Rejected_: the specification requires every derived figure to carry the basis of its table.
+
+== Consequences
+
+* A caller that holds a calibrated table passes it; until then it passes `COMPILED_DEFAULTS`.
+* The estimate's basis is the task record's `predicted_cost_basis`.
+
+== Source
+
+Work package `envelope-packing`; link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing, Envelope Budget & Minimum Task Work].
