@@ -16,14 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
+import org.easymock.EasyMock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -115,6 +118,53 @@ class CoverageXmlReaderTest {
                 assertInstanceOf(CoverageParseResult.Refused.class, wide, "A UTF-32 report is refused, not misread");
         assertTrue(refused.reason().startsWith("jacoco: ParseError at [row,col]:[1,40]"),
                 "The reader stops at the end of the declaration");
+    }
+
+    // The encoding declaration is the contract: the stream carries a byte-order mark the reader honours.
+    @Test
+    @DisplayName("reads a UTF-16 report with a byte-order mark through the stream")
+    void readsAUtf16ReportWithAByteOrderMark() throws IOException {
+        String xml = report("UTF-16");
+
+        CoverageParseResult wide = JacocoReportParser.parse(write("utf-16-bom.xml", xml, StandardCharsets.UTF_16));
+
+        assertEquals(CoverageReportFixtures.reportOf(JacocoReportParser.parse(xml)),
+                CoverageReportFixtures.reportOf(wide), "UTF-16 with a BOM reads like the text");
+    }
+
+    @Test
+    @DisplayName("refuses a stream past the byte cap, naming the limit")
+    void refusesAStreamPastTheByteCap() {
+        byte[] xml = report("UTF-8").getBytes(StandardCharsets.UTF_8);
+        long limit = xml.length - 1L;
+
+        CoverageParseResult result = CoverageXmlReader.parse(
+                new CoverageReportStream(new ByteArrayInputStream(xml), limit), CoverageFormat.JACOCO, handler());
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A report past the cap is refused");
+        assertTrue(refused.reason().contains("limit of " + limit + " bytes"), "The refusal names the byte limit");
+    }
+
+    @Test
+    @DisplayName("walks a stream within the byte cap to the handler's result")
+    void walksAStreamWithinTheByteCap() {
+        byte[] xml = report("UTF-8").getBytes(StandardCharsets.UTF_8);
+
+        CoverageParseResult result = CoverageXmlReader.parse(
+                new CoverageReportStream(new ByteArrayInputStream(xml), xml.length), CoverageFormat.JACOCO, handler());
+
+        assertInstanceOf(CoverageParseResult.Parsed.class, result, "A report within the cap is walked");
+    }
+
+    private static CoverageXmlReader.Handler handler() {
+        CoverageXmlReader.Handler handler = EasyMock.createNiceMock(CoverageXmlReader.Handler.class);
+        CoverageMetrics metrics = CoverageMetrics.builder().line(Generators.doubles(0.0, 100.0).next()).build();
+        EasyMock.expect(handler.result())
+                .andReturn(new CoverageParseResult.Parsed(new CoverageReport(CoverageFormat.JACOCO, metrics, List.of())))
+                .anyTimes();
+        EasyMock.replay(handler);
+        return handler;
     }
 
     private static String report(String encoding) {

@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -135,15 +136,21 @@ class JacocoReportParserTest {
         assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
     }
 
+    // The reason text "absent.xml: no such file" is the contract: the file name, never the directory.
     @Test
-    @DisplayName("refuses an unreadable report file")
+    @DisplayName("refuses an unreadable report file, naming its file name only")
     void refusesAnUnreadableFile() {
-        CoverageParseResult result =
-                JacocoReportParser.parse(CoverageReportFixtures.path("jacoco-high.xml").resolveSibling("absent.xml"));
+        Path absent = CoverageReportFixtures.path("jacoco-high.xml").resolveSibling("absent.xml");
+
+        CoverageParseResult result = JacocoReportParser.parse(absent);
 
         CoverageParseResult.Refused refused = assertRefused(result, "A missing report file is refused");
-
-        assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo");
+        assertAll(
+                () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
+                () -> assertEquals("jacoco: absent.xml: no such file", refused.reason(),
+                        "The reason names the file name only"),
+                () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
+                        "The reason never names the directory"));
     }
 
     @Test

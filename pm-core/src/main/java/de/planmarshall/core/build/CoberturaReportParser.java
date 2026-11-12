@@ -10,6 +10,7 @@
 package de.planmarshall.core.build;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -79,17 +80,18 @@ public class CoberturaReportParser {
     }
 
     /**
-     * Parses a Cobertura XML report from a file.
+     * Parses a Cobertura XML report from a file, streaming it within the bound of {@link CoverageReportStream}.
      *
      * @param reportFile the report file
-     * @return the parsed report, or a refusal naming the format and the reason
+     * @return the parsed report, or a refusal naming the format and the reason; a file that cannot be read is refused
+     *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try {
-            return CoverageXmlReader.parse(Files.readAllBytes(reportFile), FORMAT, new Walk());
+        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile))) {
+            return CoverageXmlReader.parse(source, FORMAT, new Walk());
         } catch (IOException e) {
-            return CoverageRefusals.of(FORMAT, e);
+            return CoverageRefusals.of(FORMAT, reportFile, e);
         }
     }
 

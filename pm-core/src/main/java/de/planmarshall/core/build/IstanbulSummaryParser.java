@@ -12,6 +12,7 @@ package de.planmarshall.core.build;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -36,8 +37,9 @@ import org.jspecify.annotations.Nullable;
  * {@code branches.total} of {@code 0} leaves the branch metric absent, and a summary whose {@code total.lines.total} is
  * {@code 0} is refused ({@code no lines measured}).
  * <p>
- * A malformed document — truncated JSON, a metric without a numeric {@code pct}, a missing {@code total} — is refused
- * naming the format, never read as a report of zeros.
+ * A malformed document — truncated JSON, a metric without a numeric {@code pct}, a missing {@code total}, a key that
+ * appears twice in one object — is refused naming the format, never read as a report of zeros. A file is streamed within
+ * the bound of {@link CoverageReportStream}.
  *
  * @since 0.1
  */
@@ -51,7 +53,9 @@ public class IstanbulSummaryParser {
     /** The refusal reason of a summary whose {@code total.lines.total} is {@code 0}. */
     private static final String NO_LINES_MEASURED = "no lines measured";
 
-    private static final JsonFactory JSON_FACTORY = new JsonFactory();
+    /** The streaming factory; a duplicate key is refused, so a later {@code total} can never override an earlier one. */
+    private static final JsonFactory JSON_FACTORY =
+            JsonFactory.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
 
     /**
      * Parses an Istanbul summary from its text.
@@ -69,17 +73,20 @@ public class IstanbulSummaryParser {
     }
 
     /**
-     * Parses an Istanbul summary from a file.
+     * Parses an Istanbul summary from a file, streaming it within the bound of {@link CoverageReportStream}.
      *
      * @param reportFile the report file
-     * @return the parsed report, or a refusal naming the format and the reason
+     * @return the parsed report, or a refusal naming the format and the reason; a file that cannot be read is refused
+     *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try (InputStream source = Files.newInputStream(reportFile);
+        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile));
              JsonParser parser = JSON_FACTORY.createParser(source)) {
             return parse(parser);
-        } catch (IOException | IllegalArgumentException e) {
+        } catch (IOException e) {
+            return CoverageRefusals.of(FORMAT, reportFile, e);
+        } catch (IllegalArgumentException e) {
             return refusal(e);
         }
     }

@@ -181,7 +181,8 @@ class CoverageXmlHardeningTest {
 
         static Probe read(byte[] xml) {
             AtomicInteger calls = new AtomicInteger();
-            return new Probe(CoverageXmlReader.parse(xml, CoverageFormat.JACOCO, handler(), counting(calls)), calls.get());
+            return new Probe(CoverageXmlReader.parse(new ByteArrayInputStream(xml), CoverageFormat.JACOCO, handler(),
+                    counting(calls)), calls.get());
         }
 
         private static XMLResolver counting(AtomicInteger calls) {

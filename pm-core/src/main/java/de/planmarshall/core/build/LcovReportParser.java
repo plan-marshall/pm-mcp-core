@@ -9,7 +9,11 @@
  */
 package de.planmarshall.core.build;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,6 +38,10 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * A report that ends inside a record, carries no record at all, prints a counter that is not a number or covers more than
  * it found is refused, naming the format, rather than read as a report of zeros.
+ * <p>
+ * The report is read line by line, never whole: a file is streamed within the bound of {@link CoverageReportStream}, and
+ * a line longer than {@link CoverageReportStream#MAX_LINE_LENGTH} characters is refused, naming the limit, before it is
+ * read whole.
  *
  * @since 0.1
  */
@@ -53,26 +61,65 @@ public class LcovReportParser {
      */
     public static CoverageParseResult parse(String report) {
         Objects.requireNonNull(report, "report");
-        try {
-            return new Walk().parse(report);
+        try (BufferedReader source = new BufferedReader(new StringReader(report))) {
+            return new Walk().parse(source);
         } catch (IOException | IllegalArgumentException e) {
             return CoverageRefusals.of(FORMAT, e);
         }
     }
 
     /**
-     * Parses an LCOV report from a file.
+     * Parses an LCOV report from a file, streaming it as UTF-8 within the bound of {@link CoverageReportStream}.
      *
      * @param reportFile the report file
-     * @return the parsed report, or a refusal naming the format and the reason
+     * @return the parsed report, or a refusal naming the format and the reason; a file that cannot be read is refused
+     *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try {
-            return new Walk().parse(Files.readString(reportFile));
-        } catch (IOException | IllegalArgumentException e) {
+        try (BufferedReader source = new BufferedReader(new InputStreamReader(
+                new CoverageReportStream(Files.newInputStream(reportFile)), StandardCharsets.UTF_8.newDecoder()))) {
+            return new Walk().parse(source);
+        } catch (IOException e) {
+            return CoverageRefusals.of(FORMAT, reportFile, e);
+        } catch (IllegalArgumentException e) {
             return CoverageRefusals.of(FORMAT, e);
         }
+    }
+
+    /**
+     * Reads the next line, without its line terminator, refusing one longer than
+     * {@link CoverageReportStream#MAX_LINE_LENGTH} characters before it is read whole.
+     *
+     * @param source the report text
+     * @return the line, or empty at the end of the text
+     * @throws IOException if the line is longer than the limit, or the text cannot be read
+     */
+    private static Optional<String> nextLine(BufferedReader source) throws IOException {
+        var line = new StringBuilder();
+        int next = source.read();
+        if (next < 0) {
+            return Optional.empty();
+        }
+        while (next >= 0 && next != '\n') {
+            line.append((char) next);
+            if (line.length() > CoverageReportStream.MAX_LINE_LENGTH + 1) {
+                throw tooLong();
+            }
+            next = source.read();
+        }
+        if (!line.isEmpty() && line.charAt(line.length() - 1) == '\r') {
+            line.setLength(line.length() - 1);
+        }
+        if (line.length() > CoverageReportStream.MAX_LINE_LENGTH) {
+            throw tooLong();
+        }
+        return Optional.of(line.toString());
+    }
+
+    private static IOException tooLong() {
+        return new IOException("a line is longer than the limit of " + CoverageReportStream.MAX_LINE_LENGTH
+                + " characters");
     }
 
     /**
@@ -92,9 +139,11 @@ public class LcovReportParser {
         private boolean functionsSeen;
         private @Nullable Record current;
 
-        private CoverageParseResult parse(String report) throws IOException {
-            for (String raw : report.split("\n", -1)) {
-                accept(raw.strip());
+        private CoverageParseResult parse(BufferedReader source) throws IOException {
+            Optional<String> raw = nextLine(source);
+            while (raw.isPresent()) {
+                accept(raw.get().strip());
+                raw = nextLine(source);
             }
             if (current != null) {
                 throw new IOException("the report ends inside the record " + current.file);

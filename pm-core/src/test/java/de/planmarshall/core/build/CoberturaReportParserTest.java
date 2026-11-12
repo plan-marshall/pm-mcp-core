@@ -11,9 +11,11 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -204,15 +206,21 @@ class CoberturaReportParserTest {
         assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
     }
 
+    // The reason text "absent.xml: no such file" is the contract: the file name, never the directory.
     @Test
-    @DisplayName("refuses an unreadable report file")
+    @DisplayName("refuses an unreadable report file, naming its file name only")
     void refusesAnUnreadableFile() {
-        CoverageParseResult result = CoberturaReportParser
-                .parse(CoverageReportFixtures.path("cobertura-high.xml").resolveSibling("absent.xml"));
+        Path absent = CoverageReportFixtures.path("cobertura-high.xml").resolveSibling("absent.xml");
+
+        CoverageParseResult result = CoberturaReportParser.parse(absent);
 
         CoverageParseResult.Refused refused =
                 assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing report file is refused");
-
-        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+        assertAll(
+                () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
+                () -> assertEquals("cobertura: absent.xml: no such file", refused.reason(),
+                        "The reason names the file name only"),
+                () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
+                        "The reason never names the directory"));
     }
 }

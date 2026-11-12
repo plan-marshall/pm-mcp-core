@@ -10,6 +10,7 @@
 package de.planmarshall.core.build;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.io.StringReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLResolver;
@@ -101,28 +102,32 @@ class CoverageXmlReader {
     }
 
     /**
-     * Walks the given XML bytes with the given handler, honouring the document's own encoding declaration.
+     * Walks the given XML stream with the given handler, honouring the document's own encoding declaration and
+     * byte-order mark.
+     * <p>
+     * The stream is read as it is walked, never whole; the caller owns it and closes it. A read failure of the stream —
+     * the bound of {@link CoverageReportStream} among them — ends the walk with a refusal naming the format.
      *
-     * @param xml     the XML bytes
+     * @param xml     the XML stream
      * @param format  the format whose refusal names the parser
      * @param handler the format-specific walk
      * @return the handler's result, or a refusal naming the format
      */
-    static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler) {
+    static CoverageParseResult parse(InputStream xml, CoverageFormat format, Handler handler) {
         return parse(xml, format, handler, EMPTY_RESOLVER);
     }
 
     /**
-     * Walks the given XML bytes with the given handler, handing every external reference to the given resolver.
+     * Walks the given XML stream with the given handler, handing every external reference to the given resolver.
      *
-     * @param xml      the XML bytes
+     * @param xml      the XML stream
      * @param format   the format whose refusal names the parser
      * @param handler  the format-specific walk
      * @param resolver the resolver every external reference is handed to
      * @return the handler's result, or a refusal naming the format
      */
-    static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler, XMLResolver resolver) {
-        try (Reader source = new Reader(factory(resolver).createXMLStreamReader(new ByteArrayInputStream(xml)))) {
+    static CoverageParseResult parse(InputStream xml, CoverageFormat format, Handler handler, XMLResolver resolver) {
+        try (Reader source = new Reader(factory(resolver).createXMLStreamReader(xml))) {
             return walk(source.stream(), format, handler);
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);

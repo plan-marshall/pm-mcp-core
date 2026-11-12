@@ -11,9 +11,12 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -118,7 +121,33 @@ class IstanbulSummaryParserTest {
                         {"total": {"lines": {"pct": 90}, "statements": {"pct": 90},
                          "functions": {"pct": 90}, "branches": {"pct": 90}}}
                         {}
+                        """),
+                Arguments.of("A duplicate total key is refused", """
+                        {"total": {"lines": {"pct": 10}, "statements": {"pct": 10},
+                         "functions": {"pct": 10}, "branches": {"pct": 10}},
+                         "total": {"lines": {"pct": 90}, "statements": {"pct": 90},
+                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                        """),
+                Arguments.of("A duplicate metric total is refused", """
+                        {"total": {"lines": {"total": 0, "total": 10, "pct": 90}, "statements": {"pct": 90},
+                         "functions": {"pct": 90}, "branches": {"pct": 90}}}
                         """));
+    }
+
+    // The keys are the contract: a second "total" must never override the first one.
+    @Test
+    @DisplayName("refuses a duplicate key, naming it in the reason")
+    void refusesADuplicateKey() {
+        CoverageParseResult result = IstanbulSummaryParser.parse("""
+                {"total": {"lines": {"pct": 10}, "statements": {"pct": 10},
+                 "functions": {"pct": 10}, "branches": {"pct": 10}},
+                 "total": {"lines": {"pct": 90}, "statements": {"pct": 90},
+                 "functions": {"pct": 90}, "branches": {"pct": 90}}}
+                """);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A duplicate key is refused");
+        assertTrue(refused.reason().contains("Duplicate field 'total'"), "The reason names the duplicate key");
     }
 
     // The totals are the contract: total.lines.total 0 measured no line, whatever pct Istanbul printed beside it.
@@ -163,15 +192,21 @@ class IstanbulSummaryParserTest {
                 () -> assertNull(report.items().getFirst().branch(), "A file branches.total of 0 is null"));
     }
 
+    // The reason text "absent.json: no such file" is the contract: the file name, never the directory.
     @Test
-    @DisplayName("refuses an unreadable report file")
+    @DisplayName("refuses an unreadable report file, naming its file name only")
     void refusesAnUnreadableFile() {
-        CoverageParseResult result = IstanbulSummaryParser
-                .parse(CoverageReportFixtures.path("jest-high.json").resolveSibling("absent.json"));
+        Path absent = CoverageReportFixtures.path("jest-high.json").resolveSibling("absent.json");
+
+        CoverageParseResult result = IstanbulSummaryParser.parse(absent);
 
         CoverageParseResult.Refused refused =
                 assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing report file is refused");
-
-        assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul");
+        assertAll(
+                () -> assertEquals(CoverageFormat.ISTANBUL, refused.format(), "The refusal names Istanbul"),
+                () -> assertEquals("istanbul: absent.json: no such file", refused.reason(),
+                        "The reason names the file name only"),
+                () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
+                        "The reason never names the directory"));
     }
 }
