@@ -305,16 +305,13 @@ List<Deliverable> deliverables) {
      * @param verification    the commands that verify the deliverable
      * @param satisfies       the criteria and decisions of the intent record it implements
      * @param addedDependencies the third-party dependencies it adds
-     * @param interfaces      the contracts it shares
-     * @param keyLinks        how its code is wired in
      * @since 0.1
      */
     @Builder
     public record Deliverable(int number, String title, String intentGloss, ChangeType changeType,
     ExecutionMode executionMode, String domain, String module, List<Integer> depends, @Nullable String designNotes,
     List<Profile> profiles, List<AffectedFile> affectedFiles, String changePerFile,
-    List<Verification> verification, List<String> satisfies, List<AddedDependency> addedDependencies,
-    List<Interface> interfaces, List<KeyLink> keyLinks) {
+    List<Verification> verification, List<String> satisfies, List<AddedDependency> addedDependencies) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds or a list is inconsistent
@@ -360,10 +357,6 @@ List<Deliverable> deliverables) {
             }
             Objects.requireNonNull(addedDependencies, "addedDependencies");
             addedDependencies = checkedList(addedDependencies, "added_dependencies", 20);
-            Objects.requireNonNull(interfaces, "interfaces");
-            interfaces = checkedList(interfaces, "interfaces", 30);
-            Objects.requireNonNull(keyLinks, "keyLinks");
-            keyLinks = checkedList(keyLinks, "key_links", 20);
         }
 
         /**
@@ -458,75 +451,6 @@ List<Deliverable> deliverables) {
             }
             bounded(why, "added_dependencies[].why", 10, 500);
             bounded(rejectedAlternative, "added_dependencies[].rejected_alternative", 10, 500);
-        }
-    }
-
-    /** The direction of a shared contract. */
-    public enum Direction {
-        /** The deliverable produces the symbol. */
-        PRODUCES("produces"),
-        /** The deliverable consumes the symbol. */
-        CONSUMES("consumes");
-
-        private final String wireName;
-
-        Direction(String wireName) {
-            this.wireName = wireName;
-        }
-
-        /** @return the name of the value in a record */
-        public String wireName() {
-            return wireName;
-        }
-
-        /**
-         * @param wireName the name of a value in a record
-         * @return the value of that name; empty if no value has it
-         */
-        public static Optional<Direction> fromWireName(String wireName) {
-            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
-        }
-    }
-
-    /**
-     * One shared contract of a deliverable.
-     *
-     * @param direction whether the deliverable produces or consumes the symbol
-     * @param symbol    the fully qualified name
-     * @param signature the exact signature
-     * @since 0.1
-     */
-    public record Interface(Direction direction, String symbol, String signature) {
-
-        /**
-         * @throws IllegalArgumentException if a member is out of its bounds
-         * @throws NullPointerException     if a value is {@code null}
-         */
-        public Interface {
-            Objects.requireNonNull(direction, "direction");
-            bounded(symbol, "interfaces[].symbol", 1, 300);
-            bounded(signature, "interfaces[].signature", 1, 1000);
-        }
-    }
-
-    /**
-     * How a deliverable's code is wired into the system.
-     *
-     * @param from    a path of the deliverable's write set
-     * @param to      the symbol or path it connects to
-     * @param pattern the regular expression that matches in {@code from} when the link exists
-     * @since 0.1
-     */
-    public record KeyLink(String from, String to, String pattern) {
-
-        /**
-         * @throws IllegalArgumentException if a member is out of its bounds
-         * @throws NullPointerException     if a value is {@code null}
-         */
-        public KeyLink {
-            bounded(from, "key_links[].from", 1, 512);
-            bounded(to, "key_links[].to", 1, 300);
-            bounded(pattern, "key_links[].pattern", 1, 500);
         }
     }
 

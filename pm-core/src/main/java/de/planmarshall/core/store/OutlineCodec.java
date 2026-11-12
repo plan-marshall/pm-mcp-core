@@ -45,11 +45,8 @@ import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
-import de.planmarshall.core.store.OutlineRecord.Direction;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
-import de.planmarshall.core.store.OutlineRecord.Interface;
-import de.planmarshall.core.store.OutlineRecord.KeyLink;
 import de.planmarshall.core.store.OutlineRecord.Profile;
 import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
@@ -94,8 +91,6 @@ public class OutlineCodec {
     private static final String FIELD_VERIFICATION = "verification";
     private static final String FIELD_SATISFIES = "satisfies";
     private static final String FIELD_ADDED_DEPENDENCIES = "added_dependencies";
-    private static final String FIELD_INTERFACES = "interfaces";
-    private static final String FIELD_KEY_LINKS = "key_links";
     private static final String FIELD_PATH = "path";
     private static final String FIELD_INTENT = "intent";
     private static final String FIELD_GATE = "gate";
@@ -104,12 +99,6 @@ public class OutlineCodec {
     private static final String FIELD_COORDINATE = "coordinate";
     private static final String FIELD_WHY = "why";
     private static final String FIELD_REJECTED_ALTERNATIVE = "rejected_alternative";
-    private static final String FIELD_DIRECTION = "direction";
-    private static final String FIELD_SYMBOL = "symbol";
-    private static final String FIELD_SIGNATURE = "signature";
-    private static final String FIELD_FROM = "from";
-    private static final String FIELD_TO = "to";
-    private static final String FIELD_PATTERN = "pattern";
 
     /** The schema's key pattern of the server-owned deliverable state, before conversion to a number. */
     private static final Pattern DELIVERABLE_STATUS_KEY = Pattern.compile("[1-9]\\d?");
@@ -242,24 +231,6 @@ public class OutlineCodec {
             generator.writeEndObject();
         }
         generator.writeEndArray();
-        generator.writeArrayFieldStart(FIELD_INTERFACES);
-        for (var contract : deliverable.interfaces()) {
-            generator.writeStartObject();
-            generator.writeStringField(FIELD_DIRECTION, contract.direction().wireName());
-            generator.writeStringField(FIELD_SYMBOL, contract.symbol());
-            generator.writeStringField(FIELD_SIGNATURE, contract.signature());
-            generator.writeEndObject();
-        }
-        generator.writeEndArray();
-        generator.writeArrayFieldStart(FIELD_KEY_LINKS);
-        for (var link : deliverable.keyLinks()) {
-            generator.writeStartObject();
-            generator.writeStringField(FIELD_FROM, link.from());
-            generator.writeStringField(FIELD_TO, link.to());
-            generator.writeStringField(FIELD_PATTERN, link.pattern());
-            generator.writeEndObject();
-        }
-        generator.writeEndArray();
         generator.writeEndObject();
     }
 
@@ -360,8 +331,6 @@ public class OutlineCodec {
         @Nullable List<Verification> verification = null;
         @Nullable List<String> satisfies = null;
         @Nullable List<AddedDependency> addedDependencies = null;
-        @Nullable List<Interface> interfaces = null;
-        @Nullable List<KeyLink> keyLinks = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -383,19 +352,17 @@ public class OutlineCodec {
                 case FIELD_SATISFIES -> satisfies = stringList(parser, field);
                 case FIELD_ADDED_DEPENDENCIES ->
                     addedDependencies = array(parser, field, OutlineCodec::readAddedDependency);
-                case FIELD_INTERFACES -> interfaces = array(parser, field, OutlineCodec::readInterface);
-                case FIELD_KEY_LINKS -> keyLinks = array(parser, field, OutlineCodec::readKeyLink);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, name, FIELD_NUMBER, FIELD_TITLE, FIELD_INTENT_GLOSS, FIELD_CHANGE_TYPE,
                 FIELD_EXECUTION_MODE, FIELD_DOMAIN, FIELD_MODULE, FIELD_DEPENDS, FIELD_DESIGN_NOTES, FIELD_PROFILES,
                 FIELD_AFFECTED_FILES, FIELD_CHANGE_PER_FILE, FIELD_VERIFICATION, FIELD_SATISFIES,
-                FIELD_ADDED_DEPENDENCIES, FIELD_INTERFACES, FIELD_KEY_LINKS);
+                FIELD_ADDED_DEPENDENCIES);
         try {
             return new Deliverable(Math.toIntExact(number), title, intentGloss, changeType, executionMode, domain,
                     module, depends, designNotes, profiles, affectedFiles, changePerFile, verification, satisfies,
-                    addedDependencies, interfaces, keyLinks);
+                    addedDependencies);
         } catch (IllegalArgumentException | ArithmeticException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -480,51 +447,6 @@ public class OutlineCodec {
         }
     }
 
-    private static Interface readInterface(JsonParser parser, String name) throws IOException {
-        requireObject(parser, name);
-        @Nullable Direction direction = null;
-        @Nullable String symbol = null;
-        @Nullable String signature = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_DIRECTION -> direction = required(Direction.fromWireName(string(parser, field)).orElse(null), field);
-                case FIELD_SYMBOL -> symbol = string(parser, field);
-                case FIELD_SIGNATURE -> signature = string(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, name, FIELD_DIRECTION, FIELD_SYMBOL, FIELD_SIGNATURE);
-        try {
-            return new Interface(direction, symbol, signature);
-        } catch (IllegalArgumentException e) {
-            throw unreadable(e.getMessage(), e);
-        }
-    }
-
-    private static KeyLink readKeyLink(JsonParser parser, String name) throws IOException {
-        requireObject(parser, name);
-        @Nullable String from = null;
-        @Nullable String to = null;
-        @Nullable String pattern = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_FROM -> from = string(parser, field);
-                case FIELD_TO -> to = string(parser, field);
-                case FIELD_PATTERN -> pattern = string(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, name, FIELD_FROM, FIELD_TO, FIELD_PATTERN);
-        try {
-            return new KeyLink(from, to, pattern);
-        } catch (IllegalArgumentException e) {
-            throw unreadable(e.getMessage(), e);
-        }
-    }
 
     private static <T> T required(@Nullable T value, String field) {
         if (value == null) {

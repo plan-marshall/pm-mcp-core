@@ -100,6 +100,6 @@ final class ValidationFixtures {
                         null)),
                 DELIVERABLE_CHANGE + " " + number,
                 List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies),
-                List.of(), List.of(), List.of());
+                List.of());
     }
 }
