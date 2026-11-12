@@ -36,16 +36,16 @@ a test.
 * The sweep ends a member through the `ProcessHandle` it was read from: `Member` carries that handle together with the
   PID and the start instant, and `sweep()` calls `handle.destroy()` for `SIGTERM` and `handle.destroyForcibly()` for
   `SIGKILL`. It sends no numeric signal at all. The start-instant check that selects the members is unchanged, so a
-  member whose PID was reused before the sweep is not selected; a reuse between the selection and the call is refused by
-  the JDK, which re-reads the start time inside `destroy0`.
+  member whose PID was reused before the sweep is not selected; a reuse between the selection and the call is narrowed
+  to the JDK's own check, which `destroy0` performs immediately before its `kill(2)`. The JDK's check and its `kill` are
+  two system calls, so that residual window remains; it is accepted and stated under Consequences.
 * `ProcessTreeTracker` keeps its `ProcessGroupSignals` parameter so the call sites that pass the termination protocol's
   primitive stay unchanged, but the sweep no longer reads it: the primitive remains the termination protocol's
   (`TerminationProtocol`, `ProcessGroupSignals`, `KillBinding` and their `kill(2)` descriptor are unchanged).
 * Lead (2) is documented as refuted behaviour with its test: a launched process whose own start instant is unreadable is
   a reused PID (`pidReused` answers `true`), and `terminateByHandle` then signals nothing by PID and destroys the process
   through its handle exactly once. The cost is stated: the process *group* of such a job is not signalled either, so its
-  descendants are left to the tracker — which needs start instants as well, and therefore records no member on a platform
-  that reports none.
+  descendants are not swept either — only a probe and a worker carry a tracker, and a tracker needs start instants too.
 * `SubprocessJobRunner.pidReused` gains a package-private overload that takes the handle lookup as a `LongFunction`,
   with the existing method delegating to it through `ProcessHandle::of`. It exists because a platform that reports a
   start instant for every listed process cannot produce the unreadable-instant state with a real handle, and the table of
@@ -63,11 +63,15 @@ OpenJDK 25 (Temurin 25+36), `src/java.base`; the files are cited at the `jdk-25-
   (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/lang/ProcessHandleImpl.java[`ProcessHandleImpl.java`])
 * `ProcessHandleImpl_unix.c`, `Java_java_lang_ProcessHandleImpl_destroy0` (shared by Linux and macOS) reads the PID's
   current start time through the same `isAlive0` the handle factory uses and calls `kill(pid, sig)` only when
-  `start == startTime || start == 0 || startTime == 0`; otherwise it returns `JNI_FALSE` and no signal is sent.
+  `start == startTime || start == 0 || startTime == 0`; otherwise it returns `JNI_FALSE` and no signal is sent. The read
+  and the `kill` are two system calls: a reuse between them is signalled, which is the residual window under
+  Consequences.
   (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/unix/native/libjava/ProcessHandleImpl_unix.c[`ProcessHandleImpl_unix.c`])
 * `isAlive0` is `os_getParentPidAndTimings`: Linux reads `/proc/<pid>/stat` (field 22, start time in clock ticks, plus
   the boot time of `/proc/stat`); macOS reads `sysctl KERN_PROC_PID` and `kp_proc.p_starttime`. Both report a start time
-  for every process they list, so on the two supported platforms the comparison is effective.
+  for every process they list, so on the two supported platforms the comparison is effective. An instant can still be
+  unreadable in a race: `ProcessHandle.of(pid)` and a later `info()` are two reads, and a process that exits between them
+  answers an empty instant; `pidReused` then treats the PID as reused.
   (link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/linux/native/libjava/ProcessHandleImpl_linux.c[`ProcessHandleImpl_linux.c`],
   link:https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/macosx/native/libjava/ProcessHandleImpl_macosx.c[`ProcessHandleImpl_macosx.c`])
 * The `start == 0 || startTime == 0` escape is the STARTTIME_ANY case, where the operating system cannot report a start
@@ -76,9 +80,10 @@ OpenJDK 25 (Temurin 25+36), `src/java.base`; the files are cited at the `jdk-25-
 
 == Alternatives Considered
 
-1. *Keep the numeric signal and accept the window.*
-_Rejected_: the JDK already performs a start-time-checked signal on the same PID, so the window can be closed without a
-new mechanism; accepting it would need a reason the sources do not give.
+1. *Keep the numeric signal and accept the wider window.*
+_Rejected_: the JDK's destroy checks the start time immediately before its `kill(2)`, so signalling through the handle
+narrows the check-then-signal window from a process-table read and a later `kill` to two adjacent system calls; keeping
+the numeric signal would keep the wider window for no reason.
 2. *Re-check the start instant and then signal numerically.*
 _Rejected_: that is the existing check-then-signal shape with a narrower but still non-zero window; it does not remove
 the hazard.
@@ -92,16 +97,19 @@ actual behaviour is stated in its Javadoc.
 
 == Consequences
 
-* A reused PID is never signalled by the sweep, at both instants: the member is not selected when the reuse precedes the
-  check, and the JDK refuses the handle's signal when the reuse happens between the check and the call. The tracker
-  therefore has no check-then-signal window of its own.
+* A reused PID is not selected when the reuse precedes the sweep's check, so the sweep does not signal it. A reuse
+  between that check and the JDK's `kill(2)` is the JDK's own check-then-signal sequence: `destroy0` reads the start
+  time immediately before it calls `kill`, so the window is two adjacent system calls wide, not zero. It is accepted:
+  the operating system refuses a signal to a process of another user, and the runtime runs as the operator, so the
+  residual window reaches only same-user processes, and a reuse inside it is a microsecond-scale race.
 * The sweep depends on the JDK's start-time comparison; a JDK change to it would change this guarantee, which is why
   this ADR records the reading.
 * `ProcessGroupSignals` remains the termination protocol's primitive; the sweep no longer uses it, and a test asserts
   that no numeric signal is sent.
-* A job whose start instant is unreadable is ended through its handle, never by its PID; its process group is not
-  signalled and its descendants are left to the tracker. On Linux and macOS the platform reports start instants, so this
-  is the case of a platform that reports none — where the tracker records no member either.
+* A job whose start instant is unreadable is ended through its handle, never by its PID, and its process group is not
+  signalled. An instant is unreadable on a platform that reports none, and on Linux and macOS when the process exits
+  before its information is read. A `PROBE` or `LLM` job leaves its descendants to the tracker; a job of any other kind
+  has no tracker, so its descendants are not swept on this path.
 * `Member` now carries the handle it was read from; a test that builds a `Member` supplies one.
 
 == Source

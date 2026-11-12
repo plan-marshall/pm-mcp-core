@@ -32,9 +32,10 @@ import org.jspecify.annotations.Nullable;
  * member that detaches between two refreshes is still known at the job's end. The sweep sends {@code SIGTERM} to every
  * remembered member that still runs through that member's own handle ({@link ProcessHandle#destroy()}), waits the sweep
  * grace period, and sends {@code SIGKILL} through it ({@link ProcessHandle#destroyForcibly()}) to those left. The JDK's
- * destroy re-reads the start time of the PID and refuses the signal when it differs from the one the handle was read
- * with, so a PID reused after the sweep's own check is never signalled, and no numeric signal is sent by the sweep at
- * all. The members still alive after the {@code SIGKILL} are answered as {@link Survivor}s, for the
+ * destroy checks the start time of the PID immediately before its {@code kill(2)} and refuses a PID that moved since the
+ * handle was read, so a reuse before that check is not signalled; a reuse between the check and the call is the JDK's
+ * own two-system-call window, which ADR 017 records as accepted. The sweep sends no numeric signal of its own. The
+ * members still alive after the {@code SIGKILL} are answered as {@link Survivor}s, for the
  * {@code job_descendant_survived} audit record.
  * <p>
  * On Linux the specification's primary mechanism is the launcher: {@code pm-exec} marks itself child subreaper and
@@ -181,8 +182,9 @@ public final class ProcessTreeTracker {
     /**
      * Ends the remembered descendants that are still alive: {@code SIGTERM} through the handle of each, the sweep grace
      * period, and {@code SIGKILL} through the handle of those left. A remembered member whose PID now belongs to a
-     * process that started at another instant was reused: the sweep does not select it, and the JDK refuses a signal
-     * sent through its handle when the start time moved between the selection and the call, so it is never signalled.
+     * process that started at another instant was reused: the sweep does not select it, and the JDK's destroy refuses a
+     * PID that moved before its own check. A reuse between that check and its {@code kill(2)} is the residual window
+     * ADR 017 records as accepted.
      *
      * @return the members still alive after the {@code SIGKILL}, with their executables; empty when the sweep ended them
      */
