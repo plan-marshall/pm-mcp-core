@@ -113,6 +113,8 @@ Specification, documentation:
 - OBSERVED (only with the operator's word at refine, R07): `CLAUDE.md` and `.opencode/rules/plan-marshall-standing-rules.md` — the tense of one sentence and the need of `cui-test-generator` (D3, D5)
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/log/RuntimeLogMessagesTest.java` — the negative control of the byte check (carried 2026-11-09 from `landings/PLAN-V2-121.md`)
 
+Carried 2026-11-12 (PLAN-V2-124 residue, OBSERVED at `a10f34f2`): `pm-runtime/src/test/java/de/planmarshall/runtime/lock/FileLockManagerTwoProcessIT.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/lock/LockHolderProcess.java`.
+
 Not surface (R19): `doc/plans/README.adoc`, `doc/Traceability.adoc`, `doc/LogMessages.adoc`, the ADR directory and developer guide of an existing package as additive bookkeeping.
 
 ## Dependencies and Sequencing
@@ -184,6 +186,7 @@ Open defects of the ledger that this plan absorbs (register: `owner-register.md`
 - PLAN-V2-128 L2-3 and the literals: the untested negatives of `ForgeUrlTest` (an unknown tab on a GitLab merge request, `ForgeUrl.java:333`, where deleting the `!GITLAB_PULL_REQUEST_TABS.contains` disjunct passes every test; GitLab two trailing segments; GitLab zero or padded number with a tab; Forgejo `issues/N/files`; a 22-group path with a tab, `ForgeUrl.java:257`), and the literals `7` and `/repos/cuioss/pm/issues/7` of `GitHubCiProviderTest.refusesCommentOnPullRequest` (line 547), which no static `@MockResponseConfig` forces.
 - The assertion messages missing or outside 20 to 60 characters that the conversion touched (PLAN-V2-99: `CredentialStoreAspectTest:293`, `ProviderVerificationTest:149`, `EnrolmentsTest:803`, `HarnessesSidecarCheckTest:117,118,137`, `WorkerRecyclingTest:130,151,286`, `WorkerSupervisorLaunchTest:121`) are **owned by PLAN-V2-103 to 105**, not here.
 
+- PLAN-V2-124 (#380, #385), carried 2026-11-12 under the operator's rule "every leftover goes into a staged plan" (`landings/PLAN-V2-124.md` layer 2): `FileLockManagerTwoProcessIT` repeats one four-probe block in five tests (`:226-229`, `:257-260`, `:288-291`, `:320-323`, `:353-356`; the setup and the final assertion differ, so a helper or a `@ParameterizedTest` where the setup allows); the literal `"qt-"` (`:347`) has no contract note; `LockHolderProcess.Mode.of` (`:109-117`) turns an unknown argument silently into the plan mode, so a typo degrades a test quietly: refuse it. The statement and Javadoc nits and the `READ` mode's name are PLAN-V2-114 item 14. Re-read at the head before editing.
 
 ## Sequencing note (cleanup 2026-11-10, PLAN-V2-106 landing)
 

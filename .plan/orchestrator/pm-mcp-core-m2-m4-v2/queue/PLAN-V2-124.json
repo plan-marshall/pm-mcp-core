@@ -2,10 +2,10 @@
   "id": "PLAN-V2-124",
   "slug": "lock-manager-spec-and-os-lock-tests",
   "workstream": "WS-05",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-124-lock-manager-spec-and-os-lock-tests",
+  "pr": "#380",
+  "landing": "landings/PLAN-V2-124.md",
   "seq": 112
 }

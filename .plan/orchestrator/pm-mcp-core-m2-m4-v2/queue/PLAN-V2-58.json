@@ -2,10 +2,10 @@
   "id": "PLAN-V2-58",
   "slug": "verifier-cycle-scale",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-58-verifier-cycle-scale",
+  "pr": "#379",
+  "landing": "landings/PLAN-V2-58.md",
   "seq": 58
 }
