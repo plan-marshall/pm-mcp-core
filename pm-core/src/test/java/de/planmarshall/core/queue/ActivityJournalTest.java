@@ -111,7 +111,7 @@ class ActivityJournalTest {
     }
 
     @Test
-    @DisplayName("delete removes the journal and the sibling lock file, and the key is acquirable again")
+    @DisplayName("delete removes the journal and the sibling lock file beside it")
     void deleteRemovesTheSiblingLock(@TempDir Path base) throws Exception {
         var journal = new ActivityJournal(base.resolve("journal"), new TestLocks());
         journal.append(TASK, signal(1));
