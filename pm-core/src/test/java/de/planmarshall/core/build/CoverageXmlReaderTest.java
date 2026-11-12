@@ -96,7 +96,7 @@ class CoverageXmlReaderTest {
     // The encoding declarations are the contract: the reader detects the encoding from the bytes, with no BOM.
     @Test
     @DisplayName("detects a BOM-less UTF-16 report from its bytes")
-    void detectsABomLessUtf16Report() throws IOException {
+    void detectsABomLessUtf16Report() throws Exception {
         String xml = report("UTF-16");
 
         CoverageParseResult wide = JacocoReportParser.parse(write("utf-16.xml", xml, StandardCharsets.UTF_16BE));
@@ -109,7 +109,7 @@ class CoverageXmlReaderTest {
     // end of the declaration and then rejects the name "UTF-32" as unknown, so the report is refused, never misread.
     @Test
     @DisplayName("refuses a BOM-less UTF-32 report whose declared encoding StAX does not know")
-    void refusesABomLessUtf32Report() throws IOException {
+    void refusesABomLessUtf32Report() throws Exception {
         String xml = report("UTF-32");
 
         CoverageParseResult wide = JacocoReportParser.parse(write("utf-32.xml", xml, Charset.forName("UTF-32BE")));
@@ -123,7 +123,7 @@ class CoverageXmlReaderTest {
     // The encoding declaration is the contract: the stream carries a byte-order mark the reader honours.
     @Test
     @DisplayName("reads a UTF-16 report with a byte-order mark through the stream")
-    void readsAUtf16ReportWithAByteOrderMark() throws IOException {
+    void readsAUtf16ReportWithAByteOrderMark() throws Exception {
         String xml = report("UTF-16");
 
         CoverageParseResult wide = JacocoReportParser.parse(write("utf-16-bom.xml", xml, StandardCharsets.UTF_16));

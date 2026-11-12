@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -322,7 +321,7 @@ class LcovReportParserTest {
     // The line limit of 8192 characters is the contract.
     @Test
     @DisplayName("refuses a line over 8192 characters in a report file")
-    void refusesALineOverTheLimitInAFile() throws IOException {
+    void refusesALineOverTheLimitInAFile() throws Exception {
         Path reportFile = Files.writeString(directory.resolve("long.info"), withTestName(20_000) + MEASURED_RECORD);
 
         CoverageParseResult result = LcovReportParser.parse(reportFile);
@@ -334,7 +333,7 @@ class LcovReportParserTest {
 
     @Test
     @DisplayName("reads a report file without a trailing line break unchanged")
-    void readsAReportFileWithoutATrailingLineBreak() throws IOException {
+    void readsAReportFileWithoutATrailingLineBreak() throws Exception {
         Path reportFile = Files.writeString(directory.resolve("plain.info"), MEASURED_RECORD.strip());
 
         CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse(reportFile));

@@ -252,7 +252,7 @@ public class JacocoReportParser {
                             .branch(branchMissed < 0
                                     ? null
                                     : CoveragePercentages.percentage(branchCovered, branchMissed + (long) branchCovered)
-                                            .orElse(null))
+                                    .orElse(null))
                             .missedMethods(missedMethods)
                             .build());
         }

@@ -78,7 +78,7 @@ public class LcovReportParser {
     public static CoverageParseResult parse(Path reportFile) {
         Objects.requireNonNull(reportFile, "reportFile");
         try (BufferedReader source = new BufferedReader(new InputStreamReader(
-                new CoverageReportStream(Files.newInputStream(reportFile)), StandardCharsets.UTF_8.newDecoder()))) {
+                     new CoverageReportStream(Files.newInputStream(reportFile)), StandardCharsets.UTF_8.newDecoder()))) {
             return new Walk().parse(source);
         } catch (IOException e) {
             return CoverageRefusals.of(FORMAT, reportFile, e);

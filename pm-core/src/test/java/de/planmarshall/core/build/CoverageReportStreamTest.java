@@ -39,7 +39,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("reads a report below the bound unchanged")
-    void readsAReportBelowTheBound() throws IOException {
+    void readsAReportBelowTheBound() throws Exception {
         byte[] report = text(1, 200);
 
         try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), report.length + 1L)) {
@@ -49,7 +49,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("reads a report exactly at the bound unchanged")
-    void readsAReportExactlyAtTheBound() throws IOException {
+    void readsAReportExactlyAtTheBound() throws Exception {
         byte[] report = text(1, 200);
 
         try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), report.length)) {
@@ -59,7 +59,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("refuses a report past the bound, naming the limit")
-    void refusesAReportPastTheBound() throws IOException {
+    void refusesAReportPastTheBound() throws Exception {
         byte[] report = text(2, 200);
         long limit = report.length - 1L;
 
@@ -72,7 +72,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("refuses a byte-wise read past the bound and every read after it")
-    void refusesAByteWiseReadPastTheBound() throws IOException {
+    void refusesAByteWiseReadPastTheBound() throws Exception {
         byte[] report = text(2, 50);
 
         try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), report.length - 1L)) {
@@ -88,7 +88,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("counts skipped bytes against the bound")
-    void countsSkippedBytesAgainstTheBound() throws IOException {
+    void countsSkippedBytesAgainstTheBound() throws Exception {
         byte[] report = text(2, 50);
 
         try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), report.length - 1L)) {
@@ -98,7 +98,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("ends a report at the bound with end of stream")
-    void endsAReportAtTheBound() throws IOException {
+    void endsAReportAtTheBound() throws Exception {
         byte[] report = text(1, 50);
 
         try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), report.length)) {
@@ -109,7 +109,7 @@ class CoverageReportStreamTest {
 
     @Test
     @DisplayName("supports no mark, so the count cannot run behind the bytes read")
-    void supportsNoMark() throws IOException {
+    void supportsNoMark() throws Exception {
         try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(text(1, 20)))) {
             assertFalse(stream.markSupported(), "The stream offers no mark");
             assertThrows(IOException.class, stream::reset, "A reset is refused without a mark");
@@ -123,8 +123,8 @@ class CoverageReportStreamTest {
         assertAll(
                 () -> assertEquals(268_435_456L, CoverageReportStream.MAX_BYTES, "The byte cap is 256 MiB"),
                 () -> assertEquals(8192, CoverageReportStream.MAX_LINE_LENGTH, "The line limit is 8192 characters"),
-                () -> assertEquals(LimitProperties.read(CoverageReportStream.LIMITS, CoverageReportStream.MAX_BYTES_KEY),
-                        CoverageReportStream.MAX_BYTES, "The byte cap comes from the resource"),
+                () -> assertEquals(
+                        CoverageReportStream.MAX_BYTES, LimitProperties.read(CoverageReportStream.LIMITS, CoverageReportStream.MAX_BYTES_KEY), "The byte cap comes from the resource"),
                 () -> assertEquals(LimitProperties.read(CoverageReportStream.LIMITS,
                                 CoverageReportStream.MAX_LINE_LENGTH_KEY),
                         (long) CoverageReportStream.MAX_LINE_LENGTH, "The line limit comes from the resource"));
