@@ -336,10 +336,10 @@ final class UnitGraph {
     /**
      * Finds all elementary simple cycles in the unit graph.
      * <p>
-     * The search runs inside the strongly connected components that carry a cycle: a state outside such a component
-     * lies on no cycle, and the depth-first search would still walk every simple path from it that keeps to a larger
-     * index. The components are computed once, every other state is dropped, and the search keeps the declaration order
-     * of the states and of their successors, so the returned list is the one an unrestricted search finds.
+     * The search runs inside the strongly connected component of its start state: a state outside that component lies
+     * on no cycle through the start, and the depth-first search would still walk every simple path from the start that
+     * keeps to a larger index. The components are computed once, and the search keeps the declaration order of the
+     * states and of their successors, so the returned list is the one an unrestricted search finds.
      *
      * @param definition the workflow definition
      * @return the list of simple cycles, each represented as a sequence of state IDs ending in the start state
@@ -347,7 +347,7 @@ final class UnitGraph {
     static List<List<String>> findSimpleCycles(WorkflowDefinition definition) {
         var stateIds = new ArrayList<>(definition.states().keySet());
         var graph = of(definition);
-        var cyclic = cyclicStates(stateIds, graph);
+        var cyclic = cyclicComponents(stateIds, graph);
         var cycles = new ArrayList<List<String>>();
         var stateIndex = new LinkedHashMap<String, Integer>();
         for (int i = 0; i < stateIds.size(); i++) {
@@ -356,27 +356,28 @@ final class UnitGraph {
 
         for (int i = 0; i < stateIds.size(); i++) {
             var startId = stateIds.get(i);
-            if (!cyclic.contains(startId)) {
+            var component = cyclic.get(startId);
+            if (component == null) {
                 continue;
             }
             var path = new ArrayList<String>();
             path.add(startId);
             var inPath = new LinkedHashSet<String>();
             inPath.add(startId);
-            dfsCycles(graph, startId, new CycleScope(i, stateIndex, cyclic), path, inPath, cycles);
+            dfsCycles(graph, startId, new CycleScope(i, stateIndex, component), path, inPath, cycles);
         }
         return cycles;
     }
 
     /**
      * The part of one cycle search that every step of it shares: the index of the start state, the index of every state
-     * and the states on a cycle, which are the only ones the search descends into.
+     * and the component of the start state, which is the only place the search descends into.
      *
      * @param startIndex the index of the start state in declaration order
      * @param stateIndex the index of every state in declaration order
-     * @param cyclic     the states that lie on a cycle
+     * @param component  the strongly connected component of the start state
      */
-    private record CycleScope(int startIndex, Map<String, Integer> stateIndex, Set<String> cyclic) {
+    private record CycleScope(int startIndex, Map<String, Integer> stateIndex, Set<String> component) {
     }
 
     private static void dfsCycles(UnitGraph graph, String current, CycleScope scope, List<String> path,
@@ -389,7 +390,7 @@ final class UnitGraph {
                 cycles.add(Collections.unmodifiableList(cycle));
             } else {
                 var nextIndex = scope.stateIndex().get(next);
-                if (nextIndex != null && nextIndex > scope.startIndex() && scope.cyclic().contains(next)
+                if (nextIndex != null && nextIndex > scope.startIndex() && scope.component().contains(next)
                         && inPath.add(next)) {
                     path.add(next);
                     dfsCycles(graph, next, scope, path, inPath, cycles);
@@ -401,19 +402,19 @@ final class UnitGraph {
     }
 
     /**
-     * Computes the states that lie on a cycle: the states of every strongly connected component of the unit graph that
-     * carries one. The components are found by two passes over the graph, so the cost is linear in its states and
-     * edges; a component carries a cycle when it holds more than one state or a state that is its own successor.
+     * Computes the strongly connected components of the unit graph that carry a cycle. The components are found by two
+     * passes over the graph, so the cost is linear in its states and edges; a component carries a cycle when it holds
+     * more than one state or a state that is its own successor.
      *
      * @param stateIds the states of the unit, in declaration order
      * @param graph    the graph of the unit
-     * @return the states that lie on a cycle
+     * @return every state that lies on a cycle, mapped to the component it belongs to
      */
-    private static Set<String> cyclicStates(List<String> stateIds, UnitGraph graph) {
+    private static Map<String, Set<String>> cyclicComponents(List<String> stateIds, UnitGraph graph) {
         var known = new LinkedHashSet<>(stateIds);
         var finishOrder = finishOrder(stateIds, graph, known);
         var assigned = new HashSet<String>();
-        var cyclic = new LinkedHashSet<String>();
+        var cyclic = new LinkedHashMap<String, Set<String>>();
         for (var index = finishOrder.size() - 1; index >= 0; index--) {
             var root = finishOrder.get(index);
             if (!assigned.add(root)) {
@@ -432,7 +433,9 @@ final class UnitGraph {
                 }
             }
             if (component.size() > 1 || graph.successors(root).contains(root)) {
-                cyclic.addAll(component);
+                for (var stateId : component) {
+                    cyclic.put(stateId, component);
+                }
             }
         }
         return cyclic;

@@ -69,12 +69,19 @@ not finish on it.
 
 == Decision
 
-`UnitGraph.findSimpleCycles` computes the strongly connected components of the unit graph once, drops every state
-outside a component that carries a cycle, and runs the existing depth-first search inside the remaining states with the
-same state order and the same successor order. The components are found in two passes over the graph — a finish order
-over the successor edges, then the components over the predecessor edges — so the pre-pass is linear in states and
-edges. The signature, the return type (`List<List<String>>`, each cycle ending in its start state) and both callers are
-unchanged.
+`UnitGraph.findSimpleCycles` computes the strongly connected components of the unit graph once, and runs the existing
+depth-first search inside the component of the start state alone, with the same state order and the same successor
+order. The components are found in two passes over the graph — a finish order over the successor edges, then the
+components over the predecessor edges — so the pre-pass is linear in states and edges. The signature, the return type
+(`List<List<String>>`, each cycle ending in its start state) and both callers are unchanged.
+
+The restriction is per component, not per cyclic state: a state in another cyclic component is reachable from the start
+only over a one-way edge, and a path that leaves the start's component can never return to the start, so descending into
+it enumerates nothing. The first version of this change dropped only states outside every cyclic component and still
+left the search free to walk the branches of a later component; chained cyclic sections — two cycles per section, each
+branch of a section either retrying its hub or advancing into the next section — made that shape exponential where the
+unit carries two cycles per section. The component identity is therefore kept per state, and the search descends only
+into a state of the start state's component.
 
 The result is identical: a state on a cycle lies in the component that carries it, and a state outside such a
 component can neither start nor continue one, so the dropped states contribute no cycle and no ordering. The retained
@@ -95,10 +102,12 @@ cost Rule 11 charges for the shape.
 
 == Consequences
 
-A unit of a few hundred states enumerates inside the scale test's bound; the family-(a) chain remains exponential by
-its nature and its cycle count is recorded rather than bounded. A third caller inherits the same cost, and a rule that
-needs the enumeration repeatedly for one unit moves the component pre-pass out of the call rather than repeating it.
-A component with a self-loop counts as cyclic, so a single state that loops to itself is still enumerated.
+A unit of a few hundred states enumerates inside the scale test's bound, and the chained-sections shape — the one that
+showed the per-state restriction was not enough — is generated at 200 sections and bounded there too. The family-(a)
+chain remains exponential by its nature and its cycle count is recorded rather than bounded. A third caller inherits the
+same cost, and a rule that needs the enumeration repeatedly for one unit moves the component pre-pass out of the call
+rather than repeating it. A component with a self-loop counts as cyclic, so a single state that loops to itself is
+still enumerated.
 
 == Source
 

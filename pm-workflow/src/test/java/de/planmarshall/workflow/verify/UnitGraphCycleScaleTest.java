@@ -53,6 +53,9 @@ class UnitGraphCycleScaleTest {
     /** The number of branch-and-rejoin sections of the family-(c) unit still compared with the legacy result. */
     private static final int SMALL_SECTIONS = 10;
 
+    /** The number of cyclic sections of the large chained unit. */
+    private static final int LARGE_CHAINED_SECTIONS = 200;
+
     /** The classpath directory of the twelve default fixture units. */
     private static final String FIXTURES = "unit-fixtures/defaults";
 
@@ -137,6 +140,30 @@ class UnitGraphCycleScaleTest {
         assertEquals(List.of(List.of("scale.entry", "scale.entry")), found, "the self loop is one cycle");
         assertEquals(2, unit.states().size(), "the unit declares two states");
         assertEquals(2, edgeCount(unit), "the loop and the exit are two edges");
+    }
+
+    @Test
+    @DisplayName("A chain of 200 cyclic sections enumerates its cycles inside the limit")
+    void largeChainedSectionsStayInsideTheLimit() {
+        var unit = chainedSections(LARGE_CHAINED_SECTIONS);
+
+        var found = assertTimeoutPreemptively(LIMIT, () -> UnitGraph.findSimpleCycles(unit),
+                "the chained sections stay inside the limit");
+
+        assertEquals(2 * LARGE_CHAINED_SECTIONS, found.size(), "each section enumerates its two cycles");
+        assertEquals(3 * LARGE_CHAINED_SECTIONS + 2, unit.states().size(), "three states per section, two around");
+    }
+
+    @Test
+    @DisplayName("Chained cyclic sections enumerate two cycles each, in the legacy order")
+    void chainedSectionsMatchLegacy() {
+        var unit = chainedSections(SMALL_SECTIONS);
+
+        var expected = legacyFindSimpleCycles(unit);
+        var found = UnitGraph.findSimpleCycles(unit);
+
+        assertEquals(expected, found, "the chained sections agree with the legacy order");
+        assertEquals(2 * SMALL_SECTIONS, found.size(), "each section enumerates its two cycles");
     }
 
     @Test
@@ -253,6 +280,36 @@ class UnitGraphCycleScaleTest {
                 .append("        done -> scale.gate\n\n")
                 .append("state scale.done terminal done success\n");
         return parse("sprawling-" + sections, states);
+    }
+
+    /**
+     * A unit of {@code sections} cyclic sections in a chain: a section's hub branches into two states, each of which
+     * either retries its own hub, which closes one of the section's two cycles, or advances into the next section's
+     * hub. The sections are separate strongly connected components, joined forward only, and the advance edges let a
+     * search walk every combination of the sections' branches.
+     *
+     * @param sections the number of cyclic sections
+     * @return the parsed unit
+     */
+    private static WorkflowDefinition chainedSections(int sections) {
+        var states = new StringBuilder("state scale.entry\n    auto test.proceed\n        done -> scale.hub-0\n\n");
+        for (var index = 0; index < sections; index++) {
+            var next = index + 1 == sections ? "scale.done" : "scale.hub-" + (index + 1);
+            states.append("state scale.hub-").append(index).append('\n')
+                    .append("    auto test.proceed\n")
+                    .append("        left -> scale.left-").append(index).append('\n')
+                    .append("        right -> scale.right-").append(index).append("\n\n")
+                    .append("state scale.left-").append(index).append('\n')
+                    .append("    auto test.proceed\n")
+                    .append("        retry -> scale.hub-").append(index).append('\n')
+                    .append("        next -> ").append(next).append("\n\n")
+                    .append("state scale.right-").append(index).append('\n')
+                    .append("    auto test.proceed\n")
+                    .append("        retry -> scale.hub-").append(index).append('\n')
+                    .append("        next -> ").append(next).append("\n\n");
+        }
+        states.append("state scale.done terminal done success\n");
+        return parse("chained-" + sections, states);
     }
 
     /**
