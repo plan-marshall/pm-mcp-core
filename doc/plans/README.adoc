@@ -21,11 +21,11 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |nothing
 |Milestones 3 and 4
 
-|link:z3-deferred-code-removal.adoc[`z3-deferred-code-removal`]
+|`z3-deferred-code-removal`
 |The code of the deferred mechanisms removed (capability specs and EARS, interfaces and key links, the protocol `system_one` and the judgment vote, the qualification and decision members beyond the baseline, the navigation figures; link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36] to link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-41[L-41]), and stale class documentation corrected
-|`open`
-|nothing
-|Milestone 4 (cleanup of code already built for Milestones 4, 8, and 14)
+|`done`
+|
+|
 
 |link:harness-renames.adoc[`harness-renames`]
 |The harness side named harness in the code: `client_id` becomes `harness_id` in the profiles, verification records, enrolment store and audit details, `clientId` becomes `harnessId`; records with the old names stay readable

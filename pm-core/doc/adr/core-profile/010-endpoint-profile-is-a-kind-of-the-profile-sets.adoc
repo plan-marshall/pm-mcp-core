@@ -26,8 +26,13 @@ selects a closed document of its own members and rules, and any other value is a
 profile. `ProfileLoader` reads both kinds through the same three sets, the same verification record, the same HMAC
 sidecar and the same enrolled-harness binding; `ProfileValidator.isEndpoint` tells them apart. No endpoint profile is
 shipped. A project endpoint profile must keep the harness-defining values of its base (`identity`, `executable` and the
-protocol, locality, base URL and credential key of `endpoint`), as a project client profile keeps its detection, identity
-and executable.
+protocol and base URL of `endpoint`), as a project client profile keeps its detection, identity and executable.
+
+NOTE: Amended by the work package `deferred-code-removal` (PLAN-V2-129). This record listed `locality` and
+`credential_key` of `endpoint` among the harness-defining values a project endpoint profile must keep. The remote
+endpoint form was deleted, so the endpoint profile carries neither member any more (the loader refuses both as unknown
+members), and the two were removed from the list. The decision itself — one kind of the same profile sets — is
+unchanged.
 
 == Alternatives Considered
 

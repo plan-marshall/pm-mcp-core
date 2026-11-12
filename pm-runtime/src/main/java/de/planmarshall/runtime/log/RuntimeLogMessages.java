@@ -522,20 +522,6 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when a judgment task answered both requests of the task: names the versioned model id, the
-         * endpoint's origin, the input and output tokens the answers measured and the duration. Never the request
-         * body, the facts or the credential; the {@code judgment_task_completed} audit record carries the same facts
-         * and the status the task ended with.
-         * <p>
-         * The component is {@code JudgmentEndpoint}.
-         */
-        public static final LogRecord JUDGMENT_TASK_ANSWERED = LogRecordModel.builder()
-                .prefix(PREFIX)
-                .identifier(39)
-                .template("Judgment task of model '%s' on the endpoint '%s' answered (input %s, output %s, %s ms)")
-                .build();
-
-        /**
          * Logged when {@code store.check} passed: one test entry of the chosen store was written, read back and
          * compared, and deleted. Names the store ({@code os} or {@code file}); never the test value.
          * <p>
