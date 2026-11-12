@@ -19,6 +19,8 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.build.BuildLogText;
+
 /**
  * The redactor removes the value of an explicit credential-shaped assignment and keeps every other text
  * (Store Schemas § Activity Journal: every text and target is redacted; Job Runtime § Pipeline names `SecretRedactor`).
@@ -119,6 +121,67 @@ class SecretRedactorTest {
                 () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host/x",
                         redactValue("https://user:p@ss@host/x"),
                         "a password containing @ is masked whole"));
+    }
+
+    @Test
+    @DisplayName("the remaining URL user-information shapes are masked (specified example URLs)")
+    void urlUserInformationShapes() {
+        assertAll("URL user-information shapes",
+                () -> assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg",
+                        redactValue("https://deploy:pa/ss@registry.example/pkg"),
+                        "a password holding a raw slash is masked"),
+                () -> assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg",
+                        redactValue("https://deploy:pa?s#s@registry.example/pkg"),
+                        "a password holding ? and # is masked"),
+                () -> assertEquals("https://me@corp.example:" + SecretRedactor.REDACTED + "@host/p",
+                        redactValue("https://me@corp.example:s3cret@host/p"),
+                        "a user holding a raw @ keeps user and host"),
+                () -> assertEquals("https%3A%2F%2Fuser:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https%3A%2F%2Fuser:secret@host"),
+                        "a percent-encoded scheme separator is masked"),
+                () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https://user:p%40ss%2Fw0rd@host"),
+                        "a percent-encoded password stays masked"));
+    }
+
+    @Test
+    @DisplayName("URL forms without user information stay readable (specified controls)")
+    void urlUserInformationNegativeControls() {
+        assertAll("URL user-information negative controls",
+                () -> assertEquals("https://ghp_token@host/x", redactValue("https://ghp_token@host/x"),
+                        "the single-user form stays readable"),
+                () -> assertEquals("scheme://host:8080/path", redactValue("scheme://host:8080/path"),
+                        "a host and port without @ stay readable"),
+                () -> assertEquals("see src/main:java/A.java", redactValue("see src/main:java/A.java"),
+                        "a path with a colon stays readable"),
+                () -> assertEquals("the build: user said ok @ noon", redactValue("the build: user said ok @ noon"),
+                        "a prose sentence stays readable"),
+                () -> assertEquals("https://host?next=user:password@other/path",
+                        redactValue("https://host?next=user:password@other/path"),
+                        "ADR 006's query control stays readable"),
+                () -> assertEquals("https://host/p?at=a:b@c", redactValue("https://host/p?at=a:b@c"),
+                        "a query with a colon and @ stays readable"));
+    }
+
+    @Test
+    @DisplayName("a host:port path followed by a raw @ is read as user information (the stated cost)")
+    void urlUserInformationFalsePositiveCost() {
+        assertEquals("https://host:" + SecretRedactor.REDACTED + "@mention",
+                redactValue("https://host:8080/path@mention"),
+                "the port and path before a later @ are masked");
+    }
+
+    @Test
+    @DisplayName("a scheme-like run as long as a bounded line is redacted to itself")
+    void urlUserInformationLongSchemeRun() {
+        // a.a.a… is a run of scheme characters: every position could start a scheme, the cost case of the pattern
+        var run = "a.".repeat(BuildLogText.MAX_LINE_LENGTH / 2 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+        var withSeparator = run + "://";
+
+        assertAll("long scheme-like runs",
+                () -> assertEquals(run, redactValue(run), "a long scheme-character run stays as it is"),
+                () -> assertEquals(withSeparator, redactValue(withSeparator),
+                        "the same run followed by :// stays as it is"));
     }
 
     @Test

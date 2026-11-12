@@ -77,12 +77,30 @@ public final class SecretRedactor {
     private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\bnpm_[A-Za-z0-9]{36}\\b");
 
     /**
-     * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme and the user
-     * and masks the secret; without the {@code scheme://} and {@code @} a colon in a path or a prose sentence does not
-     * match.
+     * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme, the user and
+     * the host readable and masks the secret, also when
+     * <ul>
+     * <li>the secret holds a raw {@code /}, {@code ?} or {@code #} ({@code https://deploy:pa/ss@registry.example/pkg}):
+     * the secret runs to the last {@code @} of the token (a raw {@code @} inside it is masked with it), and a
+     * percent-encoded secret stays masked as a whole;</li>
+     * <li>the user holds a raw {@code @} ({@code https://me@corp.example:s3cret@host/p}): the user runs to the first
+     * colon, so the secret is the part between that colon and the next {@code @};</li>
+     * <li>the scheme separator is percent-encoded ({@code https%3A%2F%2Fuser:secret@host}).</li>
+     * </ul>
+     * The scheme starts where no scheme character precedes it. The user excludes whitespace, {@code /}, {@code ?},
+     * {@code #} and {@code :}, so a query or fragment that carries a colon and an {@code @} before any user information
+     * ({@code https://host/p?at=a:b@c}) stays readable.
+     * <p>
+     * What stays readable, and why: the single-user form {@code https://<token>@host} has no colon and so no secret
+     * part (an operator decision; the token there is a known residue), {@code scheme://host:8080/path} has no
+     * {@code @}, and a path with a colon or a prose sentence has no {@code scheme://}. The false-positive cost: a
+     * {@code host:port/path} that is followed later on the same token by a raw {@code @} is read as user information,
+     * and the port and path up to that {@code @} are masked. Every repetition is possessive, and an {@code @} enters
+     * the secret only when a look ahead to the next {@code @} finds one, so a long token is read in linear time.
      */
-    private static final Pattern URL_USER_INFORMATION =
-            Pattern.compile("(?i)\\b([a-z][a-z0-9+.-]*://)([^\\s/:@?#]+):([^\\s/?#]+)@");
+    private static final Pattern URL_USER_INFORMATION = Pattern.compile(
+            "(?i)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]++)"
+                    + ":((?:[^\\s@]++|@(?=[^\\s@]*+@))++)@");
 
     /**
      * A credential flag whose value is separated by whitespace instead of {@code :} or {@code =}. The leading
