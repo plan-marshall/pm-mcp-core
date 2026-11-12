@@ -190,6 +190,8 @@ Documentation (R19: an existing guide is additive bookkeeping, listed because th
 - HYPOTHESIS: `doc/adr/023-the-kept-hand-written-test-doubles-are-a-closed-list.adoc` — one new ADR, the next free number at `origin/main` (D7)
 - HYPOTHESIS: `CLAUDE.md` — one sentence under Code Standards that points to the ADR (ask-at-refine, Carried 13)
 
+Carried 2026-11-12 (PLAN-V2-57 residue, OBSERVED at `6000f951`): `pm-workflow/src/test/java/de/planmarshall/workflow/engine/DefaultPlanPrimitives.java` (item 17).
+
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`, `doc/Traceability.adoc`, `doc/LogMessages.adoc`. No `pom.xml`, no `src/main`.
 
 ## Dependencies and Sequencing
@@ -239,6 +241,7 @@ Close calls (recommendation, confidence; the operator can overrule at refine; no
 14. Order against PLAN-V2-114: either, serial. Recommendation: 136 first (it unblocks 101 to 105, 125, 126, 31, 47). 65%.
 15. Lane: `runbook`, the operator's rule for every emit (2026-11-09). The runbook-lane run on a flash model reversed the operator's decision twice (D2, D3) with plausible reasons and the per-class judgement is the work, so the operator may choose the Claude lane for this plan at emit (row lane `plan-marshall`, header, hand-off). Confidence 55% for `runbook`.
 16. Stays open: the assembly checkout (`plan-marshall-mcp`) was not searched for users of the shared test JAR; the "owed: none" claim rests on package-private declarations.
+17. **The fake PLAN-V2-57 added (carried 2026-11-12 under the operator's rule "every leftover goes into a staged plan"; `landings/PLAN-V2-57.md` layer 2).** `pm-workflow/src/test/java/de/planmarshall/workflow/engine/DefaultPlanPrimitives.java:118` declares `Scripted`, a hand-written fake beside `EngineFixtures.Scripted` (`:661`), although `CLAUDE.md` says no new hand-written fake is added: put it into the decision table (an EasyMock double, or a sound keep with its reason) and convert it, with the end-to-end run (`DefaultPlanRunTest`) unchanged in what it asserts. Re-read at the head before editing. The `Optional` parameter of the same file and the `Run` record are PLAN-V2-125; the guide statements and both layer-3 defects are PLAN-V2-114 item 12.
 
 ## Grounding Corrections (to the pull request body of #355 and to the landing analysis; read at `6937efe4`)
 

@@ -99,6 +99,10 @@ Facts block: `deliverables_total=5`, `deliverables_done=5`, `functional-review` 
 
 ## Follow-Ups
 
-- **Operator decision (L3-1):** what INV-PLAN-1's dominator clause should mean once the land lane skips the plan phase. Not fixed inline; a staged spec only on the operator's word.
-- **Owners for the minor findings (L2-2, L2-3, L2-4, L1-2, the stale header of `per-lane-rework.pmwf`, L3-2 a):** PLAN-V2-125 (`test-conformance-core-and-workflow`) for the three test-class deviations; PLAN-V2-136 (declares `workflow-engine.adoc`) for the guide's depth and Decisions list; the abort-terminal pin and the scope question of L3-2 are the engine's owner's. Asked of the operator one at a time; not folded yet.
-- PLAN-V2-57 frees one slot. The `rb-v2-58`, `rb-v2-131` and `rb-v2-124` landings are still due.
+Placed 2026-11-12 under the operator's rule "every leftover goes into a staged plan" (the earlier owner questions fall away):
+
+- **L3-1 (INV-PLAN-1's dominator clause)** -> PLAN-V2-114 item 12(a), ask-at-refine with the recommendation (guard the entry `start` of `execute` only, about 65%).
+- **L3-2 (the abort-terminal pin of `WorkflowEngine.ended`)** -> PLAN-V2-114 item 12(b), ask-at-refine (the validator pin, about 60%).
+- **The statements (L1-1, L1-2, the guide's Decisions list, `workflow-unit.adoc:271`, the Traceability PM-WF-16 rows, the stale header of `per-lane-rework.pmwf`)** -> PLAN-V2-114 item 12(c).
+- **L2 test deviations (the `Optional` parameter at `DefaultPlanPrimitives:93`, the `Run` record without `@Builder`)** -> PLAN-V2-125; **the hand-written `DefaultPlanPrimitives.Scripted` fake** -> PLAN-V2-136 item 17.
+- PLAN-V2-57 freed one slot; the `rb-v2-58`, `rb-v2-131` and `rb-v2-124` landings have since been analysed.

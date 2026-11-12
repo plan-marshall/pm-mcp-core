@@ -66,6 +66,10 @@ Row PLAN-V2-131 `running` -> `shipped`, `pr` `#382`, `landing` `landings/PLAN-V2
 
 ## Follow-Ups
 
-1. **Unowned: the Done-when of D2 is not met for a token-carrying hostile line (M2), and the cut is not reported (M1).** A follow-up needs the operator's word: rewrite `EXECUTION_HEADER` and `FINDING` to a linear form (or cut the line at the token's position), add hostile tests that carry the token, and make the cut visible (a flag on the parse result or a `Measured` that says "tail only") so a cut multi-module Maven log cannot read as a green settlement.
-2. Minor findings m1, m2, m3, m4, m5 unowned; the test deviations (assertion messages, `@ParameterizedTest`, literal filler) fit PLAN-V2-125 (test conformance of core and workflow); the npm dispatcher patterns (m3) and the excerpt's long-line cut (m4) fit PLAN-V2-127's remainder or a build-log residue plan.
+Placed 2026-11-12 under the operator's rule "every leftover goes into a staged plan":
+
+1. M1 (the cut is not reported), M2 (the pre-tests do not bound a token-carrying line), m1, m5, m6, m7 -> PLAN-V2-114 item 11 (the rewrite to a linear form, hostile tests that carry the token, the cut made visible to the settlement as an ask-at-refine with a recommendation).
+2. m3 (the npm dispatcher patterns and the six uncut parsers) and m4 (the excerpt's tail copy and its uncut long line) -> PLAN-V2-138 item 5.
+3. m2 (`LimitProperties` accepts 0 and overflows) and the Layer-2 deviations (assertion messages, `@ParameterizedTest`, literal filler, duplicated tail-read code) -> PLAN-V2-125.
+4. PLAN-V2-132 (coverage parsers) starts from this tree: ADR number `core-build/008`.
 3. PLAN-V2-132 (coverage parsers) starts from this tree: ADR number `core-build/008`.
