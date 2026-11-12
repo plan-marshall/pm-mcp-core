@@ -32,13 +32,13 @@ import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -51,7 +51,6 @@ import de.planmarshall.core.store.QuestionEvent;
 import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.question.QuestionFixtures.EndOfLine;
-import de.planmarshall.runtime.test.TestBases;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
@@ -68,6 +67,9 @@ class QuestionLogRecordReaderReadTest {
 
     private String question;
 
+    @TempDir
+    Path temp;
+
     private Path base;
     private JournalScope plan;
     private FileLockManager locks;
@@ -76,20 +78,13 @@ class QuestionLogRecordReaderReadTest {
     @BeforeEach
     void createRuntime() throws IOException {
         question = RuntimeGenerators.questionIds().next();
-        base = TestBases.create("pmq-");
-        Files.createDirectories(base);
-        base = base.toRealPath();
+        base = temp.toRealPath();
         plan = JournalScope.plan(base, PROJECT, PLAN);
         Files.createDirectories(plan.journalFile().getParent());
         locks = new FileLockManager(event -> {
             // a lock acquisition of these tests records nothing
         });
         reader = QuestionFixtures.reader(base, PROJECT);
-    }
-
-    @AfterEach
-    void deleteRuntime() {
-        TestBases.delete(base);
     }
 
     private ReadRequest request(String scopeId, String questionId) {

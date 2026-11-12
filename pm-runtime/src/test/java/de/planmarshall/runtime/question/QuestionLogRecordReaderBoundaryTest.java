@@ -24,11 +24,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.stream.IntStream;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -41,7 +41,6 @@ import de.planmarshall.core.store.QuestionEvent;
 import de.planmarshall.core.store.QuestionRecord;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.question.QuestionFixtures.EndOfLine;
-import de.planmarshall.runtime.test.TestBases;
 
 /**
  * The boundaries of the adapter (PM-ARCH-4, PM-IMPL-5): the question id grammar, the scope id grammar, a log of one
@@ -54,6 +53,9 @@ class QuestionLogRecordReaderBoundaryTest {
     private String project;
     private String planId;
 
+    @TempDir
+    Path temp;
+
     private Path base;
     private JournalScope plan;
     private FileLockManager locks;
@@ -63,20 +65,13 @@ class QuestionLogRecordReaderBoundaryTest {
     void createRuntime() throws IOException {
         project = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         planId = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
-        base = TestBases.create("pmq-");
-        Files.createDirectories(base);
-        base = base.toRealPath();
+        base = temp.toRealPath();
         plan = JournalScope.plan(base, project, planId);
         Files.createDirectories(plan.journalFile().getParent());
         locks = new FileLockManager(event -> {
             // a lock acquisition of these tests records nothing
         });
         reader = QuestionFixtures.reader(base, project);
-    }
-
-    @AfterEach
-    void deleteRuntime() {
-        TestBases.delete(base);
     }
 
     private ReadRequest request(String questionId) {

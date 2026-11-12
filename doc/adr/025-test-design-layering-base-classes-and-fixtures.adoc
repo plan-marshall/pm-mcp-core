@@ -3,11 +3,12 @@
 
 == Status
 
-Proposed
+Accepted
 
 == Date
 
-Proposed 2026-11-12. The decision takes effect on the merge date of the pull request that carries it.
+2026-11-12 (the findings recorded before the rework, the decision taken on them the same day); the decision takes
+effect with the merge of the pull request that carries it.
 
 == Context
 
@@ -312,17 +313,201 @@ the rework does not merge them on its own authority.
 
 == Decision
 
-Owed: Deliverable 6 of the plan records the target design taken from the findings above — the layers and where each
-runs, the base classes and fixtures per module, the retention table for every removed, merged or re-layered test — and
-sets the status to Accepted.
+The structure of <<needed-structure>> is the target design of the test suite: a new test, fixture or base class follows
+it, and a change to an existing one moves it towards it. This plan applies it where a finding is settled by reading
+alone and the change keeps every assertion; where an element needs a production change, a change of a published
+artifact, or a reading this plan did not complete, the element is recorded as kept with its reason and, where it
+reaches beyond this repository's tests, as a lead for the operator. Every decision below names the finding it rests on.
+
+[#target-lanes]
+=== The Layers and Where Each Runs
+
+[cols="2,3,3",options="header"]
+|===
+|Layer |Lane |Rule
+
+|Unit
+|`verify -Ppre-commit`
+|No file, process or server; test data from the generators.
+
+|Component with real files
+|`verify -Ppre-commit`
+|Below a `@TempDir`; `TestBases` only where a Unix socket is bound below the base (S7).
+
+|Component with real processes
+|`verify -Ppre-commit`
+|Waits are the specified bounds of the production code, never a sleep; Linux-only tests carry `@EnabledOnOs`.
+
+|Component with a server
+|`verify -Ppre-commit`
+|`@EnableMockWebServer` with `@MockResponseConfig` or `@ModuleDispatcher` (ADR
+link:017-http-tests-through-mock-response-config-and-module-dispatcher.adoc[017]); `FakeBus` for the D-Bus wire.
+
+|Architecture check
+|`verify -Ppre-commit`
+|One rule set per class; the import kept whole where the rule's evidence needs it (ADR 024, row 14).
+
+|Nested build
+|`-Pintegration-tests` only
+|`BuildGuardsIT` and the fixture projects below `src/guard-controls`, unchanged.
+
+|Killed runtime
+|`-Pintegration-tests` only
+|The seven `*KilledRuntimeIT` classes and `StartupColdStartIT`, unchanged.
+|===
+
+No test changes its lane in this plan, and no test runs outside the two lanes.
+
+[#decisions-per-finding]
+=== The Decision per Finding
+
+[cols="1,2,5",options="header"]
+|===
+|Finding |Verdict |Reason
+
+|<<f1>>
+|kept
+|A single builder check per module needs a value for every component type of every record with a builder; the generator
+artifacts provide generators for a few domain types only (ADR 012), so the check would either build its values by
+reflection over arbitrary types or cover fewer records than the classes do now. Whether other tests reach the null
+refusals of the compact constructors these classes assert is not established, and the plan's floor forbids a lower
+coverage per module. Since ADR 024, change A, the classes share one JVM and cost little time. The two names
+(`*BuilderContractTest`, `*RecordsTest`) stay: a rename of about 180 classes changes no behaviour. A new record with a
+builder gets its builder test in the existing form until a generator-based check exists.
+
+|<<f2>>
+|kept, finding corrected
+|On reading, each class pins that a component admits `null`: the contract the conversion to nullable components made
+(ADR 021). A later null check in the record's constructor would break every caller that passes the absence, and no
+other test is known to fail on it, so the classes are the evidence of that contract, not a test of the language.
+
+|<<f3>>
+|kept
+|Each generator test asserts the grammar of its own generator; a parameterised test per factory would still need one
+predicate per generator, so the change is one of form.
+
+|<<f4>>
+|kept
+|Each class checks its own schema file against its own codec; merging them is a change of form, and a schema whose
+check differs would leave the harness again.
+
+|<<f5>>
+|kept for the existing classes
+|Moving the subclasses of `QuestionLogFixture` and `ProjectResolverFixture` into `@Nested` classes of one test class
+moves 15 classes without changing a test's behaviour or cost. A new test of these units goes into a `@Nested` class
+of a composed fixture (S4) rather than into a new subclass. `ParsedBuildPortedTest` stays a template over its parsers.
+
+|<<f6>>
+|kept
+|After ADR 024, change A, the four imports run in the one JVM of their module, so class loading and warm-up are shared;
+what remains is each import itself. Their import options and scopes were not shown to be the same, so a shared import
+would couple rules that may need different scopes, and `OutboundCallsArchTest` keeps its whole import (ADR 024, row
+14). The guard in `JobRunnerTest` stays where it is: moving it changes no assertion.
+
+|<<f7>>
+|kept, two leads
+|Sizing the fixture to the stage tests means reading what each stage of the verification pipeline reads
+from the enrolment, the store and the file tree; this plan did not complete that reading, and a value-only fixture that
+skipped the enrolment check a stage depends on would weaken the tests. The four `with…` helpers stay: `ProjectEnrolment`
+has a builder but no `toBuilder`, and adding one is a production change for a test (lead). The fixture keeps
+`TestBases`: its users start processes below the base, and whether one of them binds a socket there is not established.
+
+|<<f8>>, <<f9>>
+|kept, one lead
+|The twin compositions and recording doubles live in two modules because `pm-core:tests` publishes only its generator
+package and `SchemaResource` (ADR 012). One home for them needs that artifact to publish fixtures as well, which is a
+decision of the operator (lead). Inside one module, a recording double is replaced by an EasyMock double when its
+classes are next changed for a reason of their own.
+
+|<<f10>>
+|changed for three classes
+|`QuestionLogRecordReaderTest`, `QuestionLogRecordReaderBoundaryTest` and `QuestionLogRecordReaderReadTest` bind no
+socket: their base is now a `@TempDir`, made canonical as before (`toRealPath`), and the manual `TestBases.delete` in
+`@AfterEach` is gone. Every test and every assertion is unchanged. The other users keep `TestBases`: the integration
+tests and `RuntimeDrainTest`, `StartupSequenceTest`, `WebTlsTest` and `JobDrainParticipantTest` start a runtime, a web
+server or a job below the base, and `JobEnrolmentFixture` as stated under <<f7>>.
+
+|<<f11>>
+|unchanged, one lead
+|No public type or signature of `pm-runtime:tests` changes, so the assembly keeps compiling against it. `FakeBus` stays
+as the wire evidence of the D-Bus codec. Lead: `FakeSecretService` is public but its behaviour switches are
+package-private, so the assembly can use only its default behaviour; and ADR 012 still names PLAN-V2-106 as replacing
+the fakes by EasyMock doubles, which cannot hold for `FakeBus`.
+
+|<<f12>>
+|kept, lead of ADR 024
+|`ProbeJobTest` waits out the specified 15 s budget because the runner reads it with no clock or budget seam; the seam is
+a production change and remains the operator lead ADR 024 recorded (row 9).
+
+|<<f13>>
+|kept
+|The engine runs only over definitions the validator accepted. A definition built by hand could hold a state the
+validator refuses and so test the engine on an input it never receives; parsing the DSL text in the fixture keeps the
+engine's input real, at the price that a parser defect also fails engine tests.
+
+|<<f14>>
+|kept
+|ADR `provider-ci/005` stands; the rework does not supersede it.
+|===
+
+[#retention]
+=== The Retention Table
+
+No test is removed, merged or moved, so the retention table has no row and no mapping row is owed; a later removal,
+merge or move adds its row here with the removed test, the retained test, the assertions that carry the behaviour and
+the break-the-code evidence.
+
+[cols="2,2,3,3",options="header"]
+|===
+|Removed test |Retained test |Assertions carrying the behaviour |Break-the-code evidence
+
+4+|none
+|===
+
+The changed fixtures, whose tests keep their names, layers and assertions:
+
+[cols="3,2,4",options="header"]
+|===
+|Test class |Module |Change
+
+|`QuestionLogRecordReaderTest` |`pm-runtime` |`TestBases` base replaced by a canonical `@TempDir`; `@AfterEach` delete removed
+|`QuestionLogRecordReaderBoundaryTest` |`pm-runtime` |as above
+|`QuestionLogRecordReaderReadTest` |`pm-runtime` |as above
+|===
+
+No module ADR is owed: no base class of a package changes.
+
+[#test-design-leads]
+=== Leads for the Operator
+
+* *Fixtures in `pm-core:tests`.* One home for the enrolment composition, the git layout of a worktree and the recording
+  audit sink (<<f8>>, <<f9>>) needs `pm-core:tests` to publish fixtures beside its generators, a change of ADR 012.
+* *`toBuilder` on `ProjectEnrolment`.* It would let `JobEnrolmentFixture` change one component without repeating the
+  fifteen-component constructor (<<f7>>); it is a production change of `pm-core`.
+* *The fakes in ADR 012.* The statement that PLAN-V2-106 replaces the fakes by EasyMock doubles cannot hold for
+  `FakeBus`, the wire evidence; and `FakeSecretService` exposes no behaviour switch to the assembly (<<f11>>).
+* *A follow-up for the elements kept here.* The generator-based builder check (<<f1>>), the `@Nested` form of the
+  question-log and project-resolution tests (<<f5>>) and the fixture sized per stage (<<f7>>) are the remaining steps
+  towards S2 and S4; each needs the reading or the generators named in its row.
 
 == Alternatives Considered
 
-Recorded with the Decision.
+* *Removing the builder tests and the absence tests outright:* not taken, because no retained test is shown to carry
+  their assertions and the coverage floor of the plan holds per module.
+* *Merging the classes of one unit into `@Nested` classes now:* not taken, because it moves 15 classes without a change
+  of behaviour or cost after ADR 024, change A; the target design applies it to new tests.
+* *A shared ArchUnit import for every architecture check of a module:* not taken, because the import options of the
+  rules were not shown to agree and one rule needs its whole import.
+* *Replacing `FakeBus` and `FakeSecretService` by EasyMock doubles:* not taken, because `FakeBus` is the evidence of the
+  wire codec and both are published to the assembly.
 
 == Consequences
 
-Recorded with the Decision; the measured effect of the rework per module is added by the final measurement of the plan.
+* New tests follow the layers and lanes of <<target-lanes>> and the structure of <<needed-structure>>; the existing
+  code of a kept finding is no precedent for a new class.
+* The published test surface of `pm-runtime` is unchanged, so the assembly needs no change.
+* The kept findings stay recorded here with their reasons and leads; a later plan that takes one up starts from its row.
+* The measured effect of the rework per module is added by the final measurement of the plan.
 
 == Source
 
