@@ -9,10 +9,13 @@
  */
 package de.planmarshall.runtime.job;
 
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -24,22 +27,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
 import de.planmarshall.runtime.job.ProcessTreeTracker.Member;
 
 /**
  * The process tree of a job (termination step 3a): the descendants it recorded while the job ran are swept at its end,
  * a member that left the tree between two refreshes is still ended, a {@code SIGTERM} that does not end a member is
- * escalated to {@code SIGKILL}, and a PID whose process started at another instant was reused and is not signalled.
+ * escalated to {@code SIGKILL}, a PID whose process started at another instant was reused and is not signalled, and
+ * every signal goes through the member's own {@link ProcessHandle}, never through the numeric primitive of the
+ * termination protocol.
  * <p>
- * Contract literals that stay: the signals and the grace period with its poll interval. The root PID, the member PIDs,
- * the start instant and the later instant of a reused PID are generated.
+ * Contract literals that stay: the grace period with its poll interval and the fact that the numeric primitive is never
+ * called. The root PID, the member PIDs and the start instant are generated; the handles are EasyMock doubles whose
+ * {@code destroy()} and {@code destroyForcibly()} the test answers.
  */
 @EnableGeneratorController
 @DisplayName("Process tree of a job")
@@ -47,7 +51,7 @@ class ProcessTreeTrackerTest {
 
     private final Map<Long, Instant> starts = new ConcurrentHashMap<>();
     private final Set<Member> tree = ConcurrentHashMap.newKeySet();
-    private final RecordingSignals signals = new RecordingSignals();
+    private final ProcessGroupSignals signals = createMock(ProcessGroupSignals.class);
 
     private long root;
     private long first;
@@ -64,28 +68,7 @@ class ProcessTreeTrackerTest {
         start = Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next());
         later = start.plus(Duration.ofSeconds(Generators.longs(1, 86_400).next()));
         time = new FakeTime(start);
-    }
-
-    private record Call(long pid, Signal signal) {
-    }
-
-    private final class RecordingSignals implements ProcessGroupSignals {
-
-        private final List<Call> calls = new CopyOnWriteArrayList<>();
-
-        @Override
-        public Answer signalGroup(long pgid, Signal signal) {
-            throw new AssertionError("the sweep signals processes, not groups");
-        }
-
-        @Override
-        public Answer signalProcess(long pid, Signal signal) {
-            calls.add(new Call(pid, signal));
-            if (signal == Signal.SIGTERM) {
-                starts.remove(pid);
-            }
-            return new Delivered();
-        }
+        replay(signals);
     }
 
     private static final class FakeTime implements InstantSource, TerminationProtocol.Pause {
@@ -112,10 +95,40 @@ class ProcessTreeTrackerTest {
                 signals, time, time);
     }
 
-    private void member(long pid) {
+    /** Adds a member whose handle ends the process on {@code SIGTERM}. */
+    private Member member(long pid) {
+        ProcessHandle handle = createMock(ProcessHandle.class);
+        expect(handle.destroy()).andAnswer(() -> starts.remove(pid) != null);
+        replay(handle);
+        return member(pid, handle);
+    }
+
+    /** Adds a member whose handle the test answers; the member is in the tree and its start instant is recorded. */
+    private Member member(long pid, ProcessHandle handle) {
         starts.put(root, start);
-        tree.add(new Member(pid, start));
+        var member = new Member(pid, start, handle);
+        tree.add(member);
         starts.put(pid, start);
+        return member;
+    }
+
+    /** @return a handle whose {@code destroyForcibly()} the test answers, with no command reported */
+    private static ProcessHandle stubbornHandle() {
+        ProcessHandle.Info info = createMock(ProcessHandle.Info.class);
+        expect(info.command()).andReturn(Optional.empty());
+        ProcessHandle handle = createMock(ProcessHandle.class);
+        expect(handle.destroy()).andReturn(true);
+        expect(handle.destroyForcibly()).andReturn(true);
+        expect(handle.info()).andReturn(info);
+        replay(info, handle);
+        return handle;
+    }
+
+    /** @return a handle the sweep must not touch */
+    private static ProcessHandle untouchedHandle() {
+        ProcessHandle handle = createMock(ProcessHandle.class);
+        replay(handle);
+        return handle;
     }
 
     @Nested
@@ -134,7 +147,7 @@ class ProcessTreeTrackerTest {
             assertAll(
                     () -> assertEquals(Set.of(first, second), tracker.members(),
                             "the refresh remembers both descendants"),
-                    () -> assertEquals(List.of(), signals.calls, "a refresh signals nothing"));
+                    () -> verify(signals));
         }
 
         @Test
@@ -144,13 +157,13 @@ class ProcessTreeTrackerTest {
             var tracker = tracker();
             tracker.refresh();
             starts.put(root, later);
-            tree.add(new Member(second, start));
+            tree.add(new Member(second, start, untouchedHandle()));
 
             tracker.refresh();
 
             assertAll(
                     () -> assertEquals(Set.of(first), tracker.members(), "no descendant of a reused root is added"),
-                    () -> assertEquals(List.of(), signals.calls, "a refresh of a reused root signals nothing"));
+                    () -> verify(signals));
         }
     }
 
@@ -159,9 +172,9 @@ class ProcessTreeTrackerTest {
     class Sweeps {
 
         @Test
-        @DisplayName("a member that left the tree after a refresh is ended by SIGTERM and is no survivor")
+        @DisplayName("a member that left the tree after a refresh is ended through its handle")
         void detachedMemberIsEnded() {
-            member(first);
+            var member = member(first);
             var tracker = tracker();
             tracker.refresh();
             tree.clear();
@@ -169,49 +182,36 @@ class ProcessTreeTrackerTest {
             var survivors = tracker.sweep();
 
             assertAll(
-                    () -> assertEquals(List.of(new Call(first, Signal.SIGTERM)), signals.calls,
-                            "the detached member is sent SIGTERM"),
+                    () -> verify(member.handle()),
                     () -> assertFalse(starts.containsKey(first), "the ended member is no longer tracked"),
-                    () -> assertEquals(List.of(), survivors, "an ended member is no survivor"));
+                    () -> assertEquals(List.of(), survivors, "an ended member is no survivor"),
+                    () -> verify(signals));
         }
 
         @Test
-        @DisplayName("a member that does not end on SIGTERM is sent SIGKILL after the grace period")
+        @DisplayName("a member that does not end on SIGTERM is killed through its handle after the grace period")
         void escalated() {
-            member(first);
-            var surviving = new ProcessGroupSignals() {
-
-                @Override
-                public Answer signalGroup(long pgid, Signal signal) {
-                    throw new AssertionError("the sweep signals processes, not groups");
-                }
-
-                @Override
-                public Answer signalProcess(long pid, Signal signal) {
-                    signals.calls.add(new Call(pid, signal));
-                    return new Delivered();
-                }
-            };
-            var tracker = new ProcessTreeTracker(root, ignoredRoot -> Set.copyOf(tree),
-                    pid -> Optional.ofNullable(starts.get(pid)), surviving, time, time);
+            var member = member(first, stubbornHandle());
+            var tracker = tracker();
             tracker.refresh();
             tree.clear();
 
             var survivors = tracker.sweep();
 
             assertAll(
-                    () -> assertEquals(List.of(new Call(first, Signal.SIGTERM), new Call(first, Signal.SIGKILL)),
-                            signals.calls, "SIGTERM is escalated to SIGKILL"),
+                    () -> verify(member.handle()),
                     () -> assertEquals(List.of(first), survivors.stream().map(ProcessTreeTracker.Survivor::pid)
                             .toList(), "the stubborn member is a survivor"),
                     () -> assertEquals(ProcessTreeTracker.SWEEP_GRACE.plus(ProcessTreeTracker.POLL_INTERVAL),
-                            Duration.between(start, time.instant()), "the sweep waited the grace period"));
+                            Duration.between(start, time.instant()), "the sweep waited the grace period"),
+                    () -> verify(signals));
         }
 
         @Test
         @DisplayName("a remembered PID whose process started at another instant was reused and is not signalled")
         void reusedPidIsNotSignalled() {
-            member(first);
+            ProcessHandle handle = untouchedHandle();
+            member(first, handle);
             var tracker = tracker();
             tracker.refresh();
             starts.put(first, later);
@@ -219,21 +219,25 @@ class ProcessTreeTrackerTest {
             tracker.sweep();
 
             assertAll(
-                    () -> assertEquals(List.of(), signals.calls, "a reused PID is not signalled"),
-                    () -> assertEquals(Set.of(first), tracker.members(), "the member stays recorded"));
+                    () -> verify(handle),
+                    () -> assertEquals(Set.of(first), tracker.members(), "the member stays recorded"),
+                    () -> verify(signals));
         }
 
         @Test
         @DisplayName("a remembered member that no longer runs is not signalled")
         void deadMemberIsNotSignalled() {
-            member(first);
+            var handle = untouchedHandle();
+            member(first, handle);
             var tracker = tracker();
             tracker.refresh();
             starts.remove(first);
 
             tracker.sweep();
 
-            assertTrue(signals.calls.isEmpty(), "a dead member is not signalled");
+            assertAll(
+                    () -> verify(handle),
+                    () -> verify(signals));
         }
     }
 }
