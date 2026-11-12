@@ -39,9 +39,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.LockLevel;
 
 /**
  * The lock of the operating system that the lock manager takes on a lock file, seen from a second process
@@ -68,10 +71,17 @@ class FileLockManagerTwoProcessIT {
     /** How long an acquisition is watched that must not come back while the other process holds the key. */
     private static final Duration HELD_OBSERVATION = Duration.ofMillis(500);
 
+    /** A complete line and a torn tail of a JSONL store: the contract of a store append, not generated data. */
+    private static final byte[] COMPLETE_LINE = "{\"format_version\":1,\"n\":1}\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] TORN_LINE = "{\"format_version\":1,\"n\":".getBytes(StandardCharsets.UTF_8);
+
     @TempDir
     Path base;
 
     private Process holder;
+
+    /** The protocol lines the other process wrote before it said it holds the key. */
+    private final List<String> protocolLines = new ArrayList<>();
 
     @BeforeEach
     void ids() {
@@ -91,7 +101,10 @@ class FileLockManagerTwoProcessIT {
         }
     }
 
-    /** Starts the other process and returns once it has said that it holds its key. */
+    /**
+     * Starts the other process and returns once it has said that it holds its key. The protocol lines it wrote before
+     * {@link LockHolderProcess#HELD} are kept in {@link #protocolLines}.
+     */
     private void startHolder(String... extra) throws IOException, InterruptedException, ExecutionException,
             TimeoutException {
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
@@ -102,15 +115,21 @@ class FileLockManagerTwoProcessIT {
                 .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .start();
         var reader = new BufferedReader(new InputStreamReader(holder.getInputStream(), StandardCharsets.UTF_8));
-        // Reading the line cannot be interrupted, so it is waited for from outside; ending the process ends the read
-        var line = CompletableFuture.supplyAsync(() -> {
+        // Reading the lines cannot be interrupted, so it is waited for from outside; ending the process ends the read
+        var lines = CompletableFuture.supplyAsync(() -> {
             try {
-                return reader.readLine();
+                var collected = new ArrayList<String>();
+                String line;
+                while ((line = reader.readLine()) != null && !LockHolderProcess.HELD.equals(line)) {
+                    collected.add(line);
+                }
+                return collected;
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }).get(PROCESS_BOUND.toMillis(), TimeUnit.MILLISECONDS);
-        assertEquals(LockHolderProcess.HELD, line, "the other process did not report that it holds the lock");
+        protocolLines.clear();
+        protocolLines.addAll(lines);
     }
 
     /** Lets the other process release the lock and end, and returns its exit code. */
@@ -141,6 +160,23 @@ class FileLockManagerTwoProcessIT {
         }
     }
 
+    /**
+     * The journal of a task, derived from the layout alone: {@code plans/<plan_id>/tasks/activity/<task>.jsonl} below
+     * the project store.
+     */
+    private Path journalPath(String taskId) {
+        return LockKey.projectStore(base, projectId).resolve("plans").resolve(planId)
+                .resolve("tasks").resolve("activity").resolve(taskId + ".jsonl");
+    }
+
+    /** @return the two blocks as one byte array */
+    private static byte[] concatenated(byte[] first, byte[] second) {
+        var joined = new byte[first.length + second.length];
+        System.arraycopy(first, 0, joined, 0, first.length);
+        System.arraycopy(second, 0, joined, first.length, second.length);
+        return joined;
+    }
+
     @Test
     @DisplayName("a key held in another process locks its lock file for this process until that process releases it")
     void lockFileIsLockedForThisProcess() throws Exception {
@@ -162,8 +198,11 @@ class FileLockManagerTwoProcessIT {
      * it, and a JSONL append closes the store's channel. If the leaf key's OS lock were taken on the store, the other
      * process's append would release it. Seen from this process, the guarded store stays unlocked and the sidecar
      * carries the lock (ADR 068).
+     * <p>
+     * Enabled on Linux and macOS only: the behaviour it shows, a close dropping the process's OS locks, is POSIX.
      */
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
     @DisplayName("an append on a leaf key in another process keeps that key's OS lock against this process")
     void leafAppendKeepsTheOsLock() throws Exception {
         Files.createDirectories(base.resolve("logs"));
@@ -173,7 +212,7 @@ class FileLockManagerTwoProcessIT {
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
         var exitCode = releaseHolder();
-        var sidecarLockedAfterRelease = lockedByAnotherProcess(sidecar(key));
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
 
         assertAll(
                 () -> assertTrue(sidecarLockedWhileHeld,
@@ -181,7 +220,136 @@ class FileLockManagerTwoProcessIT {
                 () -> assertFalse(storeLockedWhileHeld, "the guarded store itself is not locked"),
                 () -> assertEquals(0, exitCode, "exit code of the other process"),
                 () -> assertFalse(sidecarLockedAfterRelease,
-                        "the sidecar is free after the other process released the key"));
+                        "the sidecar is free after the other process released the key"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child appended one line to the audit log"));
+    }
+
+    /**
+     * The mailbox is the second production leaf key ({@code LockKey.mailbox}); its append opens and closes a channel on
+     * the mailbox, so a lock taken on the mailbox itself would be dropped by that very append.
+     * <p>
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("an append on the mailbox leaf key in another process keeps its OS lock against this process")
+    void leafMailboxAppendKeepsTheOsLock() throws Exception {
+        var key = LockKey.mailbox(base, projectId, planId);
+        Files.createDirectories(key.lockFile().getParent());
+        startHolder(LockHolderProcess.MAILBOX);
+
+        var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+        var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
+        var exitCode = releaseHolder();
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+
+        assertAll(
+                () -> assertTrue(sidecarLockedWhileHeld,
+                        "the mailbox sidecar is locked while the child holds the key"),
+                () -> assertFalse(storeLockedWhileHeld, "the mailbox itself is not locked by the OS"),
+                () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
+                () -> assertFalse(sidecarLockedAfterRelease,
+                        "the mailbox sidecar is free after the child released it"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child appended one line to the mailbox"));
+    }
+
+    /**
+     * A tail repair opens and closes a channel on the guarded store, so the OS lock has to survive it as well.
+     * <p>
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a torn-tail repair on a leaf key in another process keeps its OS lock against this process")
+    void leafTailRepairKeepsTheOsLock() throws Exception {
+        Files.createDirectories(base.resolve("logs"));
+        var key = LockKey.auditLog(base);
+        Files.write(key.lockFile(), concatenated(COMPLETE_LINE, TORN_LINE));
+        startHolder(LockHolderProcess.REPAIR);
+
+        var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+        var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
+        var exitCode = releaseHolder();
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+
+        assertAll(
+                () -> assertTrue(sidecarLockedWhileHeld,
+                        "the audit sidecar is locked while the child holds the key"),
+                () -> assertFalse(storeLockedWhileHeld, "the audit log itself is not locked by the OS"),
+                () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
+                () -> assertFalse(sidecarLockedAfterRelease,
+                        "the audit sidecar is free after the child released it"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child cut the torn tail from the audit log"));
+    }
+
+    /**
+     * The last-line read of an append-only store opens and closes a channel on it too, so the OS lock must survive the
+     * read (ADR 068).
+     * <p>
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a last-line read on a leaf key in another process keeps its OS lock against this process")
+    void leafLastLineReadKeepsTheOsLock() throws Exception {
+        Files.createDirectories(base.resolve("logs"));
+        var key = LockKey.auditLog(base);
+        Files.write(key.lockFile(), COMPLETE_LINE);
+        startHolder(LockHolderProcess.READ);
+
+        var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+        var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
+        var exitCode = releaseHolder();
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+
+        assertAll(
+                () -> assertTrue(sidecarLockedWhileHeld,
+                        "the audit sidecar is locked while the child holds the key"),
+                () -> assertFalse(storeLockedWhileHeld, "the audit log itself is not locked by the OS"),
+                () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
+                () -> assertFalse(sidecarLockedAfterRelease,
+                        "the audit sidecar is free after the child released it"),
+                () -> assertEquals(List.of(LockHolderProcess.LINES_PREFIX + 1), protocolLines,
+                        "the child read the one complete line of the log"));
+    }
+
+    /**
+     * A task's activity journal is the third production leaf key, built by {@code ActivityJournal} as
+     * {@code new LockKey(LockLevel.LEAF, <task>.jsonl, id)}; its store write must not release the OS lock either.
+     * <p>
+     * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
+     * locks is what the test shows.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("an append on a journal-shaped leaf key in another process keeps its OS lock against this process")
+    void leafJournalAppendKeepsTheOsLock() throws Exception {
+        var taskId = "qt-" + "%016x".formatted(Generators.longs().next());
+        var journal = journalPath(taskId);
+        Files.createDirectories(journal.getParent());
+        var key = new LockKey(LockLevel.LEAF, journal, taskId);
+        startHolder(LockHolderProcess.JOURNAL, taskId);
+
+        var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+        var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
+        var exitCode = releaseHolder();
+        var sidecarLockedAfterRelease = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
+
+        assertAll(
+                () -> assertTrue(sidecarLockedWhileHeld,
+                        "the journal sidecar is locked while the child holds the key"),
+                () -> assertFalse(storeLockedWhileHeld, "the journal itself is not locked by the OS"),
+                () -> assertEquals(0, exitCode, "the child ends with exit code 0"),
+                () -> assertFalse(sidecarLockedAfterRelease,
+                        "the journal sidecar is free after the child released it"),
+                () -> assertEquals(COMPLETE_LINE.length, Files.size(key.lockFile()),
+                        "the child appended one line to the journal"));
     }
 
     @Test

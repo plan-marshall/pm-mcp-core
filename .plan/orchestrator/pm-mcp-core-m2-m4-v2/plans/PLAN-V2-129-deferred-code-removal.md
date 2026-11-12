@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-10
 origin: the design audit of 2026-11-02 (`inbox/archive/design-audit/design-audit-001.md` "Code work packages the audit asks for", item 1 and item 4, and `-002.md`; analysed 2026-11-06, owner-register Wa74), whose specification changes are on `main` as #286 and #287; the package file `doc/plans/z3-deferred-code-removal.adoc` (package 1 of the audit, the only approved code package), and the operator's order of 2026-11-09 (decision log of the walk-through of the open defects): run AFTER PLAN-V2-99, BEFORE PLAN-V2-119
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off (operator decision 2026-11-07: the next plans are emitted for the runbook lane again).
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off (lane changed from `runbook` to `plan-marshall` on 2026-11-12 under the operator's standing emit format of 2026-11-05: a large plan, six deliverables and deletions across four modules, is emitted for the plan lifecycle; residue and small plans stay on the runbook lane).
 > Lives at `plans/PLAN-V2-129-deferred-code-removal.md` and is queued as one row file, `queue/PLAN-V2-129.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names and the package file
@@ -205,10 +205,14 @@ Not surface (R19): `doc/Traceability.adoc` (lines 496, 588 to 617, 1560 to 1603,
 - `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and the integration tests green in `pm-core`, `pm-workflow`, `pm-runtime`; the open Sonar issues of the pull request are 0 or dismissed with a reason; the links check reports `BROKEN LINKS 0` and `INLINE SCHEMA BLOCKS 0`.
 - The package row is `done` without a link and `doc/plans/z3-deferred-code-removal.adoc` is deleted.
 
+## Landing
+
+This plan runs under the plan lifecycle (`/plan-marshall`; lane changed from `runbook` to `plan-marshall` on 2026-11-12 under the operator's standing emit format, because it is a large plan and not a residue or a small one). Its `request.md` `source_id` points at this spec, so `orchestrator inbox detect` classifies it as orchestrated and its phase 6 files one `landing` message in the epic inbox with the `landing-facts` block of `standards/landing-payload-spec.md`; the orchestrator reconciles the row from it and from the pull request. The plan writes nothing else under `.plan/orchestrator/`.
+
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-129-deferred-code-removal.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-129-deferred-code-removal.md"
 ```
 
 ## Write-Boundary

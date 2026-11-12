@@ -197,7 +197,7 @@ The working directory is the verified one; the environment is cleared and filled
 `LaunchReport` is the one JSON line the launcher writes before `execve`: `pid`, `process_started_at`, `confinement` and `landlock_abi`.
 Exactly the first line of the log is the report, and the job's own output is everything after it, byte for byte (see link:../adr/runtime-job/005-launch-report-parsed-and-stripped-once.adoc[ADR 005]):
 
-* `LaunchReport.read(log)` answers `Reported(report, jobOutput)` when the first line parses as a report, else `Unreported(detail, jobOutput)` with the whole log.
+* `LaunchReport.read(log)` answers `Reported(report, jobOutput)` when the first line parses as a report, else `Unreported(detail, jobOutput)` with the log it was given; for a job log over its cap, that is the text the read's cut returned, not the whole file.
 * A log without a report whose launcher exited `64` (usage), `126` (confinement could not be applied) or `127` (`execve` failed) is a launcher failure (`LaunchReport.isLauncherFailure`); its output is not parsed, and the outcome derivation takes the fate from the exit code. A launcher that cannot be started at all is settled as an exit `127` (row 10) and logged at WARN as `PM_RUNTIME-131`, unless a cancel was answered `true` before the settlement closed the job's cancel door (`RunningJob.closeCancelDoor`, its first step, one atomic point for the answer and the cause read): the cause of that cancel then decides the fate as on every other path (`cancelled`, row 2; `timed_out`, row 3, for the budget; `killed`, row 4, for the drain), and the job still carries no PID. A cancel that arrives after the door closed is answered `false`, so the answer `true` and the fate by the cause are the same fact. A job log it never created counts as empty, not as missing. The same holds for a launch that cannot be composed (an exception of the caller's environment, of `Launch` or of the process builder): the job is settled and leaves the running jobs, and the exception is passed on to the caller of the start.
 * A job whose launcher wrote no report keeps the write-ahead record, without a PID, and is settled from the launcher's exit. The same holds for a launcher that writes none within the wait of `REPORT_WAIT`, which the start no longer waits out for the budget, and for a job that is cancelled during the wait: the start answers `Started(jobId)` and hands the job to the thread that waits for it, which settles it by its exit, its cancel or its budget.
 
@@ -209,7 +209,11 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
 `JobLog` is the file `<job_id>.log` beside the job record that receives `stdout` and `stderr`.
 It is readable while the job runs: `readLines(offset)` reads the complete lines written after a byte offset and answers the offset to continue from, so a reader follows the log as it grows; a line still being written is not answered.
 A read from offset `0` strips the first line when it parses as a launch report; a read from a later offset never strips a line.
-`readWhole(observedLength)` reads the log of an ended job for the outcome derivation.
+`readWhole(observedLength)` reads the log of an ended job for the outcome derivation. Above the cap of the module's limits resource it reads the first line and the last cap bytes, counted from the first line beginning inside them:
+
+include::../../src/main/resources/de/planmarshall/runtime/job/job-log-limits.properties[tag=log-max-bytes]
+
+The first line is kept because it is the launch report, from which the launcher-failure decision is taken; `Complete.length` is the length of the file, not of what was read; and an over-cap log is never `TRUNCATED`, because that state means the log is shorter than what the runtime already read from it. A first line longer than the cap cannot be taken by a bounded read, and the head alone is answered. The cut is recorded in link:../../../pm-core/doc/adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR `core-build/007`].
 
 A log that cannot serve a read is a value, `Unavailable(state, detail)`, never an exception, and its state is the one row 5 of the outcome derivation reads:
 

@@ -31,6 +31,10 @@ A parser is a pure function of the log text. It reads no file except through `Bu
 process and consults no configuration. A coverage parser is a pure function of the report text in the same way: it reads
 no file except through its own `parse(Path)` overload, and it returns either the report or a refusal.
 
+Neither the read nor a pattern runs unbounded for the parsers this plan touched: the read takes the log's tail above a
+data cap, and every line is cut at a data bound before a pattern sees it
+(<<_the_bounds_of_a_read_and_of_a_parse>>).
+
 == Main Types
 
 [cols="1,3",options="header"]
@@ -61,7 +65,8 @@ first matching category in definition order wins.
 
 |link:{src}/BuildLogText.java[`BuildLogText`]
 |Reads a log and strips its ANSI escape sequences in one step, so no parser can match a colour-coded line against a
-plain-text pattern.
+plain-text pattern. Above the cap of its limits resource it reads the log's tail, and `boundLines` cuts every line at the
+per-line bound of the same resource.
 
 |link:{src}/MavenOutputParser.java[`MavenOutputParser`]
 |The Maven scanner: `[ERROR]`/`[WARNING]` lines, the failure trailer, deduplication, the Surefire and Failsafe summaries
@@ -314,12 +319,49 @@ that declares and uses an external entity is therefore refused, never expanded; 
 tolerated without resolution. The decision is recorded in
 link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
 
+== The Bounds of a Read and of a Parse
+
+_Requirements:_ link:{docs}/Requirements.adoc#PM-ARCH-8[PM-ARCH-8], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
+
+A build log is written by the operator's own build, but a dependency or a test can put any line in it, so neither the read
+nor a pattern runs unbounded (link:../adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR `core-build/007`]).
+
+`BuildLogText.read` takes at most the cap of the module's limits resource, counted from the end of the file and from the
+first line beginning inside it, so a log longer than the cap reaches a parser as its tail. The cut can leave a partial
+ANSI escape at the head of the tail; `stripAnsi` does not match it and the fragment stays in the text, which no parser
+pattern reads as a marker.
+
+include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=log-max-bytes]
+
+`MavenOutputParser`, `OpenRewriteLogParser` and `PyprojectOutputParser` cut every line at the per-line bound of the same
+resource before a pattern of theirs sees the text (`BuildLogText.boundLines`). One cut bounds every expression of such a
+parser at once — a pattern that backtracks over a line of repeated tokens included — and a line is cut at its head,
+because the marker a parser reads is at a line's start. The package's other six parsers are bounded by the cap of the
+read but not yet by a line cut; a plan that touches one applies the same bound.
+
+include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=max-line-length]
+
+Three patterns are rewritten on top of the cut, each held to the ported expression's result by a differential test over
+generated lines (`BuildLogBoundsTest`): the Maven execution header and the OpenRewrite finding line are asked a
+necessary-condition pre-test first (a header needs an `@`, a finding line needs both its identifier prefix and ` by `),
+and the pytest summary line is answered in two steps — the earliest verdict word, then the `in <seconds>s` tail after it —
+for every line without a line terminator, while a line that carries one is answered by the ported expression. A
+pre-test bounds the shapes the analyses named; a line that carries the token it tests still backtracks inside the
+expression, bounded by the line cut. The pytest exception and section patterns measured linear and are left as they are.
+A test that bounds a pattern names its input length and its bound, and uses a preemptive timeout; it never compares two
+wall-clock runs.
+
+Both values are data: editing the properties resource changes the bound, and the class that names it reads the value when
+it initialises. There is no literal in the code and no runtime override.
+
 == Adding a Parser
 
 1. Add the parser class: a static-only class (`@UtilityClass`) with `parse(String)` and `parse(Path)`, returning
    `ParsedBuild` (or a typed result for a parser whose verdict is not a build status). Read the log through
-   `BuildLogText.read`, take the location through `JvmFileLocation.parse` where the tool prints a JVM location, and — where
-   the message text decides the category — put the patterns in a compiled table rather than in the parser.
+   `BuildLogText.read`, cut every line through `BuildLogText.boundLines` before a pattern sees the text
+   (<<_the_bounds_of_a_read_and_of_a_parse>>), take the location through `JvmFileLocation.parse` where the tool prints a
+   JVM location, and — where the message text decides the category — put the patterns in a compiled table rather than in
+   the parser.
 2. Write the pytest-case roster and the fixtures: `{data}/<tool>/original-cases.txt` lists every case of the original
    suite, mapped to the fixtures derived from it or excluded with a reason — several cases may map to one fixture, and one
    case may need several; one `*.txt` fixture per case group and one `deliberate:` fixture per deliberate change; the
@@ -385,7 +427,7 @@ compares the figures with literals read out of the report by hand; no test runs 
 
 _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
-`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame, keeps the tail of the last `MAX_LINES` (50) lines, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
+`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame in one character pass that lists no line, takes the tail of the last `MAX_LINES` (50) lines by scanning back for line beginnings, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. A million-line log costs the reduced text, never an entry per line. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
 
 == Invariants and Failure Modes
 

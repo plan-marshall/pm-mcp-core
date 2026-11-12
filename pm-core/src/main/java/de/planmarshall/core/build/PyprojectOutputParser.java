@@ -94,9 +94,19 @@ public class PyprojectOutputParser {
 
     private static final Pattern FRAME = Pattern.compile("^(\\S.*\\.py):(\\d+):");
 
+    private static final Pattern SUMMARY_WORD = Pattern.compile("\\b(?:passed|failed|skipped)\\b");
+
+    /** The ported summary expression, kept for the rare line that carries a line terminator (see {@link #isSummaryLine}). */
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
-    private static final Pattern SUMMARY_LINE =
+    private static final Pattern PORTED_SUMMARY_LINE =
             Pattern.compile("^.*\\b(?:passed|failed|skipped)\\b.*\\bin\\s+[\\d.]+s.*$");
+
+    /**
+     * The count part of a pytest summary line, after its verdict word. Both quantifiers are possessive: giving back a
+     * whitespace cannot make the next character a digit, and giving back a digit or a dot cannot make it the {@code s},
+     * so the expression answers exactly what the greedy form answered without backtracking over either run.
+     */
+    private static final Pattern SUMMARY_COUNTS = Pattern.compile("\\bin\\s++[\\d.]++s");
 
     private static final Pattern PASSED_COUNT = Pattern.compile("\\b(\\d+) passed\\b");
 
@@ -143,14 +153,15 @@ public class PyprojectOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = withoutCarriageReturns(List.of(logText.split("\n", -1)));
+        String bounded = BuildLogText.boundLines(logText);
+        List<String> lines = withoutCarriageReturns(List.of(bounded.split("\n", -1)));
         var diagnostics = new ArrayList<Diagnostic>();
         @Nullable TestCounts testCounts = null;
         boolean successMarker = false;
-        if (MYPY_DETECT.matcher(logText).find()) {
+        if (MYPY_DETECT.matcher(bounded).find()) {
             diagnostics.addAll(mypyDiagnostics(lines));
         }
-        if (RUFF_DETECT.matcher(logText).find()) {
+        if (RUFF_DETECT.matcher(bounded).find()) {
             diagnostics.addAll(ruffDiagnostics(lines));
         }
         if (hasPytestOutput(lines)) {
@@ -162,14 +173,44 @@ public class PyprojectOutputParser {
         boolean failed = result.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR);
         BuildStatus status = failed ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
-                logText.contains(NO_TESTS_MARKER));
+                bounded.contains(NO_TESTS_MARKER));
         return ParsedBuild.builder().diagnostics(result).status(status).successMarker(successMarker)
                 .testCounts(testCounts).noTestsRan(noTestsRan).build();
     }
 
     private static boolean hasPassedSummary(List<String> lines) {
         return lines.stream()
-                .anyMatch(line -> SUMMARY_LINE.matcher(line).matches() && PASSED_COUNT.matcher(line).find());
+                .anyMatch(line -> isSummaryLine(line) && PASSED_COUNT.matcher(line).find());
+    }
+
+    /**
+     * Whether a line is a pytest summary line: it carries a verdict word ({@code passed}, {@code failed} or
+     * {@code skipped}) and, later on it, the {@code in <seconds>s} that closes the summary.
+     * <p>
+     * The ported form was one expression, {@code ^.*\b(?:passed|failed|skipped)\b.*\bin\s+[\d.]+s.*$}, matched against
+     * the whole line. For a line without a line terminator it is answered here in two steps, because that expression
+     * rescans the rest of the line for every verdict word it holds, which costs the square of the line's length. The
+     * earliest verdict word suffices: if any pair of a verdict word and a later {@code in <seconds>s} exists, so does
+     * the pair of the earliest word with that same tail.
+     * <p>
+     * A line that carries a line terminator is answered by the ported expression itself. There the two forms differ: its
+     * {@code .} cannot cross the terminator while its {@code \s} can, so {@code 1 passed in\r0.12s} matches the ported
+     * form through the {@code \s+}. That line is rare, and the ported form is linear for the one line it meets.
+     *
+     * @param line the line to inspect
+     * @return whether the line is a pytest summary line
+     */
+    static boolean isSummaryLine(String line) {
+        if (carriesLineTerminator(line)) {
+            return PORTED_SUMMARY_LINE.matcher(line).matches();
+        }
+        Matcher word = SUMMARY_WORD.matcher(line);
+        return word.find() && SUMMARY_COUNTS.matcher(line).find(word.end());
+    }
+
+    private static boolean carriesLineTerminator(String line) {
+        return line.indexOf('\n') >= 0 || line.indexOf('\r') >= 0 || line.indexOf('\u0085') >= 0
+                || line.indexOf('\u2028') >= 0 || line.indexOf('\u2029') >= 0;
     }
 
     private static List<Diagnostic> mypyDiagnostics(List<String> lines) {
@@ -571,7 +612,7 @@ public class PyprojectOutputParser {
         boolean found = false;
         boolean unrepresentable = false;
         for (String line : lines) {
-            if (SUMMARY_LINE.matcher(line).matches()) {
+            if (isSummaryLine(line)) {
                 found = true;
                 long blockPassed = count(PASSED_COUNT, line);
                 long blockFailed = count(FAILED_COUNT, line);

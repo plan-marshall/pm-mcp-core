@@ -29,7 +29,6 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.JobStarter;
-import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
@@ -130,11 +129,17 @@ public final class WorkflowEngine {
     /** The phase a plan scope opens at, before its first state is entered. */
     private static final String FIRST_PHASE = "phase-1-init";
 
-    /** The phase of a scope that ended without a failure. */
+    /**
+     * The phase of every end but an abort: the delivery terminals {@code completed}, {@code handed_back} and
+     * {@code returned} take it whatever their outcome class; the outcome tells them apart.
+     */
     private static final String COMPLETED_PHASE = "completed";
 
-    /** The phase of a scope that ended in a failure. */
+    /** The phase of an end whose terminal outcome id is {@value #ABORTED_OUTCOME}, as of {@code plan.aborted}. */
     private static final String ABORTED_PHASE = "aborted";
+
+    /** The terminal outcome id of an operator-initiated end, the only end that takes {@value #ABORTED_PHASE}. */
+    private static final String ABORTED_OUTCOME = "aborted";
 
     /** The states the plan unit declares itself that name no phase: they carry the phase the plan called last. */
     private static final Set<String> PLAN_UNIT_OWN_STATES = Set.of("plan.return", "plan.aborted");
@@ -545,7 +550,7 @@ public final class WorkflowEngine {
 
     private EngineStep ended(WorkflowStatus status, StateNode terminal) {
         var outcome = terminalOutcomeOf(terminal);
-        var phase = outcome.outcomeClass() == OutcomeClass.FAILURE ? ABORTED_PHASE : COMPLETED_PHASE;
+        var phase = ABORTED_OUTCOME.equals(outcome.id()) ? ABORTED_PHASE : COMPLETED_PHASE;
         var endedStatus = phase.equals(status.phase()) ? status : status.toBuilder().phase(phase).build();
         return new EngineStep.Ended(endedStatus, outcome.id(), outcome.outcomeClass());
     }

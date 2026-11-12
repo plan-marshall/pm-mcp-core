@@ -13,6 +13,9 @@ author: plan-marshall
 # Every call site routes the implicit `stepped_out` to the plan's fallback `plan.return`, and the two engine-chained
 # cycles the calls form - the rework loop and the finalize re-entry - pass the capped gate `phases.rework-gate` and
 # `phases.reentry-gate`. A gate that exhausts its budget leaves through the fallback call `finalize.hand-back`.
+# The lanes leave `phases.init` on its four exits: `deep` into refine, `light` into the light entry of outline, `land`
+# straight into the land entry of execute (no refine, outline or plan phase) and `adopt` into the adopt entry of
+# finalize.
 workflow plan version 1 format 1
 scope plan
 start phases.init
@@ -21,6 +24,8 @@ state phases.init
     call phase-1-init entry start
         deep -> phases.refine
         light -> phases.outline.light
+        land -> phases.execute.land
+        adopt -> phases.finalize.adopt
         stepped_out -> plan.return
 
 state phases.refine
@@ -50,7 +55,6 @@ state phases.outline.rework
 state phases.plan
     call phase-4-plan entry start
         execute -> phases.execute
-        land -> phases.execute.land
         rework -> phases.rework-gate
         returned -> plan.return
         stepped_out -> plan.return
@@ -83,6 +87,14 @@ state phases.execute.reentry
 
 state phases.finalize
     call phase-6-finalize entry start
+        completed -> completed
+        handed_back -> handed_back
+        returned -> returned
+        reentry -> phases.reentry-gate
+        stepped_out -> plan.return
+
+state phases.finalize.adopt
+    call phase-6-finalize entry adopt
         completed -> completed
         handed_back -> handed_back
         returned -> returned

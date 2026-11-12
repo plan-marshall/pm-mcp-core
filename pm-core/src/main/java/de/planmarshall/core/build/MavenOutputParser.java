@@ -108,6 +108,22 @@ public class MavenOutputParser {
             Pattern.compile(FAILURE_MARKER));
 
     /**
+     * The runner an execution header names, empty when the line carries none. Asked before the expression runs: the
+     * header's template needs an {@code @}, so a line without one cannot match, and a line of repeated
+     * {@code --- a:b:c } text no longer costs one scan per {@code ---} it holds.
+     *
+     * @param line the line to inspect
+     * @return the runner named by the header, or empty when the line is no execution header
+     */
+    static Optional<String> executionHeaderRunner(String line) {
+        if (line.indexOf('@') < 0) {
+            return Optional.empty();
+        }
+        Matcher header = EXECUTION_HEADER.matcher(line);
+        return header.find() ? Optional.of(header.group(1)) : Optional.empty();
+    }
+
+    /**
      * Parses a Maven build log.
      *
      * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here, so a colour-coded log
@@ -131,13 +147,14 @@ public class MavenOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+        String bounded = BuildLogText.boundLines(logText);
+        List<String> lines = List.of(bounded.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        TestCounts testCounts = extractTestCounts(logText, lines).orElse(null);
-        BuildStatus status = detectStatus(logText);
-        boolean successMarker = logText.contains(SUCCESS_MARKER);
+        TestCounts testCounts = extractTestCounts(bounded, lines).orElse(null);
+        BuildStatus status = detectStatus(bounded);
+        boolean successMarker = bounded.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
-                logText.contains(NO_TESTS_MARKER));
+                bounded.contains(NO_TESTS_MARKER));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
     }
 
@@ -223,9 +240,9 @@ public class MavenOutputParser {
         private boolean unrepresentable;
 
         void accept(String line) {
-            Matcher header = EXECUTION_HEADER.matcher(line);
-            if (header.find()) {
-                currentRunner = TEST_RUNNERS.get(header.group(1));
+            var runner = executionHeaderRunner(line);
+            if (runner.isPresent()) {
+                currentRunner = TEST_RUNNERS.get(runner.get());
                 resultsSeen = false;
             } else if (RESULTS_MARKER.matcher(line.strip()).matches()) {
                 resultsSeen = true;

@@ -5,7 +5,6 @@ type: subworkflow
 icon: phase.plan
 entry: start
 exit: execute
-exit: land
 exit: rework
 exit: returned
 modification_date: 2026-01-15
@@ -16,7 +15,8 @@ author: plan-marshall
 # product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
 # plan.qgate calls the Q-Gate remediation. The phase is shared by both lanes after outline.gate, so its rework leaves
 # the phase on the `rework` exit, which the plan unit turns into a call of outline's rework entry — the authoring entry
-# every lane keeps (the light lane through its escalation), never a state of the light route.
+# every lane keeps (the light lane through its escalation), never a state of the light route. The plan phase is on no
+# land path: the land lane leaves init straight into the land entry of execute.
 workflow phase-4-plan version 1 format 1
 scope subworkflow
 entry start -> plan.derive
@@ -41,11 +41,8 @@ state plan.remediate
 state plan.compose
     auto test.route
         execute -> plan.execute-exit
-        land -> plan.land-exit
 
 state plan.execute-exit terminal execute success
-
-state plan.land-exit terminal land success
 
 state plan.rework-exit terminal rework success
 

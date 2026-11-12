@@ -12,11 +12,14 @@ package de.planmarshall.core.build;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.management.ThreadMXBean;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +51,51 @@ class UnparsedEvidenceTest {
         var evidence = UnparsedEvidence.of(PLAN, JOB, log);
 
         assertEquals(String.join("\n", lines.subList(150, 200)), evidence.excerpt(), "the excerpt keeps fifty lines");
+    }
+
+    @Test
+    @DisplayName("a million lines yield the excerpt of the listing algorithm")
+    void keepsTheExcerptOfAMillionLines() {
+        var tailLines = IntStream.range(0, 60).mapToObj(index -> "line " + index).toList();
+        var log = "x\n".repeat(1_000_000 - 60) + String.join("\n", tailLines) + "\n";
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+
+        assertEquals(String.join("\n", tailLines.subList(10, 60)), evidence.excerpt(),
+                "the excerpt is the fifty lines the listing kept");
+    }
+
+    @Test
+    @DisplayName("the tail is taken without listing the whole log")
+    void takesTheTailWithoutListingTheLog() {
+        var log = "x\n".repeat(1_000_000);
+        var allocation = assertInstanceOf(ThreadMXBean.class, ManagementFactory.getThreadMXBean(),
+                "the JVM must account the thread's allocation");
+        assertTrue(allocation.isThreadAllocatedMemoryEnabled(), "thread allocation accounting must be enabled");
+        UnparsedEvidence.of(PLAN, JOB, log);
+
+        var before = allocation.getCurrentThreadAllocatedBytes();
+        var evidence = UnparsedEvidence.of(PLAN, JOB, log);
+        var allocated = allocation.getCurrentThreadAllocatedBytes() - before;
+
+        assertAll(
+                () -> assertEquals(UnparsedEvidence.MAX_LINES, evidence.excerpt().lines().count(),
+                        "the excerpt keeps fifty lines"),
+                () -> assertTrue(allocated >= 0, "the allocation count must be measured: " + allocated),
+                () -> assertTrue(allocated < 16_777_216,
+                        "the whole log is never listed, allocation: " + allocated));
+    }
+
+    @Test
+    @DisplayName("leading blank lines are dropped as the listing dropped them")
+    void dropsLeadingBlankLines() {
+        assertAll(
+                () -> assertEquals("Build failed", UnparsedEvidence.of(PLAN, JOB, "\n\nBuild failed\n").excerpt(),
+                        "the blank lines before the content are dropped"),
+                () -> assertEquals("", UnparsedEvidence.of(PLAN, JOB, "\n\n").excerpt(),
+                        "a log of blank lines yields an empty excerpt"),
+                () -> assertEquals("a\n\nb", UnparsedEvidence.of(PLAN, JOB, "a\n\nb").excerpt(),
+                        "a blank line between content lines is kept"));
     }
 
     @Test

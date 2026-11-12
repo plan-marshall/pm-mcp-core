@@ -32,7 +32,9 @@ import de.planmarshall.core.store.StrictJson;
  * output, because only one line is ever taken. A log whose first line is no report keeps all of its content: the
  * launcher failed before {@code execve}, and with its exit code {@code 64} (usage), {@code 126} (confinement could not
  * be applied) or {@code 127} ({@code execve} failed) that is a launcher failure ({@link #isLauncherFailure(Reading,
- * int)}), whose fate the outcome derivation takes from the exit code.
+ * int)}), whose fate the outcome derivation takes from the exit code. A log the runtime read over its cap reaches this
+ * read as the tail read's text — a launch report and its remaining tail — so the output it answers is that text's, not
+ * the whole file's.
  *
  * @param pid              the PID of the job, equal to its process-group id
  * @param processStartedAt the start instant of the process
@@ -74,7 +76,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
      */
     public sealed interface Reading permits Reported, Unreported {
 
-        /** @return the output of the job: the log after the report, or the whole log when there is no report */
+        /** @return the output of the job: the log after the report, or the log it was given when there is no report */
         String jobOutput();
     }
 
@@ -98,7 +100,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
      * The log carries no report: it is empty, or its first line does not parse as one. Nothing is stripped.
      *
      * @param detail    why there is no report
-     * @param jobOutput the whole log
+     * @param jobOutput the log the read was given, unchanged
      * @since 0.1
      */
     public record Unreported(String detail, String jobOutput) implements Reading {
@@ -113,8 +115,8 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
     /**
      * Takes the first line of a job log as the launch report.
      *
-     * @param log the job log as written, launch report included
-     * @return the report and the job's output after it, or why there is no report and the whole log
+     * @param log the job log as the caller holds it, launch report included
+     * @return the report and the job's output after it, or why there is no report and the log the read was given
      */
     public static Reading read(String log) {
         Objects.requireNonNull(log, "log");

@@ -632,6 +632,11 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                         DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
+    /**
+     * The guarded file of a key, which is what the record names. For a leaf key this is the append-only store and not
+     * the sidecar its OS lock is taken on (ADR 068); the record therefore reads as the lock of that store, which is
+     * the key's lock, not as the file the operating system locks.
+     */
     private static String lockPath(LockKey key) {
         return key.lockFile().toString();
     }
