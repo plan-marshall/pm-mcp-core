@@ -137,19 +137,21 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
         var index = 0;
         while (index < text.length()) {
             char current = text.charAt(index);
-            if (current == '\r') {
-                index = reduceFrameRun(text, reduced, index, frameStart);
-                frameStart = reduced.length();
-                continue;
+            switch (current) {
+                case '\r' -> {
+                    index = reduceFrameRun(text, reduced, index, frameStart);
+                    frameStart = reduced.length();
+                }
+                case '\n' -> {
+                    appendLineEnd(reduced);
+                    frameStart = reduced.length();
+                    index++;
+                }
+                default -> {
+                    reduced.append(current);
+                    index++;
+                }
             }
-            if (current == '\n') {
-                appendLineEnd(reduced);
-                frameStart = reduced.length();
-                index++;
-                continue;
-            }
-            reduced.append(current);
-            index++;
         }
         return reduced.toString();
     }
