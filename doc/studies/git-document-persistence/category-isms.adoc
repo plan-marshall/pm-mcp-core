@@ -33,7 +33,8 @@ The ISMS artefacts sort into three groups:
 . *Operational data, referenced instead of stored*: tasks and deadlines (issue tracker of the Git server or Jira), the
   live handling of incidents (ticket system; the report on an incident is a schema-driven document, see
   link:category-incident-reports.adoc[Incident Response Reports]), training records per employee (learning platform or
-  HR system), persons and owners (identity provider).
+  HR system). Persons, roles, teams and the applications as assets come from the
+  link:directory-and-catalogs.adoc[directory and its catalogs].
 
 Additional mechanisms:
 

@@ -38,6 +38,9 @@ Four categories of information are in scope:
   key-encryption key and destroys the old one. Repositories are cut by confidentiality and retention class.
 * *Evidence*: RFC 3161 timestamps as `git notes` anchor the history externally; everything else beside Git is either
   derived (index) or lives in systems the organisation already runs.
+* *Master data*: a directory of persons (name, team, role; filled in by a form on the first login, encrypted) and
+  catalogs of roles, teams and services; roles are names only in the first iteration. The service catalog leans on
+  Backstage and can import from it.
 * *One shape for all categories*: schema, YAML data with AsciiDoc free text, generated AsciiDoc output, review and
   approval, deadlines and links. The categories become configuration of one layer of schema-driven documents.
 * *Packaging*: a core repository `git-foundation` with the extended JGit functionality taken over from
@@ -52,6 +55,7 @@ git-foundation (core repository)
              git-store ← git-crypto     (encrypted keyring, erasure by key rotation)
              git-store ← git-signing    (commit signature, user claims, passkey approvals)
              git-store ← git-timestamp  (RFC 3161 anchoring)
+             git-forms, git-crypto ← git-directory (persons, roles, teams, services)
   git-testing
 
 application (outside): samm, threat-models, incident-reports, isms … as configuration of git-forms
@@ -70,6 +74,8 @@ Read in this order:
 . link:evidence-and-companion-stores.adoc[Evidence and Companion Stores]: the remaining gaps, the external anchor,
   consistency between Git and other systems.
 . link:schema-driven-documents.adoc[Schema-Driven Documents]: the common shape of all categories.
+. link:directory-and-catalogs.adoc[Directory and Catalogs]: persons, roles, teams and services as the master data of
+  all categories.
 . The categories:
 ** link:category-samm.adoc[OWASP SAMM Assessments]
 ** link:category-threat-models.adoc[Threat Models]

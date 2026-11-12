@@ -21,7 +21,8 @@ out of the history:
 
 * *Pseudonymous commits*: the author is an opaque pseudonym; the mapping of pseudonym to person lies encrypted in Git
   and is erased by key rotation (see the next section).
-* *Roles instead of persons* in documents (`owner: role:it-security-lead`); the identity provider resolves the role.
+* *Roles instead of persons* in documents (`owner: role:it-security-lead`); the directory resolves the role
+  (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
 * *Crypto-shredding* for personal fields that must be in a document: encrypted with the data key of the data subject
   (the same keyring as the pseudonym mapping); destroying the key erases the data in effect. Whether this counts as
   erasure is not settled; agree it with the data protection officer.

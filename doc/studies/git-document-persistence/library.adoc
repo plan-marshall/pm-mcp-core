@@ -85,6 +85,8 @@ module of its own).
 * `signing` (optional): the commit signature of the application through an exchangeable key source (KMS, HSM, file),
   the trailer schema of the user's claims, the registration of WebAuthn keys, approval notes and the signature check
   for the application and CI (see link:identity-and-signing.adoc[Identity and Signing]).
+* `directory` (optional): the directory of persons and the catalogs of roles, teams and services, the first-login
+  form and the resolution of references (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
 * `testing`: fixtures for local and in-memory repositories and a local remote for push and fetch tests.
 
 The categories (SAMM, threat models, incident reports, ISMS) are configuration of `forms` (schemas, templates,
@@ -99,7 +101,8 @@ a core repository `git-foundation` with the extended JGit functionality and its 
 modules of their own beside it.
 
 * `git-core`, `git-worktrees` and `git-testing` hold the JGit level, taken over from `pm-provider-git`.
-* `git-store`, `git-forms`, `git-crypto`, `git-signing` and `git-timestamp` hold the aspects of the document store.
+* `git-store`, `git-forms`, `git-crypto`, `git-signing`, `git-timestamp` and `git-directory` hold the aspects of the
+  document store.
 * Each module is an artifact of its own, released together with the others; a consumer of `git-core` pulls none of
   the third-party dependencies of the optional modules, and the module boundaries enforce the layering.
 * The application with its categories and its UI lives outside the core repository; the categories are

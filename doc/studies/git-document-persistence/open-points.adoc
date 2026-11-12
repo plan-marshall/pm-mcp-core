@@ -34,3 +34,6 @@ toc::[]
   `allowed_signers` with validity periods, and the approval with a passkey (WebAuthn challenge = commit id) as a note.
 . Clarify with Token Sheriff which claims (`sub`, `sid`, `acr`, `amr`, `auth_time`) reach the application and how
   the step-up authentication for approvals is triggered.
+. Align the schema of the service catalog with the Backstage descriptor format and prototype the import; clarify
+  whether the identity provider delivers groups (through Token Sheriff, possibly SCIM) to prefill the directory.
+. Agree the legal basis and the information text of the directory with the data protection officer.

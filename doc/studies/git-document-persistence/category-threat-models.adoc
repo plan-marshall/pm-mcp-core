@@ -89,6 +89,8 @@ Not a diagram editor; Threat Dragon has one. The value lies in the life cycle:
   to the code sees them; internally that is mostly intended, for public repositories it is excluded, and variant B
   with a restricted repository applies.
 * *Personal data*: hardly any, apart from owners; roles instead of names, as elsewhere.
+* *Service*: every threat model refers to its entry in the service catalog (`service:…`), which names its repositories
+  (see link:directory-and-catalogs.adoc[Directory and Catalogs]).
 * *Diagrams* are stored as data (OTM or JSON); images are generated, so diffs stay readable.
 
 == Sources

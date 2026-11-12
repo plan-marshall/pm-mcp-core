@@ -84,7 +84,8 @@ git-foundation (repository)
   ├─ git-crypto        encrypted keyring, erasure by key rotation               (optional)
   ├─ git-signing       commit signature, user claims, passkey approvals          (optional)
   ├─ git-timestamp     RFC 3161 anchoring                                        (optional)
-  └─ git-forms         schema-driven documents: schema, template, workflow       (optional)
+  ├─ git-forms         schema-driven documents: schema, template, workflow       (optional)
+  └─ git-directory     directory of persons, catalogs of roles, teams, services   (optional)
 ----
 
 The first three are the extended JGit functionality with its helper classes. The others are the aspects of the
@@ -130,13 +131,14 @@ It depends on `git-core` alone.
 
 === The Aspect Modules
 
-`git-store`, `git-crypto`, `git-signing`, `git-timestamp` and `git-forms` are described in the other documents of
-this study. Their dependencies:
+`git-store`, `git-crypto`, `git-signing`, `git-timestamp`, `git-forms` and `git-directory` are described in the other
+documents of this study. Their dependencies:
 
 ----
 git-core ← git-worktrees
 git-core ← git-store ← git-forms
            git-store ← git-crypto, git-signing, git-timestamp
+           git-forms, git-crypto ← git-directory
 ----
 
 No module below `git-forms` knows a term of a category. The optional modules carry their own third-party dependencies
@@ -204,8 +206,8 @@ Each of these is part of the work package that switches `pm-provider-git` over:
   with history; build and release a first version.
 . Work package in `pm-mcp-core`: switch `pm-provider-git` onto the two modules, reduce it to facade, adapter and
   digest, with the changes listed above.
-. Add the aspect modules (`git-store` first, then `git-signing`, `git-crypto`, `git-timestamp`, `git-forms`) as the
-  document store needs them; they change nothing in `pm-mcp-core`.
+. Add the aspect modules (`git-store` first, then `git-signing`, `git-crypto`, `git-timestamp`, `git-forms`,
+  `git-directory`) as the document store needs them; they change nothing in `pm-mcp-core`.
 
 == Decisions This Needs
 
