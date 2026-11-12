@@ -11,13 +11,16 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The ported tests of {@link CoberturaReportParser}: each case reads one plain-file fixture below {@code ported/coverage},
@@ -76,8 +79,9 @@ class CoberturaReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
-                () -> assertTrue(refused.reason().contains("internal subset"),
-                        "The reason names the refused internal subset"));
+                // The reason text of the entity-reference backstop is the contract.
+                () -> assertEquals("cobertura: entity reference refused", refused.reason(),
+                        "The parser refuses the entity reference"));
     }
 
     @Test
@@ -135,15 +139,88 @@ class CoberturaReportParserTest {
         assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
     }
 
+    // The root attributes are the contract: lines-valid="0" measured no line.
     @Test
-    @DisplayName("refuses an unreadable report file")
+    @DisplayName("refuses a root whose lines-valid is 0")
+    void refusesARootWithoutMeasuredLines() {
+        CoverageParseResult result = CoberturaReportParser.parse("""
+                <coverage lines-valid="0" line-rate="0" branches-valid="2" branch-rate="0.5"/>
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A root with no measured line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
+                () -> assertEquals("cobertura: no lines measured", refused.reason(), "The reason says no line measured"));
+    }
+
+    // The root attribute is the contract: branches-valid="0" and no branches-valid both measured no branch.
+    @ParameterizedTest
+    @ValueSource(strings = {"branches-valid=\"0\"", ""})
+    @DisplayName("keeps every branch metric absent under a root that measured no branch")
+    void keepsTheBranchesAbsentWithoutMeasuredBranches(String branchesValid) {
+        CoverageReport report = CoverageReportFixtures.reportOf(CoberturaReportParser.parse("""
+                <coverage lines-valid="2" line-rate="0.5" %s branch-rate="0">
+                  <packages><package name="p"><classes>
+                    <class name="a" filename="a" line-rate="0.5" branch-rate="0"/>
+                  </classes></package></packages>
+                </coverage>
+                """.formatted(branchesValid)));
+
+        assertAll(
+                () -> assertEquals(50.0, report.overall().line(), "The root line rate is 0.5"),
+                () -> assertNull(report.overall().branch(), "The overall branch metric is null"),
+                () -> assertNull(report.items().getFirst().branch(), "The class branch metric is null"));
+    }
+
+    // The root attribute is the contract: under branches-valid="4" a branch-rate of 0 measured four misses.
+    @Test
+    @DisplayName("reads a branch rate of 0 under a root that measured branches as a measured zero")
+    void readsAZeroBranchRateAsMeasured() {
+        CoverageReport report = CoverageReportFixtures.reportOf(CoberturaReportParser.parse("""
+                <coverage lines-valid="2" line-rate="0.5" branches-valid="4" branch-rate="0">
+                  <packages><package name="p"><classes>
+                    <class name="a" filename="a" line-rate="0.5" branch-rate="0"/>
+                  </classes></package></packages>
+                </coverage>
+                """));
+
+        assertAll(
+                () -> assertEquals(0.0, report.overall().branch(), "The overall branch is a measured zero"),
+                () -> assertEquals(0.0, report.items().getFirst().branch(), "The class branch is a measured zero"));
+    }
+
+    // The rate texts are the contract: each is a double literal but not a plain decimal number.
+    @ParameterizedTest
+    @ValueSource(strings = {"NaN", "Infinity", "0x1p-1"})
+    @DisplayName("refuses a rate that is not a plain decimal number")
+    void refusesANonDecimalRate(String rate) {
+        CoverageParseResult result = CoberturaReportParser.parse("""
+                <coverage lines-valid="2" line-rate="%s"/>
+                """.formatted(rate));
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A non-decimal rate is refused");
+
+        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+    }
+
+    // The reason text "absent.xml: no such file" is the contract: the file name, never the directory.
+    @Test
+    @DisplayName("refuses an unreadable report file, naming its file name only")
     void refusesAnUnreadableFile() {
-        CoverageParseResult result = CoberturaReportParser
-                .parse(CoverageReportFixtures.path("cobertura-high.xml").resolveSibling("absent.xml"));
+        Path absent = CoverageReportFixtures.path("cobertura-high.xml").resolveSibling("absent.xml");
+
+        CoverageParseResult result = CoberturaReportParser.parse(absent);
 
         CoverageParseResult.Refused refused =
                 assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing report file is refused");
-
-        assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura");
+        assertAll(
+                () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
+                () -> assertEquals("cobertura: absent.xml: no such file", refused.reason(),
+                        "The reason names the file name only"),
+                () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
+                        "The reason never names the directory"));
     }
 }

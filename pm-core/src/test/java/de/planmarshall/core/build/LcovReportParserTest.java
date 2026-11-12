@@ -11,13 +11,19 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The ported tests of {@link LcovReportParser}: each case reads one plain-file fixture below {@code ported/coverage},
@@ -25,8 +31,20 @@ import org.junit.jupiter.api.Test;
  *
  * @since 0.1
  */
+@EnableGeneratorController
 @DisplayName("LcovReportParser")
 class LcovReportParserTest {
+
+    /** A record of eight lines hit out of ten; the counters are the contract. */
+    private static final String MEASURED_RECORD = """
+            SF:src/a.js
+            LF:10
+            LH:8
+            end_of_record
+            """;
+
+    @TempDir
+    Path directory;
 
     @Test
     @DisplayName("sums the file records into the overall percentages")
@@ -194,15 +212,214 @@ class LcovReportParserTest {
                 () -> assertTrue(refused.reason().contains("lcov"), "The reason names the format"));
     }
 
+    // The counters are the contract: every record found no line, so the summed LF is 0.
     @Test
-    @DisplayName("refuses an unreadable report file")
+    @DisplayName("refuses a report whose summed LF is 0")
+    void refusesAReportWithoutMeasuredLines() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:0
+                LH:0
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A report with no measured line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: no lines measured", refused.reason(), "The reason says no line measured"));
+    }
+
+    // The counters are the contract: a record with LF:0 measured no line and is no item.
+    @Test
+    @DisplayName("omits a record whose LF is 0")
+    void omitsARecordWithoutMeasuredLines() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/empty.js
+                LF:0
+                LH:0
+                end_of_record
+                SF:src/a.js
+                LF:10
+                LH:8
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertEquals(1, report.items().size(), "Only the measured record is an item"),
+                () -> assertEquals("src/a.js", report.items().getFirst().name(), "The measured record is kept"),
+                () -> assertEquals(80.0, report.overall().line(), "The overall line is eight of ten"));
+    }
+
+    // The counters are the contract: BRF:0 and FNF:0 measured no branch and no function.
+    @Test
+    @DisplayName("keeps a branch and function metric of BRF:0 and FNF:0 absent")
+    void keepsTheEmptyBranchAndFunctionAbsent() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:8
+                BRF:0
+                BRH:0
+                FNF:0
+                FNH:0
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertNull(report.overall().branch(), "An overall BRF of 0 has no branch metric"),
+                () -> assertNull(report.overall().function(), "An overall FNF of 0 has no function metric"),
+                () -> assertNull(report.items().getFirst().branch(), "A record BRF of 0 has no branch"),
+                () -> assertEquals(80.0, report.overall().statement(), "The statement equals the line"));
+    }
+
+    // The reason text "absent.info: no such file" is the contract: the file name, never the directory.
+    @Test
+    @DisplayName("refuses an unreadable report file, naming its file name only")
     void refusesAnUnreadableFile() {
-        CoverageParseResult result =
-                LcovReportParser.parse(CoverageReportFixtures.path("sample.lcov").resolveSibling("absent.info"));
+        Path absent = CoverageReportFixtures.path("sample.lcov").resolveSibling("absent.info");
+
+        CoverageParseResult result = LcovReportParser.parse(absent);
 
         CoverageParseResult.Refused refused =
                 assertInstanceOf(CoverageParseResult.Refused.class, result, "A missing report file is refused");
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: absent.info: no such file", refused.reason(),
+                        "The reason names the file name only"),
+                () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
+                        "The reason never names the directory"));
+    }
 
-        assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV");
+    // The line limit of 8192 characters is the contract.
+    @Test
+    @DisplayName("refuses a line longer than 8192 characters, naming the limit")
+    void refusesALineOverTheLimit() {
+        CoverageParseResult result = LcovReportParser.parse(withTestName(8190) + MEASURED_RECORD);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A line over the limit is refused");
+        assertEquals("lcov: a line is longer than the limit of 8192 characters", refused.reason(),
+                "The reason names the line limit");
+    }
+
+    // The line limit of 8192 characters is the contract.
+    @Test
+    @DisplayName("reads a line of exactly 8192 characters, also before a CRLF")
+    void readsALineAtTheLimit() {
+        CoverageReport unix = CoverageReportFixtures.reportOf(
+                LcovReportParser.parse(withTestName(8189) + MEASURED_RECORD));
+        CoverageReport windows = CoverageReportFixtures.reportOf(LcovReportParser.parse(
+                (withTestName(8189) + MEASURED_RECORD).replace("\n", "\r\n")));
+
+        assertAll(
+                () -> assertEquals(80.0, unix.overall().line(), "A line at the limit is read"),
+                () -> assertEquals(80.0, windows.overall().line(), "A CRLF line at the limit is read"));
+    }
+
+    // The line limit of 8192 characters is the contract.
+    @Test
+    @DisplayName("refuses a line over 8192 characters in a report file")
+    void refusesALineOverTheLimitInAFile() throws Exception {
+        Path reportFile = Files.writeString(directory.resolve("long.info"), withTestName(20_000) + MEASURED_RECORD);
+
+        CoverageParseResult result = LcovReportParser.parse(reportFile);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A long line in a file is refused");
+        assertTrue(refused.reason().contains("limit of 8192 characters"), "The reason names the line limit");
+    }
+
+    @Test
+    @DisplayName("reads a report file without a trailing line break unchanged")
+    void readsAReportFileWithoutATrailingLineBreak() throws Exception {
+        Path reportFile = Files.writeString(directory.resolve("plain.info"), MEASURED_RECORD.strip());
+
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse(reportFile));
+
+        assertEquals(80.0, report.overall().line(), "The last line without a break is read");
+    }
+
+    // The counters are the contract: a second LH line would turn a 0-hit record into a fully covered one.
+    @Test
+    @DisplayName("refuses a record that carries the LH line twice")
+    void refusesARepeatedLinesHit() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LH:0
+                LH:10
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A repeated LH line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: the record src/a.js carries the LH line twice", refused.reason(),
+                        "The reason names the repeated LH line"));
+    }
+
+    // The counters are the contract: a second LF line would replace the record's found count.
+    @Test
+    @DisplayName("refuses a record that carries the LF line twice")
+    void refusesARepeatedLinesFound() {
+        CoverageParseResult result = LcovReportParser.parse("""
+                SF:src/a.js
+                LF:10
+                LF:20
+                LH:8
+                end_of_record
+                """);
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A repeated LF line is refused");
+
+        assertAll(
+                () -> assertEquals(CoverageFormat.LCOV, refused.format(), "The refusal names LCOV"),
+                () -> assertEquals("lcov: the record src/a.js carries the LF line twice", refused.reason(),
+                        "The reason names the repeated LF line"));
+    }
+
+    // The counters are the contract: each counter line once per record, also across two records.
+    @Test
+    @DisplayName("reads records that carry each counter line once")
+    void readsEachCounterLineOnce() {
+        CoverageReport report = CoverageReportFixtures.reportOf(LcovReportParser.parse("""
+                SF:src/a.js
+                FNF:2
+                FNH:1
+                LF:10
+                LH:8
+                BRF:4
+                BRH:2
+                end_of_record
+                SF:src/b.js
+                FNF:2
+                FNH:1
+                LF:10
+                LH:8
+                BRF:4
+                BRH:2
+                end_of_record
+                """));
+
+        assertAll(
+                () -> assertEquals(80.0, report.overall().line(), "The overall line is 16 of 20"),
+                () -> assertEquals(50.0, report.overall().branch(), "The overall branch is 4 of 8"),
+                () -> assertEquals(50.0, report.overall().function(), "The overall function is 2 of 4"),
+                () -> assertEquals(2, report.items().size(), "Both records are items"));
+    }
+
+    /**
+     * Returns a {@code TN:} line whose content after the prefix has the given length, so the line is three longer.
+     *
+     * @param length the length of the test name
+     * @return the line with its line break
+     */
+    private static String withTestName(int length) {
+        return "TN:" + Generators.letterStrings(length, length).next() + "\n";
     }
 }
