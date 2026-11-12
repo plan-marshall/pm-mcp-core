@@ -143,7 +143,7 @@ class EndpointProfileValidatorTest {
         assertAll(
                 () -> assertFalse(shipped.isEmpty(), "The shipped profile set is not empty"),
                 () -> assertTrue(shipped.values().stream().noneMatch(profile -> ProfileValidator.isEndpoint(
-                        ProfileValidator.validate(profile.document(), "shipped", ProfileRules.none()))),
+                                ProfileValidator.validate(profile.document(), "shipped", ProfileRules.none()))),
                         "No shipped profile is an endpoint profile"));
     }
 
