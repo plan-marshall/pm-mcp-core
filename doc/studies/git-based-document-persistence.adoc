@@ -6,8 +6,8 @@
 A preliminary study for a project outside PM-MCP. It records the conclusions of an exploratory discussion held on
 2026-11-12: whether a server-side Git repository can serve as the persistence of an application in which users
 maintain versioned documents: OWASP SAMM assessments, threat model reports and, as an extension, an ISMS. Nothing in
-this document binds `pm-mcp-core`; the repository only hosts it. Statements marked _(unverified)_ come from general knowledge and
-were not checked against a current source; they need verification before a decision rests on them.
+this document binds `pm-mcp-core`; the repository only hosts it. Statements marked _(unverified)_ come from general
+knowledge and were not checked against a current source; they need verification before a decision rests on them.
 
 toc::[]
 
