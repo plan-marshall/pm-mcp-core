@@ -34,8 +34,8 @@ import lombok.experimental.UtilityClass;
  * detail. The constructors {@code <init>} and {@code <clinit>} are never part of that detail, because they are not
  * methods a test is expected to call.
  * <p>
- * JaCoCo writes a {@code DOCTYPE} with a system identifier, so the reader tolerates the declaration without resolving it;
- * a document with an external entity is refused, never expanded.
+ * JaCoCo writes a {@code DOCTYPE} with a system identifier; the reader tolerates the declaration and never resolves or
+ * fetches it, and a document that references an entity is refused, never expanded.
  *
  * @since 0.1
  */

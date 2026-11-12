@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -76,8 +75,9 @@ class CoberturaReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.COBERTURA, refused.format(), "The refusal names Cobertura"),
-                () -> assertTrue(refused.reason().contains("internal subset"),
-                        "The reason names the refused internal subset"));
+                // The reason text of the entity-reference backstop is the contract.
+                () -> assertEquals("cobertura: entity reference refused", refused.reason(),
+                        "The parser refuses the entity reference"));
     }
 
     @Test

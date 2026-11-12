@@ -11,7 +11,6 @@ package de.planmarshall.core.build;
 
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -21,12 +20,13 @@ import lombok.experimental.UtilityClass;
 /**
  * Opens the hardened StAX reader the JaCoCo and Cobertura parsers share, and walks it for them.
  * <p>
- * The XML formats are read as untrusted input: a document may declare a DTD (JaCoCo writes a {@code DOCTYPE} with a
- * system identifier) and that declaration is tolerated without resolution, but an external entity is never resolved.
- * The factory keeps DTD support on so the declaration parses, turns external entities off, keeps entity references from
- * being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a file
- * or a URL reads nothing. The walk refuses an {@code ENTITY_REFERENCE} event, so a document that uses an entity defined
- * outside it is refused, never expanded. The decisions are recorded in {@code core-build/005}.
+ * The XML formats are read as untrusted input, and the parser itself is the defence: there is no text scan before it. A
+ * document may declare a DTD (JaCoCo writes a {@code DOCTYPE} with a system identifier); that declaration is tolerated
+ * and never resolved or fetched. The factory turns DTD support off, turns external entities off, keeps entity references
+ * from being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a
+ * file or a URL reads nothing. The walk refuses an {@code ENTITY_REFERENCE} event, so a document that references an
+ * entity is refused, never expanded. The decisions are recorded in {@code core-build/008}, which supersedes the hardening
+ * part of {@code core-build/005}.
  *
  * @since 0.1
  */
@@ -71,11 +71,8 @@ class CoverageXmlReader {
      * @return the handler's result, or a refusal naming the format
      */
     static CoverageParseResult parse(String xml, CoverageFormat format, Handler handler) {
-        try {
-            refuseInternalSubset(xml);
-            try (Reader source = open(xml)) {
-                return walk(source.stream(), format, handler);
-            }
+        try (Reader source = open(xml)) {
+            return walk(source.stream(), format, handler);
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
         }
@@ -90,67 +87,11 @@ class CoverageXmlReader {
      * @return the handler's result, or a refusal naming the format
      */
     static CoverageParseResult parse(byte[] xml, CoverageFormat format, Handler handler) {
-        try {
-            refuseInternalSubset(decode(xml));
-            try (Reader source = open(xml)) {
-                return walk(source.stream(), format, handler);
-            }
+        try (Reader source = open(xml)) {
+            return walk(source.stream(), format, handler);
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
         }
-    }
-
-    /**
-     * Refuses a document whose DTD carries an internal subset.
-     * <p>
-     * The declaration a real JaCoCo report writes is external (a system identifier, no subset), and that is tolerated.
-     * An internal subset is where an entity is declared, general or parameter, so a document that carries one is refused
-     * before the parser reads it — an external parameter entity can otherwise be referenced without ever being fetched
-     * and without a refusal. A comment that mentions a DOCTYPE is skipped, so it cannot hide the real declaration.
-     *
-     * @param xml the document text
-     * @throws IllegalArgumentException if the document declares a DTD with an internal subset
-     */
-    private static void refuseInternalSubset(String xml) {
-        int doctype = doctypeIndex(xml);
-        if (doctype < 0) {
-            return;
-        }
-        int subset = xml.indexOf('[', doctype);
-        int end = xml.indexOf('>', doctype);
-        if (subset >= 0 && (end < 0 || subset < end)) {
-            throw new IllegalArgumentException("a DTD with an internal subset is refused");
-        }
-    }
-
-    private static int doctypeIndex(String xml) {
-        int from = 0;
-        while (true) {
-            int doctype = xml.indexOf("<!DOCTYPE", from);
-            if (doctype < 0) {
-                return -1;
-            }
-            int comment = xml.indexOf("<!--", from);
-            if (comment >= 0 && comment < doctype) {
-                int end = xml.indexOf("-->", comment + 4);
-                if (end < 0) {
-                    return doctype;
-                }
-                from = end + 3;
-            } else {
-                return doctype;
-            }
-        }
-    }
-
-    private static String decode(byte[] xml) {
-        if (xml.length >= 2 && xml[0] == (byte) 0xFE && xml[1] == (byte) 0xFF) {
-            return new String(xml, 2, xml.length - 2, StandardCharsets.UTF_16BE);
-        }
-        if (xml.length >= 2 && xml[0] == (byte) 0xFF && xml[1] == (byte) 0xFE) {
-            return new String(xml, 2, xml.length - 2, StandardCharsets.UTF_16LE);
-        }
-        return new String(xml, StandardCharsets.UTF_8);
     }
 
     private static CoverageParseResult walk(XMLStreamReader reader, CoverageFormat format, Handler handler)
@@ -158,7 +99,7 @@ class CoverageXmlReader {
         while (reader.hasNext()) {
             int event = reader.next();
             if (event == XMLStreamConstants.ENTITY_REFERENCE) {
-                return new CoverageParseResult.Refused(format, format.id() + ": external entity reference refused");
+                return new CoverageParseResult.Refused(format, format.id() + ": entity reference refused");
             }
             if (event == XMLStreamConstants.START_ELEMENT) {
                 handler.start(reader);
@@ -191,7 +132,7 @@ class CoverageXmlReader {
 
     private static XMLInputFactory factory() {
         XMLInputFactory factory = XMLInputFactory.newFactory();
-        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.TRUE);
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.FALSE);
         factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> new ByteArrayInputStream(new byte[0]));

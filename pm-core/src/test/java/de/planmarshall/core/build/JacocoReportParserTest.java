@@ -29,6 +29,9 @@ import org.junit.jupiter.api.Test;
 @DisplayName("JacocoReportParser")
 class JacocoReportParserTest {
 
+    /** The refusal reason of the entity-reference backstop; the reason text is the contract. */
+    private static final String ENTITY_REFUSAL = "jacoco: entity reference refused";
+
     @Test
     @DisplayName("reads the overall counters of a fully covered report")
     void readsTheOverallCounters() {
@@ -154,8 +157,7 @@ class JacocoReportParserTest {
 
         assertAll(
                 () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
-                () -> assertTrue(refused.reason().contains("internal subset"),
-                        "The reason names the refused internal subset"));
+                () -> assertEquals(ENTITY_REFUSAL, refused.reason(), "The parser refuses the entity reference"));
     }
 
     @Test
@@ -229,23 +231,23 @@ class JacocoReportParserTest {
                 () -> assertTrue(report.items().isEmpty(), "The unmeasured class is not listed as an item"));
     }
 
+    // The prolog is the contract: a comment that mentions a DOCTYPE precedes the real one, which declares the entity.
     @Test
-    @DisplayName("refuses an internal subset behind a comment that mentions a DOCTYPE")
-    void refusesAnInternalSubsetBehindAComment() {
+    @DisplayName("refuses an entity declared behind a comment that mentions a DOCTYPE")
+    void refusesAnEntityDeclaredBehindAComment() {
         CoverageParseResult result = JacocoReportParser.parse("""
                 <?xml version="1.0"?>
                 <!-- <!DOCTYPE fake > -->
                 <!DOCTYPE report [<!ENTITY probe SYSTEM "file:///nonexistent">]>
-                <report name="a"><counter type="LINE" missed="0" covered="1"/></report>
+                <report name="a"><counter type="LINE" missed="0" covered="1"/>&probe;</report>
                 """);
 
         CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
-                "The real DOCTYPE's internal subset is refused");
+                "The parser refuses the declared entity");
 
         assertAll(
                 () -> assertEquals(CoverageFormat.JACOCO, refused.format(), "The refusal names JaCoCo"),
-                () -> assertTrue(refused.reason().contains("internal subset"),
-                        "The reason names the refused internal subset"));
+                () -> assertEquals(ENTITY_REFUSAL, refused.reason(), "The parser refuses the entity reference"));
     }
 
     private static CoverageParseResult.Refused assertRefused(CoverageParseResult result, String message) {

@@ -31,8 +31,8 @@ import org.jspecify.annotations.Nullable;
  * detail. A missing root {@code line-rate}, a rate that is not a finite number and a document that is not a
  * {@code coverage} report are refusals; a missing {@code branch-rate} leaves the branch metric absent.
  * <p>
- * The XML hardening is the same as JaCoCo's: a DTD declaration is tolerated without resolution, and an external entity is
- * refused, never expanded.
+ * The XML hardening is the same as JaCoCo's: a {@code DOCTYPE} is tolerated and never resolved or fetched, and a document
+ * that references an entity is refused, never expanded.
  *
  * @since 0.1
  */
