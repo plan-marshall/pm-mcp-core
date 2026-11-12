@@ -20,21 +20,32 @@ import org.jspecify.annotations.Nullable;
  * target is masked like every job log; Job Runtime § Pipeline and Subprocesses names the component `SecretRedactor`).
  * <p>
  * The redactor is deliberately narrow, because a false positive costs a piece of the operator's evidence while a false
- * negative writes a credential to a store: it replaces the value of an explicit credential-shaped assignment (a
- * password, token, secret, API key or authorization header), a bearer value, a provider token shape (including the npm
- * {@code npm_} access token), the user-information form of a URL ({@code scheme://user:secret@host}), the value of a
- * spaced credential flag of a closed list, whatever its case ({@code --password <value>}, quoted or not; a quoted value
- * is matched through its closing quote, spaces and at most one line end included, and an unclosed quote masks the rest
- * of the line) and a PEM private-key block carried inside one text, and it leaves every other text alone. Each non-assignment shape is anchored
- * to its own form — a URL needs its {@code scheme://} and {@code @}, a flag needs its leading {@code --} and a following
- * space — so prose cannot match. A hash, a commit id, a path and a prose sentence that merely contains the word
- * {@code token} are not secrets and stay readable.
+ * negative writes a credential to a store. It masks these shapes and leaves every other text alone:
+ * <ul>
+ * <li>the value of an explicit credential-shaped assignment: a password, token, secret, API key or authorization
+ * header;</li>
+ * <li>a bearer value;</li>
+ * <li>a provider token shape, and the npm access token {@code npm_} followed by exactly 36 alphanumeric
+ * characters;</li>
+ * <li>the user-information form of a URL ({@code scheme://user:secret@host});</li>
+ * <li>the value of a spaced credential flag of a closed list, whatever its case ({@code --password <value>}, quoted or
+ * not; a quoted value is matched through its closing quote, spaces and at most one line end included, and an unclosed
+ * quote masks the rest of the line);</li>
+ * <li>a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}) whose
+ * {@code BEGIN} line is carried inside the text.</li>
+ * </ul>
+ * Each non-assignment shape is anchored to its own form — a URL needs its {@code scheme://} and {@code @}, a flag needs
+ * its leading {@code --} and a following space, a key block needs its {@code BEGIN} marker — so prose cannot match. A
+ * hash, a commit id, a path and a prose sentence that merely contains the word {@code token} or {@code PRIVATE KEY} are
+ * not secrets and stay readable.
  * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
- * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a PEM
- * block is replaced whole (an unclosed block masks from its {@code BEGIN} line to the end of the text). A PEM block whose
- * {@code BEGIN} line lies outside the text is not masked; the carried open item names it. The redactor is idempotent:
- * redacting redacted text changes nothing.
+ * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a key
+ * block is replaced whole (an unclosed block masks from its {@code BEGIN} line to the end of the text).
+ * <p>
+ * The residue: a PEM or PGP block whose {@code BEGIN} line lies before the excerpt window, so that the text starts
+ * inside the block, is not masked, because nothing in the text marks the key body as one. The window is not widened to
+ * reach the marker. The redactor is idempotent: redacting redacted text changes nothing.
  *
  * @since 0.1
  */
@@ -72,7 +83,9 @@ public final class SecretRedactor {
     /**
      * The npm access token: {@code npm_} followed by 36 alphanumeric characters (npm Registry API documentation, "Delete
      * npm access token"; the shape introduced in 2021, whose last six characters are a Base62 CRC32 checksum). The exact
-     * length keeps a package name that merely starts with {@code npm_} readable.
+     * length is an operator decision and keeps a package name that merely starts with {@code npm_} readable. A run of 37
+     * or more alphanumeric characters after {@code npm_}, a run followed by {@code _} and a run preceded by a word
+     * character stay readable as well, because none of them is an npm token.
      */
     private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\bnpm_[A-Za-z0-9]{36}\\b");
 
@@ -136,18 +149,20 @@ public final class SecretRedactor {
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);
 
     /**
-     * A PEM private-key block carried inside one text. A window that starts inside a block (its {@code BEGIN} line
-     * outside) is not masked; the carried open item names it.
+     * A PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----} to its
+     * {@code END} line) carried inside one text. A window that starts inside a block (its {@code BEGIN} line before the
+     * window) is not masked: that is the residue the class documentation names.
      */
-    private static final Pattern PEM_PRIVATE_KEY =
-            Pattern.compile("(?s)-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----");
+    private static final Pattern PEM_PRIVATE_KEY = Pattern.compile(
+            "(?s)-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----.*?-----END [^-]*PRIVATE KEY(?: BLOCK)?-----");
 
     /**
-     * A PEM private-key block whose {@code END} line is missing from the text: the text ends inside the block, so the
-     * rest of it is masked. Masking too much costs evidence; leaving a key body readable costs the credential.
+     * A PEM or PGP private-key block whose {@code END} line is missing from the text: the text ends inside the block, so
+     * the rest of it is masked. The over-masking is kept deliberately: whatever follows the block in the text is masked
+     * with it, because masking too much costs evidence while leaving a key body readable costs the credential.
      */
     private static final Pattern PEM_PRIVATE_KEY_UNCLOSED =
-            Pattern.compile("(?s)-----BEGIN [^-]*PRIVATE KEY-----.*");
+            Pattern.compile("(?s)-----BEGIN [^-]*PRIVATE KEY(?: BLOCK)?-----.*");
 
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE, NPM_ACCESS_TOKEN);
 

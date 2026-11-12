@@ -302,6 +302,61 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a PGP private-key block is redacted (the OpenPGP armor markers)")
+    void pgpPrivateKeyBlock() {
+        // the armor header and tail lines are the OpenPGP wire format (RFC 4880 § 6.2)
+        var block = String.join("\n", "-----BEGIN PGP PRIVATE KEY BLOCK-----", "",
+                Generators.letterStrings(16, 64).next(), "-----END PGP PRIVATE KEY BLOCK-----");
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED + "\ndone", redactValue("key:\n" + block + "\ndone"),
+                "a closed PGP key block is replaced whole");
+    }
+
+    @Test
+    @DisplayName("an unclosed PGP private-key block masks the rest (the OpenPGP armor marker)")
+    void unclosedPgpPrivateKeyBlock() {
+        // the armor header line is the OpenPGP wire format (RFC 4880 § 6.2)
+        var log = "key:\n-----BEGIN PGP PRIVATE KEY BLOCK-----\n\n" + Generators.letterStrings(16, 64).next();
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
+                "an unclosed PGP key block is masked to the end");
+    }
+
+    @Test
+    @DisplayName("the npm token is exactly 36 characters after npm_ (the operator's decision)")
+    void npmAccessTokenExactLength() {
+        // the documented shape: `npm_` plus exactly 36 alphanumeric characters (npm Registry API)
+        var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+        var longer = token + "x";
+        var followedByUnderscore = token + "_tail";
+        var precededByWordCharacter = "x" + token;
+
+        assertAll("npm token exact length",
+                () -> assertEquals("is " + SecretRedactor.REDACTED, redactValue("is " + token),
+                        "a 36-character npm token is masked"),
+                () -> assertEquals("is " + longer, redactValue("is " + longer),
+                        "a 37-character run stays readable"),
+                () -> assertEquals(followedByUnderscore, redactValue(followedByUnderscore),
+                        "a run followed by an underscore stays"),
+                () -> assertEquals(precededByWordCharacter, redactValue(precededByWordCharacter),
+                        "a run preceded by a word character stays"));
+    }
+
+    @Test
+    @DisplayName("an npm package name and prose naming a private key stay readable")
+    void npmAndKeyBlockNegativeControls() {
+        assertAll("npm token and key block negative controls",
+                () -> assertEquals("installed npm_pkg", redactValue("installed npm_pkg"),
+                        "a package name starting npm_ stays"),
+                () -> assertEquals("rotate the PGP PRIVATE KEY BLOCK monthly",
+                        redactValue("rotate the PGP PRIVATE KEY BLOCK monthly"),
+                        "prose naming PRIVATE KEY stays readable"),
+                () -> assertEquals("the PRIVATE KEY----- line is missing",
+                        redactValue("the PRIVATE KEY----- line is missing"),
+                        "a marker tail without BEGIN stays readable"));
+    }
+
+    @Test
     @DisplayName("shapes that merely resemble a credential stay readable")
     void shapeNegativeControls() {
         assertAll("shape negative controls",
