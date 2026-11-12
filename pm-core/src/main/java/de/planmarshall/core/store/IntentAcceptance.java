@@ -24,11 +24,13 @@ import de.planmarshall.core.store.IntentStore.Revision;
 /**
  * The transaction that accepts a submitted intent record (Phase Workflows § The Intent Record, server checks; PM-WATCH
  * PHASE-107): it checks the rules that need the plan — a decision's true decider and the epic's required claims — and
- * moves the current record into the history in the same acceptance.
+ * the rule that needs the entry point — a record submitted through {@code submit:refine} carries at least one non-goal
+ * (server check 7, non-goals on the deep lane) — and moves the current record into the history in the same acceptance.
  * <p>
  * A refusal is the {@code invalid_link_args} of the submission, its detail naming the member; the state is never
  * mutated then. The checks that need only the record are those of {@link IntentRecord}, which the submitted record
- * already passed.
+ * already passed. Check 7 lives here and not in the record's bounds: a record without non-goals is a valid record, which
+ * the light envelope's {@code submit:outline} and a re-planning may submit.
  *
  * @since 0.1
  */
@@ -178,6 +180,10 @@ public final class IntentAcceptance {
         if (claims.isPresent()) {
             return new Refused(claims.get());
         }
+        var nonGoals = nonGoalRefusal(next.intentRecord(), submission);
+        if (nonGoals.isPresent()) {
+            return new Refused(nonGoals.get());
+        }
         IntentStore base;
         try {
             base = before == null ? IntentStore.first(next) : before.accept(next);
@@ -269,5 +275,13 @@ public final class IntentAcceptance {
             }
         }
         return Optional.empty();
+    }
+
+    private static Optional<String> nonGoalRefusal(IntentRecord intentRecord, IntentSubmission submission) {
+        if (submission != IntentSubmission.REFINE || !intentRecord.nonGoals().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of("the non_goals of a record submitted through %s hold at least one item"
+                .formatted(submission.wireName()));
     }
 }

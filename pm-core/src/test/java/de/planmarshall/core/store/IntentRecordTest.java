@@ -400,23 +400,36 @@ class IntentRecordTest {
                 "the render states how the criterion is verified");
     }
 
-    @DisplayName("A record without non-goals is accepted and rendered without the non-goals heading")
+    @DisplayName("A record without non-goals is valid, round-trips and renders without the non-goals heading")
     @Test
-    void acceptsRecordWithoutNonGoals() {
-        var base = valid();
-        var withoutNonGoals = new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(),
-                List.of(), base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(),
-                base.deferred(), base.sourceClaims());
+    void recordWithoutNonGoalsIsValid() {
+        var store = IntentStore.first(revision(1, withoutNonGoals()));
 
-        var store = assertInstanceOf(Accepted.class,
-                accept(null, IntentSubmission.REFINE, revision(1, withoutNonGoals), context(FILE)),
-                "the record without non-goals is accepted").store();
-
-        assertTrue(store.current().intentRecord().nonGoals().isEmpty(), "the accepted record holds no non-goal");
+        assertTrue(store.current().intentRecord().nonGoals().isEmpty(), "the valid record holds no non-goal");
         assertEquals(store, IntentCodec.read(FILE, IntentCodec.write(store)),
                 "the record without non-goals round-trips");
         assertFalse(ClarifiedRequestRenderer.render(store).contains("### Non-Goals"),
                 "the render has no non-goals heading");
+    }
+
+    @DisplayName("Check 7: submit:refine refuses a record without non-goals, naming the member")
+    @Test
+    void refineRefusesRecordWithoutNonGoals() {
+        var outcome = accept(null, IntentSubmission.REFINE, revision(1, withoutNonGoals()), context(FILE));
+
+        var refusal = assertInstanceOf(Refused.class, outcome, "the refine submission is refused");
+        assertTrue(refusal.detail().contains("non_goals"), "the refusal names the member non_goals");
+        assertTrue(refusal.detail().contains("submit:refine"), "the refusal names the entry point");
+    }
+
+    @DisplayName("Check 7 applies to submit:refine alone: the other entry points accept a record without non-goals")
+    @ParameterizedTest
+    @EnumSource(value = IntentSubmission.class, names = "REFINE", mode = EnumSource.Mode.EXCLUDE)
+    void otherEntryPointsAcceptRecordWithoutNonGoals(IntentSubmission submission) {
+        var outcome = accept(null, submission, revision(1, withoutNonGoals()), context(FILE));
+
+        var store = assertInstanceOf(Accepted.class, outcome, "the record without non-goals is accepted").store();
+        assertTrue(store.current().intentRecord().nonGoals().isEmpty(), "the accepted record holds no non-goal");
     }
 
     @DisplayName("A current behaviour without a fix criterion, or outside its form, is refused")
@@ -512,6 +525,13 @@ class IntentRecordTest {
             List<Assumption> assumptions) {
         return new IntentRecord(base.why(), base.goal(), criteria, currentBehaviour, base.nonGoals(),
                 base.constraints(), base.decisions(), assumptions, base.openQuestions(), base.deferred(),
+                base.sourceClaims());
+    }
+
+    private static IntentRecord withoutNonGoals() {
+        var base = valid();
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), List.of(),
+                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
                 base.sourceClaims());
     }
 

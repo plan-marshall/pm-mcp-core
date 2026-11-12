@@ -33,13 +33,17 @@ import org.jspecify.annotations.Nullable;
  * {@code AN-<n>} and deferred item {@code DF-<n>}, each stable across revisions.
  * <p>
  * The type validates one revision in isolation. The server checks that need the plan — a decision's question record
- * and the required claims of the epic row — are those of {@link IntentAcceptance}.
+ * and the required claims of the epic row — are those of {@link IntentAcceptance}, and so is the check that needs the
+ * entry point: the record bounds {@code non_goals} {@code 0} to {@code 20}, so a record without non-goals is valid, and
+ * {@link IntentAcceptance} refuses one submitted through {@code submit:refine} (server check 7, non-goals on the deep
+ * lane).
  *
  * @param why             the problem, who has it and why now, 20 to 1000 characters
  * @param goal            the outcome sentence a check can decide, 10 to 300 characters
  * @param criteria        one to 30 acceptance criteria
  * @param currentBehaviour the behaviour a {@code fix} criterion replaces; {@code null} when the record has no fix
- * @param nonGoals        up to 20 non-goals
+ * @param nonGoals        up to 20 non-goals; at least one on {@code submit:refine}, which {@link IntentAcceptance}
+ *                        checks
  * @param constraints     up to 20 constraints, each ruling something out
  * @param decisions       up to 30 decisions
  * @param assumptions     up to 20 assumptions
