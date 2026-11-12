@@ -26,7 +26,8 @@ toc::[]
   ticket system or the chat.
 . Verify the state and licences of DFIR-IRIS, TheHive and Dispatch.
 . Choose the template engine for the AsciiDoc output and the schema language of the forms (JSON Schema).
-. Decide the packaging (one module to start, as recommended, or a split from the beginning).
+. Decide name, group, licence and parent POM of `git-foundation` (see
+  link:extraction-from-pm-mcp-core.adoc[Extraction from `pm-mcp-core`]).
 . Verify the verinice statements (versioning, approval, licence of veo, catalogue coverage) with a demo instance.
 . Draft the library API and the SAMM repository schema.
 . Prototype the graded signature: commit signature through a KMS with JGit's signer interface, the trailer schema,

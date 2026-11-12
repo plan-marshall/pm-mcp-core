@@ -15,8 +15,8 @@ model itself is published as YAML files with semantic versioning. The data volum
 data are the assessors, whom the Git server already knows.
 
 Git therefore fits: the model is already YAML in Git, an assessment as YAML diffs well, release maps to a merge and
-a tag, and the history, rights, reviews and backups come from the existing infrastructure. Drafts, the branch per assessment and its release are described in
-link:storage-engine.adoc[The Storage Engine on Git].
+a tag, and the history, rights, reviews and backups come from the existing infrastructure. Drafts, the branch per
+assessment and its release are described in link:storage-engine.adoc[The Storage Engine on Git].
 
 == Repository Layout
 

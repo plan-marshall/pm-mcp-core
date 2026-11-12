@@ -40,20 +40,21 @@ Four categories of information are in scope:
   derived (index) or lives in systems the organisation already runs.
 * *One shape for all categories*: schema, YAML data with AsciiDoc free text, generated AsciiDoc output, review and
   approval, deadlines and links. The categories become configuration of one layer of schema-driven documents.
-* *Packaging*: one module in one repository to start; the foundation is extracted when `pm-provider-git` switches onto
-  it.
+* *Packaging*: a core repository `git-foundation` with the extended JGit functionality taken over from
+  `pm-provider-git` (`git-core`, `git-worktrees`, `git-testing`) and the aspects as modules beside it; `pm-provider-git`
+  keeps only a facade, the corpus adapter and the worktree digest.
 * *Positioning*: complement established ISMS products such as verinice rather than replace them.
 
 ----
-foundation → store → forms (schema, template, workflow, deadlines, signature levels)
-   │           │        ├─ samm
-   │           │        ├─ threat-models
-   │           │        ├─ incident-reports
-   │           │        └─ isms …
-   │           ├─ crypto     (encrypted keyring, erasure by key rotation)
-   │           ├─ signing    (commit signature, user claims, passkey approvals)
-   │           └─ timestamp  (RFC 3161 anchoring)
-   └─ shared later with pm-provider-git
+git-foundation (core repository)
+  git-core ← git-worktrees                       ← used by pm-provider-git
+  git-core ← git-store ← git-forms (schema, template, workflow, deadlines, signature levels)
+             git-store ← git-crypto     (encrypted keyring, erasure by key rotation)
+             git-store ← git-signing    (commit signature, user claims, passkey approvals)
+             git-store ← git-timestamp  (RFC 3161 anchoring)
+  git-testing
+
+application (outside): samm, threat-models, incident-reports, isms … as configuration of git-forms
 ----
 
 == Documents
@@ -76,4 +77,6 @@ Read in this order:
 ** link:category-isms.adoc[ISMS and the Comparison with verinice]
 . link:library.adoc[The Library]: existing solutions, the decision, its parts, packaging and the foundation shared with
   `pm-provider-git`, risks and limits.
+. link:extraction-from-pm-mcp-core.adoc[Extraction from `pm-mcp-core`]: the inventory of `pm-provider-git`, the core
+  repository and its modules, what stays, what changes in `pm-mcp-core`, the order and the decisions it needs.
 . link:open-points.adoc[Open Points and Next Steps].

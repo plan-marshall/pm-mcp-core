@@ -1,0 +1,225 @@
+= Extraction from `pm-mcp-core`: a Core Repository for Git
+:nofooter:
+:toc: macro
+:toclevels: 2
+
+Part of the link:README.adoc[study on Git as the persistence of versioned documents]. Statements marked
+_(unverified)_ come from general knowledge and were not checked against a current source.
+
+toc::[]
+
+What moves out of `pm-provider-git` of `pm-mcp-core` into a core repository of its own, the linked working trees
+included although the document store does not need them, how that repository is cut into modules, and what changes
+in `pm-mcp-core`. The core repository holds the extended JGit functionality and the helper classes; the further
+aspects of the document store sit beside it as modules of their own.
+
+== Inventory of `pm-provider-git`
+
+The inventory was taken from the sources on 2026-11-12. The module holds about 2,000 lines of production code and
+3,800 lines of tests. Its only dependency on another module of the product is a single class:
+
+[cols="2,3,2"]
+|===
+|Class |What it does |Dependency on `pm-core`
+
+|`RefusingFS`
+|A JGit file system that refuses hooks and process starts (`CapabilityRefusedException`)
+|none
+
+|`RemotePolicy`
+|The permitted remote: an HTTPS origin, or local only; checked before every fetch and push
+|none
+
+|`GitIdentity`
+|Full and abbreviated commit ids, branch, runtime and remote-branch references, resolution and ambiguity of a name
+|none
+
+|`GitResult`, `GitOutcome`
+|The result type (outcome, value, detail) and the closed list of outcomes, worktree outcomes included
+|none
+
+|`GitOperations`
+|The contract: open, init, log, commit, fetch, push with lease, the linked working trees, the worktree digest, the
+cache repository (`initCache`, `fetchCommit`, `readFile`), and its records
+|none
+
+|`JGitOperations`
+|The variant of the contract on JGit, in process, without a `git` installation
+|none
+
+|`LinkedWorktrees`
+|The administration files of git's linked working trees, read and written natively, because JGit has no
+`git worktree` command
+|none
+
+|`WorktreeShaDigest`
+|The framing of `git.worktree-sha` version 1, fixed by the job runtime specification of PM-MCP
+|none in code; the format is a contract of PM-MCP
+
+|`JGitSourceRepository`
+|The adapter of the cache repository to the corpus interface `SourceRepository` of `pm-core`
+|`SourceRepository`, `SourceManifest`, `SourceFetch`
+|===
+
+The module logs nothing and carries no native-image metadata of its own. Within `pm-mcp-core` no module depends on
+it; its consumer is the assembly in `plan-marshall-mcp`.
+
+This corrects an earlier assumption of the study: not half of the module is generic, but all of it except the
+corpus adapter and the digest format. Even the cache repository (`initCache`, `fetchCommit`, `readFile`) is a
+generic mechanism: one commit fetched into a bare cache under a remote policy, a file read at that commit.
+
+== The Core Repository
+
+Working title `git-foundation`. A multi-module Maven repository whose modules are released together but consumed
+separately, so that every consumer takes only what it needs.
+
+----
+git-foundation (repository)
+  ├─ git-core          hardened repositories, remote policy, identity, results, transport, reading,
+  │                    cache repository, in-core writing, compare-and-swap, in-core merge, notes
+  ├─ git-worktrees     linked working trees, commit from a working tree, working-tree status
+  ├─ git-testing       generators and fixtures: local and in-memory repositories, a local remote
+  │
+  ├─ git-store         drafts, saving, identity per save, index, outbox
+  ├─ git-crypto        encrypted keyring, erasure by key rotation               (optional)
+  ├─ git-signing       commit signature, user claims, passkey approvals          (optional)
+  ├─ git-timestamp     RFC 3161 anchoring                                        (optional)
+  └─ git-forms         schema-driven documents: schema, template, workflow       (optional)
+----
+
+The first three are the extended JGit functionality with its helper classes. The others are the aspects of the
+document store, beside them in the same repository; the application with its categories (SAMM, threat models,
+incident reports, ISMS) and its UI is not part of it.
+
+=== `git-core`
+
+Taken over from `pm-provider-git`:
+
+* `RefusingFS`, `RemotePolicy`, `GitIdentity`, `GitResult`, `GitOutcome`.
+* From `GitOperations` and `JGitOperations`: open and init of a repository, the log, fetch and push (with
+  credentials and lease), and the cache repository (`initCache`, `fetchCommit`, `readFile`), as an interface
+  `RepositoryOperations` with its JGit variant.
+
+New for the document store (see link:storage-engine.adoc[The Storage Engine on Git]):
+
+* In-core writing: blob, tree and commit without a working tree.
+* Compare-and-swap reference updates with retry, in-core merge with conflict results per path.
+* Reading and writing `git notes`.
+
+`GitOutcome` stays one closed list in `git-core`, the worktree outcomes included: they are terms of Git, not of a
+domain, and one list keeps the handling of results uniform for every consumer.
+
+=== `git-worktrees`
+
+Taken over from `pm-provider-git`, although the document store does not need it:
+
+* `LinkedWorktrees` with the administration files in git's own layout, readable by `git worktree list`.
+* `worktreeAdd`, `worktreeList`, `worktreeRemove` and the commit from a working tree (stage everything, commit), as an
+  interface `WorktreeOperations` with its JGit variant.
+* A working-tree status as a generic primitive (the path set of changed, untracked and deleted files), on which a
+  consumer builds its own digest.
+
+It depends on `git-core` alone.
+
+=== `git-testing`
+
+* The generator of the transport credential (`GitCredentialGenerator`, `GitGenerators`), today in the test artifact
+  `pm-provider-git:tests`.
+* Fixtures for local and in-memory repositories and a local remote for fetch and push tests, which the document store
+  needs anyway.
+
+=== The Aspect Modules
+
+`git-store`, `git-crypto`, `git-signing`, `git-timestamp` and `git-forms` are described in the other documents of
+this study. Their dependencies:
+
+----
+git-core ← git-worktrees
+git-core ← git-store ← git-forms
+           git-store ← git-crypto, git-signing, git-timestamp
+----
+
+No module below `git-forms` knows a term of a category. The optional modules carry their own third-party dependencies
+(Tink, a timestamp client, a template engine), so a consumer of `git-core` alone pulls none of them.
+
+== What Stays in `pm-provider-git`
+
+* `JGitSourceRepository`, the adapter to the corpus interface of `pm-core`.
+* `WorktreeShaDigest` with its ported tests and fixtures (`ported/`, `ported/worktree-sha/*.txt`): its framing is a
+  contract of the job runtime specification of PM-MCP. It is built on the working-tree status of `git-worktrees`.
+* `GitOperations` as the contract of PM-MCP, now a facade over `RepositoryOperations` and `WorktreeOperations`, so the
+  assembly in `plan-marshall-mcp` keeps its interface for the first step.
+
+`pm-provider-git` shrinks to a few hundred lines: the facade, the adapter and the digest.
+
+== Tests
+
+The tests move with the classes they test. Where a test class covers both sides (`JGitOperationsTest`,
+`GitOperationsContractTest`, `GitOperationsRecordsTest`, `AbsenceContractsTest`), it is split along the interfaces;
+the exact split follows from reading the test classes in the work package.
+
+[cols="1,2"]
+|===
+|Module |Test classes
+
+|`git-core`
+|`RefusingFSTest`, `RemotePolicyTest`, `GitIdentityTest`, `JGitCacheRepositoryTest`, `UnservedWantTest`, the
+repository part of the split classes
+
+|`git-worktrees`
+|`LinkedWorktreesTest`, the worktree part of the split classes
+
+|`git-testing`
+|`GitCredentialGeneratorTest`
+
+|`pm-provider-git`
+|`JGitSourceRepositoryTest`, `WorktreeShaDigestTest`, `ported/*`, a test of the facade
+|===
+
+The history of the moved files can be carried over (for example by filtering the repository down to these paths),
+so authorship and blame survive the move.
+
+== What Changes in `pm-mcp-core`
+
+Each of these is part of the work package that switches `pm-provider-git` over:
+
+. *The dependency decision.* The new artifacts need the owner's explicit decision (`CLAUDE.md`, _Dependencies and
+  Versions_); their version comes from the root POM's `dependencyManagement`.
+. *The Module Structure Specification* in the documentation repository: `pm-provider-git` may depend on `git-core` and
+  `git-worktrees`.
+. *The enforcer rules of the root POM.* The rule that the contract modules depend on `pm-core` alone among the modules
+  of the product has to name the new artifacts, and `BuildGuardsIT` proves the changed rule. JGit itself stays a
+  dependency of `pm-provider-git` through `git-core`; `pm-core` and `pm-workflow` stay without JGit.
+. *The registry.* If the artifacts are published under `de.planmarshall` in the organisation's registry, the group
+  filter of `.mvn/rrf` lets them through unchanged; under another group from Maven Central they need no change either.
+  Which applies follows from the licence decision below.
+. *The documentation of the module*: `pm-provider-git/README.adoc`, its developer documentation, ADR 012 for the
+  generator that moves out of `pm-provider-git:tests`, and an ADR for the extraction itself.
+. *The assembly* `plan-marshall-mcp`: unchanged interface through the facade; the native build of `pm-mcpd` against
+  the new `SNAPSHOT` verifies that JGit still works in the native image.
+
+== Order
+
+. Create `git-foundation` with `git-core`, `git-worktrees` and `git-testing`; move the classes and their tests,
+  with history; build and release a first version.
+. Work package in `pm-mcp-core`: switch `pm-provider-git` onto the two modules, reduce it to facade, adapter and
+  digest, with the changes listed above.
+. Add the aspect modules (`git-store` first, then `git-signing`, `git-crypto`, `git-timestamp`, `git-forms`) as the
+  document store needs them; they change nothing in `pm-mcp-core`.
+
+== Decisions This Needs
+
+* *Name and group* of the repository and its artifacts (`de.planmarshall` or a neutral group).
+* *Licence.* Proprietary like the product, or open source; open source needs the release of the code taken over from
+  `pm-provider-git` and decides the registry (the organisation's registry or Maven Central).
+* *Parent POM.* `pm-mcp-parent` brings the coding standards, the quality gate and the deployment target of the product;
+  an open-source repository needs a parent of its own or a neutral one.
+* *Standards.* The new repository keeps the conventions of `pm-mcp-core` (JSpecify, results instead of exceptions,
+  `CuiLogger` with a `LogRecord` holder per module, `cui-test-generator`, EasyMock), so the code moves without
+  rewriting.
+
+== Effect on the Size of `pm-mcp-core`
+
+Small: about 1,700 lines of production code and most of 3,800 lines of tests leave, against more than 150,000 lines
+of production Java in the repository. The value of the extraction lies in the shared foundation, not in the size;
+larger levers for the size lie in `pm-core`, `pm-runtime` and `pm-workflow`.
