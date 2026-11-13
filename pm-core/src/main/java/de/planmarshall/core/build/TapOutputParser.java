@@ -39,8 +39,9 @@ import org.jspecify.annotations.Nullable;
  * The plan is checked per run: a run starts at a line that starts with {@code TAP version} (the lines before the first
  * one, or the whole log when it carries none, are one run), the counts of several top-level plan lines of one run are
  * summed and compared with that run's own top-level test points, and the log finished its plan only when every run did,
- * so a later run of concatenated runs cannot supply the point an earlier run is missing. The plan is compared with the
- * test points, not with the
+ * so a later run of concatenated runs cannot supply the point an earlier run is missing. A plan count too large for a
+ * {@code long}, or plan counts whose sum overflows a {@code long}, leave the run unfinished (no passing summary): an
+ * announced plan that cannot be verified never reads as finished. The plan is compared with the test points, not with the
  * {@code # tests} total, because {@code node --test} plans one top-level point per suite and counts the tests inside the
  * suites in {@code # tests}.
  * <p>
@@ -137,7 +138,8 @@ public class TapOutputParser {
      * Whether the log printed TAP's passing summary: a successful status over a measured population with no failed test
      * and at least one passed test, in a run that finished its plan. A measured zero and an all-skipped run carry no
      * passed test, so they are no marker either; a run whose top-level plan lines {@code 1..N} sum to a count other than
-     * its number of top-level test points is an unfinished plan, so it is no marker however the counts read.
+     * its number of top-level test points, or whose plan count or summed count overflows a {@code long}, is an unfinished
+     * plan, so it is no marker however the counts read.
      *
      * @param status       the status the tool printed
      * @param testCounts   the counts the summary supplied, or {@code null} when it carried none
@@ -156,7 +158,8 @@ public class TapOutputParser {
      * concatenated runs ({@code npm test --workspaces}) are checked one by one and a later run cannot supply the test point
      * an earlier run is missing. A run finished its plan when it announced no top-level plan line, or when the summed
      * count of its own top-level plan lines equals its own number of top-level test points ({@code ok} / {@code not ok}
-     * at the start of a line). An indented (subtest) plan line and an indented test point belong to a subtest and are not
+     * at the start of a line). A top-level plan line whose count is too large for a {@code long}, or whose count makes
+     * the run's sum overflow one, leaves that run unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not
      * read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point
      * per suite and counts the tests inside them in {@code # tests}.
      *
@@ -172,9 +175,9 @@ public class TapOutputParser {
                 }
                 run = new PlanRun();
             }
-            Optional<Long> plan = count(PLAN, line);
-            if (plan.isPresent()) {
-                run.announce(plan.get());
+            Matcher plan = PLAN.matcher(line);
+            if (plan.find()) {
+                run.announce(plan.group(1));
             } else if (TOP_LEVEL_POINT.matcher(line).find()) {
                 run.point();
             }
@@ -371,7 +374,13 @@ public class TapOutputParser {
         }
     }
 
-    /** The plan of one TAP run: the summed count of its top-level plan lines and its top-level test points. */
+    /**
+     * The plan of one TAP run: the summed count of its top-level plan lines and its top-level test points. A plan count
+     * too large for a {@code long}, or a sum of counts that overflows one, is an announced plan that cannot be verified,
+     * so the run stays unfinished instead of wrapping to a count that could match its points. The points counter needs
+     * no such guard: it would need 2^63 test-point lines, and every line is cut at {@link BuildLogText#MAX_LINE_LENGTH}
+     * characters of a log that is read in bounded form.
+     */
     private static final class PlanRun {
 
         private long planned;
@@ -380,9 +389,18 @@ public class TapOutputParser {
 
         private boolean announced;
 
-        void announce(long count) {
+        private boolean overflowed;
+
+        void announce(String digits) {
             announced = true;
-            planned += count;
+            if (overflowed) {
+                return;
+            }
+            try {
+                planned = Math.addExact(planned, Long.parseLong(digits));
+            } catch (NumberFormatException | ArithmeticException _) {
+                overflowed = true;
+            }
         }
 
         void point() {
@@ -390,7 +408,7 @@ public class TapOutputParser {
         }
 
         boolean finished() {
-            return !announced || planned == points;
+            return !announced || (!overflowed && planned == points);
         }
     }
 

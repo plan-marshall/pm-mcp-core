@@ -246,7 +246,9 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   at the start of a line): when they differ, the run did not finish the plan it announced — the evidence class of
   `Bail out!` — and the passing summary is no marker, even with exit 0. The log finished its plan only when every run
   did, so in a log of concatenated runs (`npm test --workspaces`) a later run cannot supply the point an earlier run is
-  missing; the counts stay as the summary measured them, summed over all runs. The plan is compared with the test points and not with the
+  missing; the counts stay as the summary measured them, summed over all runs. A plan count too large for a `long`, or
+  plan counts whose sum overflows a `long`, leave the run unfinished (no passing summary): the sum is added with
+  `Math.addExact` and never wraps to a count that could match the points. The plan is compared with the test points and not with the
   `# tests` total, because `node --test` plans one top-level point per suite and counts the tests inside the suites
   (the original's real log `npm-tap-test-real.log` of the fixture `npm-tap-success` prints `1..4` beside `# tests 5`). An indented (subtest) plan line or test point
   is not read, and a run without a top-level plan line announced no plan, so it finished it.

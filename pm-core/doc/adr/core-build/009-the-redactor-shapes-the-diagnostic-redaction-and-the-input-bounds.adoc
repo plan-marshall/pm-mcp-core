@@ -128,7 +128,11 @@ run did not finish its plan — the evidence class of `Bail out!` — and the pa
 exit 0. The log finished its plan only when every run did, so a later run of concatenated runs
 (`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
 over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
-without a top-level plan line announced no plan.
+without a top-level plan line announced no plan. A plan count too large for a `long`, or plan counts whose sum
+overflows a `long`, leave the run unfinished (no passing summary): the sum is added with `Math.addExact` and never
+wraps, because an announced plan that cannot be verified must never read as finished. The counter of test points needs
+no such guard, since it would need 2^63 test-point lines of a log whose every line is cut at
+`BuildLogText.MAX_LINE_LENGTH` and which is read in bounded form.
 
 *A deviation from the outline, accepted when the plan ran unattended.* The outline compared the plan with the summed
 `# tests` total. The ported real log of `node --test` (`npm-tap-test-real.log` of the fixture `npm-tap-success`) prints
@@ -138,7 +142,10 @@ compared with the top-level test points, which the TAP grammar defines it to cou
 (finding 59ed69 on PR 407): the first form summed the plan lines and the test points over the whole log, so in a log
 of concatenated runs a later run could supply the point an earlier run was missing and print a false-green marker;
 the comparison is now made per run as stated above. A log without a `TAP version` line is one run and behaves as
-before, and the `node --test` fixture (one version line) is unchanged.
+before, and the `node --test` fixture (one version line) is unchanged. *A second refinement after review* (finding
+23a640 on PR 407): the per-run sum was added on a plain `long`, so two counts of `Long.MAX_VALUE` and a third of 3
+wrapped to 1 and matched one test point, and a plan line whose count exceeds the `long` range was read as no plan line
+at all; both now leave the run unfinished as stated above.
 
 === Item 5: every line of untrusted build input is bounded
 
@@ -208,7 +215,7 @@ before, and the `node --test` fixture (one version line) is unchanged.
   information is masked before its cut.
 * A parser result changes only for a line over the per-line bound; the fixtures inside the bounds are unchanged.
 * A passing TAP log each of whose runs matches its plan to its own top-level points keeps its marker; an unfinished
-  plan of any run keeps the marker `false` and the counts measured.
+  plan of any run, a plan count beyond the `long` range included, keeps the marker `false` and the counts measured.
 * A coverage limit above `Integer.MAX_VALUE` fails the build by name; a hostile long type name, counter value or `SF:`
   name is cut in the refusal reason.
 * Remaining, outside this plan: `JobLog.MAX_BYTES` of `pm-runtime` still narrows its limit with

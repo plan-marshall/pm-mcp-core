@@ -236,6 +236,65 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
                         "The whole-log plan sum differing drops the marker"));
     }
 
+    @Test
+    @DisplayName("keeps the marker false when the summed plan counts overflow a long (TAP wire format)")
+    void overflowingPlanSumKeepsTheMarkerFalse() {
+        // The Long.MAX_VALUE counts and the log shape are the contract: the sum wraps to 1, the one point.
+        String logText = String.join("\n", "TAP version 13", "1..9223372036854775807", "1..9223372036854775807",
+                "1..3", "ok 1 - first", "# tests 1", "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "An overflowed plan prints no failure"),
+                () -> assertFalse(build.successMarker(), "An overflowed plan sum is no passing summary"),
+                () -> assertEquals(TestCounts.from(1, 0, 0, null), build.testCounts(),
+                        "The counts stay as the summary measured them"));
+    }
+
+    @Test
+    @DisplayName("keeps the marker false when an overflowed run precedes a finished run (TAP wire format)")
+    void overflowedRunBeforeAFinishedRunKeepsTheMarkerFalse() {
+        // The Long.MAX_VALUE counts and the log shape are the contract: the first run never finishes its plan.
+        String logText = String.join("\n", "TAP version 13", "1..9223372036854775807", "1..9223372036854775807",
+                "1..3", "ok 1 - first", "# tests 1", "# pass 1", "# fail 0", "TAP version 13", "1..1",
+                "ok 1 - second", "# tests 1", "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertFalse(build.successMarker(), "An overflowed first run is no passing summary"),
+                () -> assertEquals(TestCounts.from(2, 0, 0, null), build.testCounts(),
+                        "The counts stay summed over both runs"));
+    }
+
+    @Test
+    @DisplayName("keeps the marker false for a plan count beyond the long range (TAP wire format)")
+    void planCountBeyondTheLongRangeKeepsTheMarkerFalse() {
+        // The count above Long.MAX_VALUE and the log shape are the contract: the plan cannot be verified.
+        String logText = String.join("\n", "TAP version 13", "1..99999999999999999999", "ok 1 - first",
+                "# tests 1", "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "An unverifiable plan prints no failure"),
+                () -> assertFalse(build.successMarker(), "An unverifiable plan is no passing summary"),
+                () -> assertEquals(TestCounts.from(1, 0, 0, null), build.testCounts(),
+                        "The counts stay as the summary measured them"));
+    }
+
+    @Test
+    @DisplayName("sets the marker when two plan counts sum to the test points without overflow (TAP wire format)")
+    void planCountsSummingToThePointsSetTheMarker() {
+        String logText = String.join("\n", "TAP version 13", "1..2", "ok 1 - first", "ok 2 - second", "1..1",
+                "ok 3 - third", "# tests 3", "# pass 3", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertTrue(build.successMarker(), "A plan sum equal to the points is the marker");
+    }
+
     @Override
     ParsedBuild parse(String logText) {
         return TapOutputParser.parse(logText);
