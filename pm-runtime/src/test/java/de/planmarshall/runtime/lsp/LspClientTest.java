@@ -48,6 +48,14 @@ class LspClientTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
 
+    /**
+     * The bound of the tests that wait it out: a request that never answers, a server that ignores {@code exit} and a
+     * server that dies before {@code initialize}. It also bounds {@code initialize}, which the fixture JVM answers in
+     * 0.3 s to 0.5 s on an idle host and in up to about 1.3 s under load, so it stays above both; a lower bound would
+     * fail the start, not the assertion.
+     */
+    private static final Duration WAITED_BOUND = Duration.ofSeconds(2);
+
     @TempDir
     Path workspace;
 
@@ -107,7 +115,7 @@ class LspClientTest {
     @Test
     @DisplayName("bounds a request that never answers")
     void timeout() throws Exception {
-        try (LspClient client = LspClient.start(FixtureLanguageServer.command("hang"), workspace, Duration.ofSeconds(5))) {
+        try (LspClient client = LspClient.start(FixtureLanguageServer.command("hang"), workspace, WAITED_BOUND)) {
             var refusal = assertThrows(LspException.class, () -> client.definition(file, 0, 0),
                     "a request that never answers is refused");
 
@@ -118,7 +126,7 @@ class LspClientTest {
     @Test
     @DisplayName("terminates a server that ignores exit")
     void stubborn() throws Exception {
-        LspClient client = LspClient.start(FixtureLanguageServer.command("stubborn"), workspace, Duration.ofSeconds(2));
+        LspClient client = LspClient.start(FixtureLanguageServer.command("stubborn"), workspace, WAITED_BOUND);
 
         client.close();
 
@@ -135,7 +143,7 @@ class LspClientTest {
         var missing = assertThrows(LspException.class,
                 () -> LspClient.start(List.of(noServer), workspace, TIMEOUT), "a missing server does not start");
         var dies = assertThrows(LspException.class,
-                () -> LspClient.start(FixtureLanguageServer.command("die"), workspace, Duration.ofSeconds(5)),
+                () -> LspClient.start(FixtureLanguageServer.command("die"), workspace, WAITED_BOUND),
                 "a server dying before initialize fails");
         LspException unreadable;
         try (LspClient client = LspClient.start(FixtureLanguageServer.command("location"), workspace, TIMEOUT)) {
