@@ -90,6 +90,19 @@ public class LcovReportParser {
     }
 
     /**
+     * Whether a line being read is already past the line limit: a line may carry one character more than the limit while
+     * it is read, its carriage return, which is dropped once its end is reached. The sum is taken as a {@code long}, so a
+     * limit of {@link Integer#MAX_VALUE} does not overflow into a negative bound that refuses every line.
+     *
+     * @param length the characters read of the line so far
+     * @param limit  the most characters a line may hold
+     * @return whether the line is longer than the limit and its carriage return
+     */
+    static boolean pastTheReadLimit(int length, int limit) {
+        return length > (long) limit + 1;
+    }
+
+    /**
      * The state of one walk over a report.
      */
     private static final class Walk {
@@ -137,7 +150,7 @@ public class LcovReportParser {
             }
             while (next >= 0 && next != '\n') {
                 line.append((char) next);
-                if (line.length() > CoverageReportStream.MAX_LINE_LENGTH + 1) {
+                if (pastTheReadLimit(line.length(), CoverageReportStream.MAX_LINE_LENGTH)) {
                     throw tooLong();
                 }
                 next = source.read();

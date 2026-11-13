@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Test;
  *
  * @since 0.1
  */
+@EnableGeneratorController
 @DisplayName("JacocoReportParser")
 class JacocoReportParserTest {
 
@@ -393,6 +396,45 @@ class JacocoReportParserTest {
                 () -> assertEquals(75.0, report.items().getFirst().line(), "The class line counter is 3 of 4"),
                 () -> assertEquals(List.of("run"), report.items().getFirst().missedMethods(),
                         "The missed method is run"));
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long counter type to the echo bound in the reason")
+    void cutsAHostileCounterType() {
+        String type = Generators.letterStrings(1_000, 3_000).next();
+
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="hostile-type">
+                  <counter type="%1$s" missed="1" covered="1"/>
+                  <counter type="%1$s" missed="1" covered="1"/>
+                </report>
+                """.formatted(type));
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A repeated hostile counter type is refused");
+        assertAll(
+                () -> assertEquals("jacoco: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH, refused.reason().length(),
+                        "The echoed type is cut to the echo bound"),
+                () -> assertTrue(refused.reason().startsWith("jacoco: the report carries the "),
+                        "The reason keeps its prefix and its sentence"),
+                () -> assertFalse(refused.reason().contains(type), "The whole hostile type is never echoed"));
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long counter value to the echo bound in the reason")
+    void cutsAHostileCounterValue() {
+        String value = "1".repeat(Generators.integers(1_000, 3_000).next());
+
+        CoverageParseResult result = JacocoReportParser.parse("""
+                <report name="hostile-value">
+                  <counter type="LINE" missed="%s" covered="1"/>
+                </report>
+                """.formatted(value));
+
+        CoverageParseResult.Refused refused = assertRefused(result, "A counter value out of range is refused");
+        assertAll(
+                () -> assertEquals("jacoco: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH, refused.reason().length(),
+                        "The echoed value is cut to the echo bound"),
+                () -> assertFalse(refused.reason().contains(value), "The whole hostile value is never echoed"));
     }
 
     private static CoverageParseResult.Refused assertRefused(CoverageParseResult result, String message) {

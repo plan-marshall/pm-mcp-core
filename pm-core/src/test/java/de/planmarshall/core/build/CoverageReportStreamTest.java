@@ -107,6 +107,33 @@ class CoverageReportStreamTest {
         }
     }
 
+    // Long.MAX_VALUE is the contract edge: one more than the bytes left would overflow into a negative read length.
+    @Test
+    @DisplayName("reads a report under a bound of Long.MAX_VALUE instead of a negative read length")
+    void readsUnderTheLargestBound() throws Exception {
+        byte[] report = text(1, 200);
+
+        byte[] buffer = new byte[report.length];
+
+        try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), Long.MAX_VALUE)) {
+            int read = stream.read(buffer, 0, buffer.length);
+            assertAll(
+                    () -> assertEquals(report.length, read, "One read takes the whole report under the top bound"),
+                    () -> assertArrayEquals(report, buffer, "A report under the top bound reads unchanged"),
+                    () -> assertEquals(-1, stream.read(), "The stream ends after the last byte"));
+        }
+    }
+
+    @Test
+    @DisplayName("skips a report under a bound of Long.MAX_VALUE")
+    void skipsUnderTheLargestBound() throws Exception {
+        byte[] report = text(1, 200);
+
+        try (InputStream stream = new CoverageReportStream(new ByteArrayInputStream(report), Long.MAX_VALUE)) {
+            assertEquals(report.length, stream.skip(Long.MAX_VALUE), "Every byte of the report is skipped");
+        }
+    }
+
     @Test
     @DisplayName("supports no mark, so the count cannot run behind the bytes read")
     void supportsNoMark() throws Exception {

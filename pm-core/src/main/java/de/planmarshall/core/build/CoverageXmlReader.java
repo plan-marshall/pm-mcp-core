@@ -12,6 +12,7 @@ package de.planmarshall.core.build;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.StringReader;
+import javax.xml.XMLConstants;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLResolver;
 import javax.xml.stream.XMLStreamConstants;
@@ -28,8 +29,11 @@ import lombok.experimental.UtilityClass;
  * from being replaced, and resolves every external reference to an empty stream, so a DTD or entity that tries to reach a
  * file or a URL reads nothing. The walk refuses an {@code ENTITY_REFERENCE} event, so a document that references an
  * entity in element content is refused, never expanded. An undeclared entity reference in an attribute value raises no
- * such event: the reader drops it from the value, so it is never expanded and never resolved either. The decisions are
- * recorded in {@code core-build/008}, which supersedes the hardening part of {@code core-build/005}.
+ * such event: the reader drops it from the value, so it is never expanded and never resolved either. As defence in
+ * depth, the factory also allows no protocol for an external DTD or schema ({@link XMLConstants#ACCESS_EXTERNAL_DTD},
+ * {@link XMLConstants#ACCESS_EXTERNAL_SCHEMA}) where the implementation accepts the two properties; the JDK's built-in
+ * StAX implementation is the supported one and accepts both. The decisions are recorded in {@code core-build/008}, which
+ * supersedes the hardening part of {@code core-build/005}, and in {@code core-build/009}.
  *
  * @since 0.1
  */
@@ -166,13 +170,42 @@ class CoverageXmlReader {
         return new Reader(factory(EMPTY_RESOLVER).createXMLStreamReader(new StringReader(xml)));
     }
 
-    private static XMLInputFactory factory(XMLResolver resolver) {
+    /**
+     * Builds the hardened factory: DTD support, external entities and entity replacement off, every external reference
+     * handed to the given resolver, and no protocol allowed for an external DTD or schema where the implementation
+     * accepts the two access properties.
+     *
+     * @param resolver the resolver every external reference is handed to
+     * @return the hardened factory
+     */
+    static XMLInputFactory factory(XMLResolver resolver) {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES, Boolean.FALSE);
+        setIfAccepted(factory, XMLConstants.ACCESS_EXTERNAL_DTD);
+        setIfAccepted(factory, XMLConstants.ACCESS_EXTERNAL_SCHEMA);
         factory.setXMLResolver(resolver);
         return factory;
+    }
+
+    /**
+     * Allows no protocol for the given access property, where the implementation accepts it. The JDK's built-in StAX
+     * implementation accepts both access properties; an implementation that does not rejects the property with an
+     * {@link IllegalArgumentException}, and the properties already set stay in force as the defence.
+     *
+     * @param factory  the factory being hardened
+     * @param property the access property, {@link XMLConstants#ACCESS_EXTERNAL_DTD} or
+     *                 {@link XMLConstants#ACCESS_EXTERNAL_SCHEMA}
+     * @return whether the implementation accepted the property
+     */
+    static boolean setIfAccepted(XMLInputFactory factory, String property) {
+        try {
+            factory.setProperty(property, "");
+            return true;
+        } catch (IllegalArgumentException _) {
+            return false;
+        }
     }
 
     /**

@@ -212,6 +212,39 @@ class LcovReportParserTest {
                 () -> assertTrue(refused.reason().contains("lcov"), "The reason names the format"));
     }
 
+    @Test
+    @DisplayName("cuts a hostile long SF: name to the echo bound in the reason")
+    void cutsAHostileFileNameInTheReason() {
+        String name = Generators.letterStrings(2_000, 4_000).next();
+
+        CoverageParseResult result = LcovReportParser.parse("SF:" + name + "\nLF:1\n");
+
+        CoverageParseResult.Refused refused = assertInstanceOf(CoverageParseResult.Refused.class, result,
+                "A report ending inside a record is refused");
+        String detail = refused.reason().substring("lcov: ".length());
+        assertAll(
+                () -> assertTrue(refused.reason().startsWith("lcov: the report ends inside the record "),
+                        "The reason keeps its prefix and its sentence"),
+                () -> assertEquals(CoverageRefusals.MAX_DETAIL_LENGTH, detail.length(),
+                        "The echoed detail is cut to the echo bound"),
+                () -> assertFalse(refused.reason().contains(name), "The whole hostile name is never echoed"));
+    }
+
+    // The limits are the contract edge: a limit of Integer.MAX_VALUE plus the carriage return overflows an int.
+    @Test
+    @DisplayName("compares the line length at the int edge without overflow")
+    void comparesTheLineLengthAtTheIntEdge() {
+        int limit = Generators.integers(1, 10_000).next();
+
+        assertAll(
+                () -> assertFalse(LcovReportParser.pastTheReadLimit(Integer.MAX_VALUE, Integer.MAX_VALUE),
+                        "A line at a limit of Integer.MAX_VALUE is in range"),
+                () -> assertFalse(LcovReportParser.pastTheReadLimit(limit + 1, limit),
+                        "The carriage return may follow a full line"),
+                () -> assertTrue(LcovReportParser.pastTheReadLimit(limit + 2, limit),
+                        "Two characters past the limit are refused"));
+    }
+
     // The counters are the contract: every record found no line, so the summed LF is 0.
     @Test
     @DisplayName("refuses a report whose summed LF is 0")
