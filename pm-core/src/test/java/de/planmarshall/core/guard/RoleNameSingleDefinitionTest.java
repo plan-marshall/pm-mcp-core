@@ -24,7 +24,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -52,7 +51,7 @@ class RoleNameSingleDefinitionTest {
 
     private static final String PRODUCTION_SOURCE = "src/main/java";
 
-    private static final String SHORT_NAME = "core/id/ShortName.java";
+    private static final String SHORT_NAME = "pm-core/src/main/java/de/planmarshall/core/id/ShortName.java";
 
     private static final List<String> MODULES = List.of("pm-core", "pm-workflow", "pm-runtime");
 
@@ -65,21 +64,25 @@ class RoleNameSingleDefinitionTest {
     void noCopyOfTheGrammar() {
         var root = repositoryRoot();
         var offenders = new ArrayList<String>();
-        var filesPerModule = new TreeMap<String, Integer>();
+        var emptyRoots = new ArrayList<Path>();
+        var scannedRoots = new ArrayList<Path>();
         for (var productionRoot : productionRoots(root)) {
             var scan = scan(root, productionRoot);
-            offenders.addAll(scan.offences());
-            if (scan.files() > 0) {
-                filesPerModule.merge(root.relativize(productionRoot).getName(0).toString(), scan.files(),
-                        Integer::sum);
+            scannedRoots.add(root.relativize(productionRoot));
+            if (scan.files() == 0) {
+                emptyRoots.add(root.relativize(productionRoot));
             }
+            offenders.addAll(scan.offences());
         }
 
         var checks = new ArrayList<Executable>();
         for (var module : MODULES) {
-            checks.add(() -> assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
-                    "The scan should read at least one file of " + module));
+            var productionRoot = root.resolve(module).resolve(PRODUCTION_SOURCE);
+            checks.add(() -> assertTrue(scannedRoots.contains(root.relativize(productionRoot)),
+                    "The scan should reach the production root of " + module));
         }
+        checks.add(() -> assertTrue(emptyRoots.isEmpty(),
+                () -> "Every production source root should hold a Java file: " + emptyRoots));
         checks.add(() -> assertTrue(offenders.isEmpty(),
                 () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName "
                         + "or HarnessId): " + offenders));
@@ -89,7 +92,7 @@ class RoleNameSingleDefinitionTest {
     @Test
     @DisplayName("the one definition writes the grammar text")
     void oneDefinitionWritesTheText() {
-        var shortName = sourceOf(repositoryRoot().resolve("pm-core").resolve(PRODUCTION_SOURCE), SHORT_NAME);
+        var shortName = read(repositoryRoot().resolve(SHORT_NAME));
 
         assertTrue(containsSpelling(shortName), "The one definition should write the grammar text");
     }
@@ -161,7 +164,7 @@ class RoleNameSingleDefinitionTest {
             for (var file : walk.filter(Files::isRegularFile).filter(RoleNameSingleDefinitionTest::isJava)
                     .toList()) {
                 files++;
-                if (isShortName(file)) {
+                if (isShortName(root, file)) {
                     continue;
                 }
                 for (var offence : offences(read(file))) {
@@ -174,8 +177,8 @@ class RoleNameSingleDefinitionTest {
         return new Scan(List.copyOf(offenders), files);
     }
 
-    private static boolean isShortName(Path file) {
-        return file.toString().replace('\\', '/').endsWith("/" + SHORT_NAME);
+    private static boolean isShortName(Path root, Path file) {
+        return root.relativize(file).toString().replace('\\', '/').equals(SHORT_NAME);
     }
 
     private static List<String> offences(String source) {
@@ -295,17 +298,6 @@ class RoleNameSingleDefinitionTest {
     private static String read(Path file) {
         try {
             return Files.readString(file);
-        } catch (IOException exception) {
-            throw new UncheckedIOException(exception);
-        }
-    }
-
-    private static String sourceOf(Path productionRoot, String suffix) {
-        try (var files = Files.walk(productionRoot)) {
-            var match = files.filter(Files::isRegularFile)
-                    .filter(path -> path.toString().replace('\\', '/').endsWith(suffix)).findFirst();
-            return match.map(RoleNameSingleDefinitionTest::read)
-                    .orElseGet(() -> fail("the one definition was not found: " + suffix));
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
