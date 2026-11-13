@@ -161,7 +161,7 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(1, fixtures.jobRequests.getValues().size(),
                             "the replay started the build job once"),
                     () -> assertEquals(List.of(new QueueTaskCreator.CreateRequest(PLAN_ID, "execute.review", "change",
-                            "reviewer")), fixtures.taskRequests.getValues(),
+                                    "reviewer")), fixtures.taskRequests.getValues(),
                             "the replay created the queue task once"));
         }
 
