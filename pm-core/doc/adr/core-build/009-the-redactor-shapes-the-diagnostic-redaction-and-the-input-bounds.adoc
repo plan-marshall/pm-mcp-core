@@ -120,17 +120,25 @@ forbids a cycle of packages within one module, and the escape-sequence expressio
 
 === Decision 3: an unfinished TAP plan is no success marker
 
-A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` sums the counts of the
-top-level plan lines and compares the sum with the number of top-level test points (`ok` / `not ok` at the start of a
-line); when they differ, the run did not finish its plan — the evidence class of `Bail out!` — and the passing summary
-is no marker, even with exit 0. The counts stay as the summary measured them. An indented (subtest) plan line or test
-point is not read, a matching plan changes nothing, and a log without a top-level plan line announced no plan.
+A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` checks the plan per run:
+a run starts at every line that starts with `TAP version`, and the lines before the first such line, or the whole log
+when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
+sum with the run's own number of top-level test points (`ok` / `not ok` at the start of a line); when they differ, the
+run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
+exit 0. The log finished its plan only when every run did, so a later run of concatenated runs
+(`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
+over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
+without a top-level plan line announced no plan.
 
 *A deviation from the outline, accepted when the plan ran unattended.* The outline compared the plan with the summed
 `# tests` total. The ported real log of `node --test` (`npm-tap-test-real.log` of the fixture `npm-tap-success`) prints
 `1..4` beside `# tests 5`, because `node --test` plans one top-level point per suite and counts the tests inside the
 suites in `# tests`; the outline's rule would have turned that passing run `indeterminate`. The plan is therefore
-compared with the top-level test points, which the TAP grammar defines it to count.
+compared with the top-level test points, which the TAP grammar defines it to count. *A refinement after review*
+(finding 59ed69 on PR 407): the first form summed the plan lines and the test points over the whole log, so in a log
+of concatenated runs a later run could supply the point an earlier run was missing and print a false-green marker;
+the comparison is now made per run as stated above. A log without a `TAP version` line is one run and behaves as
+before, and the `node --test` fixture (one version line) is unchanged.
 
 === Item 5: every line of untrusted build input is bounded
 
@@ -199,8 +207,8 @@ compared with the top-level test points, which the TAP grammar defines it to cou
 * An `E404` or `ERESOLVE` message without a secret is byte-identical to before; one whose specifier or peer carries user
   information is masked before its cut.
 * A parser result changes only for a line over the per-line bound; the fixtures inside the bounds are unchanged.
-* A passing TAP run whose plan matches its top-level points keeps its marker; an unfinished plan keeps the marker
-  `false` and the counts measured.
+* A passing TAP log each of whose runs matches its plan to its own top-level points keeps its marker; an unfinished
+  plan of any run keeps the marker `false` and the counts measured.
 * A coverage limit above `Integer.MAX_VALUE` fails the build by name; a hostile long type name, counter value or `SF:`
   name is cut in the refusal reason.
 * Remaining, outside this plan: `JobLog.MAX_BYTES` of `pm-runtime` still narrows its limit with

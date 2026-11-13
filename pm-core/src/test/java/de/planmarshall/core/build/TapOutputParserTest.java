@@ -180,6 +180,62 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertFalse(build.successMarker(), "A filed diagnostic keeps the marker false"));
     }
 
+    @Test
+    @DisplayName("checks the plan per run, so a later run cannot supply the point an earlier run missed (TAP wire format)")
+    void laterRunCannotFinishAnEarlierPlan() {
+        String logText = String.join("\n", "1..2", "ok 1 - first", "# tests 1", "# pass 1", "# fail 0",
+                "TAP version 13", "ok 1 - second", "# tests 1", "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "An unfinished first run prints no failure"),
+                () -> assertFalse(build.successMarker(), "An unfinished first run is no passing summary"),
+                () -> assertEquals(TestCounts.from(2, 0, 0, null), build.testCounts(),
+                        "The counts stay summed over both runs"));
+    }
+
+    @Test
+    @DisplayName("sets the marker when every run finishes its own plan (TAP wire format)")
+    void everyRunFinishedSetsTheMarker() {
+        String logText = String.join("\n", "TAP version 13", "1..2", "ok 1 - first", "ok 2 - second", "# tests 2",
+                "# pass 2", "# fail 0", "TAP version 13", "1..1", "ok 1 - third", "# tests 1", "# pass 1",
+                "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertTrue(build.successMarker(), "Two finished passing runs are the marker"),
+                () -> assertEquals(TestCounts.from(3, 0, 0, null), build.testCounts(),
+                        "The counts stay summed over both runs"));
+    }
+
+    @Test
+    @DisplayName("sets the marker when a run without a plan precedes a run whose plan matches (TAP wire format)")
+    void runWithoutPlanBeforeAFinishedRunSetsTheMarker() {
+        String logText = String.join("\n", "TAP version 13", "ok 1 - first", "# tests 1", "# pass 1", "# fail 0",
+                "TAP version 13", "1..1", "ok 1 - second", "# tests 1", "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertTrue(build.successMarker(), "A run that announced no plan finished it");
+    }
+
+    @Test
+    @DisplayName("reads a log without a version line as one run (TAP wire format)")
+    void logWithoutVersionLineIsOneRun() {
+        String matching = String.join("\n", "1..1", "ok 1 - first", "1..1", "ok 2 - second", "# tests 2",
+                "# pass 2", "# fail 0");
+        String nonMatching = String.join("\n", "1..2", "ok 1 - first", "1..1", "ok 2 - second", "# tests 2",
+                "# pass 2", "# fail 0");
+
+        assertAll(
+                () -> assertTrue(TapOutputParser.parse(matching).successMarker(),
+                        "The whole-log plan sum matching keeps the marker"),
+                () -> assertFalse(TapOutputParser.parse(nonMatching).successMarker(),
+                        "The whole-log plan sum differing drops the marker"));
+    }
+
     @Override
     ParsedBuild parse(String logText) {
         return TapOutputParser.parse(logText);

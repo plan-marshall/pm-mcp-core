@@ -34,9 +34,13 @@ import org.jspecify.annotations.Nullable;
  * zero, an all-skipped run, a printed failing count, a {@code Bail out!} line and a filed diagnostic all keep the marker
  * {@code false}. So does a top-level plan line {@code 1..N} whose {@code N} differs from the number of top-level test
  * points (ADR {@code core-build/009}): the run did not finish its plan, the same evidence class as a bailout, so it is no
- * passing summary even with exit 0. The counts stay as the summary measured them. A plan line that matches its test
- * points, an indented (subtest) plan line and a log without a top-level plan line change nothing; the counts of several
- * top-level plan lines are summed, as the summary blocks are. The plan is compared with the test points, not with the
+ * passing summary even with exit 0. The counts stay as the summary measured them, summed over every run. A plan line
+ * that matches its test points, an indented (subtest) plan line and a log without a top-level plan line change nothing.
+ * The plan is checked per run: a run starts at a line that starts with {@code TAP version} (the lines before the first
+ * one, or the whole log when it carries none, are one run), the counts of several top-level plan lines of one run are
+ * summed and compared with that run's own top-level test points, and the log finished its plan only when every run did,
+ * so a later run of concatenated runs cannot supply the point an earlier run is missing. The plan is compared with the
+ * test points, not with the
  * {@code # tests} total, because {@code node --test} plans one top-level point per suite and counts the tests inside the
  * suites in {@code # tests}.
  * <p>
@@ -67,6 +71,9 @@ public class TapOutputParser {
     private static final String BLOCK_STACK = "|";
 
     private static final String STACK_INDENT = "        ";
+
+    /** The start of a TAP version line, which begins a new run of a log that concatenates several. */
+    private static final String VERSION_LINE = "TAP version";
 
     @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
     private static final Pattern NOT_OK = Pattern.compile("^\\s*not ok\\s+\\d+\\s*-\\s*(.+)$");
@@ -129,8 +136,8 @@ public class TapOutputParser {
     /**
      * Whether the log printed TAP's passing summary: a successful status over a measured population with no failed test
      * and at least one passed test, in a run that finished its plan. A measured zero and an all-skipped run carry no
-     * passed test, so they are no marker either; a top-level plan line {@code 1..N} whose {@code N} differs from the
-     * number of top-level test points is an unfinished plan, so it is no marker however the counts read.
+     * passed test, so they are no marker either; a run whose top-level plan lines {@code 1..N} sum to a count other than
+     * its number of top-level test points is an unfinished plan, so it is no marker however the counts read.
      *
      * @param status       the status the tool printed
      * @param testCounts   the counts the summary supplied, or {@code null} when it carried none
@@ -144,29 +151,35 @@ public class TapOutputParser {
     }
 
     /**
-     * Whether the run finished the plan it announced: the summed count of the top-level plan lines equals the number of
-     * top-level test points ({@code ok} / {@code not ok} at the start of a line). A log without a top-level plan line
-     * announced no plan, so it finished it; an indented (subtest) plan line and an indented test point belong to a
-     * subtest and are not read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints
-     * one top-level point per suite and counts the tests inside them in {@code # tests}.
+     * Whether every run of the log finished the plan it announced. A run starts at every line that starts with
+     * {@code TAP version}; the lines before the first such line, or the whole log when it carries none, are one run, so
+     * concatenated runs ({@code npm test --workspaces}) are checked one by one and a later run cannot supply the test point
+     * an earlier run is missing. A run finished its plan when it announced no top-level plan line, or when the summed
+     * count of its own top-level plan lines equals its own number of top-level test points ({@code ok} / {@code not ok}
+     * at the start of a line). An indented (subtest) plan line and an indented test point belong to a subtest and are not
+     * read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point
+     * per suite and counts the tests inside them in {@code # tests}.
      *
      * @param lines the log lines
-     * @return whether no top-level plan line contradicts the top-level test points
+     * @return whether no run's top-level plan lines contradict that run's top-level test points
      */
     private static boolean finishedPlan(List<String> lines) {
-        long planned = 0;
-        long points = 0;
-        boolean announced = false;
+        var run = new PlanRun();
         for (String line : lines) {
+            if (line.startsWith(VERSION_LINE)) {
+                if (!run.finished()) {
+                    return false;
+                }
+                run = new PlanRun();
+            }
             Optional<Long> plan = count(PLAN, line);
             if (plan.isPresent()) {
-                announced = true;
-                planned += plan.get();
+                run.announce(plan.get());
             } else if (TOP_LEVEL_POINT.matcher(line).find()) {
-                points++;
+                run.point();
             }
         }
-        return !announced || planned == points;
+        return run.finished();
     }
 
     /**
@@ -355,6 +368,29 @@ public class TapOutputParser {
                 end--;
             }
             return value.substring(start, end);
+        }
+    }
+
+    /** The plan of one TAP run: the summed count of its top-level plan lines and its top-level test points. */
+    private static final class PlanRun {
+
+        private long planned;
+
+        private long points;
+
+        private boolean announced;
+
+        void announce(long count) {
+            announced = true;
+            planned += count;
+        }
+
+        void point() {
+            points++;
+        }
+
+        boolean finished() {
+            return !announced || planned == points;
         }
     }
 
