@@ -15,9 +15,9 @@ The role-name grammar `^[a-z][a-z0-9-]{1,31}$` (2 to 32 characters) was written 
 twenty-two classes of `pm-core`, `pm-workflow` and `pm-runtime` — seventeen role names, six harness ids and one constant
 that served both — each with its own field and error text. The specification defines the text once (Identifiers §
 General Rules & Registry, entry `id-role-name`) and gives the harness id the same text under its own entry
-`id-harness-id`, so a change of the grammar was a change in twenty places, and a new record that carries a role copied
-the text again. The operator decided on 2026-10-29 (decision 17 of 18, option 1) on a small refactor that gives the
-pattern one definition, replaces the copies, and adds a test that fails if a copy is added.
+`id-harness-id`, so a change of the grammar was a change in twenty-two classes (twenty-four literals), and a new record
+that carries a role copied the text again. The operator decided on 2026-10-29 (decision 17 of 18, option 1) on a small
+refactor that gives the pattern one definition, replaces the copies, and adds a test that fails if a copy is added.
 
 The package `de.planmarshall.core.id` existed and held `package-info.java` only; it is the package the Module Structure
 Specification gives "the identifier types and their validation", and it depends on no other package of the product.
@@ -26,8 +26,8 @@ Specification gives "the identifier types and their validation", and it depends 
 
 The grammar text lives once, in the package-private `ShortName.TEXT`, and the package exposes two public types that read
 it: `RoleName` (registry entry `id-role-name`) and `HarnessId` (`id-harness-id`). Both patterns are anchored, so the one
-message that prints a pattern (`WorkflowStatus.requireMatch`) is byte-identical, and every caller matches through
-`Matcher.matches()`, which anchors either way.
+message that prints the name-grammar pattern (`WorkflowStatus.requireMatch`) is byte-identical, and every caller matches
+through `Matcher.matches()`, which anchors either way.
 
 Every copy is replaced by the shared pattern; each caller keeps its own `require…` helper, its null handling, its
 exception type and its message. Where one constant served two members (`WorkerState.NAME` for `worker.role` and

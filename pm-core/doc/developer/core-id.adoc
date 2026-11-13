@@ -36,9 +36,9 @@ names.
 The harness id, the identifier of an enrolled harness. It has the same shape as `RoleName` and reads the same
 `ShortName.TEXT`, but it is a type of its own.
 
-Both patterns are anchored. Only `WorkflowStatus.requireMatch` prints a pattern in its refusal message, so the anchored
-text keeps that message byte-identical; every other caller matches through `Matcher.matches()`, which anchors either
-way.
+Both patterns are anchored. Only `WorkflowStatus.requireMatch` prints the name-grammar pattern in its refusal message,
+so the anchored text keeps that message byte-identical; every other caller matches through `Matcher.matches()`, which
+anchors either way.
 
 == Why Two Names for One Text
 
@@ -80,13 +80,14 @@ The guard reads the repository root the way `NullMarkedPackagesTest` does, from 
 
 == The Grammars That Stay Local
 
-Five name-shaped grammars are deliberately not this text, and each keeps its own constant:
+The name-shaped grammars that stay local, grouped by the text they carry:
 
-* the one-to-32 character forms — `RoleArtifactValidator.CLIENT_ID`, `ProfileValidator.CLIENT_ID`,
-  `ShippedProfiles.CLIENT_ID` and `GradedConfiguration.HARNESS_NAME` (`^[a-z][a-z0-9-]{0,31}$`): the harness profile and
-  role artifact schemas state 1 to 32, which is not the registry's 2 to 32;
+* the one-to-32 character form `^[a-z][a-z0-9-]{0,31}$` — `RoleArtifactValidator.CLIENT_ID`,
+  `ProfileValidator.CLIENT_ID`, `ShippedProfiles.CLIENT_ID` and `GradedConfiguration.HARNESS_NAME` (unanchored there):
+  the harness profile and role artifact schemas state 1 to 32, which is not the registry's 2 to 32;
+  `ProfileValidator.BUNDLED_ICON` carries the same text for an icon file name, which the registry does not name;
 * `QualificationRecord.SOURCE` (`[a-z][a-z0-9-]{1,63}`), the corpus source name;
-* `QuestionRecord.BRANCH_KEY` (`[a-z][a-z0-9_]{1,31}`), which carries `_` and not `-`.
+* `QuestionRecord.BRANCH_KEY` and `AnswerFact.BRANCH` (`[a-z][a-z0-9_]{1,31}`), which carry `_` and not `-`.
 
 The `harness_id` grammar itself is stated as 2 to 32 in the registry and the store schemas and as 1 to 32 in the harness
 profile and role artifact schemas. The two forms are reported as a specification inconsistency; the code keeps each
