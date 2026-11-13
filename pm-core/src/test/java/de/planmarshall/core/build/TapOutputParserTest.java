@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -293,6 +294,99 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
         ParsedBuild build = TapOutputParser.parse(logText);
 
         assertTrue(build.successMarker(), "A plan sum equal to the points is the marker");
+    }
+
+    @Test
+    @DisplayName("leaves the counts unmeasured when the summed test totals overflow a long (TAP wire format)")
+    void overflowingTestsTotalIsUnmeasured() {
+        // The Long.MAX_VALUE counts and the log shape are the contract: the totals wrap to 1, the one passed test.
+        String logText = String.join("\n", "TAP version 13", "1..1", "ok 1 - first", "# tests 9223372036854775807",
+                "# tests 9223372036854775807", "# tests 3", "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "An overflowed total prints no failure"),
+                () -> assertFalse(build.successMarker(), "An overflowed total is no passing summary"),
+                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
+                        "An overflowed total is no measured population"));
+    }
+
+    @Test
+    @DisplayName("leaves the counts unmeasured when the summed pass counts overflow a long (TAP wire format)")
+    void overflowingPassSumIsUnmeasured() {
+        // The Long.MAX_VALUE counts and the log shape are the contract: the pass counts wrap to 1, the one test.
+        String logText = String.join("\n", "TAP version 13", "1..1", "ok 1 - first", "# tests 1",
+                "# pass 9223372036854775807", "# pass 9223372036854775807", "# pass 3", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertFalse(build.successMarker(), "An overflowed pass sum is no passing summary"),
+                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
+                        "An overflowed pass sum is no measured population"));
+    }
+
+    @Test
+    @DisplayName("leaves the counts unmeasured when pass and fail wrap to the printed total (TAP wire format)")
+    void partsWrappingToTheTotalAreUnmeasured() {
+        // The Long.MAX_VALUE counts and the log shape are the contract: pass + fail + skipped wrap to the total 1.
+        String logText = String.join("\n", "TAP version 13", "1..1", "ok 1 - first", "# tests 1",
+                "# pass 9223372036854775807", "# fail 9223372036854775807", "# skipped 3");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertFalse(build.successMarker(), "Wrapped parts are no passing summary"),
+                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
+                        "Wrapped parts are no measured population"));
+    }
+
+    @Test
+    @DisplayName("keeps summing two ordinary summary blocks to a measured population")
+    void twoOrdinarySummaryBlocksStayMeasured() {
+        int first = Generators.integers(1, 1000).next();
+        int second = Generators.integers(1, 1000).next();
+        String logText = String.join("\n", "TAP version 13", "# tests " + first, "# pass " + first, "# fail 0",
+                "TAP version 13", "# tests " + second, "# pass " + second, "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertTrue(build.successMarker(), "Two passing blocks keep the passing summary"),
+                () -> assertEquals(TestCounts.from((long) first + second, 0, 0, null), build.testCounts(),
+                        "Two ordinary blocks sum to a measurement"));
+    }
+
+    @Test
+    @DisplayName("leaves the counts unmeasured for a test total beyond the long range (TAP wire format)")
+    void testsTotalBeyondTheLongRangeIsUnmeasured() {
+        // The count above Long.MAX_VALUE and the log shape are the contract: the total cannot be read.
+        String logText = String.join("\n", "TAP version 13", "1..1", "ok 1 - first", "# tests 99999999999999999999",
+                "# pass 1", "# fail 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertFalse(build.successMarker(), "An unreadable total is no passing summary"),
+                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
+                        "An unreadable total is no measured population"));
+    }
+
+    @Test
+    @DisplayName("reads a fail count beyond the long range as a red status (TAP wire format)")
+    void failCountBeyondTheLongRangeIsRed() {
+        // The count above Long.MAX_VALUE and the log shape are the contract: a printed failing count is red.
+        String logText = String.join("\n", "TAP version 13", "1..1", "ok 1 - first", "# tests 1", "# pass 1",
+                "# fail 99999999999999999999");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.FAILURE, build.status(), "A failing count of any size is red"),
+                () -> assertFalse(build.successMarker(), "A failing count is no passing summary"),
+                () -> assertEquals(TestCounts.unmeasured(), build.testCounts(),
+                        "An unreadable fail count is no measurement"));
     }
 
     @Override

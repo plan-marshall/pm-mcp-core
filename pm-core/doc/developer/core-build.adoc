@@ -248,7 +248,12 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   did, so in a log of concatenated runs (`npm test --workspaces`) a later run cannot supply the point an earlier run is
   missing; the counts stay as the summary measured them, summed over all runs. A plan count too large for a `long`, or
   plan counts whose sum overflows a `long`, leave the run unfinished (no passing summary): the sum is added with
-  `Math.addExact` and never wraps to a count that could match the points. The plan is compared with the test points and not with the
+  `Math.addExact` and never wraps to a count that could match the points. The counter of test points needs no such
+  guard, because the size of the input bounds it (at most `BuildLogText.MAX_BYTES` bytes of a file, or the length of a
+  Java `String`, so fewer than 2^31 points); the line cut bounds a line's length, not the number of lines. The summary
+  counts follow the same rule as the plan count: a `# tests`, `# pass`, `# fail` or `# skipped` count too large for a
+  `long`, or summary counts whose sum overflows a `long`, leave the population `Unmeasured` and the passing summary is
+  no marker, and a `# fail` count too large for a `long` is still a red status. The plan is compared with the test points and not with the
   `# tests` total, because `node --test` plans one top-level point per suite and counts the tests inside the suites
   (the original's real log `npm-tap-test-real.log` of the fixture `npm-tap-success` prints `1..4` beside `# tests 5`). An indented (subtest) plan line or test point
   is not read, and a run without a top-level plan line announced no plan, so it finished it.
@@ -266,7 +271,11 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
 Every summary block contributes to the counts: Jest sums every `Tests:` block, TAP every `# tests` block and pytest
 every summary line, so a log that concatenates several runs (one per package, or one per matrix entry) reports the sum
 rather than the first or last block. A block whose total is not the sum of its parts — `Tests: 7 total` with no parts, a
-`# tests 5` with two passing tests — is `Unmeasured`, never a set of figures that disagree with itself. A measured zero
+`# tests 5` with two passing tests — is `Unmeasured`, never a set of figures that disagree with itself. No sum wraps:
+Jest and TAP add every count and every block's parts with `Math.addExact`, so a count too large for a `long` or a sum
+that overflows one is `Unmeasured`, and a failed count too large for a `long` is still a red status; pytest (like
+Gradle) checks every addition against `Integer.MAX_VALUE`; and ESLint adds its problem summaries exactly and reports no
+summary when a count or a sum cannot be represented. A measured zero
 stays a measured zero: no tool of the six prints a positive "no tests" marker, so `noTestsRan` is `false` throughout, and
 a filter that matched nothing reports either pytest's own `no tests ran` line (no count at all) or TAP's
 `# tests 0` (a measured zero).

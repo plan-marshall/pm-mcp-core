@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  * The scanner keeps the last file-header line it saw and files every {@code line:column severity message rule} row
  * below it as a {@link Category#LINT_ERROR} diagnostic, with the rule prefixed to the message, as in the original. The
  * problem summary ({@code ✖ N problems (E errors, W warnings)}) is parsed beside the rows and returned as
- * {@link EslintResult#problems()}.
+ * {@link EslintResult#problems()}. The summaries of a multi-run log are summed; a count too large for a {@code long}, or
+ * a sum that overflows one or the {@code int} of a count, is reported as no summary, never as a wrapped count.
  * <p>
  * Two behaviours differ from the original, both recorded in ADR {@code core-build/003}. The original defines the summary
  * pattern and never reads it, so the counts it carries are lost; this port reports them. And a row whose message and rule
@@ -176,30 +177,34 @@ public class EslintOutputParser {
         return start;
     }
 
+    /**
+     * Sums the problem summaries of the log. Every addition is exact ({@link Math#addExact(long, long)}): a count too
+     * large for a {@code long}, or a sum that overflows a {@code long} or does not fit the {@code int} of
+     * {@link EslintResult.ProblemCounts}, is no summary, so a wrapped sum never reads as a printed count.
+     *
+     * @param lines the log lines
+     * @return the summed counts, or empty when the log carries no summary or its counts cannot be represented
+     */
     private static Optional<EslintResult.ProblemCounts> problemCounts(List<String> lines) {
         long errors = 0;
         long warnings = 0;
         boolean found = false;
-        for (String rawLine : lines) {
-            Matcher matcher = PROBLEM_SUMMARY.matcher(withoutCarriageReturn(rawLine));
-            while (matcher.find()) {
-                found = true;
-                errors += toLong(matcher.group(2));
-                warnings += toLong(matcher.group(3));
+        try {
+            for (String rawLine : lines) {
+                Matcher matcher = PROBLEM_SUMMARY.matcher(withoutCarriageReturn(rawLine));
+                while (matcher.find()) {
+                    found = true;
+                    errors = Math.addExact(errors, Long.parseLong(matcher.group(2)));
+                    warnings = Math.addExact(warnings, Long.parseLong(matcher.group(3)));
+                }
             }
+        } catch (NumberFormatException | ArithmeticException _) {
+            return Optional.empty();
         }
         if (!found || errors > Integer.MAX_VALUE || warnings > Integer.MAX_VALUE) {
             return Optional.empty();
         }
         return Optional.of(new EslintResult.ProblemCounts((int) errors, (int) warnings));
-    }
-
-    private static long toLong(String digits) {
-        try {
-            return Long.parseLong(digits);
-        } catch (NumberFormatException _) {
-            return Long.MAX_VALUE;
-        }
     }
 
     private static String withoutCarriageReturn(String line) {

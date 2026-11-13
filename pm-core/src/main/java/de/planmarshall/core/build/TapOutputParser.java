@@ -48,7 +48,10 @@ import org.jspecify.annotations.Nullable;
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * occurrence of each summary line, and it trusts {@code # tests} over its parts. This port sums every summary block of a
  * multi-file run, and a total that is not the sum of its parts makes the population {@link TestCounts.Unmeasured}.
- * A measured zero is a measurement: {@code # fail 0} never produces a {@code no_tests_ran} verdict, because TAP prints no
+ * A summary count too large for a {@code long}, or summary counts whose sum overflows a {@code long}, leave the
+ * population {@link TestCounts.Unmeasured} as well, beside the plan-count rule above: a wrapped sum never reads as a
+ * measured population, and a {@code # fail} count too large for a {@code long} is still a printed failing count, so the
+ * status is red. A measured zero is a measurement: {@code # fail 0} never produces a {@code no_tests_ran} verdict, because TAP prints no
  * positive "no tests" marker: a measured zero stays a measurement.
  * <p>
  * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
@@ -187,8 +190,9 @@ public class TapOutputParser {
 
     /**
      * Whether the log printed a failure marker: a {@code not ok} line, a {@code Bail out!} line or a {@code # fail}
-     * count above zero. The status is what the tool printed, so a failure marker without a filed diagnostic (a
-     * {@code not ok} line that names no test and carries no message, or a bailout that stopped the run) is still red.
+     * count above zero, including one too large for a {@code long}. The status is what the tool printed, so a failure
+     * marker without a filed diagnostic (a {@code not ok} line that names no test and carries no message, or a bailout
+     * that stopped the run) is still red.
      *
      * @param lines the log lines
      * @return whether a failure marker was printed
@@ -196,7 +200,7 @@ public class TapOutputParser {
     private static boolean printsFailure(List<String> lines) {
         return lines.stream()
                 .anyMatch(line -> NOT_OK_MARKER.matcher(line).find() || BAIL_OUT.matcher(line).find()
-                        || count(FAILED, line).orElse(0L) > 0);
+                        || digits(FAILED, line).filter(TapOutputParser::aboveZero).isPresent());
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
@@ -256,39 +260,32 @@ public class TapOutputParser {
     }
 
     private static Optional<TestCounts> extractTestCounts(List<String> lines) {
-        long total = 0;
-        long passed = 0;
-        long failed = 0;
-        long skipped = 0;
-        boolean found = false;
-        for (String line : lines) {
-            Optional<Long> blockTests = count(TESTS, line);
-            if (blockTests.isPresent()) {
-                found = true;
-                total += blockTests.get();
-            }
-            passed += count(PASSED, line).orElse(0L);
-            failed += count(FAILED, line).orElse(0L);
-            skipped += count(SKIPPED, line).orElse(0L);
-        }
-        if (!found) {
-            return Optional.empty();
-        }
-        return Optional.of(total == passed + failed + skipped
-                ? TestCounts.from(passed, failed, skipped, null)
-                : TestCounts.unmeasured());
+        var sum = new SummarySum();
+        lines.forEach(sum::accept);
+        return sum.result();
     }
 
-    private static Optional<Long> count(Pattern pattern, String line) {
+    /**
+     * The digits of a summary count, or empty when the line is no summary line of that kind.
+     *
+     * @param pattern the summary pattern, whose first group is the count
+     * @param line    the line to inspect
+     * @return the count's digits as printed
+     */
+    private static Optional<String> digits(Pattern pattern, String line) {
         Matcher matcher = pattern.matcher(line);
-        if (!matcher.find()) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(Long.parseLong(matcher.group(1)));
-        } catch (NumberFormatException _) {
-            return Optional.empty();
-        }
+        return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
+    }
+
+    /**
+     * Whether printed count digits name a count above zero. The answer needs no parse, so a count too large for a
+     * {@code long} is above zero as well.
+     *
+     * @param digits the count's digits
+     * @return whether a digit other than {@code 0} is printed
+     */
+    private static boolean aboveZero(String digits) {
+        return digits.chars().anyMatch(digit -> digit != '0');
     }
 
     private static List<String> withoutCarriageReturns(List<String> lines) {
@@ -378,8 +375,12 @@ public class TapOutputParser {
      * The plan of one TAP run: the summed count of its top-level plan lines and its top-level test points. A plan count
      * too large for a {@code long}, or a sum of counts that overflows one, is an announced plan that cannot be verified,
      * so the run stays unfinished instead of wrapping to a count that could match its points. The points counter needs
-     * no such guard: it would need 2^63 test-point lines, and every line is cut at {@link BuildLogText#MAX_LINE_LENGTH}
-     * characters of a log that is read in bounded form.
+     * no such guard, because the size of the input bounds it: the {@code Path} overload reads at most
+     * {@link BuildLogText#MAX_BYTES} bytes, an {@code int}, the {@code String} overload is bounded by the length limit of
+     * a Java {@code String}, and a test point takes at least three characters ({@code ok} and its line end), so fewer
+     * than 2^31 points can be counted, far below the 2^63 a {@code long} needs to overflow. The cut of every line at
+     * {@link BuildLogText#MAX_LINE_LENGTH} characters bounds the length of a line, not the number of lines, so it is not
+     * that bound.
      */
     private static final class PlanRun {
 
@@ -409,6 +410,68 @@ public class TapOutputParser {
 
         boolean finished() {
             return !announced || (!overflowed && planned == points);
+        }
+    }
+
+    /**
+     * The summed {@code # tests}, {@code # pass}, {@code # fail} and {@code # skipped} counts of every summary block of a
+     * log. Each count is added with {@link Math#addExact(long, long)}: a summary count too large for a {@code long}, or a
+     * sum that overflows one, is a population nobody can verify, so the counts are {@link TestCounts.Unmeasured} instead
+     * of wrapping into a figure that could pass as a measurement. The check that the total is the sum of its parts adds
+     * exactly as well, so parts that wrap to the printed total are no measurement either.
+     */
+    private static final class SummarySum {
+
+        private long total;
+
+        private long passed;
+
+        private long failed;
+
+        private long skipped;
+
+        private boolean found;
+
+        private boolean overflowed;
+
+        void accept(String line) {
+            Optional<String> tests = digits(TESTS, line);
+            if (tests.isPresent()) {
+                found = true;
+                total = add(total, tests.get());
+            }
+            passed = digits(PASSED, line).map(count -> add(passed, count)).orElse(passed);
+            failed = digits(FAILED, line).map(count -> add(failed, count)).orElse(failed);
+            skipped = digits(SKIPPED, line).map(count -> add(skipped, count)).orElse(skipped);
+        }
+
+        Optional<TestCounts> result() {
+            if (!found) {
+                return Optional.empty();
+            }
+            if (overflowed) {
+                return Optional.of(TestCounts.unmeasured());
+            }
+            try {
+                long parts = Math.addExact(Math.addExact(passed, failed), skipped);
+                return Optional.of(total == parts
+                        ? TestCounts.from(passed, failed, skipped, null)
+                        : TestCounts.unmeasured());
+            } catch (ArithmeticException _) {
+                return Optional.of(TestCounts.unmeasured());
+            }
+        }
+
+        private long add(long sum, String digits) {
+            if (overflowed) {
+                return sum;
+            }
+            try {
+                return Math.addExact(sum, Long.parseLong(digits));
+            } catch (NumberFormatException | ArithmeticException _) {
+                overflowed = true;
+                return sum;
+            }
         }
     }
 

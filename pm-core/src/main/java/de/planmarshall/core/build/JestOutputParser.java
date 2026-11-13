@@ -36,7 +36,10 @@ import org.jspecify.annotations.Nullable;
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * {@code Tests:} block only, and it trusts the block's {@code total} over its parts. This port sums every block of a
  * multi-package run, and a block whose total is not the sum of its parts makes the population
- * {@link TestCounts.Unmeasured} rather than a figure that silently disagrees with itself.
+ * {@link TestCounts.Unmeasured} rather than a figure that silently disagrees with itself. A count too large for a
+ * {@code long}, or counts whose sum overflows a {@code long}, leave the population {@link TestCounts.Unmeasured} as well,
+ * so a wrapped sum never reads as a measured population, and a failed count too large for a {@code long} is still a
+ * printed failing count, so the status is red.
  * <p>
  * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
  * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
@@ -176,43 +179,54 @@ public class JestOutputParser {
         return null;
     }
 
+    /**
+     * Sums the {@code Tests:} blocks of the log. Every addition is exact ({@link Math#addExact(long, long)}): a count
+     * too large for a {@code long}, a block whose parts overflow on the way to its total, or a sum over the blocks that
+     * overflows a {@code long} leaves the population {@link TestCounts.Unmeasured}, so a wrapped sum never reads as a
+     * measured population.
+     *
+     * @param lines the log lines
+     * @return the summed counts, {@link TestCounts.Unmeasured} for an unreadable or inconsistent summary, or empty when
+     *         the log carries no {@code Tests:} line
+     */
     private static Optional<TestCounts> extractTestCounts(List<String> lines) {
         long passed = 0;
         long failed = 0;
         long skipped = 0;
         boolean found = false;
-        boolean inconsistent = false;
         boolean unreadSummary = lines.stream()
                 .anyMatch(line -> line.strip().startsWith(TESTS_PREFIX) && !SUMMARY.matcher(line).find());
-        for (String line : lines) {
-            Matcher matcher = SUMMARY.matcher(line);
-            while (matcher.find()) {
-                long blockFailed = parseCount(matcher.group(1));
-                long blockSkipped = parseCount(matcher.group(2));
-                long blockPassed = parseCount(matcher.group(3));
-                long blockTotal = parseCount(matcher.group(4));
-                if (blockPassed < 0 || blockFailed < 0 || blockSkipped < 0 || blockTotal < 0
-                        || blockPassed + blockFailed + blockSkipped != blockTotal) {
-                    inconsistent = true;
+        try {
+            for (String line : lines) {
+                Matcher matcher = SUMMARY.matcher(line);
+                while (matcher.find()) {
+                    long blockFailed = parseCount(matcher.group(1));
+                    long blockSkipped = parseCount(matcher.group(2));
+                    long blockPassed = parseCount(matcher.group(3));
+                    long blockTotal = parseCount(matcher.group(4));
+                    if (blockPassed < 0 || blockFailed < 0 || blockSkipped < 0 || blockTotal < 0
+                            || Math.addExact(Math.addExact(blockPassed, blockFailed), blockSkipped) != blockTotal) {
+                        return Optional.of(TestCounts.unmeasured());
+                    }
+                    found = true;
+                    passed = Math.addExact(passed, blockPassed);
+                    failed = Math.addExact(failed, blockFailed);
+                    skipped = Math.addExact(skipped, blockSkipped);
                 }
-                found = true;
-                passed += Math.max(blockPassed, 0);
-                failed += Math.max(blockFailed, 0);
-                skipped += Math.max(blockSkipped, 0);
             }
+        } catch (ArithmeticException _) {
+            return Optional.of(TestCounts.unmeasured());
         }
         if (!found && !unreadSummary) {
             return Optional.empty();
         }
-        return Optional.of(inconsistent || unreadSummary || passed > Integer.MAX_VALUE || failed > Integer.MAX_VALUE
-                || skipped > Integer.MAX_VALUE
-                ? TestCounts.unmeasured()
-                : TestCounts.from(passed, failed, skipped, null));
+        return Optional.of(unreadSummary ? TestCounts.unmeasured() : TestCounts.from(passed, failed, skipped, null));
     }
 
     /**
      * Whether the log printed a failed count: a {@code Tests:} block whose failed count is above zero, or a
-     * {@code Test Suites:} block that reports a failed suite. The status is what the tool printed, so a failed summary
+     * {@code Test Suites:} block that reports a failed suite. A failed count too large for a {@code long} is above zero
+     * as well ({@code parseCount} reports it as {@code -1}). The status is what the tool printed, so a failed summary
      * without a filed diagnostic (truncated output, or a suite that failed to run) is still red and is never a passing
      * marker.
      *
@@ -226,7 +240,7 @@ public class JestOutputParser {
                 .anyMatch(line -> {
                     Matcher matcher = FAILED_COUNT.matcher(line);
                     while (matcher.find()) {
-                        if (parseCount(matcher.group(1)) > 0) {
+                        if (parseCount(matcher.group(1)) != 0) {
                             return true;
                         }
                     }
