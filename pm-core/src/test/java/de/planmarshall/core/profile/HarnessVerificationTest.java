@@ -150,12 +150,13 @@ class HarnessVerificationTest {
     void missingDraftNameOrRulesRefused() {
         var stageTokens = tokens();
         var draftText = draft();
+        var noRules = ProfileRules.none();
         var complete = request(ConsentGate.Answer.YES, STAGES, stageTokens);
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
                         () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                                ConsentGate.Answer.YES, STAGES, stageTokens, draftText, null, ProfileRules.none()),
+                                ConsentGate.Answer.YES, STAGES, stageTokens, draftText, null, noRules),
                         "A verification names the draft it validates"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,

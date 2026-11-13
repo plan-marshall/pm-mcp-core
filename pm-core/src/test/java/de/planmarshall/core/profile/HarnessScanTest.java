@@ -145,8 +145,9 @@ class HarnessScanTest {
     @DisplayName("the probe compares sets, so a duplicated id cannot flip the transition")
     void probeComparesSetsNotListSizes() {
         var failedTwice = List.of(AAA_ID, AAA_ID);
+        var chosen = List.of(AAA_ID, BBB_ID);
 
-        assertThrows(IllegalArgumentException.class, () -> new HarnessProbe(List.of(AAA_ID, BBB_ID), failedTwice),
+        assertThrows(IllegalArgumentException.class, () -> new HarnessProbe(chosen, failedTwice),
                 "A harness named twice among the failed is refused");
     }
 
