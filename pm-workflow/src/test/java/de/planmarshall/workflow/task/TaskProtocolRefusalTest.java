@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -86,11 +87,11 @@ class TaskProtocolRefusalTest {
     @Test
     @DisplayName("a held task of a paused plan is re-offered to no worker")
     void heldTaskOfPausedPlan(@TempDir Path base) {
-        var paused = new TaskFixtures.Paused();
-        var harness = harness(base, builder -> builder.pause(paused));
+        var paused = new AtomicBoolean(false);
+        var harness = harness(base, builder -> builder.pause(TaskFixtures.pause(paused)));
         var call = acknowledged(harness);
 
-        paused.pause(TaskFixtures.PLAN);
+        paused.set(true);
         var answer = harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT.plusSeconds(2));
 

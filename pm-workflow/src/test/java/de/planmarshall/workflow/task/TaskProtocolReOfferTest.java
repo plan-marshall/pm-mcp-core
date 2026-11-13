@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 import org.easymock.Capture;
@@ -107,16 +108,16 @@ class TaskProtocolReOfferTest {
         var locks = new TestLocks();
         var queue = QueueStore.ofProject(base, "project-a", locks);
         queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
-        var paused = new TaskFixtures.Paused();
-        var protocol = TaskProtocol.builder(queue, locks).pause(paused).build();
+        var paused = new AtomicBoolean(false);
+        var protocol = TaskProtocol.builder(queue, locks).pause(TaskFixtures.pause(paused)).build();
         var offered = TaskFixtures.task(protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT));
         protocol.acknowledge(TaskFixtures.call(offered), TaskFixtures.AT.plusSeconds(1));
 
-        paused.pause(TaskFixtures.PLAN);
+        paused.set(true);
         var ended = protocol.pausePlan(TaskFixtures.PLAN, TaskFixtures.AT.plusSeconds(2));
         var whilePaused = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(3));
-        paused.start(TaskFixtures.PLAN);
+        paused.set(false);
         var afterStart = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(4));
 
         var task = queue.read("qt-0000000000000001").orElseThrow();

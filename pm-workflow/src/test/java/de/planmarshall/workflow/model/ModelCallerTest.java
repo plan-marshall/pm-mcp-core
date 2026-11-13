@@ -9,10 +9,12 @@
  */
 package de.planmarshall.workflow.model;
 
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.newCapture;
 import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -22,9 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.Optional;
+import java.util.Set;
 
 import org.easymock.Capture;
 import org.easymock.CaptureType;
@@ -64,7 +69,7 @@ class ModelCallerTest {
     void qualifiedRoleIsQueued() {
         var role = ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH);
         var fixtures = new Fixtures(Map.of(IMPLEMENT, role));
-        fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
+        fixtures.qualifies(IMPLEMENT, RoleForm.FRESH);
 
         var result = fixtures.caller.call(job("task", IMPLEMENT, false));
 
@@ -76,12 +81,12 @@ class ModelCallerTest {
                 () -> assertEquals(RoleForm.FRESH, queued.form()),
                 () -> assertFalse(queued.formDowngraded()),
                 () -> assertEquals(role.configurationDigest(), request.configurationDigest()),
-                () -> assertEquals(role.qualificationDigest(), fixtures.qualifications.digests().getFirst()),
+                () -> assertEquals(role.qualificationDigest(), fixtures.digests().getFirst()),
                 () -> assertEquals(ModelFixtures.HARNESS, request.harness()),
                 () -> assertEquals(ModelFixtures.MODEL, request.model()),
                 () -> assertEquals(STATE, request.stateId()),
                 () -> assertFalse(request.consultation()),
-                () -> assertEquals(IMPLEMENT, fixtures.qualifications.looked().getFirst()));
+                () -> assertEquals(IMPLEMENT, fixtures.looked().getFirst()));
     }
 
     @Test
@@ -89,7 +94,7 @@ class ModelCallerTest {
     void warmRoleIsDowngraded() {
         var fixtures = new Fixtures(Map.of(IMPLEMENT,
                 ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.WARM)));
-        fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
+        fixtures.qualifies(IMPLEMENT, RoleForm.FRESH);
 
         var queued = (ModelCallResult.Queued) fixtures.caller.call(job("task", IMPLEMENT, false));
 
@@ -171,7 +176,7 @@ class ModelCallerTest {
     void consultationIsQueued() {
         var fixtures = new Fixtures(Map.of("architecture",
                 ModelFixtures.role("architecture", RoleClass.READ_ONLY, RoleForm.FRESH)));
-        fixtures.qualifications.qualifies("architecture", RoleForm.FRESH);
+        fixtures.qualifies("architecture", RoleForm.FRESH);
 
         var result = fixtures.caller.call(job("decision", "architecture", true));
 
@@ -185,8 +190,8 @@ class ModelCallerTest {
     void unavailableRoleCloses() {
         var fixtures = new Fixtures(Map.of(IMPLEMENT,
                 ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH)));
-        fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
-        fixtures.guard.holds(IMPLEMENT);
+        fixtures.qualifies(IMPLEMENT, RoleForm.FRESH);
+        fixtures.holds(IMPLEMENT);
 
         var result = (ModelCallResult.Closed) fixtures.caller.call(job("task", IMPLEMENT, false));
 
@@ -209,7 +214,7 @@ class ModelCallerTest {
 
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result),
-                    () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"));
+                    () -> assertTrue(fixtures.looked().isEmpty(), "Qualify must be skipped"));
         }
 
         @Test
@@ -226,7 +231,7 @@ class ModelCallerTest {
 
             assertAll(
                     () -> assertInstanceOf(ModelCallResult.Queued.class, result),
-                    () -> assertTrue(fixtures.qualifications.looked().isEmpty(), "Qualify must be skipped"),
+                    () -> assertTrue(fixtures.looked().isEmpty(), "Qualify must be skipped"),
                     () -> assertEquals(harness, fixtures.enqueued().getFirst().harness()),
                     () -> assertEquals(model, fixtures.enqueued().getFirst().model()));
         }
@@ -241,7 +246,7 @@ class ModelCallerTest {
         void planTaskIsQueuedWithItsScope() {
             var fixtures = new Fixtures(Map.of(IMPLEMENT,
                     ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH)));
-            fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
+            fixtures.qualifies(IMPLEMENT, RoleForm.FRESH);
             var planId = planId();
 
             var result = fixtures.caller.call(job(planId, "task", IMPLEMENT, false));
@@ -257,7 +262,7 @@ class ModelCallerTest {
         void workspaceTaskIsQueued() {
             var fixtures = new Fixtures(Map.of(IMPLEMENT,
                     ModelFixtures.role(IMPLEMENT, RoleClass.WRITER, RoleForm.FRESH)));
-            fixtures.qualifications.qualifies(IMPLEMENT, RoleForm.FRESH);
+            fixtures.qualifies(IMPLEMENT, RoleForm.FRESH);
 
             var result = fixtures.caller.call(job(null, "task", IMPLEMENT, false));
 
@@ -293,7 +298,7 @@ class ModelCallerTest {
         void workspaceConsultationIsQueued() {
             var fixtures = new Fixtures(Map.of("architecture",
                     ModelFixtures.role("architecture", RoleClass.READ_ONLY, RoleForm.FRESH)));
-            fixtures.qualifications.qualifies("architecture", RoleForm.FRESH);
+            fixtures.qualifies("architecture", RoleForm.FRESH);
 
             var result = fixtures.caller.call(job(null, "decision", "architecture", true));
 
@@ -325,12 +330,48 @@ class ModelCallerTest {
     /** One caller with its EasyMock task queue. */
     private static final class Fixtures {
 
-        private final ModelFixtures.Qualifications qualifications = new ModelFixtures.Qualifications();
-        private final ModelFixtures.Guard guard = new ModelFixtures.Guard();
+        private final Capture<String> looked = newCapture(CaptureType.ALL);
+        private final Capture<String> digests = newCapture(CaptureType.ALL);
+        private final Map<String, RoleForm> forms = new LinkedHashMap<>();
+        private final Set<String> held = new HashSet<>();
+        private final QualificationLookup qualifications = qualifications();
+        private final AvailabilityGuard guard = guard();
         private final Capture<ModelQueue.Enqueue> enqueued = newCapture(CaptureType.ALL);
         private final Capture<ModelQueue.Close> closed = newCapture(CaptureType.ALL);
         private final ModelQueue queue;
         private final ModelCaller caller;
+
+        private QualificationLookup qualifications() {
+            QualificationLookup lookup = createMock(QualificationLookup.class);
+            expect(lookup.qualifiedForm(capture(looked), capture(digests), anyObject(RoleForm.class)))
+                    .andAnswer(() -> Optional.ofNullable(forms.get((String) getCurrentArguments()[0]))).anyTimes();
+            replay(lookup);
+            return lookup;
+        }
+
+        private AvailabilityGuard guard() {
+            AvailabilityGuard mock = createMock(AvailabilityGuard.class);
+            expect(mock.holds(anyObject(String.class), anyObject(String.class)))
+                    .andAnswer(() -> held.contains((String) getCurrentArguments()[0])).anyTimes();
+            replay(mock);
+            return mock;
+        }
+
+        private void qualifies(String role, RoleForm form) {
+            forms.put(role, form);
+        }
+
+        private void holds(String role) {
+            held.add(role);
+        }
+
+        private List<String> looked() {
+            return looked.getValues();
+        }
+
+        private List<String> digests() {
+            return digests.getValues();
+        }
 
         private Fixtures(Map<String, EffectiveRole> roles) {
             this(ModelFixtures.resolver(roles), ModelFixtures.resolver(Map.of()));

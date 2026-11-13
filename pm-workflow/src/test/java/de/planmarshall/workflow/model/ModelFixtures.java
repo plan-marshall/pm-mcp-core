@@ -10,12 +10,9 @@
 package de.planmarshall.workflow.model;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import de.cuioss.test.generator.Generators;
@@ -103,51 +100,6 @@ final class ModelFixtures {
         return name -> roles.containsKey(name)
                 ? new RoleResolution.Defined(roles.get(name))
                 : new RoleResolution.Undefined(name, null, Generators.letterStrings(5, 30).next());
-    }
-
-    /** The qualification lookup of the tests; a lookup of a skipped role fails the test. */
-    static final class Qualifications implements QualificationLookup {
-
-        private final List<String> looked = new ArrayList<>();
-        private final List<String> digests = new ArrayList<>();
-        private final Map<String, RoleForm> forms = new LinkedHashMap<>();
-
-        Qualifications qualifies(String role, RoleForm form) {
-            forms.put(role, form);
-            return this;
-        }
-
-        List<String> looked() {
-            return looked;
-        }
-
-        List<String> digests() {
-            return digests;
-        }
-
-        @Override
-        public Optional<RoleForm> qualifiedForm(String roleName, String qualificationDigest,
-                RoleForm artifactForm) {
-            looked.add(roleName);
-            digests.add(qualificationDigest);
-            return Optional.ofNullable(forms.get(roleName));
-        }
-    }
-
-    /** The availability guard of the tests. */
-    static final class Guard implements AvailabilityGuard {
-
-        private final Set<String> held = new HashSet<>();
-
-        Guard holds(String role) {
-            held.add(role);
-            return this;
-        }
-
-        @Override
-        public boolean holds(String roleName, String harness) {
-            return held.contains(roleName);
-        }
     }
 
 }
