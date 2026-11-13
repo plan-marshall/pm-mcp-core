@@ -13,8 +13,8 @@ Accepted.
 
 The result of the profile verification's stage `usage` becomes the enrolment's `usage_report` when a verified profile is
 installed (Harness Profiles § Tokens, Not Money; Store Schemas § Harness Enrolment Store). `UsageReport.of` is the mapping
-boundary: it names `input_tokens` as `input` and `output_tokens` as `output`, drops the cost, and validates the figures
-against the store's closed set.
+boundary: it names `input_tokens` as `input` and `output_tokens` as `output`, and the report's constructor refuses any
+figure outside its closed set — the cost among them, which is recorded data and never part of the report.
 
 A single stage run records what one worker run reported. A harness may report a figure on one run and not on the next (a
 cache figure only when the cache was hit, a reasoning figure only when the model reasoned), so one run's figures are a

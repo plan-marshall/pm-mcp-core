@@ -31,13 +31,21 @@ may serve workers, and `defaultHarness()` is the first of them. `HarnessList` ke
 mark, so a client renders what the scan decided.
 
 The usage coverage is a closed status beside its missing figures and the start context: `HarnessUsageCoverage` with
-`complete`, `partial` (naming the missing figures), `not_reported` and `harness_store_unreadable`. The last is produced by
-`HarnessUsageCoverage.unreadable()` and by `HarnessList.of(..., storeUnreadable = true)`, which replaces every row's
-coverage — the refusal is shown instead of an empty map, never as `complete`.
+`complete`, `partial` (naming the missing figures, which must be report figures in schema order), `not_reported` and
+`harness_store_unreadable`. The last is produced by `HarnessUsageCoverage.unreadable()` and by
+`HarnessList.of(..., storeUnreadable = true)`, which replaces every row's coverage — the refusal is shown instead of an
+empty map, never as `complete`.
 
-`harness.none` is a value too: the scan renders it with every known harness's install hint when nothing was found, and
-`HarnessProbe` derives the transition of the login probe from the chosen and failed sets, so a run with every chosen
-harness failing rests in `harness.none` instead of reporting a pass to the next step.
+The coverage is filed under a `HarnessList.Key` of the harness **and** the version, not under the harness alone: the
+figures a harness reports change with its output format, so a coverage measured on one version must never be shown beside
+another. `HarnessListings.of` in `pm-runtime` is the one bridge from the enrolment store to the list; it maps the store's
+figure names back to the profile schema's and files each report under the version it was enrolled with.
+
+`harness.none` is a value too: the scan renders it with every known harness's install hint when nothing was found,
+`HarnessProbe.none(candidates)` renders the failed harnesses' hints when every chosen one failed, and `HarnessProbe`
+derives the transition of the login probe from the chosen and failed sets as sets — two identical ids never turn a pass
+into a failure. `HarnessProbe.canLeaveOut` states the catalogue's rule that `harness.blocked` cannot leave out the last
+chosen harness.
 
 == Alternatives Considered
 

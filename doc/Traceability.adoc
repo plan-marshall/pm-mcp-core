@@ -1721,17 +1721,19 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessProbe.java[Har
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessList.java[HarnessList],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessListEntry.java[HarnessListEntry],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessUsageCoverage.java[HarnessUsageCoverage],
-link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification]
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java[HarnessListings]
 
 The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the
 mapping boundary); the operator verb that writes the enrolment is owed to `plan-marshall-mcp`, and the recorded output of
-each harness and version as a parsing fixture is still owed to `machine-onboarding-unit`.
+each harness and version as a parsing fixture is owed by this plan's landing (PLAN-V2-39), which names it.
 
 Verified by (the scan, the list and the verification gate):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessScanTest.java[HarnessScanTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessListTest.java[HarnessListTest],
 link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessVerificationTest.java[HarnessVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessListingsTest.java[HarnessListingsTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/VerifiedUsageTest.java[VerifiedUsageTest]
 
 Documentation (the scan, the list and the verification gate):
