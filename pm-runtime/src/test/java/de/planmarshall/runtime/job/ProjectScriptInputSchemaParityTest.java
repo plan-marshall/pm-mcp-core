@@ -39,7 +39,7 @@ class ProjectScriptInputSchemaParityTest {
         var kind = SchemaResource.object(properties.get("worker_kind"));
 
         assertEquals(Arrays.stream(ProjectEnrolment.WorkerKind.values())
-                .map(ProjectEnrolment.WorkerKind::wireName).toList(),
+                        .map(ProjectEnrolment.WorkerKind::wireName).toList(),
                 names(SchemaResource.array(kind.get("enum"))),
                 "The worker kinds are the type's in order");
     }
