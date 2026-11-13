@@ -57,13 +57,14 @@ not match the text, so no entry can go stale.
 
 A caller imports `core.id` for the two types; no dependency changes, because every module that carries the grammar
 already depends on `pm-core`. The guard fails any later plan that adds a copy, so the new records that carry a role or a
-harness (`Plan-V2-23`, `Plan-V2-60`, `Plan-V2-09`) take `RoleName` and `HarnessId` instead of the text.
+harness (`PLAN-V2-23`, `PLAN-V2-60`, `PLAN-V2-09`) take `RoleName` and `HarnessId` instead of the text.
 
 The limit is stated in the test's Javadoc and in the developer guide: a grammar composed at run time and a hand-written
-character loop are not found, and the scan looks at production source only. The specification's two grammar cells stay
-byte-stable; the parity test
-`IdentifierSpecificationParityTest` reads the `name` pattern of `role-artifact-v1.schema.json` and the `harness` pattern
-of `metrics.schema.json` through `SchemaResource`, so a schema change without the code fails the build.
+character loop are not found; a reordered character class is not one of the three spellings; a text block carrying an
+escaped triple quote ends the scan's block early; and the scan looks at production source only. The specification's two
+grammar cells stay byte-stable; the parity test `IdentifierSpecificationParityTest` reads the `name` pattern of
+`role-artifact-v1.schema.json` and the `harness` pattern of `metrics.schema.json` through `SchemaResource`, so a schema
+change without the code fails the build.
 
 == Source
 

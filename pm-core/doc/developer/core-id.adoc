@@ -74,20 +74,28 @@ grammars that stay local (below) do not match the 2-to-32 text and need none, an
 stale.
 
 The limit is a source scan of string literals: a grammar composed at run time (two literals concatenated, a constant
-read from a configuration file) and a hand-written character loop are not found. `ArchUnit` was rejected because it does
-not see string constants, and the class-file constant-pool scan of `ProfileNeutralityArchTest` reaches one module only.
-The guard reads the repository root the way `NullMarkedPackagesTest` does, from the working directory or `pm.root`.
+read from a configuration file) and a hand-written character loop are not found; a reordered character class
+(`[a-z][0-9a-z-]{1,31}`) is not one of the three spellings and is not found either. A text block whose content carries
+an escaped triple quote (`\"""`) ends the scan's block early, so a copy after it could be missed; no production source
+uses that shape and the scan does not honour it. `ArchUnit` was rejected because it does not see string constants, and
+the class-file constant-pool scan of `ProfileNeutralityArchTest` reaches one module only. The guard reads the repository
+root the way `NullMarkedPackagesTest` does, from the working directory or `pm.root`.
 
 == The Grammars That Stay Local
 
-The name-shaped grammars that stay local, grouped by the text they carry:
+The grammars of this plan's keep-list, plus two further name grammars the reactor carries, grouped by the text they
+carry:
 
 * the one-to-32 character form `^[a-z][a-z0-9-]{0,31}$` — `RoleArtifactValidator.CLIENT_ID`,
-  `ProfileValidator.CLIENT_ID`, `ShippedProfiles.CLIENT_ID` and `GradedConfiguration.HARNESS_NAME` (unanchored there):
-  the harness profile and role artifact schemas state 1 to 32, which is not the registry's 2 to 32;
+  `ProfileValidator.CLIENT_ID` and `ShippedProfiles.CLIENT_ID`, and `GradedConfiguration.HARNESS_NAME`, which is
+  unanchored there: the harness profile and role artifact schemas state 1 to 32, which is not the registry's 2 to 32;
   `ProfileValidator.BUNDLED_ICON` carries the same text for an icon file name, which the registry does not name;
 * `QualificationRecord.SOURCE` (`[a-z][a-z0-9-]{1,63}`), the corpus source name;
 * `QuestionRecord.BRANCH_KEY` and `AnswerFact.BRANCH` (`[a-z][a-z0-9_]{1,31}`), which carry `_` and not `-`.
+
+Other lower-case identifier grammars of the reactor (`ProjectEnrolment.VERB` and `LANGUAGE_ID`, `Finding.BOT_KIND`,
+`CompositionRules.RULE_ID`, `UnitFrontmatterReader.IDENTIFIER`) are not this text either and keep their own constants;
+they are outside the plan's keep-list and the guard reports none of them.
 
 The `harness_id` grammar itself is stated as 2 to 32 in the registry and the store schemas and as 1 to 32 in the harness
 profile and role artifact schemas. The two forms are reported as a specification inconsistency; the code keeps each
