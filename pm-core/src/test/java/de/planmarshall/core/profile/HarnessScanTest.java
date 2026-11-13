@@ -29,9 +29,9 @@ import de.planmarshall.core.profile.HarnessProbe.Outcome;
 
 /**
  * The harness scan and the step it leads to (PM-CLIENT-5, Harness Profiles § Harness Scan; State Catalogue
- * § {@code harness.choose}, § {@code harness.probe} and § {@code harness.none}): the list follows the harness ids, every
- * supported worker-eligible harness is preselected with the first of them the default, and a run with no usable harness
- * left rests in {@code harness.none}.
+ * § {@code harness.choose}, § {@code harness.probe}, § {@code harness.blocked} and § {@code harness.none}): the list
+ * follows the harness ids, every supported worker-eligible harness is preselected with the first of them the default, a
+ * run with no usable harness left rests in {@code harness.none}, and the last chosen harness cannot be left out.
  */
 @EnableGeneratorController
 @DisplayName("Harness scan of the machine onboarding")
@@ -121,7 +121,33 @@ class HarnessScanTest {
         assertAll(
                 () -> assertTrue(allFailed.restsInNone(), "No usable harness is left after the probe"),
                 () -> assertEquals("harness.none", allFailed.outcome().nextState(), "The step rests in harness.none"),
-                () -> assertEquals("harness.blocked", oneFailed.outcome().nextState(), "A partly failed probe blocks"));
+                () -> assertEquals("harness.blocked", oneFailed.outcome().nextState(), "A partly failed probe blocks"),
+                () -> assertEquals(List.of(AAA_ID, BBB_ID),
+                        allFailed.none(List.of(found(AAA_ID), found(BBB_ID))).orElseThrow().known().stream()
+                                .map(HarnessNone.InstallHint::harnessId).toList(),
+                        "The failed probe's wait names the install hints"),
+                () -> assertTrue(oneFailed.none(List.of(found(AAA_ID), found(BBB_ID))).isEmpty(),
+                        "A usable harness leaves no harness.none wait"));
+    }
+
+    @Test
+    @DisplayName("the probe compares sets, so a duplicated id cannot flip the transition")
+    void probeComparesSetsNotListSizes() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(AAA_ID, AAA_ID)),
+                "A harness named twice among the failed is refused");
+    }
+
+    @Test
+    @DisplayName("the last chosen harness cannot be left out")
+    void lastChosenHarnessCannotBeLeftOut() {
+        var probe = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(BBB_ID));
+        var one = new HarnessProbe(List.of(AAA_ID), List.of());
+
+        assertAll(
+                () -> assertTrue(probe.canLeaveOut(BBB_ID), "A failed harness beside a passed one may be left out"),
+                () -> assertFalse(one.canLeaveOut(AAA_ID), "The last chosen harness cannot be left out"),
+                () -> assertFalse(probe.canLeaveOut("h-other"), "A harness that was not chosen cannot be left out"));
     }
 
     @Test
@@ -134,7 +160,19 @@ class HarnessScanTest {
                         () -> candidate(AAA_ID, true, VERSION, false, true),
                         "An unsupported harness cannot serve workers"),
                 () -> assertThrows(IllegalArgumentException.class, () -> candidate(AAA_ID, false, VERSION, false, false),
-                        "A harness that was not found has no version"));
+                        "A harness that was not found has no version"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> HarnessCandidate.builder()
+                                .harnessId(AAA_ID)
+                                .displayName("Harness")
+                                .found(true)
+                                .version(VERSION)
+                                .executablePath(null)
+                                .supported(true)
+                                .workerEligible(true)
+                                .installHint(HINT)
+                                .build(),
+                        "A found harness names the path it was found at"));
     }
 
     @Test
@@ -155,6 +193,7 @@ class HarnessScanTest {
                 .displayName("Harness " + harnessId)
                 .found(found)
                 .version(version)
+                .executablePath(found ? "/opt/" + harnessId + "/bin/run" : null)
                 .supported(supported)
                 .workerEligible(workerEligible)
                 .installHint(HINT)

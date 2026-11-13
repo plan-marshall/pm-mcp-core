@@ -28,9 +28,6 @@ public final class HarnessVerificationRefusal extends RuntimeException {
     /** The consent asked is not the kind {@code verify_harness_profile}. */
     public static final String WRONG_KIND = "harness_verify_consent_kind";
 
-    /** The consent kind is rememberable, so a run could be authorised without being asked. */
-    public static final String REMEMBERABLE_KIND = "harness_verify_consent_rememberable";
-
     /** The operator answered {@code no}. */
     public static final String DECLINED = "harness_verify_consent_declined";
 

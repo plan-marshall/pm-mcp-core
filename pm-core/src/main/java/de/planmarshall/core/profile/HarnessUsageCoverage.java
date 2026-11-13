@@ -73,6 +73,13 @@ List<ProfileStages.StartContext> startContext) {
         if (status != Status.PARTIAL && !missingFigures.isEmpty()) {
             throw new IllegalArgumentException("Only a partial coverage names missing figures: " + status);
         }
+        if (!ProfileStages.REPORT_FIGURES.containsAll(missingFigures)) {
+            throw new IllegalArgumentException("Not a figure of the usage report: " + missingFigures);
+        }
+        var inSchemaOrder = ProfileStages.REPORT_FIGURES.stream().filter(missingFigures::contains).toList();
+        if (!inSchemaOrder.equals(missingFigures)) {
+            throw new IllegalArgumentException("The missing figures are named in schema order: " + missingFigures);
+        }
         if (status == Status.UNREADABLE && !startContext.isEmpty()) {
             throw new IllegalArgumentException("An unreadable store records no start context");
         }

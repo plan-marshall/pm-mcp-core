@@ -20,7 +20,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,8 +46,8 @@ class VerifiedUsageTest {
     @DisplayName("the install path maps the stage figures and carries the start context")
     void installMapsFiguresAndStartContext() {
         var context = new StartContext("writer", MODEL, START_TOKENS);
-        var report = VerifiedUsage.install(List.of(withStartContext(context), result(UsageStatus.REPORTED),
-                result(UsageStatus.REPORTED)));
+        var report = VerifiedUsage.install(List.of(result(UsageStatus.REPORTED, context),
+                result(UsageStatus.REPORTED, context), result(UsageStatus.REPORTED, context)));
 
         assertAll(
                 () -> assertEquals("reported", report.figures().get("input"), "the input figure is reported"),
@@ -63,7 +62,7 @@ class VerifiedUsageTest {
     @Test
     @DisplayName("a single evaluation is not trusted yet")
     void singleEvaluationIsNotTrusted() {
-        var single = List.of(result(UsageStatus.REPORTED));
+        var single = List.of(result(UsageStatus.REPORTED, new StartContext("writer", MODEL, START_TOKENS)));
 
         assertAll(
                 () -> assertFalse(VerifiedUsage.trusted(single), "One run trusts no figure"),
@@ -76,7 +75,8 @@ class VerifiedUsageTest {
     @Test
     @DisplayName("two agreeing evaluations make the figures trusted")
     void twoAgreeingEvaluationsAreTrusted() {
-        var evaluations = List.of(result(UsageStatus.REPORTED), result(UsageStatus.REPORTED));
+        var context = new StartContext("writer", MODEL, START_TOKENS);
+        var evaluations = List.of(result(UsageStatus.REPORTED, context), result(UsageStatus.REPORTED, context));
 
         assertAll(
                 () -> assertTrue(VerifiedUsage.trusted(evaluations), "Two agreeing runs trust the figures"),
@@ -87,7 +87,8 @@ class VerifiedUsageTest {
     @Test
     @DisplayName("two disagreeing evaluations leave the figures untrusted")
     void twoDisagreeingEvaluationsAreRefused() {
-        var evaluations = List.of(result(UsageStatus.REPORTED), result(UsageStatus.MISSING));
+        var evaluations = List.of(result(UsageStatus.REPORTED, new StartContext("writer", MODEL, START_TOKENS)),
+                result(UsageStatus.MISSING, new StartContext("writer", MODEL, START_TOKENS)));
 
         assertAll(
                 () -> assertFalse(VerifiedUsage.trusted(evaluations), "Disagreeing runs trust no figure"),
@@ -97,15 +98,20 @@ class VerifiedUsageTest {
                         "the refusal names the disagreement"));
     }
 
-    private static UsageResult result(UsageStatus status) {
+    @Test
+    @DisplayName("a start context one run measured is not a repeated measurement")
+    void startContextMustAgree() {
+        var evaluations = List.of(result(UsageStatus.REPORTED, new StartContext("writer", MODEL, START_TOKENS)),
+                result(UsageStatus.REPORTED, new StartContext("writer", MODEL, OptionalLong.empty())));
+
+        assertFalse(VerifiedUsage.trusted(evaluations), "A once-measured start context is not trusted");
+    }
+
+    private static UsageResult result(UsageStatus status, StartContext context) {
         var figures = new LinkedHashMap<String, UsageStatus>();
         ProfileStages.USAGE_FIGURES.forEach(figure -> figures.put(figure, status));
         var parsed = new LinkedHashMap<String, BigDecimal>();
         parsed.put("input_tokens", BigDecimal.valueOf(Generators.longs(1, 1_000).next()));
-        return new UsageResult(figures, parsed);
-    }
-
-    private static UsageResult withStartContext(StartContext context) {
-        return new UsageResult(result(UsageStatus.REPORTED).figures(), Map.of(), List.of(context));
+        return new UsageResult(figures, parsed, List.of(context));
     }
 }

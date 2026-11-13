@@ -9,8 +9,12 @@
  */
 package de.planmarshall.core.profile;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * The result of the login probe of the chosen harnesses (PM-CLIENT-5, Harness Profiles § Login Probe; State Catalogue
@@ -19,8 +23,12 @@ import java.util.Objects;
  * The step's transition is derived from the two sets and nothing else: every chosen harness passed leads to
  * {@code harness.confirm}, at least one failed beside a passed one leads to {@code harness.blocked} where the operator
  * may leave the harness out, and every chosen harness failing leads to {@code harness.none} — no usable harness is left,
- * so the onboarding rests there like it does after a scan that found nothing. The last chosen harness that passed is
- * never left out, which is why the blocked transition needs a passed harness to exist.
+ * so the onboarding rests there like it does after a scan that found nothing. The sets are compared as sets, so a
+ * duplicated id never turns a pass into a failure; two identical ids in one list are refused.
+ * <p>
+ * One rule of the next step lives here because it is derivable from the sets: {@code harness.blocked} offers
+ * {@code leave_out} for any chosen harness but the last one, so the step can never be left without a harness to go on
+ * with. {@link #canLeaveOut} answers it.
  *
  * @param chosen the harnesses the operator chose, by harness id
  * @param failed the chosen harnesses whose probe failed, by harness id
@@ -58,7 +66,8 @@ public record HarnessProbe(List<String> chosen, List<String> failed) {
 
     /**
      * @throws NullPointerException     if a list is {@code null}
-     * @throws IllegalArgumentException if nothing was chosen, or a failed harness was not chosen
+     * @throws IllegalArgumentException if nothing was chosen, if a harness id is empty, if one list names a harness
+     *                                  twice, or if a failed harness was not chosen
      */
     public HarnessProbe {
         chosen = List.copyOf(Objects.requireNonNull(chosen, "chosen"));
@@ -66,23 +75,60 @@ public record HarnessProbe(List<String> chosen, List<String> failed) {
         if (chosen.isEmpty()) {
             throw new IllegalArgumentException("The probe runs on at least one chosen harness");
         }
-        if (!chosen.containsAll(failed)) {
+        requireDistinct(chosen, "chosen");
+        requireDistinct(failed, "failed");
+        if (!new HashSet<>(chosen).containsAll(failed)) {
             throw new IllegalArgumentException("A failed harness is one of the chosen ones: " + failed);
         }
     }
 
     /** @return the transition of the step */
     public Outcome outcome() {
-        if (failed.isEmpty()) {
+        var failedIds = Set.copyOf(failed);
+        if (failedIds.isEmpty()) {
             return Outcome.ALL_PASSED;
         }
-        return failed.size() == chosen.size() ? Outcome.ALL_FAILED : Outcome.ONE_FAILED;
+        return failedIds.size() == Set.copyOf(chosen).size() ? Outcome.ALL_FAILED : Outcome.ONE_FAILED;
+    }
+
+    /** @return whether no usable harness is left, so the onboarding rests in {@code harness.none} */
+    public boolean restsInNone() {
+        return outcome() == Outcome.ALL_FAILED;
     }
 
     /**
-     * @return whether no usable harness is left, so the onboarding rests in {@code harness.none}
+     * @param harnessId the harness the operator wants to leave out at {@code harness.blocked}
+     * @return whether it may be left out: it is one of the chosen harnesses and not the last of them
      */
-    public boolean restsInNone() {
-        return outcome() == Outcome.ALL_FAILED;
+    public boolean canLeaveOut(String harnessId) {
+        return chosen.contains(harnessId) && chosen.size() > 1;
+    }
+
+    /**
+     * @param candidates the known harnesses, with their install hints
+     * @return the {@code harness.none} wait that names the failed harnesses' install hints, for a probe whose every
+     *         harness failed; empty where a usable harness is left
+     */
+    public Optional<HarnessNone> none(List<HarnessCandidate> candidates) {
+        if (!restsInNone()) {
+            return Optional.empty();
+        }
+        var failedIds = Set.copyOf(failed);
+        var known = new ArrayList<HarnessCandidate>();
+        for (var candidate : candidates) {
+            if (failedIds.contains(candidate.harnessId())) {
+                known.add(candidate);
+            }
+        }
+        return Optional.of(HarnessNone.of(known));
+    }
+
+    private static void requireDistinct(List<String> ids, String name) {
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw new IllegalArgumentException("A harness is named twice in '" + name + "': " + ids);
+        }
+        if (ids.stream().anyMatch(String::isBlank)) {
+            throw new IllegalArgumentException("Every '" + name + "' harness id is non-blank");
+        }
     }
 }

@@ -104,8 +104,7 @@ public record HarnessScan(List<HarnessCandidate> candidates) {
     }
 
     /**
-     * @return the ids no candidate of the scan carried, as a set; a caller that reads the enrolments uses it to tell an
-     *         entry without a profile from one the scan missed
+     * @return the ids of the candidates, in the order of the list
      */
     public Set<String> knownIds() {
         return Set.copyOf(harnessIds());
