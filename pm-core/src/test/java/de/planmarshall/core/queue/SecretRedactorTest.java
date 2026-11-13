@@ -296,6 +296,42 @@ class SecretRedactorTest {
                         "a quoted value across one line end is masked"));
     }
 
+    @ParameterizedTest(name = "line end #{index}")
+    @ValueSource(strings = {"\n", "\r\n", "\r"})
+    @DisplayName("a quoted flag value with a backslash before its line end is masked whole (the line ends: contract)")
+    void quotedCredentialFlagEscapedLineEnd(String lineEnd) {
+        // longer than every letter run of the expected text, so a contains check cannot hit the flag or the mask
+        var first = Generators.letterStrings(12, 20).next();
+        var second = Generators.letterStrings(12, 20).next();
+
+        var redacted = redactValue("--password \"" + first + "\\" + lineEnd + second + "\" done");
+
+        assertAll("escaped line end inside a quoted value",
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED + "\" done", redacted,
+                        "both halves are masked and the flag is kept"),
+                () -> assertFalse(redacted.contains(first), "the half before the line end is gone"),
+                () -> assertFalse(redacted.contains(second), "the half after the line end is gone"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
+    @Test
+    @DisplayName("a quoted flag value is never matched past its second escaped line end (backslash and LF: contract)")
+    void quotedCredentialFlagTwoEscapedLineEnds() {
+        // longer than every letter run of the expected text, so a contains check cannot hit the flag or the mask
+        var first = Generators.letterStrings(12, 20).next();
+        var second = Generators.letterStrings(12, 20).next();
+        var third = Generators.letterStrings(12, 20).next();
+        var log = "--password \"" + first + "\\\n" + second + "\\\n" + third + "\"";
+
+        var redacted = redactValue(log);
+
+        assertAll("two escaped line ends inside a quoted value",
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED + "\n" + second + "\\\n" + third + "\"",
+                        redacted, "only the first line is masked as unclosed"),
+                () -> assertFalse(redacted.contains(first), "the first line of the value is gone"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
     @Test
     @DisplayName("flags and prose outside the credential flag list stay readable")
     void credentialFlagNegativeControls() {

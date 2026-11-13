@@ -131,7 +131,8 @@ because the secret runs to the last `@` of the token.
 |Spaced credential flag of the closed list `--password`, `--passwd`, `--passphrase`, `--token`, `--secret`,
 `--auth-token`, `--api-key`, `--apikey`, `--access-token`, `--client-secret`, `--otp`, in any case
 |an unquoted value to the next whitespace (a `,`, `;` or quote included); a quoted value to its closing quote, across at
-most one line end; an unclosed quote masks the rest of its line, and an escaped quote (`\"`) is no close
+most one line end, which may be escaped by a backslash (a shell line continuation) and still counts as the one line end;
+an unclosed quote masks the rest of its line, and an escaped quote (`\"`) is no close
 |a flag outside the list (`--key value`, an operator decision) and `--password-file notes.txt`, a different flag. The
 false-positive cost: usage text such as `--token <token>` masks the placeholder.
 

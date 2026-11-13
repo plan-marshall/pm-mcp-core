@@ -50,7 +50,10 @@ numbered `Decision` sections below.
 * *R2: Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
    `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
    may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
-   its closing quote on the next line, never further; an unclosed quote masks the rest of its line.
+   its closing quote on the next line, never further; that line end may be escaped by a backslash (a shell line
+   continuation inside the quotes) and still counts as the one line end, so both halves of such a value are masked. An
+   unclosed quote masks the rest of its line; the unclosed form's lookahead reads the same value as the quoted form, so a
+   value that closes after one line end, escaped or not, is never taken for an unclosed one.
 * *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
    patterns also match `-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line (label tail
    `PRIVATE KEY(?: BLOCK)?-----`), and the unclosed form keeps its over-masking of the rest of the text.

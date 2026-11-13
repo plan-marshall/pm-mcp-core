@@ -31,8 +31,8 @@ import de.planmarshall.core.build.BuildLogText;
  * characters;</li>
  * <li>the user-information form of a URL ({@code scheme://user:secret@host});</li>
  * <li>the value of a spaced credential flag of a closed list, whatever its case ({@code --password <value>}, quoted or
- * not; a quoted value is matched through its closing quote, spaces and at most one line end included, and an unclosed
- * quote masks the rest of the line);</li>
+ * not; a quoted value is matched through its closing quote, spaces and at most one line end included, that line end
+ * also when a backslash escapes it, and an unclosed quote masks the rest of the line);</li>
  * <li>a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}) whose
  * {@code BEGIN} line is carried inside the text.</li>
  * </ul>
@@ -143,7 +143,8 @@ public final class SecretRedactor {
      * {@code --password-file notes.txt} is a different flag and stays readable, and a flag outside the list
      * ({@code --key value}, an operator decision) stays readable as well. The quoted forms are matched first: a quoted
      * value runs to the first unescaped closing quote, also across one line end to its closing quote on the next line
-     * (never further), and a quote that does not close on its own line or the next masks the rest of its line (an
+     * (never further; the line end may be escaped by a backslash, a shell line continuation, and still counts as the one
+     * line end), and a quote that does not close on its own line or the next masks the rest of its line (an
      * escaped quote is no close, so {@code --password "abc\"def} masks {@code abc\"def}); an
      * unquoted value runs to the next whitespace and may carry a comma, a {@code ;} or a quote.
      * <p>
@@ -168,17 +169,28 @@ public final class SecretRedactor {
     private static final String QUOTED_LINE =
             QUOTED_PLAIN_RUN + "(?:\\\\[^\\r\\n]" + QUOTED_PLAIN_RUN + ")*+";
 
+    /**
+     * The one line end a quoted flag value may run across: a CR LF, a CR or an LF, optionally preceded by a backslash
+     * (a shell line continuation inside the quotes). {@link #QUOTED_LINE} cannot consume a backslash before a line end,
+     * because its escape pair takes a character that is not a line end, so the backslash is taken here and the escaped
+     * line end counts as the one line end; the limit stays one line end.
+     */
+    private static final String QUOTED_LINE_END = "\\\\?(?:\\r\\n|\\r|\\n)";
+
+    /** A quoted flag value up to its closing quote: one line, then at most one line end and one more line. */
+    private static final String QUOTED_VALUE = QUOTED_LINE + "(?:" + QUOTED_LINE_END + QUOTED_LINE + ")?";
+
     private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_LINE + "(?:(?:\\r\\n|\\r|\\n)" + QUOTED_LINE + ")?)\\3",
-            Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_VALUE + ")\\3", Pattern.CASE_INSENSITIVE);
 
     /**
-     * A quoted flag value whose quote does not close on its own line: the lookahead refuses the line only when
-     * {@link #QUOTED_LINE} reaches an unescaped closing quote, so an escaped quote ({@code --password "abc\"def}) is no
-     * close and the rest of the line is masked.
+     * A quoted flag value whose quote does not close on its own line or the next: the lookahead refuses the value
+     * exactly when {@link #QUOTED_VALUE}, the form {@link #QUOTED_CREDENTIAL_FLAG} matches, reaches an unescaped closing
+     * quote, so an escaped quote ({@code --password "abc\"def}) is no close and the rest of the line is masked, while a
+     * value that closes after one line end, escaped or not, is left to the quoted form.
      */
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_LINE + "\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_VALUE + "\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);
