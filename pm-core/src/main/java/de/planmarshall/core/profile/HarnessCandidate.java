@@ -37,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Builder
 public record HarnessCandidate(String harnessId, String displayName, boolean found, @Nullable String version,
-        boolean supported, boolean workerEligible, String installHint) {
+boolean supported, boolean workerEligible, String installHint) {
 
     private static final Pattern HARNESS_ID = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
 

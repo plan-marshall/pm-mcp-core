@@ -33,7 +33,7 @@ import java.util.Objects;
  * @since 0.1
  */
 public record HarnessUsageCoverage(Status status, List<String> missingFigures,
-        List<ProfileStages.StartContext> startContext) {
+List<ProfileStages.StartContext> startContext) {
 
     /** The closed coverage states of a harness's usage report. */
     public enum Status {

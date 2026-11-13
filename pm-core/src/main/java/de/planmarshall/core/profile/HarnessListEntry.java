@@ -32,7 +32,7 @@ import lombok.Builder;
  */
 @Builder
 public record HarnessListEntry(String harnessId, String displayName, String version, boolean supported,
-        boolean workerEligible, boolean defaultHarness, HarnessUsageCoverage usage) {
+boolean workerEligible, boolean defaultHarness, HarnessUsageCoverage usage) {
 
     /**
      * @throws NullPointerException     if a component is {@code null}
