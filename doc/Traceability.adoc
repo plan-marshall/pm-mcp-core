@@ -491,7 +491,7 @@ link:../pm-core/doc/adr/core-store/040-a-question-set-is-asked-whole.adoc[ADR co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14]
 
-Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes are not traced here; the model slots and the recording of the usage from the harness output are traced in the second implementation line below): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes are traced in the implementation line of the work package `envelope-packing` below; the model slots and the recording of the usage from the harness output are traced in the second implementation line below): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java[FinalizeInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId],
@@ -517,6 +517,31 @@ link:../pm-core/src/main/java/de/planmarshall/core/store/BuildTimingsStore.java[
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[ProbeBudget],
 link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedger.java[ChangeLedger],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QualificationSettingsStore.java[QualificationSettingsStore]
+
+Implementation (the task envelopes of the first bullet, added by the work package `envelope-packing` as far as the
+library module `pm-workflow` carries them, as a pure computation over plain values: the cost sizing `derive-cost-size`
+with its six sizes, the size-to-token table with its compiled defaults and their basis `uncalibrated`, the per-envelope
+budget with its precedence, the cap of its two fallbacks at the long-context threshold and the flag on a kept value
+above it, and the Next-Fit packer with the sharing by module and role and the below-minimum merge. Not implemented
+yet: the wiring into `plan.describe-tasks`, the sequential task yield within an envelope, the recalibration
+`cost_calibration`, the reading of `envelope_budget_tokens` from `local-config.json`, the profile member
+`headless.long_context_thresholds` and the rendering of `below_minimum_task`):
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/TaskCostEstimator.java[TaskCostEstimator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/SizeTokenTable.java[SizeTokenTable],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/CostSize.java[CostSize],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/EnvelopePacker.java[EnvelopePacker],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/envelope/EnvelopeBudget.java[EnvelopeBudget]
+
+Verified by (the task envelopes):
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/TaskCostEstimatorTest.java[TaskCostEstimatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/EnvelopePackerTest.java[EnvelopePackerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/envelope/EnvelopeBudgetTest.java[EnvelopeBudgetTest]
+
+Documentation (the task envelopes):
+link:../pm-workflow/doc/developer/workflow-envelope.adoc[Task Envelopes Developer Guide],
+link:../pm-workflow/doc/adr/workflow-envelope/001-cost-size-and-the-records-follow-the-coding-rules.adoc[ADR workflow-envelope/001],
+link:../pm-workflow/doc/adr/workflow-envelope/002-the-size-token-table-is-an-argument.adoc[ADR workflow-envelope/002],
+link:../pm-workflow/doc/adr/workflow-envelope/003-the-budget-is-resolved-from-plain-values.adoc[ADR workflow-envelope/003]
 
 Implementation (the token split and the coverage aggregate every view calls, and the token facts of a plan and an epic):
 link:../pm-core/src/main/java/de/planmarshall/core/store/HarnessUsage.java[HarnessUsage],
