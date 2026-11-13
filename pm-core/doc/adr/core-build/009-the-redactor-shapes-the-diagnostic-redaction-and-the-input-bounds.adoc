@@ -38,7 +38,7 @@ to the flag list, and the npm token keeps its exact length.
 
 === The redactor's shapes
 
-1. *URL user information.* `URL_USER_INFORMATION` masks a password that holds a raw `/`, `?` or `#`, runs the password
+1. *URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
    to the last `@` of the token (a raw `@` inside it is masked with it), lets the user hold a raw `@` (the user runs to
    the first colon), and accepts the percent-encoded separator `%3A%2F%2F`. The scheme, the user and the host stay
    readable, and a percent-encoded password stays masked whole. The user still excludes whitespace, `/`, `?`, `#` and
@@ -46,7 +46,7 @@ to the flag list, and the npm token keeps its exact length.
    readable.
 2. *Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
    `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
-   may hold a `,`, a `;` or a quote; a quoted value keeps its escape-pair alternation and may run across one line end to
+   may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
    its closing quote on the next line, never further; an unclosed quote masks the rest of its line.
 3. *Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
    patterns also match `-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line (label tail
@@ -89,10 +89,15 @@ redaction:
   by the record's constructor), 1000 for a tool target and 128 for a link target, in `ActivityJournal.appendNext` and
   `ActivityRecorder.append` alike.
 
-On top of the bounds, every repetition of the new URL pattern is possessive or followed by a delimiter disjoint from its
-class, an `@` enters the password only when a look-ahead finds a later `@`, and the scheme starts only where no scheme
-character precedes it (`(?<![a-z0-9+.-])` instead of `\b`), which removes the rescan of a long `a.a.a…` run from every
-start. `SecretRedactorTest` measures the cost without a clock: a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`,
+On top of the bounds, the URL shape is two patterns applied in sequence, one per scheme separator (`://` and
+`%3A%2F%2F`), which keeps each within the regex complexity the quality gate allows. In each, the scheme and the user are
+possessive and the scheme starts only where no scheme character precedes it (`(?<![a-z0-9+.-])` instead of `\b`), which
+removes the rescan of a long `a.a.a…` run from every start; the password is a greedy `\S+` followed by `@`, so it runs
+to the last `@` of the token by giving characters back. That cost is not linear — a token without the closing `@` is
+scanned back once from each scheme start, quadratic in one line at worst — and the per-path line bound above is what
+bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
+run) whose repetitions are all possessive and hold no alternation, so it neither backtracks nor recurses per character
+on a long value. `SecretRedactorTest` measures the cost without a clock: a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`,
 and the same run followed by `://`) is redacted through `redactText` and its unchanged result asserted.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and this plan does not bound that
 input.

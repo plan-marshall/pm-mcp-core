@@ -114,12 +114,19 @@ public final class SecretRedactor {
      * part (an operator decision; the token there is a known residue), {@code scheme://host:8080/path} has no
      * {@code @}, and a path with a colon or a prose sentence has no {@code scheme://}. The false-positive cost: a
      * {@code host:port/path} that is followed later on the same token by a raw {@code @} is read as user information,
-     * and the port and path up to that {@code @} are masked. Every repetition is possessive, and an {@code @} enters
-     * the secret only when a look ahead to the next {@code @} finds one, so a long token is read in linear time.
+     * and the port and path up to that {@code @} are masked.
+     * <p>
+     * The plain separator {@code ://} and the percent-encoded one are two patterns applied in sequence, so neither
+     * carries the alternation of both. The cost: the scheme and the user are possessive and the scheme starts only
+     * where no scheme character precedes it, while the secret is a greedy {@code \S+} that gives characters back until
+     * it reaches the last {@code @} of the token. A token without that {@code @} is therefore scanned back once from
+     * each scheme start, which is quadratic in the length of one line at worst; every caller cuts the line at
+     * {@link BuildLogText#MAX_LINE_LENGTH} (or a smaller bound) before the redaction, and that cut bounds the cost.
      */
-    private static final Pattern URL_USER_INFORMATION = Pattern.compile(
-            "(?i)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+(?:://|%3A%2F%2F))([^\\s/?#:]++)"
-                    + ":((?:[^\\s@]++|@(?=[^\\s@]*+@))++)@");
+    private static final Pattern URL_USER_INFORMATION = urlUserInformation("://");
+
+    /** The user-information form behind the percent-encoded scheme separator ({@code https%3A%2F%2Fuser:secret@host}). */
+    private static final Pattern URL_USER_INFORMATION_ENCODED = urlUserInformation("%3A%2F%2F");
 
     /**
      * The closed list of credential flags whose value is separated by whitespace instead of {@code :} or {@code =}.
@@ -140,10 +147,17 @@ public final class SecretRedactor {
     private static final String CREDENTIAL_FLAG_HEAD =
             "(?<![\\w-])(--(?:" + CREDENTIAL_FLAG_NAMES + "))([ \\t]+)";
 
-    /** One line of a quoted flag value: an escape pair or any character but a backslash, the quote and a line end. */
-    private static final String QUOTED_LINE = "(?:\\\\[^\\r\\n]|(?!\\3)[^\\\\\\r\\n])*";
+    /** A run of characters of a quoted flag value that are neither a backslash, the opening quote nor a line end. */
+    private static final String QUOTED_PLAIN_RUN = "(?:(?!\\3)[^\\\\\\r\\n])*+";
 
-    @SuppressWarnings("java:S5998") // the alternatives are disjoint (escape pair vs non-backslash), so the repetition is linear
+    /**
+     * One line of a quoted flag value as an unrolled loop: a plain run, then any number of escape pairs (a backslash and
+     * the character after it, the quote included) each followed by a plain run. No repetition holds an alternation and
+     * every repetition is possessive, so the match neither backtracks nor recurses per character.
+     */
+    private static final String QUOTED_LINE =
+            QUOTED_PLAIN_RUN + "(?:\\\\[^\\r\\n]" + QUOTED_PLAIN_RUN + ")*+";
+
     private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
             CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_LINE + "(?:(?:\\r\\n|\\r|\\n)" + QUOTED_LINE + ")?)\\3",
             Pattern.CASE_INSENSITIVE);
@@ -176,6 +190,11 @@ public final class SecretRedactor {
         return Pattern.compile("(?i)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
     }
 
+    /** The user-information pattern behind one scheme separator: scheme and separator, user, secret. */
+    private static Pattern urlUserInformation(String schemeSeparator) {
+        return Pattern.compile("(?i)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+" + schemeSeparator + ")([^\\s/?#:]++):(\\S+)@");
+    }
+
     /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
     private static final String KEEP_THREE_GROUPS = "$1$2$3";
 
@@ -202,8 +221,9 @@ public final class SecretRedactor {
         for (var pattern : REPLACEMENTS) {
             masked = pattern.matcher(masked).replaceAll(Matcher.quoteReplacement(REDACTED));
         }
-        masked = URL_USER_INFORMATION.matcher(masked)
-                .replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
+        for (var pattern : List.of(URL_USER_INFORMATION, URL_USER_INFORMATION_ENCODED)) {
+            masked = pattern.matcher(masked).replaceAll("$1$2:" + Matcher.quoteReplacement(REDACTED) + "@");
+        }
         masked = QUOTED_CREDENTIAL_FLAG.matcher(masked)
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
         masked = UNCLOSED_CREDENTIAL_FLAG.matcher(masked)

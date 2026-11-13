@@ -418,8 +418,8 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a clean tsc or ESLint log prints no marker, so exit 0 stays indeterminate")
     void cleanSyntaxToolLogs() {
-        var tscLog = "> %s@1.0.0 typecheck\n> tsc --noEmit\n\n".formatted(words().next());
-        var eslintLog = "> %s@1.0.0 lint\n> eslint .\n\n".formatted(words().next());
+        var tscLog = "> " + words().next() + "@1.0.0 typecheck\n> tsc --noEmit\n\n";
+        var eslintLog = "> " + words().next() + "@1.0.0 lint\n> eslint .\n\n";
 
         var tscParse = PARSER.parse(job(JobId.Kind.BUILD, npm()), tscLog);
         var eslintParse = PARSER.parse(job(JobId.Kind.BUILD, npm()), eslintLog);

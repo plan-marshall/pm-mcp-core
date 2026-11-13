@@ -152,8 +152,12 @@ before it is redacted. The unparsed excerpt cuts every kept line to `BuildLogTex
 redaction; the npm diagnostic is composed from lines `NpmErrorParser` has already cut at its entry; and the journal path
 redacts an entry whose compiled bounds hold already (`ActivityEntry.TEXT_BOUND` of 2000 code points for the text, 1000
 for a tool target, 128 for a link target), both in `ActivityJournal` and in `ActivityRecorder` of `pm-runtime`. The URL
-pattern is linear on a long token: every repetition is possessive and its scheme starts only where no scheme character
-precedes it. The residue: `ProviderVerification` of `pm-runtime` (`runtime.credentials`) redacts a probe answer the
+shape is two patterns applied in sequence, one for `://` and one for the percent-encoded `%3A%2F%2F`; in each the scheme
+and the user are possessive and the scheme starts only where no scheme character precedes it, while the secret is a
+greedy `\S+` that gives characters back to the last `@` of the token. Its cost is therefore not linear: a token without
+that `@` is scanned back once from each scheme start, quadratic in one line at worst, and the line cut above is what
+bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
+run) with possessive repetitions only, so it neither backtracks nor recurses per character. The residue: `ProviderVerification` of `pm-runtime` (`runtime.credentials`) redacts a probe answer the
 assembly supplies, and that input is not bounded here.
 
 == How to use and extend it
