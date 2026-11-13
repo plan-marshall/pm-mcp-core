@@ -166,30 +166,61 @@ public class EnvelopePacker {
      * Merges every group below the minimum task work into its adjacent compatible group, the preceding one first.
      * Adjacent compatible groups were split by the budget alone, so every merge yields a group over the budget; the
      * minimum task work takes precedence by design. Contiguity is kept.
+     * <p>
+     * The groups are examined in order. After a merge the index stays where it is, so the group that now sits there
+     * is examined next: the following group after a merge into the preceding one, the merged group itself after a
+     * merge into the following one.
      */
     private static void mergeBelowMinimum(List<List<PlannedTaskSummary>> groups) {
-        for (int i = 0; i < groups.size(); i++) {
-            List<PlannedTaskSummary> small = groups.get(i);
-            if (total(small) >= MIN_JOB_TOKENS) {
-                continue;
-            }
-            int target = -1;
-            if (i > 0 && canShareEnvelope(groups.get(i - 1).getFirst(), small.getFirst())) {
-                target = i - 1;
-            } else if (i + 1 < groups.size() && canShareEnvelope(groups.get(i + 1).getFirst(), small.getFirst())) {
-                target = i + 1;
-            }
+        int index = 0;
+        while (index < groups.size()) {
+            int target = mergeTarget(groups, index);
             if (target < 0) {
-                continue;
-            }
-            if (target < i) {
-                groups.get(target).addAll(small);
+                index++;
             } else {
-                groups.get(target).addAll(0, small);
+                mergeInto(groups, index, target);
             }
-            groups.remove(i);
-            i--;
         }
+    }
+
+    /**
+     * Finds the group the group at {@code index} merges into.
+     *
+     * @param groups the groups in order
+     * @param index  the index of the examined group
+     * @return the index of the adjacent compatible group, the preceding one first, else the following one; {@code -1}
+     *         when the examined group reaches {@link #MIN_JOB_TOKENS} or has no compatible neighbour
+     */
+    private static int mergeTarget(List<List<PlannedTaskSummary>> groups, int index) {
+        List<PlannedTaskSummary> small = groups.get(index);
+        if (total(small) >= MIN_JOB_TOKENS) {
+            return -1;
+        }
+        if (index > 0 && canShareEnvelope(groups.get(index - 1).getFirst(), small.getFirst())) {
+            return index - 1;
+        }
+        if (index + 1 < groups.size() && canShareEnvelope(groups.get(index + 1).getFirst(), small.getFirst())) {
+            return index + 1;
+        }
+        return -1;
+    }
+
+    /**
+     * Moves the group at {@code index} into its adjacent target group and removes it: to the end of a preceding
+     * target, to the front of a following one, so contiguity is kept.
+     *
+     * @param groups the groups in order
+     * @param index  the index of the group to merge
+     * @param target the index of the adjacent group it merges into, {@code index - 1} or {@code index + 1}
+     */
+    private static void mergeInto(List<List<PlannedTaskSummary>> groups, int index, int target) {
+        List<PlannedTaskSummary> small = groups.get(index);
+        if (target < index) {
+            groups.get(target).addAll(small);
+        } else {
+            groups.get(target).addAll(0, small);
+        }
+        groups.remove(index);
     }
 
     private static long total(List<PlannedTaskSummary> group) {
