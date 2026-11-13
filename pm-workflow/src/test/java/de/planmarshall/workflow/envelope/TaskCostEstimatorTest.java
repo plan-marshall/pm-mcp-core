@@ -16,16 +16,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.cuioss.test.generator.Generators;
@@ -41,14 +44,37 @@ import de.planmarshall.workflow.envelope.TaskCostEstimator.TaskSignals;
 @DisplayName("TaskCostEstimator")
 class TaskCostEstimatorTest {
 
-    private static final Set<String> LISTED_PROFILES = Set.of("implementation", "module_testing", "verification");
+    /**
+     * The profile weights the contract names, the one definition of the profiles this test treats as listed: it feeds
+     * the weight assertion and excludes its profiles from the generated unlisted profile.
+     */
+    private static final Map<String, Long> CONTRACT_PROFILE_WEIGHTS = Map.of(
+            "implementation", 12L,
+            "module_testing", 12L,
+            "verification", 4L,
+            "integration_testing", 8L,
+            "documentation", 8L);
+
+    /** The profile of the generated signals, one of the contract profiles. */
+    private static final String IMPLEMENTATION = "implementation";
+
+    /**
+     * The contract profiles with their weights, sorted by profile.
+     *
+     * @return one argument pair of profile and weight per contract profile
+     */
+    static Stream<Arguments> contractProfileWeights() {
+        return CONTRACT_PROFILE_WEIGHTS.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+    }
 
     private static TaskSignals signals(int steps, String profile, int skills, int files) {
         return TaskSignals.builder().steps(steps).profile(profile).skills(skills).files(files).build();
     }
 
     private static TaskSignals generatedSignals() {
-        return signals(Generators.integers(0, 80).next(), "implementation", Generators.integers(0, 20).next(),
+        return signals(Generators.integers(0, 80).next(), IMPLEMENTATION, Generators.integers(0, 20).next(),
                 Generators.integers(0, 40).next());
     }
 
@@ -56,7 +82,7 @@ class TaskCostEstimatorTest {
         String profile;
         do {
             profile = Generators.letterStrings(3, 16).next();
-        } while (LISTED_PROFILES.contains(profile));
+        } while (CONTRACT_PROFILE_WEIGHTS.containsKey(profile));
         return profile;
     }
 
@@ -71,15 +97,14 @@ class TaskCostEstimatorTest {
             int skills = Generators.integers(0, 20).next();
             int files = Generators.integers(0, 40).next();
 
-            long score = TaskCostEstimator.score(signals(steps, "implementation", skills, files));
+            long score = TaskCostEstimator.score(signals(steps, IMPLEMENTATION, skills, files));
 
-            assertEquals(10L * steps + 12 + 3L * skills + 4L * files, score,
-                    "The score follows the weighted sum of the signals");
+            assertEquals(10L * steps + CONTRACT_PROFILE_WEIGHTS.get(IMPLEMENTATION) + 3L * skills + 4L * files,
+                    score, "The score follows the weighted sum of the signals");
         }
 
         @ParameterizedTest
-        @CsvSource({"implementation,12", "module_testing,12", "verification,4", "integration_testing,8",
-                "documentation,8"})
+        @MethodSource("de.planmarshall.workflow.envelope.TaskCostEstimatorTest#contractProfileWeights")
         @DisplayName("adds the weight of the profile, contract profiles and weights")
         void addsTheProfileWeight(String profile, long weight) {
             assertEquals(weight, TaskCostEstimator.score(signals(0, profile, 0, 0)),
@@ -186,11 +211,12 @@ class TaskCostEstimatorTest {
         @DisplayName("refuses a negative count")
         void refusesANegativeCount(String count) {
             int negative = -1 - Generators.integers(0, 1000).next();
+            int steps = "steps".equals(count) ? negative : 0;
+            int skills = "skills".equals(count) ? negative : 0;
+            int files = "files".equals(count) ? negative : 0;
 
-            assertThrows(IllegalArgumentException.class, () -> signals(
-                    "steps".equals(count) ? negative : 0, "implementation",
-                    "skills".equals(count) ? negative : 0,
-                    "files".equals(count) ? negative : 0), "A negative count of the task is refused");
+            assertThrows(IllegalArgumentException.class, () -> signals(steps, IMPLEMENTATION, skills, files),
+                    "A negative count of the task is refused");
         }
     }
 
