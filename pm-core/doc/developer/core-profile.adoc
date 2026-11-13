@@ -241,6 +241,47 @@ refusal; `VerificationRecordTest` covers the record's start-context parse and it
 link:../adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR 007]: the usage stage records the start
 context and derives the usage coverage.
 
+== The Harness Scan, the Harness List and the Verification Gate
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{docs}/Requirements.adoc#PM-SEC-8[PM-SEC-8]_
+
+The onboarding's `harness.choose` step shows what a scan found, and `harness.none` shows what to install. The package
+holds both as values, so no client re-derives the order or the default:
+
+* `HarnessCandidate` is one profile with what the scan found of it: the harness id, the display name, whether the
+  executable was found and at which absolute path, the probed version, whether that version is supported, whether the
+  profile may serve workers, and the profile's install hint. It refuses a version or a path on a harness that was not
+  found, a found harness without them, and a candidate offered for workers that is not found and supported.
+* `HarnessScan` orders its candidates by `harness_id` in its compact constructor, refuses two candidates of one id,
+  `preselected()` returns the found, supported and worker-eligible ones, `defaultHarness()` the first of them, and
+  `none()` the `harness.none` wait where nothing was found.
+* `HarnessNone` names each known harness's install hint and offers `recheck` and `add`.
+* `HarnessProbe` derives the login probe's transition from the chosen and failed sets as sets (`all_passed` to
+  `harness.confirm`, `one_failed` to `harness.blocked`, `all_failed` to `harness.none`); a run whose every chosen harness
+  failed rests in `harness.none` and renders the failed harnesses' install hints, and `canLeaveOut` refuses to leave out
+  the harness that passed, or to leave out anything when it is the only chosen one.
+* `HarnessList` keeps the scan's order and carries per row the path or install hint, the default mark and the
+  `HarnessUsageCoverage`. The coverage is filed under a `HarnessList.Key` — the harness **and** the version — so a
+  coverage recorded for one version is never shown beside another. `HarnessUsageCoverage.of` maps a `UsageResult` to
+  `complete`, `partial` with the missing report figures in schema order, or `not_reported`;
+  `HarnessUsageCoverage.unreadable()` and `HarnessList.of(..., storeUnreadable = true)` show `harness_store_unreadable`
+  at every row instead of an empty usage map. The bridge from the enrolment store to the list is
+  `HarnessListings.of` in `pm-runtime`, which maps the store's figure names (`input`, `output`) back to the profile
+  schema's and files each report under the version it was enrolled with.
+
+`HarnessVerification.admit` is the one admission of a verification of an unknown harness: the state must be
+`harness.verify-profile`, the consent kind `verify_harness_profile` (never remembered, so a `yes_remember` is refused),
+the answer `yes` with the expected tokens of **exactly** the stages the caller declares as the run's — a subset prices
+stages the consent never showed, a superset prices a stage that does not run, and the stage list is the run's own
+precondition because the gate cannot see the run — and the draft is validated by `ProfileValidator` before
+anything runs. Each refusal carries a stable code from `HarnessVerificationRefusal`.
+
+link:../adr/core-profile/013-the-scan-and-list-are-ordered-values.adoc[ADR 013]: the scan and list are ordered values
+with the store refusal as a status. link:../adr/core-profile/014-the-verification-is-admitted-by-one-gate.adoc[ADR 014]:
+the verification is admitted by one gate. `HarnessScanTest`, `HarnessListTest` and `HarnessVerificationTest` cover the
+order, the preselection, the default, the `harness.none` transitions, the leave-out rule, the four coverage states and the
+refusals of the gate; `HarnessListingsTest` covers the mapping from the enrolments, an enrolled harness the scan no longer
+finds included.
+
 == The resumability stage
 
 `ProfileStages.ResumabilityResult` is what the stage `resumability` of the profile verification hands on: one
