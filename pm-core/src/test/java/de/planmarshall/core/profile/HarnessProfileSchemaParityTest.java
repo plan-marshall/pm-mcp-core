@@ -33,11 +33,12 @@ import de.planmarshall.core.SchemaResource;
  * file is {@code harness-profile-v1.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/},
  * read through {@link SchemaResource}. Three deviations are pinned, each with its owner: the id member
  * ({@code harness_id} in the file, {@code client_id} in the validator, owned by the staged harness-rename packages);
- * {@code headless.inline_settings}, {@code headless.loaded} and {@code headless.readable_paths} (owned by the
- * profile-verification and job-confinement packages); and {@code headless.usage.model} (owned by PLAN-V2-135) with
+ * {@code headless.inline_settings} (owned by the {@code client-profile-measured-values} package), {@code headless.loaded}
+ * (owned by the Model Work § Loaded at Start runtime check) and {@code headless.readable_paths} (owned by the
+ * {@code job-confinement-and-environment} package); and {@code headless.usage.model} (owned by PLAN-V2-135) with
  * {@code headless.usage.accumulation}. The comparison is structural: the file's relative {@code $ref} to
- * {@code endpoint-profile.json} is not resolved here. The member names are the wire format; they are literals here for
- * that reason.
+ * {@code endpoint-profile.json} is not resolved here, and the validator's demand for each required member is the generic
+ * required check, not a per-member case. The member names are the wire format; they are literals here for that reason.
  */
 @DisplayName("Harness profile schema parity")
 class HarnessProfileSchemaParityTest {

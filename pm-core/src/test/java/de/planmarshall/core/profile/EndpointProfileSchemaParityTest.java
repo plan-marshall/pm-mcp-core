@@ -109,7 +109,7 @@ class EndpointProfileSchemaParityTest {
                         "The schema version is the reader's"),
                 () -> assertEquals(Set.of("openai_chat"),
                         Set.copyOf(names(SchemaResource.array(protocol.get("enum")))),
-                        "The one protocol is the reader's"));
+                        "The one protocol is the reader's (no type constant exists)"));
     }
 
     @Test
