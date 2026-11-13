@@ -74,8 +74,9 @@ and its cleanup (link:../adr/core-queue/008-the-journal-masks-at-its-write-bound
 The projection of the profile's `headless.events` block (`ActivityEventMapping`) and the redaction of what the journal
 writes (`SecretRedactor`). `SecretRedactor` masks a credential-shaped assignment, a
 bearer value, the provider token shapes (GitHub, Slack and the npm `npm_` access token), the user information of a URL,
-the value of a spaced `--password`/`--token` flag, and a PEM private-key block carried inside one text; each shape is
-anchored to its own form so prose cannot match it (its Javadoc names them). The line mapper `ActivityEventMapper` itself lives in
+the value of a spaced credential flag of a closed list, and a PEM or PGP private-key block carried inside one text; each
+shape is anchored to its own form so prose cannot match it (its Javadoc names them, and
+<<redactor-shapes>> lists them with what each leaves readable). The line mapper `ActivityEventMapper` itself lives in
 `pm-runtime` (`runtime.worker`) and reads the projection; the mapping is never read from the profile on the stream path
 (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]) and the journal redacts at its write boundary
 (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). `ActivityEventMapping.of`
@@ -84,6 +85,76 @@ answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `
 
 ADR number 009 of this package is retired: it decided the navigation figures, which the work package
 `deferred-code-removal` deleted with the record. The next ADR of `core-queue` takes 010.
+
+[#redactor-shapes]
+== The Redactor's Shapes and What Stays Readable
+
+`SecretRedactor` is deliberately narrow: a false positive costs a piece of the operator's evidence, a false negative
+writes a credential to a store. It masks the shapes below and leaves every other text alone; the decisions are
+link:../adr/core-build/006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR `core-build/006`] and
+link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`].
+The replacement keeps the label, so a reader still sees what was removed, and redacting redacted text changes nothing.
+
+[cols="2,3,3",options="header"]
+|===
+|Shape |Masked |Stays readable, and why
+
+|Credential assignment (`password=`, `token:`, `api_key=`, a camelCase `fooSecret=`) and an `Authorization:` header with
+`Bearer`, `Basic` or `Token`
+|the value after the separator
+|a secret in a query parameter whose name is no listed label; and under an `Authorization:` header of another scheme
+(`Digest`, `Negotiate`) the scheme word is taken as the value and masked, while the credential after it stays readable.
+
+|Bearer value
+|the value after `Bearer`
+|a bare JSON Web Token without `Bearer` and an AWS access-key id: no label and no anchored shape marks them.
+
+|Provider tokens (`sk-`, `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`, `xox[abprs]-`)
+|the whole token
+|a shorter run after the prefix.
+
+|npm access token
+|`npm_` followed by exactly 36 alphanumeric characters
+|a run of 37 or more characters after `npm_`, a run followed by `_` and a run preceded by a word character: none of them
+is an npm token, and a package name that starts with `npm_` keeps its text (an operator decision).
+
+|URL user information (`scheme://user:secret@host`)
+|the secret, also when it holds a raw `/`, `?`, `#` or `@` (it runs to the last `@` of the token), when the user holds a
+raw `@` (the user runs to the first colon), and behind a percent-encoded scheme separator (`https%3A%2F%2Fuser:secret@host`)
+|the single-user form `https://<token>@host`, which has no colon and so no secret part (an operator decision, a known
+residue); `scheme://host:8080/path`; a path with a colon; prose. The false-positive cost: a `host:port/path` followed
+later on the same token by a raw `@` is read as user information, and its port and path up to that `@` are masked.
+
+|Spaced credential flag of the closed list `--password`, `--passwd`, `--passphrase`, `--token`, `--secret`,
+`--auth-token`, `--api-key`, `--apikey`, `--access-token`, `--client-secret`, `--otp`, in any case
+|an unquoted value to the next whitespace (a `,`, `;` or quote included); a quoted value to its closing quote, across at
+most one line end; an unclosed quote masks the rest of its line
+|a flag outside the list (`--key value`, an operator decision) and `--password-file notes.txt`, a different flag. The
+false-positive cost: usage text such as `--token <token>` masks the placeholder.
+
+|PEM private-key block and PGP private-key block (`-----BEGIN PGP PRIVATE KEY BLOCK-----`)
+|the block from its `BEGIN` line to its `END` line; a block without its `END` line is masked to the end of the text (the
+over-masking is kept: masking too much costs evidence, a readable key body costs the credential)
+|a block whose `BEGIN` line lies before the excerpt window, so that the text starts inside it: nothing in the text marks
+the body as a key, and the window is not widened to reach the marker. Prose that names `PRIVATE KEY` outside a marker.
+|===
+
+*The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the terminal escape sequences
+of the text, the tool target and the link target through `BuildLogText.stripAnsi` of `core.build` — the expression the
+unparsed excerpt uses — before it redacts them, so a colour code between a label and its value
+(`ESC[1mpassword ESC[0m=value`) cannot hide the value. The journal therefore stores no escape sequence; the bound of
+each part is applied after the redaction. `redactText(String)` leaves escape sequences to its caller. This makes
+`core.queue` depend on `core.build`, which already depends on `core.queue`; no guard forbids the cycle of packages, and
+ADR `core-build/009` records it.
+
+*The cost is bounded on every path.* No pattern of the redactor carries a time bound, so each caller bounds the text
+before it is redacted. The unparsed excerpt cuts every kept line to `BuildLogText.MAX_LINE_LENGTH` characters before the
+redaction; the npm diagnostic is composed from lines `NpmErrorParser` has already cut at its entry; and the journal path
+redacts an entry whose compiled bounds hold already (`ActivityEntry.TEXT_BOUND` of 2000 code points for the text, 1000
+for a tool target, 128 for a link target), both in `ActivityJournal` and in `ActivityRecorder` of `pm-runtime`. The URL
+pattern is linear on a long token: every repetition is possessive and its scheme starts only where no scheme character
+precedes it. The residue: `ProviderVerification` of `pm-runtime` (`runtime.credentials`) redacts a probe answer the
+assembly supplies, and that input is not bounded here.
 
 == How to use and extend it
 
@@ -121,5 +192,6 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
 * Deleting a journal is an act of the one runtime: `delete(task)` holds the leaf key while it unlinks the journal and
   its sidecar, so the held OS lock lies on an unlinked inode afterwards and a second runtime that created the sidecar
   again would lock a different inode. The runtime singleton lock is what excludes that second runtime.
-* Every text, tool target and link target is masked before the write; a masked value is stored masked, and a secret is
-  never in the journal at rest.
+* Every text, tool target and link target is stripped of its escape sequences and masked before the write; a masked
+  value is stored masked, and a secret of a shape the redactor knows is never in the journal at rest (the shapes it
+  leaves readable are listed in <<redactor-shapes>>).
