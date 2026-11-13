@@ -211,20 +211,46 @@ class EnvelopeBudgetTest {
     @DisplayName("the refusal")
     class Refusal {
 
+        /**
+         * Resolves with {@code value} given for the chosen input alone and expects the refusal. The four arguments are
+         * computed before the lambda, so the lambda holds the single call that may throw.
+         *
+         * @param input the input that receives the value: {@code operator}, {@code role}, {@code profile} or
+         *              {@code threshold}
+         * @param value the value given for that input
+         * @return the refusal
+         */
+        private static IllegalArgumentException refusalOf(String input, long value) {
+            Long operator = "operator".equals(input) ? value : null;
+            Long role = "role".equals(input) ? value : null;
+            Long profile = "profile".equals(input) ? value : null;
+            Long threshold = "threshold".equals(input) ? value : null;
+
+            return assertThrows(IllegalArgumentException.class,
+                    () -> EnvelopeBudget.resolve(operator, role, profile, threshold),
+                    "A value of zero or less is refused");
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"operator", "role", "profile", "threshold"})
-        @DisplayName("refuses a given value that is not positive")
-        void refusesANonPositiveValue(String input) {
-            long notPositive = -Generators.longs(0, 1_000_000).next();
+        @DisplayName("refuses a given negative value")
+        void refusesANegativeValue(String input) {
+            long negative = -Generators.longs(1, 1_000_000).next();
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> EnvelopeBudget.resolve(
-                    "operator".equals(input) ? notPositive : null,
-                    "role".equals(input) ? notPositive : null,
-                    "profile".equals(input) ? notPositive : null,
-                    "threshold".equals(input) ? notPositive : null), "A value of zero or less is refused");
+            var thrown = refusalOf(input, negative);
 
-            assertTrue(thrown.getMessage().contains(String.valueOf(notPositive)),
+            assertTrue(thrown.getMessage().contains(String.valueOf(negative)),
                     "The refusal names the refused value");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"operator", "role", "profile", "threshold"})
+        @DisplayName("refuses zero, the positivity boundary (contract literal 0)")
+        void refusesZero(String input) {
+            // 0 is the contract: the boundary below the smallest positive value
+            var thrown = refusalOf(input, 0L);
+
+            assertTrue(thrown.getMessage().contains("0"), "The refusal names the refused zero");
         }
     }
 }
