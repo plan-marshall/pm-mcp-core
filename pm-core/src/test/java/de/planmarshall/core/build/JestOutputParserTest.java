@@ -103,6 +103,47 @@ class JestOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertFalse(build.noTestsRan(), "An unmeasured population is no no-tests verdict"));
     }
 
+    @Test
+    @DisplayName("keeps the marker false for a todo-only summary (Jest wire format)")
+    void todoOnlySummaryIsNoMarker() {
+        ParsedBuild build = JestOutputParser.parse("PASS src/a.test.ts\nTests:       2 todo, 2 total\n");
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "A todo-only run prints no failure"),
+                () -> assertFalse(build.successMarker(), "A todo-only summary is no passing summary"));
+    }
+
+    @Test
+    @DisplayName("keeps the marker false for a passing summary beside a filed diagnostic (Jest wire format)")
+    void passingSummaryBesideADiagnosticIsNoMarker() {
+        String logText = """
+                FAIL  src/a.test.ts
+                  ● a › fails
+
+                      at Object.<anonymous> (src/a.test.ts:7:9)
+
+                Tests:       2 passed, 2 total
+                """;
+
+        ParsedBuild build = JestOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The failure block is filed as a diagnostic"),
+                () -> assertEquals(TestCounts.from(2, 0, 0, null), build.testCounts(),
+                        "The counts stay as the summary printed them"),
+                () -> assertFalse(build.successMarker(), "A filed diagnostic keeps the marker false"));
+    }
+
+    @Test
+    @DisplayName("sets the marker for a plain passing summary (Jest wire format)")
+    void plainPassingSummaryIsTheMarker() {
+        ParsedBuild build = JestOutputParser.parse("PASS src/a.test.ts\nTests:       3 passed, 3 total\n");
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "A plain passing run prints no failure"),
+                () -> assertTrue(build.successMarker(), "A plain passing summary is the success marker"));
+    }
+
     @Override
     ParsedBuild parse(String logText) {
         return JestOutputParser.parse(logText);

@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.build.EslintOutputParser;
+import de.planmarshall.core.build.TypeScriptOutputParser;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
@@ -407,17 +409,42 @@ class BuildOutputParserTest {
                         "a new-prefix npm error decides failed rather than unparsed"));
     }
 
-    @Test
-    @DisplayName("a clean tsc or ESLint log prints nothing, so exit 0 stays indeterminate")
-    void cleanSyntaxToolLogs() {
-        var typeScript = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
-        var eslint = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
+    /**
+     * A clean {@code tsc} or ESLint run prints only the {@code npm run} banner ({@code > <package>@<version> <script>}
+     * and {@code > <command>}), the npm wire format; the package name is generated. Each tool has its own case: its own
+     * banner, and the core parser of that tool checked over the same log.
+     */
+    @Nested
+    @DisplayName("a clean syntax-tool log")
+    class CleanSyntaxToolLogs {
 
-        assertAll(
-                () -> assertEquals(ParseResult.NOTHING, typeScript, "a clean tsc run prints no marker"),
-                () -> assertEquals(INDETERMINATE, outcome(typeScript, 0), "a clean tsc run stays indeterminate"),
-                () -> assertEquals(ParseResult.NOTHING, eslint, "a clean ESLint run prints no marker"),
-                () -> assertEquals(INDETERMINATE, outcome(eslint, 0), "a clean ESLint run stays indeterminate"));
+        @Test
+        @DisplayName("of tsc prints no marker, so exit 0 stays indeterminate")
+        void cleanTypeScriptLog() {
+            var log = "> %s@1.0.0 typecheck\n> tsc --noEmit\n\n".formatted(words().next());
+
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), log);
+
+            assertAll(
+                    () -> assertFalse(TypeScriptOutputParser.parse(log).successMarker(),
+                            "the tsc parser reads no marker in the log"),
+                    () -> assertEquals(ParseResult.NOTHING, parse, "a clean tsc run prints no marker"),
+                    () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a clean tsc run stays indeterminate"));
+        }
+
+        @Test
+        @DisplayName("of ESLint prints no marker, so exit 0 stays indeterminate")
+        void cleanEslintLog() {
+            var log = "> %s@1.0.0 lint\n> eslint .\n\n".formatted(words().next());
+
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), log);
+
+            assertAll(
+                    () -> assertFalse(EslintOutputParser.parse(log).build().successMarker(),
+                            "the ESLint parser reads no marker in the log"),
+                    () -> assertEquals(ParseResult.NOTHING, parse, "a clean ESLint run prints no marker"),
+                    () -> assertEquals(INDETERMINATE, outcome(parse, 0), "a clean ESLint run stays indeterminate"));
+        }
     }
 
     // Build systems the runtime knows no parser for: contract literals of the budget key.

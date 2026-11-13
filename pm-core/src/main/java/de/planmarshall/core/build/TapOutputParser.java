@@ -32,7 +32,13 @@ import org.jspecify.annotations.Nullable;
  * A successful run whose summary reports at least one passed test and no failed test is the tool's positive success
  * marker ({@link #printsPassingSummary}). An unreadable or {@link TestCounts.Unmeasured unmeasured} summary, a measured
  * zero, an all-skipped run, a printed failing count, a {@code Bail out!} line and a filed diagnostic all keep the marker
- * {@code false}.
+ * {@code false}. So does a top-level plan line {@code 1..N} whose {@code N} differs from the number of top-level test
+ * points (ADR {@code core-build/009}): the run did not finish its plan, the same evidence class as a bailout, so it is no
+ * passing summary even with exit 0. The counts stay as the summary measured them. A plan line that matches its test
+ * points, an indented (subtest) plan line and a log without a top-level plan line change nothing; the counts of several
+ * top-level plan lines are summed, as the summary blocks are. The plan is compared with the test points, not with the
+ * {@code # tests} total, because {@code node --test} plans one top-level point per suite and counts the tests inside the
+ * suites in {@code # tests}.
  * <p>
  * Two behaviours are deliberate changes against the original (ADR {@code core-build/003}): the original reads the first
  * occurrence of each summary line, and it trusts {@code # tests} over its parts. This port sums every summary block of a
@@ -78,6 +84,12 @@ public class TapOutputParser {
 
     private static final Pattern SKIPPED = Pattern.compile("^#\\s*skipped\\s+(\\d+)");
 
+    /** A top-level plan line: at the start of the line, so an indented subtest plan is not one. */
+    private static final Pattern PLAN = Pattern.compile("^1\\.\\.(\\d+)");
+
+    /** A top-level test point, {@code ok} or {@code not ok}: at the start of the line, as its plan line is. */
+    private static final Pattern TOP_LEVEL_POINT = Pattern.compile("^(?:not )?ok\\b");
+
     /**
      * Parses a TAP test log.
      *
@@ -105,7 +117,7 @@ public class TapOutputParser {
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;
-        boolean successMarker = printsPassingSummary(status, testCounts);
+        boolean successMarker = printsPassingSummary(status, testCounts, finishedPlan(lines));
         return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(successMarker)
                 .testCounts(testCounts)
                 .noTestsRan(ParsedBuild.noTestsRanFrom(status, successMarker, testCounts, false)).build();
@@ -113,16 +125,45 @@ public class TapOutputParser {
 
     /**
      * Whether the log printed TAP's passing summary: a successful status over a measured population with no failed test
-     * and at least one passed test. A measured zero and an all-skipped run carry no passed test, so they are no marker
-     * either.
+     * and at least one passed test, in a run that finished its plan. A measured zero and an all-skipped run carry no
+     * passed test, so they are no marker either; a top-level plan line {@code 1..N} whose {@code N} differs from the
+     * number of top-level test points is an unfinished plan, so it is no marker however the counts read.
      *
-     * @param status     the status the tool printed
-     * @param testCounts the counts the summary supplied, or {@code null} when it carried none
+     * @param status       the status the tool printed
+     * @param testCounts   the counts the summary supplied, or {@code null} when it carried none
+     * @param finishedPlan whether the run finished its plan, see {@link #finishedPlan}
      * @return whether the passing summary is the positive success marker
      */
-    private static boolean printsPassingSummary(BuildStatus status, @Nullable TestCounts testCounts) {
-        return status == BuildStatus.SUCCESS && testCounts instanceof TestCounts.Measured measured
+    private static boolean printsPassingSummary(BuildStatus status, @Nullable TestCounts testCounts,
+            boolean finishedPlan) {
+        return finishedPlan && status == BuildStatus.SUCCESS && testCounts instanceof TestCounts.Measured measured
                 && measured.failed() == 0 && measured.passed() > 0;
+    }
+
+    /**
+     * Whether the run finished the plan it announced: the summed count of the top-level plan lines equals the number of
+     * top-level test points ({@code ok} / {@code not ok} at the start of a line). A log without a top-level plan line
+     * announced no plan, so it finished it; an indented (subtest) plan line and an indented test point belong to a
+     * subtest and are not read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints
+     * one top-level point per suite and counts the tests inside them in {@code # tests}.
+     *
+     * @param lines the log lines
+     * @return whether no top-level plan line contradicts the top-level test points
+     */
+    private static boolean finishedPlan(List<String> lines) {
+        long planned = 0;
+        long points = 0;
+        boolean announced = false;
+        for (String line : lines) {
+            Optional<Long> plan = count(PLAN, line);
+            if (plan.isPresent()) {
+                announced = true;
+                planned += plan.get();
+            } else if (TOP_LEVEL_POINT.matcher(line).find()) {
+                points++;
+            }
+        }
+        return !announced || planned == points;
     }
 
     /**

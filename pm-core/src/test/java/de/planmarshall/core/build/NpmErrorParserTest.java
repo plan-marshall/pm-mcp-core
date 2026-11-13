@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -177,6 +178,55 @@ class NpmErrorParserTest extends ParsedBuildPortedTest {
                         e404.diagnostics().getFirst().message(), "the E404 message is unchanged"),
                 () -> assertEquals("ERESOLVE: Unable to resolve dependency tree",
                         eresolve.diagnostics().getFirst().message(), "the ERESOLVE fallback is unchanged"));
+    }
+
+    @Test
+    @DisplayName("names the E404 package of npm 11's registry wording under the npm error prefix (npm wire format)")
+    void namesTheE404PackageUnderTheCurrentPrefix() {
+        // `npm error 404 '<package>' is not in this registry` is the npm 11 wording under the npm 12 prefix
+        var name = Generators.letterStrings(4, 16).next();
+        var log = "npm error code E404\nnpm error 404 '" + name + "' is not in this registry\n";
+
+        var build = NpmErrorParser.parse(log);
+
+        assertAll("E404 under the npm error prefix",
+                () -> assertEquals(1, build.diagnostics().size(), "the E404 block files one diagnostic"),
+                () -> assertEquals("E404: Package '" + name + "' not found in registry",
+                        build.diagnostics().getFirst().message(), "the package of the 404 line is named"));
+    }
+
+    @Test
+    @DisplayName("names the ERESOLVE peer conflict under the npm error prefix (npm wire format)")
+    void namesThePeerConflictUnderTheCurrentPrefix() {
+        // `Could not resolve dependency:` and its `peer <dependency> from <package>` trailer are the npm wire format
+        var peer = Generators.letterStrings(4, 16).next();
+        var origin = Generators.letterStrings(4, 16).next();
+        var log = """
+                npm error code ERESOLVE
+                npm error Could not resolve dependency:
+                npm error peer %s@1.0.0 from %s@2.0.0
+                """.formatted(peer, origin);
+
+        var build = NpmErrorParser.parse(log);
+
+        assertAll("ERESOLVE under the npm error prefix",
+                () -> assertEquals(Category.NPM_DEPENDENCY, build.diagnostics().getFirst().category(),
+                        "the block is the ERESOLVE dependency one"),
+                () -> assertEquals("ERESOLVE: Could not resolve peer dependency " + peer + "@1.0.0 from " + origin
+                        + "@2.0.0", build.diagnostics().getFirst().message(), "the conflict marker finds the trailer"));
+    }
+
+    @Test
+    @DisplayName("reads the first line of a generic block under the npm error prefix (npm wire format)")
+    void readsTheFirstLineUnderTheCurrentPrefix() {
+        // a generic block's message is its code and the first line after the prefix, here the code line itself
+        var code = "E" + Generators.letterStrings(4, 10).next().toUpperCase(Locale.ROOT);
+        var log = "npm error code " + code + "\nnpm error " + Generators.letterStrings(4, 16).next() + "\n";
+
+        var build = NpmErrorParser.parse(log);
+
+        assertEquals(code + ": code " + code, build.diagnostics().getFirst().message(),
+                "the first prefixed line is the message");
     }
 
     @Override

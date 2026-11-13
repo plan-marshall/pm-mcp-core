@@ -11,6 +11,7 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -104,6 +105,79 @@ class TapOutputParserTest extends ParsedBuildPortedTest {
                 () -> assertEquals(1, build.diagnostics().size(), "The block's own error is filed"),
                 () -> assertEquals("boom", build.diagnostics().getFirst().message(), "The YAML error is the message"),
                 () -> assertEquals("/p/a.js", build.diagnostics().getFirst().file(), "The location names the file"));
+    }
+
+    @Test
+    @DisplayName("keeps the marker false when the top-level plan line names more tests than the summary ran (TAP wire format)")
+    void planLineMismatchKeepsTheMarkerFalse() {
+        String logText = String.join("\n", "TAP version 13", "ok 1 - first", "ok 2 - second", "ok 3 - third", "1..5",
+                "# tests 3", "# pass 3", "# fail 0", "# skipped 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "An unfinished plan prints no failure"),
+                () -> assertFalse(build.successMarker(), "An unfinished plan is no passing summary"),
+                () -> assertEquals(TestCounts.from(3, 0, 0, null), build.testCounts(),
+                        "The counts stay as the summary measured them"));
+    }
+
+    @Test
+    @DisplayName("sets the marker when the top-level plan line matches the test points (TAP wire format)")
+    void matchingPlanLineSetsTheMarker() {
+        String logText = String.join("\n", "TAP version 13", "ok 1 - first", "ok 2 - second", "ok 3 - third", "1..3",
+                "# tests 3", "# pass 3", "# fail 0", "# skipped 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "A finished plan prints no failure"),
+                () -> assertTrue(build.successMarker(), "A finished passing plan is the success marker"));
+    }
+
+    @Test
+    @DisplayName("ignores an indented subtest plan line (TAP wire format of node --test)")
+    void indentedSubtestPlanLineChangesNothing() {
+        String withSubtestPlan = String.join("\n", "TAP version 13", "# Subtest: suite", "    ok 1 - first",
+                "    ok 2 - second", "    1..2", "ok 1 - suite", "1..1", "# tests 2", "# pass 2", "# fail 0",
+                "# skipped 0");
+        String withoutSubtestPlan = withSubtestPlan.replace("    1..2\n", "");
+
+        ParsedBuild build = TapOutputParser.parse(withSubtestPlan);
+
+        assertAll(
+                () -> assertTrue(build.successMarker(), "An indented subtest plan keeps the marker"),
+                () -> assertEquals(TapOutputParser.parse(withoutSubtestPlan).successMarker(), build.successMarker(),
+                        "The subtest plan line changes no marker"),
+                () -> assertEquals(TestCounts.from(2, 0, 0, null), build.testCounts(),
+                        "The counts stay as the summary measured them"));
+    }
+
+    @Test
+    @DisplayName("keeps the marker false for a skipped-only run (TAP wire format)")
+    void skippedOnlyRunIsNoMarker() {
+        String logText = String.join("\n", "TAP version 13", "ok 1 - first # SKIP", "ok 2 - second # SKIP", "1..2",
+                "# tests 2", "# pass 0", "# fail 0", "# skipped 2");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(BuildStatus.SUCCESS, build.status(), "A skipped-only run prints no failure"),
+                () -> assertFalse(build.successMarker(), "A skipped-only run is no passing summary"));
+    }
+
+    @Test
+    @DisplayName("keeps the marker false for a passing summary beside a filed diagnostic (TAP wire format)")
+    void passingSummaryBesideADiagnosticIsNoMarker() {
+        String logText = String.join("\n", "TAP version 13", "# Subtest: suite", "    not ok 1 - inner",
+                "      ---", "      error: 'boom'", "      ...", "    1..1", "ok 1 - suite", "1..1", "# tests 1",
+                "# pass 1", "# fail 0", "# skipped 0");
+
+        ParsedBuild build = TapOutputParser.parse(logText);
+
+        assertAll(
+                () -> assertEquals(1, build.diagnostics().size(), "The subtest failure is filed as a diagnostic"),
+                () -> assertFalse(build.successMarker(), "A filed diagnostic keeps the marker false"));
     }
 
     @Override
