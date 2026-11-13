@@ -17,7 +17,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
 
-A harness profile is the one configuration document of a harness: `classpath:/profiles/<harness_id>.json`, a resource of `pm-api` (`claude.json`, `opencode.json`, `antigravity.json`, `codex.json`), and every profile the operator installed for the machine or a project (<<profile-sets>>). Everything the system knows about a harness is in its profile and nowhere else (<<harness-as-data>>). Every profile is validated against the following JSON Schema (Draft 2020-12), the file `harness-profile-v1.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/profile/`, beside `ProfileValidator` and the `HarnessProfile` projection of that package:
+A harness profile is the one configuration document of a harness: `classpath:/profiles/<harness_id>.json`, a resource of `pm-api` (`claude.json`, `opencode.json`, `antigravity.json`, `codex.json`), and every profile the operator installed for the machine or a project (<<profile-sets>>). Everything the system knows about a harness is in its profile and nowhere else (<<harness-as-data>>). Every profile is validated against the following JSON Schema (Draft 2020-12), the file `harness-profile-v1.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/profile/`, beside `ProfileValidator` of that package and the `HarnessProfile` projection in `de.planmarshall.core.role`:
 
 [source,json]
 ----
@@ -414,7 +414,7 @@ link:03-endpoint-harness.adoc#endpoint-verification[Endpoint Harness § Verifica
 no session. The endpoint profile's members are settled as that section states; its `profile_kind` tells the two kinds
 apart (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Harness § Endpoint Profile Schema]).
 
-*Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<harness_id>.json` and its verification record beside it, and changes nothing that is in force.
+*Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<harness_id>.json` and its verification record beside it, and changes nothing that is in force. The block below is an example of that record, not a schema.
 
 [source,json]
 ----

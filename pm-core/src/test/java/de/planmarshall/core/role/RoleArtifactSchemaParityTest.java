@@ -42,7 +42,7 @@ import de.planmarshall.core.SchemaResource;
  * {@link RoleArtifact} and its reader {@link RoleArtifactValidator} keep parity with the schema of Model Work § Role
  * Artifact Schema: the record's components are the file's members in schema order, the file requires exactly the members
  * the reader refuses to miss, every optional member is accepted by both, and the format version, the enumerations and
- * the bounds are the file's. The schema is the file {@code role-artifact-v1.schema.json} in
+ * the count and budget-floor bounds are the file's. The schema is the file {@code role-artifact-v1.schema.json} in
  * {@code pm-core/src/main/resources/de/planmarshall/core/role/}, read from the class path through {@link SchemaResource}.
  * The member names and the values of the test documents are the wire format; they are literals here for that reason.
  */
