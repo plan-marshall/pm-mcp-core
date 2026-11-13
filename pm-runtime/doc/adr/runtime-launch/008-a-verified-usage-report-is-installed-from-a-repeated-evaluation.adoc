@@ -1,0 +1,58 @@
+= ADR 008: A verified usage report is installed only from a repeated evaluation
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-13.
+
+== Context
+
+The result of the profile verification's stage `usage` becomes the enrolment's `usage_report` when a verified profile is
+installed (Harness Profiles § Tokens, Not Money; Store Schemas § Harness Enrolment Store). `UsageReport.of` is the mapping
+boundary: it names `input_tokens` as `input` and `output_tokens` as `output`, and the report's constructor refuses any
+figure outside its closed set — the cost among them, which is recorded data and never part of the report.
+
+A single stage run records what one worker run reported. A harness may report a figure on one run and not on the next (a
+cache figure only when the cache was hit, a reasoning figure only when the model reasoned), so one run's figures are a
+sample, not the harness's report. The specification asks for the measurement to be repeated for every new harness and
+harness version before its figures are trusted (Evaluation Reference § Results).
+
+== Decision
+
+`VerifiedUsage` is the seam the install path calls. `install` takes the evaluations of one harness and version in the
+order they ran, and it refuses a list shorter than `REQUIRED_EVALUATIONS` (`2`) with `harness_usage_not_repeated`, and a
+list whose runs disagree on any report figure's status with `harness_usage_disagrees`. A trusted list yields the
+`UsageReport`: the figures of the first run mapped through `UsageReport.of`, the start context converted from the stage's
+own type to the store's, and the source `verified`.
+
+`trusted` states the same condition without throwing, so a caller that shows the evaluation its state can ask it.
+
+== Alternatives Considered
+
+Installing after one run and letting a later verification overwrite the report was rejected: the report is offered to the
+operator and to the evaluation as the harness's coverage, and a figure that appears in one run and disappears in the next
+would make the list flatter than the harness deserves.
+
+Comparing the parsed token values rather than the figure statuses was rejected: two runs of different prompts legitimately
+count different tokens; what must agree is which figures the harness reports at all.
+
+Deciding the repetition in the store was rejected: the store validates a document; the seam owns the rule, and the store
+stays usable by another writer (an operator verb) that already knows what it is writing.
+
+== Consequences
+
+The install path calls `VerifiedUsage.install` and shows the two refusal codes when the evaluation has not run twice or
+disagreed. The operator verb that writes the enrolment, the profile and the report under the store's lock remains
+`plan-marshall-mcp`'s, as ADR `runtime-launch/007` already states.
+
+The recorded outputs of each harness and version, as parsing fixtures with their expected row, are still owed: they need a
+real harness run, and the synthetic fixtures of `ShippedUsageFixturesTest` stand in until then.
+
+== Source
+
+Work package `machine-onboarding-unit`, Task 4 (PLAN-V2-39); Harness Profiles § Tokens, Not Money; Store Schemas
+§ Harness Enrolment Store; Evaluation Reference § Results (`plan-marshall-documentation`); ADR `runtime-launch/007`.

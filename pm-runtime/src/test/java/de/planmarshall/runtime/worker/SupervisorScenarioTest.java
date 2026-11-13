@@ -186,9 +186,9 @@ class SupervisorScenarioTest {
 
             assertAll(
                     () -> assertEquals("resume: session-42", resumed, "the resume reads the harness's scripted stream"),
-                    () -> assertEquals(1, fixture.starter.starts.size(), "one worker started"),
+                    () -> assertEquals(1, fixture.starts.size(), "one worker is started by the supervisor"),
                     () -> assertEquals(started.generation().generationId(),
-                            fixture.starter.starts.getFirst().launch().generationId(),
+                            fixture.starts.getFirst().launch().generationId(),
                             "the recorded start belongs to the generation"),
                     () -> assertEquals(0, fixture.signals.size(), "no loss fired"));
         }
@@ -223,7 +223,7 @@ class SupervisorScenarioTest {
         var fixture = new SupervisorTestFixture(base);
         var parameters = parameters(OptionalInt.empty(), false);
         var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol,
-                fixture.events::add, fixture.clock);
+                fixture.eventSink, fixture.clock);
         var environment = fixture.environment(guard, SupervisorEnvironment.EligibilityGate.open());
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
@@ -240,7 +240,7 @@ class SupervisorScenarioTest {
         }
         var heldBeforeTheChange = guard.holds(role.artifact().name(), SupervisorTestFixture.CLIENT);
         var cause = recycling.afterTaskClosed(generation, changedDigest);
-        var failedStarts = fixture.events.stream()
+        var failedStarts = fixture.events.getValues().stream()
                 .filter(event -> AuditEvent.WORKER_START_FAILED.equals(event.event()))
                 .count();
 
@@ -248,7 +248,7 @@ class SupervisorScenarioTest {
                 () -> assertEquals(StartFailureGuard.HOLD_THRESHOLD, failedStarts,
                         "every counted failure is one audit record"),
                 () -> assertEquals(List.of(role.artifact().name() + "/" + SupervisorTestFixture.CLIENT),
-                        fixture.protocol.closedUnavailable, "the hold closes the role's tasks once"),
+                        fixture.closedUnavailable, "the hold closes the role's tasks once"),
                 () -> assertTrue(heldBeforeTheChange, "the guard holds at its count"),
                 () -> assertEquals(Optional.of(RecycleCause.CONFIGURATION_CHANGED), cause,
                         "the changed configuration recycles the warm worker"),
@@ -276,7 +276,7 @@ class SupervisorScenarioTest {
         assertAll(
                 () -> assertEquals(Optional.of(EndCause.PAUSE_AT_ONCE),
                         ending.requestedCause(generation.generationId()), "the end is requested at once"),
-                () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels,
+                () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.cancels,
                         "the force reaches the runner as the operator's pause"),
                 () -> assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer(), "a paused task spends no re-offer"),
                 () -> assertEquals(WorkerState.EndReason.WITHDRAWN, EndCause.PAUSE_AT_ONCE.endReason(),
@@ -302,15 +302,15 @@ class SupervisorScenarioTest {
 
         assertAll(
                 () -> assertEquals(task, leased.leasedTask(), "the paused generation holds the task's lease"),
-                () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels,
+                () -> assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.cancels,
                         "the leased worker is cancelled with the operator's pause"),
-                () -> assertEquals(List.of(generation.generationId()), fixture.protocol.fences,
+                () -> assertEquals(List.of(generation.generationId()), fixture.fences,
                         "the fence is recorded for the paused generation"),
                 () -> assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer(),
                         "the paused attempt's re-offer budget is not spent"),
-                () -> assertEquals(1, fixture.stateWriter.writes.size(), "the terminal state is written once"),
+                () -> assertEquals(1, fixture.writes.size(), "the terminal state is written once"),
                 () -> assertEquals(WorkerState.EndReason.WITHDRAWN,
-                        fixture.stateWriter.writes.getFirst().endReason(), "the record names the withdrawal"),
+                        fixture.writes.getFirst().endReason(), "the record names the withdrawal"),
                 () -> assertTrue(terminal.terminal(), "the generation ends"));
     }
 
@@ -406,11 +406,11 @@ class SupervisorScenarioTest {
             assertAll(
                     () -> assertEquals(executable, matched.orElseThrow().path(),
                             "the first process of the tree that runs the enrolled file matches"),
-                    () -> assertEquals(1, fixture.protocol.startedAgents.size(), "exactly one signal"),
+                    () -> assertEquals(1, fixture.startedAgents.size(), "exactly one agent-started signal is raised"),
                     () -> assertEquals(executable.toString(),
-                            fixture.protocol.startedAgents.getFirst().executable(),
+                            fixture.startedAgents.getFirst().executable(),
                             "the signal names the executable of the recorded tree"),
-                    () -> assertEquals(task, fixture.protocol.startedAgents.getFirst().queueTaskId(),
+                    () -> assertEquals(task, fixture.startedAgents.getFirst().queueTaskId(),
                             "the signal names the task whose attempt is re-offered"),
                     () -> assertEquals(Optional.of(EndCause.OFF_TRACK), ending.requestedCause(generation.generationId()),
                             "the fixed action is restart"),
@@ -440,7 +440,7 @@ class SupervisorScenarioTest {
 
             assertAll(
                     () -> assertTrue(matched.isEmpty(), "the same path with another digest is not the enrolled file"),
-                    () -> assertTrue(fixture.protocol.startedAgents.isEmpty(), "no signal"),
+                    () -> assertTrue(fixture.startedAgents.isEmpty(), "no agent-started signal is raised"),
                     () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
                             "the worker is not ended"));
             ProcessHandle.of(childPid).ifPresent(ProcessHandle::destroyForcibly);

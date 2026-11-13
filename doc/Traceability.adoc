@@ -1198,8 +1198,8 @@ cleaned by the consumer's level-1 validator before a model sees them; the contra
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/Issue.java[Issue],
 link:../pm-providers/pm-provider-ci/src/main/java/de/planmarshall/provider/ci/CiProvider.java[CiProvider]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value, a provider token, the npm access token, a URL's user information, a spaced credential flag and a PEM block masked; prose, a path, a commit id and a plain URL kept),
-link:../pm-core/src/test/java/de/planmarshall/core/build/UnparsedEvidenceTest.java[UnparsedEvidenceTest] (the stripped and carriage-return-reduced tail bound, the redaction of a secret in the excerpt, and the resource URI),
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest] (a credential-shaped assignment, a bearer value, a provider token, the npm access token of exactly 36 characters, a URL's user information also with a raw `/`, `?`, `#` or `@` and behind a percent-encoded scheme separator, a spaced credential flag of the closed list in any case, a PEM and a PGP private-key block, and a label split by an escape sequence on the journal path masked; prose, a path, a commit id, a plain URL, the single-user URL form, a flag outside the list and a longer `npm_` run kept),
+link:../pm-core/src/test/java/de/planmarshall/core/build/UnparsedEvidenceTest.java[UnparsedEvidenceTest] (the stripped and carriage-return-reduced tail bound, the line cut before the redaction, the redaction of a secret in the excerpt, and the resource URI),
 link:../pm-providers/pm-provider-ci/src/test/java/de/planmarshall/provider/ci/ValueTypesTest.java[ValueTypesTest] (the title and a non-empty body are carried unchanged)
 
 Implementation (the pull-request read's share: the title and body of a pull request travel unvalidated, and the consumer
@@ -1402,6 +1402,17 @@ link:../pm-core/src/test/java/de/planmarshall/core/config/ConsentCodecTest.java[
 Documentation: link:../pm-core/doc/developer/core-config.adoc#_the_consent_store[Developer Guide § The Consent Store (`core.config`)],
 link:../pm-core/doc/adr/core-config/002-the-consent-rule-is-a-gate-over-a-snapshot.adoc[ADR core-config/002],
 link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR core-config/003]
+
+Implementation (the consent of a verification of an unknown harness: the kind `verify_harness_profile` is never
+remembered, the step is reached only from `harness.verify-profile` after a `yes` with the expected tokens of its stages,
+and a `yes_remember` is refused): link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessVerificationTest.java[HarnessVerificationTest]
+
+Documentation:
+link:../pm-core/doc/developer/core-profile.adoc#_the_harness_scan_the_harness_list_and_the_verification_gate[Harness
+Profiles Developer Guide § The Harness Scan, the Harness List and the Verification Gate],
+link:../pm-core/doc/adr/core-profile/014-the-verification-is-admitted-by-one-gate.adoc[ADR core-profile/014]
 
 == link:../../plan-marshall-documentation/doc/requirements/09-technology.adoc[Technology]
 
@@ -1700,7 +1711,40 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.ja
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
 
-The install path that hands the verification's `UsageResult` to the enrolment's `UsageReport` (`UsageReport.of` is the mapping boundary), and the recorded output of each harness and version as a parsing fixture, are owed to `machine-onboarding-unit`.
+Implementation (the harness scan's ordered list, preselection and default; the harness list's usage coverage, with
+`harness_store_unreadable` shown instead of an empty usage map; the admission of a verification of an unknown harness,
+its never-remembered consent and the draft validated as a profile):
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessCandidate.java[HarnessCandidate],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessScan.java[HarnessScan],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessNone.java[HarnessNone],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessProbe.java[HarnessProbe],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessList.java[HarnessList],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessListEntry.java[HarnessListEntry],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessUsageCoverage.java[HarnessUsageCoverage],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java[HarnessListings]
+
+The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the
+mapping boundary); the operator verb that writes the enrolment is owed to `plan-marshall-mcp`, and the recorded output of
+each harness and version as a parsing fixture is owed by this plan's landing (PLAN-V2-39), which names it.
+
+Verified by (the scan, the list and the verification gate):
+link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessScanTest.java[HarnessScanTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessListTest.java[HarnessListTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessVerificationTest.java[HarnessVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/HarnessListingsTest.java[HarnessListingsTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/VerifiedUsageTest.java[VerifiedUsageTest]
+
+Documentation (the scan, the list and the verification gate):
+link:../pm-core/doc/developer/core-profile.adoc#_the_harness_scan_the_harness_list_and_the_verification_gate[Harness
+Profiles Developer Guide § The Harness Scan, the Harness List and the Verification Gate],
+link:../pm-core/doc/adr/core-profile/013-the-scan-and-list-are-ordered-values.adoc[ADR core-profile/013],
+link:../pm-core/doc/adr/core-profile/014-the-verification-is-admitted-by-one-gate.adoc[ADR core-profile/014],
+link:../pm-runtime/doc/developer/runtime-launch.adoc#_installing_a_verified_usage_report[Worker Launch Developer Guide
+§ Installing a Verified Usage Report],
+link:../pm-runtime/doc/adr/runtime-launch/008-a-verified-usage-report-is-installed-from-a-repeated-evaluation.adoc[ADR
+runtime-launch/008]
 
 Verified by (the start context and the usage coverage):
 link:../pm-core/src/test/java/de/planmarshall/core/profile/VerificationRecordTest.java[VerificationRecordTest],

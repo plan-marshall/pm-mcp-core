@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,6 +32,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 import de.planmarshall.core.store.MetricsRow.CauseClass;
 import de.planmarshall.core.store.MetricsRow.DurationBasis;
@@ -81,7 +84,7 @@ class MetricsStoreTest {
     private Path file;
     private MetricsStore store;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     private static String hex16() {
         return "%016x".formatted(Generators.longs(Long.MIN_VALUE, Long.MAX_VALUE).next());
@@ -138,7 +141,7 @@ class MetricsStoreTest {
         file = scope.resolve(MetricsStore.FILE_NAME);
         store = new MetricsStore(scope);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     /** Opens the scope's transaction, hands it to the write and commits it. */

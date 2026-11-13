@@ -2074,11 +2074,10 @@ The fixtures of the `pm-core` tests in `de.planmarshall.core.store` serve them:
 * `RecordingLockManager`: a `LockManager` that takes no lock of the operating system, records every key acquired and
   every transaction opened, and answers `holds` for the keys a transaction acquired until it is closed. It asserts no
   lock order; a test of the order uses `FileLockManager` of `runtime.lock`.
-* `RecordingAuditSink`: keeps the records it is handed, in their order; `withoutTransactionIds` compares records whose
-  id a test cannot know in advance.
-* `AuditSinkDoubles`: EasyMock doubles for the failing paths — `refusing(capture)` refuses the first append with an
-  `UncheckedIOException` and captures every later one, and `stopping()` stops the caller at the first append with
-  `AuditSinkDoubles.ProcessStopped`, as a killed process does.
+* `AuditSinkDoubles`: EasyMock doubles for the sink of the tests — `capturing(capture)` accepts and captures every
+  append, `refusing(capture)` refuses the first append with an `UncheckedIOException` and captures every later one,
+  and `stopping()` stops the caller at the first append with `AuditSinkDoubles.ProcessStopped`, as a killed process
+  does; `withoutTransactionIds` and `tailRepairWithoutId` compare records whose id a test cannot know in advance.
 
 The hooks are package-private, so a crash-point test lives in the package `de.planmarshall.core.store`.
 

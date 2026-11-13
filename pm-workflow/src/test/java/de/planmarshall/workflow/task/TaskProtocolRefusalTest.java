@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -86,11 +87,11 @@ class TaskProtocolRefusalTest {
     @Test
     @DisplayName("a held task of a paused plan is re-offered to no worker")
     void heldTaskOfPausedPlan(@TempDir Path base) {
-        var paused = new TaskFixtures.Paused();
-        var harness = harness(base, builder -> builder.pause(paused));
+        var paused = new HashSet<String>();
+        var harness = harness(base, builder -> builder.pause(TaskFixtures.pause(paused)));
         var call = acknowledged(harness);
 
-        paused.pause(TaskFixtures.PLAN);
+        paused.add(TaskFixtures.PLAN);
         var answer = harness.protocol().wait(TaskFixtures.waitFor(TaskFixtures.GENERATION),
                 TaskFixtures.AT.plusSeconds(2));
 

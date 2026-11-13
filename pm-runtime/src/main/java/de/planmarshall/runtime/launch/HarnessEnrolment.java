@@ -94,13 +94,23 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     }
 
     /**
+     * The usage report of an accepted self-update: a report measured on the previous build says nothing about the new one,
+     * so the entry keeps no figure until the new version is verified — the harness lists file a coverage under the
+     * version it was measured on and must not show the old one beside the new build.
+     */
+    private static final UsageReport NO_REPORT_FOR_A_NEW_BUILD = new UsageReport(UsageSource.DECLARED, Map.of());
+
+    /**
      * @param version  the version probed after an accepted self-update
      * @param sha256   the digest of the changed executable
      * @param updateTo the instant of the accepted self-update
-     * @return the entry with the new build of the same harness
+     * @return the entry with the new build of the same harness; a report measured on another build — another version or
+     *         another executable digest — is dropped
      */
     public HarnessEnrolment updated(String version, String sha256, Instant updateTo) {
-        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, usageReport,
+        var sameBuild = version.equals(this.version) && sha256.equals(this.sha256);
+        var report = sameBuild ? usageReport : NO_REPORT_FOR_A_NEW_BUILD;
+        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, report,
                 events, weights);
     }
 

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -45,6 +47,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.LessonFrontMatter.Audience;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
@@ -76,7 +79,7 @@ class LessonStoreTest {
     private JournalScope lessons;
     private LessonStore store;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     @BeforeEach
     void createStore() throws IOException {
@@ -84,7 +87,7 @@ class LessonStoreTest {
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
         planA = "plan-a-" + Generators.integers(1000, 9999).next();
         planB = "plan-b-" + Generators.integers(1000, 9999).next();
     }
@@ -375,7 +378,7 @@ class LessonStoreTest {
             var start = new CountDownLatch(1);
             Callable<List<LessonId>> writer = () -> {
                 start.await();
-                var own = new RecordingAuditSink();
+                var own = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
                 var ids = new ArrayList<LessonId>();
                 for (var index = 0; index < 100; index++) {
                     try (var transaction = serializing.openTransaction()) {

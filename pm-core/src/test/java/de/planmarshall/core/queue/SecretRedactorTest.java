@@ -11,6 +11,7 @@ package de.planmarshall.core.queue;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -18,6 +19,10 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.build.BuildLogText;
 
 /**
  * The redactor removes the value of an explicit credential-shaped assignment and keeps every other text
@@ -122,6 +127,84 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("the remaining URL user-information shapes are masked (specified example URLs)")
+    void urlUserInformationShapes() {
+        assertAll("URL user-information shapes",
+                () -> assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg",
+                        redactValue("https://deploy:pa/ss@registry.example/pkg"),
+                        "a password holding a raw slash is masked"),
+                () -> assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@registry.example/pkg",
+                        redactValue("https://deploy:pa?s#s@registry.example/pkg"),
+                        "a password holding ? and # is masked"),
+                () -> assertEquals("https://me@corp.example:" + SecretRedactor.REDACTED + "@host/p",
+                        redactValue("https://me@corp.example:s3cret@host/p"),
+                        "a user holding a raw @ keeps user and host"),
+                () -> assertEquals("https%3A%2F%2Fuser:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https%3A%2F%2Fuser:secret@host"),
+                        "a percent-encoded scheme separator is masked"),
+                () -> assertEquals("https://user:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https://user:p%40ss%2Fw0rd@host"),
+                        "a percent-encoded password stays masked"));
+    }
+
+    @Test
+    @DisplayName("URL forms without user information stay readable (specified controls)")
+    void urlUserInformationNegativeControls() {
+        assertAll("URL user-information negative controls",
+                () -> assertEquals("https://ghp_token@host/x", redactValue("https://ghp_token@host/x"),
+                        "the single-user form stays readable"),
+                () -> assertEquals("scheme://host:8080/path", redactValue("scheme://host:8080/path"),
+                        "a host and port without @ stay readable"),
+                () -> assertEquals("see src/main:java/A.java", redactValue("see src/main:java/A.java"),
+                        "a path with a colon stays readable"),
+                () -> assertEquals("the build: user said ok @ noon", redactValue("the build: user said ok @ noon"),
+                        "a prose sentence stays readable"),
+                () -> assertEquals("https://host?next=user:password@other/path",
+                        redactValue("https://host?next=user:password@other/path"),
+                        "ADR 006's query control stays readable"),
+                () -> assertEquals("https://host/p?at=a:b@c", redactValue("https://host/p?at=a:b@c"),
+                        "a query with a colon and @ stays readable"));
+    }
+
+    @Test
+    @DisplayName("a host:port path followed by a raw @ is read as user information (the stated cost)")
+    void urlUserInformationFalsePositiveCost() {
+        assertEquals("https://host:" + SecretRedactor.REDACTED + "@mention",
+                redactValue("https://host:8080/path@mention"),
+                "the port and path before a later @ are masked");
+    }
+
+    @Test
+    @DisplayName("a credentialed URL followed by an @scope segment masks its host (the stated cost, specified URL)")
+    void urlUserInformationLaterAtFalsePositiveCost() {
+        assertEquals("https://user:" + SecretRedactor.REDACTED + "@scope/pkg",
+                redactValue("https://user:secret@registry.example/@scope/pkg"),
+                "the secret runs to the last @ and masks the host");
+    }
+
+    @Test
+    @DisplayName("a scheme-and-colon run without @ as long as a bounded line is redacted to itself")
+    void urlUserInformationLongRunWithoutAt() {
+        // x://y: repeated without any @ is the worst case of the pattern: every scheme start scans back to it
+        var run = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+
+        assertEquals(run, redactValue(run), "a long run without any @ stays as it is");
+    }
+
+    @Test
+    @DisplayName("a scheme-like run as long as a bounded line is redacted to itself")
+    void urlUserInformationLongSchemeRun() {
+        // a.a.a… is a run of scheme characters: every position could start a scheme, the cost case of the pattern
+        var run = "a.".repeat(BuildLogText.MAX_LINE_LENGTH / 2 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+        var withSeparator = run + "://";
+
+        assertAll("long scheme-like runs",
+                () -> assertEquals(run, redactValue(run), "a long scheme-character run stays as it is"),
+                () -> assertEquals(withSeparator, redactValue(withSeparator),
+                        "the same run followed by :// stays as it is"));
+    }
+
+    @Test
     @DisplayName("a credential flag with a space is redacted and keeps the flag")
     void spacedCredentialFlags() {
         assertAll("spaced credential flags",
@@ -159,6 +242,119 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an unclosed quote holding an escaped quote masks the rest of the line (flag and escape: contract)")
+    void unclosedCredentialFlagWithEscapedQuote() {
+        var head = Generators.letterStrings(4, 12).next();
+        // longer than every letter run of the expected text, so a contains check cannot hit the flag or the mask
+        var tail = Generators.letterStrings(12, 20).next();
+        var doubleQuoted = redactValue("--password \"" + head + "\\\"" + tail);
+        var singleQuoted = redactValue("--password '" + head + "\\'" + tail);
+
+        assertAll("escaped quote inside an unclosed value",
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED, doubleQuoted,
+                        "an escaped double quote is no close"),
+                () -> assertFalse(doubleQuoted.contains(tail), "the double-quoted tail is gone"),
+                () -> assertEquals("--password '" + SecretRedactor.REDACTED, singleQuoted,
+                        "an escaped single quote is no close"),
+                () -> assertFalse(singleQuoted.contains(tail), "the single-quoted tail is gone"));
+    }
+
+    @Test
+    @DisplayName("a credential flag is matched whatever its case")
+    void credentialFlagCaseInsensitive() {
+        assertAll("case-insensitive credential flags",
+                () -> assertEquals("--PASSWORD " + SecretRedactor.REDACTED, redactValue("--PASSWORD x"),
+                        "an upper-case password flag is masked"),
+                () -> assertEquals("publish --Token " + SecretRedactor.REDACTED,
+                        redactValue("publish --Token abcd1234"), "a mixed-case token flag is masked"));
+    }
+
+    @ParameterizedTest(name = "--{0}")
+    @ValueSource(strings = {"auth-token", "api-key", "apikey", "access-token", "client-secret", "otp"})
+    @DisplayName("each added credential flag name is masked (the specified name list)")
+    void addedCredentialFlagNames(String name) {
+        var value = Generators.letterStrings(4, 16).next();
+
+        assertEquals("cli --" + name + " " + SecretRedactor.REDACTED, redactValue("cli --" + name + " " + value),
+                "the value of an added credential flag is masked");
+    }
+
+    @Test
+    @DisplayName("a flag value holding a semicolon, a quote or a line end is masked whole")
+    void credentialFlagValueShapes() {
+        assertAll("credential flag value shapes",
+                () -> assertEquals("--password " + SecretRedactor.REDACTED, redactValue("--password pa;ss"),
+                        "a semicolon inside a value is masked with it"),
+                () -> assertEquals("--password '" + SecretRedactor.REDACTED + "'",
+                        redactValue("--password 'abc\"def'"), "a quoted value holding the other quote is masked"),
+                () -> assertEquals("--password " + SecretRedactor.REDACTED, redactValue("--password abc\"def"),
+                        "an unquoted value holding a quote is masked"),
+                () -> assertEquals("--password " + SecretRedactor.REDACTED, redactValue("--password abc'def"),
+                        "an unquoted value holding an apostrophe is masked"),
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED + "\" done",
+                        redactValue("--password \"first line\nsecond line\" done"),
+                        "a quoted value across one line end is masked"));
+    }
+
+    @ParameterizedTest(name = "line end #{index}")
+    @ValueSource(strings = {"\n", "\r\n", "\r"})
+    @DisplayName("a quoted flag value with a backslash before its line end is masked whole (the line ends: contract)")
+    void quotedCredentialFlagEscapedLineEnd(String lineEnd) {
+        // longer than every letter run of the expected text, so a contains check cannot hit the flag or the mask
+        var first = Generators.letterStrings(12, 20).next();
+        var second = Generators.letterStrings(12, 20).next();
+
+        var redacted = redactValue("--password \"" + first + "\\" + lineEnd + second + "\" done");
+
+        assertAll("escaped line end inside a quoted value",
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED + "\" done", redacted,
+                        "both halves are masked and the flag is kept"),
+                () -> assertFalse(redacted.contains(first), "the half before the line end is gone"),
+                () -> assertFalse(redacted.contains(second), "the half after the line end is gone"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
+    @Test
+    @DisplayName("a quoted flag value is never matched past its second escaped line end (backslash and LF: contract)")
+    void quotedCredentialFlagTwoEscapedLineEnds() {
+        // longer than every letter run of the expected text, so a contains check cannot hit the flag or the mask
+        var first = Generators.letterStrings(12, 20).next();
+        var second = Generators.letterStrings(12, 20).next();
+        var third = Generators.letterStrings(12, 20).next();
+        var log = "--password \"" + first + "\\\n" + second + "\\\n" + third + "\"";
+
+        var redacted = redactValue(log);
+
+        assertAll("two escaped line ends inside a quoted value",
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED + "\n" + second + "\\\n" + third + "\"",
+                        redacted, "only the first line is masked as unclosed"),
+                () -> assertFalse(redacted.contains(first), "the first line of the value is gone"),
+                () -> assertEquals(redacted, redactValue(redacted), "redacting the masked value changes nothing"));
+    }
+
+    @Test
+    @DisplayName("flags and prose outside the credential flag list stay readable")
+    void credentialFlagNegativeControls() {
+        assertAll("credential flag negative controls",
+                () -> assertEquals("--password-file notes.txt", redactValue("--password-file notes.txt"),
+                        "a different flag is not a credential flag"),
+                () -> assertEquals("publish --token\nnext line", redactValue("publish --token\nnext line"),
+                        "a token flag at the end of a line stays"),
+                () -> assertEquals("store the password in a vault", redactValue("store the password in a vault"),
+                        "prose naming the word password stays"),
+                () -> assertEquals("--key value", redactValue("--key value"),
+                        "a flag outside the closed list stays"));
+    }
+
+    @Test
+    @DisplayName("a usage line naming a credential flag masks its placeholder (the stated cost)")
+    void credentialFlagFalsePositiveCost() {
+        assertEquals("usage: publish --token " + SecretRedactor.REDACTED + " the access token",
+                redactValue("usage: publish --token <token> the access token"),
+                "the word after a credential flag is masked");
+    }
+
+    @Test
     @DisplayName("a PEM private key block is redacted")
     void pemPrivateKeyBlock() {
         var block = String.join("\n", "-----BEGIN RSA PRIVATE KEY-----", "MIIEowIBAAKCAQEA7v0x",
@@ -175,6 +371,61 @@ class SecretRedactorTest {
 
         assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
                 "a block without its END line is masked to the end");
+    }
+
+    @Test
+    @DisplayName("a PGP private-key block is redacted (the OpenPGP armor markers)")
+    void pgpPrivateKeyBlock() {
+        // the armor header and tail lines are the OpenPGP wire format (RFC 4880 § 6.2)
+        var block = String.join("\n", "-----BEGIN PGP PRIVATE KEY BLOCK-----", "",
+                Generators.letterStrings(16, 64).next(), "-----END PGP PRIVATE KEY BLOCK-----");
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED + "\ndone", redactValue("key:\n" + block + "\ndone"),
+                "a closed PGP key block is replaced whole");
+    }
+
+    @Test
+    @DisplayName("an unclosed PGP private-key block masks the rest (the OpenPGP armor marker)")
+    void unclosedPgpPrivateKeyBlock() {
+        // the armor header line is the OpenPGP wire format (RFC 4880 § 6.2)
+        var log = "key:\n-----BEGIN PGP PRIVATE KEY BLOCK-----\n\n" + Generators.letterStrings(16, 64).next();
+
+        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
+                "an unclosed PGP key block is masked to the end");
+    }
+
+    @Test
+    @DisplayName("the npm token is exactly 36 characters after npm_ (the operator's decision)")
+    void npmAccessTokenExactLength() {
+        // the documented shape: `npm_` plus exactly 36 alphanumeric characters (npm Registry API)
+        var token = "npm_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+        var longer = token + "x";
+        var followedByUnderscore = token + "_tail";
+        var precededByWordCharacter = "x" + token;
+
+        assertAll("npm token exact length",
+                () -> assertEquals("is " + SecretRedactor.REDACTED, redactValue("is " + token),
+                        "a 36-character npm token is masked"),
+                () -> assertEquals("is " + longer, redactValue("is " + longer),
+                        "a 37-character run stays readable"),
+                () -> assertEquals(followedByUnderscore, redactValue(followedByUnderscore),
+                        "a run followed by an underscore stays"),
+                () -> assertEquals(precededByWordCharacter, redactValue(precededByWordCharacter),
+                        "a run preceded by a word character stays"));
+    }
+
+    @Test
+    @DisplayName("an npm package name and prose naming a private key stay readable")
+    void npmAndKeyBlockNegativeControls() {
+        assertAll("npm token and key block negative controls",
+                () -> assertEquals("installed npm_pkg", redactValue("installed npm_pkg"),
+                        "a package name starting npm_ stays"),
+                () -> assertEquals("rotate the PGP PRIVATE KEY BLOCK monthly",
+                        redactValue("rotate the PGP PRIVATE KEY BLOCK monthly"),
+                        "prose naming PRIVATE KEY stays readable"),
+                () -> assertEquals("the PRIVATE KEY----- line is missing",
+                        redactValue("the PRIVATE KEY----- line is missing"),
+                        "a marker tail without BEGIN stays readable"));
     }
 
     @Test
@@ -258,5 +509,50 @@ class SecretRedactorTest {
                 () -> assertEquals("curl -H 'Authorization: Bearer " + SecretRedactor.REDACTED + "'",
                         SecretRedactor.redact(call).tool().target()),
                 () -> assertEquals("src/secret/config.properties", SecretRedactor.redact(changed).path()));
+    }
+
+    @Test
+    @DisplayName("an escape sequence between a label and its value does not hide the value (SGR codes)")
+    void entryTextEscapeSplitLabel() {
+        // ESC[1m and ESC[0m are the SGR bold and reset sequences of a colour-coded terminal line
+        var value = Generators.letterStrings(8, 16).next();
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.HARNESS)
+                .kind(ActivityEntry.Kind.TEXT)
+                .text("login \u001B[1mpassword\u001B[0m=" + value)
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var redacted = SecretRedactor.redact(entry);
+
+        assertAll("escape-split label in a text entry",
+                () -> assertEquals("login password=" + SecretRedactor.REDACTED, redacted.text(),
+                        "the escape-split password value is masked"),
+                () -> assertFalse(redacted.text().contains(value), "the secret value is gone from the text"),
+                () -> assertFalse(redacted.text().contains("\u001B"), "the stored text carries no escape"));
+    }
+
+    @Test
+    @DisplayName("an escape sequence inside a tool target does not hide a credential flag (SGR codes)")
+    void entryToolTargetEscapeSplitFlag() {
+        // ESC[33m and ESC[0m are the SGR yellow and reset sequences of a colour-coded terminal line
+        var value = Generators.letterStrings(8, 16).next();
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.HARNESS)
+                .kind(ActivityEntry.Kind.TOOL_CALL)
+                .tool(new ActivityEntry.Tool("bash", "npm login \u001B[33m--password\u001B[0m " + value))
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var target = SecretRedactor.redact(entry).tool().target();
+
+        assertAll("escape-split flag in a tool target",
+                () -> assertEquals("npm login --password " + SecretRedactor.REDACTED, target,
+                        "the escape-split flag value is masked"),
+                () -> assertFalse(target.contains(value), "the secret value is gone from the target"));
     }
 }

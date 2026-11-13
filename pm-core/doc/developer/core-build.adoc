@@ -31,8 +31,8 @@ A parser is a pure function of the log text. It reads no file except through `Bu
 process and consults no configuration. A coverage parser is a pure function of the report text in the same way: it reads
 no file except through its own `parse(Path)` overload, and it returns either the report or a refusal.
 
-Neither the read nor a pattern runs unbounded for the parsers this plan touched: the read takes the log's tail above a
-data cap, and every line is cut at a data bound before a pattern sees it
+Neither the read nor a pattern runs unbounded for any of the nine parsers: the read takes the log's tail above a data
+cap, and every line is cut at a data bound before a pattern sees it
 (<<_the_bounds_of_a_read_and_of_a_parse>>).
 
 == Main Types
@@ -222,9 +222,13 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   is `NPM_ERROR` and names the quoted package specification it could not find; every other code is `NPM_ERROR` with the
   block's first reportable line, which is the code line itself. Both named forms point into `package.json` without a line.
   A log with no error block whose install completion line reads `added|removed|changed N packages` or
-  `up to date, audited N packages` is a clean install: it files no diagnostic and sets the success marker. The generic
-  block's message is redacted through `SecretRedactor` before it is cut to the stored length, so a truncated message
-  cannot keep half a secret; the `ERESOLVE` and `E404` messages are built from dependency names and need no redaction.
+  `up to date, audited N packages` is a clean install: it files no diagnostic and sets the success marker; the runtime
+  adapter admits that marker only for a job whose verb is `install` or `clean-install`
+  (link:../../../pm-runtime/doc/adr/runtime-job/018-the-install-marker-needs-an-install-verb.adoc[ADR `runtime-job/018`]).
+  Every message of the parser — the generic block's, the `ERESOLVE` and the `E404` one — is redacted through
+  `SecretRedactor` before it is cut to the stored length, so a truncated message cannot keep half a secret. The
+  `ERESOLVE` and `E404` messages are not built from dependency names alone: the quoted specifier and the peer and `from`
+  tokens are log text and can carry a registry URL with user information.
 * *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
   `TSnnnn: message`. Both forms are scanned over every line, so a log that mixes them keeps all of its diagnostics.
 * *ESLint* — a file-header line sets the file and each `line:col severity message rule` row below it is a `LINT_ERROR`
@@ -236,7 +240,23 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   collected frames. The `Tests:` summary blocks supply the counts.
 * *TAP* — each `not ok N - <name>` line is a `TEST_FAILURE`; the YAML block that follows supplies `error`, `location` and
   `stack`, and without a block the test's own name is the message. The `# tests` / `# pass` / `# fail` / `# skipped`
-  block supplies the counts.
+  block supplies the counts. The plan is checked per run: a run starts at every line that starts with `TAP version`, and
+  the lines before the first such line, or the whole log when it carries none, are one run. A run's top-level plan
+  lines `1..N` (their counts summed) are compared with that run's own number of top-level test points (`ok` / `not ok`
+  at the start of a line): when they differ, the run did not finish the plan it announced — the evidence class of
+  `Bail out!` — and the passing summary is no marker, even with exit 0. The log finished its plan only when every run
+  did, so in a log of concatenated runs (`npm test --workspaces`) a later run cannot supply the point an earlier run is
+  missing; the counts stay as the summary measured them, summed over all runs. A plan count too large for a `long`, or
+  plan counts whose sum overflows a `long`, leave the run unfinished (no passing summary): the sum is added with
+  `Math.addExact` and never wraps to a count that could match the points. The counter of test points needs no such
+  guard, because the size of the input bounds it (at most `BuildLogText.MAX_BYTES` bytes of a file, or the length of a
+  Java `String`, so fewer than 2^31 points); the line cut bounds a line's length, not the number of lines. The summary
+  counts follow the same rule as the plan count: a `# tests`, `# pass`, `# fail` or `# skipped` count too large for a
+  `long`, or summary counts whose sum overflows a `long`, leave the population `Unmeasured` and the passing summary is
+  no marker, and a `# fail` count too large for a `long` is still a red status. The plan is compared with the test points and not with the
+  `# tests` total, because `node --test` plans one top-level point per suite and counts the tests inside the suites
+  (the original's real log `npm-tap-test-real.log` of the fixture `npm-tap-success` prints `1..4` beside `# tests 5`). An indented (subtest) plan line or test point
+  is not read, and a run without a top-level plan line announced no plan, so it finished it.
 * *pyproject* — the log is scanned for mypy (`path:line: error: message`, including a `.pyi` stub path and a
   `path:line:column:` run), ruff (`path:line:column: CODE message`) and pytest (`FAILED` and collection/setup `ERROR`
   short-summary lines), each tool independently, and the diagnostics are combined in that order — a multi-tool log is
@@ -251,7 +271,11 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
 Every summary block contributes to the counts: Jest sums every `Tests:` block, TAP every `# tests` block and pytest
 every summary line, so a log that concatenates several runs (one per package, or one per matrix entry) reports the sum
 rather than the first or last block. A block whose total is not the sum of its parts — `Tests: 7 total` with no parts, a
-`# tests 5` with two passing tests — is `Unmeasured`, never a set of figures that disagree with itself. A measured zero
+`# tests 5` with two passing tests — is `Unmeasured`, never a set of figures that disagree with itself. No sum wraps:
+Jest and TAP add every count and every block's parts with `Math.addExact`, so a count too large for a `long` or a sum
+that overflows one is `Unmeasured`, and a failed count too large for a `long` is still a red status; pytest (like
+Gradle) checks every addition against `Integer.MAX_VALUE`; and ESLint adds its problem summaries exactly and reports no
+summary when a count or a sum cannot be represented. A measured zero
 stays a measured zero: no tool of the six prints a positive "no tests" marker, so `noTestsRan` is `false` throughout, and
 a filter that matched nothing reports either pytest's own `no tests ran` line (no count at all) or TAP's
 `# tests 0` (a measured zero).
@@ -346,11 +370,18 @@ to reach a file or a URL reads nothing. With DTD support off the JDK reader stil
 system identifier, so the declaration is tolerated and never resolved or fetched. The walk refuses an `ENTITY_REFERENCE`
 event, so an entity reference in element content is refused, never expanded. An undeclared entity reference in an
 attribute value raises no such event: the reader drops it from the value, so it is never expanded and never resolved either, and the
-report is read without it. The decisions, with the measured behaviour of the JDK reader, are recorded in
+report is read without it. As defence in depth, the factory also sets `XMLConstants.ACCESS_EXTERNAL_DTD` and
+`ACCESS_EXTERNAL_SCHEMA` to `""` — no protocol allowed for an external DTD or schema — where the implementation accepts
+the two properties; an implementation that refuses one with an `IllegalArgumentException` keeps the other properties
+in force. The JDK's built-in StAX implementation is the supported one, and it accepts both. The decisions, with the
+measured behaviour of the JDK reader, are recorded in
 link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`], which
 supersedes the hardening part of
-link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`]. The hostile prologs are
-probed by `CoverageXmlHardeningTest` through a resolver that counts its calls.
+link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`], and the two access
+properties in
+link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`].
+The hostile prologs are probed by `CoverageXmlHardeningTest` through a resolver that counts its calls, and the same test
+asserts that the factory the reader builds carries both access properties as `""`.
 
 === The bounded read of a report
 
@@ -369,8 +400,19 @@ An LCOV line longer than the line limit of the same resource is refused before i
 include::../../src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-line-length]
 
 Both values are data, read with `LimitProperties` when `CoverageReportStream` initialises; there is no literal in the code.
-A report file that cannot be read is refused naming its file name only (`CoverageRefusals`): a file-system failure carries
-the full path in its message, so its message is never passed through.
+A limit that sizes an `int` quantity — the LCOV line limit here, the two limits of `BuildLogText` — is read through
+`LimitProperties.readInt`, which refuses a value above `Integer.MAX_VALUE` with an `IllegalStateException` naming the
+resource and the key, the same fault of the build as an absent or negative value, instead of failing the class's
+initialisation with the bare exception of `Math.toIntExact`. The arithmetic on the limits cannot overflow either:
+`CoverageReportStream` computes the room left before the cap without adding to a value near `Long.MAX_VALUE`, and LCOV
+compares a line's length with its limit as a `long`. A report file that cannot be read is refused naming its file name
+only (`CoverageRefusals`): a file-system failure carries the full path in its message, so its message is never passed
+through.
+
+A refusal echoes report content — a counter type, a counter value, an `SF:` name — and that echo is bounded at the one
+seam every refusal passes, `CoverageRefusals.of`: the reason keeps the format prefix and at most the first 256
+characters of the detail (`CoverageRefusals.MAX_DETAIL_LENGTH`), never splitting a surrogate pair. The echo sites of the
+parsers stay as they are.
 
 == The Bounds of a Read and of a Parse
 
@@ -386,11 +428,18 @@ pattern reads as a marker.
 
 include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=log-max-bytes]
 
-`MavenOutputParser`, `OpenRewriteLogParser` and `PyprojectOutputParser` cut every line at the per-line bound of the same
-resource before a pattern of theirs sees the text (`BuildLogText.boundLines`). One cut bounds every expression of such a
-parser at once — a pattern that backtracks over a line of repeated tokens included — and a line is cut at its head,
-because the marker a parser reads is at a line's start. The package's other six parsers are bounded by the cap of the
-read but not yet by a line cut; a plan that touches one applies the same bound.
+All nine parsers cut every line at the per-line bound of the same resource before a pattern of theirs sees the text
+(`BuildLogText.boundLines`), once at the entry both `parse` overloads share: `MavenOutputParser`,
+`OpenRewriteLogParser` and `PyprojectOutputParser` since ADR `core-build/007`, and `GradleOutputParser`,
+`NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and `TapOutputParser` since
+link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`].
+The runtime's dispatcher `BuildOutputParser` cuts the stripped text the same way before its dispatch patterns, and its
+multi-line markers start on horizontal space (`^[ \t]*`, as `NpmErrorParser.INSTALL_SUMMARY` does) rather than on
+`^\s*`, so no repetition of theirs crosses a line end. One cut bounds every expression of a parser at once — a pattern
+that backtracks over a line of repeated tokens included — and a line is cut at its head, because the marker a parser
+reads is at a line's start. `BuildLogBoundsTest` feeds a million blank or whitespace lines and a hostile line of the
+bound's length through the six parsers, and `BuildOutputParserTest` of `pm-runtime` does the same through the
+dispatcher; each asserts the result of a fixed input, never a wall-clock run.
 
 include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=max-line-length]
 
@@ -480,7 +529,7 @@ compares the figures with literals read out of the report by hand; no test runs 
 
 _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 
-`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame in one character pass that lists no line, takes the tail of the last `MAX_LINES` (50) lines by scanning back for line beginnings, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line; the URI is `pm://plan/{plan_id}/builds/{job_id}/log`. A million-line log costs the reduced text, never an entry per line. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
+`UnparsedEvidence` is the evidence a build job hands on when it ended `failed_unparsed` (Job Runtime § Unparseable Output Fallback): the bounded, redacted tail of the raw log and the resource URI of the full log. `UnparsedEvidence.of(planId, jobId, rawLog)` strips the ANSI escapes through `BuildLogText.stripAnsi`, reduces each carriage-return frame run to its last frame in one character pass that lists no line, takes the tail of the last `MAX_LINES` (50) lines by scanning back for line beginnings, cuts every kept line to its last `BuildLogText.MAX_LINE_LENGTH` characters, redacts every secret-shaped value through `SecretRedactor`, and keeps at most `MAX_BYTES` (4096) bytes of UTF-8 counted from the end, so the byte bound can cut the earliest retained line. The line cut keeps a line's end, as the byte bound does, because the excerpt is a tail; it comes before the redaction because it is what bounds the redactor's cost on a long hostile line. The accepted residue of that order: a secret that straddles the line cut loses its label before the redactor sees it, so the rest of its value is unlabeled and the label-anchored shapes do not match it. It stays readable only where the byte bound keeps it, which takes a retained value of about 4096 characters or more; masking the retained text of a cut line instead would trade evidence for that case and is a maintainer decision. The URI is `pm://plan/{plan_id}/builds/{job_id}/log`. A million-line log costs the reduced text, never an entry per line. The record has no diagnostic component by design: a failure handler gets the log's own words, never a compiler error the parser did not locate. The full log stays `<job_id>.log` beside the job record, which the URI names.
 
 == Invariants and Failure Modes
 
@@ -507,4 +556,4 @@ _Requirement:_ link:{docs}/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
 * Watch: link:../../../doc/implementation-watch/job-runtime.adoc[Job Runtime]; of the items this package closed,
   PM-WATCH-JOB-10, -12 and -18 were deleted from the watch document, and PM-WATCH-JOB-11 stays with its guard now carried
   by every parser of the package
-* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening], link:../adr/core-build/006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR 006 the redactor shapes and the npm diagnostic redaction], link:../adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR 007 the read and the patterns are bounded], link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR 008 the coverage parsers read with DTD off and bounded]
+* Decisions: link:../adr/core-build/001-the-parsed-build-keeps-five-facts-apart.adoc[ADR 001 the parsed build keeps its five components apart], link:../adr/core-build/002-deliberate-changes-against-the-ported-parsers.adoc[ADR 002 the JVM deliberate changes], link:../adr/core-build/003-the-six-remaining-parsers-and-their-deliberate-changes.adoc[ADR 003 the six remaining parsers and their deliberate changes], link:../adr/core-build/004-the-unparsed-excerpt-is-bounded-redacted-and-diagnostic-free.adoc[ADR 004 the unparsed excerpt is bounded, redacted and diagnostic-free], link:../adr/core-build/005-the-coverage-model-and-the-xml-hardening.adoc[ADR 005 the coverage model and the XML hardening], link:../adr/core-build/006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR 006 the redactor shapes and the npm diagnostic redaction], link:../adr/core-build/007-the-read-and-the-patterns-are-bounded.adoc[ADR 007 the read and the patterns are bounded], link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR 008 the coverage parsers read with DTD off and bounded], link:../adr/core-build/009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR 009 the redactor shapes, the diagnostic redaction and the input bounds]

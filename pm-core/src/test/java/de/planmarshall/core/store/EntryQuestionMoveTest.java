@@ -13,6 +13,7 @@ import static de.planmarshall.core.store.QuestionRecordCodecTest.answered;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.delivered;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,11 +33,13 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LockTransaction;
 
 /**
@@ -62,7 +65,7 @@ class EntryQuestionMoveTest {
     private QuestionLog entryLog;
     private Path entryDirectory;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     @BeforeEach
     void createScopes() throws IOException {
@@ -76,7 +79,7 @@ class EntryQuestionMoveTest {
         entryDirectory = entryLog.store().getParent();
         Files.createDirectories(entryDirectory);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     /** Asks a question in the entry's log and delivers it, through the workspace transaction. */

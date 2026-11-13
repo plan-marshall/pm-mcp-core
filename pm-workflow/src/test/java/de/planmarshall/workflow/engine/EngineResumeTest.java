@@ -149,7 +149,7 @@ class EngineResumeTest {
     /** @return a fresh engine with fresh ports, as a restarted runtime builds it */
     private static Restarted restart() {
         var fixtures = new EngineFixtures();
-        fixtures.questionReader.answer = new QuestionRead.Resolved("answered");
+        fixtures.answerQuestion(new QuestionRead.Resolved("answered"));
         return new Restarted(fixtures, fixtures.engine(callingPlan("execute.invoke", RESUME_STATES),
                 parse("sub.pmwf", SUB_JOB)));
     }
@@ -203,7 +203,8 @@ class EngineResumeTest {
                     new WorkflowStatusStore(scope), transaction));
 
             assertEquals(expected.get(index + 1), step.status(), "the next step after a stop at " + index);
-            assertTrue(restarted.fixtures().jobStarter.requests.isEmpty(), "no job started again at " + index);
+            assertTrue(restarted.fixtures().jobRequests.getValues().isEmpty(),
+                    "no job started again at " + index);
         }
         assertEquals(expected.getLast(), read());
     }
@@ -262,7 +263,8 @@ class EngineResumeTest {
 
             assertAll(
                     () -> assertEquals(stored, assertInstanceOf(EngineStep.Resting.class, waited).status()),
-                    () -> assertTrue(restarted.fixtures().jobStarter.requests.isEmpty()),
+                    () -> assertTrue(restarted.fixtures().jobRequests.getValues().isEmpty(),
+                            "the unchanged advance starts no job"),
                     () -> assertThrows(IllegalStateException.class, transaction::commit,
                             "a status the advance did not change is not written"));
         }

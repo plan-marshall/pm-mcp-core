@@ -587,9 +587,10 @@ which `AwaitedEvent` it matches and what it must name (a bound job, exactly the 
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
 
 `EngineFixtures` assembles an engine over units parsed from DSL text written in the tests, never copied from a unit of
-the product. It provides scripted primitives that count their calls, a manual clock starting at `T0`, recording
-doubles of the four ports, and for the addressing the `FixedPendingEntryReader`, which answers each `entry_id` with the
-read a test set (an unknown one `Deleted`) and records every read, the entity kind `enrich-module` beside the default
+the product. It provides scripted primitives that count their calls, a manual clock starting at `T0`, EasyMock
+doubles of the four ports (the job and queue-task requests are captures), and for the addressing the `answerEntry`
+fixture, which answers each `entry_id` with the read a test set (an unknown one `Deleted`) and records every read, the
+entity kind `enrich-module` beside the default
 kinds, and the workspace fixture unit `WORKSPACE_UNIT`, whose task states host the enrichment fan-out and the lesson
 review. Ids in fixture text follow the DSL grammar: the reserved words `call`, `job` and `inherit`
 are not allowed as any segment of a state, unit or primitive id.

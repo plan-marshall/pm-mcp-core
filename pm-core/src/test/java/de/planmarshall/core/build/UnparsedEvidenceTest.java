@@ -228,4 +228,55 @@ class UnparsedEvidenceTest {
                 () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooLong, uri)),
                 () -> assertThrows(IllegalArgumentException.class, () -> new UnparsedEvidence(tooManyLines, uri)));
     }
+
+    @Test
+    @DisplayName("cuts a huge last line to the line bound, keeping its end, before the redaction")
+    void cutsAHugeLastLineToItsEnd() {
+        var hugeLine = "head" + "x".repeat(BuildLogText.MAX_LINE_LENGTH * 4) + "tail";
+        var kept = UnparsedEvidence.keptTail("first line\n" + hugeLine + "\n");
+
+        var bounded = UnparsedEvidence.boundLineTails(kept);
+        var lastLine = hugeLine.substring(hugeLine.length() - BuildLogText.MAX_LINE_LENGTH);
+
+        assertAll(
+                () -> assertEquals("first line\n" + lastLine, bounded, "the last line keeps its last bound of chars"),
+                () -> assertTrue(bounded.lines().allMatch(line -> line.length() <= BuildLogText.MAX_LINE_LENGTH),
+                        "no line the redactor sees exceeds the bound"));
+    }
+
+    @Test
+    @DisplayName("the excerpt of a huge last line keeps that line's end within the byte bound")
+    void excerptOfAHugeLastLine() {
+        var hugeLine = "head" + "x".repeat(BuildLogText.MAX_LINE_LENGTH * 4) + "tail";
+
+        var evidence = UnparsedEvidence.of(PLAN, JOB, "first line\n" + hugeLine + "\n");
+        var lineEnd = hugeLine.substring(hugeLine.length() - UnparsedEvidence.MAX_BYTES);
+
+        assertAll(
+                () -> assertEquals(lineEnd, evidence.excerpt(), "the excerpt is the end of the huge line"),
+                () -> assertEquals(UnparsedEvidence.MAX_BYTES,
+                        evidence.excerpt().getBytes(StandardCharsets.UTF_8).length, "the byte bound holds"));
+    }
+
+    @Test
+    @DisplayName("the line cut never splits a surrogate pair")
+    void lineCutKeepsSurrogatePairs() {
+        var line = "😀".repeat(BuildLogText.MAX_LINE_LENGTH / 2) + "x";
+
+        var bounded = UnparsedEvidence.boundLineTails(line);
+
+        assertAll(
+                () -> assertFalse(Character.isLowSurrogate(bounded.charAt(0)), "the cut starts on no low surrogate"),
+                () -> assertTrue(bounded.length() <= BuildLogText.MAX_LINE_LENGTH, "the cut line is inside the bound"),
+                () -> assertTrue(line.endsWith(bounded), "the cut keeps the end of the line"));
+    }
+
+    @Test
+    @DisplayName("lines inside the bound are kept as they are")
+    void keepsLinesInsideTheBound() {
+        var line = "x".repeat(BuildLogText.MAX_LINE_LENGTH);
+        var text = line + "\n\n" + line;
+
+        assertEquals(text, UnparsedEvidence.boundLineTails(text), "lines at the bound are never cut");
+    }
 }

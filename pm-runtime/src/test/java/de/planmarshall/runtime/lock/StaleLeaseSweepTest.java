@@ -60,6 +60,7 @@ import de.planmarshall.runtime.lock.StaleLeaseSweep.EmptyPopulation;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Rule;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The sweep of a lease store at a runtime start (PM-IMPL-7), over a real lease store and the lock manager of the
@@ -108,7 +109,8 @@ class StaleLeaseSweepTest {
         slot = slotKey();
         store = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
         storeKey = LockKey.buildSlots(base);
-        leaseStore = new LeaseStore(new AtomicStoreFile(store, storeKey), new FileLockManager(new RecordingAuditSink()));
+        leaseStore = new LeaseStore(new AtomicStoreFile(store, storeKey),
+                new FileLockManager(AuditSinkDoubles.capturing()));
         var self = ProcessHandle.current();
         var startedAt = self.info().startInstant().orElseThrow();
         alive = new HolderInstance(self.pid(), startedAt);

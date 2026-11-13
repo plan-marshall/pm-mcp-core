@@ -11,6 +11,7 @@ package de.planmarshall.runtime.start;
 
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.PROJECT_A;
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.STORE;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,15 +26,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The journal roll-forward step of the per-project recovery over plan scopes in a test base, on the lock manager of
@@ -49,7 +54,8 @@ class JournalRollForwardStepTest {
     @TempDir
     Path base;
 
-    private final RecordingAuditSink auditSink = new RecordingAuditSink();
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private final AuditSink auditSink = AuditSinkDoubles.capturing(auditEvents);
     private final byte[] content = ("{\"state\":\"" + name() + "\"}").getBytes(StandardCharsets.UTF_8);
     private final String planAId = "plan-" + name();
     private final String planBId = "other-" + name();
@@ -97,10 +103,10 @@ class JournalRollForwardStepTest {
                         "the journal must be deleted after recovery"),
                 () -> assertEquals("plan " + planAId + ": rolled forward " + transactionId + ", applied [" + STORE
                         + "]", report, "the report must name the rolled transaction"),
-                () -> assertEquals(List.of(ROLLED_FORWARD), auditSink.eventNames(),
+                () -> assertEquals(List.of(ROLLED_FORWARD), AuditSinkDoubles.eventNames(auditEvents),
                         "one rolled-forward record must reach the sink"),
                 // Contract literal: the wire name of the detail of the record
-                () -> assertEquals(transactionId, auditSink.events().getFirst().details().get("transaction_id"),
+                () -> assertEquals(transactionId, auditEvents.getValues().getFirst().details().get("transaction_id"),
                         "the record must carry the transaction id"));
     }
 
@@ -114,7 +120,7 @@ class JournalRollForwardStepTest {
         assertAll(
                 () -> assertEquals(new Outcome.Done("plan " + planAId + ": nothing to recover"), outcome,
                         "the step must report nothing to recover"),
-                () -> assertEquals(List.of(), auditSink.eventNames(), "no record must reach the sink"));
+                () -> assertEquals(List.of(), AuditSinkDoubles.eventNames(auditEvents), "no record must reach the sink"));
     }
 
     @Test

@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -19,6 +24,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,7 +98,7 @@ class WorkerDrainParticipantTest {
 
         assertFalse(quiet);
         assertFalse(ending.endRequested(generation.generationId()), "a running task is not ended early");
-        assertTrue(fixture.starter.cancels.isEmpty());
+        assertTrue(fixture.cancels.isEmpty(), "a running task is not cancelled");
     }
 
     @Test
@@ -105,8 +111,8 @@ class WorkerDrainParticipantTest {
         var terminated = participant.terminateRemaining();
 
         assertAllTerminated(generation, terminated);
-        assertTrue(fixture.stateWriter.writes.isEmpty(), "the state is written only after the exit");
-        assertTrue(fixture.protocol.fences.isEmpty(), "the generation is fenced only after the exit");
+        assertTrue(fixture.writes.isEmpty(), "the state is written only after the exit");
+        assertTrue(fixture.fences.isEmpty(), "the generation is fenced only after the exit");
     }
 
     @Test
@@ -139,7 +145,8 @@ class WorkerDrainParticipantTest {
     @Test
     @DisplayName("close releases the supervisor's timers")
     void closeReleasesTheTimers() {
-        var timers = new RecordingTimers();
+        var closed = new AtomicBoolean();
+        var timers = timers(closed);
         fixture.timers = timers;
         environment = fixture.environment(OPEN_GUARD, OPEN_GATE);
         supervisor = new WorkerSupervisor(environment);
@@ -148,7 +155,7 @@ class WorkerDrainParticipantTest {
 
         participant.close();
 
-        assertTrue(timers.closed);
+        assertTrue(closed.get(), "the drain closes the supervisor's timers");
     }
 
     private WorkerGeneration started(RoleForm form) {
@@ -167,25 +174,27 @@ class WorkerDrainParticipantTest {
     }
 
     private void assertAllTerminated(WorkerGeneration generation, List<String> terminated) {
-        assertEquals(List.of(generation.generationId()), terminated);
-        assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(generation.generationId()));
-        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.starter.cancels);
+        assertEquals(List.of(generation.generationId()), terminated, "one worker reports its generation");
+        assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(generation.generationId()),
+                "the end is requested with the drain cause");
+        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels,
+                "the end cancels the worker with supervisor end");
     }
 
-    /** The timers of the test: they record the close and schedule nothing. */
-    private static final class RecordingTimers implements WorkerTimers {
-
-        private boolean closed;
-
-        @Override
-        public Cancellable schedule(Instant at, Runnable action) {
-            return () -> {
-            };
-        }
-
-        @Override
-        public void close() {
-            closed = true;
-        }
+    /**
+     * @param closed set when the timers are closed
+     * @return EasyMock timers that schedule nothing and record the close
+     */
+    private static WorkerTimers timers(AtomicBoolean closed) {
+        WorkerTimers mock = createMock(WorkerTimers.class);
+        expect(mock.schedule(anyObject(Instant.class), anyObject(Runnable.class))).andReturn(() -> {
+        }).anyTimes();
+        mock.close();
+        expectLastCall().andAnswer(() -> {
+            closed.set(true);
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 }

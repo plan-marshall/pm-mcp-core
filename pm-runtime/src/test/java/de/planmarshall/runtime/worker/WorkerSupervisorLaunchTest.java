@@ -67,7 +67,7 @@ class WorkerSupervisorLaunchTest {
 
         var outcome = start(role).getFirst();
         var generation = assertInstanceOf(StartOutcome.Started.class, outcome).generation();
-        var launch = fixture.starter.starts.getFirst().launch();
+        var launch = fixture.starts.getFirst().launch();
 
         assertAll(
                 () -> assertEquals(generation.generationId(), launch.generationId()),
@@ -95,10 +95,11 @@ class WorkerSupervisorLaunchTest {
         assertAll(
                 () -> assertEquals(WorkerStartRefusal.LAUNCH_REFUSED,
                         assertInstanceOf(StartOutcome.Declined.class, outcomes.getFirst()).reason()),
-                () -> assertEquals(1, fixture.starter.refusals.size()),
-                () -> assertEquals("prompt_composition_failed", fixture.starter.refusals.getFirst().reason().code()),
-                () -> assertTrue(fixture.starter.starts.isEmpty()),
-                () -> assertEquals(1, fixture.slots.released.size()));
+                () -> assertEquals(1, fixture.refusals.size(), "the failed launch is refused once"),
+                () -> assertEquals("prompt_composition_failed", fixture.refusals.getFirst().reason().code(),
+                        "the refusal names the prompt composition"),
+                () -> assertTrue(fixture.starts.isEmpty(), "no worker is started for a refused launch"),
+                () -> assertEquals(1, fixture.released.size(), "the refused launch returns its slot"));
     }
 
     @Test
@@ -107,7 +108,7 @@ class WorkerSupervisorLaunchTest {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
 
         start(role);
-        var start = fixture.starter.starts.getFirst();
+        var start = fixture.starts.getFirst();
         var block = HeadlessBlock.of(fixture.profile);
 
         assertAll(
@@ -131,7 +132,7 @@ class WorkerSupervisorLaunchTest {
         assertAll(
                 () -> assertEquals(generation.jobId().value(), generation.generationId()),
                 () -> assertEquals(generation.generationId(),
-                        fixture.starter.starts.getFirst().launch().generationId()),
+                        fixture.starts.getFirst().launch().generationId()),
                 () -> assertEquals(WorkerLifecycle.STARTING, generation.lifecycle()));
     }
 

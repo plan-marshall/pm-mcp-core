@@ -88,7 +88,8 @@ class JsonlStoreFileTest {
     private Path store;
     private LockKey scopeKey;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
     private JsonlStoreFile storeFile;
 
     @BeforeEach
@@ -100,7 +101,8 @@ class JsonlStoreFileTest {
                 .resolve("findings.jsonl");
         scopeKey = LockKey.plan(base, project, plan);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
         storeFile = new JsonlStoreFile(store, scopeKey);
     }
 
@@ -136,7 +138,7 @@ class JsonlStoreFileTest {
                 () -> assertEquals(store.toString(), fault.details().get("store"),
                         "the fault names the store path"),
                 () -> assertArrayEquals(before, Files.readAllBytes(store), "nothing was written"),
-                () -> assertEquals(List.of(), audit.events(), "nothing was recorded"));
+                () -> assertEquals(List.of(), auditEvents.getValues(), "nothing was recorded"));
     }
 
     @Nested
@@ -156,7 +158,7 @@ class JsonlStoreFileTest {
                     () -> assertArrayEquals(before, Arrays.copyOf(after, before.length), "earlier bytes unchanged"),
                     () -> assertArrayEquals(bytes(FIRST, SECOND, THIRD), after,
                             "the new block is appended"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit record is written"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit record is written"));
         }
 
         @Test
@@ -170,17 +172,17 @@ class JsonlStoreFileTest {
             assertAll("an append over a torn tail",
                     () -> assertArrayEquals(bytes(FIRST, SECOND, THIRD), Files.readAllBytes(store),
                             "the torn tail is cut before the append"),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, torn)),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                    () -> assertEquals(List.of(AuditSinkDoubles.tailRepairWithoutId(store, torn)),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()),
                             "one tail repair records the torn bytes"),
-                    () -> assertTrue(TransactionId.ofSuffix("." + audit.events().getFirst().details()
+                    () -> assertTrue(TransactionId.ofSuffix("." + auditEvents.getValues().getFirst().details()
                             .get(AuditEvent.DETAIL_TRANSACTION_ID)).isPresent(), "the repair carries an id"),
                     () -> assertFalse(Files.exists(storeFile.auditIntentFile()), "the intent was closed"),
                     () -> assertEquals((long) torn.length,
-                            audit.events().getFirst().details().get(AuditEvent.DETAIL_TRUNCATED_BYTES),
+                            auditEvents.getValues().getFirst().details().get(AuditEvent.DETAIL_TRUNCATED_BYTES),
                             "the record names the truncated byte count"),
                     () -> assertEquals(sha256(torn),
-                            audit.events().getFirst().details().get(AuditEvent.DETAIL_TRUNCATED_SHA256),
+                            auditEvents.getValues().getFirst().details().get(AuditEvent.DETAIL_TRUNCATED_SHA256),
                             "the record names the truncated digest"));
         }
 
@@ -199,8 +201,8 @@ class JsonlStoreFileTest {
             assertAll("an append over a torn tail longer than one chunk",
                     () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store),
                             "the long torn tail is cut back"),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, torn)),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                    () -> assertEquals(List.of(AuditSinkDoubles.tailRepairWithoutId(store, torn)),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()),
                             "the record names the whole torn tail"));
         }
 
@@ -214,8 +216,8 @@ class JsonlStoreFileTest {
             assertAll("an append to a store that is only a torn line",
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store),
                             "the store holds only the new line"),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                    () -> assertEquals(List.of(AuditSinkDoubles.tailRepairWithoutId(store, bytes(TORN))),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()),
                             "the record names the torn line"));
         }
 
@@ -230,7 +232,7 @@ class JsonlStoreFileTest {
                     () -> assertEquals("rw-------",
                             PosixFilePermissions.toString(Files.getPosixFilePermissions(store)),
                             "the store is created with mode 0600"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit record is written"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit record is written"));
         }
 
         @Test
@@ -272,7 +274,7 @@ class JsonlStoreFileTest {
             assertAll("a refused block without a trailing newline",
                     () -> assertArrayEquals(before, Files.readAllBytes(store),
                             "nothing is written or repaired"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit record is written"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit record is written"));
         }
 
         @Test
@@ -308,7 +310,7 @@ class JsonlStoreFileTest {
                     () -> assertArrayEquals(kept, Arrays.copyOf(after, kept.length), "lines before the tail kept"),
                     () -> assertArrayEquals(bytes(FIRST, malformed, SECOND, THIRD), after,
                             "the malformed line is kept and appended"),
-                    () -> assertEquals(1, audit.events().size(), "one tail repair is recorded"));
+                    () -> assertEquals(1, auditEvents.getValues().size(), "one tail repair is recorded"));
         }
     }
 
@@ -326,7 +328,7 @@ class JsonlStoreFileTest {
 
             assertAll("a repair of an absent store",
                     () -> assertFalse(Files.exists(store), "the store stays absent"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit record is written"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit record is written"));
         }
 
         @Test
@@ -341,7 +343,7 @@ class JsonlStoreFileTest {
 
             assertAll("a repair of an empty store",
                     () -> assertEquals(0, Files.size(store), "the store stays empty"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit record is written"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit record is written"));
         }
 
         @Test
@@ -357,8 +359,8 @@ class JsonlStoreFileTest {
             assertAll("a repair that cuts the torn tail only",
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store),
                             "only the torn tail is cut"),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                    () -> assertEquals(List.of(AuditSinkDoubles.tailRepairWithoutId(store, bytes(TORN))),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()),
                             "the record names the torn line"));
         }
 
@@ -407,8 +409,8 @@ class JsonlStoreFileTest {
             assertAll("the next repair after the refusal",
                     () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store),
                             "the cut stays and the append lands"),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()), "delivered exactly once"),
+                    () -> assertEquals(List.of(AuditSinkDoubles.tailRepairWithoutId(store, bytes(TORN))),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()), "delivered exactly once"),
                     () -> assertFalse(Files.exists(storeFile.auditIntentFile()), "the intent was closed"));
         }
 
@@ -421,7 +423,7 @@ class JsonlStoreFileTest {
 
             repairWith(audit);
 
-            assertEquals(1, audit.events().size(), "the record is delivered exactly once");
+            assertEquals(1, auditEvents.getValues().size(), "the record is delivered exactly once");
         }
 
         @Test
@@ -439,8 +441,8 @@ class JsonlStoreFileTest {
                     () -> assertTrue(intentSurvived, "the intent survived the stop"),
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store),
                             "the cut is done before the stop"),
-                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                    () -> assertEquals(List.of(AuditSinkDoubles.tailRepairWithoutId(store, bytes(TORN))),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()),
                             "the record is delivered once at the next repair"));
         }
 
@@ -459,9 +461,9 @@ class JsonlStoreFileTest {
             assertAll("a repair stopped between its intent and its cut",
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store),
                             "the torn tail is cut once"),
-                    () -> assertEquals(1, audit.events().size(), "one record for one cut"),
+                    () -> assertEquals(1, auditEvents.getValues().size(), "one record for one cut"),
                     () -> assertEquals(owedId,
-                            audit.events().getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID),
+                            auditEvents.getValues().getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID),
                             "the record keeps the id of its intent"));
         }
 
@@ -480,7 +482,7 @@ class JsonlStoreFileTest {
                             "the refusal names the intent file"),
                     () -> assertArrayEquals(before, Files.readAllBytes(store),
                             "the store is not cut on refusal"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on the refusal"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on the refusal"));
         }
 
         private Object auditIntentTransactionId() throws IOException {
@@ -510,7 +512,7 @@ class JsonlStoreFileTest {
                     () -> assertEquals(expected, locked, "the locked read sees two lines"),
                     () -> assertEquals(expected, lockFree, "the lock-free read sees two lines"),
                     () -> assertArrayEquals(before, Files.readAllBytes(store), "nothing was repaired"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit record is written"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit record is written"));
         }
 
         @Test

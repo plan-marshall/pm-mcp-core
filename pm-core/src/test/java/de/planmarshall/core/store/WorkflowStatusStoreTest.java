@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.QuestionRecordCodecTest.text;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,6 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.ScopeTransaction.Step;
@@ -70,7 +73,7 @@ class WorkflowStatusStoreTest {
     private JournalScope scope;
     private WorkflowStatusStore store;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     /** What the step hook throws to stop a commit at a boundary. */
     private static final class StopWrite extends RuntimeException {
@@ -89,7 +92,7 @@ class WorkflowStatusStoreTest {
         Files.createDirectories(scope.journalFile().getParent());
         store = new WorkflowStatusStore(scope);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     private static String lower() {

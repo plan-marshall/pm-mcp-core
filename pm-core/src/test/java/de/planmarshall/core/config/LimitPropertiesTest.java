@@ -9,8 +9,10 @@
  */
 package de.planmarshall.core.config;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.Properties;
@@ -19,7 +21,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The reader of a numeric limit from a properties resource (PM-ARCH-8, PM-IMPL-5): the present resource is read, and
- * an absent resource, an absent key, a non-numeric value and a negative value fail the load instead of defaulting.
+ * an absent resource, an absent key, a non-numeric value and a negative value fail the load instead of defaulting. The
+ * int-ranged read reads up to {@link Integer#MAX_VALUE} and refuses a larger value the same way, by name; the two edge
+ * values are the contract of that range.
  */
 @EnableGeneratorController
 @DisplayName("LimitProperties")
@@ -69,5 +73,30 @@ class LimitPropertiesTest {
 
         assertThrows(IllegalStateException.class, () -> LimitProperties.value(properties, KEY, "limits"),
                 "a negative value must fail the load");
+    }
+
+    @Test
+    @DisplayName("reads an int-ranged value of the resource")
+    void readsAnIntRangedValue() {
+        assertEquals(42, LimitProperties.readInt(RESOURCE, KEY), "the int reader must return the resource value");
+    }
+
+    @Test
+    @DisplayName("reads the largest int value")
+    void readsTheLargestIntValue() {
+        assertEquals(Integer.MAX_VALUE, LimitProperties.intRanged(Integer.MAX_VALUE, KEY, RESOURCE),
+                "the largest int value must be read");
+    }
+
+    @Test
+    @DisplayName("a value above the int range fails the load, naming the resource and key")
+    void aValueAboveTheIntRangeFails() {
+        var refusal = assertThrows(IllegalStateException.class,
+                () -> LimitProperties.intRanged(Integer.MAX_VALUE + 1L, KEY, RESOURCE),
+                "a value above the int range must fail the load");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains(KEY), "the refusal must name the limit key"),
+                () -> assertTrue(refusal.getMessage().contains(RESOURCE), "the refusal must name the resource"));
     }
 }

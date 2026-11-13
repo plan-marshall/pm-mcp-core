@@ -86,7 +86,8 @@ class OrderedWriteTest {
     private JournalScope workspace;
     private JournalScope epic;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
 
     /** What a hook throws to stop the flow, as a killed process stops it. */
     private static final class StopWrite extends RuntimeException {
@@ -116,7 +117,8 @@ class OrderedWriteTest {
             Files.createDirectories(scope.journalFile().getParent());
         }
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
     }
 
     private static String lowerName() {
@@ -243,12 +245,12 @@ class OrderedWriteTest {
 
     /** @return the cross_scope_reconciled records among the records, by rule and store, without their ids */
     private static List<AuditEvent> reconciledOf(List<AuditEvent> records) {
-        return RecordingAuditSink.withoutTransactionIds(records.stream()
+        return AuditSinkDoubles.withoutTransactionIds(records.stream()
                 .filter(event -> AuditEvent.CROSS_SCOPE_RECONCILED.equals(event.event())).toList());
     }
 
     private static List<AuditEvent> reconciledOf(Reconciliation... reconciliations) {
-        return RecordingAuditSink.withoutTransactionIds(Arrays.stream(reconciliations)
+        return AuditSinkDoubles.withoutTransactionIds(Arrays.stream(reconciliations)
                 .map(reconciliation -> AuditEvent.crossScopeReconciled(reconciliation.name(), reconciliation.store(),
                         "unknown"))
                 .toList());
@@ -266,7 +268,7 @@ class OrderedWriteTest {
     }
 
     private List<AuditEvent> reconciledRecords() {
-        return reconciledOf(audit.events());
+        return reconciledOf(auditEvents.getValues());
     }
 
     private void assertConsistent() {
@@ -343,14 +345,14 @@ class OrderedWriteTest {
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
             restart();
             var completed = snapshot();
-            var records = audit.events().size();
+            var records = auditEvents.getValues().size();
 
             var applied = restart();
 
             assertAll(
                     () -> assertEquals(List.of(), applied, "a second restart should apply nothing"),
                     () -> assertEquals(completed, snapshot(), "a second restart should change no file"),
-                    () -> assertEquals(records, audit.events().size(),
+                    () -> assertEquals(records, auditEvents.getValues().size(),
                             "a second restart should record nothing"));
         }
 
@@ -373,7 +375,7 @@ class OrderedWriteTest {
                     () -> assertEquals(List.of(), applied, "the restart should derive nothing"),
                     () -> assertEquals(before, snapshot(), "nothing should have been written"),
                     () -> assertFalse(Files.exists(workspace.resolve(QUEUE)), "the later step should not have run"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing should have been recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing should have been recorded"));
         }
     }
 
@@ -406,7 +408,7 @@ class OrderedWriteTest {
         assertAll(
                 () -> assertEquals(List.of(), applied, "a consistent set should need no write"),
                 () -> assertEquals(before, snapshot(), "a consistent set should stay unchanged"),
-                () -> assertEquals(List.of(), audit.events(), "a consistent set should record nothing"));
+                () -> assertEquals(List.of(), auditEvents.getValues(), "a consistent set should record nothing"));
     }
 
     @Test
@@ -427,7 +429,7 @@ class OrderedWriteTest {
                 () -> assertEquals(List.of(first, second, third), applied,
                         "the reconciliations should keep their order"),
                 () -> assertEquals(List.of(audit), sinks, "the reconciler should get the sink"),
-                () -> assertEquals(List.of(), audit.events(), "the records should come with the transactions"));
+                () -> assertEquals(List.of(), auditEvents.getValues(), "the records should come with the transactions"));
     }
 
     /** The record of a reconciliation is owed in the journal of its derived write and delivered at least once. */
@@ -448,7 +450,7 @@ class OrderedWriteTest {
                 write.commit();
             }
 
-            var recordId = String.valueOf(audit.events().getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID));
+            var recordId = String.valueOf(auditEvents.getValues().getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID));
             assertAll(
                     () -> assertEquals(reconciledOf(queueReconciliation()), reconciledRecords(),
                             "the reconciliation should be recorded once"),
@@ -488,11 +490,11 @@ class OrderedWriteTest {
             assertThrows(StopWrite.class, () -> write.run(locks), "the flow should stop after the first step");
             OrderedWrite.reconcile(locks, List.of(reconciler()), AuditSinkDoubles.refusing());
             restart();
-            var records = audit.events().size();
+            var records = auditEvents.getValues().size();
 
             restart();
 
-            assertEquals(records, audit.events().size(), "a replay should deliver no second record");
+            assertEquals(records, auditEvents.getValues().size(), "a replay should deliver no second record");
         }
 
         @Test

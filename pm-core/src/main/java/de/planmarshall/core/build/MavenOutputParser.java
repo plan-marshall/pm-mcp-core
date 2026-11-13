@@ -221,7 +221,12 @@ public class MavenOutputParser {
      * executed count per runner.
      * <p>
      * Counts are read and summed as {@code long}, so a count or a sum outside the {@code int} range is reported as
-     * {@link TestCounts.Unmeasured} instead of wrapping into a figure that passes as a measurement.
+     * {@link TestCounts.Unmeasured} instead of wrapping into a figure that passes as a measurement. The {@code long} sums
+     * themselves cannot wrap: every count a line adds is below 2^32 (each parsed count is at most
+     * {@link Integer#MAX_VALUE}, a larger one marks the scan unrepresentable), and the input holds fewer than 2^26 count
+     * lines (a count line takes more than 40 characters, the {@code Path} overload reads at most
+     * {@link BuildLogText#MAX_BYTES} bytes and the {@code String} overload is bounded by the length of a Java
+     * {@code String}), so a sum stays below 2^58.
      */
     private static final class CountScan {
 

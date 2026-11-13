@@ -9,9 +9,14 @@
  */
 package de.planmarshall.workflow.task;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
+
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -119,23 +124,16 @@ final class TaskFixtures {
         return ((WaitAnswer.Offered) answer).task();
     }
 
-    /** A pause state a test changes. */
-    static final class Paused implements PlanPause {
-
-        private final Set<String> plans = new HashSet<>();
-
-        @Override
-        public boolean isPaused(String planId) {
-            return plans.contains(planId);
-        }
-
-        void pause(String planId) {
-            plans.add(planId);
-        }
-
-        void start(String planId) {
-            plans.remove(planId);
-        }
+    /**
+     * @param paused the plans that are paused; the test adds and removes a plan id, the mock answers from the set
+     * @return an EasyMock pause port that answers each read by the plan id it is asked about
+     */
+    static PlanPause pause(Set<String> paused) {
+        PlanPause pause = createMock(PlanPause.class);
+        expect(pause.isPaused(anyObject(String.class)))
+                .andAnswer(() -> paused.contains((String) getCurrentArguments()[0])).anyTimes();
+        replay(pause);
+        return pause;
     }
 
     /** A copy of the attempts, for a clear assertion. */

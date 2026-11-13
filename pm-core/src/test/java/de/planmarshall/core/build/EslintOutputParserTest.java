@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +71,35 @@ class EslintOutputParserTest {
                 () -> assertEquals(1, result.build().diagnostics().size(), "The row is still filed"),
                 () -> assertNull(result.build().diagnostics().getFirst().line(),
                         "An unrepresentable line is absent"));
+    }
+
+    @Test
+    @DisplayName("reports no problem summary when the summed error counts overflow a long (stylish format)")
+    void overflowingErrorSumIsNoSummary() {
+        // The Long.MAX_VALUE counts and the log shape are the contract: the error counts wrap to 0.
+        String logText = String.join("\n", "✖ 9223372036854775807 problems (9223372036854775807 errors, 0 warnings)",
+                "✖ 9223372036854775807 problems (9223372036854775807 errors, 0 warnings)",
+                "✖ 2 problems (2 errors, 0 warnings)");
+
+        EslintResult result = EslintOutputParser.parse(logText);
+
+        assertNull(result.problems(), "An overflowed error sum is no problem summary");
+    }
+
+    @Test
+    @DisplayName("sums two ordinary problem summaries")
+    void twoOrdinarySummariesAreSummed() {
+        int firstErrors = Generators.integers(0, 1000).next();
+        int secondErrors = Generators.integers(0, 1000).next();
+        int warnings = Generators.integers(0, 1000).next();
+        String logText = String.join("\n",
+                "✖ %d problems (%d errors, %d warnings)".formatted(firstErrors + warnings, firstErrors, warnings),
+                "✖ %d problems (%d errors, 0 warnings)".formatted(secondErrors, secondErrors));
+
+        EslintResult result = EslintOutputParser.parse(logText);
+
+        assertEquals(new EslintResult.ProblemCounts(firstErrors + secondErrors, warnings), result.problems(),
+                "Two ordinary summaries sum their counts");
     }
 
     @Test
