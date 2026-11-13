@@ -48,11 +48,11 @@ extra are `FailingExitCodeGenerator` and `FailingExitCodeGeneratorTest` under `p
 `TypedGenerator<Integer>` test data, not a double of a production interface. The path `*/testing/generators/*` is
 therefore excluded from the scan, and only that path.
 
-At the branch base of PLAN-V2-136 the closed list below holds thirteen declarations, not the fourteen the plan's spec
-expected: `ProcessTreeTrackerTest.RecordingSignals` was already replaced by an EasyMock mock of
+At the branch base of PLAN-V2-136 the scan-matched keeps of the closed list below hold thirteen declarations, not the
+fourteen the plan's spec expected: `ProcessTreeTrackerTest.RecordingSignals` was already replaced by an EasyMock mock of
 `ProcessGroupSignals` before that base (#390, `1283710f`). The plan's verify-first clause re-runs the counts at the
-head, so the closed list below names two `RecordingSignals` and the scan's expected result is the thirteen
-declarations it lists.
+head, so the closed list below names two `RecordingSignals`; the fixture-resident F1 to F3 are not matched by the scan
+and are kept by inspection.
 
 === The closed list of sound keeps
 
@@ -124,10 +124,10 @@ The assembly checkout `plan-marshall-mcp` was not searched; the claim is about t
   double uses EasyMock or a factory that returns one.
 * The list K1 to K9 and F1 to F3 is closed. A class that does not qualify for S1, S2 or S3 is converted; a class the
   operator wants to keep needs a new ADR that supersedes this one and names the reason.
-* The scan is the Done-when of a conversion plan: it returns the declarations of the closed list at the branch base and
-  no other line (the closed list holds thirteen entries at the base of PLAN-V2-136, because the process-table
-  `RecordingSignals` was converted with EasyMock before it), so a conversion cannot be claimed without removing the
-  class from the scan.
+* The scan is the Done-when of a conversion plan: it returns the declarations of the closed list's scan-matched keeps
+  at the branch base and no other line (thirteen at the base of PLAN-V2-136, because the process-table
+  `RecordingSignals` was converted with EasyMock before it; F1 to F3 are fixture-resident and not matched by the scan),
+  so a conversion cannot be claimed without removing the class from the scan.
 * A consumer of the `pm-runtime:tests` jar sees no change: the converted classes were package-private and the
   published fakes keep their signatures.
 * The unscanned population is out of scope by decision: about forty hand-written implementations whose names do not
