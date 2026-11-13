@@ -42,6 +42,8 @@ public final class ShippedRoles {
     private static final String DIRECTORY = "roles";
     private static final String SUFFIX = ".json";
     private static final String RESERVED = "default-assignment";
+    /** Scratch copy: added only to show the guard fails, removed in the next commit. */
+    private static final String SCRATCH = "[a-z][a-z0-9-]{1,31}";
 
     private ShippedRoles() {
     }
