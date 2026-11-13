@@ -1,0 +1,67 @@
+= ADR 014: The verification of an unknown harness is admitted by one gate
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-13.
+
+== Context
+
+An unknown harness is verified only from `harness.verify-profile`, reached from `harness.add-consent`, which asks the
+consent kind `verify_harness_profile` and states the expected tokens of the stages; the kind is never remembered, so the
+question is asked before every verification, in a first run and in a reconfiguration alike; and the draft is validated as
+a profile before anything runs (Harness Profiles § Unknown Harness, § Profile Verification; State Catalogue
+§ `harness.add-consent`, § `harness.verify-profile`).
+
+The pieces exist separately: `ConsentKind.VERIFY_HARNESS_PROFILE` is declared `Remembered.NEVER` and `ConsentGate`
+refuses a `yes_remember` for it, `ProfileValidator` validates a document. Nothing ties the state, the answer, the shown
+tokens and the validation together, so a caller could reach the stages from another step, or with a draft nobody
+validated, and every part would still look right on its own.
+
+== Decision
+
+`HarnessVerification.admit` is the one admission. It takes the state the verification was asked from, the consent kind,
+the answer, the expected tokens per stage, the draft and the rules of the installation, and it returns the validated
+draft tree or refuses:
+
+* a state that is not `harness.verify-profile` is refused `harness_verify_state_refused`;
+* a consent kind that is not `verify_harness_profile` is refused `harness_verify_consent_kind`;
+* a kind that became rememberable is refused `harness_verify_consent_rememberable`, because a run could then be
+  authorised without being asked;
+* `no` is refused `harness_verify_consent_declined` and a `yes_remember` `harness_verify_consent_remembered`;
+* a token set that is empty, names a stage outside `VerificationRecord.STAGE_NAMES` or carries a negative count is
+  refused `harness_verify_stage_tokens_missing`;
+* the draft is validated by `ProfileValidator` and its `ProfileRefusal` propagates before any stage runs.
+
+The refusal carries a stable `code` for the client and a message that names the state, the kind or the member.
+
+== Alternatives Considered
+
+Leaving the state check to the workflow unit and the validation to the caller was rejected: the unit is a document the
+engine reads, and a second caller (an operator verb, a test, a future automatic onboarding) would re-implement the four
+conditions, each able to forget one.
+
+Reading a remembered consent of the kind and passing it to the stages was rejected outright: the kind is `NEVER` by
+specification, and a remembered record for it is evidence of a defect, not an authorisation.
+
+Validating the draft lazily, inside the first stage was rejected: the operator would watch a run start and fail instead of
+fixing the form, and a stage that cannot start would still have run a harness.
+
+== Consequences
+
+The gate decides and does not run: the stages, the probe workspace and the consent record are the onboarding's. A caller
+cannot bypass the admission without naming a different method, which is the reviewable change this ADR exists for.
+
+The expected tokens are part of the admission rather than a presentation detail, so a consent rendered without them
+admits nothing. `harness.add-confirm` shows the verified profile for the operator's `install`; installing it and
+enrolling the harness stay the install path's.
+
+== Source
+
+Work package `machine-onboarding-unit`, Task 3 (PLAN-V2-39); Harness Profiles § Unknown Harness, § Profile Verification;
+State Catalogue § `harness.add`, § `harness.add-consent`, § `harness.verify-profile`; Store Schemas § Consent Before
+Acting; PM-SEC-8.

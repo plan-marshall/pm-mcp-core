@@ -1,0 +1,68 @@
+= ADR 013: The harness scan and list are ordered values with the store refusal as a status
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-13.
+
+== Context
+
+The onboarding's `harness.choose` step shows every harness of the effective profile set with its version, whether it is
+supported and may serve workers, and what it reports of its token usage; it lists and preselects them in the order of
+their `harness_id` and makes the first preselectable one the default (Harness Profiles § Harness Scan, § Tokens, Not
+Money; State Catalogue § `harness.choose`). The profile package holds no list of harnesses today: it validates
+documents, resolves the set in force and records the stages of a verification.
+
+Two things needed a decision. First, whether the step's data is a store read or a value computed from the scan: a client
+that renders the list must not re-derive the order or the default, or the two clients disagree the moment one of them
+sorts differently. Second, what the list shows where the enrolment store cannot be read: an empty usage map is
+indistinguishable from a harness that reports nothing, and the store's refusal is a fact about the list
+(`harness_store_unreadable`, Store Schemas § Harness Unreadable).
+
+== Decision
+
+The scan is a value of the profile package: `HarnessScan` orders its `HarnessCandidate`s by `harness_id` in its compact
+constructor and refuses two candidates of one id, `preselected()` is the candidates that were found, are supported and
+may serve workers, and `defaultHarness()` is the first of them. `HarnessList` keeps that order and carries the default
+mark, so a client renders what the scan decided.
+
+The usage coverage is a closed status beside its missing figures and the start context: `HarnessUsageCoverage` with
+`complete`, `partial` (naming the missing figures), `not_reported` and `harness_store_unreadable`. The last is produced by
+`HarnessUsageCoverage.unreadable()` and by `HarnessList.of(..., storeUnreadable = true)`, which replaces every row's
+coverage — the refusal is shown instead of an empty map, never as `complete`.
+
+`harness.none` is a value too: the scan renders it with every known harness's install hint when nothing was found, and
+`HarnessProbe` derives the transition of the login probe from the chosen and failed sets, so a run with every chosen
+harness failing rests in `harness.none` instead of reporting a pass to the next step.
+
+== Alternatives Considered
+
+Having each client sort and preselect from the raw candidates was rejected: the order and the default are the
+specification's, not a rendering detail, and two clients that derive them independently drift.
+
+Modelling the unreadable store as an exception thrown out of the list was rejected: the list still renders, and the row
+that says `harness_store_unreadable` tells the operator what to do, where a failed page tells nothing.
+
+Keeping the coverage inside the enrolment store's read was rejected for the same reason the start context lives in the
+verification record: the store's shape stays what Store Schemas § Harness Enrolment Store states, and the list's
+presentation is derived.
+
+== Consequences
+
+Nothing in the package names a harness, so the scan takes every harness from the effective profile set (`R19` of the
+epic's standing rules). A profile with `headless: null` or `worker.eligible: false` stays in the list and is marked, never
+offered; `HarnessCandidate` enforces that a candidate offered for workers is found and supported.
+
+The scan's inputs (the login `PATH`, the install locations, the version probe) are the onboarding's and the probe job's;
+this package holds the value they produce. A store that cannot be read is reported per row, and a harness no verification
+recorded is `not_reported`, never `complete`.
+
+== Source
+
+Work package `machine-onboarding-unit`, Task 3 (PLAN-V2-39); Harness Profiles § Harness Scan, § Tokens, Not Money;
+State Catalogue § `harness.choose`, § `harness.probe`, § `harness.none`; Store Schemas § Harness Enrolment Store,
+§ Machine Stores.

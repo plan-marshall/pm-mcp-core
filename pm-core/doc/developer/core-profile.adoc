@@ -241,6 +241,38 @@ refusal; `VerificationRecordTest` covers the record's start-context parse and it
 link:../adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR 007]: the usage stage records the start
 context and derives the usage coverage.
 
+== The Harness Scan, the Harness List and the Verification Gate
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{docs}/Requirements.adoc#PM-SEC-8[PM-SEC-8]_
+
+The onboarding's `harness.choose` step shows what a scan found, and `harness.none` shows what to install. The package
+holds both as values, so no client re-derives the order or the default:
+
+* `HarnessCandidate` is one profile with what the scan found of it: the harness id, the display name, whether the
+  executable was found, the probed version, whether that version is supported, whether the profile may serve workers, and
+  the profile's install hint. It refuses a version on a harness that was not found and a candidate offered for workers
+  that is not found and supported.
+* `HarnessScan` orders its candidates by `harness_id` in its compact constructor, refuses two candidates of one id,
+  `preselected()` returns the found, supported and worker-eligible ones, `defaultHarness()` the first of them, and
+  `none()` the `harness.none` wait where nothing was found.
+* `HarnessNone` names each known harness's install hint and offers `recheck` and `add`.
+* `HarnessProbe` derives the login probe's transition from the chosen and failed sets (`all_passed` to
+  `harness.confirm`, `one_failed` to `harness.blocked`, `all_failed` to `harness.none`); a run whose every chosen harness
+  failed rests in `harness.none`.
+* `HarnessList` keeps the scan's order and carries per row the default mark and the `HarnessUsageCoverage`.
+  `HarnessUsageCoverage.of` maps a `UsageResult` to `complete`, `partial` with the missing figures, or `not_reported`;
+  `HarnessUsageCoverage.unreadable()` and `HarnessList.of(..., storeUnreadable = true)` show `harness_store_unreadable`
+  at every row instead of an empty usage map.
+
+`HarnessVerification.admit` is the one admission of a verification of an unknown harness: the state must be
+`harness.verify-profile`, the consent kind `verify_harness_profile` (never remembered, so a `yes_remember` and a
+rememberable kind are refused), the answer `yes` with the expected tokens of its stages, and the draft is validated by
+`ProfileValidator` before anything runs. Each refusal carries a stable code from `HarnessVerificationRefusal`.
+
+link:../adr/core-profile/013-the-scan-and-list-are-ordered-values.adoc[ADR 013]: the scan and list are ordered values
+with the store refusal as a status. link:../adr/core-profile/014-the-verification-is-admitted-by-one-gate.adoc[ADR 014]:
+the verification is admitted by one gate. `HarnessScanTest`, `HarnessListTest` and `HarnessVerificationTest` cover the
+order, the preselection, the default, the `harness.none` transitions, the four coverage states and the six refusals.
+
 == The resumability stage
 
 `ProfileStages.ResumabilityResult` is what the stage `resumability` of the profile verification hands on: one
