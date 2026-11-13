@@ -10,10 +10,10 @@
 package de.planmarshall.core.config;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.HarnessId;
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.role.RoleAssignment;
 
@@ -34,8 +34,6 @@ import de.planmarshall.core.role.RoleAssignment;
 public record RoleAssignmentValue(String harness, String model, EffortSetting effort,
 @Nullable EffortValue effortValue, @Nullable Escalation escalation) {
 
-    private static final Pattern HARNESS_ID = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-
     /**
      * @throws IllegalArgumentException if the harness or the model is empty, the harness is not a client id, or the
      *                                  effort setting and its value do not belong together
@@ -44,7 +42,7 @@ public record RoleAssignmentValue(String harness, String model, EffortSetting ef
         Objects.requireNonNull(harness, "harness");
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(effort, "effort");
-        if (!HARNESS_ID.matcher(harness).matches()) {
+        if (!HarnessId.matches(harness)) {
             throw new IllegalArgumentException("Not a client id of a role assignment: " + harness);
         }
         if (model.isEmpty() || model.length() > 128) {

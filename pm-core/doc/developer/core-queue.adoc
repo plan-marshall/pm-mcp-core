@@ -18,6 +18,9 @@ Specification: link:../../../doc/specification/store-schemas/16-task-queue.adoc[
 Record and § Activity Journal], link:../../../doc/specification/model-work/02-task-protocol.adoc[Model Work § Task
 Protocol], link:../../../doc/specification/model-work/03-supervision-and-recycling.adoc[§ A Worker Off Track].
 
+A role name that a task or a consultation carries validates through
+link:core-id.adoc[`RoleName` of `core.id`], the one definition of the grammar.
+
 == The types and how they work together
 
 `QueueTaskId`::

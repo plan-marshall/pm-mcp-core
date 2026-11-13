@@ -1,0 +1,72 @@
+= ADR 001: One definition of the short-name grammar, guarded by a source scan
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-13.
+
+== Context
+
+The role-name grammar `^[a-z][a-z0-9-]{1,31}$` (2 to 32 characters) was written out as a private `Pattern` in
+twenty-two classes of `pm-core`, `pm-workflow` and `pm-runtime` — seventeen role names, six harness ids and one constant
+that served both — each with its own field and error text. The specification defines the text once (Identifiers §
+General Rules & Registry, entry `id-role-name`) and gives the harness id the same text under its own entry
+`id-harness-id`, so a change of the grammar was a change in twenty-two classes (twenty-four literals), and a new record
+that carries a role copied the text again. The operator decided on 2026-10-29 (decision 17 of 18, option 1) on a small
+refactor that gives the pattern one definition, replaces the copies, and adds a test that fails if a copy is added.
+
+The package `de.planmarshall.core.id` existed and held `package-info.java` only; it is the package the Module Structure
+Specification gives "the identifier types and their validation", and it depends on no other package of the product.
+
+== Decision
+
+The grammar text lives once, in the package-private `ShortName.TEXT`, and the package exposes two public types that read
+it: `RoleName` (registry entry `id-role-name`) and `HarnessId` (`id-harness-id`). Both patterns are anchored, so the one
+message that prints the name-grammar pattern (`WorkflowStatus.requireMatch`) is byte-identical, and every caller matches
+through `Matcher.matches()`, which anchors either way.
+
+Every copy is replaced by the shared pattern; each caller keeps its own `require…` helper, its null handling, its
+exception type and its message. Where one constant served two members (`WorkerState.NAME` for `worker.role` and
+`worker.harness`), the helper takes the pattern as a parameter and the two calls pass `RoleName.PATTERN` and
+`HarnessId.PATTERN`.
+
+A JUnit source scan, `RoleNameSingleDefinitionTest` of the guard package, reads the string literals of every
+`src/main/java` file of the reactor and fails for the grammar text outside `core/id/ShortName.java`, naming file, line
+and the two classes. It has no exemption map: the grammars that stay local (1-to-32, 1-to-63, the underscore form) do
+not match the text, so no entry can go stale.
+
+== Alternatives Considered
+
+* *The definition in `RoleCatalog` or `ShippedRoles` of `core.role`.* Rejected: `core.store` already imports
+  `core.role.corpus` in five classes and `core.role` imports `core.store` and `core.queue` in thirteen, so a home in
+  `core.role` would add a `store`-to-`role` edge beside the existing `role.corpus` one and close the cycle. `core.id`
+  depends on nothing.
+* *An ArchUnit rule.* Rejected: ArchUnit does not see string constants.
+* *A class-file constant-pool scan.* Rejected: the scan of `ProfileNeutralityArchTest` reaches one module, and the
+  grammar is copied in three.
+* *One rule per module.* Rejected: three copies of the guard, and a fourth module would add a fifth.
+* *The guard on the role name alone.* Rejected: a harness id has the same text, so a guard on the role name could not
+  tell the two apart.
+* *Keeping the copies and documenting the text.* Rejected: a comment does not fail a build.
+
+== Consequences
+
+A caller imports `core.id` for the two types; no dependency changes, because every module that carries the grammar
+already depends on `pm-core`. The guard fails any later plan that adds a copy, so the new records that carry a role or a
+harness (`PLAN-V2-23`, `PLAN-V2-60`, `PLAN-V2-09`) take `RoleName` and `HarnessId` instead of the text.
+
+The limit is stated in the test's Javadoc and in the developer guide: a grammar composed at run time and a hand-written
+character loop are not found; a reordered character class is not one of the three spellings; a text block carrying an
+escaped triple quote ends the scan's block early; and the scan looks at production source only. The specification's two
+grammar cells stay byte-stable; the parity test `IdentifierSpecificationParityTest` reads the `name` pattern of
+`role-artifact-v1.schema.json` and the `harness` pattern of `metrics.schema.json` through `SchemaResource`, so a schema
+change without the code fails the build.
+
+== Source
+
+Spec `PLAN-V2-06` of the epic `pm-mcp-core-m2-m4-v2`; operator decision 2026-10-29 (decision 17 of 18, option 1);
+Identifiers § General Rules & Registry, entries `id-role-name` and `id-harness-id`; Model Work § Roles & Configuration.

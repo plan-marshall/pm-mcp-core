@@ -10,9 +10,10 @@
 package de.planmarshall.core.profile;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
+
+import de.planmarshall.core.id.HarnessId;
 
 /**
  * One profile of the effective profile set as the harness scan of the machine onboarding found it (PM-CLIENT-5, Harness
@@ -41,8 +42,6 @@ import org.jspecify.annotations.Nullable;
 public record HarnessCandidate(String harnessId, String displayName, boolean found, @Nullable String version,
 @Nullable String executablePath, boolean supported, boolean workerEligible, String installHint) {
 
-    private static final Pattern HARNESS_ID = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
-
     /**
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if the id does not match the profile schema, if a version or a path is recorded
@@ -68,7 +67,7 @@ public record HarnessCandidate(String harnessId, String displayName, boolean fou
         Objects.requireNonNull(harnessId, "harnessId");
         Objects.requireNonNull(displayName, "displayName");
         Objects.requireNonNull(installHint, "installHint");
-        if (!HARNESS_ID.matcher(harnessId).matches()) {
+        if (!HarnessId.matches(harnessId)) {
             throw new IllegalArgumentException("Not a harness id: " + harnessId);
         }
         if (displayName.isBlank()) {

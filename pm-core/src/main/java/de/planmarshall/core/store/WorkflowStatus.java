@@ -26,6 +26,8 @@ import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
+
 /**
  * The status document {@code mcp/status.json} of one plan, epic, workspace or machine scope (PM-ARCH-6: the persisted
  * state machine position; PM-WF-16: the persisted call stack; PM-ARCH-4: every run state lives in the store).
@@ -100,7 +102,6 @@ Map<String, String> retained) {
     private static final Pattern BOUND_JOB_ID = Pattern
             .compile("^(?:[bcgp]-[0-9a-f]{16}|[a-z][a-z0-9_-]{0,31}+(?:\\.[a-z][a-z0-9_-]{0,31}+)*+)$");
     private static final Pattern QUEUE_TASK_ID = Pattern.compile("^qt-[0-9a-f]{16}$");
-    private static final Pattern ROLE = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern REPLAN_ID = Pattern.compile("^RP-\\d+$");
     private static final Pattern FINGERPRINT = Pattern.compile("^[0-9a-f]{64}$");
     private static final Set<String> JOB_KINDS = Set.of("build", "git", "ci", "project_script");
@@ -325,7 +326,7 @@ Map<String, String> retained) {
          */
         public TaskEntry {
             requireMatch(QUEUE_TASK_ID, queueTaskId, "active_tasks.queue_task_id");
-            requireMatch(ROLE, role, "active_tasks.role");
+            requireMatch(RoleName.PATTERN, role, "active_tasks.role");
             requireOneOf(TASK_STATES, state, "active_tasks.state");
             if (outcome != null) {
                 requireOneOf(TASK_OUTCOMES, outcome, "active_tasks.outcome");

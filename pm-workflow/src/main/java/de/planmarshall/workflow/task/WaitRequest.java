@@ -12,6 +12,7 @@ package de.planmarshall.workflow.task;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
@@ -45,7 +46,7 @@ int reOfferBudget) {
             throw new IllegalArgumentException("Not a generation (l- and 16 hex digits): " + generationId);
         }
         Objects.requireNonNull(role, "role");
-        if (!role.matches("[a-z][a-z0-9-]{1,31}")) {
+        if (!RoleName.matches(role)) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
         requireDigest(generationDigest, "generationDigest");

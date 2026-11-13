@@ -41,6 +41,9 @@ sections or their watch items: other specification parts link to them from more 
 package does not implement, so the deletion belongs to the packages that complete the document. The package's own file
 and its index row are removed.
 
+A role name validates through link:core-id.adoc[`RoleName` of `core.id`], the one definition of the grammar; the harness
+member a role artifact names validates through `HarnessId` of the same package.
+
 == The Three Sets
 
 [cols="1,3,2"]

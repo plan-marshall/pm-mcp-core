@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 
@@ -50,7 +51,6 @@ public final class ModelSlotStore {
     public static final int FORMAT_VERSION = 1;
 
     private static final Pattern JOB_ID = Pattern.compile("l-[0-9a-f]{16}");
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final String FIELD_PLAN_ID = "plan_id";
 
     private final AtomicStoreFile storeFile;
@@ -148,7 +148,7 @@ public final class ModelSlotStore {
         public Lease {
             Objects.requireNonNull(owner, "owner");
             requireIdentifier(jobId, JOB_ID, "job_id");
-            requireIdentifier(role, ROLE, "role");
+            requireIdentifier(role, RoleName.PATTERN, "role");
             Objects.requireNonNull(workerClass, "worker_class");
             Objects.requireNonNull(form, "form");
             Objects.requireNonNull(acquiredAt, "acquired_at");
@@ -186,7 +186,7 @@ public final class ModelSlotStore {
         public Waiting {
             Objects.requireNonNull(owner, "owner");
             requireIdentifier(jobId, JOB_ID, "job_id");
-            requireIdentifier(role, ROLE, "role");
+            requireIdentifier(role, RoleName.PATTERN, "role");
             Objects.requireNonNull(workerClass, "worker_class");
             Objects.requireNonNull(form, "form");
             Objects.requireNonNull(enqueuedAt, "enqueued_at");

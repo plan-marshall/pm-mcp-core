@@ -10,8 +10,8 @@
 package de.planmarshall.workflow.consult;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
@@ -31,8 +31,6 @@ import lombok.Builder;
 @Builder
 public record ConsultationFact(String consultationId, String role, ConsultationStatus status, String answer) {
 
-    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-
     /**
      * @throws NullPointerException     if the status is {@code null}
      * @throws IllegalArgumentException if the id or the role is absent or breaks its form, or the answer is too long
@@ -41,7 +39,7 @@ public record ConsultationFact(String consultationId, String role, ConsultationS
         if (QueueTaskId.parse(consultationId).isEmpty()) {
             throw new IllegalArgumentException("Not a queue task id: " + consultationId);
         }
-        if (role == null || !ROLE_PATTERN.matcher(role).matches()) {
+        if (role == null || !RoleName.matches(role)) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
         Objects.requireNonNull(status, "status");

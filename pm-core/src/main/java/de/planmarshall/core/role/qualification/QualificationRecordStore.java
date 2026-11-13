@@ -15,8 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.AtomicStoreFile;
@@ -35,8 +35,6 @@ import de.planmarshall.core.store.StoreSnapshot;
  * @since 0.1
  */
 public final class QualificationRecordStore implements QualificationRecords {
-
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     private final Path directory;
     private final LockKey lockKey;
@@ -95,7 +93,7 @@ public final class QualificationRecordStore implements QualificationRecords {
      */
     public Path file(String role) {
         Objects.requireNonNull(role, "role");
-        if (!ROLE.matcher(role).matches()) {
+        if (!RoleName.matches(role)) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
         return directory.resolve(role + ".json");

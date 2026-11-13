@@ -10,6 +10,10 @@
 /**
  * The identifier types and their validation.
  * <p>
+ * {@link de.planmarshall.core.id.RoleName} holds the grammar of a role name and
+ * {@link de.planmarshall.core.id.HarnessId} the grammar of a harness id; both read the one text of
+ * {@link de.planmarshall.core.id.ShortName}, never a copy. The developer guide is {@code pm-core/doc/developer/core-id.adoc}.
+ * <p>
  * Specification: {@code doc/specification/identifiers.adoc}.
  */
 @NullMarked

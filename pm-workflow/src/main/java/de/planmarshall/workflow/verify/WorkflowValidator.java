@@ -23,8 +23,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.FreeParam;
@@ -138,8 +138,6 @@ public final class WorkflowValidator {
 
     private static final List<String> RESERVED_TARGET_SUFFIXES = List.of(
             ".blocked", ".footprint-violation", ".config-drift");
-
-    private static final Pattern ROLE_NAME_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
 
     private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
             "scope", "param", "result", "declare", "decide", "start", "migrate", "state", "terminal", "phase",
@@ -899,7 +897,7 @@ public final class WorkflowValidator {
     }
 
     private static boolean isValidRoleName(String role) {
-        return ROLE_NAME_PATTERN.matcher(role).matches() && !RESERVED_KEYWORDS.contains(role);
+        return RoleName.matches(role) && !RESERVED_KEYWORDS.contains(role);
     }
 
     private void requireRegistered(StateNode state, String primitiveId, String site, SourceLocation location,

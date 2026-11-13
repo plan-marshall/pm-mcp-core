@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.role.RoleForm;
 
@@ -56,7 +57,6 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
     /** The format version of a qualification record. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Pattern ROLE_NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern SOURCE = Pattern.compile("[a-z][a-z0-9-]{1,63}");
 
@@ -64,7 +64,7 @@ String corpusRevision, List<String> missedSources, Map<RoleForm, FormResult> for
      * @throws IllegalArgumentException if the record does not have the one shape its schema gives it
      */
     public QualificationRecord {
-        require(role, ROLE_NAME, "role");
+        require(role, RoleName.PATTERN, "role");
         require(qualificationDigest, DIGEST, "qualification_digest");
         Objects.requireNonNull(configuration, "configuration");
         Objects.requireNonNull(corpusRevision, "corpusRevision");

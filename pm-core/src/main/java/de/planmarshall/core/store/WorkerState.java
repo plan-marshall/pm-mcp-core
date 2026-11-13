@@ -20,6 +20,9 @@ import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.HarnessId;
+import de.planmarshall.core.id.RoleName;
+
 /**
  * The {@code worker} member of a job record (PM-WORK-2, PM-WORK-3, PM-EXEC-4): the launch contract, the job-bound
  * connection and the protocol state of one worker generation, typed. It is the one typed shape of the block that
@@ -84,7 +87,6 @@ boolean startFailure, @Nullable String harnessError) {
     /** The longest harness error text the schema admits, in characters. */
     public static final int MAX_HARNESS_ERROR = 2048;
 
-    private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern PLAN_ID = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
     private static final Pattern TASK_ID = Pattern.compile("qt-[0-9a-f]{16}");
@@ -413,11 +415,11 @@ boolean startFailure, @Nullable String harnessError) {
      * @throws IllegalArgumentException if a value breaks its form or the combination breaks a rule of the block
      */
     public WorkerState {
-        requireName(role, "worker.role");
+        requireName(RoleName.PATTERN, role, "worker.role");
         requireDigest(configurationDigest, "worker.configuration_digest");
         Objects.requireNonNull(roleClass, "roleClass");
         Objects.requireNonNull(form, "form");
-        requireName(harness, "worker.harness");
+        requireName(HarnessId.PATTERN, harness, "worker.harness");
         requireNonEmpty(harnessVersion, "worker.harness_version");
         requireBounded(model, "worker.model", MAX_MODEL);
         requireNarrowing(effort, effortNarrowedFrom);
@@ -459,9 +461,9 @@ boolean startFailure, @Nullable String harnessError) {
         requireHarnessError(startFailure, harnessError);
     }
 
-    private static void requireName(String value, String name) {
+    private static void requireName(Pattern pattern, String value, String name) {
         Objects.requireNonNull(value, name);
-        if (!NAME.matcher(value).matches()) {
+        if (!pattern.matcher(value).matches()) {
             throw new IllegalArgumentException("'%s' is not a name: %s".formatted(name, value));
         }
     }

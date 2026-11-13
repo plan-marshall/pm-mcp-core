@@ -13,6 +13,9 @@ link:../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#consultat
 Consultation Bound]; link:../../../doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Queue Task
 Record].
 
+A consulted role name validates through
+link:../../../pm-core/doc/developer/core-id.adoc[`RoleName` of `core.id`], the one definition of the grammar.
+
 == The types and how they work together
 
 `ConsultationService`::

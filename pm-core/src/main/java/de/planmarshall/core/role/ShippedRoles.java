@@ -21,7 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.JarFile;
-import java.util.regex.Pattern;
+
+import de.planmarshall.core.id.RoleName;
 
 /**
  * Reads the shipped role set from {@code classpath:/roles/}, which the assembly supplies (PM-WORK-1, Role Sets): one
@@ -41,7 +42,6 @@ public final class ShippedRoles {
     private static final String DIRECTORY = "roles";
     private static final String SUFFIX = ".json";
     private static final String RESERVED = "default-assignment";
-    private static final Pattern ROLE_NAME = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
 
     private ShippedRoles() {
     }
@@ -127,7 +127,7 @@ public final class ShippedRoles {
         if (RESERVED.equals(name)) {
             return;
         }
-        if (!ROLE_NAME.matcher(name).matches()) {
+        if (!RoleName.matches(name)) {
             throw new IllegalStateException("The shipped role file '%s' is not named by a role name".formatted(fileName));
         }
         documents.put(name, document);
