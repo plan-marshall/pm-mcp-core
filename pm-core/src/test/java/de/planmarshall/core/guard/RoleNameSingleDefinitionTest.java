@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.TreeMap;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -74,7 +75,7 @@ class RoleNameSingleDefinitionTest {
             }
         }
 
-        var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
+        var checks = new ArrayList<Executable>();
         for (var module : MODULES) {
             checks.add(() -> assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
                     "The scan should read at least one file of " + module));
