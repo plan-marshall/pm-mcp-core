@@ -178,7 +178,7 @@ class RoleNameSingleDefinitionTest {
     }
 
     private static boolean isShortName(Path root, Path file) {
-        return root.relativize(file).toString().replace('\\', '/').equals(SHORT_NAME);
+        return SHORT_NAME.equals(root.relativize(file).toString().replace('\\', '/'));
     }
 
     private static List<String> offences(String source) {
