@@ -11,6 +11,8 @@ package de.planmarshall.core.build;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.config.LimitProperties;
@@ -301,6 +304,129 @@ class BuildLogBoundsTest {
         for (var line : cases) {
             assertEquals(PORTED_SUMMARY_LINE.matcher(line).matches(), PyprojectOutputParser.isSummaryLine(line),
                     () -> "the edge case differs from the ported result: " + line);
+        }
+    }
+
+    /**
+     * The six npm and Gradle parsers cut every line at the limit too. Each case parses a fixed log, a million blank and
+     * whitespace lines followed by one marker line, twice: once with the marker inside a line of exactly the limit, where
+     * it is read, and once behind a lead of thirty-two times the limit, where the cut drops it. The bound
+     * is asserted on the result, not on a clock: a parser that read the whole hostile line would report the marker.
+     * <p>
+     * Contract literals that stay: the marker lines, which are the golden output formats of Gradle, npm, tsc, ESLint, Jest
+     * and TAP.
+     */
+    @Nested
+    @DisplayName("the npm and Gradle parsers")
+    class NpmAndGradleParsers {
+
+        /** A million lines, every other one blank and every other one horizontal whitespace. */
+        private static final String BLANK_RUN = "\n \t\n".repeat(500_000);
+
+        /** An ESLint file header, which the rows below it are filed under. */
+        private static final String ESLINT_FILE = "/web/src/a.js";
+
+        /** The head of an ESLint row up to its message. */
+        private static final String ESLINT_ROW_HEAD = "  1:10  error  ";
+
+        /** The rule that ends an ESLint row, set off by two spaces as the stylish formatter prints it. */
+        private static final String ESLINT_RULE = "  no-var";
+
+        private static String atTheLimit(String marker) {
+            return fit(" ", LIMIT - marker.length()) + marker;
+        }
+
+        private static String beyondTheLimit(String marker) {
+            return fit(" ", LONG_LINE) + marker;
+        }
+
+        @Test
+        @DisplayName("Gradle reads a count line at the limit and drops one beyond it")
+        void gradle() {
+            var counts = "3 tests completed, 1 failed";
+
+            var atLimit = GradleOutputParser.parse(BLANK_RUN + atTheLimit(counts) + "\nBUILD FAILED\n");
+            var beyond = GradleOutputParser.parse(BLANK_RUN + beyondTheLimit(counts) + "\nBUILD FAILED\n");
+
+            assertAll(
+                    () -> assertEquals(TestCounts.from(2, 1, 0, null), atLimit.testCounts(),
+                            "a count line at the limit is read whole"),
+                    () -> assertNull(beyond.testCounts(), "a count behind the cut is never read"),
+                    () -> assertSame(BuildStatus.FAILURE, beyond.status(), "the status marker is still read"));
+        }
+
+        @Test
+        @DisplayName("npm reads an install line at the limit and drops one beyond it")
+        void npm() {
+            var install = "added 3 packages in 1s";
+
+            var atLimit = NpmErrorParser.parse(BLANK_RUN + atTheLimit(install) + "\n");
+            var beyond = NpmErrorParser.parse(BLANK_RUN + beyondTheLimit(install) + "\n");
+
+            assertAll(
+                    () -> assertTrue(atLimit.successMarker(), "an install line at the limit is the marker"),
+                    () -> assertFalse(beyond.successMarker(), "an install line behind the cut is no marker"),
+                    () -> assertTrue(beyond.diagnostics().isEmpty(), "the blank run files no npm error"));
+        }
+
+        @Test
+        @DisplayName("tsc reads an error line at the limit and drops one beyond it")
+        void typeScript() {
+            var error = "(1,2): error TS2304: Cannot find name 'x'.";
+
+            var atLimit = TypeScriptOutputParser.parse(BLANK_RUN + fit("x", LIMIT - error.length()) + error + "\n");
+            var beyond = TypeScriptOutputParser.parse(BLANK_RUN + fit("x", LONG_LINE) + error + "\n");
+
+            assertAll(
+                    () -> assertEquals(1, atLimit.diagnostics().size(), "an error line at the limit is filed"),
+                    () -> assertTrue(beyond.diagnostics().isEmpty(), "an error behind the cut is never filed"),
+                    () -> assertSame(BuildStatus.SUCCESS, beyond.status(), "no filed error leaves the run green"));
+        }
+
+        @Test
+        @DisplayName("ESLint reads a row at the limit and drops a rule beyond it")
+        void eslint() {
+            var atLimit = EslintOutputParser.parse(ESLINT_FILE + BLANK_RUN + ESLINT_ROW_HEAD
+                    + fit("m", LIMIT - ESLINT_ROW_HEAD.length() - ESLINT_RULE.length()) + ESLINT_RULE + "\n");
+            var beyond = EslintOutputParser.parse(
+                    ESLINT_FILE + BLANK_RUN + ESLINT_ROW_HEAD + fit("m", LONG_LINE) + ESLINT_RULE + "\n");
+
+            assertAll(
+                    () -> assertEquals(1, atLimit.build().diagnostics().size(), "a row at the limit is filed"),
+                    () -> assertTrue(atLimit.build().diagnostics().getFirst().message().startsWith("no-var: m"),
+                            "the row at the limit keeps its rule"),
+                    () -> assertTrue(beyond.build().diagnostics().isEmpty(), "a rule behind the cut is never read"));
+        }
+
+        @Test
+        @DisplayName("Jest reads a summary at the limit and drops one beyond it")
+        void jest() {
+            var summary = "Tests:       3 passed, 3 total";
+
+            var atLimit = JestOutputParser.parse(BLANK_RUN + atTheLimit(summary) + "\n");
+            var beyond = JestOutputParser.parse(BLANK_RUN + beyondTheLimit(summary) + "\n");
+
+            assertAll(
+                    () -> assertEquals(TestCounts.from(3, 0, 0, null), atLimit.testCounts(),
+                            "a summary at the limit is read whole"),
+                    () -> assertTrue(atLimit.successMarker(), "the summary at the limit is the marker"),
+                    () -> assertNull(beyond.testCounts(), "a summary behind the cut is never read"),
+                    () -> assertFalse(beyond.successMarker(), "no summary read is no marker"));
+        }
+
+        @Test
+        @DisplayName("TAP reads a failed point at the limit and drops one beyond it")
+        void tap() {
+            var failed = "not ok 1 - adds";
+
+            var atLimit = TapOutputParser.parse(BLANK_RUN + atTheLimit(failed) + "\n");
+            var beyond = TapOutputParser.parse(BLANK_RUN + beyondTheLimit(failed) + "\n");
+
+            assertAll(
+                    () -> assertSame(BuildStatus.FAILURE, atLimit.status(), "a failed point at the limit is read"),
+                    () -> assertEquals(1, atLimit.diagnostics().size(), "the failed point at the limit is filed"),
+                    () -> assertSame(BuildStatus.SUCCESS, beyond.status(), "a failed point behind the cut is unread"),
+                    () -> assertTrue(beyond.diagnostics().isEmpty(), "a point behind the cut files nothing"));
         }
     }
 }

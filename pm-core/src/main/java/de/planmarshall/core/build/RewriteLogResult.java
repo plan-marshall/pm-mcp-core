@@ -66,6 +66,13 @@ public record RewriteLogResult(RewriteVerdict verdict, List<RewriteFinding> find
         return count(RewriteClassification.PRE_EXISTING);
     }
 
+    /**
+     * Counts the findings of one classification. The narrowing to {@code int} cannot truncate: the count is at most the
+     * size of the findings list, which is an {@code int}.
+     *
+     * @param classification the classification to count
+     * @return the number of findings of that classification
+     */
     private int count(RewriteClassification classification) {
         return (int) findings.stream().filter(finding -> finding.classification() == classification).count();
     }

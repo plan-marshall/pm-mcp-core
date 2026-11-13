@@ -14,7 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +31,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  *
  * @since 0.1
  */
+@EnableGeneratorController
 @DisplayName("CoberturaReportParser")
 class CoberturaReportParserTest {
 
@@ -222,5 +226,39 @@ class CoberturaReportParserTest {
                         "The reason names the file name only"),
                 () -> assertFalse(refused.reason().contains(absent.getParent().toString()),
                         "The reason never names the directory"));
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long root element name to the echo bound in the reason")
+    void cutsAHostileRootElementName() {
+        // Below the JDK's XML name limit of 1000 characters, so the parser's own refusal echoes the name.
+        String root = Generators.letterStrings(300, 900).next();
+
+        CoverageParseResult result = CoberturaReportParser.parse("<%1$s></%1$s>".formatted(root));
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A hostile root element is refused");
+        assertAll(
+                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        refused.reason().length(), "The echoed name is cut to the echo bound"),
+                () -> assertTrue(refused.reason().startsWith("cobertura: the root element is "),
+                        "The reason keeps its prefix and its sentence"),
+                () -> assertFalse(refused.reason().contains(root), "The whole hostile name is never echoed"));
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long counter value to the echo bound in the reason")
+    void cutsAHostileCounterValue() {
+        String value = "1".repeat(Generators.integers(1_000, 3_000).next());
+
+        CoverageParseResult result = CoberturaReportParser.parse(
+                "<coverage lines-valid=\"%s\" line-rate=\"0.5\"></coverage>".formatted(value));
+
+        CoverageParseResult.Refused refused =
+                assertInstanceOf(CoverageParseResult.Refused.class, result, "A counter out of range is refused");
+        assertAll(
+                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        refused.reason().length(), "The echoed value is cut to the echo bound"),
+                () -> assertFalse(refused.reason().contains(value), "The whole hostile value is never echoed"));
     }
 }

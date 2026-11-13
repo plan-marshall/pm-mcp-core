@@ -47,7 +47,8 @@ import de.planmarshall.core.config.LimitProperties;
  * <em>Every line is cut at {@link #MAX_LINE_LENGTH} characters</em> by {@link #boundLines(String)}, which a parser applies
  * before its patterns see the text. A build log is untrusted text, and one long line of repeated tokens can make a
  * backtracking expression cost the square of the line's length; the cut bounds that at every pattern at once, and the
- * value is data of {@link #LIMITS} in the same way as the cap.
+ * value is data of {@link #LIMITS} in the same way as the cap. Both are read as an {@code int} through
+ * {@link LimitProperties#readInt(String, String)}, which refuses a value outside that range by name.
  *
  * @since 0.1
  */
@@ -68,14 +69,14 @@ public class BuildLogText {
      * <p>
      * Read from {@link #LIMITS} when the class initializes, so the value is changed by editing that resource.
      */
-    public static final int MAX_BYTES = Math.toIntExact(LimitProperties.read(LIMITS, MAX_BYTES_KEY));
+    public static final int MAX_BYTES = LimitProperties.readInt(LIMITS, MAX_BYTES_KEY);
 
     /**
      * The most characters of one line a parser's patterns see; a longer line is cut before it meets any of them.
      * <p>
      * Read from {@link #LIMITS} when the class initializes, so the value is changed by editing that resource.
      */
-    public static final int MAX_LINE_LENGTH = Math.toIntExact(LimitProperties.read(LIMITS, MAX_LINE_LENGTH_KEY));
+    public static final int MAX_LINE_LENGTH = LimitProperties.readInt(LIMITS, MAX_LINE_LENGTH_KEY);
 
     /** ANSI escapes: OSC strings, two-character escapes and CSI sequences. */
     private static final Pattern ANSI_ESCAPE =

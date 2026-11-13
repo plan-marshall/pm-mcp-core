@@ -126,6 +126,54 @@ class CoverageRefusalsTest {
                 "A path without a file name is named generically");
     }
 
+    @Test
+    @DisplayName("cuts a hostile long detail to the echo bound after the format prefix")
+    void cutsAHostileLongDetail() {
+        String message = Generators.letterStrings(CoverageRefusals.MAX_DETAIL_LENGTH + 1, 5_000).next();
+
+        CoverageParseResult.Refused refused = CoverageRefusals.of(CoverageFormat.JACOCO, new IOException(message));
+
+        assertEquals("jacoco: " + message.substring(0, CoverageRefusals.MAX_DETAIL_LENGTH), refused.reason(),
+                "The reason keeps the prefix and the bounded detail");
+    }
+
+    @Test
+    @DisplayName("keeps a detail at the echo bound whole")
+    void keepsADetailAtTheBound() {
+        String message = Generators.letterStrings(CoverageRefusals.MAX_DETAIL_LENGTH,
+                CoverageRefusals.MAX_DETAIL_LENGTH).next();
+
+        CoverageParseResult.Refused refused = CoverageRefusals.of(CoverageFormat.LCOV, new IOException(message));
+
+        assertEquals("lcov: " + message, refused.reason(), "A detail at the bound is never cut");
+    }
+
+    @Test
+    @DisplayName("never splits a surrogate pair at the echo bound")
+    void neverSplitsASurrogatePair() {
+        String message = "x".repeat(CoverageRefusals.MAX_DETAIL_LENGTH - 1) + "😀" + "tail";
+
+        CoverageParseResult.Refused refused = CoverageRefusals.of(CoverageFormat.LCOV, new IOException(message));
+
+        assertEquals("lcov: " + "x".repeat(CoverageRefusals.MAX_DETAIL_LENGTH - 1), refused.reason(),
+                "The cut stops before the pair it would split");
+    }
+
+    @Test
+    @DisplayName("cuts a hostile long file name of a file-system failure")
+    void cutsAHostileLongFileName() {
+        Path reportFile = directory.resolve(Generators.letterStrings(300, 400).next() + ".xml");
+
+        CoverageParseResult.Refused refused = CoverageRefusals.of(CoverageFormat.COBERTURA, reportFile,
+                new NoSuchFileException(reportFile.toString()));
+
+        assertAll(
+                () -> assertEquals("cobertura: ".length() + CoverageRefusals.MAX_DETAIL_LENGTH,
+                        refused.reason().length(), "The file-system detail is cut to the bound"),
+                () -> assertTrue(refused.reason().startsWith("cobertura: " + reportFile.getFileName()
+                        .toString().substring(0, 100)), "The reason keeps the head of the file name"));
+    }
+
     private Path reportFile() {
         return directory.resolve(Generators.letterStrings(1, 20).next() + ".xml");
     }

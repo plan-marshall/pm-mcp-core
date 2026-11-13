@@ -21,6 +21,8 @@ import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.xml.XMLConstants;
+import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLResolver;
 import javax.xml.stream.XMLStreamReader;
 import org.easymock.EasyMock;
@@ -146,6 +148,36 @@ class CoverageXmlHardeningTest {
                 () -> assertInstanceOf(CoverageParseResult.Parsed.class, probe.result(), "The control document parses"),
                 () -> assertInstanceOf(CoverageParseResult.Parsed.class, JacocoReportParser.parse(xml),
                         "JaCoCo parses the control document"));
+    }
+
+    // The empty string is the contract: no protocol is allowed for an external DTD or schema.
+    @Test
+    @DisplayName("(g) the JDK factory allows no protocol for an external DTD or schema")
+    void factoryAllowsNoExternalAccess() {
+        XMLInputFactory factory = CoverageXmlReader.factory(EasyMock.createMock(XMLResolver.class));
+
+        assertAll(
+                () -> assertEquals("", factory.getProperty(XMLConstants.ACCESS_EXTERNAL_DTD),
+                        "The factory allows no external DTD access"),
+                () -> assertEquals("", factory.getProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA),
+                        "The factory allows no external schema access"),
+                () -> assertEquals(Boolean.FALSE, factory.getProperty(XMLInputFactory.SUPPORT_DTD),
+                        "The earlier defence stays: DTD support is off"));
+    }
+
+    @Test
+    @DisplayName("(g) an implementation that rejects an access property keeps the other defences")
+    void rejectedAccessPropertyIsSkipped() {
+        XMLInputFactory factory = EasyMock.createMock(XMLInputFactory.class);
+        factory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        EasyMock.expectLastCall().andThrow(new IllegalArgumentException(Generators.letterStrings(1, 30).next()));
+        EasyMock.replay(factory);
+
+        boolean accepted = CoverageXmlReader.setIfAccepted(factory, XMLConstants.ACCESS_EXTERNAL_DTD);
+
+        assertAll(
+                () -> assertFalse(accepted, "A rejected access property is reported unset"),
+                () -> EasyMock.verify(factory));
     }
 
     private static String jacoco(String name, String body) {
