@@ -67,7 +67,8 @@ class HarnessListTest {
         var coverage = HarnessUsageCoverage.of(new ProfileStages.UsageResult(figures, Map.of()));
 
         assertAll(
-                () -> assertEquals(HarnessUsageCoverage.Status.PARTIAL, coverage.status(), "Partial coverage"),
+                () -> assertEquals(HarnessUsageCoverage.Status.PARTIAL, coverage.status(),
+                        "Partial coverage when one report figure is missing"),
                 () -> assertEquals(List.of(ProfileStages.REPORT_FIGURES.get(2)), coverage.missingFigures(),
                         "The missing figure is named"));
     }

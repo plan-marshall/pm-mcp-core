@@ -46,7 +46,7 @@ public class VerifiedUsage {
     /**
      * @param evaluations the results of the stage {@code usage} of one harness and version, in the order they ran
      * @return whether the figures are trusted: the evaluation was repeated and every run recorded the same figure
-     *         statuses
+     *         statuses and the same start context (class, model and first-turn tokens)
      * @throws NullPointerException if the list is {@code null}
      */
     public static boolean trusted(List<ProfileStages.UsageResult> evaluations) {

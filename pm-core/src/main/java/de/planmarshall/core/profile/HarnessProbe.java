@@ -98,16 +98,20 @@ public record HarnessProbe(List<String> chosen, List<String> failed) {
 
     /**
      * @param harnessId the harness the operator wants to leave out at {@code harness.blocked}
-     * @return whether it may be left out: it is one of the chosen harnesses and not the last of them
+     * @return whether it may be left out: its probe failed and it is not the last chosen harness, because the step
+     *         needs one harness left to go on with. A harness that passed is never left out — leaving out the usable one
+     *         would carry a failed harness to {@code harness.confirm}
      */
     public boolean canLeaveOut(String harnessId) {
-        return chosen.contains(harnessId) && chosen.size() > 1;
+        return failed.contains(harnessId) && chosen.size() > 1;
     }
 
     /**
-     * @param candidates the known harnesses, with their install hints
+     * @param candidates the known harnesses, with their install hints; every failed harness must be named
      * @return the {@code harness.none} wait that names the failed harnesses' install hints, for a probe whose every
      *         harness failed; empty where a usable harness is left
+     * @throws IllegalArgumentException if a failed harness is not among the candidates, so its install hint could not be
+     *                                  named
      */
     public Optional<HarnessNone> none(List<HarnessCandidate> candidates) {
         if (!restsInNone()) {
@@ -119,6 +123,10 @@ public record HarnessProbe(List<String> chosen, List<String> failed) {
             if (failedIds.contains(candidate.harnessId())) {
                 known.add(candidate);
             }
+        }
+        if (known.size() != failedIds.size()) {
+            throw new IllegalArgumentException(
+                    "A failed harness's install hint is named, and no candidate carries it: " + failedIds);
         }
         return Optional.of(HarnessNone.of(known));
     }

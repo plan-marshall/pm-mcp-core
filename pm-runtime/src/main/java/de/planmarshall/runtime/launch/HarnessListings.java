@@ -9,12 +9,14 @@
  */
 package de.planmarshall.runtime.launch;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.HarnessList;
+import de.planmarshall.core.profile.HarnessListEntry;
 import de.planmarshall.core.profile.HarnessScan;
 import de.planmarshall.core.profile.HarnessUsageCoverage;
 import de.planmarshall.core.profile.ProfileStages;
@@ -50,7 +52,37 @@ public class HarnessListings {
         enrolments.values().forEach(enrolment -> recorded.put(
                 new HarnessList.Key(enrolment.clientId(), enrolment.version()),
                 coverage(enrolment.usageReport())));
-        return HarnessList.of(scan, recorded, storeUnreadable);
+        var list = HarnessList.of(scan, recorded, storeUnreadable);
+        var enrolledButMissing = enrolments.values().stream()
+                .filter(enrolment -> !scan.knownIds().contains(enrolment.clientId()))
+                .map(enrolment -> missingRow(enrolment, storeUnreadable))
+                .toList();
+        if (enrolledButMissing.isEmpty()) {
+            return list;
+        }
+        var entries = new ArrayList<>(list.entries());
+        entries.addAll(enrolledButMissing);
+        return new HarnessList(entries);
+    }
+
+    /**
+     * A harness that is still enrolled but that the scan did not find (State Catalogue § {@code harness.choose}: "an
+     * enrolled one no longer found as missing"): shown with the version and path its enrolment records, marked
+     * unsupported, so the operator sees it and can remove it. Its display name is its harness id, because the enrolment
+     * keeps no display name.
+     */
+    private static HarnessListEntry missingRow(HarnessEnrolment enrolment, boolean storeUnreadable) {
+        return HarnessListEntry.builder()
+                .harnessId(enrolment.clientId())
+                .displayName(enrolment.clientId())
+                .version(enrolment.version())
+                .executablePath(enrolment.executablePath().toString())
+                .installHint("install the harness again, or remove its enrolment")
+                .supported(false)
+                .workerEligible(false)
+                .defaultHarness(false)
+                .usage(storeUnreadable ? HarnessUsageCoverage.unreadable() : coverage(enrolment.usageReport()))
+                .build();
     }
 
     /**

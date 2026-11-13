@@ -104,7 +104,7 @@ public record HarnessScan(List<HarnessCandidate> candidates) {
     }
 
     /**
-     * @return the ids of the candidates, in the order of the list
+     * @return the ids of the candidates, as a set
      */
     public Set<String> knownIds() {
         return Set.copyOf(harnessIds());

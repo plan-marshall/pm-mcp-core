@@ -44,8 +44,9 @@ figure names back to the profile schema's and files each report under the versio
 `harness.none` is a value too: the scan renders it with every known harness's install hint when nothing was found,
 `HarnessProbe.none(candidates)` renders the failed harnesses' hints when every chosen one failed, and `HarnessProbe`
 derives the transition of the login probe from the chosen and failed sets as sets — two identical ids never turn a pass
-into a failure. `HarnessProbe.canLeaveOut` states the catalogue's rule that `harness.blocked` cannot leave out the last
-chosen harness.
+into a failure. `HarnessProbe.canLeaveOut` states the catalogue's rule that `harness.blocked` can leave out a harness whose
+probe failed, but neither the harness that passed nor the last chosen one. `HarnessProbe.none(candidates)` refuses to
+render the wait when a failed harness has no profile to name.
 
 == Alternatives Considered
 

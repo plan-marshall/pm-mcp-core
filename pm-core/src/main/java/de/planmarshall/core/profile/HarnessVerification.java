@@ -30,8 +30,10 @@ import de.planmarshall.core.config.ConsentKind;
  * {@code yes_remember} is refused here rather than read from the store, and no {@code yes_remember} link exists for the
  * kind. {@link #admit} is the one place that decides all of it, so a caller cannot reach the stages by another path.
  * <p>
- * The tokens must cover <em>exactly</em> the stages the run will execute, and each of them once: a consent that showed a
- * subset would authorise stages it never priced, and one that showed a stage the run does not execute prices nothing.
+ * The tokens must cover <em>exactly</em> the stages the caller declared as the run's, and each of them once: a consent
+ * that showed a subset would authorise stages it never priced, and one that showed a stage the run does not execute
+ * prices nothing. The list is the run's own precondition — the gate cannot see the run, so it holds the caller to the
+ * list it states.
  * <p>
  * Validating the draft is part of the admission, not a step before it: a draft that breaks the profile schema — an
  * unknown member, an out-of-range value, a path rule — is refused {@link ProfileRefusal} before the first stage starts,
@@ -52,7 +54,10 @@ public class HarnessVerification {
      * @param state       the state the verification was asked from
      * @param kind        the consent kind the caller asked for
      * @param answer      the operator's answer to that consent
-     * @param stages      the stages the run will execute, in the order they run
+     * @param stages      the stages the caller declared as the run's, in the order they run; the admission treats the
+     *                    list as the run's own precondition — it validates that every name is a stage of the profile
+     *                    verification and that the tokens price exactly this list, and it cannot know a list the caller
+     *                    does not state
      * @param stageTokens the expected tokens per stage, as the consent showed them
      * @param draft       the draft profile document, UTF-8 encoded
      * @param draftName   the draft, as a refusal names it

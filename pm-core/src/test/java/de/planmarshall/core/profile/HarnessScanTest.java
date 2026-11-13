@@ -142,12 +142,22 @@ class HarnessScanTest {
     @DisplayName("the last chosen harness cannot be left out")
     void lastChosenHarnessCannotBeLeftOut() {
         var probe = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(BBB_ID));
-        var one = new HarnessProbe(List.of(AAA_ID), List.of());
+        var single = new HarnessProbe(List.of(AAA_ID), List.of(AAA_ID));
 
         assertAll(
                 () -> assertTrue(probe.canLeaveOut(BBB_ID), "A failed harness beside a passed one may be left out"),
-                () -> assertFalse(one.canLeaveOut(AAA_ID), "The last chosen harness cannot be left out"),
+                () -> assertFalse(probe.canLeaveOut(AAA_ID), "The harness that passed is never left out"),
+                () -> assertFalse(single.canLeaveOut(AAA_ID), "The last chosen harness cannot be left out"),
                 () -> assertFalse(probe.canLeaveOut("h-other"), "A harness that was not chosen cannot be left out"));
+    }
+
+    @Test
+    @DisplayName("the harness.none wait refuses a failed harness without a profile")
+    void noneRefusesAFailedHarnessWithoutProfile() {
+        var probe = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(AAA_ID, BBB_ID));
+
+        assertThrows(IllegalArgumentException.class, () -> probe.none(List.of(found(AAA_ID))),
+                "A failed harness's install hint must be nameable");
     }
 
     @Test

@@ -11,6 +11,7 @@ package de.planmarshall.runtime.launch;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -48,6 +49,7 @@ class HarnessListingsTest {
     private static final String HINT = "install " + Generators.letterStrings(4, 8).next();
     private static final String VERSION = Generators.integers(1, 9).next() + ".0.0";
     private static final String OTHER_VERSION = VERSION + "-other";
+    private static final String ORPHAN_ID = "h-zzz" + Generators.letterStrings(2, 4).next().toLowerCase(Locale.ROOT);
     private static final String MODEL = Generators.letterStrings(5, 12).next();
     private static final OptionalLong START_TOKENS = OptionalLong.of(Generators.longs(1_000, 9_000).next());
 
@@ -84,6 +86,18 @@ class HarnessListingsTest {
     }
 
     @Test
+    @DisplayName("an enrolled harness the scan did not find is shown as missing")
+    void enrolledHarnessMissingFromTheScanIsShown() {
+        var list = HarnessListings.of(scan(), Map.of(ORPHAN_ID, orphan()), false);
+        var orphan = list.entries().stream().filter(entry -> entry.harnessId().equals(ORPHAN_ID)).findFirst();
+
+        assertAll(
+                () -> assertTrue(orphan.isPresent(), "The enrolled harness stays in the list"),
+                () -> assertFalse(orphan.orElseThrow().selectable(), "A harness nothing found is never selectable"),
+                () -> assertEquals(VERSION, orphan.orElseThrow().version(), "The row keeps the enrolled version"));
+    }
+
+    @Test
     @DisplayName("an unreadable store shows the refusal at every row")
     void unreadableStoreShowsTheRefusalAtEveryRow() {
         var list = HarnessListings.of(scan(), Map.of(AAA_ID, enrolment(VERSION, complete())), true);
@@ -114,10 +128,18 @@ class HarnessListingsTest {
     }
 
     private static HarnessEnrolment enrolment(String version, UsageReport report) {
+        return enrolment(AAA_ID, version, report);
+    }
+
+    private static HarnessEnrolment orphan() {
+        return enrolment(ORPHAN_ID, VERSION, complete());
+    }
+
+    private static HarnessEnrolment enrolment(String harnessId, String version, UsageReport report) {
         var now = Instant.parse("2026-11-13T10:00:00Z");
         return HarnessEnrolment.builder()
-                .clientId(AAA_ID)
-                .executablePath(Path.of("/opt/" + AAA_ID + "/bin/run"))
+                .clientId(harnessId)
+                .executablePath(Path.of("/opt/" + harnessId + "/bin/run"))
                 .sha256("0".repeat(64))
                 .version(version)
                 .enrolledAt(now)
