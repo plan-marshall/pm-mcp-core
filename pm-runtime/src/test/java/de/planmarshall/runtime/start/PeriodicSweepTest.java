@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -78,17 +83,6 @@ class PeriodicSweepTest {
         return Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
-    /** A step that records each call as {@code "TAG NAME project olderThan"} and then does what its body says. */
-    private record RecordingStep(String tag, SweepStep.Name name, List<String> calls,
-    BiFunction<String, Instant, Outcome> body) implements SweepStep {
-
-        @Override
-        public Outcome run(String projectId, Instant olderThan) {
-            calls.add(tag + " " + name + " " + projectId + " " + olderThan);
-            return body.apply(projectId, olderThan);
-        }
-    }
-
     /** An executor that keeps what was scheduled at a fixed rate, so a test can run it by hand. */
     private static final class CapturingExecutor extends ScheduledThreadPoolExecutor {
 
@@ -114,13 +108,26 @@ class PeriodicSweepTest {
         }
     }
 
-    private RecordingStep step(SweepStep.Name name) {
+    /** @return an EasyMock step that records each call as {@code "TAG NAME project olderThan"} and then runs its body */
+    private SweepStep step(SweepStep.Name name) {
         return step(name, "step");
     }
 
-    private RecordingStep step(SweepStep.Name name, String tag) {
-        var report = Generators.letterStrings(3, 30).next();
-        return new RecordingStep(tag, name, calls, (_, _) -> new Outcome.Done(report));
+    private SweepStep step(SweepStep.Name name, String tag) {
+        return step(name, tag,
+                (_, _) -> new Outcome.Done(Generators.letterStrings(3, 30).next()));
+    }
+
+    private SweepStep step(SweepStep.Name name, String tag, BiFunction<String, Instant, Outcome> body) {
+        SweepStep mock = createMock(SweepStep.class);
+        expect(mock.name()).andReturn(name).anyTimes();
+        expect(mock.run(anyObject(String.class), anyObject(Instant.class))).andAnswer(() -> {
+            var arguments = getCurrentArguments();
+            calls.add(tag + " " + name + " " + arguments[0] + " " + arguments[1]);
+            return body.apply((String) arguments[0], (Instant) arguments[1]);
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     private PeriodicSweep sweep(EnrolledProjects enrolled, Predicate<String> recovered,
@@ -190,7 +197,7 @@ class PeriodicSweepTest {
     @DisplayName("a failing step stops neither the other steps nor the other projects")
     void shouldGoOnAfterFailingStep() {
         var diskGone = Generators.letterStrings(3, 30).next();
-        var failing = new RecordingStep("failing", SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
+        var failing = step(SweepStep.Name.PENDING_ENTRY_RECORDS, "failing", (projectId, _) -> {
             if (p1.equals(projectId)) {
                 return new Outcome.Failed(reason);
             }
@@ -219,7 +226,7 @@ class PeriodicSweepTest {
     @Test
     @DisplayName("a step throwing an unchecked exception is failed, and the following steps and projects still run")
     void shouldGoOnAfterUncheckedStepFailure() {
-        var throwing = new RecordingStep("throwing", SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
+        var throwing = step(SweepStep.Name.PENDING_ENTRY_RECORDS, "throwing", (projectId, _) -> {
             if (p1.equals(projectId)) {
                 throw new IllegalStateException(reason);
             }
