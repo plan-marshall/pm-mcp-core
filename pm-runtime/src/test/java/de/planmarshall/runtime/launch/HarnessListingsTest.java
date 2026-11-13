@@ -89,7 +89,7 @@ class HarnessListingsTest {
     @DisplayName("an enrolled harness the scan did not find is shown as missing")
     void enrolledHarnessMissingFromTheScanIsShown() {
         var list = HarnessListings.of(scan(), Map.of(ORPHAN_ID, orphan()), false);
-        var orphan = list.entries().stream().filter(entry -> entry.harnessId().equals(ORPHAN_ID)).findFirst();
+        var orphan = list.entries().stream().filter(entry -> ORPHAN_ID.equals(entry.harnessId())).findFirst();
 
         assertAll(
                 () -> assertTrue(orphan.isPresent(), "The enrolled harness stays in the list"),
