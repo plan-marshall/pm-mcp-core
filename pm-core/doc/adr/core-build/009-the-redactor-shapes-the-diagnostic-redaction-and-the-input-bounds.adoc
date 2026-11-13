@@ -1,0 +1,265 @@
+= ADR 009: The Redactor's Remaining Shapes, the Redaction of Every npm Message and the Bounds of Untrusted Build Input
+:nofooter:
+
+== Status
+
+Accepted. Supersedes in part link:006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR `core-build/006`]
+(the sentence of its Decision that the `ERESOLVE` and `E404` messages are built from dependency names and stay
+unchanged) and link:008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`] (the read of its
+limits in Decision 6 and the factory of Decision 1, which this ADR extends).
+
+== Date
+
+2026-11-13
+
+== Context
+
+The three-layer analysis of PLAN-V2-127 read the landed `SecretRedactor` and the npm parser against real npm logs and
+found shapes the narrow patterns of ADR `core-build/006` let through: a URL password holding a raw `/`, `?` or `#`, a
+user holding a raw `@` and a percent-encoded scheme separator (`https%3A%2F%2Fuser:secret@host`); a credential flag in
+upper case, a flag name outside the short list (`--auth-token`, `--api-key`), and an unquoted value holding a `;` or a
+quote; a PGP private-key block; and, on the journal path, a label split from its value by a terminal escape sequence
+(`ESC[1mpassword ESC[0m=value`), because the journal redacted the text as the harness wrote it. `NpmErrorParser` built
+its `E404` and `ERESOLVE` messages from the quoted specifier and the peer and `from` tokens, which are log text and can
+carry a registry URL with user information, and it cut them without redacting them.
+
+Two items were carried from earlier landings. Item 5 (PLAN-V2-131, ADR `core-build/007`): six of the nine parsers, the
+runtime's dispatcher and the unparsed excerpt cut no line, so a pattern there could backtrack over a hostile line of
+the log's full cap, and the redactor's cost on the excerpt was unbounded. Item 6 (PLAN-V2-132, ADR `core-build/008`):
+the coverage limits were narrowed with `Math.toIntExact`, so a value above `Integer.MAX_VALUE` failed a class's
+initialisation with a bare arithmetic exception; `CoverageReportStream` computed its remaining room with an addition
+that overflows near `Long.MAX_VALUE`, and the LCOV line check added one to its limit; a refusal echoed report content of
+any length; and the XML factory set no `ACCESS_EXTERNAL_DTD` or `ACCESS_EXTERNAL_SCHEMA`.
+
+The operator answered the open questions of the request: the single-user URL form stays readable, `--key` is not added
+to the flag list, and the npm token keeps its exact length.
+
+== Decision
+
+=== The redactor's shapes
+
+The five items of this section are named R1 to R5, so that a reference to one of them cannot be read as one of the
+numbered `Decision` sections below.
+
+* *R1: URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
+   to the last `@` of the token (a raw `@` inside it is masked with it), lets the user hold a raw `@` (the user runs to
+   the first colon), and accepts the percent-encoded separator `%3A%2F%2F`. The scheme, the user and the host stay
+   readable, and a percent-encoded password stays masked whole. The user still excludes whitespace, `/`, `?`, `#` and
+   `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's control) stays
+   readable.
+* *R2: Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
+   `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
+   may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
+   its closing quote on the next line, never further; that line end may be escaped by a backslash (a shell line
+   continuation inside the quotes) and still counts as the one line end, so both halves of such a value are masked. An
+   unclosed quote masks the rest of its line; the unclosed form's lookahead reads the same value as the quoted form, so a
+   value that closes after one line end, escaped or not, is never taken for an unclosed one.
+* *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
+   patterns also match `-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line (label tail
+   `PRIVATE KEY(?: BLOCK)?-----`), and the unclosed form keeps its over-masking of the rest of the text.
+* *R4: The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the escape sequences of
+   the text, the tool target and the link target through `BuildLogText.stripAnsi` — the expression the unparsed excerpt
+   uses — before it redacts them, and applies each part's bound after the redaction as before. The label patterns are
+   unchanged, and the stored journal text carries no escape sequence. `redactText(String)` leaves escape sequences to
+   its caller.
+* *R5: Every npm message is redacted before its cut.* `NpmErrorParser` routes the `E404` and `ERESOLVE` messages through
+   the same `storedRedacted` as the generic block's (redact, then the stored-length cut). This supersedes the sentence of
+   ADR 006 that those messages are built from dependency names and stay unchanged. The other parsers' messages at
+   `DiagnosticCollector.stored` remain the carried decision of ADR 006.
+
+=== What stays readable, by decision
+
+* the single-user URL form `https://<token>@host`, which has no colon and so no secret part — an operator decision and
+  a named residue;
+* a `host:port/path` that is followed later on the same token by a raw `@` is read as user information, so its port and
+  path up to that `@` are masked — the accepted false positive of R1;
+* a credentialed URL followed later on the same token by a raw `@` (an `@scope` path segment, an e-mail address) masks
+  its host and path up to that last `@`, because the password runs to the last `@` of the token — the accepted false
+  positive of R1;
+* a flag outside the closed list, and usage text such as `--token <token>`, whose placeholder is masked — the measured
+  false positive of R2;
+* an `npm_` run of 37 or more alphanumeric characters, one followed by `_` and one preceded by a word character, because
+  none of them is an npm token;
+* a PEM or PGP block whose `BEGIN` line lies before the excerpt's window: the window is not widened to reach the marker;
+* a secret in an unlabelled query parameter, a bare JSON Web Token, an AWS access-key id, and the credential after the
+  scheme word of an `Authorization:` header of a scheme other than `Bearer`, `Basic` or `Token` (the scheme word is
+  taken as the value and masked) — shapes no anchored pattern marks, left for a later decision.
+
+=== Decision 1: the cost is bounded on every path, not by a new linear construction
+
+The redactor runs on the unparsed excerpt, on the npm diagnostic and on the journal; `ProviderVerification` of
+`pm-runtime` also calls `redactText`. No Java pattern has a time bound, so each caller bounds its input before the
+redaction:
+
+* the excerpt cuts every kept line to `BuildLogText.MAX_LINE_LENGTH` (8192) characters before `redactText` (item 5b
+  below);
+* the npm diagnostic is composed from lines `NpmErrorParser` has already cut at its entry (item 5a below);
+* the journal redacts an entry whose compiled bounds hold already: `ActivityEntry.TEXT_BOUND` (2000 code points, kept
+  by the record's constructor), 1000 for a tool target and 128 for a link target, in `ActivityJournal.appendNext` and
+  `ActivityRecorder.append` alike.
+
+On top of the bounds, the URL shape is two patterns applied in sequence, one per scheme separator (`://` and
+`%3A%2F%2F`), which keeps each within the regex complexity the quality gate allows. In each, the scheme and the user are
+possessive and the scheme starts only where no scheme character precedes it (`(?<![a-z0-9+.-])` instead of `\b`), which
+removes the rescan of a long `a.a.a…` run from every start; the password is a greedy `\S+` followed by `@`, so it runs
+to the last `@` of the token by giving characters back. That cost is not linear — a token without the closing `@` is
+scanned back once from each scheme start, quadratic in one line at worst — and the per-path line bound above is what
+bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
+run) whose repetitions are all possessive and hold no alternation, so it neither backtracks nor recurses per character
+on a long value. `SecretRedactorTest` measures the cost without a clock: a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`,
+the same run followed by `://`, and the run `x://y:x://y:…` without any `@`, the shape that is scanned back from every
+scheme start) is redacted through `redactText` and its unchanged result asserted.
+The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and this plan does not bound that
+input.
+
+=== The package dependency `core.queue → core.build`
+
+R4 makes `core.queue` call `BuildLogText.stripAnsi` of `core.build`, which already depends on `core.queue`
+(`UnparsedEvidence` and `NpmErrorParser` call `SecretRedactor`). The two packages now depend on each other. No guard
+forbids a cycle of packages within one module, and the escape-sequence expression exists once instead of being copied.
+
+=== Decision 3: an unfinished TAP plan is no success marker
+
+A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` checks the plan per run:
+a run starts at every line that starts with `TAP version`, and the lines before the first such line, or the whole log
+when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
+sum with the run's own number of top-level test points (`ok` / `not ok` at the start of a line); when they differ, the
+run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
+exit 0. The log finished its plan only when every run did, so a later run of concatenated runs
+(`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
+over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
+without a top-level plan line announced no plan. A plan count too large for a `long`, or plan counts whose sum
+overflows a `long`, leave the run unfinished (no passing summary): the sum is added with `Math.addExact` and never
+wraps, because an announced plan that cannot be verified must never read as finished. The counter of test points needs
+no such guard, because the size of the input bounds it: the `Path` overload reads at most `BuildLogText.MAX_BYTES`
+bytes, an `int`, the `String` overload is bounded by the length limit of a Java `String`, and a test point takes at
+least three characters, so fewer than 2^31 points can be counted, far below the 2^63 a `long` needs to overflow. The
+cut of every line at `BuildLogText.MAX_LINE_LENGTH` bounds the length of a line, not the number of lines, and is not
+that bound.
+
+The summary counts follow the same rule. `# tests`, `# pass`, `# fail` and `# skipped` are summed over every summary
+block with `Math.addExact`, and the check that the total is the sum of its parts adds exactly too: a summary count too
+large for a `long`, or summary counts whose sum overflows a `long`, leave the population `Unmeasured` and the passing
+summary is no marker, because a wrapped sum must never read as a measured population. A `# fail` count too large for a
+`long` is still a printed failing count, so the status is red. The same rule holds for the sibling sums of the other
+parsers: `JestOutputParser` adds its `Tests:` blocks and each block's parts with `Math.addExact` and reads a failed
+count beyond the `long` range as red, and `EslintOutputParser` adds its problem summaries with `Math.addExact` and
+reports no summary when a count or a sum cannot be represented. The remaining count sums of the package are bounded:
+`GradleOutputParser` and `PyprojectOutputParser` check every addition against `Integer.MAX_VALUE`, and the `long` sums
+of `MavenOutputParser` and `LcovReportParser` stay below 2^58 because every summand is at most an `int` (or the sum of
+two) and the input holds fewer than 2^27 count lines or records; the Javadoc of each spot names its bound.
+
+*A deviation from the outline, accepted when the plan ran unattended.* The outline compared the plan with the summed
+`# tests` total. The ported real log of `node --test` (`npm-tap-test-real.log` of the fixture `npm-tap-success`) prints
+`1..4` beside `# tests 5`, because `node --test` plans one top-level point per suite and counts the tests inside the
+suites in `# tests`; the outline's rule would have turned that passing run `indeterminate`. The plan is therefore
+compared with the top-level test points, which the TAP grammar defines it to count. *A refinement after review*
+(finding 59ed69 on PR 407): the first form summed the plan lines and the test points over the whole log, so in a log
+of concatenated runs a later run could supply the point an earlier run was missing and print a false-green marker;
+the comparison is now made per run as stated above. A log without a `TAP version` line is one run and behaves as
+before, and the `node --test` fixture (one version line) is unchanged. *A second refinement after review* (finding
+23a640 on PR 407): the per-run sum was added on a plain `long`, so two counts of `Long.MAX_VALUE` and a third of 3
+wrapped to 1 and matched one test point, and a plan line whose count exceeds the `long` range was read as no plan line
+at all; both now leave the run unfinished as stated above. *A third refinement after review* (finding 96f1a7 on PR
+407): the summary counts were still summed on a plain `long`, so two `# tests` lines of `Long.MAX_VALUE` and a third
+of 3 wrapped to 1 and matched `# pass 1`, and the population read as a measured one; a `# tests` count beyond the `long`
+range was read as no summary line. Both now leave the population `Unmeasured`, and the same family of wrapped sums was
+closed in the Jest and ESLint parsers, as stated above. The earlier sentence that the points counter is bounded by the
+line cut was corrected to name the input size as its bound.
+
+=== Item 5: every line of untrusted build input is bounded
+
+* (a) `GradleOutputParser`, `NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and
+  `TapOutputParser` apply `BuildLogText.boundLines` to the stripped text at the entry both `parse` overloads share, as
+  the three parsers of ADR `core-build/007` do; the follow-up that ADR named is done. The runtime's dispatcher
+  `BuildOutputParser` cuts the stripped text the same way before its dispatch patterns. `ESLINT_ROW`, `JEST_MARKER`
+  and `NpmErrorParser.INSTALL_SUMMARY` start on `^[ \t]*` instead of `^\s*`, and every whitespace repetition between the
+  parts of `ESLINT_ROW`, `ESLINT_SUMMARY` and `JEST_MARKER` is `[ \t]` as well (after the ESLint position, around the
+  summary's count, after `PASS`, `FAIL` and `Tests:`), so no repetition of these four patterns crosses a line end and a
+  marker never takes the next line's first word. `TYPESCRIPT_MARKER`, `TAP_MARKER` and `NPM_MARKER` carry no
+  whitespace repetition.
+* (b) `UnparsedEvidence.of` runs its steps in the order strip, reduce, window, line bound, redact, byte cap. Its line
+  bound keeps the *end* of each line (the last `MAX_LINE_LENGTH` characters), not its head as `boundLines` does, because
+  the excerpt is the log's tail and its existing contract keeps the end of a long last line. The accepted residue of the
+  order: a secret that straddles the line cut loses its label before the redactor sees it, so the rest of its value is
+  unlabeled and the label-anchored shapes do not match it. It stays readable only where the byte bound keeps it, which
+  takes a retained value of about 4096 characters (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a
+  cut line instead would trade evidence for that case and is a maintainer decision. The cut comes before the redaction
+  because it is what bounds the redactor's cost.
+
+=== Decision 4 (item 6): the coverage limits, the refusal echo and the XML factory
+
+* (a) `LimitProperties.readInt` refuses a value above `Integer.MAX_VALUE` with an `IllegalStateException` naming the
+  resource and the key — the same fault of the build as an absent or negative value, never a default.
+  `CoverageReportStream.MAX_LINE_LENGTH` and the two limits of `BuildLogText` are read through it. `CoverageReportStream`
+  computes its room without overflow (the `+ 1` after the difference to the cap saturates at `Long.MAX_VALUE`), and
+  `LcovReportParser` compares a line's length with its limit as a `long`. This supersedes the `Math.toIntExact` read of
+  ADR 008's Decision 6. The minimum of a limit stays with PLAN-V2-125.
+* (b) The echo of report content is cut at the one seam every refusal passes, `CoverageRefusals.of`: the reason keeps the
+  format prefix and at most the first 256 characters of the detail (`CoverageRefusals.MAX_DETAIL_LENGTH`), never
+  splitting a surrogate pair. The echo sites in `JacocoReportParser`, `CoberturaReportParser` and `LcovReportParser`
+  stay as they are.
+* (c) `CoverageXmlReader` sets `XMLConstants.ACCESS_EXTERNAL_DTD` and `ACCESS_EXTERNAL_SCHEMA` to `""` where the
+  implementation accepts them; an `IllegalArgumentException` of an implementation that does not is caught by that type
+  and leaves the properties of ADR 008's Decision 1 in force. *The JDK's built-in StAX implementation is the supported
+  one*; it accepts both properties, and `CoverageXmlHardeningTest` asserts that the factory carries them.
+
+== Alternatives Considered
+
+* *Mask the whole URL authority.* The host and the path are the evidence that explains a failed request; only the
+  password is the credential.
+* *Mask the single-user form `https://<token>@host`.* A user name is not a secret in most URLs, and masking every one
+  would cost the evidence of every clone and registry URL; the operator kept it readable and it is named as residue.
+* *Add `--key` to the flag list.* It would mask the value of every tool's `--key` option (a cache key, a sort key); the
+  operator kept the list closed without it.
+* *Accept an `npm_` run of any length.* A package or variable named `npm_<something>` would lose its text; the exact length
+  is the documented token shape.
+* *Strip escape sequences inside the label patterns.* Every label pattern would carry an optional escape run between its
+  parts, which multiplies their alternation; one strip before the redaction covers every pattern, a later one included.
+* *A linear construction of the URL pattern without the bounds.* It would bound one pattern and leave the others
+  exposed; the per-path bound covers every pattern of the redactor at once.
+* *Compare the TAP plan with `# tests`.* Refused by the measured `node --test` log (Decision 3).
+* *Keep the head of a long line in the excerpt.* It would break the excerpt's contract that the end of a long last
+  line — where a stack trace ends and a tool prints its verdict — is kept.
+* *Bound each echo site of the coverage parsers.* Three sites would each need the same cut; the one seam bounds every
+  present and future refusal.
+* *Refuse an XML implementation that rejects the access properties.* The supported implementation accepts them; a
+  refusal would make a different StAX provider on the class path a hard failure, while DTD support off already declines
+  every external fetch.
+
+== Consequences
+
+* The listed shapes are masked on every path of the redactor; the shapes of "What stays readable" stay readable by
+  decision, and the guide of `core.queue` names each with its reason. Redaction stays idempotent.
+* An `E404` or `ERESOLVE` message without a secret is byte-identical to before; one whose specifier or peer carries user
+  information is masked before its cut.
+* A parser result changes only for a line over the per-line bound; the fixtures inside the bounds are unchanged.
+* A passing TAP log each of whose runs matches its plan to its own top-level points keeps its marker; an unfinished
+  plan of any run, a plan count beyond the `long` range included, keeps the marker `false` and the counts measured.
+* A TAP or Jest summary count beyond the `long` range, or summary counts whose sum overflows a `long`, leave the
+  population `Unmeasured` and the marker `false`; a failing count beyond the `long` range is red. An ESLint problem
+  summary whose count or sum cannot be represented is reported as no summary. Ordinary multi-block sums are unchanged.
+* A coverage limit above `Integer.MAX_VALUE` fails the build by name; a hostile long type name, counter value or `SF:`
+  name is cut in the refusal reason.
+* Remaining, outside this plan: `JobLog.MAX_BYTES` of `pm-runtime` still narrows its limit with
+  `Math.toIntExact(LimitProperties.read(..))`, and so do the three limit reads of `pm-workflow`
+  (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`, `UnitFrontmatterReader.MAX_FRONTMATTER_LINES` and `MAX_ECHO_LENGTH`); they
+  are an open follow-up for `readInt`. `ProviderVerification`'s input stays unbounded. The other parsers'
+  messages at `DiagnosticCollector.stored` stay unredacted (ADR 006).
+* The plan carried nine deliverables against a soft cap of about six; the rationale is recorded in its outline, and no
+  cut was made.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-138-secret-redactor-hardening.md[PLAN-V2-138]
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers];
+  link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_unparseable_output_fallback_failed_unparsed[Job Runtime § Unparseable Output Fallback];
+  link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_coverage_report_parsers[Job Runtime § Native Coverage Report Parsers]
+* Supersedes in part: link:006-the-redactor-shapes-and-the-npm-diagnostic-redaction.adoc[ADR `core-build/006`];
+  link:008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`]
+* Carries out the follow-up of link:007-the-read-and-the-patterns-are-bounded.adoc[ADR `core-build/007`]
+* The install marker: link:../../../../pm-runtime/doc/adr/runtime-job/018-the-install-marker-needs-an-install-verb.adoc[ADR `runtime-job/018`]
+* Developer guides: link:../../developer/core-queue.adoc#redactor-shapes[`core.queue` § The Redactor's Shapes];
+  link:../../developer/core-build.adoc[`core.build`]
+* Origin: the three-layer analyses of PLAN-V2-127, PLAN-V2-131 and PLAN-V2-132; the operator's decisions on the
+  single-user URL form, the flag list and the npm token length

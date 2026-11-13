@@ -22,11 +22,18 @@ import lombok.experimental.UtilityClass;
  * Every parser answers a report it cannot read with the same shape: a {@link CoverageParseResult.Refused} whose reason
  * opens with the format's identifier, so a caller that reads only the reason still knows which parser refused it. The
  * helper exists once so the four parsers cannot spell the prefix differently.
+ * <p>
+ * It is also the one seam every refusal passes, so it is where the echo of report content is bounded: the reason keeps
+ * the format prefix and at most the first {@value #MAX_DETAIL_LENGTH} characters of the detail. The parsers' own echo
+ * sites stay as they are.
  *
  * @since 0.1
  */
 @UtilityClass
 class CoverageRefusals {
+
+    /** The most characters of a refusal's detail the reason carries after the format prefix. */
+    static final int MAX_DETAIL_LENGTH = 256;
 
     /**
      * Builds the refusal for a report the parser could not read.
@@ -38,7 +45,7 @@ class CoverageRefusals {
     static CoverageParseResult.Refused of(CoverageFormat format, Exception cause) {
         String message = cause.getMessage();
         String detail = message == null ? cause.getClass().getSimpleName() : message;
-        return new CoverageParseResult.Refused(format, format.id() + ": " + detail);
+        return refused(format, detail);
     }
 
     /**
@@ -61,7 +68,29 @@ class CoverageRefusals {
         }
         Path fileName = reportFile.getFileName();
         String name = fileName == null ? "the report file" : fileName.toString();
-        return new CoverageParseResult.Refused(format, format.id() + ": " + name + ": " + kind(failure));
+        return refused(format, name + ": " + kind(failure));
+    }
+
+    /**
+     * Builds a refusal whose reason is the format prefix and at most {@value #MAX_DETAIL_LENGTH} characters of the
+     * detail. The detail echoes report content (a type name, a counter value, a file name), so the cut bounds what an
+     * untrusted report can write into a reason; a cut never splits a surrogate pair.
+     *
+     * @param format the format that was refused
+     * @param detail the detail of the refusal
+     * @return the refusal, its reason opening with the format identifier
+     */
+    private static CoverageParseResult.Refused refused(CoverageFormat format, String detail) {
+        return new CoverageParseResult.Refused(format, format.id() + ": " + cut(detail));
+    }
+
+    private static String cut(String detail) {
+        if (detail.length() <= MAX_DETAIL_LENGTH) {
+            return detail;
+        }
+        int end = Character.isHighSurrogate(detail.charAt(MAX_DETAIL_LENGTH - 1))
+                ? MAX_DETAIL_LENGTH - 1 : MAX_DETAIL_LENGTH;
+        return detail.substring(0, end);
     }
 
     private static String kind(FileSystemException failure) {

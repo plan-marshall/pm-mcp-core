@@ -5,6 +5,10 @@
 
 Accepted
 
+Superseded in part by link:009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`]
+(2026-11-13): the `ERESOLVE` and `E404` messages are redacted before their cut like the generic block's, and the
+redactor's shapes are widened; the rest of this record stands.
+
 == Date
 
 2026-11-10

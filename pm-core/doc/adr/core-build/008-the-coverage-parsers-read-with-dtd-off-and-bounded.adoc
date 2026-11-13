@@ -6,6 +6,12 @@
 Accepted. Supersedes Decision 4, Alternative 3 and the hardening paragraph of the Consequences of
 link:005-the-coverage-model-and-the-xml-hardening.adoc[ADR `core-build/005`].
 
+Superseded in part by link:009-the-redactor-shapes-the-diagnostic-redaction-and-the-input-bounds.adoc[ADR `core-build/009`]
+(2026-11-13): the line limit of Decision 6 is read int-ranged while its byte limit stays long-ranged, and the arithmetic
+of both cannot overflow, a refusal echoes at most 256 characters of report content, and the factory of Decision 1 also
+sets `ACCESS_EXTERNAL_DTD` and `ACCESS_EXTERNAL_SCHEMA` where the implementation accepts them; the rest of this record
+stands.
+
 == Date
 
 2026-11-12

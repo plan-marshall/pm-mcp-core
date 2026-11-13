@@ -33,6 +33,9 @@ import org.jspecify.annotations.Nullable;
  * deliberate change against the original, which keeps the last match; ADR {@code core-build/002}). Because a successful
  * Gradle build prints no test count at all, the absence of a count is never read as a verdict: {@code no_tests_ran}
  * needs Gradle's own statement that its filter matched no test.
+ * <p>
+ * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
+ * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
  *
  * @since 0.1
  */
@@ -84,13 +87,14 @@ public class GradleOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+        String bounded = BuildLogText.boundLines(logText);
+        List<String> lines = List.of(bounded.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
-        BuildStatus status = detectStatus(logText);
-        boolean successMarker = logText.contains(SUCCESS_MARKER);
+        BuildStatus status = detectStatus(bounded);
+        boolean successMarker = bounded.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
-                hasNoTestsMarker(logText));
+                hasNoTestsMarker(bounded));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
     }
 

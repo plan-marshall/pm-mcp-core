@@ -122,7 +122,9 @@ public sealed interface TestCounts {
     /**
      * Builds a measurement from counts gathered as {@code long}, or the {@link Unmeasured} state when the counts cannot be
      * represented: a count outside the {@code int} range, a negative count, or a per-runner executed count below zero is
-     * no measurement, and reporting one would let a wrapped sum pass as a figure.
+     * no measurement, and reporting one would let a wrapped sum pass as a figure. The sum of the three parts cannot wrap
+     * where it is used: it is read only when every part lies between {@code 0} and {@link Integer#MAX_VALUE}, so it stays
+     * below 2^33.
      *
      * @param passed   the tests that passed
      * @param failed   the tests that failed
