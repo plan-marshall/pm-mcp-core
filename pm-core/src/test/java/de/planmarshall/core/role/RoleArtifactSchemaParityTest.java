@@ -85,7 +85,7 @@ class RoleArtifactSchemaParityTest {
                                 SchemaResource.object(properties.get("form")).get("enum")))),
                         "The form values are the type's"),
                 () -> assertEquals(Set.copyOf(Arrays.stream(RoleArtifact.OffTrackAction.values())
-                        .map(RoleArtifact.OffTrackAction::wireName).toList()),
+                                .map(RoleArtifact.OffTrackAction::wireName).toList()),
                         Set.copyOf(names(SchemaResource.array(action(schema)))), "The actions are the type's"),
                 () -> assertEquals(1, ((Number) SchemaResource.object(properties.get("count")).get("minimum"))
                         .intValue(), "The lowest count is one"),
