@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/role-artifact-v1.json",
+  "title": "RoleArtifact",
+  "type": "object",
+  "required": ["format_version", "name", "description", "class", "tools", "harness", "model", "effort", "form", "count", "skills", "budget_floor_seconds"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "const": 1 },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "Role name (role name, identifiers.adoc); equals the file name without .json." },
+    "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "class": { "type": "string", "enum": ["writer", "read_only", "zero_tool"] },
+    "tools": {
+      "type": "array", "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" },
+      "description": "The exact tool set: PM-MCP tools and harness tools by their per-harness names, within the set of the class; never a pattern. Empty for zero_tool."
+    },
+    "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "harness_id of the harness's harness profile." },
+    "model": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Model identifier as the harness takes it." },
+    "effort": { "type": ["string", "null"], "description": "Effort value as the harness takes it; null: no effort flag." },
+    "form": { "type": "string", "enum": ["warm", "fresh"] },
+    "count": { "type": "integer", "minimum": 1, "maximum": 16, "description": "Workers of the role that run at once per project." },
+    "skills": {
+      "type": "array", "uniqueItems": true, "minItems": 1,
+      "items": { "type": "string", "maxLength": 256, "pattern": "^skill://pm/[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)*/SKILL\\.md$" },
+      "description": "The role's skills in delivery order (document grammar: identifiers registry, Skill URI), compiled skills or extension skills (skill://pm/ext/<name>/SKILL.md); the first is the role skill, the role's contract."
+    },
+    "recycling": {
+      "type": "object",
+      "required": ["idle_wakeups", "token_budget", "tasks_per_generation"],
+      "additionalProperties": false,
+      "properties": {
+        "idle_wakeups": { "type": ["integer", "null"], "minimum": 1, "maximum": 100, "description": "null: the harness's value." },
+        "token_budget": { "type": "integer", "minimum": 10000 },
+        "tasks_per_generation": { "type": ["integer", "null"], "minimum": 1, "description": "null: unbounded." }
+      },
+      "description": "Required for form warm, absent for form fresh."
+    },
+    "budget_floor_seconds": { "type": "integer", "minimum": 60, "maximum": 86400, "description": "Floor of the job budget learned for the role." },
+    "context_budget_tokens": { "type": "integer", "minimum": 10000, "description": "Context budget of a worker of the role, the basis of the per-envelope packing budget; absent: the harness fallback of the harness profile." },
+    "questions": {
+      "type": "object",
+      "required": ["hold_seconds", "resume_within_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "hold_seconds": { "type": "integer", "minimum": 0, "maximum": 3600, "description": "How long a worker of the role holds its task for the answer to its question; 0: no hold. Cut to the harness's max_hold_seconds." },
+        "resume_within_seconds": { "type": "integer", "minimum": 0, "maximum": 604800, "description": "How long a task of the role stays suspended for a resume after the hold; 0: no resume. Cut to the harness's resume.max_age_seconds." }
+      },
+      "description": "Continuation after a question (Continuing after a Question); absent: a task of the role that asks ends asked. Not allowed for zero_tool."
+    },
+    "off_track": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repeating": { "$ref": "#/$defs/off_track_signal" },
+        "no_progress": { "$ref": "#/$defs/off_track_signal" },
+        "over_size": { "$ref": "#/$defs/off_track_signal" },
+        "outside_footprint": { "$ref": "#/$defs/off_track_signal" },
+        "failing_again": { "$ref": "#/$defs/off_track_signal" },
+        "edit_churn": { "$ref": "#/$defs/off_track_signal" }
+      },
+      "description": "Thresholds and actions of the off-track signals of the role's workers (A Worker Off Track); a signal absent here takes its compiled threshold and the action show. Not allowed for zero_tool."
+    }
+  },
+  "$defs": {
+    "off_track_signal": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "properties": {
+        "threshold": { "type": "number", "exclusiveMinimum": 0, "description": "Lowers the compiled threshold of the signal, never raises it; absent: the compiled threshold." },
+        "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] }
+      }
+    }
+  }
+}

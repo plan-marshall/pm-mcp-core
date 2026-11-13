@@ -1,0 +1,13 @@
+{
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/judge-score-v1.json",
+  "type": "object",
+  "required": ["items_met", "items_total", "false_findings", "score", "reason"],
+  "additionalProperties": false,
+  "properties": {
+    "items_met": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "description": "The reference items the answer meets, by id or short name." },
+    "items_total": { "type": "integer", "minimum": 0 },
+    "false_findings": { "type": "integer", "minimum": 0, "description": "Findings of the answer that the reference does not contain and that are no real defects." },
+    "score": { "type": "number", "minimum": 0, "maximum": 1, "description": "The item's score, recorded as the item's score of the qualification record." },
+    "reason": { "type": "string", "maxLength": 500, "description": "One sentence." }
+  }
+}

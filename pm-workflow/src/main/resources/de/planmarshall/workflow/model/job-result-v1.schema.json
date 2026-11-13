@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/job-result-v1.json",
+  "title": "JobResult",
+  "type": "object",
+  "required": ["status", "display_detail"],
+  "additionalProperties": false,
+  "properties": {
+    "status": { "type": "string", "enum": ["success", "error"], "description": "The worker's own report; evidence only." },
+    "display_detail": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[\\x20-\\x7E]+(?<!\\.)$",
+      "description": "Concise single-line ASCII summary (1..80 chars) without a trailing period."
+    }
+  }
+}

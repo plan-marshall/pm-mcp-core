@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/project-script-output-v1.json",
+  "title": "ProjectScriptOutput",
+  "type": "object",
+  "required": ["format_version", "status", "summary", "facts", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "indeterminate"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "facts": {
+      "type": "object",
+      "description": "Worker-kind-specific structured facts (e.g. harvested targets, discovered modules, or edges)."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "severity", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "column": { "type": ["integer", "null"], "minimum": 1 },
+          "category": { "type": "string" },
+          "rule_id": { "type": ["string", "null"] },
+          "severity": { "type": "string", "enum": ["blocker", "critical", "major", "minor", "info"] },
+          "message": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

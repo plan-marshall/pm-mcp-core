@@ -21,100 +21,11 @@ _Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM
 
 Built-in recipes (`classpath:/recipes/<recipe_id>.json` with `<recipe_id>.pmwf`), machine recipes, and project-local recipes are defined as declarative data structures beside their workflow.
 
-*Domain recipes (`provides_recipes`)*: `plan-marshall`'s `provides_recipes()` hook becomes packaging: a domain recipe (such as `pm-dev-java-cui`'s `cui-logging-enforce`) is part of its domain bundle, compiled into the classpath next to the domain descriptor, and registered under the bundle's `domain_id` (its descriptor's `domain` field equals that `domain_id`). The recipe registry is assembled at build time; two recipes with the same `recipe_key` (built-in or domain) fail the build, so a collision never reaches a runtime registry and no registration order decides a winner.
+*Domain recipes (`provides_recipes`)*: `plan-marshall`'s `provides_recipes()` hook becomes packaging: a domain recipe (such as `pm-dev-java-cui`'s `cui-logging-enforce`) is part of its domain bundle, compiled into the classpath next to the domain descriptor, and registered under the bundle's `domain_id` (its descriptor's `domain` field equals that `domain_id`). The recipe registry is assembled at build time; two recipes with the same `recipe_key` (built-in or domain) fail the build, so a collision never reaches a runtime registry and no registration order decides a winner. The schema of a recipe descriptor is the file `recipe-descriptor-v1.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/recipe/`, beside the recipe codec of `de.planmarshall.core.recipe` (the codec is not built yet):
 
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/recipe-descriptor-v1.json",
-  "title": "RecipeDescriptor",
-  "type": "object",
-  "required": [
-    "format_version",
-    "recipe_key",
-    "display_name",
-    "description",
-    "scope",
-    "default_change_type",
-    "target_harvester",
-    "deliverable_template",
-    "pr_title_template"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "recipe_key": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "maxLength": 37, "description": "Registry key as in plan-marshall (e.g. code-review); at most 37 characters so the recipe plan ID fits the plan_id grammar (identifiers.adoc, recipe_key)." },
-    "display_name": { "type": "string", "minLength": 3, "maxLength": 100 },
-    "description": { "type": "string", "description": "What the recipe does, shown at the operator's choice." },
-    "domain": { "type": "string", "description": "Optional domain; a domain recipe is offered in a project where its domain is active." },
-    "scope": { "type": "string", "enum": ["module", "codebase_wide"] },
-    "default_change_type": { "type": "string" },
-    "pr_title_template": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 72,
-      "description": "Conventional Commit title with {parameter} placeholders bound from recipe_params, rendered deterministically when the recipe's plan is created (recipe.create) into status.metadata.pr_title (phase-workflows.adoc, Plan Source Contracts). An unbound placeholder or a rendered title that fails ConventionalCommitValidator refuses the recipe descriptor at load time."
-    },
-    "lane": { "type": "object", "description": "Optional execution-profile seed (posture and per-step overrides), lowest precedence." },
-    "skill_uri": {
-      "type": "string",
-      "pattern": "^skill://pm/recipe/[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-    },
-    "parameters_schema": {
-      "type": "object",
-      "description": "Free per-recipe input schema (a JSON Schema 2020-12 object schema) for recipe_params; there is no fixed parameter vocabulary (no global scope x thoroughness matrix). An enum may declare its options server-resolved with x-pm-options (closed set: domains, profiles, skills:<domain>, modules, base_branches). The start's recipe choice validates recipe_params against it and refuses a violation; defaults declared in it are applied by the server. Absent means the recipe takes no parameters and any non-empty recipe_params is refused.",
-      "required": ["type"],
-      "properties": {
-        "type": { "const": "object" }
-      }
-    },
-    "target_harvester": {
-      "type": "object",
-      "required": ["kind"],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "discovered_modules",
-            "module_packages",
-            "markdown_sections",
-            "ascii_diagram_blocks",
-            "stalled_lessons",
-            "footprint_diff",
-            "project_script",
-            "request_scoped"
-          ],
-          "description": "request_scoped: no harvest runs; the recipe takes the sources of a request, gathered at the start like a plan's, and its deliverables come from the pre-diagnosed request (named files, root cause, exact change), as for surgical-fix."
-        },
-        "project_script_id": {
-          "type": ["string", "null"],
-          "pattern": "^[a-z][a-z0-9-]{0,63}$",
-          "description": "Key of the enrolled project script (project_scripts of enrolments/<project_id>.json, whose binding must be worker_kind recipe_harvester with this recipe as target); required when kind == 'project_script'."
-        }
-      }
-    },
-    "deliverable_template": {
-      "type": "object",
-      "required": ["granularity", "profile", "title_pattern", "steps"],
-      "additionalProperties": false,
-      "properties": {
-        "granularity": {
-          "type": "string",
-          "enum": ["per_target", "per_module", "single_plan_wide"]
-        },
-        "profile": {
-          "type": "string",
-          "enum": ["implementation", "module_testing", "integration_testing", "verification", "documentation"],
-          "description": "Task profile of the generated deliverables; equals the task profile enum (store-schemas.adoc, Task Record)."
-        },
-        "title_pattern": { "type": "string" },
-        "steps": { "type": "array", "items": { "type": "string" } }
-      }
-    }
-  }
-}
+include::../../../pm-core/src/main/resources/de/planmarshall/core/recipe/recipe-descriptor-v1.schema.json[]
 ----
 
 The recipe's workflow is the file of the same id beside the descriptor (`<recipe_id>.pmwf`); a descriptor without its workflow, or a workflow without its descriptor, is refused at load time.
@@ -213,136 +124,31 @@ To support repository-specific automation (`finalize-step-*` skills that ship ex
 
 ==== Standard Input Payload (`stdin`)
 
+The schema of the payload is the file `project-script-input-v1.schema.json` in `pm-runtime/src/main/resources/de/planmarshall/runtime/job/`, beside the project-script codec of `de.planmarshall.runtime.job` (the codec is not built yet):
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/project-script-input-v1.json",
-  "title": "ProjectScriptInput",
-  "type": "object",
-  "required": [
-    "format_version",
-    "job_id",
-    "worker_kind",
-    "workspace_root",
-    "worktree_path",
-    "worktree_sha",
-    "parameters",
-    "changed_files"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "job_id": { "type": "string", "pattern": "^[bcglpv]-[0-9a-f]{16}$" },
-    "plan_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
-    "worker_kind": {
-      "type": "string",
-      "enum": ["finalize_step", "recipe_harvester", "log_parser", "module_discovery", "edge_resolver"]
-    },
-    "workspace_root": { "type": "string" },
-    "worktree_path": { "type": "string" },
-    "worktree_sha": { "type": "string" },
-    "base_commit_sha": { "type": ["string", "null"] },
-    "parameters": {
-      "type": "object",
-      "description": "Validated step or recipe parameters declared in the descriptor's parameter schema."
-    },
-    "changed_files": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "log_file_path": {
-      "type": ["string", "null"],
-      "description": "Populated when worker_kind == 'log_parser': the read-only path of the CI or build log in the plan's evidence directory, fetched by the server (through the provider module for a CI log)."
-    }
-  }
-}
+include::../../../pm-runtime/src/main/resources/de/planmarshall/runtime/job/project-script-input-v1.schema.json[]
 ----
 
 ==== Standard Output Payload (`stdout`)
 _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-1[PM-WATCH-JOB-1]_
 
+The schema of the payload is the file `project-script-output-v1.schema.json` in `pm-runtime/src/main/resources/de/planmarshall/runtime/job/`, beside the project-script codec of `de.planmarshall.runtime.job` (the codec is not built yet):
+
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/project-script-output-v1.json",
-  "title": "ProjectScriptOutput",
-  "type": "object",
-  "required": ["format_version", "status", "summary", "facts", "findings"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "status": {
-      "type": "string",
-      "enum": ["succeeded", "failed", "indeterminate"]
-    },
-    "summary": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 160
-    },
-    "facts": {
-      "type": "object",
-      "description": "Worker-kind-specific structured facts (e.g. harvested targets, discovered modules, or edges)."
-    },
-    "findings": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["category", "severity", "message"],
-        "additionalProperties": false,
-        "properties": {
-          "file": { "type": ["string", "null"] },
-          "line": { "type": ["integer", "null"], "minimum": 1 },
-          "column": { "type": ["integer", "null"], "minimum": 1 },
-          "category": { "type": "string" },
-          "rule_id": { "type": ["string", "null"] },
-          "severity": { "type": "string", "enum": ["blocker", "critical", "major", "minor", "info"] },
-          "message": { "type": "string", "minLength": 1, "maxLength": 1000 }
-        }
-      }
-    },
-    "diagnostics": {
-      "type": "array",
-      "items": { "type": "string" }
-    }
-  }
-}
+include::../../../pm-runtime/src/main/resources/de/planmarshall/runtime/job/project-script-output-v1.schema.json[]
 ----
 
 [#log-parser-output]
 ==== `log_parser` Output: Failure Records
 
-A remediation policy hands the model structured failures, never raw logs: the evidence job of a failure class records one failure envelope per failure in the plan's evidence directory (link:../store-schemas/14-plan-instance-waivers-questions.adoc#evidence-directory[Store Schemas Specification, Evidence Directory & Failure Envelope]). For a CI log the compiled log parser of the build domain, or an enrolled `project_script` with `worker_kind: log_parser`, produces the parsed part of these envelopes; a log no parser claims is parsed by the generic tail parser, which yields one failure of kind `unknown`. A `log_parser` script returns its failures in `facts.failures` and leaves `findings` empty (a CI failure is evidence for a remediation decision, not a finding of the findings ledger):
+A remediation policy hands the model structured failures, never raw logs: the evidence job of a failure class records one failure envelope per failure in the plan's evidence directory (link:../store-schemas/14-plan-instance-waivers-questions.adoc#evidence-directory[Store Schemas Specification, Evidence Directory & Failure Envelope]). For a CI log the compiled log parser of the build domain, or an enrolled `project_script` with `worker_kind: log_parser`, produces the parsed part of these envelopes; a log no parser claims is parsed by the generic tail parser, which yields one failure of kind `unknown`. A `log_parser` script returns its failures in `facts.failures` and leaves `findings` empty (a CI failure is evidence for a remediation decision, not a finding of the findings ledger). The schema of those facts is the file `log-parser-facts-v1.schema.json` in `pm-runtime/src/main/resources/de/planmarshall/runtime/job/`, beside the project-script codec of `de.planmarshall.runtime.job` (the codec is not built yet):
 
 [source,json]
 ----
-{
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/log-parser-facts-v1.json",
-  "title": "LogParserFacts",
-  "type": "object",
-  "required": ["failures"],
-  "additionalProperties": false,
-  "properties": {
-    "failures": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["kind", "message"],
-        "additionalProperties": false,
-        "properties": {
-          "kind": { "type": "string", "enum": ["compile", "test", "lint", "policy", "unknown"], "description": "The check's failure_kind; infra is set by the server for a failed gather constituent, and a timed-out check is failure_class timed_out, never a kind." },
-          "file": { "type": ["string", "null"], "description": "Repository-relative path; a path outside the repository is dropped by the server." },
-          "line": { "type": ["integer", "null"], "minimum": 1 },
-          "message": { "type": "string", "minLength": 1, "maxLength": 400, "description": "One line; redacted by the server." },
-          "log_line_from": { "type": ["integer", "null"], "minimum": 1, "description": "First log line of the excerpt that shows the failure." },
-          "log_line_to": { "type": ["integer", "null"], "minimum": 1 }
-        }
-      }
-    }
-  }
-}
+include::../../../pm-runtime/src/main/resources/de/planmarshall/runtime/job/log-parser-facts-v1.schema.json[]
 ----
 
 The server completes each envelope and never takes these fields from the script: `failure_id`, `class` (`ci`), `source` (the check name), the `excerpt_uri` of the excerpt it cuts from the reported log lines (`pm://plan/{plan_id}/evidence/{evidence_id}`, an untrusted resource, never inlined beyond `message`), the `fingerprint` (class, kind, file, and the normalized message), which recognises a repeated failure across remediation rounds, and the baseline, gate, and waivability fields. `message` is untrusted external content: it passes the ingestion validator before it reaches a representation. A script output that violates the schema is a job failure; the evidence job then falls back to the generic tail parser, so an unparsed log never hides a failure.
