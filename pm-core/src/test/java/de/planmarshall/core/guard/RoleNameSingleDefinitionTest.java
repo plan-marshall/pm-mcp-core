@@ -99,7 +99,7 @@ class RoleNameSingleDefinitionTest {
             "^[a-z][a-z0-9-]{1,31}$", "[a-z][a-z0-9-]{1,31}+", "^[a-z][-a-z0-9]{1,31}+$"})
     @DisplayName("each spelling of the grammar in a literal is found")
     void spellingIsFound(String spelling) {
-        var source = "class C {\n    Pattern P = Pattern.compile(\"" + spelling + "\");\n}\n";
+        var source = source("class C {", String.format("    Pattern P = Pattern.compile(\"%s\");", spelling), "}");
 
         assertFalse(offences(source).isEmpty(), "A literal of the grammar should be an offence");
     }
@@ -108,7 +108,7 @@ class RoleNameSingleDefinitionTest {
     @ValueSource(strings = {"[a-z][a-z0-9-]{0,31}", "[a-z][a-z0-9-]{1,63}", "[a-z][a-z0-9-]{2,32}"})
     @DisplayName("another bound of the character class is not the grammar")
     void anotherBoundIsNotTheGrammar(String spelling) {
-        var source = "class C {\n    Pattern P = Pattern.compile(\"" + spelling + "\");\n}\n";
+        var source = source("class C {", String.format("    Pattern P = Pattern.compile(\"%s\");", spelling), "}");
 
         assertTrue(offences(source).isEmpty(), "Another bound should not be reported as the grammar");
     }
@@ -116,8 +116,8 @@ class RoleNameSingleDefinitionTest {
     @Test
     @DisplayName("the grammar inside a line comment or a Javadoc is not found")
     void commentIsNotTheGrammar() {
-        var source = "/*\n * Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");\n */\nclass C {\n"
-                + "    // Pattern.compile(\"[a-z][a-z0-9-]{1,31}\")\n}\n";
+        var source = source("/*", " * Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");", " */", "class C {",
+                "    // Pattern.compile(\"[a-z][a-z0-9-]{1,31}\")", "}");
 
         assertTrue(offences(source).isEmpty(), "The grammar in a comment should not be reported");
     }
@@ -125,7 +125,8 @@ class RoleNameSingleDefinitionTest {
     @Test
     @DisplayName("the grammar inside a text block is found")
     void textBlockIsFound() {
-        var source = "class C {\n    String text = \"\"\"\n        [a-z][a-z0-9-]{1,31}\n        \"\"\";\n}\n";
+        var source = source("class C {", "    String text = \"\"\"", "        [a-z][a-z0-9-]{1,31}", "        \"\"\";",
+                "}");
 
         assertFalse(offences(source).isEmpty(), "The grammar in a text block should be an offence");
     }
@@ -133,8 +134,8 @@ class RoleNameSingleDefinitionTest {
     @Test
     @DisplayName("a quote character literal does not hide the grammar after it")
     void quoteCharacterLiteralDoesNotHideTheGrammar() {
-        var source = "class C {\n    char quote = '\"';\n"
-                + "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");\n}\n";
+        var source = source("class C {", "    char quote = '\"';",
+                "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");", "}");
 
         assertFalse(offences(source).isEmpty(), "A copy after a quote character literal should be an offence");
     }
@@ -142,10 +143,15 @@ class RoleNameSingleDefinitionTest {
     @Test
     @DisplayName("an escaped character literal does not hide the grammar after it")
     void escapedCharacterLiteralDoesNotHideTheGrammar() {
-        var source = "class C {\n    char backslash = '\\\\';\n    char apostrophe = '\\'';\n"
-                + "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");\n}\n";
+        var source = source("class C {", "    char backslash = '\\\\';", "    char apostrophe = '\\'';",
+                "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");", "}");
 
         assertFalse(offences(source).isEmpty(), "A copy after an escaped character literal should be an offence");
+    }
+
+    /** @param lines the source as its lines; a trailing newline is not needed by the scan */
+    private static String source(String... lines) {
+        return String.join("\n", lines);
     }
 
     private static Scan scan(Path root, Path productionRoot) {
