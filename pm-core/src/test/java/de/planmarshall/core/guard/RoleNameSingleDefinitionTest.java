@@ -41,8 +41,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  * <p>
  * A source scan rather than an ArchUnit rule: ArchUnit does not see string constants, and the class-file scan of
  * {@code ProfileNeutralityArchTest} reaches one module. <b>Limit:</b> a grammar composed at run time (two literals
- * concatenated, a constant read from a file) and a hand-written character loop are not found; they are the review's
- * business, and the guide {@code pm-core/doc/developer/core-id.adoc} states the limit.
+ * concatenated, a constant read from a file), a hand-written character loop, a reordered character class (for example
+ * {@code [a-z][0-9a-z-]{1,31}}) and a copy after a text block's escaped triple quote are not found; they are the
+ * review's business, and the guide {@code pm-core/doc/developer/core-id.adoc} states the limit.
  */
 @EnableGeneratorController
 @DisplayName("One definition of the role-name grammar")
@@ -73,12 +74,15 @@ class RoleNameSingleDefinitionTest {
             }
         }
 
-        assertAll(
-                () -> MODULES.forEach(module -> assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
-                        "The scan should read at least one file of " + module)),
-                () -> assertTrue(offenders.isEmpty(),
-                        () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName "
-                                + "or HarnessId): " + offenders));
+        var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
+        for (var module : MODULES) {
+            checks.add(() -> assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
+                    "The scan should read at least one file of " + module));
+        }
+        checks.add(() -> assertTrue(offenders.isEmpty(),
+                () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName "
+                        + "or HarnessId): " + offenders));
+        assertAll(checks.stream());
     }
 
     @Test
