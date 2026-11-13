@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.Builder;
 
+import de.planmarshall.core.id.HarnessId;
 import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.core.role.RoleClass;
 
@@ -47,14 +48,13 @@ import de.planmarshall.core.role.RoleClass;
 public record HarnessEnrolment(String clientId, Path executablePath, String sha256, String version, Instant enrolledAt,
 Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<String, Weights> weights) {
 
-    private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Set<String> EVENT_RESULTS = Set.of("reported", "missing");
 
     /** Copies the collections and refuses a malformed entry. */
     public HarnessEnrolment {
         Objects.requireNonNull(clientId, "clientId");
-        if (!CLIENT_ID.matcher(clientId).matches()) {
+        if (!HarnessId.matches(clientId)) {
             throw new IllegalArgumentException("Not a client id: " + clientId);
         }
         Objects.requireNonNull(executablePath, "executablePath");

@@ -10,7 +10,8 @@
 package de.planmarshall.workflow.consult;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
+
+import de.planmarshall.core.id.RoleName;
 
 /**
  * One {@code consult:<role>} link of a task entity (Model Work § The {@code consult:<role>} Link): the relation
@@ -38,15 +39,13 @@ public record ConsultationLink(String role) {
     /** The identifier of the one link a consultation entity offers: its answer. */
     public static final String ANSWER_ID = "answer";
 
-    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-
     /**
      * @throws NullPointerException     if the role is {@code null}
      * @throws IllegalArgumentException if the role is not a role name
      */
     public ConsultationLink {
         Objects.requireNonNull(role, "role");
-        if (!ROLE_PATTERN.matcher(role).matches()) {
+        if (!RoleName.matches(role)) {
             throw new IllegalArgumentException("Not a role name: " + role);
         }
     }
