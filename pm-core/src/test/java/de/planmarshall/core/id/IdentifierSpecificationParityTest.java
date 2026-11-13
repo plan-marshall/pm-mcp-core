@@ -11,6 +11,7 @@ package de.planmarshall.core.id;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import org.junit.jupiter.api.DisplayName;
@@ -40,7 +41,7 @@ class IdentifierSpecificationParityTest {
     void roleNameEqualsSchema() {
         var expected = patternAt(ROLE_ARTIFACT_SCHEMA, "properties", "name");
 
-        assertFalse(expected.isEmpty(), "The schema should name the role-name pattern");
+        assertFalse(expected.isBlank(), "The schema should name the role-name pattern");
         assertEquals(RoleName.PATTERN.pattern(), expected, "The role name should equal the schema pattern");
     }
 
@@ -49,7 +50,7 @@ class IdentifierSpecificationParityTest {
     void harnessIdEqualsSchema() {
         var expected = patternAt(METRICS_SCHEMA, "$defs", "harness");
 
-        assertFalse(expected.isEmpty(), "The schema should name the harness-id pattern");
+        assertFalse(expected.isBlank(), "The schema should name the harness-id pattern");
         assertEquals(HarnessId.PATTERN.pattern(), expected, "The harness id should equal the schema pattern");
     }
 
@@ -58,7 +59,10 @@ class IdentifierSpecificationParityTest {
         for (var member : path) {
             current = SchemaResource.object(current).get(member);
         }
-        var declaration = SchemaResource.object(current);
-        return String.valueOf(declaration.get("pattern"));
+        var pattern = SchemaResource.object(current).get("pattern");
+        if (pattern == null) {
+            return fail("the schema declares no pattern at " + String.join(".", path));
+        }
+        return pattern.toString();
     }
 }

@@ -10,8 +10,8 @@
 package de.planmarshall.core.id;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,9 +62,12 @@ class HarnessIdTest {
     }
 
     @Test
-    @DisplayName("the pattern is the same text as the role name, under its own name")
+    @DisplayName("the pattern is the text of ShortName, shared with the role name")
     void sameTextAsRoleName() {
-        assertSame(RoleName.PATTERN.pattern(), HarnessId.PATTERN.pattern(),
-                "Both identifiers should read the one text of ShortName");
+        assertAll(
+                () -> assertEquals(ShortName.TEXT, HarnessId.PATTERN.pattern(),
+                        "The harness id should read the text of ShortName"),
+                () -> assertEquals(ShortName.TEXT, RoleName.PATTERN.pattern(),
+                        "The role name should read the text of ShortName"));
     }
 }

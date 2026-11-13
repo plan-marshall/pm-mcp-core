@@ -19,8 +19,8 @@ import lombok.experimental.UtilityClass;
  * (identifiers registry, entry {@code id-role-name}). A role name carries no underscore: the registry gives
  * {@code _} to names that must be tool names.
  * <p>
- * The pattern one definition of the text lives in {@link ShortName}; this class names it for the role and its
- * callers. A name matches in full, and a {@code null} name raises a {@link NullPointerException}, as
+ * The one definition of the text lives in {@link ShortName}; this class names it for the role and its callers. A name
+ * matches in full, and a {@code null} name raises a {@link NullPointerException}, as
  * {@link Pattern#matcher(CharSequence)} does.
  *
  * @since 0.1
