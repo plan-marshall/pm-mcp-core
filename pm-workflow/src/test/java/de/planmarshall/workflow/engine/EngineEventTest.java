@@ -75,7 +75,7 @@ class EngineEventTest {
     }
 
     private WorkflowStatus atBackoff() {
-        fixtures.questionReader.answer = new QuestionRead.Resolved("answered");
+        fixtures.answerQuestion(new QuestionRead.Resolved("answered"));
         return engine.advance(atQuestion(), new EngineEvent.QuestionResolved("Q-001", "answered")).status();
     }
 
@@ -104,7 +104,8 @@ class EngineEventTest {
                             status.activeJobBinding().orElseThrow()),
                     () -> assertEquals(Map.of("test.fate", new WorkflowStatus.JobEntry(SPAWNED, "git", "queued",
                             T0.plusSeconds(tick))), status.activeJobs()),
-                    () -> assertTrue(fixtures.jobStarter.requests.isEmpty()));
+                    () -> assertTrue(fixtures.jobRequests.getValues().isEmpty(),
+                            "no job is started for a recorded state"));
         }
 
         @Test
@@ -118,13 +119,14 @@ class EngineEventTest {
                     %s""".formatted(OTHER_FATES)));
 
             var started = startEngine.start(JournalScopeType.PLAN, PLAN_ID).status();
-            fixtures.jobStarter.refusing = true;
+            fixtures.refusing = true;
             var refused = startEngine.start(JournalScopeType.PLAN, PLAN_ID);
 
             assertAll(
                     () -> assertEquals("b-0000000000000001", started.activeJobBinding().orElseThrow().jobId()),
                     () -> assertEquals(new JobStarter.StartRequest(PLAN_ID, "execute.build", "test.fate"),
-                            fixtures.jobStarter.requests.getFirst()),
+                            fixtures.jobRequests.getValues().getFirst(),
+                            "the start request names the job state"),
                     () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, refused)
                             .status().state()));
         }
@@ -153,7 +155,8 @@ class EngineEventTest {
                     () -> assertSame(atJob, waited.status()),
                     () -> assertEquals("handed_back", assertInstanceOf(EngineStep.Ended.class, settled)
                             .status().state()),
-                    () -> assertTrue(fixtures.jobStarter.requests.isEmpty()));
+                    () -> assertTrue(fixtures.jobRequests.getValues().isEmpty(),
+                            "no job is started for a recorded state"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -179,7 +182,8 @@ class EngineEventTest {
                     () -> assertEquals("execute.review", status.state()),
                     () -> assertEquals(Map.of("change", new WorkflowStatus.TaskEntry("qt-0000000000000001",
                             "reviewer", "queued", null, null)), status.activeTasks()),
-                    () -> assertEquals(1, fixtures.taskCreator.requests.size()),
+                    () -> assertEquals(1, fixtures.taskRequests.getValues().size(),
+                            "one queue task is created for the state"),
                     () -> assertEquals(AwaitedEvent.TASK_SETTLED,
                             engine.restingWait(status).orElseThrow().awaitedEvent()));
         }
@@ -238,10 +242,10 @@ class EngineEventTest {
             var atQuestion = atQuestion();
             var event = new EngineEvent.QuestionResolved("Q-001", "answered");
 
-            fixtures.questionReader.answer = new QuestionRead.Open();
+            fixtures.answerQuestion(new QuestionRead.Open());
             var open = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
             var declined = "not-" + Generators.letterStrings(1, 8).next();
-            fixtures.questionReader.answer = new QuestionRead.Resolved(declined);
+            fixtures.answerQuestion(new QuestionRead.Resolved(declined));
             var other = assertThrows(IllegalArgumentException.class, () -> engine.advance(atQuestion, event));
 
             assertAll(
@@ -254,7 +258,7 @@ class EngineEventTest {
         void shouldRaiseOnUnreadableRecord() {
             var atQuestion = atQuestion();
             var reason = Generators.letterStrings(1, 20).next();
-            fixtures.questionReader.answer = new QuestionRead.Unreadable(reason);
+            fixtures.answerQuestion(new QuestionRead.Unreadable(reason));
 
             var raised = engine.advance(atQuestion, new EngineEvent.QuestionResolved("Q-001", "answered"));
 
