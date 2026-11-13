@@ -138,9 +138,12 @@ compared with the top-level test points, which the TAP grammar defines it to cou
   and `NpmErrorParser.INSTALL_SUMMARY` start on `^[ \t]*` instead of `^\s*`, so no repetition crosses a line end.
 * (b) `UnparsedEvidence.of` runs its steps in the order strip, reduce, window, line bound, redact, byte cap. Its line
   bound keeps the *end* of each line (the last `MAX_LINE_LENGTH` characters), not its head as `boundLines` does, because
-  the excerpt is the log's tail and its existing contract keeps the end of a long last line. The residue of the order: a
-  secret that straddles the line cut loses its head before the redactor sees it, so a tail too short for the redactor's
-  shape can stay readable. The cut comes before the redaction because it is what bounds the redactor's cost.
+  the excerpt is the log's tail and its existing contract keeps the end of a long last line. The accepted residue of the
+  order: a secret that straddles the line cut loses its label before the redactor sees it, so the rest of its value is
+  unlabeled and the label-anchored shapes do not match it. It stays readable only where the byte bound keeps it, which
+  takes a retained value of about 4096 characters (`UnparsedEvidence.MAX_BYTES`) or more; masking the retained text of a
+  cut line instead would trade evidence for that case and is a maintainer decision. The cut comes before the redaction
+  because it is what bounds the redactor's cost.
 
 === Decision 4 (item 6): the coverage limits, the refusal echo and the XML factory
 

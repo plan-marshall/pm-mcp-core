@@ -35,10 +35,12 @@ import de.planmarshall.core.store.JobId;
  * the log; unlike {@link BuildLogText#boundLines(String)}, which keeps a line's head for a parser's leading marker.
  * Every secret-shaped value is replaced by {@link SecretRedactor}; the line cut comes before the redaction because it is
  * what bounds the redactor's cost on a long hostile line, and the byte bound comes after it, because a replacement can
- * lengthen a line. The accepted residue of that order: a secret that straddles the line cut loses its head before the
- * redactor sees it, so a tail too short for the redactor's shape can stay readable in the excerpt. The full log itself
- * stays beside the job record as
- * {@code <job_id>.log}, which is the resource the URI names.
+ * lengthen a line. The accepted residue of that order: a secret that straddles the line cut loses its label before the
+ * redactor sees it, so the rest of its value is unlabeled and the label-anchored shapes do not match it. It stays
+ * readable only where the byte bound keeps it, which takes a retained value of about {@value #MAX_BYTES} characters or
+ * more; masking the retained text of a cut line instead would trade evidence for that case and is a maintainer
+ * decision. The full log itself stays beside the job record as {@code <job_id>.log}, which is the resource the URI
+ * names.
  *
  * @param excerpt    the bounded, redacted tail of the raw log; empty for an empty log
  * @param excerptUri the resource URI of the full raw log
