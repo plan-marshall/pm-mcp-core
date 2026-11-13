@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,10 +30,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.service.AuditSink;
 
 /**
  * The waiver consumption log of a plan (PM-SEC-3, PM-IMPL-2, PM-IMPL-7): one line per evaluation that relied on a
@@ -54,7 +58,7 @@ class WaiverConsumptionLogTest {
     private JournalScope scope;
     private WaiverConsumptionLog log;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
     private String waiver;
     private String otherWaiver;
     private String absentWaiver;
@@ -65,7 +69,7 @@ class WaiverConsumptionLogTest {
         Files.createDirectories(scope.journalFile().getParent());
         log = new WaiverConsumptionLog(scope);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
         var number = Generators.integers(1, 99_000).next();
         waiver = "W-" + number;
         otherWaiver = "W-" + (number + 1);

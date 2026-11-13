@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,12 +36,14 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.random.RandomGenerator;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
 import de.planmarshall.core.store.PendingEntryRecord.Kind;
 import de.planmarshall.core.store.ScopeTransaction.Step;
@@ -70,7 +73,7 @@ class PendingEntryStoreTest {
     private JournalScope workspace;
     private PendingEntryStore store;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     /** What the step hook throws to stop a commit after its journal was written. */
     private static final class StopWrite extends RuntimeException {
@@ -112,7 +115,7 @@ class PendingEntryStoreTest {
         Files.createDirectories(workspace.resolve(PendingEntryStore.DIRECTORY));
         store = new PendingEntryStore(workspace);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     private static String lowerName() {

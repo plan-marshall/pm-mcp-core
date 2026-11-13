@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,10 +30,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.service.AuditSink;
 
 /**
  * Nothing with state lies below the repository of a project (PM-ARCH-1, PM-IMPL-2): the stores of the operator's acts
@@ -57,7 +61,7 @@ class ProjectStoreNoStateInRepositoryTest {
     private Path base;
     private Path repository;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     private static String name(String prefix) {
         return prefix + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
@@ -76,7 +80,7 @@ class ProjectStoreNoStateInRepositoryTest {
         Files.writeString(repository.resolve(".git/HEAD"), "ref: refs/heads/main\n");
         Files.createDirectories(repository.resolve(".marshall/local/worktrees"));
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     private static Set<Path> files(Path root) throws IOException {

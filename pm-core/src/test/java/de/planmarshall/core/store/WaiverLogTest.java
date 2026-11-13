@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.QuestionRecordCodecTest.text;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +34,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.WaiverRecord.Channel;
 import de.planmarshall.core.store.WaiverRecord.Event;
 import de.planmarshall.core.store.WaiverRecord.Operator;
@@ -73,7 +77,8 @@ class WaiverLogTest {
     private JournalScope scope;
     private WaiverLog log;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
 
     @BeforeEach
     void createScope() throws IOException {
@@ -81,7 +86,8 @@ class WaiverLogTest {
         Files.createDirectories(scope.journalFile().getParent());
         log = new WaiverLog(scope);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
     }
 
     private static String lower() {
@@ -287,7 +293,7 @@ class WaiverLogTest {
                     () -> assertEquals(OptionalLong.empty(), log.read().tornTailOffset(),
                             "the torn tail should have been repaired"),
                     () -> assertEquals(List.of(AuditEvent.JSONL_TAIL_REPAIRED),
-                            audit.events().stream().map(AuditEvent::event).toList(),
+                            auditEvents.getValues().stream().map(AuditEvent::event).toList(),
                             "the repair should be recorded in the audit"));
         }
 

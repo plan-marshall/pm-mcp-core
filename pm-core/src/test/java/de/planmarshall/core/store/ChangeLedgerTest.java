@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,12 +29,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.ChangeLedgerRecord.ChangeOrigin;
 import de.planmarshall.core.store.ChangeLedgerRecord.Kind;
 import de.planmarshall.core.store.ChangeLedgerRecord.Outcome;
@@ -65,7 +68,7 @@ class ChangeLedgerTest {
     private Path file;
     private ChangeLedger ledger;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     @BeforeEach
     void createLedger() throws Exception {
@@ -81,7 +84,7 @@ class ChangeLedgerTest {
         file = scope.resolve(ChangeLedger.FILE_NAME);
         ledger = new ChangeLedger(scope);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     /** Opens the scope's transaction, hands it to the write and commits it. */

@@ -99,7 +99,8 @@ class JournalRecoveryTest {
     private String plan;
     private JournalScope scope;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
 
     /** What the step hook throws to stop a commit at a boundary. */
     private static final class StopWrite extends RuntimeException {
@@ -125,7 +126,8 @@ class JournalRecoveryTest {
         Files.createDirectories(scope.journalFile().getParent());
         Files.createDirectories(scope.resolve(WORK_LOG).getParent());
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
             var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
@@ -186,7 +188,7 @@ class JournalRecoveryTest {
     }
 
     private List<AuditEvent> rolledForward() {
-        return audit.events().stream().filter(event -> AuditEvent.TRANSACTION_ROLLED_FORWARD.equals(event.event()))
+        return auditEvents.getValues().stream().filter(event -> AuditEvent.TRANSACTION_ROLLED_FORWARD.equals(event.event()))
                 .toList();
     }
 
@@ -261,7 +263,7 @@ class JournalRecoveryTest {
                             "no journal and no staged file remains"),
                     () -> assertEquals(List.of(rollForwardOf(journal)), rolledForward(),
                             "exactly one transaction_rolled_forward"),
-                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(), "nothing else recorded"));
+                    () -> assertEquals(List.of(rollForwardOf(journal)), auditEvents.getValues(), "nothing else recorded"));
         }
 
         @Test
@@ -323,7 +325,7 @@ class JournalRecoveryTest {
                             "the block is appended exactly once"),
                     () -> assertArrayEquals(committedSidecar(), Files.readAllBytes(scope.sidecarFile()),
                             "the sidecar holds the new digests"),
-                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), auditEvents.getValues(),
                             "the cut is part of the roll-forward, not a tail repair"));
         }
 
@@ -428,7 +430,7 @@ class JournalRecoveryTest {
                             "the sidecar no longer digests the status"),
                     () -> assertEquals(Set.of(REFERENCES, WORK_LOG, "mcp/digests.json"),
                             snapshot(scope.pathBase()).keySet(), "no journal and no staged file remains"),
-                    () -> assertEquals(List.of(rollForward(journal)), audit.events(),
+                    () -> assertEquals(List.of(rollForward(journal)), auditEvents.getValues(),
                             "the roll-forward is recorded once"));
         }
 
@@ -446,7 +448,7 @@ class JournalRecoveryTest {
                     () -> assertArrayEquals(deletedSidecar(), Files.readAllBytes(scope.sidecarFile()),
                             "the sidecar no longer digests the status"),
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
-                    () -> assertEquals(List.of(rollForward(journal)), audit.events(),
+                    () -> assertEquals(List.of(rollForward(journal)), auditEvents.getValues(),
                             "the roll-forward is recorded once"));
         }
 
@@ -501,7 +503,7 @@ class JournalRecoveryTest {
                     () -> assertArrayEquals(torn, Files.readAllBytes(scope.journalFile()), "the journal is kept"),
                     () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
                             "nothing is deleted on a journal that cannot be read"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a refusal"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a refusal"));
         }
 
         @Test
@@ -527,7 +529,7 @@ class JournalRecoveryTest {
                             "the recovery finds nothing to do"),
                     () -> assertEquals(before, snapshot(scope.pathBase()),
                             "every file is as before the commit"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded here"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded here"));
         }
     }
 
@@ -549,7 +551,7 @@ class JournalRecoveryTest {
                             "the violation names the lost target"),
                     () -> assertEquals(before, snapshot(scope.pathBase()), "journal and stores untouched"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "the journal is left in place"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a violation"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a violation"));
         }
 
         @Test
@@ -565,7 +567,7 @@ class JournalRecoveryTest {
                     () -> assertEquals(new InvariantViolation(journal, List.of(WORK_LOG)), outcome,
                             "the violation names the work log"),
                     () -> assertEquals(before, snapshot(scope.pathBase()), "journal and stores untouched"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a violation"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a violation"));
         }
 
         @Test
@@ -594,7 +596,7 @@ class JournalRecoveryTest {
                     () -> assertEquals(scope.journalFile(), refusal.file(), "the refusal names the journal file"),
                     () -> assertArrayEquals(unreadable, Files.readAllBytes(scope.journalFile()),
                             "the unreadable journal is kept"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a refusal"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a refusal"));
         }
 
         @Test
@@ -611,7 +613,7 @@ class JournalRecoveryTest {
                             "the violation names the status"),
                     () -> assertEquals(before, snapshot(scope.pathBase()), "no store modified, the journal in place"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "the journal is left in place"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a violation"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a violation"));
         }
 
         @Test
@@ -628,7 +630,7 @@ class JournalRecoveryTest {
                             "the violation names the work log"),
                     () -> assertEquals(before, snapshot(scope.pathBase()), "no store modified, the journal in place"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "the journal is left in place"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a violation"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a violation"));
         }
 
         @Test
@@ -645,7 +647,7 @@ class JournalRecoveryTest {
                             "the violation names the work log"),
                     () -> assertEquals(before, snapshot(scope.pathBase()), "no store modified, the journal in place"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "the journal is left in place"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on a violation"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on a violation"));
         }
 
         @Test
@@ -669,7 +671,7 @@ class JournalRecoveryTest {
                             "the foreign file is not moved"),
                     () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
                             "the status is not modified"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded on the refusal"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded on the refusal"));
         }
     }
 
@@ -701,7 +703,7 @@ class JournalRecoveryTest {
                     () -> assertTrue(kept.stream().allMatch(Files::exists), "every similar file is kept"),
                     () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
                             "the stored bytes are untouched"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded here"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded here"));
         }
 
         @Test
@@ -779,7 +781,7 @@ class JournalRecoveryTest {
             assertAll("the next recovery after the refusal",
                     () -> assertEquals(new RolledForward(journal, List.of()), second,
                             "the second recovery applies no target"),
-                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(), "delivered exactly once"),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), auditEvents.getValues(), "delivered exactly once"),
                     () -> assertEquals(Set.of(STATUS, REFERENCES, WORK_LOG, "mcp/digests.json"),
                             snapshot(scope.pathBase()).keySet(), "journal and staged files closed"),
                     () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store(WORK_LOG)),
@@ -798,7 +800,7 @@ class JournalRecoveryTest {
             assertAll("a replay after the record was delivered",
                     () -> assertEquals(new NothingToRecover(List.of()), third,
                             "the replay finds nothing to recover"),
-                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), auditEvents.getValues(),
                             "the record was delivered exactly once"));
         }
 
@@ -817,7 +819,7 @@ class JournalRecoveryTest {
                     () -> assertTrue(afterStop.containsKey("mcp/transaction-journal.json"), "the intent survived"),
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome,
                             "the next recovery applies no target"),
-                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), auditEvents.getValues(),
                             "the record is delivered exactly once"),
                     () -> assertFalse(Files.exists(scope.journalFile()),
                             "the journal is closed after delivery"));
@@ -855,7 +857,7 @@ class JournalRecoveryTest {
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome,
                             "the recovery applies no target"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                                    plan, journal.transactionId().value(), List.of(STATUS)), owed), audit.events(),
+                                    plan, journal.transactionId().value(), List.of(STATUS)), owed), auditEvents.getValues(),
                             "the roll-forward record precedes the owed record"),
                     () -> assertEquals(recordId, owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID),
                             "the re-delivered record keeps the id it was owed with"),
@@ -890,7 +892,7 @@ class JournalRecoveryTest {
                 () -> assertEquals(new NothingToRecover(List.of()), outcome,
                         "the recovery finds nothing to recover"),
                 () -> assertEquals(before, snapshot(base), "the scope is left byte for byte"),
-                () -> assertEquals(List.of(), audit.events(), "nothing is recorded here"));
+                () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded here"));
     }
 
     @Test
@@ -909,7 +911,7 @@ class JournalRecoveryTest {
                             "the fault names the missing lock"),
                     () -> assertEquals(before, snapshot(scope.pathBase()),
                             "no byte changes without the lock"),
-                    () -> assertEquals(List.of(), audit.events(), "nothing is recorded here"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "nothing is recorded here"));
         }
     }
 }
