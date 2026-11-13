@@ -20,6 +20,9 @@ operator writes and their audit records. The core half — the record, its codec
 lifecycle gate — is link:../../../pm-core/doc/developer/core-store.adoc#_the_enrolment_store[Scope Stores § The Enrolment
 Store]. This guide covers both what serves the recorded credential store and what the check and the operator writes do.
 
+A harness id that an enrolment record carries validates through
+link:../../../pm-core/doc/developer/core-id.adoc[`HarnessId` of `core.id`], the one definition of the grammar.
+
 * `EnrolmentKey` reads the integrity key from the store a supplier gives on every read, so after the first recording of a
   store and after a move the key is read from the store now recorded and nothing is re-signed.
 * `HarnessesSidecarCheck` verifies `harnesses.json` against its sidecar under a given key.

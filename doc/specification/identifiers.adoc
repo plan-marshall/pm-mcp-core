@@ -40,7 +40,7 @@ _See Requirements:_
 
 Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
 
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: the identifier types and their validation
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: the identifier types and their validation (link:../../pm-core/doc/developer/core-id.adoc[`core.id`])
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-api[`pm-api`]: identifiers on the Local API
 
 == Parts

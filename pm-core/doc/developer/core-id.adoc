@@ -1,0 +1,102 @@
+= Identifier Types (`core.id`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-1[PM-WORK-1], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-2[PM-WF-2]_
+
+Package `de.planmarshall.core.id` of `pm-core` holds the shared identifier types of the engine and their validation. It
+owns nothing else and depends on nothing of the product: every store, the queue, the role packages, `pm-workflow` and
+`pm-runtime` use it, and a dependency from `core.id` into any of them is a defect.
+
+Today the package holds the one definition of the short lower-case name grammar: two to 32 characters, a lower-case
+letter first, then lower-case letters, digits or `-`. The specification states that text under two registry entries —
+`id-role-name` and `id-harness-id` — and it was written out as a private `Pattern` in twenty-two classes of three
+modules before this package held it. The grammar is specified in
+link:{spec}/identifiers.adoc[Identifiers] and, entry by entry, in
+link:{spec}/identifiers/01-general-rules-and-registry.adoc[General Rules & Registry] and
+link:{spec}/identifiers/02-registry-stores-to-web.adoc[Registry (Stores, Surfaces, Configuration, Web)].
+
+== The Types
+
+`ShortName`::
+The one place the text is written, package-private: `TEXT = "^[a-z][a-z0-9-]{1,31}$"`. Nothing outside the package
+reads it; it exists so the two public types cannot drift apart.
+
+`RoleName`::
+The role name. `RoleName.PATTERN` is the compiled grammar and `RoleName.matches(String)` is the full match. The
+registry entry is `id-role-name`; a role name carries no underscore, which the registry gives to names that must be tool
+names.
+
+`HarnessId`::
+The harness id, the identifier of an enrolled harness. It has the same shape as `RoleName` and reads the same
+`ShortName.TEXT`, but it is a type of its own.
+
+Both patterns are anchored. Only `WorkflowStatus.requireMatch` prints a pattern in its refusal message, so the anchored
+text keeps that message byte-identical; every other caller matches through `Matcher.matches()`, which anchors either
+way.
+
+== Why Two Names for One Text
+
+The registry gives a role name and a harness id the same grammar today, under two entries that may change
+independently: a harness id is the name of an enrolled harness (`harness_id` of its harness profile), a role name is the
+name of a role artifact. A single type would make the compiler unable to tell a place that names a harness from one that
+names a role, and a later change of one grammar would silently change the other. So the text lives once in `ShortName`
+and the two public types carry their own registry entry.
+
+== How a Caller Uses Them
+
+A caller that validates a name takes the type of the identifier it holds and never a bare `Pattern`:
+
+[source,java]
+----
+Objects.requireNonNull(role, "role");
+if (!RoleName.matches(role)) {
+    throw new IllegalArgumentException("Not a role name: " + role);
+}
+----
+
+A caller that already holds a `Pattern` field for another purpose passes `RoleName.PATTERN` where it used to compile its
+own, so its own `require…` helper and its message stay unchanged. A caller keeps its own null handling: a
+`Objects.requireNonNull` before the match, or the `NullPointerException` of `Matcher.matches()` on a `null` input.
+
+== The Guard and Its Limit
+
+`RoleNameSingleDefinitionTest` (`pm-core/src/test/java/de/planmarshall/core/guard/`) scans every `src/main/java` file of
+the reactor for a string literal that contains the grammar — in the spellings `[a-z][a-z0-9-]{1,31}`,
+`[a-z][a-z0-9\\-]{1,31}` and `[a-z][-a-z0-9]{1,31}`, anchored or not, possessive or not — and fails naming the file, the
+line and the two classes of this package. Only `core/id/ShortName.java` is excluded. There is no exemption map: the
+grammars that stay local (below) do not match the 2-to-32 text and need none, and the guard has no entry that could go
+stale.
+
+The limit is a source scan of string literals: a grammar composed at run time (two literals concatenated, a constant
+read from a configuration file) and a hand-written character loop are not found. `ArchUnit` was rejected because it does
+not see string constants, and the class-file constant-pool scan of `ProfileNeutralityArchTest` reaches one module only.
+The guard reads the repository root the way `NullMarkedPackagesTest` does, from the working directory or `pm.root`.
+
+== The Grammars That Stay Local
+
+Five name-shaped grammars are deliberately not this text, and each keeps its own constant:
+
+* the one-to-32 character forms — `RoleArtifactValidator.CLIENT_ID`, `ProfileValidator.CLIENT_ID`,
+  `ShippedProfiles.CLIENT_ID` and `GradedConfiguration.HARNESS_NAME` (`^[a-z][a-z0-9-]{0,31}$`): the harness profile and
+  role artifact schemas state 1 to 32, which is not the registry's 2 to 32;
+* `QualificationRecord.SOURCE` (`[a-z][a-z0-9-]{1,63}`), the corpus source name;
+* `QuestionRecord.BRANCH_KEY` (`[a-z][a-z0-9_]{1,31}`), which carries `_` and not `-`.
+
+The `harness_id` grammar itself is stated as 2 to 32 in the registry and the store schemas and as 1 to 32 in the harness
+profile and role artifact schemas. The two forms are reported as a specification inconsistency; the code keeps each
+grammar where its schema states it until the specification settles.
+
+== Specification
+
+* link:{spec}/identifiers.adoc[Identifiers] — the module pointer and the parts.
+* link:{spec}/identifiers/01-general-rules-and-registry.adoc[General Rules & Registry] — entry `id-role-name`.
+* link:{spec}/identifiers/02-registry-stores-to-web.adoc[Registry (Stores, Surfaces, Configuration, Web)] — entry
+  `id-harness-id`.
+* ADR link:../adr/core-id/001-one-definition-of-the-name-grammar.adoc[`core-id/001`] — why the definition lives here and
+  why a source scan guards it.

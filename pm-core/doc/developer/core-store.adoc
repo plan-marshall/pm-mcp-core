@@ -40,6 +40,9 @@ link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow
 link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry] and the
 sections linked from the type tables below.
 
+A role name or a harness id that a store row carries validates through the one definition of
+link:core-id.adoc[`RoleName` and `HarnessId` of `core.id`].
+
 == The Workflow State Store
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
 

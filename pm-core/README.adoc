@@ -74,6 +74,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/developer/core-build.adoc[Build Output Parsers (`core.build`)]
 * link:doc/developer/core-config.adoc[Consents, Model Catalogue and Role Assignments (`core.config`)]
 * link:doc/developer/core-findings.adoc[Findings (`core.findings`)]
+* link:doc/developer/core-id.adoc[Identifier Types (`core.id`)]
 * link:doc/developer/core-log.adoc[Log Messages (`core.log`)]
 * link:doc/developer/core-queue.adoc[Task Queue (`core.queue`)]
 * link:doc/developer/core-role-corpus.adoc[Corpus Sources (`core.role.corpus`)]
@@ -88,6 +89,8 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/adr/core-config/[`doc/adr/core-config/`]: the consent store's gate and the settings conflict that carries the
   current value.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
+* link:doc/adr/core-id/[`doc/adr/core-id/`]: the identifier types; ADR 001 the one definition of the short-name grammar
+  and its source-scan guard.
 * link:doc/adr/core-profile/[`doc/adr/core-profile/`]: the client profile validator, its digest and sidecar, the refused
   profile as a value, the bundle-managed paths as installation data, the schema literals named once per class and the
   endpoint profile:
