@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.guard;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -72,13 +73,12 @@ class RoleNameSingleDefinitionTest {
             }
         }
 
-        for (var module : MODULES) {
-            assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
-                    "The scan should read at least one file of " + module);
-        }
-        assertTrue(offenders.isEmpty(),
-                () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName or "
-                        + "HarnessId): " + offenders);
+        assertAll(
+                () -> MODULES.forEach(module -> assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
+                        "The scan should read at least one file of " + module)),
+                () -> assertTrue(offenders.isEmpty(),
+                        () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName "
+                                + "or HarnessId): " + offenders));
     }
 
     @Test
@@ -132,6 +132,15 @@ class RoleNameSingleDefinitionTest {
                 + "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");\n}\n";
 
         assertFalse(offences(source).isEmpty(), "A copy after a quote character literal should be an offence");
+    }
+
+    @Test
+    @DisplayName("an escaped character literal does not hide the grammar after it")
+    void escapedCharacterLiteralDoesNotHideTheGrammar() {
+        var source = "class C {\n    char backslash = '\\\\';\n    char apostrophe = '\\'';\n"
+                + "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");\n}\n";
+
+        assertFalse(offences(source).isEmpty(), "A copy after an escaped character literal should be an offence");
     }
 
     private static Scan scan(Path root, Path productionRoot) {
