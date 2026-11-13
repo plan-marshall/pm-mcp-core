@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 
 import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.spi.AwaitedEvent;
