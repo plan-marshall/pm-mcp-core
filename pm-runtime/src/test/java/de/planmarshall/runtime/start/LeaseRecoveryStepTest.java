@@ -39,7 +39,7 @@ import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The lease step of the per-project recovery over a real build-slot lease store on the lock manager of the runtime.
@@ -59,7 +59,7 @@ class LeaseRecoveryStepTest {
 
     @BeforeEach
     void createStore() throws IOException {
-        lockManager = new FileLockManager(new RecordingAuditSink());
+        lockManager = new FileLockManager(AuditSinkDoubles.capturing());
         store = RecoveryStepFixtures.buildSlots(base, lockManager);
     }
 

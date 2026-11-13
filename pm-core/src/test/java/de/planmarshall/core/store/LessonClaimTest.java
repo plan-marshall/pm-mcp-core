@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +27,7 @@ import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -34,6 +36,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
 import de.planmarshall.core.store.LessonResolution.Found;
@@ -66,7 +69,7 @@ class LessonClaimTest {
     private JournalScope lessons;
     private LessonStore store;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     /** The lesson state of one cell of the table of Deliverable 5. */
     enum State {
@@ -88,7 +91,7 @@ class LessonClaimTest {
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     private <T> T inTransaction(Function<ScopeTransaction, T> work) {

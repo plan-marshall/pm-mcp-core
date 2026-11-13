@@ -249,7 +249,7 @@ class DefaultPlanRunTest {
     private EngineEvent questionResolved(StateNode state) {
         var outcome = assertInstanceOf(StateBehavior.QuestionWait.class, state.behavior()).transitions().getFirst()
                 .outcomeName();
-        fixtures.questionReader.answer = new QuestionRead.Resolved(outcome);
+        fixtures.answerQuestion(new QuestionRead.Resolved(outcome));
         return new EngineEvent.QuestionResolved("Q-001", outcome);
     }
 

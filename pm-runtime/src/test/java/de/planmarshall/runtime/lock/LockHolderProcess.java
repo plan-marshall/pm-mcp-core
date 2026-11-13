@@ -23,6 +23,7 @@ import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.LockLevel;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The second process of the two-process test: it acquires the lock of one plan, or of a leaf key, through a
@@ -128,7 +129,7 @@ final class LockHolderProcess {
         var mode = Mode.of(args.length > MODE_ARGUMENT ? args[MODE_ARGUMENT] : "").orElse(Mode.PLAN);
         var key = key(base, args, mode);
         var standardOutput = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
-        try (var transaction = new FileLockManager(new RecordingAuditSink()).openTransaction()) {
+        try (var transaction = new FileLockManager(AuditSinkDoubles.capturing()).openTransaction()) {
             transaction.acquire(key);
             operate(key, transaction, mode).ifPresent(standardOutput::println);
             standardOutput.println(HELD);
@@ -164,11 +165,11 @@ final class LockHolderProcess {
         return switch (mode) {
             case PLAN -> Optional.empty();
             case LEAF, MAILBOX, JOURNAL -> {
-                store.append(transaction, APPENDED, new RecordingAuditSink());
+                store.append(transaction, APPENDED, AuditSinkDoubles.capturing());
                 yield Optional.empty();
             }
             case REPAIR -> {
-                store.repairTail(transaction, new RecordingAuditSink());
+                store.repairTail(transaction, AuditSinkDoubles.capturing());
                 yield Optional.empty();
             }
             case READ -> Optional.of(LINES_PREFIX + store.read(transaction).lines().size());

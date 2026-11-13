@@ -82,7 +82,7 @@ class OperatorWaitTest {
                 () -> assertTrue(status.activeJobBinding().isEmpty(), "no job is bound"),
                 () -> assertTrue(status.activeJobs().isEmpty(), "no job runs"),
                 () -> assertTrue(status.activeTasks().isEmpty(), "no task is open"),
-                () -> assertTrue(fixtures.taskCreator.requests.isEmpty(), "no task is offered"),
+                () -> assertTrue(fixtures.taskRequests.getValues().isEmpty(), "the operator wait offers no task"),
                 () -> assertEquals(JournalScopeType.PLAN, status.scopeType()));
 
         var time = new EngineEvent.TimeElapsed(EngineFixtures.T0.plus(Duration.ofDays(30)));
@@ -108,7 +108,8 @@ class OperatorWaitTest {
         assertAll(
                 () -> assertEquals("execute.build", acted.stateId()),
                 () -> assertEquals(AwaitedEvent.JOB_SETTLED, acted.awaitedEvent()),
-                () -> assertEquals(1, fixtures.jobStarter.requests.size(), "the link's transition started the job"));
+                () -> assertEquals(1, fixtures.jobRequests.getValues().size(),
+                        "the link's transition started the job"));
     }
 
     @Test

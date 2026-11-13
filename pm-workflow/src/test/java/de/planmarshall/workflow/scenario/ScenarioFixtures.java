@@ -9,6 +9,12 @@
  */
 package de.planmarshall.workflow.scenario;
 
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -22,10 +28,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
+import org.easymock.Capture;
+import org.easymock.CaptureType;
+
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.JobStarter;
+import de.planmarshall.core.spi.JobStarter.StartRequest;
+import de.planmarshall.core.spi.JobStarter.StartResult;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
@@ -33,6 +45,8 @@ import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.spi.QueueTaskCreator;
+import de.planmarshall.core.spi.QueueTaskCreator.CreateRequest;
+import de.planmarshall.core.spi.QueueTaskCreator.Created;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.JournalScope;
@@ -135,11 +149,34 @@ final class ScenarioFixtures {
 
     /** The clock of the engine and of the transactions. */
     final ManualClock clock = new ManualClock(T0);
+    /** The job requests the job port is handed, in order. */
+    final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);
+
+    /** The queue task requests the task port is handed, in order. */
+    final Capture<CreateRequest> taskRequests = newCapture(CaptureType.ALL);
+
     /** The job port of the engine. */
-    final SequenceJobStarter jobStarter = new SequenceJobStarter();
+    final JobStarter jobStarter = jobStarter();
 
     /** The queue task port of the engine. */
-    final RecordingQueueTaskCreator taskCreator = new RecordingQueueTaskCreator();
+    final QueueTaskCreator taskCreator = taskCreator();
+
+    private JobStarter jobStarter() {
+        JobStarter starter = createMock(JobStarter.class);
+        expect(starter.start(capture(jobRequests)))
+                .andAnswer(() -> new StartResult.Started("b-%016x".formatted(jobRequests.getValues().size())))
+                .anyTimes();
+        replay(starter);
+        return starter;
+    }
+
+    private QueueTaskCreator taskCreator() {
+        QueueTaskCreator creator = createMock(QueueTaskCreator.class);
+        expect(creator.create(capture(taskRequests)))
+                .andAnswer(() -> new Created("qt-%016x".formatted(taskRequests.getValues().size()))).anyTimes();
+        replay(creator);
+        return creator;
+    }
 
     /** The question port of the engine. */
     final ScriptedQuestionRecordReader questionReader = new ScriptedQuestionRecordReader();
@@ -493,30 +530,6 @@ final class ScenarioFixtures {
         @Override
         public Instant now() {
             return now;
-        }
-    }
-
-    /** A job starter that starts the build jobs {@code b-0000000000000001}, {@code b-0000000000000002}, … in order. */
-    static final class SequenceJobStarter implements JobStarter {
-
-        final List<StartRequest> requests = new ArrayList<>();
-
-        @Override
-        public StartResult start(StartRequest request) {
-            requests.add(request);
-            return new StartResult.Started("b-%016x".formatted(requests.size()));
-        }
-    }
-
-    /** A task creator that creates the queue tasks {@code qt-0000000000000001}, … in order, and records them. */
-    static final class RecordingQueueTaskCreator implements QueueTaskCreator {
-
-        final List<CreateRequest> requests = new ArrayList<>();
-
-        @Override
-        public Created create(CreateRequest request) {
-            requests.add(request);
-            return new Created("qt-%016x".formatted(requests.size()));
         }
     }
 

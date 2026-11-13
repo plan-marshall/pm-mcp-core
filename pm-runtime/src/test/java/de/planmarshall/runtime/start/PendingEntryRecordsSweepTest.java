@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -37,6 +38,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +48,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.PendingEntryCodec;
@@ -54,7 +58,7 @@ import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The pending-record step of the periodic sweep over the workspace scope of a project in a test base, on the lock
@@ -83,7 +87,8 @@ class PendingEntryRecordsSweepTest {
     private final Set<EntryId> drawn = new HashSet<>();
     private final EntryId oldEntry = entryId();
     private final EntryId youngEntry = entryId();
-    private final RecordingAuditSink auditSink = new RecordingAuditSink();
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private final AuditSink auditSink = AuditSinkDoubles.capturing(auditEvents);
 
     private FileLockManager lockManager;
     private JournalScope workspace;
@@ -159,11 +164,11 @@ class PendingEntryRecordsSweepTest {
     @DisplayName("an old record is removed with one pending_entry_removed record; a young one is kept")
     void removesOldKeepsYoung() {
         create(entry(oldEntry, old), entry(youngEntry, young));
-        var before = auditSink.events().size();
+        var before = auditEvents.getValues().size();
 
         var outcome = sweep.run(projectId, olderThan);
 
-        var removals = auditSink.events().subList(before, auditSink.events().size());
+        var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         assertAll(
                 () -> assertEquals(new Outcome.Done("removed 1 pending entry records"), outcome,
                         "the step must report one removed record"),
@@ -187,11 +192,11 @@ class PendingEntryRecordsSweepTest {
     void removalsCarryDistinctTransactionIds() {
         var secondOld = entryId();
         create(entry(oldEntry, old), entry(secondOld, old));
-        var before = auditSink.events().size();
+        var before = auditEvents.getValues().size();
 
         var outcome = sweep.run(projectId, olderThan);
 
-        var removals = auditSink.events().subList(before, auditSink.events().size());
+        var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         var transactionIds = removals.stream().map(removal -> removal.details().get("transaction_id")).toList();
         assertAll(
                 () -> assertEquals(new Outcome.Done("removed 2 pending entry records"), outcome,
@@ -241,7 +246,7 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(Files.exists(notes), "a name without the prefix is never touched"),
                 () -> assertTrue(Files.exists(upper), "a name with upper-case digits is never touched"),
                 () -> assertTrue(Files.exists(tooShort), "a name with too few digits is never touched"),
-                () -> assertEquals(List.of(), auditSink.eventNames(), "no audit record must be handed over"),
+                () -> assertEquals(List.of(), AuditSinkDoubles.eventNames(auditEvents), "no audit record must be handed over"),
                 PendingEntryRecordsSweepTest::assertNothingSweptLogged);
     }
 
@@ -288,12 +293,12 @@ class PendingEntryRecordsSweepTest {
         var named = entryId();
         var stated = entryId();
         var mismatching = Files.write(store.store(named), PendingEntryCodec.write(entry(stated, old)));
-        var before = auditSink.events().size();
+        var before = auditEvents.getValues().size();
 
         var outcome = sweep.run(projectId, olderThan);
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a mismatching record fails the step").reason();
-        var removals = auditSink.events().subList(before, auditSink.events().size());
+        var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         assertAll(
                 () -> assertTrue(reason.startsWith("removed 2 pending entry records; kept unreadable records"),
                         "the report must count the two removed records"),

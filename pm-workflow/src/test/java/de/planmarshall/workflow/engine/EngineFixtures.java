@@ -9,6 +9,13 @@
  */
 package de.planmarshall.workflow.engine;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.time.Duration;
@@ -21,18 +28,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+
+import org.easymock.Capture;
+import org.easymock.CaptureType;
+
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.JobStarter;
+import de.planmarshall.core.spi.JobStarter.StartRequest;
+import de.planmarshall.core.spi.JobStarter.StartResult;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.PendingEntryReader;
+import de.planmarshall.core.spi.PendingEntryReader.EntryRead;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.QuestionRecordReader;
+import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
+import de.planmarshall.core.spi.QuestionRecordReader.ReadRequest;
 import de.planmarshall.core.spi.QueueTaskCreator;
+import de.planmarshall.core.spi.QueueTaskCreator.CreateRequest;
+import de.planmarshall.core.spi.QueueTaskCreator.Created;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.EntryId;
@@ -262,19 +280,90 @@ final class EngineFixtures {
     /** The clock of the engine. */
     final ManualClock clock = new ManualClock(T0);
 
+    /** The job requests the job port is handed, in order. */
+    final Capture<StartRequest> jobRequests = newCapture(CaptureType.ALL);
+
+    /** The queue task requests the task port is handed, in order. */
+    final Capture<CreateRequest> taskRequests = newCapture(CaptureType.ALL);
+
+    /** The entry reads the address resolver makes, in order. */
+    final Capture<PendingEntryReader.ReadRequest> entryRequests = newCapture(CaptureType.ALL);
+
+    /** Whether the next starts are refused. */
+    boolean refusing;
+
+    /** The answer of every later question read. */
+    private QuestionRead answer = new QuestionRead.Open();
+
+    /** The answer of every later read of an entry; every other entry is deleted. */
+    private final Map<EntryId, EntryRead> answers = new HashMap<>();
+
     /** The job port of the engine. */
-    final RecordingJobStarter jobStarter = new RecordingJobStarter();
+    final JobStarter jobStarter = jobStarter();
 
     /** The queue task port of the engine. */
-    final RecordingQueueTaskCreator taskCreator = new RecordingQueueTaskCreator();
+    final QueueTaskCreator taskCreator = taskCreator();
 
     /** The question port of the engine. */
-    final FixedQuestionRecordReader questionReader = new FixedQuestionRecordReader();
+    final QuestionRecordReader questionReader = questionReader();
 
     /** The pending entry port of the address resolver. */
-    final FixedPendingEntryReader entryReader = new FixedPendingEntryReader();
+    final PendingEntryReader entryReader = entryReader();
 
-    /** @return the ports of the engine: the recording doubles and the manual clock of this fixture */
+    private JobStarter jobStarter() {
+        JobStarter starter = createMock(JobStarter.class);
+        expect(starter.start(capture(jobRequests))).andAnswer(() -> refusing
+                ? new StartResult.Refused("no build slot")
+                : new StartResult.Started("b-%016x".formatted(jobRequests.getValues().size()))).anyTimes();
+        replay(starter);
+        return starter;
+    }
+
+    private QueueTaskCreator taskCreator() {
+        QueueTaskCreator creator = createMock(QueueTaskCreator.class);
+        expect(creator.create(capture(taskRequests)))
+                .andAnswer(() -> new Created("qt-%016x".formatted(taskRequests.getValues().size()))).anyTimes();
+        replay(creator);
+        return creator;
+    }
+
+    private QuestionRecordReader questionReader() {
+        QuestionRecordReader reader = createMock(QuestionRecordReader.class);
+        expect(reader.read(anyObject(ReadRequest.class))).andAnswer(() -> answer).anyTimes();
+        replay(reader);
+        return reader;
+    }
+
+    private PendingEntryReader entryReader() {
+        PendingEntryReader reader = createMock(PendingEntryReader.class);
+        expect(reader.read(capture(entryRequests))).andAnswer(() -> answers.getOrDefault(
+                ((PendingEntryReader.ReadRequest) getCurrentArguments()[0]).entryId(),
+                new EntryRead.Deleted())).anyTimes();
+        replay(reader);
+        return reader;
+    }
+
+    /**
+     * @param read the read every later question read answers
+     */
+    void answerQuestion(QuestionRead read) {
+        answer = read;
+    }
+
+    /**
+     * @param entryId the entry, in the form of {@link EntryId}
+     * @param read    the read of every later request for it
+     */
+    void answerEntry(String entryId, EntryRead read) {
+        answers.put(new EntryId(entryId), read);
+    }
+
+    /** @return the typed {@code entry_id} of every read, in order */
+    List<EntryId> entryReads() {
+        return entryRequests.getValues().stream().map(PendingEntryReader.ReadRequest::entryId).toList();
+    }
+
+    /** @return the ports of the engine: the EasyMock doubles and the manual clock of this fixture */
     WorkflowEngine.Ports ports() {
         return new WorkflowEngine.Ports(jobStarter, taskCreator, questionReader, clock);
     }
@@ -779,73 +868,4 @@ final class EngineFixtures {
         }
     }
 
-    /** A job starter that starts a numbered build job for every request, or refuses it, and records the requests. */
-    static final class RecordingJobStarter implements JobStarter {
-
-        final List<StartRequest> requests = new ArrayList<>();
-
-        /** Whether the next starts are refused. */
-        boolean refusing;
-
-        @Override
-        public StartResult start(StartRequest request) {
-            requests.add(request);
-            return refusing ? new StartResult.Refused("no build slot")
-                    : new StartResult.Started("b-%016x".formatted(requests.size()));
-        }
-    }
-
-    /** A task creator that creates a numbered task for every request and records the requests. */
-    static final class RecordingQueueTaskCreator implements QueueTaskCreator {
-
-        final List<CreateRequest> requests = new ArrayList<>();
-
-        @Override
-        public Created create(CreateRequest request) {
-            requests.add(request);
-            return new Created("qt-%016x".formatted(requests.size()));
-        }
-    }
-
-    /** A question reader that answers every read with the read a test set. */
-    static final class FixedQuestionRecordReader implements QuestionRecordReader {
-
-        QuestionRead answer = new QuestionRead.Open();
-
-        @Override
-        public QuestionRead read(ReadRequest request) {
-            return answer;
-        }
-    }
-
-    /**
-     * A pending entry reader that answers each {@code entry_id} with the read a test set for it, and every other one
-     * {@link PendingEntryReader.EntryRead.Deleted}, as a store without that record does; it records every read.
-     */
-    static final class FixedPendingEntryReader implements PendingEntryReader {
-
-        private final Map<EntryId, EntryRead> answers = new HashMap<>();
-        private final List<EntryId> reads = new ArrayList<>();
-
-        /**
-         * @param entryId the entry, in the form of {@link EntryId}
-         * @param read    the read of every later request for it
-         * @return this reader
-         */
-        FixedPendingEntryReader answer(String entryId, EntryRead read) {
-            answers.put(new EntryId(entryId), read);
-            return this;
-        }
-
-        /** @return the typed {@code entry_id} of every read, in order */
-        List<EntryId> reads() {
-            return reads;
-        }
-
-        @Override
-        public EntryRead read(ReadRequest request) {
-            reads.add(request.entryId());
-            return answers.getOrDefault(request.entryId(), new EntryRead.Deleted());
-        }
-    }
 }

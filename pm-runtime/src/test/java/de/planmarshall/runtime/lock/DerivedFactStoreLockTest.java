@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.lock;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -28,6 +29,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.DerivedFact;
 import de.planmarshall.core.store.DerivedFactDerivation.Derivation;
@@ -47,6 +51,7 @@ import de.planmarshall.core.store.DerivedFactKinds;
 import de.planmarshall.core.store.DerivedFactReading;
 import de.planmarshall.core.store.DerivedFactStore;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -76,7 +81,8 @@ class DerivedFactStoreLockTest {
     Path base;
 
     private FileLockManager manager;
-    private RecordingAuditSink auditSink;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink auditSink;
     private DerivedFactStore store;
     private Instant now;
     private String project;
@@ -93,7 +99,8 @@ class DerivedFactStoreLockTest {
         digest = RuntimeGenerators.sha256Digests().next();
         first = Generators.letterStrings(1, 12).next();
         second = first + "-" + Generators.letterStrings(1, 12).next();
-        auditSink = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        auditSink = AuditSinkDoubles.capturing(auditEvents);
         manager = new FileLockManager(auditSink);
         var directory = base.resolve("projects").resolve(project);
         Files.createDirectories(directory);
@@ -190,7 +197,7 @@ class DerivedFactStoreLockTest {
 
         var stored = store.fact(FIRST).orElseThrow();
         var expectedDerivedAt = payload(second).equals(stored.value()) ? now.plusSeconds(1) : now;
-        var violations = auditSink.events().stream()
+        var violations = auditEvents.getValues().stream()
                 .filter(event -> AuditEvent.LOCK_ORDER_VIOLATION.equals(event.event()))
                 .toList();
         assertAll(

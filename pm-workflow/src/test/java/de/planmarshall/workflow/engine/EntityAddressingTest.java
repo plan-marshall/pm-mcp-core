@@ -136,7 +136,7 @@ class EntityAddressingTest {
         @Test
         @DisplayName("A pending plan bootstrap by its entry_id")
         void bootstrapPlan() {
-            fixtures.entryReader.answer(PLAN_ENTRY, new EntryRead.Live("plan"));
+            fixtures.answerEntry(PLAN_ENTRY, new EntryRead.Live("plan"));
             var address = EntityAddress.workspace(PLAN_ENTRY);
 
             var resolution = resolver.resolve(address, reviewing(), workspace);
@@ -144,13 +144,14 @@ class EntityAddressingTest {
             assertAll(
                     () -> assertEquals(new Resolved(address, AddressResolution.BOOTSTRAP_PLAN, null), resolution,
                             "a bootstrap resolves without a queue task"),
-                    () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReader.reads()));
+                    () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReads(),
+                            "the resolver reads the plan entry once"));
         }
 
         @Test
         @DisplayName("A pending epic bootstrap by its entry_id")
         void bootstrapEpic() {
-            fixtures.entryReader.answer(EPIC_ENTRY, new EntryRead.Live("epic"));
+            fixtures.answerEntry(EPIC_ENTRY, new EntryRead.Live("epic"));
             var address = EntityAddress.workspace(EPIC_ENTRY);
 
             var resolution = resolver.resolve(address, enriching(CORE_ENRICHMENT), workspace);
@@ -169,7 +170,7 @@ class EntityAddressingTest {
             assertAll(
                     () -> assertEquals(new Resolved(address, ENRICH_KIND, "qt-0000000000000002"), resolution,
                             "the enrichment resolves to its queue task"),
-                    () -> assertTrue(fixtures.entryReader.reads().isEmpty()));
+                    () -> assertTrue(fixtures.entryReads().isEmpty(), "no entry record is read here"));
         }
 
         @Test
@@ -219,14 +220,15 @@ class EntityAddressingTest {
         @ValueSource(strings = {PLAN_ENTRY, EPIC_ENTRY})
         @DisplayName("An entry_id of 8 and of 32 hex digits is resolved, read as the typed EntryId")
         void acceptedEntry(String entryId) {
-            fixtures.entryReader.answer(entryId, new EntryRead.Live("plan"));
+            fixtures.answerEntry(entryId, new EntryRead.Live("plan"));
 
             var resolution = inWorkspace(entryId, reviewing());
 
             assertAll(
                     () -> assertEquals(AddressResolution.BOOTSTRAP_PLAN,
                             assertInstanceOf(Resolved.class, resolution).entityKind()),
-                    () -> assertEquals(List.of(new EntryId(entryId)), fixtures.entryReader.reads()));
+                    () -> assertEquals(List.of(new EntryId(entryId)), fixtures.entryReads(),
+                            "the resolver reads the named entry once"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -237,7 +239,7 @@ class EntityAddressingTest {
 
             assertAll(bound,
                     () -> refused(Reason.INVALID_ARGUMENTS, resolution),
-                    () -> assertTrue(fixtures.entryReader.reads().isEmpty()));
+                    () -> assertTrue(fixtures.entryReads().isEmpty(), "no entry record is read here"));
         }
     }
 
@@ -258,7 +260,7 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> refused(Reason.SCOPE_NOT_FOUND, resolution),
-                    () -> assertTrue(fixtures.entryReader.reads().isEmpty()));
+                    () -> assertTrue(fixtures.entryReads().isEmpty(), "no entry record is read here"));
         }
 
         @ParameterizedTest
@@ -271,7 +273,7 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> refused(Reason.SCOPE_NOT_FOUND, resolution),
-                    () -> assertTrue(fixtures.entryReader.reads().isEmpty()));
+                    () -> assertTrue(fixtures.entryReads().isEmpty(), "no entry record is read here"));
         }
 
         @Test
@@ -308,14 +310,15 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> refused(Reason.SCOPE_NOT_FOUND, resolution),
-                    () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReader.reads()));
+                    () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReads(),
+                            "the resolver reads the plan entry once"));
         }
 
         @Test
         @DisplayName("An unreadable entry is refused entry_unreadable and never resolved")
         void unreadable() {
             var reason = "reader-" + Generators.letterStrings(8, 20).next();
-            fixtures.entryReader.answer(PLAN_ENTRY, new EntryRead.Unreadable(reason));
+            fixtures.answerEntry(PLAN_ENTRY, new EntryRead.Unreadable(reason));
 
             var resolution = inWorkspace(PLAN_ENTRY, reviewing());
 
@@ -325,7 +328,7 @@ class EntityAddressingTest {
         @Test
         @DisplayName("An entry of a kind that is neither plan nor epic is refused entry_unreadable")
         void unknownKind() {
-            fixtures.entryReader.answer(PLAN_ENTRY, new EntryRead.Live("lesson"));
+            fixtures.answerEntry(PLAN_ENTRY, new EntryRead.Live("lesson"));
 
             var resolution = inWorkspace(PLAN_ENTRY, reviewing());
 

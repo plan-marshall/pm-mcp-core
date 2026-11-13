@@ -9,6 +9,10 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.easymock.EasyMock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +51,7 @@ import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobLog;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -163,9 +169,11 @@ class OffTrackScenarioTest {
         var directory = Files.createTempDirectory(base, "scenario");
         var journal = ActivityJournal.ofScope(directory, project,
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
-                new FileLockManager(_ -> {
-                }));
-        var protocol = new RecordingProtocol();
+                new FileLockManager(AuditSinkDoubles.capturing()));
+        var reports = new ArrayList<Reported>();
+        var fences = new ArrayList<String>();
+        var closed = new ArrayList<String>();
+        var protocol = protocol(reports, fences, closed);
         WorkerTaskActivity tasks = _ -> Optional.of(
                 new WorkerTaskActivity.TaskActivity(1, role, Set.of(), predictedCost, unplannedChange));
         var recorder = new ActivityRecorder(journal, tasks, protocol, new OffTrackDetector(), InstantSource.fixed(AT));
@@ -178,11 +186,11 @@ class OffTrackScenarioTest {
             for (var index = 0; index < stream.size(); index++) {
                 append(log, awaitLine(harness));
                 pump.pump(task, generation, new JobLog(log));
-                counts.add(protocol.reports.size());
+                counts.add(reports.size());
             }
         }
-        var ended = !protocol.fences.isEmpty() || !protocol.closedUnavailable.isEmpty();
-        return new Observed(List.copyOf(counts), List.copyOf(protocol.reports), ended);
+        var ended = !fences.isEmpty() || !closed.isEmpty();
+        return new Observed(List.copyOf(counts), List.copyOf(reports), ended);
     }
 
     private static String awaitLine(FixtureHarness.Handle harness) {
@@ -342,33 +350,25 @@ class OffTrackScenarioTest {
                 () -> assertEquals(1, observed.reportsAfterEachLine().getLast()));
     }
 
-    /** The task protocol boundary, which records what the runtime reports and every call that ends or closes a task. */
-    private static final class RecordingProtocol implements WorkerProtocol {
-
-        private final List<Reported> reports = new ArrayList<>();
-
-        private final List<String> fences = new ArrayList<>();
-
-        private final List<String> closedUnavailable = new ArrayList<>();
-
-        @Override
-        public void fence(String generationId) {
-            fences.add(generationId);
-        }
-
-        @Override
-        public void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
-            throw new UnsupportedOperationException("an activity signal never reports an agent start");
-        }
-
-        @Override
-        public void offTrack(OffTrackReport report) {
+    private static WorkerProtocol protocol(List<Reported> reports, List<String> fences, List<String> closed) {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        mock.fence(anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            fences.add((String) getCurrentArguments()[0]);
+            return null;
+        }).anyTimes();
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().andAnswer(() -> {
+            var report = (WorkerProtocol.OffTrackReport) getCurrentArguments()[0];
             reports.add(new Reported(report.signal(), report.action(), report.measurement(), report.threshold()));
-        }
-
-        @Override
-        public void closeUnavailable(String role, String harness) {
-            closedUnavailable.add(role + "/" + harness);
-        }
+            return null;
+        }).anyTimes();
+        mock.closeUnavailable(anyObject(String.class), anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            closed.add(getCurrentArguments()[0] + "/" + getCurrentArguments()[1]);
+            return null;
+        }).anyTimes();
+        EasyMock.replay(mock);
+        return mock;
     }
 }
