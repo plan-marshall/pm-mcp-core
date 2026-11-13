@@ -51,7 +51,8 @@ class LspClientTest {
     /**
      * The bound of the tests that wait it out: a request that never answers, a server that ignores {@code exit} and a
      * server that dies before {@code initialize}. It also bounds {@code initialize}, which the fixture JVM answers in
-     * 0.3 s to 0.5 s, so it stays four times above that start for a loaded host.
+     * 0.3 s to 0.5 s on an idle host and in up to about 1.3 s under load, so it stays above both; a lower bound would
+     * fail the start, not the assertion.
      */
     private static final Duration WAITED_BOUND = Duration.ofSeconds(2);
 

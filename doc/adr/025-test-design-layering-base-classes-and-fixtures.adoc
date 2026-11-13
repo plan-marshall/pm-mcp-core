@@ -7,8 +7,8 @@ Accepted
 
 == Date
 
-2026-11-12 (the findings recorded before the rework, the decision taken on them the same day); the decision takes
-effect with the merge of the pull request that carries it.
+2026-11-13, the day of the merge; the findings before the rework and the decision taken on them were written on
+2026-11-12. The decision takes effect with the merge of the pull request that carries it.
 
 == Context
 
@@ -263,8 +263,9 @@ the unit tests. The integration lane keeps the nested build and the killed runti
 
 |S2
 |*One check for the generated builders, and no tests of the language.* The builder-equals-constructor check is carried
-once per module, over every record that has a builder, instead of once per record by hand; the absence tests of record
-accessors are removed, each with its retention row.
+once per module, over every record that has a builder, instead of once per record by hand. A test of what the language
+guarantees (an accessor returning its component) is removed with its retention row; the absence tests of F2 are not of
+that kind, because they pin the nullable-component contract of ADR 021, and stay.
 |<<f1>>, <<f2>>
 
 |S3

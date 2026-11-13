@@ -7,7 +7,7 @@ Accepted
 
 == Date
 
-2026-11-12
+2026-11-13
 
 == Context
 
@@ -202,7 +202,9 @@ loading, the extensions and the class-level setup the reports do not attribute t
 [#ranked-costs]
 === The Ranked Cost
 
-Every build phase and test class above the cut-off of 5 s, ranked by its duration. The phase figures are those of the
+Every build phase and test class above the cut-off of 5 s, ranked by its duration, with one exception: the row numbers are
+cited by the decisions and by the test-level section, so row 8 (13.5 s, the root module) keeps its place before rows 9
+and 10 (17.4 s and 15.3 s). The phase figures are those of the
 reference run 3 and the two-part split above; the class figures come from the coverage lane and carry the JaCoCo agent,
 so a class close to the cut-off (`JudgmentVerificationTest` 5.03 s above it, `GitHubCiProviderTest` 4.98 s below it)
 is ranked on an upper bound. The decision names where the item is dealt with: *fix in 3* (a build-level change in the
@@ -228,7 +230,7 @@ Two configuration facts carry the largest items:
 |Modules after `pm-core` run one after the other
 |all
 |393
-|Reactor serialisation: `-T1` runs `pm-workflow` (99 s), the provider modules (89 s) and `pm-runtime` (213 s) in
+|Reactor serialisation: `-T1` runs `pm-workflow` (99 s), the provider modules (81 s) and `pm-runtime` (213 s) in
 sequence, although none of them depends on another except the providers on `pm-provider-http` and `pm-provider-ci`. A
 parallel reactor would bring the path after `pm-core` down to its longest module, `pm-runtime`, about 180 s less.
 |considered in 3, not applied: after change A the gate meets the target with a wide margin, and the remaining gain does
@@ -282,7 +284,7 @@ operator if they are to change); `pm-core` is first in the reactor, so a paralle
 |`pm-workflow`
 |17.6
 |As row 5.
-|keep, because of row 5; overlapped by row 1.
+|keep, because of row 5; a parallel reactor (row 1, not applied) would overlap it.
 
 |8
 |The root module
@@ -304,7 +306,7 @@ would take a plugin override of the parent's profile in this repository; it is a
 which `SubprocessJobRunner` reads through `ProbeBudget.of` with no clock or budget seam; the `detach` mode of the probe
 script sleeps 1.5 s; a launcher process per test.
 |keep the 15 s, because it is the specified budget and the runner takes no clock; a seam would be a production change
-for a test (a lead for the operator). Overlapped by parallel forks (row 3). finding for 5: tests that wait out a
+for a test (a lead for the operator). Parallel forks (row 3) were considered and not applied, so it is not overlapped. finding for 5: tests that wait out a
 specified budget in real time.
 
 |10
@@ -313,8 +315,9 @@ specified budget in real time.
 |15.3
 |Process spawn and sleep/timeout: a fixture language server process per test (6 tests); `timeout` waits out a 5 s request
 bound and `stubborn` a 2 s shutdown bound.
-|fix in 4: the bound is a parameter of `LspClient.start`, so the two tests can pass a bound well below a second and assert
-the same refusal and termination.
+|fix in 4: the bound is a parameter of `LspClient.start`, so the two tests can pass a shorter bound and assert the same
+refusal and termination; the bound is 2 s, not lower, because `LspClient.start` bounds `initialize` with the same value
+(the test-level section).
 
 |11
 |Test phase of `pm-provider-gitlab` with `GitLabCiProviderTest`
@@ -330,14 +333,14 @@ the same refusal and termination.
 |`pm-provider-git`
 |10.1
 |Real file I/O: JGit repositories built per test below a temporary directory; no class above 1.7 s.
-|keep, because no class reaches the cut-off and the repositories are the behaviour under test; overlapped by row 1.
+|keep, because no class reaches the cut-off and the repositories are the behaviour under test; a parallel reactor (row 1, not applied) would overlap it.
 
 |13
 |Test phase of `pm-provider-github`
 |`pm-provider-github`
 |10.0
 |Fixture setup: a mock web server per test; `GitHubCiProviderTest` 4.98 s stays below the cut-off.
-|keep, because no class reaches the cut-off; overlapped by row 1.
+|keep, because no class reaches the cut-off; a parallel reactor (row 1, not applied) would overlap it.
 
 |14
 |`OutboundCallsArchTest`
@@ -353,14 +356,14 @@ rule's evidence (the non-vacuous import and the two-way exemption checks); keep 
 |`pm-provider-git`, `-ci`, `-github`, `-http`, `-gitlab`, `-sonar`
 |6.9, 6.2, 6.3, 6.0, 5.9, 5.1
 |The fixed cost per module of the same plugin executions as row 5 on a small module.
-|keep, because of row 5; overlapped by row 1.
+|keep, because of row 5; a parallel reactor (row 1, not applied) would overlap it.
 
 |16
 |`SubprocessJobRunnerTest`
 |`pm-runtime`
 |5.7
 |Process spawn: a real launcher process per test (101 tests, about 56 ms each).
-|keep, because the process is the behaviour under test and the cost per test is small; overlapped by row 3.
+|keep, because the process is the behaviour under test and the cost per test is small; parallel forks (row 3) would overlap it and were not applied.
 
 |17
 |`TerminationProtocolTest`
@@ -604,7 +607,8 @@ the refusal is a `TIMEOUT`, the dying server a `START_FAILED`, the stubborn serv
 `LSP_SHUTDOWN_FAILED` warning.
 |6 s less waited time (two bounds of 5 s now 2 s), all 6 tests green. The run after the change took 14.1 s at a load
 average of 38 on 16 CPUs, where the tests that wait for nothing took 1.0 s to 1.3 s each; its wall time is not a
-reference, the final measurement takes it idle.
+reference. The final measurement lists module times only; the idle time of the class is 8.4 s in the surefire report of
+the module run on the final configuration, against 13.9 s before.
 
 |11
 |`GitLabCiProviderTest`
@@ -724,8 +728,11 @@ Findings outside this repository's own configuration are not changed by this pla
 [#final-measurement]
 === The Final Measurement
 
-The final tree of the plan (the branch on `main` at `00feac45` with every change of this plan; only the documentation
-of the last step was still uncommitted, no source among it) was measured exactly as the baseline: the full reactor,
+The final tree of the plan as measured (the branch on `main` at `00feac45` with every change of this plan; only the
+documentation of the last step was still uncommitted, no source among it) was measured exactly as the baseline. The
+branch was synchronised afterwards onto `d503d8e3` (the envelope packer of #402 in `pm-workflow`), so the tree that ships
+adds that change; the plan's own changes (one POM setting and the test changes of `pm-runtime`) do not touch it, and the
+pre-push gate and the pull request's checks run on the shipped tree. The measurement was made: the full reactor,
 routed through the build daemon, the load average (1, 5 and 15 minutes) read before and after each run, the host
 checked for a competing Maven process at the start. No Maven process ran at the start of any run, and the one-minute
 load was below 5 at every start.
