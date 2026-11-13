@@ -82,7 +82,7 @@ class OperatorWaitTest {
                 () -> assertTrue(status.activeJobBinding().isEmpty(), "no job is bound"),
                 () -> assertTrue(status.activeJobs().isEmpty(), "no job runs"),
                 () -> assertTrue(status.activeTasks().isEmpty(), "no task is open"),
-                () -> assertTrue(fixtures.taskRequests.getValues().isEmpty(), "no task is offered"),
+                () -> assertTrue(fixtures.taskRequests.getValues().isEmpty(), "the operator wait offers no task"),
                 () -> assertEquals(JournalScopeType.PLAN, status.scopeType()));
 
         var time = new EngineEvent.TimeElapsed(EngineFixtures.T0.plus(Duration.ofDays(30)));

@@ -21,8 +21,11 @@ the replacement to "a plan that takes the classes up for a reason of their own";
 shared fixture or double and EasyMock for the rest. The operator's decision of 2026-10-30 ("replace the fakes") stands.
 
 PLAN-V2-136 is that plan. It closes the keep vocabulary, converts every other class the scan finds and every
-fixture-resident double the scan missed, and makes its Done-when a scan whose result is the closed list and nothing
-else, so the condition cannot be met without converting.
+fixture-resident double the scan missed that is not kept below, and makes its Done-when a scan whose result is the
+closed list and nothing else. The scan matches names, so it cannot prove a conversion by itself: a class renamed out of
+the pattern would leave the scan even if its hand-written body stayed. That limitation is the reason the decision is a
+list rather than a name pattern: each converted declaration is named in the table below, and a reviewer checks the
+declaration, not the scan's silence.
 
 == Decision
 
@@ -86,8 +89,8 @@ data and are excluded from the scan (above).
 
 === The converted population
 
-Every other class the scan finds, and every fixture-resident double it misses, is an EasyMock double. In
-PLAN-V2-136 that is: `pm-core` `core.store.RecordingAuditSink` and `AuditLogTest.RecordingAnchor` and
+Every other class the scan finds, and every fixture-resident double it misses that is not F1 to F3, is an EasyMock
+double. In PLAN-V2-136 that is: `pm-core` `core.store.RecordingAuditSink` and `AuditLogTest.RecordingAnchor` and
 `FailingPredecessorAnchor`; `pm-workflow` the four port doubles of `EngineFixtures`, the three of
 `ScenarioFixtures`, `ModelFixtures.Qualifications` and `Guard`, and `TaskFixtures.Paused`; `pm-runtime`
 `lock.RecordingAuditSink`, `RecoveryStepFixtures.RecordingAuditSink`, `SupervisorTestFixture.FakeStarter`,
@@ -104,8 +107,11 @@ the hypothesis is confirmed and the class is converted; there is no K10.
 The doubles that are published to the assembly keep their public signatures: `FakeBus`, `FakeSecretService` and
 `FakePmExec` are K1 to K3 and stay, and `TestBases` is untouched. Every converted class is package-private
 (`SupervisorTestFixture`, `RecordingProcessCall`, `lock.RecordingAuditSink` and `RecoveryStepFixtures` are `final class`
-without `public`), so no consumer of the `pm-runtime:tests` jar can name one. **Owed outside this repository: none.**
-The assembly checkout `plan-marshall-mcp` was not searched; the claim is about the declarations, not about a search.
+without `public`), so a consumer can name one only from the same package: the `pm-runtime:tests` test jar has no
+`includes` and packages them, and a same-package test of a consumer could reference them. **Owed outside this
+repository: none on the declarations.** The assembly checkout `plan-marshall-mcp` was not searched, so the consumer
+check (a same-package reference to one of the four) is an open item, not a result; the claim here is about the
+declarations, and a breaking change of one would need that check first.
 
 == Alternatives Considered
 
