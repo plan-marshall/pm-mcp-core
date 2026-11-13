@@ -632,4 +632,74 @@ class BuildOutputParserTest {
             assertEquals(ParseResult.NOTHING, parse, "a marker behind the cut selects no parser");
         }
     }
+
+    /**
+     * Every repetition of the ESLint and Jest markers is horizontal space, so a marker never takes the next line's first
+     * word: a token that ends its line is no marker. The single-line Jest and ESLint logs of the cases above still select
+     * their scanners.
+     * <p>
+     * Contract literals that stay: the npm, ESLint and Jest lines, the golden output formats of those tools, cut at a
+     * line end where the case says so.
+     */
+    @Nested
+    @DisplayName("the markers that stay on one line")
+    class MarkersOnOneLine {
+
+        /** An npm E404 block: a scanner selected by a marker that crossed a line end would not file it. */
+        private static final String NPM_E404 = """
+                npm error code E404
+                npm error 404 'missing' is not in this registry
+                """;
+
+        @Test
+        @DisplayName("a PASS line before an npm error block selects the npm error parser, not Jest")
+        void passBeforeNpmErrorSelectsNpm() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "PASS\n" + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the E404 block is filed by the npm parser"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+
+        @Test
+        @DisplayName("an ESLint position that ends its line selects no ESLint scan")
+        void eslintPositionAtTheLineEnd() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    /web/src/a.js
+                      1:10
+                    error  Unexpected var  no-var
+                    """ + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm parser, not ESLint, files the E404"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+
+        @Test
+        @DisplayName("an ESLint summary mark that ends its line selects no ESLint scan")
+        void eslintSummaryMarkAtTheLineEnd() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    /web/src/a.js
+                    ✖
+                    1 problem (1 error, 0 warnings)
+                    """ + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm parser, not ESLint, files the E404"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+
+        @Test
+        @DisplayName("a Tests: label that ends its line selects no Jest scan")
+        void jestTestsLabelAtTheLineEnd() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    Tests:
+                    5 passed, 5 total
+                    """ + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm parser, not Jest, files the E404"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+    }
 }

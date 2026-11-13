@@ -137,8 +137,12 @@ compared with the top-level test points, which the TAP grammar defines it to cou
 * (a) `GradleOutputParser`, `NpmErrorParser`, `TypeScriptOutputParser`, `EslintOutputParser`, `JestOutputParser` and
   `TapOutputParser` apply `BuildLogText.boundLines` to the stripped text at the entry both `parse` overloads share, as
   the three parsers of ADR `core-build/007` do; the follow-up that ADR named is done. The runtime's dispatcher
-  `BuildOutputParser` cuts the stripped text the same way before its dispatch patterns, and `ESLINT_ROW`, `JEST_MARKER`
-  and `NpmErrorParser.INSTALL_SUMMARY` start on `^[ \t]*` instead of `^\s*`, so no repetition crosses a line end.
+  `BuildOutputParser` cuts the stripped text the same way before its dispatch patterns. `ESLINT_ROW`, `JEST_MARKER`
+  and `NpmErrorParser.INSTALL_SUMMARY` start on `^[ \t]*` instead of `^\s*`, and every whitespace repetition between the
+  parts of `ESLINT_ROW`, `ESLINT_SUMMARY` and `JEST_MARKER` is `[ \t]` as well (after the ESLint position, around the
+  summary's count, after `PASS`, `FAIL` and `Tests:`), so no repetition of these four patterns crosses a line end and a
+  marker never takes the next line's first word. `TYPESCRIPT_MARKER`, `TAP_MARKER` and `NPM_MARKER` carry no
+  whitespace repetition.
 * (b) `UnparsedEvidence.of` runs its steps in the order strip, reduce, window, line bound, redact, byte cap. Its line
   bound keeps the *end* of each line (the last `MAX_LINE_LENGTH` characters), not its head as `boundLines` does, because
   the excerpt is the log's tail and its existing contract keeps the end of a long last line. The accepted residue of the

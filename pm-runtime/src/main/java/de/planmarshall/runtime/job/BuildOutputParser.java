@@ -60,26 +60,42 @@ import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
  * {@code npm ci} under a non-install verb therefore stays {@code indeterminate}.
  * <p>
  * The stripped text is cut to {@link BuildLogText#MAX_LINE_LENGTH} characters a line by
- * {@link BuildLogText#boundLines(String)} before any dispatch pattern sees it, and the multi-line dispatch patterns
- * anchor on horizontal space ({@code ^[ \t]*}) rather than {@code ^\s*}, so no repetition of theirs crosses a line end.
+ * {@link BuildLogText#boundLines(String)} before any dispatch pattern sees it. Every whitespace repetition of the
+ * ESLint and Jest markers — the leading run ({@code ^[ \t]*} rather than {@code ^\s*}) and the runs between their
+ * parts — is horizontal space only, so none of them crosses a line end and a marker never takes the next line's first
+ * word. The TypeScript, TAP and npm markers carry no whitespace repetition; the TAP and npm markers anchor with
+ * {@code ^}.
  *
  * @since 0.1
  */
 public final class BuildOutputParser implements SubprocessJobRunner.OutputParser {
 
+    /** A tsc diagnostic code; it carries no whitespace repetition. */
     private static final Pattern TYPESCRIPT_MARKER = Pattern.compile("\\berror TS\\d+\\b");
 
-    /** An ESLint row; its leading run is horizontal space only, so no repetition crosses a line end. */
-    private static final Pattern ESLINT_ROW = Pattern.compile("(?m)^[ \\t]*\\d+:\\d+\\s+(?:error|warning)\\b");
+    /**
+     * An ESLint row: the position, then the severity. Its leading run and the run between the position and the severity
+     * are horizontal space only, so a position that ends its line is no row.
+     */
+    private static final Pattern ESLINT_ROW = Pattern.compile("(?m)^[ \\t]*\\d+:\\d+[ \\t]+(?:error|warning)\\b");
 
-    private static final Pattern ESLINT_SUMMARY = Pattern.compile("[✖✗]\\s*\\d+\\s+problems?");
+    /**
+     * The ESLint problem summary: the runs around its count are horizontal space only, so a mark that ends its line is
+     * no summary.
+     */
+    private static final Pattern ESLINT_SUMMARY = Pattern.compile("[✖✗][ \\t]*\\d+[ \\t]+problems?");
 
-    /** A Jest suite header or summary; its leading runs are horizontal space only, so no repetition crosses a line end. */
+    /**
+     * A Jest suite header or summary: its leading runs and the run after {@code PASS}, {@code FAIL} or {@code Tests:}
+     * are horizontal space only, so a header or a label that ends its line is no marker.
+     */
     private static final Pattern JEST_MARKER =
-            Pattern.compile("(?m)^[ \\t]*(?:PASS|FAIL)\\s+\\S+|^[ \\t]*Tests:\\s+");
+            Pattern.compile("(?m)^[ \\t]*(?:PASS|FAIL)[ \\t]+\\S+|^[ \\t]*Tests:[ \\t]+");
 
+    /** A TAP line; it anchors with {@code ^} and carries no whitespace repetition. */
     private static final Pattern TAP_MARKER = Pattern.compile("(?m)^(?:TAP version \\d+|1\\.\\.\\d+|(?:not )?ok \\d+)");
 
+    /** An npm error line; it anchors with {@code ^} and carries no repetition. */
     private static final Pattern NPM_MARKER = Pattern.compile("(?m)^(?:npm ERR!|npm error) ");
 
     private static final String INSTALL_VERB = "install";
