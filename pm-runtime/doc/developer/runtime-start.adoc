@@ -564,8 +564,8 @@ The test logs the medians beside the asserted quartiles.
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
-The tests run on the JVM over a test base with the file lock manager of the runtime and the recording audit sink of
-`RecoveryStepFixtures`; no test double replaces a store.
+The tests run on the JVM over a test base with the file lock manager of the runtime and the EasyMock audit sink of
+`AuditSinkDoubles` in `de.planmarshall.runtime.test`; no test double replaces a store.
 
 [horizontal]
 link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: An old record removed with its audit

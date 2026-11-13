@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.COPY_RULE;
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.PROJECT_A;
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.STORE;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,18 +30,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.CrossScopeReconciler;
 import de.planmarshall.core.store.CrossScopeReconciler.Reconciliation;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.CopyReconciler;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The cross-scope reconciliation step of the per-project recovery with test reconcilers over plan scopes in a test
@@ -59,7 +64,8 @@ class CrossScopeReconciliationStepTest {
     @TempDir
     Path base;
 
-    private final RecordingAuditSink auditSink = new RecordingAuditSink();
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private final AuditSink auditSink = AuditSinkDoubles.capturing(auditEvents);
     private final List<String> calls = new CopyOnWriteArrayList<>();
     private final byte[] content = ("{\"state\":\"" + name() + "\"}").getBytes(StandardCharsets.UTF_8);
 
@@ -129,7 +135,7 @@ class CrossScopeReconciliationStepTest {
         assertAll(
                 () -> assertEquals(new Outcome.Done("1 reconciliations applied: " + COPY_RULE + " in "
                         + derived.resolve(STORE)), outcome, "the outcome must name the reconciliation"),
-                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(),
+                () -> assertEquals(List.of(RECONCILED), AuditSinkDoubles.eventNames(auditEvents),
                         "one reconciled record must reach the sink"));
     }
 
@@ -148,7 +154,7 @@ class CrossScopeReconciliationStepTest {
         assertAll(
                 () -> assertEquals(new Outcome.Done(NOTHING_APPLIED), again,
                         "a second run must apply nothing"),
-                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(),
+                () -> assertEquals(List.of(RECONCILED), AuditSinkDoubles.eventNames(auditEvents),
                         "a second run must add no audit record"),
                 () -> assertEquals(new Outcome.Done(NOTHING_APPLIED), step().run(PROJECT_A),
                         "a run without reconcilers applies nothing"));

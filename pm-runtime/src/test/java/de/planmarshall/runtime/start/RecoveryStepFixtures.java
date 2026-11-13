@@ -23,10 +23,8 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.OptionalLong;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
@@ -71,27 +69,6 @@ final class RecoveryStepFixtures {
     static final String COPY_RULE = "copy-" + Generators.letterStrings(3, 12).next();
 
     private RecoveryStepFixtures() {
-    }
-
-    /** The audit sink of the tests: it keeps the records it is handed, in their order. */
-    static final class RecordingAuditSink implements AuditSink {
-
-        private final List<AuditEvent> events = new CopyOnWriteArrayList<>();
-
-        @Override
-        public void append(AuditEvent event) {
-            events.add(event);
-        }
-
-        /** @return the names of the records handed over so far, in their order */
-        List<String> eventNames() {
-            return events.stream().map(AuditEvent::event).toList();
-        }
-
-        /** @return the records handed over so far, in their order */
-        List<AuditEvent> events() {
-            return List.copyOf(events);
-        }
     }
 
     /**

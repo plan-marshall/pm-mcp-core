@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.start;
 
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.PROJECT_A;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +29,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +39,8 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Status;
@@ -48,7 +53,7 @@ import de.planmarshall.runtime.start.ProjectRecovery.ProjectOutcome;
 import de.planmarshall.runtime.start.ProjectRecovery.StepResult;
 import de.planmarshall.runtime.start.RecoveryStep.Name;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 import de.planmarshall.runtime.test.TestBases;
 
 /**
@@ -75,7 +80,8 @@ class JobRecoveryKilledRuntimeIT {
 
     private final Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
-    private final RecordingAuditSink auditSink = new RecordingAuditSink();
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private final AuditSink auditSink = AuditSinkDoubles.capturing(auditEvents);
     private final ProcessGroupSignals signals = ProcessGroupSignals.system();
 
     private Path base;
@@ -153,7 +159,7 @@ class JobRecoveryKilledRuntimeIT {
                 () -> assertFalse(left.isSpawnRecorded(), "the killed runtime recorded no spawn"),
                 () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
                 () -> assertKilledByRestart(theJob(), JobRecoveryStep.RUNTIME_RESTART),
-                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), auditSink.eventNames(),
+                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), AuditSinkDoubles.eventNames(auditEvents),
                         "exactly one orphan note must be handed over"),
                 // Contract literal: the specified report of the step, its counts and the kind of evidence
                 () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith(
@@ -174,7 +180,7 @@ class JobRecoveryKilledRuntimeIT {
                 () -> assertFalse(left.isSpawnRecorded(), "the post-spawn replace was not written"),
                 () -> assertFalse(outcome.failed(), "the recovery of the project must not fail"),
                 () -> assertKilledByRestart(theJob(), JobRecoveryStep.RUNTIME_RESTART),
-                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), auditSink.eventNames(),
+                () -> assertEquals(List.of(JobRecoveryStep.JOB_RECOVERED), AuditSinkDoubles.eventNames(auditEvents),
                         "exactly one orphan note must be handed over"),
                 () -> assertFalse(signals.signalGroup(orphan, Signal.PROBE) instanceof NoSuchProcess,
                         "the unidentifiable orphan was not signalled and still lives"));
@@ -199,7 +205,7 @@ class JobRecoveryKilledRuntimeIT {
                 () -> assertEquals(KILLED_OUTCOME_ROW, settled.outcomeRow(), "the job must carry outcome row 4"),
                 () -> assertTrue(List.of(Signal.SIGTERM.name(), Signal.SIGKILL.name()).contains(settled.signal()),
                         "the job must carry SIGTERM or SIGKILL"),
-                () -> assertEquals(List.of(), auditSink.eventNames(), "no orphan note may be handed over"),
+                () -> assertEquals(List.of(), AuditSinkDoubles.eventNames(auditEvents), "no orphan note may be handed over"),
                 // Contract literal: the specified report of the step, its counts and the kind of evidence
                 () -> assertTrue(report(outcome, Name.JOBS_AND_WORKERS).startsWith(
                                 "1 jobs settled killed {PROBED=1}, 1 groups terminated"),

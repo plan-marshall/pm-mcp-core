@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.start;
 
 import static de.planmarshall.runtime.start.RecoveryStepFixtures.PROJECT_A;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,6 +36,8 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -62,7 +65,7 @@ import de.planmarshall.runtime.job.SettlementStep;
 import de.planmarshall.runtime.job.TerminationProtocol;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The jobs part of recovery step 3 (PM-ARCH-7, PM-EXEC-4) over a real job record store: one case per rule of the
@@ -95,15 +98,16 @@ class JobRecoveryStepTest {
     private FileLockManager lockManager;
     private JobRecordStore store;
     private RecordingSignals signals;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
 
     @BeforeEach
     void createStore() {
-        lockManager = new FileLockManager(_ -> {
-        });
+        lockManager = new FileLockManager(AuditSinkDoubles.capturing());
         store = JobRecordStore.ofProject(base, PROJECT_A);
         signals = new RecordingSignals();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
     }
 
     /** One {@code kill} call: whether it addressed a group or a process, the id, and the signal. */
@@ -284,7 +288,7 @@ class JobRecoveryStepTest {
             assertAll(
                     () -> assertInstanceOf(Outcome.Done.class, outcome, "the step must be done"),
                     () -> assertEquals(List.of(), signals.calls, "rule (a) makes zero kill() calls"),
-                    () -> assertEquals(List.of(), audit.events(),
+                    () -> assertEquals(List.of(), auditEvents.getValues(),
                             "no orphan note may reach the audit sink"),
                     () -> assertKilled(read(job), null),
                     () -> assertEquals(JobRecoveryStep.Rule.IN_PROCESS, step().rule(job),
@@ -300,7 +304,7 @@ class JobRecoveryStepTest {
 
             assertAll(
                     () -> assertEquals(List.of(), signals.calls, "rule (b) makes zero kill() calls"),
-                    () -> assertEquals(List.of(), audit.events(), "rule (b) writes no orphan note"),
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "rule (b) writes no orphan note"),
                     () -> assertKilled(read(job), RUNTIME_RESTART),
                     () -> assertEquals(JobRecoveryStep.Rule.BEFORE_BOOT, step().rule(job),
                             "the job must match rule (b)"));
@@ -315,7 +319,7 @@ class JobRecoveryStepTest {
 
             assertAll(
                     () -> assertEquals(List.of(), signals.calls, "rule (c) makes zero kill() calls"),
-                    () -> assertEquals(List.of(unidentifiable(job)), audit.events(),
+                    () -> assertEquals(List.of(unidentifiable(job)), auditEvents.getValues(),
                             "the job must be noted as unidentifiable"),
                     () -> assertKilled(read(job), RUNTIME_RESTART),
                     () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job),
@@ -356,7 +360,7 @@ class JobRecoveryStepTest {
                             "the group must be probed, terminated, probed"),
                     () -> assertKilled(read(job), Signal.SIGTERM.name()),
                     () -> assertEquals(JobRecoveryStep.Rule.PROBED, step().rule(job), "the job must match rule (d)"),
-                    () -> assertEquals(List.of(), audit.events(), "a probed job writes no orphan note"),
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "a probed job writes no orphan note"),
                     () -> assertEquals(done(1, "PROBED", 1, 0), outcome, "the outcome must count the terminated group"));
         }
 
@@ -424,7 +428,7 @@ class JobRecoveryStepTest {
                     () -> assertKilled(read(job), RUNTIME_RESTART),
                     () -> assertEquals(JobRecoveryStep.Rule.UNIDENTIFIABLE, step().rule(job),
                             "a reused PID makes the job unidentifiable"),
-                    () -> assertEquals(List.of(unidentifiable(job)), audit.events(),
+                    () -> assertEquals(List.of(unidentifiable(job)), auditEvents.getValues(),
                             "the job is noted as unidentifiable"),
                     () -> assertEquals(done(1, "UNIDENTIFIABLE", 0, 0), outcome,
                             "the outcome must count the unidentifiable job"));

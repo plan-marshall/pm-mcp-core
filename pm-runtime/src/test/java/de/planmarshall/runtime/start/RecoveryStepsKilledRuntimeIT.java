@@ -14,6 +14,7 @@ import static de.planmarshall.runtime.start.RecoveryStepFixtures.STORE;
 import static de.planmarshall.runtime.start.RuntimeChildProcess.DERIVED_PLAN;
 import static de.planmarshall.runtime.start.RuntimeChildProcess.ROLLED_PLAN;
 import static de.planmarshall.runtime.start.RuntimeChildProcess.WRITTEN;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,18 +33,22 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.CopyReconciler;
-import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 import de.planmarshall.runtime.test.TestBases;
 
 /**
@@ -71,7 +76,8 @@ class RecoveryStepsKilledRuntimeIT {
 
     private final Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
     private final KilledRuntimeFixture fixture = new KilledRuntimeFixture();
-    private final RecordingAuditSink auditSink = new RecordingAuditSink();
+    private final Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+    private final AuditSink auditSink = AuditSinkDoubles.capturing(auditEvents);
 
     private Path base;
     private FileLockManager lockManager;
@@ -146,7 +152,7 @@ class RecoveryStepsKilledRuntimeIT {
                         "the second run must find nothing to recover"),
                 () -> assertArrayEquals(storeAfterFirst, Files.readAllBytes(scope.resolve(STORE)),
                         "the second run must leave the store unchanged"),
-                () -> assertEquals(List.of(ROLLED_FORWARD), auditSink.eventNames(),
+                () -> assertEquals(List.of(ROLLED_FORWARD), AuditSinkDoubles.eventNames(auditEvents),
                         "exactly one roll-forward record is handed over"));
     }
 
@@ -174,7 +180,7 @@ class RecoveryStepsKilledRuntimeIT {
                         "the derived store must hold the written content"),
                 () -> assertEquals(new Outcome.Done("no reconciliation applied"), second,
                         "the second run must apply no reconciliation"),
-                () -> assertEquals(List.of(RECONCILED), auditSink.eventNames(),
+                () -> assertEquals(List.of(RECONCILED), AuditSinkDoubles.eventNames(auditEvents),
                         "exactly one reconciliation record is handed over"));
     }
 }

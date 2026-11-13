@@ -70,6 +70,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.service.LockTransaction;
@@ -85,6 +86,7 @@ import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The lock manager of the runtime (PM-IMPL-7): one in-process lock per key, one lock of the operating system per
@@ -121,7 +123,8 @@ class FileLockManagerTest {
     @TempDir
     Path base;
 
-    private RecordingAuditSink auditSink;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink auditSink;
     private FileLockManager manager;
     private String projectId;
     private String planId;
@@ -133,7 +136,8 @@ class FileLockManagerTest {
     void createManager() {
         projectId = "project-" + shortWords().next();
         planId = "plan-" + shortWords().next();
-        auditSink = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        auditSink = AuditSinkDoubles.capturing(auditEvents);
         manager = new FileLockManager(auditSink);
     }
 
@@ -338,7 +342,7 @@ class FileLockManagerTest {
                     () -> assertFalse(isLocked(workspace.lockFile()), "the workspace lock is released on close"),
                     () -> assertFalse(isLocked(plan.lockFile()), "the plan lock is released on close"),
                     () -> assertFalse(isLocked(merge.lockFile()), "the merge lock is released on close"),
-                    () -> assertEquals(List.of(), auditSink.events(), "an ordered acquisition is not audited"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "an ordered acquisition is not audited"));
         }
 
         /**
@@ -365,7 +369,7 @@ class FileLockManagerTest {
                         () -> assertEquals(expectedDetails, fault.details(),
                                 "the fault names the held and requested files"),
                         () -> assertEquals(List.of(new AuditEvent("lock_order_violation", "store", "refused",
-                                expectedDetails)), auditSink.events(), "one audit record names the refusal"),
+                                expectedDetails)), auditEvents.getValues(), "one audit record names the refusal"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                                 ERROR.LOCK_ORDER_VIOLATION.resolveIdentifierString()),
                         () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.ERROR,
@@ -413,7 +417,7 @@ class FileLockManagerTest {
                         "nothing is acquired after a leaf lock");
 
                 assertAll(
-                        () -> assertEquals(1, auditSink.events().size(), "the refusal after a leaf is audited"),
+                        () -> assertEquals(1, auditEvents.getValues().size(), "the refusal after a leaf is audited"),
                         () -> assertFalse(Files.exists(merge.lockFile()), "the refused key leaves no lock file"));
             }
         }
@@ -438,7 +442,7 @@ class FileLockManagerTest {
                         () -> assertTrue(transaction.holds(mailbox), "the mailbox leaf lock is held"),
                         () -> assertTrue(isLocked(osLockFile(mailbox)), "the mailbox sidecar is locked"),
                         () -> assertFalse(Files.exists(mailbox.lockFile()), "the mailbox itself is not created"),
-                        () -> assertEquals(List.of(), auditSink.events(), "the ordered pair is not audited"),
+                        () -> assertEquals(List.of(), auditEvents.getValues(), "the ordered pair is not audited"),
                         () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, FileLockManager.class));
             }
         }
@@ -800,7 +804,7 @@ class FileLockManagerTest {
             Files.createDirectories(base.resolve("logs"));
             var key = LockKey.auditLog(base);
             var store = new JsonlStoreFile(key.lockFile(), key);
-            var secondManager = new FileLockManager(new RecordingAuditSink());
+            var secondManager = new FileLockManager(AuditSinkDoubles.capturing());
             var secondResult = new AtomicReference<RuntimeException>();
 
             try (var transaction = manager.openTransaction()) {
