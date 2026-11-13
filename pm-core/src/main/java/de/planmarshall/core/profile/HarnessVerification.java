@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.profile;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -63,13 +64,13 @@ public class HarnessVerification {
      *                    verification and that the tokens price exactly this list, and it cannot know a list the caller
      *                    does not state
      * @param stageTokens the expected tokens per stage, as the consent showed them
-     * @param draft       the draft profile document, UTF-8 encoded
+     * @param draft       the draft profile document, as text
      * @param draftName   the draft, as a refusal names it
      * @param rules       what the installation knows beyond the draft
      * @since 0.1
      */
     public record Request(String state, ConsentKind kind, ConsentGate.Answer answer, List<String> stages,
-    Map<String, Long> stageTokens, byte[] draft, String draftName, ProfileRules rules) {
+    Map<String, Long> stageTokens, String draft, String draftName, ProfileRules rules) {
 
         /**
          * @throws NullPointerException if a required component is {@code null}
@@ -102,7 +103,8 @@ public class HarnessVerification {
         requireAnswer(request.answer());
         requireStages(request.stages());
         requireStageTokens(request.stages(), request.stageTokens());
-        return ProfileValidator.validate(request.draft(), request.draftName(), request.rules());
+        return ProfileValidator.validate(request.draft().getBytes(StandardCharsets.UTF_8), request.draftName(),
+                request.rules());
     }
 
     private static void requireState(String state) {

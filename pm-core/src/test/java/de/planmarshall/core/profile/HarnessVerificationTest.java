@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +58,7 @@ class HarnessVerificationTest {
         var refusal = assertThrows(HarnessVerificationRefusal.class,
                 () -> HarnessVerification.admit(new Request(HarnessVerification.CONSENT_STATE,
                         ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, tokens(),
-                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none())),
+                        draft(), "draft/acme-cli.json", ProfileRules.none())),
                 "The consent state itself does not run the stages");
 
         assertEquals(HarnessVerificationRefusal.WRONG_STATE, refusal.code(), "The refusal names the state rule");
@@ -69,7 +70,7 @@ class HarnessVerificationTest {
         var refusal = assertThrows(HarnessVerificationRefusal.class,
                 () -> HarnessVerification.admit(new Request(HarnessVerification.VERIFY_STATE,
                         ConsentKind.SCAN_HARNESSES, ConsentGate.Answer.YES, STAGES, tokens(),
-                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none())),
+                        draft(), "draft/acme-cli.json", ProfileRules.none())),
                 "A wider consent covers no verification");
 
         assertEquals(HarnessVerificationRefusal.WRONG_KIND, refusal.code(), "The refusal names the kind rule");
@@ -143,7 +144,7 @@ class HarnessVerificationTest {
     @Test
     @DisplayName("a draft that is not a profile is refused before anything runs")
     void invalidDraftRefusedBeforeAnythingRuns() {
-        var invalid = ProfileFixtures.valid().remove("/schema_version").bytes();
+        var invalid = new String(ProfileFixtures.valid().remove("/schema_version").bytes(), StandardCharsets.UTF_8);
         var request = new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
                 ConsentGate.Answer.YES, STAGES, tokens(), invalid, "draft/acme-cli.json", ProfileRules.none());
 
@@ -157,13 +158,11 @@ class HarnessVerificationTest {
         assertAll(
                 () -> assertThrows(NullPointerException.class,
                         () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                                ConsentGate.Answer.YES, STAGES, tokens(), ProfileFixtures.validBytes(), null,
-                                ProfileRules.none()),
+                                ConsentGate.Answer.YES, STAGES, tokens(), draft(), null, ProfileRules.none()),
                         "A verification names the draft it validates"),
                 () -> assertThrows(NullPointerException.class,
                         () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                                ConsentGate.Answer.YES, STAGES, tokens(), ProfileFixtures.validBytes(),
-                                "draft/acme-cli.json", null),
+                                ConsentGate.Answer.YES, STAGES, tokens(), draft(), "draft/acme-cli.json", null),
                         "A verification names the rules it validates with"),
                 () -> assertDoesNotThrow(
                         () -> HarnessVerification.admit(request(ConsentGate.Answer.YES, STAGES, tokens())),
@@ -172,7 +171,11 @@ class HarnessVerificationTest {
 
     private static Request request(ConsentGate.Answer answer, List<String> stages, Map<String, Long> stageTokens) {
         return new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE, answer, stages,
-                stageTokens, ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none());
+                stageTokens, draft(), "draft/acme-cli.json", ProfileRules.none());
+    }
+
+    private static String draft() {
+        return new String(ProfileFixtures.validBytes(), StandardCharsets.UTF_8);
     }
 
     private static Map<String, Long> tokens() {

@@ -125,6 +125,7 @@ public record HarnessList(List<HarnessListEntry> entries) {
     }
 
     private static String versionOf(HarnessCandidate candidate) {
-        return candidate.version() == null ? "" : candidate.version();
+        var version = candidate.version();
+        return version == null ? "" : version;
     }
 }
