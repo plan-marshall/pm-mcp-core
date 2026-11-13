@@ -75,7 +75,7 @@ final class ProcessCallDoubles {
         ProcessCall mock = createMock(ProcessCall.class);
         for (var answer : answers) {
             expect(mock.run(anyObject(List.class))).andAnswer(() -> {
-                calls.add(record(watched));
+                calls.add(recorded(watched));
                 if (answer.failure != null) {
                     throw answer.failure;
                 }
@@ -83,7 +83,7 @@ final class ProcessCallDoubles {
             });
         }
         expect(mock.run(anyObject(List.class))).andAnswer(() -> {
-            calls.add(record(watched));
+            calls.add(recorded(watched));
             // Contract literal: a command answered by default succeeds with an empty output
             return new ProcessCall.Result(0, "");
         }).anyTimes();
@@ -92,7 +92,7 @@ final class ProcessCallDoubles {
     }
 
     @SuppressWarnings("unchecked")
-    private static Call record(Path watched) {
+    private static Call recorded(Path watched) {
         var command = (List<String>) getCurrentArguments()[0];
         return new Call(List.copyOf(command), watched != null && Files.exists(watched));
     }

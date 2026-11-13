@@ -378,9 +378,9 @@ final class SupervisorTestFixture {
         WorkerProtocol mock = createMock(WorkerProtocol.class);
         mock.fence(anyObject(String.class));
         expectLastCall().andAnswer(() -> {
-            var generation = (String) getCurrentArguments()[0];
-            fences.add(generation);
-            revokedAtFence.add(jobTokens.revoked(generation));
+            var fenced = (String) getCurrentArguments()[0];
+            fences.add(fenced);
+            revokedAtFence.add(jobTokens.revoked(fenced));
             order.add("fence");
             return null;
         }).anyTimes();
@@ -425,10 +425,10 @@ final class SupervisorTestFixture {
                 anyObject(WorkerState.EndReason.class), anyBoolean());
         expectLastCall().andAnswer(() -> {
             var arguments = getCurrentArguments();
-            var generation = (String) arguments[0];
-            writes.add(new Write(generation, (WorkerState.State) arguments[1], (Instant) arguments[2],
+            var written = (String) arguments[0];
+            writes.add(new Write(written, (WorkerState.State) arguments[1], (Instant) arguments[2],
                     (WorkerState.EndReason) arguments[3], (Boolean) arguments[4],
-                    released.stream().anyMatch(lease -> lease.generationId().equals(generation))));
+                    released.stream().anyMatch(lease -> lease.generationId().equals(written))));
             order.add("write");
             return null;
         }).anyTimes();
