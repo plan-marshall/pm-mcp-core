@@ -33,11 +33,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -56,7 +56,6 @@ import de.planmarshall.core.store.QuestionRefusal;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.question.QuestionFixtures.EndOfLine;
-import de.planmarshall.runtime.test.TestBases;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -74,6 +73,9 @@ class QuestionLogRecordReaderTest {
 
     private String question;
 
+    @TempDir
+    Path temp;
+
     private Path base;
     private JournalScope plan;
     private JournalScope workspace;
@@ -83,9 +85,7 @@ class QuestionLogRecordReaderTest {
     @BeforeEach
     void createRuntime() throws IOException {
         question = RuntimeGenerators.questionIds().next();
-        base = TestBases.create("pmq-");
-        Files.createDirectories(base);
-        base = base.toRealPath();
+        base = temp.toRealPath();
         plan = JournalScope.plan(base, PROJECT, PLAN);
         workspace = JournalScope.workspace(base, PROJECT);
         Files.createDirectories(plan.pathBase());
@@ -96,11 +96,6 @@ class QuestionLogRecordReaderTest {
             // a lock acquisition of these tests records nothing
         });
         reader = QuestionFixtures.reader(base, PROJECT);
-    }
-
-    @AfterEach
-    void deleteRuntime() {
-        TestBases.delete(base);
     }
 
     private ReadRequest request(String questionId) {

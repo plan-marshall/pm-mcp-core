@@ -339,6 +339,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |nothing
 |Milestones 5 and 10
 
+|link:envelope-packing.adoc[`envelope-packing`]
+|The envelope packing: the cost estimator and the size-to-token table, the Next-Fit packer with the sharing by module and role and the below-minimum merge, the envelope budget with the cap of its fallbacks at the long-context threshold, and the profile member `headless.long_context_thresholds` that supplies the threshold
+|`open`
+|nothing
+|Milestone 9
+
 |`audit-trail`
 |Anchored audit trail
 |`done`

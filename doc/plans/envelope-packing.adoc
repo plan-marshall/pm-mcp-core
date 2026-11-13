@@ -1,0 +1,34 @@
+= Envelope packing: cost sizing, the packer and the envelope budget
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `envelope-packing`
+
+[horizontal]
+Roadmap item:: _Implement Phase 4 (`phase-4-plan`): … cost sizing and envelope bin-packing …_ (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow (the package `de.planmarshall.workflow.envelope`: the cost estimator, the size-to-token table, the packer and the envelope budget, as plain values in and plain values out)
+Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Tasks
+
+The specification sections named are the single statement of what each task builds.
+
+. *The cost estimator* `TaskCostEstimator` (`derive-cost-size`), its size rubric and its six sizes: link:../specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing, Envelope Budget & Minimum Task Work], items 1 and 2.
+. *The size-to-token table* `SizeTokenTable` with its compiled defaults and their basis `uncalibrated`: § Cost Sizing, item 3.
+. *The packer* `EnvelopePacker`: Next-Fit under the budget, the sharing by module and role, the below-minimum merge and the sealing into `envelope-N`: § Cost Sizing, items 5 and 6; link:../specification/model-work/06-envelopes-questions-deadlines.adoc#_deterministic_envelope_packing_algorithm_envelopepacker[Model Work § Deterministic Envelope Packing Algorithm].
+. *The envelope budget* `EnvelopeBudget`: its precedence and the cap of its two fallbacks at the long-context threshold: § Cost Sizing, item 4.
+. *The profile member* `headless.long_context_thresholds` that supplies the threshold: link:../specification/harness-profiles/01-profile-schema.adoc#long-context-thresholds[Harness Profiles § Long-Context Price Tier]; the second plan of this package, PLAN-V2-63 (`long-context-thresholds`).
+
+Left out: the wiring into `plan.describe-tasks` and the Phase 4 states (no work package); the sequential task yield within an envelope (link:../specification/model-work/06-envelopes-questions-deadlines.adoc#_sequential_task_yield_within_an_envelope[Model Work § Sequential Task Yield Within an Envelope]) and the Phase 5 states `execute.envelope-ready` and `execute.evaluate-envelope-return` (no work package); the recalibration of the size-to-token table, the derived fact `cost_calibration` (no work package); the reading of `envelope_budget_tokens` from `local-config.json` (no work package); the role view that shows a budget above the threshold (PLAN-V2-63); the fact `below_minimum_task` as the plan representation renders it (no work package).
+
+== Trace
+
+The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-14[PM-WF-14]
+* Specification: the sections the tasks name; link:../specification/store-schemas/06-task-and-references.adoc#_task_record_schema_taskstask_nnn_json[Store Schemas § Task Record] (`cost_size`, `predicted_cost_tokens`, `predicted_cost_basis`, read only)
+* Watch: link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-1[PM-WATCH-DISP-1]
+
+== Done When
+
+* Watch: link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-1[PM-WATCH-DISP-1] stays; it guards the share of `yield_reason: context` measured from `metrics.json`, which no test of this package covers.
+* Tests: `TaskCostEstimatorTest` (every band edge, the profile weights, the table and its basis), `EnvelopePackerTest` (the Next-Fit closures, the three outcomes of the below-minimum merge, contiguity and order), `EnvelopeBudgetTest` (every precedence step, the cap of both fallbacks, a value above the threshold); the tests of the profile member with the second plan.

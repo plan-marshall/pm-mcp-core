@@ -91,9 +91,10 @@ not turn every read into a refusal.
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4]
 
-The tests run on the JVM without Quarkus and use the shared short temp roots of `TestBases` from the module's test JAR.
-Every fixture log is appended through `QuestionLog` and its `ScopeTransaction`, and the raw lines the store refuses are
-written directly; every line-oriented fixture has a CRLF twin.
+The tests run on the JVM without Quarkus. Each test class takes its runtime base from a JUnit `@TempDir`, made
+canonical with `toRealPath`; no test binds a socket below it, so the short paths of `TestBases` are not needed (ADR
+link:../../../doc/adr/025-test-design-layering-base-classes-and-fixtures.adoc[025], finding F10). Every fixture log is
+appended through `QuestionLog` and its `ScopeTransaction`, and the raw lines the store refuses are written directly; every line-oriented fixture has a CRLF twin.
 
 [horizontal]
 link:{test}/QuestionLogRecordReaderTest.java[`QuestionLogRecordReaderTest`]:: `Open` for an asked record, also after a

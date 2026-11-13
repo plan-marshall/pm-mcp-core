@@ -1,0 +1,80 @@
+= Task Envelopes (`workflow.envelope`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+== Purpose
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-14[PM-WF-14]_
+
+Package `de.planmarshall.workflow.envelope` sizes the plan tasks by their predicted cost and packs them into budget-bounded envelopes, the unit Phase 5 queues one envelope task for.
+It is a pure, deterministic computation over plain values: it reads no store, no queue, no role artifact and no harness profile, and holds no state.
+The caller passes every input, so the later wiring into `plan.describe-tasks` only supplies values.
+
+The computation is specified in link:../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing, Envelope Budget & Minimum Task Work] and link:../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#_deterministic_envelope_packing_algorithm_envelopepacker[§ Deterministic Envelope Packing Algorithm]; the decisions are recorded in `pm-workflow/doc/adr/workflow-envelope/`.
+
+== Architecture and Core Types
+
+[horizontal]
+`CostSize`:: The six sizes `XS`, `S`, `M`, `L`, `XL` and `XXL` of a plan task, top-level because the estimator and the packer both use it (link:../adr/workflow-envelope/001-cost-size-and-the-records-follow-the-coding-rules.adoc[ADR 001]).
+`TaskCostEstimator`:: `derive-cost-size`: the score `10 · steps + W_profile + 3 · skills + 4 · files` of a task's `TaskSignals` (the profile weight 12 for `implementation` and `module_testing`, 4 for `verification`, 8 for every other profile), mapped through the monotone bands 30, 60, 150, 300 and 700 to a `CostSize`, and looked up in a `SizeTokenTable`; the result `CostEstimate` carries the size, the predicted tokens and the table's basis. A negative count is refused.
+`SizeTokenTable`:: The predicted tokens of each size with the basis they rest on; `COMPILED_DEFAULTS` holds 5K, 25K, 60K, 130K, 260K and 520K with the basis `UNCALIBRATED`. The caller passes the table in (link:../adr/workflow-envelope/002-the-size-token-table-is-an-argument.adoc[ADR 002]).
+`EnvelopeBudget`:: The per-envelope budget resolved from plain values; the `Resolution` carries the tokens, the `Source` (`OPERATOR`, `ROLE`, `PROFILE`, `COMPILED`), `capped` and `aboveThreshold` (link:../adr/workflow-envelope/003-the-budget-is-resolved-from-plain-values.adoc[ADR 003]).
+`EnvelopePacker`:: `packEnvelopes(orderedTasks, envelopeBudgetTokens)`: Next-Fit over the `PlannedTaskSummary` list in task order, the below-minimum merge, and the sealing into `PackedEnvelope` values `envelope-1`, `envelope-2`, …; `PackedEnvelope.belowMinimum()` reports an envelope that stays below `MIN_JOB_TOKENS` (10 000).
+
+== From Signals to Envelopes
+
+[source,text]
+----
+task signals ──► TaskCostEstimator ──► CostSize ──► SizeTokenTable ──► predicted tokens (+ basis)
+operator / role / profile / compiled ──► EnvelopeBudget ──► budget tokens
+ordered PlannedTaskSummary list + budget ──► EnvelopePacker ──► envelope-1, envelope-2, …
+----
+
+. The caller sizes every plan task with `TaskCostEstimator.estimate` and stamps the predicted tokens and their basis on the task.
+. The caller resolves the budget with `EnvelopeBudget.resolve`: the operator's `envelope_budget_tokens`, else the role's `context_budget_tokens`, else the harness profile's `headless.context_budget_tokens`, else the compiled 400 000; the two fallbacks are capped at the long-context threshold of the role's model, a kept operator or role value above it is flagged `aboveThreshold`.
+. The caller passes the tasks in topological order over their dependencies to `EnvelopePacker.packEnvelopes` with the budget. The packer closes the open envelope on a task of another module or role or on the budget; a task over the budget alone sits alone. An envelope below 10 000 tokens is then merged into its adjacent envelope of the same module and role, the preceding one first, else the following one; without such a neighbour it stays alone and reports `belowMinimum()`. Every envelope is a contiguous slice of the input, and its skills are the sorted distinct union of its tasks' skills.
+
+== Deliberate Changes Against `plan-marshall`
+
+The cost model is `plan-marshall`'s (`manage-tasks/scripts/_tasks_cost.py`, `_tasks_envelope.py`); the weights, bands and table values match it. Three changes are deliberate and stated by the specification:
+
+* *Sharing by module and role*: `plan-marshall` closes an envelope on the budget alone; here tasks share an envelope only for the same module and role, the execution profile being no criterion.
+* *Below-minimum merge*: `plan-marshall` dispatches an envelope below 10K alone; here it is merged into a compatible neighbour, so the merged envelope may exceed the budget.
+* *No configurable table*: `plan-marshall` reads `plan.phase-5-execute.cost_size_token_table`; here the table is derived, never configured, and passed in as a value.
+
+The re-verification against `plan-marshall` found two further differences, reported and not changed: `plan-marshall` counts the distinct `steps[].target` values where the specification counts the distinct `target_files` (the estimator takes the count the caller gives it), and `plan-marshall` refuses a negative count where the specification is silent (the estimator refuses it too).
+
+== What the Package Does Not Do
+
+* The wiring into `plan.describe-tasks` and the Phase 4 states.
+* The sequential task yield within an envelope and the Phase 5 envelope states.
+* The recalibration of the table and the derived fact `cost_calibration`.
+* The reading of `envelope_budget_tokens` from `local-config.json`, and the role view that shows a budget above the threshold.
+* The rendering of the fact `below_minimum_task`, and the profile member `headless.long_context_thresholds` that supplies the threshold.
+
+== Usage
+
+[source,java]
+----
+var estimate = TaskCostEstimator.estimate(signals, SizeTokenTable.COMPILED_DEFAULTS);
+var budget = EnvelopeBudget.resolve(operatorTokens, roleTokens, profileTokens, longContextThreshold);
+List<PackedEnvelope> envelopes = EnvelopePacker.packEnvelopes(orderedTasks, budget.tokens());
+----
+
+== Invariants and Failure Modes
+
+1. **Plain values**: no type of `core.store`, `core.queue`, `core.role` or `core.profile` is imported.
+2. **Determinism**: the same input yields the same envelopes; nothing is read from the clock or a store.
+3. **Order kept**: every envelope is a contiguous slice of the ordered input, so no task precedes one of its dependencies.
+4. **Refusals**: a negative count, a negative or missing table value and a non-positive budget input throw `IllegalArgumentException`; an absent budget input is a `@Nullable` parameter, and the resolved budget is never absent.
+
+== Testing
+
+`TaskCostEstimatorTest` covers every band edge, each profile weight, monotonicity, the table and its basis; `EnvelopePackerTest` the Next-Fit closures, the three outcomes of the below-minimum merge, contiguity, order and the skill union; `EnvelopeBudgetTest` every precedence step, the cap of both fallbacks and the flag on operator and role values above the threshold.
+
+== Specification Tracing
+
+* Requirements: link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-14[PM-WF-14]
+* Specification: link:../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing, Envelope Budget & Minimum Task Work], link:../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#_deterministic_envelope_packing_algorithm_envelopepacker[§ Deterministic Envelope Packing Algorithm]
+* Decisions: `pm-workflow/doc/adr/workflow-envelope/` ADRs 001 to 003

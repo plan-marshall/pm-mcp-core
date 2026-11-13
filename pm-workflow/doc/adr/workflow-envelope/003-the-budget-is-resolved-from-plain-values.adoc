@@ -1,0 +1,41 @@
+= ADR 003: The Envelope Budget Is Resolved from Plain Values
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-12
+
+== Context
+
+The per-envelope budget comes from the operator's override per project (`envelope_budget_tokens`), the role artifact's `context_budget_tokens`, the harness profile's `headless.context_budget_tokens`, or the compiled fallback of 400K; either fallback is capped at the long-context threshold of the role's model where its profile names one (link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing], item 4). The role and profile types live in `pm-core`, the local configuration is not read by this package, and the profile member `headless.long_context_thresholds` is not implemented yet.
+
+== Decision
+
+`EnvelopeBudget.resolve` takes the four values as `@Nullable Long` parameters — operator, role, profile, threshold — and returns a `Resolution` that is never absent: the tokens, the `Source` of the first value given (`OPERATOR`, `ROLE`, `PROFILE`, `COMPILED`), `capped` and `aboveThreshold`.
+
+* Only the two fallbacks, profile and compiled, are capped at the threshold; `capped` reports the cap.
+* An operator or role value above the threshold is kept, not capped, and reported as `aboveThreshold`, because both are deliberate settings.
+* Without a threshold nothing is capped or flagged.
+* A non-positive value is refused.
+
+== Alternatives Considered
+
+1. *Take the role artifact and the harness profile of `pm-core`.*
+   _Rejected_: the package stays a computation over plain values; the caller reads the artifacts.
+2. *Cap every source at the threshold.*
+   _Rejected_: the specification caps the fallbacks only, and an operator or role value states a deliberate choice that a view can show as above the threshold.
+3. *Return `Optional` when no value is given.*
+   _Rejected_: the compiled fallback always applies, so the budget is never absent.
+
+== Consequences
+
+* The caller reads `envelope_budget_tokens`, the role artifact, the profile and the threshold and passes them.
+* The role view that shows a budget above the threshold reads `aboveThreshold`.
+
+== Source
+
+Work package `envelope-packing`; link:../../../../doc/specification/model-work/06-envelopes-questions-deadlines.adoc#cost-sizing[Model Work § Cost Sizing, Envelope Budget & Minimum Task Work].

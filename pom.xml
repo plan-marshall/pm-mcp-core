@@ -170,6 +170,20 @@
     </dependencyManagement>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <!-- One test JVM per module instead of one per test class: pm-mcp-parent sets reuseForks to false,
+                     which starts a fresh JVM for every test class one after the other (ADR 024, ranked cost rows 2
+                     to 4). The other settings of the parent stay as they are. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <reuseForks>true</reuseForks>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <!-- The dependency rules of this repository and its content rule (PM-IMPL-1). Their controls are the
                  fixture projects below src/guard-controls, which BuildGuardsIT of pm-core builds and expects to
