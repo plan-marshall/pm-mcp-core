@@ -131,10 +131,6 @@ class HarnessListingsTest {
         return new HarnessScan(List.of(candidate(AAA_ID, version), candidate(BBB_ID, version)));
     }
 
-    private static HarnessCandidate candidate(String harnessId) {
-        return candidate(harnessId, VERSION);
-    }
-
     private static HarnessCandidate candidate(String harnessId, String version) {
         return HarnessCandidate.builder()
                 .harnessId(harnessId)
