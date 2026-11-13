@@ -223,18 +223,21 @@ _Requirements: link:../../../doc/Traceability.adoc#PM-CLIENT-5[§ PM-CLIENT-5]_
 `VerifiedUsage` is the seam the install path calls when a verified profile's `usage_report` is written into the enrolment.
 `install` takes the evaluations of one harness and version in the order they ran and returns the
 `HarnessEnrolment.UsageReport`: the figures of the first run mapped through `UsageReport.of` (the boundary that names
-`input_tokens` as `input` and `output_tokens` as `output`, drops the cost and validates the store's closed figure set),
-the start context converted from `ProfileStages.StartContext` to the enrolment's own type, and the source `verified`.
+`input_tokens` as `input` and `output_tokens` as `output`, and refuses any figure outside the store's closed set —
+including the cost, which the seam therefore leaves out before it calls `of`), the start context converted from
+`ProfileStages.StartContext` to the enrolment's own type, and the source `verified`.
 
 The figures are trusted only after the evaluation was repeated. `trusted` answers the condition — at least
-`REQUIRED_EVALUATIONS` (`2`) runs that agree on every report figure's status — and `install` refuses an untrusted list
-with `harness_usage_not_repeated` or `harness_usage_disagrees` instead of writing a number one run produced. What must
-agree is which figures the harness reports, not their values: two runs of different prompts legitimately count different
-tokens.
+`REQUIRED_EVALUATIONS` (`2`) runs that agree on every report figure's status **and on the start context** (the worker
+class, the model and the first-turn tokens) — and `install` refuses an untrusted list with `harness_usage_not_repeated`
+or `harness_usage_disagrees` instead of writing a number one run produced. What must agree about the figures is which
+ones the harness reports, not their values: two runs of different prompts legitimately count different tokens. A start
+context only one run measured is not a repeated measurement, so it is refused too.
 
 The operator verb that writes the enrolment, the profile and the report under the store's lock stays in
-`plan-marshall-mcp`; what is built here is the seam it calls. `VerifiedUsageTest` covers the mapping, the cost left out,
-the start context across the seam and both refusals.
+`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a report measured on the
+previous build (`HarnessEnrolment.updated`), so a list never shows an old version's coverage beside a new build.
+`VerifiedUsageTest` covers the mapping, the cost left out, the start context across the seam and both refusals.
 
 link:../adr/runtime-launch/008-a-verified-usage-report-is-installed-from-a-repeated-evaluation.adoc[ADR 008]: a verified
 usage report is installed only from a repeated evaluation.

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.function.Function;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -70,7 +71,7 @@ class HarnessListingsTest {
     @Test
     @DisplayName("a partial report names the missing figure in the schema's vocabulary")
     void partialReportNamesTheMissingFigure() {
-        var list = HarnessListings.of(scan(), Map.of(AAA_ID, enrolment(VERSION, partial("input"))), false);
+        var list = HarnessListings.of(scan(), Map.of(AAA_ID, enrolment(VERSION, partial("input_tokens"))), false);
 
         assertEquals(List.of("input_tokens"), row(list, AAA_ID).usage().missingFigures(),
                 "The store's figure name is mapped back to the profile's");
@@ -106,20 +107,40 @@ class HarnessListingsTest {
                 "Every row shows the store refusal");
     }
 
+    @Test
+    @DisplayName("an accepted self-update drops the report measured on the old build")
+    void selfUpdateDropsTheOldReport() {
+        var updated = enrolment(VERSION, complete())
+                .updated(OTHER_VERSION, "1".repeat(64), Instant.parse("2026-11-13T11:00:00Z"));
+        var list = HarnessListings.of(scan(OTHER_VERSION), Map.of(AAA_ID, updated), false);
+        var status = row(list, AAA_ID).usage().status();
+
+        assertEquals(HarnessUsageCoverage.Status.NOT_REPORTED, status,
+                "The new build shows no report of the old one");
+    }
+
     private static HarnessListEntry row(HarnessList list, String harnessId) {
         return list.entries().stream().filter(entry -> entry.harnessId().equals(harnessId)).findFirst().orElseThrow();
     }
 
     private static HarnessScan scan() {
-        return new HarnessScan(List.of(candidate(AAA_ID), candidate(BBB_ID)));
+        return scan(VERSION);
+    }
+
+    private static HarnessScan scan(String version) {
+        return new HarnessScan(List.of(candidate(AAA_ID, version), candidate(BBB_ID, version)));
     }
 
     private static HarnessCandidate candidate(String harnessId) {
+        return candidate(harnessId, VERSION);
+    }
+
+    private static HarnessCandidate candidate(String harnessId, String version) {
         return HarnessCandidate.builder()
                 .harnessId(harnessId)
                 .displayName("Harness " + harnessId)
                 .found(true)
-                .version(VERSION)
+                .version(version)
                 .executablePath("/opt/" + harnessId + "/bin/run")
                 .supported(true)
                 .workerEligible(true)
@@ -151,17 +172,17 @@ class HarnessListingsTest {
     }
 
     private static UsageReport complete() {
-        var figures = new LinkedHashMap<String, String>();
-        List.of("input", "output", "cache_read", "cache_creation", "reasoning", "tool_uses")
-                .forEach(figure -> figures.put(figure, "reported"));
-        return UsageReport.of(UsageSource.VERIFIED, figures,
-                List.of(new UsageReport.StartContext("writer", MODEL, START_TOKENS)));
+        return report(figure -> "reported");
     }
 
     private static UsageReport partial(String missing) {
+        return report(figure -> figure.equals(missing) ? "missing" : "reported");
+    }
+
+    private static UsageReport report(Function<String, String> status) {
         var figures = new LinkedHashMap<String, String>();
-        List.of("input", "output", "cache_read", "cache_creation", "reasoning", "tool_uses")
-                .forEach(figure -> figures.put(figure, figure.equals(missing) ? "missing" : "reported"));
-        return UsageReport.of(UsageSource.VERIFIED, figures, List.of());
+        ProfileStages.REPORT_FIGURES.forEach(figure -> figures.put(figure, status.apply(figure)));
+        return UsageReport.of(UsageSource.VERIFIED, figures,
+                List.of(new UsageReport.StartContext("writer", MODEL, START_TOKENS)));
     }
 }

@@ -42,6 +42,9 @@ class HarnessScanTest {
     private static final String BBB_ID = "h-bbb" + Generators.letterStrings(2, 4).next().toLowerCase(Locale.ROOT);
     private static final String HINT = "install " + Generators.letterStrings(4, 8).next();
     private static final String VERSION = Generators.integers(1, 9).next() + ".0.0";
+    private static final String ZZ_ID = "h-zz" + Generators.letterStrings(2, 4).next().toLowerCase(Locale.ROOT);
+    private static final String AA_ID = "h-aa" + Generators.letterStrings(2, 4).next().toLowerCase(Locale.ROOT);
+    private static final String MM_ID = "h-mm" + Generators.letterStrings(2, 4).next().toLowerCase(Locale.ROOT);
 
     @Test
     @DisplayName("the candidates are listed in the order of their harness ids")
@@ -55,8 +58,8 @@ class HarnessScanTest {
     @Test
     @DisplayName("only found supported worker-eligible harnesses are preselected")
     void onlySelectableCandidatesPreselected() {
-        var scan = new HarnessScan(List.of(found(BBB_ID), candidate("h-zz", true, VERSION, false, false),
-                candidate("h-aa", true, VERSION, true, false), candidate("h-mm", false, null, false, false)));
+        var scan = new HarnessScan(List.of(found(BBB_ID), candidate(ZZ_ID, true, VERSION, false, false),
+                candidate(AA_ID, true, VERSION, true, false), candidate(MM_ID, false, null, false, false)));
         var preselected = scan.preselected().stream().map(HarnessCandidate::harnessId).toList();
 
         assertEquals(List.of(BBB_ID), preselected, "Only one candidate may be selected");

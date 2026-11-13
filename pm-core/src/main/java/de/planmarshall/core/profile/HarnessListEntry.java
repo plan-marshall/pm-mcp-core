@@ -56,6 +56,9 @@ boolean defaultHarness, HarnessUsageCoverage usage) {
         if (version.isEmpty() != (executablePath == null)) {
             throw new IllegalArgumentException("A row carries a path exactly when it carries a version: " + harnessId);
         }
+        if (supported && executablePath == null) {
+            throw new IllegalArgumentException("A supported harness is one the scan found: " + harnessId);
+        }
         if (workerEligible && !supported) {
             throw new IllegalArgumentException("An unsupported harness is not offered for workers: " + harnessId);
         }

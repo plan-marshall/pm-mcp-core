@@ -110,7 +110,7 @@ public class HarnessVerification {
     private static void requireState(String state) {
         if (!VERIFY_STATE.equals(state)) {
             throw new HarnessVerificationRefusal(HarnessVerificationRefusal.WRONG_STATE,
-                    "'%s' is reached only from '%s', not from '%s'".formatted(VERIFY_STATE, CONSENT_STATE, state));
+                    "The verification requires the state '%s', not '%s'".formatted(VERIFY_STATE, state));
         }
     }
 
