@@ -96,14 +96,15 @@ public final class SecretRedactor {
     private static final Pattern NPM_ACCESS_TOKEN = Pattern.compile("\\bnpm_[A-Za-z0-9]{36}\\b");
 
     /**
-     * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme, the user and
-     * the host readable and masks the secret, also when
+     * The user-information form of a URL: {@code scheme://user:secret@host}. The pattern keeps the scheme and the user
+     * readable and masks the secret, which runs from the first colon after the user to the last {@code @} of the token;
+     * the host after that {@code @} stays readable when the token carries no later {@code @}. The secret is masked also
+     * when
      * <ul>
-     * <li>the secret holds a raw {@code /}, {@code ?} or {@code #} ({@code https://deploy:pa/ss@registry.example/pkg}):
-     * the secret runs to the last {@code @} of the token (a raw {@code @} inside it is masked with it), and a
-     * percent-encoded secret stays masked as a whole;</li>
+     * <li>it holds a raw {@code /}, {@code ?} or {@code #} ({@code https://deploy:pa/ss@registry.example/pkg}), or a raw
+     * {@code @}, which is masked with it; a percent-encoded secret stays masked as a whole;</li>
      * <li>the user holds a raw {@code @} ({@code https://me@corp.example:s3cret@host/p}): the user runs to the first
-     * colon, so the secret is the part between that colon and the next {@code @};</li>
+     * colon, so the secret is the part between that colon and the last {@code @} of the token;</li>
      * <li>the scheme separator is percent-encoded ({@code https%3A%2F%2Fuser:secret@host}).</li>
      * </ul>
      * The scheme starts where no scheme character precedes it. The user excludes whitespace, {@code /}, {@code ?},
@@ -112,16 +113,24 @@ public final class SecretRedactor {
      * <p>
      * What stays readable, and why: the single-user form {@code https://<token>@host} has no colon and so no secret
      * part (an operator decision; the token there is a known residue), {@code scheme://host:8080/path} has no
-     * {@code @}, and a path with a colon or a prose sentence has no {@code scheme://}. The false-positive cost: a
-     * {@code host:port/path} that is followed later on the same token by a raw {@code @} is read as user information,
-     * and the port and path up to that {@code @} are masked.
+     * {@code @}, and a path with a colon or a prose sentence has no {@code scheme://}. The false-positive costs:
+     * <ul>
+     * <li>a {@code host:port/path} that is followed later on the same token by a raw {@code @} is read as user
+     * information, and the port and path up to that {@code @} are masked;</li>
+     * <li>a credentialed URL followed later on the same token by a raw {@code @} (an {@code @scope} path segment
+     * {@code https://user:secret@registry.example/@scope/pkg}, an e-mail address) masks its host and path up to that
+     * last {@code @}, because the secret runs to the last {@code @} of the token.</li>
+     * </ul>
      * <p>
      * The plain separator {@code ://} and the percent-encoded one are two patterns applied in sequence, so neither
      * carries the alternation of both. The cost: the scheme and the user are possessive and the scheme starts only
      * where no scheme character precedes it, while the secret is a greedy {@code \S+} that gives characters back until
-     * it reaches the last {@code @} of the token. A token without that {@code @} is therefore scanned back once from
-     * each scheme start, which is quadratic in the length of one line at worst; every caller cuts the line at
-     * {@link BuildLogText#MAX_LINE_LENGTH} (or a smaller bound) before the redaction, and that cut bounds the cost.
+     * it reaches the last {@code @} of the token. A token without that {@code @} ({@code x://y:x://y:…}) is therefore
+     * scanned back once from each scheme start, which is quadratic in the length of one line at worst. The unparsed
+     * excerpt, the npm diagnostic and the journal cut the line at {@link BuildLogText#MAX_LINE_LENGTH} (or a smaller
+     * bound) before the redaction, and that cut bounds the cost there; {@code ProviderVerification} of
+     * {@code pm-runtime} passes a provider answer uncut, a residue ADR {@code core-build/009} and the guide of
+     * {@code core.queue} name.
      */
     private static final Pattern URL_USER_INFORMATION = urlUserInformation("://");
 
@@ -134,7 +143,8 @@ public final class SecretRedactor {
      * {@code --password-file notes.txt} is a different flag and stays readable, and a flag outside the list
      * ({@code --key value}, an operator decision) stays readable as well. The quoted forms are matched first: a quoted
      * value runs to the first unescaped closing quote, also across one line end to its closing quote on the next line
-     * (never further), and a quote that does not close on its own line or the next masks the rest of its line; an
+     * (never further), and a quote that does not close on its own line or the next masks the rest of its line (an
+     * escaped quote is no close, so {@code --password "abc\"def} masks {@code abc\"def}); an
      * unquoted value runs to the next whitespace and may carry a comma, a {@code ;} or a quote.
      * <p>
      * The false-positive cost: the word after a listed flag is read as its value, so usage text such as
@@ -162,8 +172,13 @@ public final class SecretRedactor {
             CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_LINE + "(?:(?:\\r\\n|\\r|\\n)" + QUOTED_LINE + ")?)\\3",
             Pattern.CASE_INSENSITIVE);
 
+    /**
+     * A quoted flag value whose quote does not close on its own line: the lookahead refuses the line only when
+     * {@link #QUOTED_LINE} reaches an unescaped closing quote, so an escaped quote ({@code --password "abc\"def}) is no
+     * close and the rest of the line is masked.
+     */
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(?![^\\r\\n]*\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_LINE + "\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);

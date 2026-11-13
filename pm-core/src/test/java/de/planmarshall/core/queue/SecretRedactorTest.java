@@ -175,6 +175,23 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a credentialed URL followed by an @scope segment masks its host (the stated cost, specified URL)")
+    void urlUserInformationLaterAtFalsePositiveCost() {
+        assertEquals("https://user:" + SecretRedactor.REDACTED + "@scope/pkg",
+                redactValue("https://user:secret@registry.example/@scope/pkg"),
+                "the secret runs to the last @ and masks the host");
+    }
+
+    @Test
+    @DisplayName("a scheme-and-colon run without @ as long as a bounded line is redacted to itself")
+    void urlUserInformationLongRunWithoutAt() {
+        // x://y: repeated without any @ is the worst case of the pattern: every scheme start scans back to it
+        var run = "x://y:".repeat(BuildLogText.MAX_LINE_LENGTH / 6 + 1).substring(0, BuildLogText.MAX_LINE_LENGTH);
+
+        assertEquals(run, redactValue(run), "a long run without any @ stays as it is");
+    }
+
+    @Test
     @DisplayName("a scheme-like run as long as a bounded line is redacted to itself")
     void urlUserInformationLongSchemeRun() {
         // a.a.a… is a run of scheme characters: every position could start a scheme, the cost case of the pattern
@@ -222,6 +239,24 @@ class SecretRedactorTest {
                 () -> assertEquals("--token \"" + SecretRedactor.REDACTED + "\" --name \"x\"",
                         redactValue("--token \"abc\" --name \"x\""),
                         "only the credential's quoted value is masked"));
+    }
+
+    @Test
+    @DisplayName("an unclosed quote holding an escaped quote masks the rest of the line (flag and escape: contract)")
+    void unclosedCredentialFlagWithEscapedQuote() {
+        var head = Generators.letterStrings(4, 12).next();
+        // longer than every letter run of the expected text, so a contains check cannot hit the flag or the mask
+        var tail = Generators.letterStrings(12, 20).next();
+        var doubleQuoted = redactValue("--password \"" + head + "\\\"" + tail);
+        var singleQuoted = redactValue("--password '" + head + "\\'" + tail);
+
+        assertAll("escaped quote inside an unclosed value",
+                () -> assertEquals("--password \"" + SecretRedactor.REDACTED, doubleQuoted,
+                        "an escaped double quote is no close"),
+                () -> assertFalse(doubleQuoted.contains(tail), "the double-quoted tail is gone"),
+                () -> assertEquals("--password '" + SecretRedactor.REDACTED, singleQuoted,
+                        "an escaped single quote is no close"),
+                () -> assertFalse(singleQuoted.contains(tail), "the single-quoted tail is gone"));
     }
 
     @Test

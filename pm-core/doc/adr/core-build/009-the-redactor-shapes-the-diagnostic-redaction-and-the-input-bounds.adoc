@@ -38,25 +38,28 @@ to the flag list, and the npm token keeps its exact length.
 
 === The redactor's shapes
 
-1. *URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
+The five items of this section are named R1 to R5, so that a reference to one of them cannot be read as one of the
+numbered `Decision` sections below.
+
+* *R1: URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
    to the last `@` of the token (a raw `@` inside it is masked with it), lets the user hold a raw `@` (the user runs to
    the first colon), and accepts the percent-encoded separator `%3A%2F%2F`. The scheme, the user and the host stay
    readable, and a percent-encoded password stays masked whole. The user still excludes whitespace, `/`, `?`, `#` and
    `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's control) stays
    readable.
-2. *Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
+* *R2: Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
    `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
    may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
    its closing quote on the next line, never further; an unclosed quote masks the rest of its line.
-3. *Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
+* *R3: Token and key shapes.* The npm access token stays `npm_` followed by exactly 36 alphanumeric characters. The PEM
    patterns also match `-----BEGIN PGP PRIVATE KEY BLOCK-----` to its `END` line (label tail
    `PRIVATE KEY(?: BLOCK)?-----`), and the unclosed form keeps its over-masking of the rest of the text.
-4. *The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the escape sequences of
+* *R4: The journal path strips escape sequences.* `SecretRedactor.redact(ActivityEntry)` strips the escape sequences of
    the text, the tool target and the link target through `BuildLogText.stripAnsi` — the expression the unparsed excerpt
    uses — before it redacts them, and applies each part's bound after the redaction as before. The label patterns are
    unchanged, and the stored journal text carries no escape sequence. `redactText(String)` leaves escape sequences to
    its caller.
-5. *Every npm message is redacted before its cut.* `NpmErrorParser` routes the `E404` and `ERESOLVE` messages through
+* *R5: Every npm message is redacted before its cut.* `NpmErrorParser` routes the `E404` and `ERESOLVE` messages through
    the same `storedRedacted` as the generic block's (redact, then the stored-length cut). This supersedes the sentence of
    ADR 006 that those messages are built from dependency names and stay unchanged. The other parsers' messages at
    `DiagnosticCollector.stored` remain the carried decision of ADR 006.
@@ -66,9 +69,12 @@ to the flag list, and the npm token keeps its exact length.
 * the single-user URL form `https://<token>@host`, which has no colon and so no secret part — an operator decision and
   a named residue;
 * a `host:port/path` that is followed later on the same token by a raw `@` is read as user information, so its port and
-  path up to that `@` are masked — the accepted false positive of Decision 1;
+  path up to that `@` are masked — the accepted false positive of R1;
+* a credentialed URL followed later on the same token by a raw `@` (an `@scope` path segment, an e-mail address) masks
+  its host and path up to that last `@`, because the password runs to the last `@` of the token — the accepted false
+  positive of R1;
 * a flag outside the closed list, and usage text such as `--token <token>`, whose placeholder is masked — the measured
-  false positive of Decision 2;
+  false positive of R2;
 * an `npm_` run of 37 or more alphanumeric characters, one followed by `_` and one preceded by a word character, because
   none of them is an npm token;
 * a PEM or PGP block whose `BEGIN` line lies before the excerpt's window: the window is not widened to reach the marker;
@@ -98,13 +104,14 @@ scanned back once from each scheme start, quadratic in one line at worst — and
 bounds it. The quoted credential-flag value is an unrolled loop (a plain run, then escape pairs each followed by a plain
 run) whose repetitions are all possessive and hold no alternation, so it neither backtracks nor recurses per character
 on a long value. `SecretRedactorTest` measures the cost without a clock: a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`,
-and the same run followed by `://`) is redacted through `redactText` and its unchanged result asserted.
+the same run followed by `://`, and the run `x://y:x://y:…` without any `@`, the shape that is scanned back from every
+scheme start) is redacted through `redactText` and its unchanged result asserted.
 The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and this plan does not bound that
 input.
 
 === The package dependency `core.queue → core.build`
 
-Decision 4 makes `core.queue` call `BuildLogText.stripAnsi` of `core.build`, which already depends on `core.queue`
+R4 makes `core.queue` call `BuildLogText.stripAnsi` of `core.build`, which already depends on `core.queue`
 (`UnparsedEvidence` and `NpmErrorParser` call `SecretRedactor`). The two packages now depend on each other. No guard
 forbids a cycle of packages within one module, and the escape-sequence expression exists once instead of being copied.
 

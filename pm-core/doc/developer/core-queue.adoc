@@ -122,13 +122,16 @@ is an npm token, and a package name that starts with `npm_` keeps its text (an o
 |the secret, also when it holds a raw `/`, `?`, `#` or `@` (it runs to the last `@` of the token), when the user holds a
 raw `@` (the user runs to the first colon), and behind a percent-encoded scheme separator (`https%3A%2F%2Fuser:secret@host`)
 |the single-user form `https://<token>@host`, which has no colon and so no secret part (an operator decision, a known
-residue); `scheme://host:8080/path`; a path with a colon; prose. The false-positive cost: a `host:port/path` followed
-later on the same token by a raw `@` is read as user information, and its port and path up to that `@` are masked.
+residue); `scheme://host:8080/path`; a path with a colon; prose. The false-positive costs: a `host:port/path` followed
+later on the same token by a raw `@` is read as user information, and its port and path up to that `@` are masked; and
+a credentialed URL followed later on the same token by a raw `@` (an `@scope` path segment
+`https://user:secret@registry.example/@scope/pkg`, an e-mail address) masks its host and path up to that last `@`,
+because the secret runs to the last `@` of the token.
 
 |Spaced credential flag of the closed list `--password`, `--passwd`, `--passphrase`, `--token`, `--secret`,
 `--auth-token`, `--api-key`, `--apikey`, `--access-token`, `--client-secret`, `--otp`, in any case
 |an unquoted value to the next whitespace (a `,`, `;` or quote included); a quoted value to its closing quote, across at
-most one line end; an unclosed quote masks the rest of its line
+most one line end; an unclosed quote masks the rest of its line, and an escaped quote (`\"`) is no close
 |a flag outside the list (`--key value`, an operator decision) and `--password-file notes.txt`, a different flag. The
 false-positive cost: usage text such as `--token <token>` masks the placeholder.
 
