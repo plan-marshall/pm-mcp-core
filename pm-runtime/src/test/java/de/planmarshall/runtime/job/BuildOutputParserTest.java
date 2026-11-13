@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.build.BuildLogText;
 import de.planmarshall.core.build.EslintOutputParser;
 import de.planmarshall.core.build.TypeScriptOutputParser;
 import de.planmarshall.core.store.JobId;
@@ -567,6 +568,81 @@ class BuildOutputParserTest {
             assertAll(
                     () -> assertEquals(1, parse.diagnostics(), "the npm error block is still filed"),
                     () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error still fails"));
+        }
+    }
+
+    /**
+     * The dispatch sees every line cut at the limit, and its multi-line markers lead with horizontal space only, so a
+     * blank-line run is never crossed by one repetition. Each case is a fixed log with an asserted result, no clock: a
+     * leading {@code \s*} would backtrack over the whole run at every line start of it, and a dispatch that read a whole
+     * hostile line would select the tool its tail names.
+     * <p>
+     * Contract literals that stay: the ESLint, Jest and tsc lines, the golden output formats of those tools.
+     */
+    @Nested
+    @DisplayName("the line bound of the dispatch")
+    class DispatchLineBound {
+
+        /** A million lines, every other one blank and every other one horizontal whitespace. */
+        private static final String BLANK_RUN = "\n \t\n".repeat(500_000);
+
+        private static final String ESLINT_ROW = "  1:10  error  Unexpected var  no-var";
+
+        @Test
+        @DisplayName("an ESLint row after a million blank lines still selects ESLint")
+        void eslintRowAfterABlankRun() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js" + BLANK_RUN + ESLINT_ROW + "\n");
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the row after the blank run is filed"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the ESLint error decides failed"));
+        }
+
+        @Test
+        @DisplayName("a Jest summary after a million blank lines still selects Jest")
+        void jestSummaryAfterABlankRun() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "Tests:       5 passed, 5 total\n");
+
+            assertAll(
+                    () -> assertTrue(parse.successMarker(), "the summary after the blank run is the marker"),
+                    () -> assertEquals(SUCCEEDED, outcome(parse, 0), "the passing Jest run decides succeeded"));
+        }
+
+        @Test
+        @DisplayName("a million blank lines before an opaque line yield nothing")
+        void blankRunBeforeAnOpaqueLine() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "compiling something\n");
+
+            assertEquals(ParseResult.NOTHING, parse, "no marker crosses the blank run");
+        }
+
+        @Test
+        @DisplayName("a row led by a form feed after a blank line is no ESLint row")
+        void formFeedLeadsNoRow() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n\n\f" + ESLINT_ROW.strip() + "\n");
+
+            assertEquals(ParseResult.NOTHING, parse, "only horizontal space leads an ESLint row");
+        }
+
+        @Test
+        @DisplayName("an ESLint row at the limit selects ESLint")
+        void eslintRowAtTheLimit() {
+            var row = " ".repeat(BuildLogText.MAX_LINE_LENGTH - ESLINT_ROW.length()) + ESLINT_ROW;
+
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n" + row + "\n");
+
+            assertEquals(1, parse.diagnostics(), "a row at the limit is dispatched and filed");
+        }
+
+        @Test
+        @DisplayName("a tsc marker behind the cut selects no parser")
+        void typeScriptMarkerBeyondTheLimit() {
+            var line = " ".repeat(BuildLogText.MAX_LINE_LENGTH * 32)
+                    + "src/a.ts(1,2): error TS2304: Cannot find name 'x'.";
+
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), line + "\n");
+
+            assertEquals(ParseResult.NOTHING, parse, "a marker behind the cut selects no parser");
         }
     }
 }

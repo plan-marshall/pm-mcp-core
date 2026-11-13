@@ -45,6 +45,9 @@ import org.jspecify.annotations.Nullable;
  * multi-file run, and a total that is not the sum of its parts makes the population {@link TestCounts.Unmeasured}.
  * A measured zero is a measurement: {@code # fail 0} never produces a {@code no_tests_ran} verdict, because TAP prints no
  * positive "no tests" marker: a measured zero stays a measurement.
+ * <p>
+ * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
+ * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
  *
  * @since 0.1
  */
@@ -113,7 +116,7 @@ public class TapOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = withoutCarriageReturns(List.of(logText.split("\n", -1)));
+        List<String> lines = withoutCarriageReturns(List.of(BuildLogText.boundLines(logText).split("\n", -1)));
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = printsFailure(lines) ? BuildStatus.FAILURE : BuildStatus.SUCCESS;

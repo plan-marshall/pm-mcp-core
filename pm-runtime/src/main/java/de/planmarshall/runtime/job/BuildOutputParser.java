@@ -58,6 +58,10 @@ import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
  * the npm error parser under such a verb, the result carries no success marker. Its diagnostics, its contradicting
  * evidence and the dispatch order stay as they are. A test runner no scanner here reads (mocha, vitest) after
  * {@code npm ci} under a non-install verb therefore stays {@code indeterminate}.
+ * <p>
+ * The stripped text is cut to {@link BuildLogText#MAX_LINE_LENGTH} characters a line by
+ * {@link BuildLogText#boundLines(String)} before any dispatch pattern sees it, and the multi-line dispatch patterns
+ * anchor on horizontal space ({@code ^[ \t]*}) rather than {@code ^\s*}, so no repetition of theirs crosses a line end.
  *
  * @since 0.1
  */
@@ -65,11 +69,14 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
 
     private static final Pattern TYPESCRIPT_MARKER = Pattern.compile("\\berror TS\\d+\\b");
 
-    private static final Pattern ESLINT_ROW = Pattern.compile("(?m)^\\s*\\d+:\\d+\\s+(?:error|warning)\\b");
+    /** An ESLint row; its leading run is horizontal space only, so no repetition crosses a line end. */
+    private static final Pattern ESLINT_ROW = Pattern.compile("(?m)^[ \\t]*\\d+:\\d+\\s+(?:error|warning)\\b");
 
     private static final Pattern ESLINT_SUMMARY = Pattern.compile("[✖✗]\\s*\\d+\\s+problems?");
 
-    private static final Pattern JEST_MARKER = Pattern.compile("(?m)^\\s*(?:PASS|FAIL)\\s+\\S+|^\\s*Tests:\\s+");
+    /** A Jest suite header or summary; its leading runs are horizontal space only, so no repetition crosses a line end. */
+    private static final Pattern JEST_MARKER =
+            Pattern.compile("(?m)^[ \\t]*(?:PASS|FAIL)\\s+\\S+|^[ \\t]*Tests:\\s+");
 
     private static final Pattern TAP_MARKER = Pattern.compile("(?m)^(?:TAP version \\d+|1\\.\\.\\d+|(?:not )?ok \\d+)");
 
@@ -91,7 +98,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
         if (job.kind() != JobId.Kind.BUILD) {
             return JobEvidence.ParseResult.NOTHING;
         }
-        var text = BuildLogText.stripAnsi(output);
+        var text = BuildLogText.boundLines(BuildLogText.stripAnsi(output));
         var verb = verb(job.budgetKey());
         return system(job).flatMap(buildSystem -> parse(buildSystem, verb, text))
                 .orElse(JobEvidence.ParseResult.NOTHING);

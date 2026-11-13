@@ -32,6 +32,9 @@ import org.jspecify.annotations.Nullable;
  * pattern and never reads it, so the counts it carries are lost; this port reports them. And a row whose message and rule
  * are separated by a single space does not match the original's pattern either, but this port reaches the same verdict
  * without the pattern's backtracking, so a hostile line cannot make the parse polynomial.
+ * <p>
+ * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
+ * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
  *
  * @since 0.1
  */
@@ -73,7 +76,7 @@ public class EslintOutputParser {
     }
 
     private static EslintResult parseStripped(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+        List<String> lines = List.of(BuildLogText.boundLines(logText).split("\n", -1));
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         boolean failed = diagnostics.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR);
         BuildStatus status = failed ? BuildStatus.FAILURE : BuildStatus.SUCCESS;

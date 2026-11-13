@@ -28,6 +28,9 @@ import org.jspecify.annotations.Nullable;
  * One behaviour is a deliberate change against the original (ADR {@code core-build/003}): the original scans the second
  * form only when the first yielded nothing, so a log that mixes the two forms silently loses every {@code path:line:col -
  * error ...} diagnostic. This port scans both forms over every line and deduplicates across them.
+ * <p>
+ * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
+ * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
  *
  * @since 0.1
  */
@@ -65,7 +68,7 @@ public class TypeScriptOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+        List<String> lines = List.of(BuildLogText.boundLines(logText).split("\n", -1));
         List<Diagnostic> diagnostics = DiagnosticCollector.collect(lines, TypeScriptOutputParser::filedDiagnostic);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
         return ParsedBuild.builder().diagnostics(diagnostics).status(status).successMarker(false).testCounts(null)

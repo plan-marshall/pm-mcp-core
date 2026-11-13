@@ -37,6 +37,9 @@ import org.jspecify.annotations.Nullable;
  * {@code Tests:} block only, and it trusts the block's {@code total} over its parts. This port sums every block of a
  * multi-package run, and a block whose total is not the sum of its parts makes the population
  * {@link TestCounts.Unmeasured} rather than a figure that silently disagrees with itself.
+ * <p>
+ * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
+ * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
  *
  * @since 0.1
  */
@@ -86,7 +89,7 @@ public class JestOutputParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = withoutCarriageReturns(List.of(logText.split("\n", -1)));
+        List<String> lines = withoutCarriageReturns(List.of(BuildLogText.boundLines(logText).split("\n", -1)));
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         TestCounts testCounts = extractTestCounts(lines).orElse(null);
         BuildStatus status = diagnostics.isEmpty() && !printsFailedSummary(lines)

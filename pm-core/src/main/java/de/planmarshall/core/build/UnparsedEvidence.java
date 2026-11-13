@@ -28,9 +28,17 @@ import de.planmarshall.core.store.JobId;
  * most {@value #MAX_BYTES} bytes of UTF-8 counted from its end, so the byte bound can cut the earliest retained line.
  * The tail is taken by scanning back from the log's end, and the carriage-return reduction lists no line: a log of a
  * million lines costs the reduced text, never an entry per line.
- * Every secret-shaped value is replaced by {@link SecretRedactor}; the bound is applied after the redaction, because a
- * replacement can lengthen a line. The full log itself stays beside the job record as {@code <job_id>.log}, which is the
- * resource the URI names.
+ * <p>
+ * The steps run in a fixed order: strip the escapes, reduce the carriage-return frames, take the window of the last
+ * {@value #MAX_LINES} lines, cut every kept line to its last {@link BuildLogText#MAX_LINE_LENGTH} characters, redact,
+ * and apply the byte bound. The line cut keeps a line's end, as the byte bound does, because the excerpt is the tail of
+ * the log; unlike {@link BuildLogText#boundLines(String)}, which keeps a line's head for a parser's leading marker.
+ * Every secret-shaped value is replaced by {@link SecretRedactor}; the line cut comes before the redaction because it is
+ * what bounds the redactor's cost on a long hostile line, and the byte bound comes after it, because a replacement can
+ * lengthen a line. The accepted residue of that order: a secret that straddles the line cut loses its head before the
+ * redactor sees it, so a tail too short for the redactor's shape can stay readable in the excerpt. The full log itself
+ * stays beside the job record as
+ * {@code <job_id>.log}, which is the resource the URI names.
  *
  * @param excerpt    the bounded, redacted tail of the raw log; empty for an empty log
  * @param excerptUri the resource URI of the full raw log
@@ -86,7 +94,41 @@ public record UnparsedEvidence(String excerpt, String excerptUri) {
 
     private static String tail(String rawLog) {
         String reduced = reduceCarriageReturns(BuildLogText.stripAnsi(rawLog));
-        return capped(SecretRedactor.redactText(keptTail(reduced)).orElseThrow());
+        String bounded = boundLineTails(keptTail(reduced));
+        return capped(SecretRedactor.redactText(bounded).orElseThrow());
+    }
+
+    /**
+     * Cuts every line at {@link BuildLogText#MAX_LINE_LENGTH} characters, keeping its end.
+     * <p>
+     * The excerpt is the tail of a log, and the byte bound keeps the end of a long line, so the line cut keeps the end
+     * too: the bound is at least as long as the byte bound, so a line the byte bound cuts reads the same as without the
+     * line cut, while the redactor never sees more than the bound of one line. A cut never splits a surrogate pair. A
+     * text whose lines are all inside the bound is returned as it is.
+     *
+     * @param text the kept tail, its escapes stripped and its carriage-return frames reduced
+     * @return the text with every line cut to its last {@link BuildLogText#MAX_LINE_LENGTH} characters
+     */
+    static String boundLineTails(String text) {
+        if (text.length() <= BuildLogText.MAX_LINE_LENGTH) {
+            return text;
+        }
+        var bounded = new StringBuilder(Math.min(text.length(), MAX_LINES * (BuildLogText.MAX_LINE_LENGTH + 1)));
+        var from = 0;
+        while (true) {
+            var end = text.indexOf('\n', from);
+            var lineEnd = end < 0 ? text.length() : end;
+            var start = Math.max(from, lineEnd - BuildLogText.MAX_LINE_LENGTH);
+            if (start > from && start < lineEnd && Character.isLowSurrogate(text.charAt(start))) {
+                start++;
+            }
+            bounded.append(text, start, lineEnd);
+            if (end < 0) {
+                return bounded.toString();
+            }
+            bounded.append('\n');
+            from = end + 1;
+        }
     }
 
     /**

@@ -47,6 +47,9 @@ import de.planmarshall.core.queue.SecretRedactor;
  * <p>
  * The peer-conflict trailer is scanned line by line rather than with the original's {@code DOTALL} expression, so a
  * hostile log line cannot make the match polynomial (the pattern-shape hazard the plan's standing constraints name).
+ * <p>
+ * Every line is cut at {@link BuildLogText#MAX_LINE_LENGTH} characters by {@link BuildLogText#boundLines(String)} before
+ * any pattern sees it, at the one entry both {@code parse} overloads share (ADR {@code core-build/007}).
  *
  * @since 0.1
  */
@@ -82,10 +85,11 @@ public class NpmErrorParser {
      * {@code changed 2 packages} or {@code up to date, audited 5 packages}. Each branch requires its printed count, so a
      * prose sentence that merely carries the words {@code added} and {@code packages} does not match. The adapter
      * {@code BuildOutputParser.npm} reads the same pattern to dispatch an install log here, so the marker and the
-     * dispatch cannot drift apart.
+     * dispatch cannot drift apart. The dispatch runs it over the whole log, so its leading run is horizontal space only:
+     * a {@code \s*} there would cross every line end of a blank-line run and cost the square of the run's length.
      */
     public static final Pattern INSTALL_SUMMARY = Pattern.compile(
-            "(?m)^\\s*(?:(?:added|removed|changed) \\d+ packages?\\b|up to date, audited \\d+ packages?\\b)");
+            "(?m)^[ \\t]*(?:(?:added|removed|changed) \\d+ packages?\\b|up to date, audited \\d+ packages?\\b)");
 
     /**
      * Parses an npm error log.
@@ -110,7 +114,7 @@ public class NpmErrorParser {
     }
 
     private static ParsedBuild parseStripped(String logText) {
-        List<String> lines = List.of(logText.split("\n", -1));
+        List<String> lines = List.of(BuildLogText.boundLines(logText).split("\n", -1));
         List<Diagnostic> diagnostics = extractDiagnostics(lines);
         BuildStatus status = diagnostics.isEmpty() ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
         boolean successMarker = status == BuildStatus.SUCCESS && printsInstallSummary(lines);
