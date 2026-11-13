@@ -23,6 +23,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,8 +35,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Every {@code src/main/java} file of the reactor is scanned for a string literal that carries the two-to-32 name
  * grammar, in its spellings, and the scan fails naming the file, the line and the two classes that hold the one
  * definition ({@code RoleName} and {@code HarnessId}) of the {@code core.id} package. Only
- * {@code core/id/ShortName.java}, which writes the text once, and the literal of {@code IdentifierSpecificationParityTest}
- * outside production code are not scanned; the guard has no exemption for a production file.
+ * {@code core/id/ShortName.java}, which writes the text once, is excluded; the guard has no exemption for another
+ * production file (test sources are not scanned at all).
  * <p>
  * A source scan rather than an ArchUnit rule: ArchUnit does not see string constants, and the class-file scan of
  * {@code ProfileNeutralityArchTest} reaches one module. <b>Limit:</b> a grammar composed at run time (two literals
@@ -50,6 +51,8 @@ class RoleNameSingleDefinitionTest {
 
     private static final String SHORT_NAME = "core/id/ShortName.java";
 
+    private static final List<String> MODULES = List.of("pm-core", "pm-workflow", "pm-runtime");
+
     /** The spellings of the two-to-32 name grammar the scan finds, as the source writes them. */
     private static final List<String> SPELLINGS = List.of("[a-z][a-z0-9-]{1,31}", "[a-z][a-z0-9\\\\-]{1,31}",
             "[a-z][-a-z0-9]{1,31}");
@@ -59,32 +62,30 @@ class RoleNameSingleDefinitionTest {
     void noCopyOfTheGrammar() {
         var root = repositoryRoot();
         var offenders = new ArrayList<String>();
-        var scanned = new ArrayList<Path>();
+        var filesPerModule = new TreeMap<String, Integer>();
         for (var productionRoot : productionRoots(root)) {
-            scanned.add(productionRoot);
-            offenders.addAll(offencesIn(productionRoot));
+            var scan = scan(root, productionRoot);
+            offenders.addAll(scan.offences());
+            if (scan.files() > 0) {
+                filesPerModule.merge(root.relativize(productionRoot).getName(0).toString(), scan.files(),
+                        Integer::sum);
+            }
         }
 
-        assertFalse(scanned.isEmpty(), "The scan should find production source roots");
+        for (var module : MODULES) {
+            assertTrue(filesPerModule.getOrDefault(module, 0) > 0,
+                    "The scan should read at least one file of " + module);
+        }
         assertTrue(offenders.isEmpty(),
                 () -> "The name grammar is defined once, in ShortName; these files carry a copy (use RoleName or "
                         + "HarnessId): " + offenders);
     }
 
     @Test
-    @DisplayName("the scan read every module that can hold the grammar and the one definition")
-    void scanIsNotVacuous() {
-        var root = repositoryRoot();
-        var byModule = new ArrayList<String>();
-        for (var module : List.of("pm-core", "pm-workflow", "pm-runtime")) {
-            var productionRoot = root.resolve(module).resolve(PRODUCTION_SOURCE);
-            assertTrue(Files.isDirectory(productionRoot), "Every scanned module should have production source");
-            byModule.add(module);
-        }
+    @DisplayName("the one definition writes the grammar text")
+    void oneDefinitionWritesTheText() {
+        var shortName = sourceOf(repositoryRoot().resolve("pm-core").resolve(PRODUCTION_SOURCE), SHORT_NAME);
 
-        var shortName = sourceOf(root.resolve("pm-core").resolve(PRODUCTION_SOURCE), SHORT_NAME);
-
-        assertFalse(byModule.isEmpty(), "The scan should cover every module of the grammar");
         assertTrue(containsSpelling(shortName), "The one definition should write the grammar text");
     }
 
@@ -116,19 +117,45 @@ class RoleNameSingleDefinitionTest {
         assertTrue(offences(source).isEmpty(), "The grammar in a comment should not be reported");
     }
 
-    private static List<String> offencesIn(Path productionRoot) {
+    @Test
+    @DisplayName("the grammar inside a text block is found")
+    void textBlockIsFound() {
+        var source = "class C {\n    String text = \"\"\"\n        [a-z][a-z0-9-]{1,31}\n        \"\"\";\n}\n";
+
+        assertFalse(offences(source).isEmpty(), "The grammar in a text block should be an offence");
+    }
+
+    @Test
+    @DisplayName("a quote character literal does not hide the grammar after it")
+    void quoteCharacterLiteralDoesNotHideTheGrammar() {
+        var source = "class C {\n    char quote = '\"';\n"
+                + "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");\n}\n";
+
+        assertFalse(offences(source).isEmpty(), "A copy after a quote character literal should be an offence");
+    }
+
+    private static Scan scan(Path root, Path productionRoot) {
         var offenders = new ArrayList<String>();
-        try (var files = Files.walk(productionRoot)) {
-            for (var file : files.filter(Files::isRegularFile).filter(RoleNameSingleDefinitionTest::isJava)
-                    .filter(path -> !path.toString().endsWith(SHORT_NAME)).toList()) {
+        var files = 0;
+        try (var walk = Files.walk(productionRoot)) {
+            for (var file : walk.filter(Files::isRegularFile).filter(RoleNameSingleDefinitionTest::isJava)
+                    .toList()) {
+                files++;
+                if (isShortName(file)) {
+                    continue;
+                }
                 for (var offence : offences(read(file))) {
-                    offenders.add(productionRoot.getParent().getParent().getParent().relativize(file) + offence);
+                    offenders.add(root.relativize(file) + offence);
                 }
             }
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
-        return offenders;
+        return new Scan(List.copyOf(offenders), files);
+    }
+
+    private static boolean isShortName(Path file) {
+        return file.toString().replace('\\', '/').endsWith("/" + SHORT_NAME);
     }
 
     private static List<String> offences(String source) {
@@ -138,6 +165,7 @@ class RoleNameSingleDefinitionTest {
         var literalLine = 1;
         var inLiteral = false;
         var inTextBlock = false;
+        var inCharacterLiteral = false;
         var escaped = false;
         var inBlockComment = false;
         var inLineComment = false;
@@ -155,6 +183,16 @@ class RoleNameSingleDefinitionTest {
             }
             if (inLineComment) {
                 inLineComment = character != '\n';
+                continue;
+            }
+            if (inCharacterLiteral) {
+                if (escaped) {
+                    escaped = false;
+                } else if (character == '\\') {
+                    escaped = true;
+                } else if (character == '\'') {
+                    inCharacterLiteral = false;
+                }
                 continue;
             }
             if (inLiteral) {
@@ -202,12 +240,18 @@ class RoleNameSingleDefinitionTest {
                     continue;
                 }
             }
+            if (character == '\'') {
+                inCharacterLiteral = true;
+                escaped = false;
+                continue;
+            }
             if (character == '"') {
                 inLiteral = true;
                 inTextBlock = index + 2 < source.length() && source.startsWith("\"\"\"", index);
                 if (inTextBlock) {
                     index += 2;
                 }
+                escaped = false;
                 literalLine = line;
                 literal.setLength(0);
             }
@@ -216,14 +260,12 @@ class RoleNameSingleDefinitionTest {
     }
 
     private static List<String> offencesOf(String literal, int line) {
-        var offences = new ArrayList<String>();
         for (var spelling : SPELLINGS) {
             if (literal.contains(spelling)) {
-                offences.add(":" + line + " carries the name grammar");
-                return offences;
+                return List.of(":" + line + " carries the name grammar");
             }
         }
-        return offences;
+        return List.of();
     }
 
     private static boolean containsSpelling(String source) {
@@ -295,5 +337,9 @@ class RoleNameSingleDefinitionTest {
     private static boolean isSkipped(Path directory) {
         var name = directory.getFileName().toString();
         return name.startsWith(".") || "target".equals(name) || "node_modules".equals(name);
+    }
+
+    /** @param offences one repo-root-relative file, line and reason per copy found */
+    private record Scan(List<String> offences, int files) {
     }
 }
