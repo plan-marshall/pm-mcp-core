@@ -196,8 +196,9 @@ package-private `EngineFixtures` of the engine tests
   state is entered without a job-starting outcome, so the engine starts its job through the job port.
 * The entity kind `change` is registered with no entity unit and the return evaluation `scenario.evaluate`
   (`approved`, `rejected`).
-* The ports: `SequenceJobStarter` starts the build jobs `b-0000000000000001`, `b-0000000000000002`, … in order,
-  `RecordingQueueTaskCreator` creates the queue tasks `qt-0000000000000001`, … and records each request,
+* The ports: the EasyMock job port starts the build jobs `b-0000000000000001`, `b-0000000000000002`, … in order and
+  its `jobRequests` capture holds each request; the EasyMock queue-task port creates the queue tasks
+  `qt-0000000000000001`, … and its `taskRequests` capture holds each request;
   `ScriptedQuestionRecordReader` reports the resolution the runner set for a question and every other question open, and
   `ManualClock` starts at `T0` and moves by `STEP` (one second) per step.
 

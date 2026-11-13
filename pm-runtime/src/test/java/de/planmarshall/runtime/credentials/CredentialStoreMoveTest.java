@@ -9,6 +9,10 @@
  */
 package de.planmarshall.runtime.credentials;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -104,6 +108,18 @@ class CredentialStoreMoveTest {
     private final SecureRandom random = new SecureRandom();
     private final List<AuditEvent> events = new ArrayList<>();
     private final FakeOsStore osStore = new FakeOsStore();
+
+    /** The keyrings of a macOS machine whose Keychain is the fake OS store. */
+    private final CredentialStoreChoice.Keyrings keyrings = keyrings();
+
+    private CredentialStoreChoice.Keyrings keyrings() {
+        CredentialStoreChoice.Keyrings mock = createMock(CredentialStoreChoice.Keyrings.class);
+        expect(mock.keychain(anyObject(String.class))).andReturn(osStore).anyTimes();
+        expect(mock.secretService(anyObject(Path.class), anyObject(String.class)))
+                .andReturn(Optional.empty()).anyTimes();
+        replay(mock);
+        return mock;
+    }
     private FileLockManager locks;
     private CredentialStoreChoice choice;
     private FileSecretStore fileStore;
@@ -128,7 +144,7 @@ class CredentialStoreMoveTest {
         Files.createDirectories(AuditHead.headFile(base).getParent());
         AuditSink sink = events::add;
         locks = new FileLockManager(sink);
-        choice = new CredentialStoreChoice(base, SERVICE, MachinePaths.Os.MACOS, Map.of(), new FakeKeyrings());
+        choice = new CredentialStoreChoice(base, SERVICE, MachinePaths.Os.MACOS, Map.of(), keyrings);
         fileStore = new FileSecretStore(base.resolve("credentials"));
     }
 
@@ -1162,20 +1178,6 @@ class CredentialStoreMoveTest {
 
         @Serial
         private static final long serialVersionUID = 1L;
-    }
-
-    /** The keyrings of a macOS machine whose Keychain is the fake OS store. */
-    private final class FakeKeyrings implements CredentialStoreChoice.Keyrings {
-
-        @Override
-        public SecretStore keychain(String service) {
-            return osStore;
-        }
-
-        @Override
-        public Optional<SecretStore> secretService(Path socket, String service) {
-            return Optional.empty();
-        }
     }
 
     /**

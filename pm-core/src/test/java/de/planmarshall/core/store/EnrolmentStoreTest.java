@@ -9,7 +9,12 @@
  */
 package de.planmarshall.core.store;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.capture;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -471,14 +476,15 @@ class EnrolmentStoreTest {
                 var confirmed = written();
                 owe(PROJECT, confirmed.notConfirmed());
                 confirm(confirmed);
-                var sink = new RecordingAuditSink();
+                Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.capturing(auditEvents);
 
                 var delivered = deliver(sink);
 
                 assertAll("the confirmed record should be handed over once",
                         () -> assertEquals(List.of(confirmed), delivered,
                                 "The delivered list should hold the record"),
-                        () -> assertEquals(List.of(confirmed), sink.events(),
+                        () -> assertEquals(List.of(confirmed), auditEvents.getValues(),
                                 "The sink should have accepted the record"),
                         () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
                                 "The intent file should be removed"));
@@ -489,7 +495,7 @@ class EnrolmentStoreTest {
             void handedOverUnconfirmed() {
                 var unconfirmed = written().notConfirmed();
                 owe(PROJECT, unconfirmed);
-                var sink = new RecordingAuditSink();
+                var sink = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
 
                 var delivered = deliver(sink);
 
@@ -569,14 +575,15 @@ class EnrolmentStoreTest {
                 var first = written();
                 var second = AuditEvent.enrolmentRebaselined(PROJECT, transactionId());
                 owe(PROJECT, first, second);
-                var sink = new RecordingAuditSink();
+                Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.capturing(auditEvents);
 
                 var delivered = deliver(sink);
 
                 assertAll("an accepting sink should receive the records in order",
                         () -> assertEquals(List.of(first, second), delivered,
                                 "The delivered list should hold both records in order"),
-                        () -> assertEquals(List.of(first, second), sink.events(),
+                        () -> assertEquals(List.of(first, second), auditEvents.getValues(),
                                 "The sink should have accepted both records in order"),
                         () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
                                 "The intent file should be removed"));
@@ -587,13 +594,14 @@ class EnrolmentStoreTest {
             void nothingOwed() throws Exception {
                 enrol(enrolment(PROJECT, false));
                 var before = listing();
-                var sink = new RecordingAuditSink();
+                Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.capturing(auditEvents);
 
                 var delivered = deliver(sink);
 
                 assertAll("nothing owed should hand over nothing",
                         () -> assertTrue(delivered.isEmpty(), "Nothing should be delivered"),
-                        () -> assertTrue(sink.events().isEmpty(), "The sink should receive nothing"),
+                        () -> assertTrue(auditEvents.getValues().isEmpty(), "The sink should receive nothing"),
                         () -> assertEquals(before, listing(), "The directory should be untouched"));
             }
 
@@ -635,31 +643,33 @@ class EnrolmentStoreTest {
                 var first = written();
                 var second = AuditEvent.enrolmentRebaselined(PROJECT, transactionId());
                 owe(PROJECT, first, second);
-                var accepted = new ArrayList<AuditEvent>();
-                AuditSink sink = event -> {
-                    if (!accepted.isEmpty()) {
-                        throw new UncheckedIOException(new IOException(Generators.letterStrings(10, 30).next()));
-                    }
-                    accepted.add(event);
-                };
+                Capture<AuditEvent> accepted = newCapture(CaptureType.ALL);
+                AuditSink sink = createMock(AuditSink.class);
+                sink.append(capture(accepted));
+                expectLastCall().andVoid();
+                sink.append(anyObject(AuditEvent.class));
+                expectLastCall().andThrow(new UncheckedIOException(
+                        new IOException(Generators.letterStrings(10, 30).next())));
+                replay(sink);
 
                 var delivered = deliver(sink);
 
                 assertAll("a sink refusing the second record should keep it owed",
                         () -> assertEquals(List.of(first), delivered,
                                 "Only the first record should be delivered"),
-                        () -> assertEquals(List.of(first), accepted,
+                        () -> assertEquals(List.of(first), accepted.getValues(),
                                 "The sink should have accepted only the first record"),
                         () -> assertEquals(List.of(second), owed(store),
                                 "Only the second record should still be owed"));
 
-                var recording = new RecordingAuditSink();
+                Capture<AuditEvent> recorded = newCapture(CaptureType.ALL);
+                var recording = AuditSinkDoubles.capturing(recorded);
                 var rest = deliver(recording);
 
                 assertAll("the remaining record should be handed over once",
                         () -> assertEquals(List.of(second), rest,
                                 "The second hand-over should deliver the second record"),
-                        () -> assertEquals(List.of(second), recording.events(),
+                        () -> assertEquals(List.of(second), recorded.getValues(),
                                 "The recording sink should accept the second record"),
                         () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
                                 "The intent file should be removed"));
@@ -683,13 +693,14 @@ class EnrolmentStoreTest {
                         "A stopped hand-over should keep the record owed");
 
                 store = new EnrolmentStore(base);
-                var sink = new RecordingAuditSink();
+                Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.capturing(auditEvents);
                 var delivered = deliver(sink);
 
                 assertAll("a new transaction should hand the record over once",
                         () -> assertEquals(List.of(written), delivered,
                                 "The new transaction should deliver the record"),
-                        () -> assertEquals(List.of(written), sink.events(),
+                        () -> assertEquals(List.of(written), auditEvents.getValues(),
                                 "The sink should accept the record"),
                         () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
                                 "The intent file should be removed"));
@@ -704,7 +715,8 @@ class EnrolmentStoreTest {
             @DisplayName("every access is refused without the project's lock, and another project's lock does not count")
             void withoutLock() {
                 var written = written();
-                var sink = new RecordingAuditSink();
+                Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.capturing(auditEvents);
                 var otherProject = "project-" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
 
                 try (var transaction = locks.openTransaction()) {
@@ -731,7 +743,7 @@ class EnrolmentStoreTest {
                 assertAll("a lock refusal should write nothing",
                         () -> assertFalse(Files.exists(store.auditIntent(PROJECT)),
                                 "No intent file should have been written"),
-                        () -> assertTrue(sink.events().isEmpty(),
+                        () -> assertTrue(auditEvents.getValues().isEmpty(),
                                 "The sink should have received nothing"));
             }
 
@@ -742,7 +754,8 @@ class EnrolmentStoreTest {
             void unreadableIntent(String content) throws Exception {
                 var intent = Files.writeString(store.auditIntent(PROJECT), content);
                 var written = written();
-                var sink = new RecordingAuditSink();
+                Capture<AuditEvent> auditEvents = newCapture(CaptureType.ALL);
+                var sink = AuditSinkDoubles.capturing(auditEvents);
 
                 try (var transaction = locks.openTransaction()) {
                     transaction.acquire(store.lockKey(PROJECT));
@@ -768,7 +781,7 @@ class EnrolmentStoreTest {
                 assertAll("a refused intent should be kept",
                         () -> assertEquals(content, Files.readString(intent),
                                 "The intent file should keep its content"),
-                        () -> assertTrue(sink.events().isEmpty(),
+                        () -> assertTrue(auditEvents.getValues().isEmpty(),
                                 "The sink should have received nothing"));
             }
         }

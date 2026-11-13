@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -104,22 +109,25 @@ class ProjectRecoveryTest {
         return new Outcome.Done(message());
     }
 
-    /** A step that records each run as {@code "NAME project"} and then does what its body says. */
-    private record RecordingStep(Name name, List<String> runs, Function<String, Outcome> body) implements RecoveryStep {
-
-        @Override
-        public Outcome run(String projectId) {
+    /** @return an EasyMock step that records each run as {@code "NAME project"} and then runs its body */
+    private RecoveryStep step(Name name, Function<String, Outcome> body) {
+        RecoveryStep mock = createMock(RecoveryStep.class);
+        expect(mock.name()).andReturn(name).anyTimes();
+        expect(mock.run(anyObject(String.class))).andAnswer(() -> {
+            var projectId = (String) getCurrentArguments()[0];
             runs.add(name + " " + projectId);
             return body.apply(projectId);
-        }
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
-    /** One recording step per name, in the order of the specification; the bodies given replace the done one. */
+    /** One step with a recording body per name, in the order of the specification; the bodies given replace the done one. */
     private List<RecoveryStep> steps(Map<Name, Function<String, Outcome>> bodies) {
         var steps = new ArrayList<RecoveryStep>();
         var report = done();
         for (var name : Name.values()) {
-            steps.add(new RecordingStep(name, runs, bodies.getOrDefault(name, _ -> report)));
+            steps.add(step(name, bodies.getOrDefault(name, _ -> report)));
         }
         return steps;
     }
@@ -670,7 +678,7 @@ class ProjectRecoveryTest {
         private List<RecoveryStep> seamsWithRecordingJobsStep(Outcome.Done seam) {
             var steps = new ArrayList<RecoveryStep>();
             for (var name : Name.values()) {
-                steps.add(name == Name.JOBS_AND_WORKERS ? new RecordingStep(name, runs, _ -> seam)
+                steps.add(name == Name.JOBS_AND_WORKERS ? step(name, _ -> seam)
                         : RecoveryStep.notImplemented(name));
             }
             return steps;

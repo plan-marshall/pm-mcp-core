@@ -5,6 +5,10 @@
 
 Accepted
 
+Superseded in part by link:018-the-install-marker-needs-an-install-verb.adoc[ADR `runtime-job/018`] (2026-11-13): the
+install family's completion line is the successful-install marker only for a job whose verb is `install` or
+`clean-install`; the rest of this record stands.
+
 == Date
 
 2026-11-10

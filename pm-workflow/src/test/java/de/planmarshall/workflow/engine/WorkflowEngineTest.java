@@ -303,7 +303,8 @@ class WorkflowEngineTest {
                     () -> assertSame(raised, assertInstanceOf(EngineStep.ConditionRaised.class,
                             engine.advance(raised)).status()),
                     () -> assertEquals(0, fixtures.step.calls()),
-                    () -> assertTrue(fixtures.jobStarter.requests.isEmpty()));
+                    () -> assertTrue(fixtures.jobRequests.getValues().isEmpty(),
+                            "a settled start starts no job"));
         }
 
         @Test
@@ -608,7 +609,7 @@ class WorkflowEngineTest {
         @Test
         @DisplayName("Should fail with undeclared_outcome when a refused start has no refused route in its job state")
         void shouldFaultOnRefusedStartWithoutRoute() {
-            fixtures.jobStarter.refusing = true;
+            fixtures.refusing = true;
             var engine = fixtures.engine(plan("execute.build", """
                     state execute.build
                         job test.build

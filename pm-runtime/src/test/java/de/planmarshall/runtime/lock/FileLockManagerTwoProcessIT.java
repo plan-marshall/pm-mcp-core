@@ -45,6 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.LockLevel;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 
 /**
  * The lock of the operating system that the lock manager takes on a lock file, seen from a second process
@@ -370,7 +371,7 @@ class FileLockManagerTwoProcessIT {
     @DisplayName("a transaction of this process waits for a key held in another process and gets it on its release")
     void transactionWaitsForTheOtherProcess() throws Exception {
         var key = LockKey.plan(base, projectId, planId);
-        var manager = new FileLockManager(new RecordingAuditSink());
+        var manager = new FileLockManager(AuditSinkDoubles.capturing());
         var acquired = new AtomicBoolean();
         startHolder();
         var waiting = Thread.ofPlatform().daemon().start(() -> {

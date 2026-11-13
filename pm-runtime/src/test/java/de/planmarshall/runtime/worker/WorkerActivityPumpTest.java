@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -95,34 +97,16 @@ class WorkerActivityPumpTest {
         var role = OffTrackDetectorTest.role(Map.of());
         WorkerTaskActivity tasks = queueTaskId -> Optional.of(
                 new WorkerTaskActivity.TaskActivity(1, role, Set.of(), null, -1));
-        var recorder = new ActivityRecorder(journal, tasks, new NoSignals(), new OffTrackDetector(),
+        var recorder = new ActivityRecorder(journal, tasks, noSignals(), new OffTrackDetector(),
                 InstantSource.fixed(AT));
         return new WorkerActivityPump(mapper, recorder);
     }
 
-    /** A protocol that records nothing; the pump raises no signal in these fixtures. */
-    private static final class NoSignals implements WorkerProtocol {
-
-        @Override
-        public void fence(String generationId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void agentStarted(String generationId, String queueTaskId, int attempt, String executable,
-                Instant at) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void offTrack(OffTrackReport report) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void closeUnavailable(String role, String harness) {
-            throw new UnsupportedOperationException();
-        }
+    /** @return an EasyMock protocol with no expectation: the pump raises no signal in these fixtures */
+    private static WorkerProtocol noSignals() {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        replay(mock);
+        return mock;
     }
 
     private static void append(Path log, String line) {

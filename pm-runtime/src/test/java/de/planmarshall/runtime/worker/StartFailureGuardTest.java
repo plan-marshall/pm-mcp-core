@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createNiceMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -60,7 +65,7 @@ class StartFailureGuardTest {
 
     private final AtomicReference<Instant> now = new AtomicReference<>(NOW);
 
-    private final WorkerProtocol protocol = new RecordingProtocol();
+    private final WorkerProtocol protocol = protocol();
 
     private String project;
 
@@ -339,27 +344,14 @@ class StartFailureGuardTest {
         guard.startFailed(role, harness, failure);
     }
 
-    /** The task protocol boundary, which records the roles whose tasks the guard closed. */
-    private final class RecordingProtocol implements WorkerProtocol {
-
-        @Override
-        public void fence(String generationId) {
-            // the guard never fences
-        }
-
-        @Override
-        public void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
-            // detection is another step's contract
-        }
-
-        @Override
-        public void offTrack(OffTrackReport report) {
-            // the guard raises no activity signal
-        }
-
-        @Override
-        public void closeUnavailable(String role, String harness) {
-            closed.add(role + "/" + harness);
-        }
+    private WorkerProtocol protocol() {
+        WorkerProtocol mock = createNiceMock(WorkerProtocol.class);
+        mock.closeUnavailable(anyObject(String.class), anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            closed.add(getCurrentArguments()[0] + "/" + getCurrentArguments()[1]);
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 }

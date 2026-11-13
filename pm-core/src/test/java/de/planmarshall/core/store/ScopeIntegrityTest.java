@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +31,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.store.JournalRecovery.InvariantViolation;
@@ -83,7 +87,8 @@ class ScopeIntegrityTest {
 
     private JournalScope scope;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
 
     /** What the step hook throws to stop a commit after its journal was written. */
     private static final class StopWrite extends RuntimeException {
@@ -110,7 +115,8 @@ class ScopeIntegrityTest {
         Files.createDirectories(scope.journalFile().getParent());
         Files.createDirectories(scope.resolve(WORK_LOG).getParent());
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
             var write = ScopeTransaction.open(transaction, scope, audit, clock);
@@ -193,7 +199,7 @@ class ScopeIntegrityTest {
                 () -> assertEquals(StoreIntegrity.VERIFIED, lockFree.integrity(),
                         "the lock-free read should be VERIFIED"),
                 () -> assertEquals(store(STATUS), lockFree.store(), "the snapshot should name the store"),
-                () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
     }
 
     @Nested
@@ -227,7 +233,7 @@ class ScopeIntegrityTest {
                     () -> assertArrayEquals(edited, snapshot.content().orElseThrow(),
                             "the snapshot should carry the edited bytes"),
                     () -> assertEquals(0, locks.transactions(), "no lock should be taken lock-free"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
 
         @Test
@@ -278,7 +284,7 @@ class ScopeIntegrityTest {
                             "the re-baseline transaction should be closed"),
                     () -> assertEquals(StoreIntegrity.VERIFIED, ScopeIntegrity.snapshot(scope, STATUS).integrity(),
                             "the lock-free read should be VERIFIED again"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
     }
 
@@ -303,7 +309,7 @@ class ScopeIntegrityTest {
                     () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, workLog.integrity(),
                             "the work-log read should be DIGEST_UNVERIFIED"),
                     () -> assertTrue(Files.exists(scope.journalFile()), "a lock-free read should never recover"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
 
         /**
@@ -341,7 +347,7 @@ class ScopeIntegrityTest {
                             "the rolled-forward store should be Verified"),
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be removed"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                                    plan, journal.transactionId().value(), List.of(STATUS))), audit.events(),
+                                    plan, journal.transactionId().value(), List.of(STATUS))), auditEvents.getValues(),
                             "the roll-forward should be audited"));
         }
 
@@ -368,7 +374,7 @@ class ScopeIntegrityTest {
                             "the sidecar should be left as it is"),
                     () -> assertArrayEquals(bytes(oldStatus), Files.readAllBytes(store(STATUS)),
                             "the store should keep its old content"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
     }
 
@@ -408,7 +414,7 @@ class ScopeIntegrityTest {
                     () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity(),
                             "the lock-free read should be UNCHECKED"),
                     () -> assertTrue(snapshot.content().isEmpty(), "the missing store should have no content"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
 
         @Test
@@ -457,7 +463,7 @@ class ScopeIntegrityTest {
                     () -> assertFalse(Files.exists(scope.journalFile()), "no journal should be written"),
                     () -> assertArrayEquals(sidecarBytes, Files.readAllBytes(scope.sidecarFile()),
                             "the sidecar should be left as it is"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
     }
 
@@ -594,7 +600,7 @@ class ScopeIntegrityTest {
                     () -> assertEquals(oldStatus, Files.readString(outside),
                             "nothing should be written outside the scope"),
                     () -> assertTrue(Files.isSymbolicLink(store(STATUS)), "the link should not be replaced"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
     }
 
@@ -659,7 +665,7 @@ class ScopeIntegrityTest {
                             "the fault should be STORE_LOCK_NOT_HELD"),
                     () -> assertArrayEquals(edited, Files.readAllBytes(store(STATUS)),
                             "the store should be left as it is"),
-                    () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                    () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
         }
     }
 

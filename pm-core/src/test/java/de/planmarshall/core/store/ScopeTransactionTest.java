@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Stream;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -43,6 +46,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.service.LockTransaction;
@@ -87,7 +91,8 @@ class ScopeTransactionTest {
 
     private JournalScope scope;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private Capture<AuditEvent> auditEvents;
+    private AuditSink audit;
 
     @BeforeEach
     void createScope() throws IOException {
@@ -107,7 +112,8 @@ class ScopeTransactionTest {
         Files.createDirectories(scope.journalFile().getParent());
         Files.createDirectories(scope.resolve(WORK_LOG).getParent());
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        auditEvents = newCapture(CaptureType.ALL);
+        audit = AuditSinkDoubles.capturing(auditEvents);
     }
 
     private static String lowerName() {
@@ -164,7 +170,7 @@ class ScopeTransactionTest {
                 write.commit();
             }
 
-            var ids = audit.events().stream().map(OwedRecords::idOf).toList();
+            var ids = auditEvents.getValues().stream().map(OwedRecords::idOf).toList();
             assertAll(
                     () -> assertEquals(2, ids.size(), "both owed records should be delivered"),
                     () -> assertEquals(2, ids.stream().distinct().count(), "each record should have its own id"),
@@ -199,10 +205,10 @@ class ScopeTransactionTest {
                 JournalRecovery.recover(transaction, scope, audit);
             }
 
-            var reconciled = audit.events().stream()
+            var reconciled = auditEvents.getValues().stream()
                     .filter(event -> AuditEvent.CROSS_SCOPE_RECONCILED.equals(event.event())).map(OwedRecords::idOf)
                     .toList();
-            var rolledForward = audit.events().stream()
+            var rolledForward = auditEvents.getValues().stream()
                     .filter(event -> AuditEvent.TRANSACTION_ROLLED_FORWARD.equals(event.event()))
                     .map(OwedRecords::idOf).toList();
             assertAll(
@@ -265,10 +271,10 @@ class ScopeTransactionTest {
                 assertAll(
                         () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome,
                                 "there should be nothing to recover"),
-                        () -> assertEquals(List.of(), audit.events().stream().map(AuditEvent::event)
+                        () -> assertEquals(List.of(), auditEvents.getValues().stream().map(AuditEvent::event)
                                         .filter(AuditEvent.TRANSACTION_ROLLED_FORWARD::equals).toList(),
                                 "no roll-forward should be recorded"),
-                        () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                        () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
             }
         }
 
@@ -329,8 +335,8 @@ class ScopeTransactionTest {
                     () -> assertArrayEquals(bytes(firstLine, secondLine), Files.readAllBytes(store(WORK_LOG)),
                             "the torn tail should be replaced by the block"),
                     () -> assertEquals(
-                            List.of(RecordingAuditSink.tailRepairWithoutId(store(WORK_LOG), bytes(tornTail))),
-                            RecordingAuditSink.withoutTransactionIds(audit.events()),
+                            List.of(AuditSinkDoubles.tailRepairWithoutId(store(WORK_LOG), bytes(tornTail))),
+                            AuditSinkDoubles.withoutTransactionIds(auditEvents.getValues()),
                             "one tail repair should be recorded"),
                     () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(firstLine, secondLine)))),
                             sidecar(), "the digest should be of the repaired store"),
@@ -611,7 +617,7 @@ class ScopeTransactionTest {
                                 "the store should be as before the commit"),
                         () -> assertArrayEquals(sidecarBefore, Files.readAllBytes(scope.sidecarFile()),
                                 "the sidecar should be as before the commit"),
-                        () -> assertEquals(List.of(), audit.events(), "no audit event should be recorded"));
+                        () -> assertEquals(List.of(), auditEvents.getValues(), "no audit event should be recorded"));
                 return;
             }
             var applied = stop == Step.JOURNAL ? List.of(STATUS) : List.<String>of();
@@ -624,7 +630,7 @@ class ScopeTransactionTest {
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal should be closed"),
                     () -> assertEquals(List.of(), stagedFiles(), "no staged file should remain"),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
-                                    plan, journal.orElseThrow().transactionId().value(), List.of(STATUS))), audit.events(),
+                                    plan, journal.orElseThrow().transactionId().value(), List.of(STATUS))), auditEvents.getValues(),
                             "the roll-forward should be audited"),
                     () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS),
                             "the store should be consistent, no Mismatch"));

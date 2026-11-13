@@ -22,7 +22,8 @@ import lombok.experimental.UtilityClass;
  * A limit is read when the constant that names it is initialized. A resource that is absent, a key that is absent and
  * a value that is not a non-negative integer are faults of the build and are never defaulted: the load fails with an
  * {@link IllegalStateException} naming the resource and, where it applies, the key, or with an
- * {@link UncheckedIOException} when the resource cannot be read.
+ * {@link UncheckedIOException} when the resource cannot be read. A limit that sizes an {@code int} quantity is read
+ * through {@link #readInt(String, String)}, which refuses a value above {@link Integer#MAX_VALUE} the same way.
  *
  * @since 0.1
  */
@@ -52,6 +53,41 @@ public class LimitProperties {
             throw new UncheckedIOException("the limit resource '" + resource + "' cannot be read", e);
         }
         return value(properties, key, resource);
+    }
+
+    /**
+     * Reads a non-negative limit that must fit an {@code int} from a classpath resource.
+     * <p>
+     * A limit that sizes an {@code int} quantity (a length, an index) is read through here, so a value above
+     * {@link Integer#MAX_VALUE} is refused as the same fault of the build as a negative one, naming the resource and the
+     * key, instead of failing the class's initialization with the bare arithmetic exception of a narrowing.
+     *
+     * @param resource the absolute classpath resource that holds the limit
+     * @param key      the key of the limit in the resource
+     * @return the value
+     * @throws IllegalStateException if the resource is absent, the key is absent or the value is not a non-negative
+     *                               integer of at most {@link Integer#MAX_VALUE}
+     * @throws UncheckedIOException  if the resource cannot be read
+     */
+    public static int readInt(String resource, String key) {
+        return intRanged(read(resource, key), key, resource);
+    }
+
+    /**
+     * Narrows a limit already read to an {@code int}, refusing a value above {@link Integer#MAX_VALUE}.
+     *
+     * @param value    the non-negative limit
+     * @param key      the key of the limit, named in a diagnostic
+     * @param resource the resource the limit was read from, named in a diagnostic
+     * @return the value as an {@code int}
+     * @throws IllegalStateException if the value is above {@link Integer#MAX_VALUE}
+     */
+    static int intRanged(long value, String key, String resource) {
+        if (value > Integer.MAX_VALUE) {
+            throw new IllegalStateException("the limit '" + key + "' of '" + resource + "' is above "
+                    + Integer.MAX_VALUE + ": " + value);
+        }
+        return (int) value;
     }
 
     /**

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.workflow.engine;
 
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -22,6 +24,9 @@ import org.junit.jupiter.api.Test;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.planmarshall.core.spi.JobStarter;
+import de.planmarshall.core.spi.QuestionRecordReader;
+import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.store.PlanHistoryLine;
 
 /**
@@ -34,9 +39,10 @@ class WorkflowEngineRecordsTest {
     @Test
     @DisplayName("Ports builder builds the canonical constructor's value")
     void portsBuilderEqualsConstructor() {
-        var jobs = new EngineFixtures.RecordingJobStarter();
-        var tasks = new EngineFixtures.RecordingQueueTaskCreator();
-        var questions = new EngineFixtures.FixedQuestionRecordReader();
+        JobStarter jobs = createMock(JobStarter.class);
+        QueueTaskCreator tasks = createMock(QueueTaskCreator.class);
+        QuestionRecordReader questions = createMock(QuestionRecordReader.class);
+        replay(jobs, tasks, questions);
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
         var constructed = new WorkflowEngine.Ports(jobs, tasks, questions, clock);
         var built = WorkflowEngine.Ports.builder()
@@ -52,8 +58,9 @@ class WorkflowEngineRecordsTest {
     @Test
     @DisplayName("Ports builder refuses a missing jobs port")
     void portsBuilderRefusesMissingJobs() {
-        var tasks = new EngineFixtures.RecordingQueueTaskCreator();
-        var questions = new EngineFixtures.FixedQuestionRecordReader();
+        QueueTaskCreator tasks = createMock(QueueTaskCreator.class);
+        QuestionRecordReader questions = createMock(QuestionRecordReader.class);
+        replay(tasks, questions);
         var clock = new EngineFixtures.ManualClock(Instant.EPOCH);
         var builder = WorkflowEngine.Ports.builder()
                 .tasks(tasks)

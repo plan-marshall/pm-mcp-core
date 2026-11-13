@@ -24,7 +24,8 @@ import de.planmarshall.core.config.LimitProperties;
  * below the cap is read unchanged.
  * <p>
  * The cap ({@link #MAX_BYTES}) and the longest LCOV line ({@link #MAX_LINE_LENGTH}) are data of {@link #LIMITS}, read when
- * the class initializes and never defaulted, so only editing that resource changes them.
+ * the class initializes and never defaulted, so only editing that resource changes them. The line limit is read as an
+ * {@code int} through {@link LimitProperties#readInt(String, String)}, which refuses a value outside that range by name.
  *
  * @since 0.1
  */
@@ -51,7 +52,7 @@ final class CoverageReportStream extends FilterInputStream {
      * <p>
      * Read from {@link #LIMITS} when the class initializes, so the value is changed by editing that resource.
      */
-    static final int MAX_LINE_LENGTH = Math.toIntExact(LimitProperties.read(LIMITS, MAX_LINE_LENGTH_KEY));
+    static final int MAX_LINE_LENGTH = LimitProperties.readInt(LIMITS, MAX_LINE_LENGTH_KEY);
 
     private final long limit;
 
@@ -129,12 +130,14 @@ final class CoverageReportStream extends FilterInputStream {
 
     /**
      * Returns how many bytes one read may take: the bytes left below the cap and one more, so a report that is longer
-     * than the cap is detected by the read that crosses it and never read further.
+     * than the cap is detected by the read that crosses it and never read further. The one more saturates at
+     * {@link Long#MAX_VALUE}, so a cap at the top of the range yields the largest read rather than a negative one.
      *
      * @return the bytes one read may take, at least one
      */
     private long room() {
-        return limit - count + 1;
+        long left = limit - count;
+        return left == Long.MAX_VALUE ? left : left + 1;
     }
 
     private void counted(long bytes) throws IOException {

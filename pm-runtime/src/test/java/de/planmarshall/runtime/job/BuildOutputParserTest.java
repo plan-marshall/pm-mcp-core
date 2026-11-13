@@ -27,6 +27,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.build.BuildLogText;
+import de.planmarshall.core.build.EslintOutputParser;
+import de.planmarshall.core.build.TypeScriptOutputParser;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
@@ -373,7 +376,8 @@ class BuildOutputParserTest {
     void unrecognisedLog() {
         // Changed deliberately: this log read as NOTHING before the install family's completion line
         // became its passing summary (PLAN-V2-127, D2).
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "up to date, audited 5 packages\n");
+        // Moved to the install verb: the completion line is a marker only for an install job (PLAN-V2-138, D5).
+        var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:install"), "up to date, audited 5 packages\n");
 
         assertAll(
                 () -> assertTrue(parse.successMarker(), "the install completion line is the marker"),
@@ -406,17 +410,29 @@ class BuildOutputParserTest {
                         "a new-prefix npm error decides failed rather than unparsed"));
     }
 
+    /**
+     * A clean {@code tsc} or ESLint run prints only the {@code npm run} banner ({@code > <package>@<version> <script>}
+     * and {@code > <command>}), the npm wire format; the package name is generated. Each tool has its own input: its
+     * own banner, and the core parser of that tool checked over that log.
+     */
     @Test
-    @DisplayName("a clean tsc or ESLint log prints nothing, so exit 0 stays indeterminate")
+    @DisplayName("a clean tsc or ESLint log prints no marker, so exit 0 stays indeterminate")
     void cleanSyntaxToolLogs() {
-        var typeScript = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
-        var eslint = PARSER.parse(job(JobId.Kind.BUILD, npm()), "");
+        var tscLog = "> " + words().next() + "@1.0.0 typecheck\n> tsc --noEmit\n\n";
+        var eslintLog = "> " + words().next() + "@1.0.0 lint\n> eslint .\n\n";
+
+        var tscParse = PARSER.parse(job(JobId.Kind.BUILD, npm()), tscLog);
+        var eslintParse = PARSER.parse(job(JobId.Kind.BUILD, npm()), eslintLog);
 
         assertAll(
-                () -> assertEquals(ParseResult.NOTHING, typeScript, "a clean tsc run prints no marker"),
-                () -> assertEquals(INDETERMINATE, outcome(typeScript, 0), "a clean tsc run stays indeterminate"),
-                () -> assertEquals(ParseResult.NOTHING, eslint, "a clean ESLint run prints no marker"),
-                () -> assertEquals(INDETERMINATE, outcome(eslint, 0), "a clean ESLint run stays indeterminate"));
+                () -> assertFalse(TypeScriptOutputParser.parse(tscLog).successMarker(),
+                        "the tsc parser reads no marker in the log"),
+                () -> assertEquals(ParseResult.NOTHING, tscParse, "a clean tsc run prints no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(tscParse, 0), "a clean tsc run stays indeterminate"),
+                () -> assertFalse(EslintOutputParser.parse(eslintLog).build().successMarker(),
+                        "the ESLint parser reads no marker in the log"),
+                () -> assertEquals(ParseResult.NOTHING, eslintParse, "a clean ESLint run prints no marker"),
+                () -> assertEquals(INDETERMINATE, outcome(eslintParse, 0), "a clean ESLint run stays indeterminate"));
     }
 
     // Build systems the runtime knows no parser for: contract literals of the budget key.
@@ -482,6 +498,208 @@ class BuildOutputParserTest {
             assertAll(
                     () -> assertEquals(1, parse.diagnostics(), "the stripped npm error block is filed"),
                     () -> assertEquals(FAILED, outcome(parse, failures().next()), "a colour-coded npm error fails"));
+        }
+    }
+
+    /**
+     * The install family's completion line is a marker only under an install verb. The verbs {@code install},
+     * {@code clean-install} and {@code module-tests} are contract literals of the budget key; the module is generated.
+     */
+    @Nested
+    @DisplayName("the install completion line")
+    class InstallVerb {
+
+        @Test
+        @DisplayName("is no marker for an unscanned runner after npm ci under a non-install verb")
+        void nonInstallVerbGivesNoMarker() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:module-tests"), """
+                    added 12 packages, and audited 13 packages in 2s
+
+                      3 passing (12ms)
+                    """);
+
+            assertAll(
+                    () -> assertFalse(parse.successMarker(), "an install line is no marker for module-tests"),
+                    () -> assertEquals(INDETERMINATE, outcome(parse, 0), "the unscanned runner stays indeterminate"));
+        }
+
+        @Test
+        @DisplayName("is the marker under the install verb")
+        void installVerbGivesMarker() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:install"), "added 12 packages in 2s\n");
+
+            assertAll(
+                    () -> assertTrue(parse.successMarker(), "the install line is the marker of an install"),
+                    () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean install decides succeeded"));
+        }
+
+        @Test
+        @DisplayName("is the marker under the clean-install verb with a module")
+        void cleanInstallVerbGivesMarker() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:clean-install@" + words().next()),
+                    "added 12 packages in 2s\n");
+
+            assertAll(
+                    () -> assertTrue(parse.successMarker(), "the install line is the marker of clean-install"),
+                    () -> assertEquals(SUCCEEDED, outcome(parse, 0), "a clean clean-install decides succeeded"));
+        }
+
+        @Test
+        @DisplayName("keeps the npm error diagnostics under a non-install verb")
+        void nonInstallVerbKeepsDiagnostics() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    npm error code E404
+                    npm error 404  'missing@1' is not in this registry.
+                    """);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm error block is still filed"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error still fails"));
+        }
+    }
+
+    /**
+     * The dispatch sees every line cut at the limit, and its multi-line markers lead with horizontal space only, so a
+     * blank-line run is never crossed by one repetition. Each case is a fixed log with an asserted result, no clock: a
+     * leading {@code \s*} would backtrack over the whole run at every line start of it, and a dispatch that read a whole
+     * hostile line would select the tool its tail names.
+     * <p>
+     * Contract literals that stay: the ESLint, Jest and tsc lines, the golden output formats of those tools.
+     */
+    @Nested
+    @DisplayName("the line bound of the dispatch")
+    class DispatchLineBound {
+
+        /** A million lines, every other one blank and every other one horizontal whitespace. */
+        private static final String BLANK_RUN = "\n \t\n".repeat(500_000);
+
+        private static final String ESLINT_ROW = "  1:10  error  Unexpected var  no-var";
+
+        @Test
+        @DisplayName("an ESLint row after a million blank lines still selects ESLint")
+        void eslintRowAfterABlankRun() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js" + BLANK_RUN + ESLINT_ROW + "\n");
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the row after the blank run is filed"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the ESLint error decides failed"));
+        }
+
+        @Test
+        @DisplayName("a Jest summary after a million blank lines still selects Jest")
+        void jestSummaryAfterABlankRun() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "Tests:       5 passed, 5 total\n");
+
+            assertAll(
+                    () -> assertTrue(parse.successMarker(), "the summary after the blank run is the marker"),
+                    () -> assertEquals(SUCCEEDED, outcome(parse, 0), "the passing Jest run decides succeeded"));
+        }
+
+        @Test
+        @DisplayName("a million blank lines before an opaque line yield nothing")
+        void blankRunBeforeAnOpaqueLine() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "compiling something\n");
+
+            assertEquals(ParseResult.NOTHING, parse, "no marker crosses the blank run");
+        }
+
+        @Test
+        @DisplayName("a row led by a form feed after a blank line is no ESLint row")
+        void formFeedLeadsNoRow() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n\n\f" + ESLINT_ROW.strip() + "\n");
+
+            assertEquals(ParseResult.NOTHING, parse, "only horizontal space leads an ESLint row");
+        }
+
+        @Test
+        @DisplayName("an ESLint row at the limit selects ESLint")
+        void eslintRowAtTheLimit() {
+            var row = " ".repeat(BuildLogText.MAX_LINE_LENGTH - ESLINT_ROW.length()) + ESLINT_ROW;
+
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n" + row + "\n");
+
+            assertEquals(1, parse.diagnostics(), "a row at the limit is dispatched and filed");
+        }
+
+        @Test
+        @DisplayName("a tsc marker behind the cut selects no parser")
+        void typeScriptMarkerBeyondTheLimit() {
+            var line = " ".repeat(BuildLogText.MAX_LINE_LENGTH * 32)
+                    + "src/a.ts(1,2): error TS2304: Cannot find name 'x'.";
+
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), line + "\n");
+
+            assertEquals(ParseResult.NOTHING, parse, "a marker behind the cut selects no parser");
+        }
+    }
+
+    /**
+     * Every repetition of the ESLint and Jest markers is horizontal space, so a marker never takes the next line's first
+     * word: a token that ends its line is no marker. The single-line Jest and ESLint logs of the cases above still select
+     * their scanners.
+     * <p>
+     * Contract literals that stay: the npm, ESLint and Jest lines, the golden output formats of those tools, cut at a
+     * line end where the case says so.
+     */
+    @Nested
+    @DisplayName("the markers that stay on one line")
+    class MarkersOnOneLine {
+
+        /** An npm E404 block: a scanner selected by a marker that crossed a line end would not file it. */
+        private static final String NPM_E404 = """
+                npm error code E404
+                npm error 404 'missing' is not in this registry
+                """;
+
+        @Test
+        @DisplayName("a PASS line before an npm error block selects the npm error parser, not Jest")
+        void passBeforeNpmErrorSelectsNpm() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "PASS\n" + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the E404 block is filed by the npm parser"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+
+        @Test
+        @DisplayName("an ESLint position that ends its line selects no ESLint scan")
+        void eslintPositionAtTheLineEnd() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    /web/src/a.js
+                      1:10
+                    error  Unexpected var  no-var
+                    """ + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm parser, not ESLint, files the E404"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+
+        @Test
+        @DisplayName("an ESLint summary mark that ends its line selects no ESLint scan")
+        void eslintSummaryMarkAtTheLineEnd() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    /web/src/a.js
+                    ✖
+                    1 problem (1 error, 0 warnings)
+                    """ + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm parser, not ESLint, files the E404"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
+        }
+
+        @Test
+        @DisplayName("a Tests: label that ends its line selects no Jest scan")
+        void jestTestsLabelAtTheLineEnd() {
+            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                    Tests:
+                    5 passed, 5 total
+                    """ + NPM_E404);
+
+            assertAll(
+                    () -> assertEquals(1, parse.diagnostics(), "the npm parser, not Jest, files the E404"),
+                    () -> assertEquals(FAILED, outcome(parse, failures().next()), "the npm error decides failed"));
         }
     }
 }

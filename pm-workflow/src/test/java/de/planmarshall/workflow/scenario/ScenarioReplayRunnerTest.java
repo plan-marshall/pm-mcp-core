@@ -158,9 +158,11 @@ class ScenarioReplayRunnerTest {
                     () -> assertEquals(List.of(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
                             runner.snapshots().stream().map(ScenarioReplayRunner.Snapshot::line).toList()),
                     () -> assertArrayEquals(Files.readAllBytes(stored.store()), runner.snapshots().getLast().status()),
-                    () -> assertEquals(1, fixtures.jobStarter.requests.size()),
+                    () -> assertEquals(1, fixtures.jobRequests.getValues().size(),
+                            "the replay started the build job once"),
                     () -> assertEquals(List.of(new QueueTaskCreator.CreateRequest(PLAN_ID, "execute.review", "change",
-                            "reviewer")), fixtures.taskCreator.requests));
+                                    "reviewer")), fixtures.taskRequests.getValues(),
+                            "the replay created the queue task once"));
         }
 
         @Test

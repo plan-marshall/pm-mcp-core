@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.store;
 
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,12 +39,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.LessonFrontMatter.Retired.Verdict;
 import de.planmarshall.core.store.LessonFrontMatter.Status;
 import de.planmarshall.core.store.LessonResolution.Found;
@@ -74,7 +77,7 @@ class LessonStoreCrashTest {
     private JournalScope lessons;
     private LessonStore store;
     private RecordingLockManager locks;
-    private RecordingAuditSink audit;
+    private AuditSink audit;
 
     /** What the step hook throws to stop a commit at a step of the transaction. */
     private static final class StopWrite extends RuntimeException {
@@ -93,7 +96,7 @@ class LessonStoreCrashTest {
         Files.createDirectories(lessons.pathBase());
         store = new LessonStore(lessons);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
         plan = "plan-" + Generators.integers(1000, 9999).next();
         otherPlan = "plan-other-" + Generators.integers(1000, 9999).next();
         planA = "plan-a-" + Generators.integers(1000, 9999).next();
@@ -503,7 +506,7 @@ class LessonStoreCrashTest {
                 start.await();
                 try (var transaction = serializing.openTransaction()) {
                     transaction.acquire(lessons.lockKey());
-                    var write = ScopeTransaction.open(transaction, lessons, new RecordingAuditSink(), CLOCK);
+                    var write = ScopeTransaction.open(transaction, lessons, AuditSinkDoubles.capturing(newCapture(CaptureType.ALL)), CLOCK);
                     store.create(write, lessonId, LessonFixtures.newLesson().build(), CLOCK);
                     write.commit();
                     return true;
@@ -594,7 +597,7 @@ class LessonStoreCrashTest {
             start.await();
             try (var transaction = manager.openTransaction()) {
                 transaction.acquire(lessons.lockKey());
-                var write = ScopeTransaction.open(transaction, lessons, new RecordingAuditSink(), CLOCK);
+                var write = ScopeTransaction.open(transaction, lessons, AuditSinkDoubles.capturing(newCapture(CaptureType.ALL)), CLOCK);
                 var outcome = operation.apply(write);
                 if (!(outcome instanceof LessonResolution.Unavailable)) {
                     commitOrNoTarget(write);

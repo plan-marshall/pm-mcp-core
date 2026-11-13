@@ -43,6 +43,7 @@ The repository:
 ** link:025-test-design-layering-base-classes-and-fixtures.adoc[025 The Test Design: Layering, Base Classes and Fixtures]: the findings per module before the rework — the layers the suite mixes in one lane, the fixtures and base classes that cost time or hide duplication (`JobEnrolmentFixture`, `TestBases`, the published fakes, the abstract fixtures of `pm-core`), the tests that duplicate each other by construction (one builder test per record, one test per generator and per schema), and the structure the reworked design needs; the decision makes that structure the target design and applies it
 where reading alone settles a finding (the question-reader tests on `@TempDir`), keeps the rest with reasons, and
 records the leads (fixtures in `pm-core:tests`, `toBuilder` on `ProjectEnrolment`, the fakes in ADR 012).
+** link:026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026 The Kept Hand-Written Test Doubles Are a Closed List]: the definition of a hand-written double, the scan and its exclusion of `testing/generators/`, the closed list of sound keeps K1 to K9 and F1 to F3 with the reasons S1 to S3, the converted population, and the unchanged published surface (`FakeBus`, `FakeSecretService`, `FakePmExec`, `TestBases`).
 
 `pm-core`:
 

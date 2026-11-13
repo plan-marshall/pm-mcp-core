@@ -13,6 +13,7 @@ import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.sha25
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,6 +58,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -1519,7 +1521,7 @@ class SubprocessJobRunnerTest {
                                         new PmExecLauncher.Launched(first, first.pid())),
                                 "the process the runner started is not a reused PID"),
                         () -> assertFalse(SubprocessJobRunner.pidReused(new PmExecLauncher.Launched(
-                                        new StubProcess(() -> false), 1_999_999_999L)),
+                                        process(() -> false, new CompletableFuture<>(), false), 1_999_999_999L)),
                                 "an unowned PID leaves its group to be terminated"));
             } finally {
                 first.destroyForcibly();
@@ -1813,12 +1815,13 @@ class SubprocessJobRunnerTest {
         void cancelInFlightIsTheCauseRead() {
             var inside = new CountDownLatch(1);
             var proceed = new CountDownLatch(1);
-            var process = new StubProcess(() -> {
+            var exit = new CompletableFuture<Process>();
+            var process = process(() -> {
                 inside.countDown();
                 assertTrue(await(proceed), "the cancel is let proceed");
                 return true;
-            });
-            process.ended();
+            }, exit, false);
+            exit.complete(process);
             var job = job();
             job.launched(process);
             var cancel = CompletableFuture.supplyAsync(() -> job.cancel(Termination.ENGINE_CANCEL));
@@ -1837,11 +1840,12 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("an exit observed together with an answered cancel returns the cause of the cancel")
         void exitDoesNotHideAnAnsweredCancel() {
-            var process = new StubProcess(() -> true);
+            var exit = new CompletableFuture<Process>();
+            var process = process(() -> true, exit, false);
             var job = job();
             job.launched(process);
             var cancelled = job.cancel(Termination.ENGINE_CANCEL);
-            process.ended();
+            exit.complete(process);
 
             var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
 
@@ -1854,8 +1858,9 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("a cancel after the exit was observed is answered false although its liveness check is stale")
         void cancelAfterTheExitIsAnsweredFalse() {
-            var process = new StubProcess(() -> true);
-            process.ended();
+            var exit = new CompletableFuture<Process>();
+            var process = process(() -> true, exit, false);
+            exit.complete(process);
             var job = job();
             job.launched(process);
 
@@ -1892,7 +1897,8 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("the wait for the process reports the interrupt and still returns the exit")
         void waitForReportsInterrupt() {
-            var exit = SubprocessJobRunner.waitFor(new StubProcess(() -> true, true));
+            var exit = SubprocessJobRunner.waitFor(
+                    process(() -> true, new CompletableFuture<>(), true));
 
             assertAll(
                     () -> assertEquals(7, exit.value(), "the exit of the stub process is returned"),
@@ -1902,11 +1908,12 @@ class SubprocessJobRunnerTest {
         @Test
         @DisplayName("the wait for the end of the process reports the interrupt; the exit still ends it")
         void awaitEndOrCauseReportsInterrupt() {
-            var process = new StubProcess(() -> true);
+            var exit = new CompletableFuture<Process>();
+            var process = process(() -> true, exit, false);
             var job = job();
             job.launched(process);
             Thread.currentThread().interrupt();
-            var ending = CompletableFuture.runAsync(process::ended,
+            var ending = CompletableFuture.runAsync(() -> exit.complete(process),
                     CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
 
             var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
@@ -1922,7 +1929,7 @@ class SubprocessJobRunnerTest {
         void awaitReportReportsInterrupt() throws Exception {
             var logPath = temp.resolve("job.log");
             Files.writeString(logPath, "");
-            var process = new StubProcess(() -> true);
+            var process = process(() -> true, new CompletableFuture<>(), false);
             var job = job();
             job.launched(process);
             Thread.currentThread().interrupt();
@@ -2070,69 +2077,36 @@ class SubprocessJobRunnerTest {
         }
     }
 
-    /** A process whose exit and liveness the test controls. */
-    private static final class StubProcess extends Process {
-        private final CompletableFuture<Process> exit = new CompletableFuture<>();
-        private final BooleanSupplier alive;
-        private final boolean interruptOnFirstWait;
-        private int waits;
-
-        StubProcess(BooleanSupplier alive) {
-            this(alive, false);
+    /**
+     * @param alive               the liveness the process answers
+     * @param exit                the future its {@code onExit()} returns; the test completes it
+     * @param interruptOnFirstWait whether the first wait throws an {@link InterruptedException}
+     * @return an EasyMock process whose exit and liveness the test controls
+     */
+    private static Process process(BooleanSupplier alive, CompletableFuture<Process> exit,
+            boolean interruptOnFirstWait) {
+        Process mock = createMock(Process.class);
+        var waits = new AtomicInteger();
+        expect(mock.isAlive()).andAnswer(alive::getAsBoolean).anyTimes();
+        expect(mock.onExit()).andReturn(exit).anyTimes();
+        expect(mock.getOutputStream()).andReturn(OutputStream.nullOutputStream()).anyTimes();
+        expect(mock.getInputStream()).andReturn(InputStream.nullInputStream()).anyTimes();
+        expect(mock.getErrorStream()).andReturn(InputStream.nullInputStream()).anyTimes();
+        try {
+            expect(mock.waitFor()).andAnswer(() -> {
+                if (interruptOnFirstWait && waits.getAndIncrement() == 0) {
+                    throw new InterruptedException("the test interrupts the wait");
+                }
+                return 7;
+            }).anyTimes();
+        } catch (InterruptedException e) {
+            throw new AssertionError(e);
         }
-
-        StubProcess(BooleanSupplier alive, boolean interruptOnFirstWait) {
-            this.alive = alive;
-            this.interruptOnFirstWait = interruptOnFirstWait;
-        }
-
-        /** Completes the exit of the process. */
-        void ended() {
-            exit.complete(this);
-        }
-
-        @Override
-        public boolean isAlive() {
-            return alive.getAsBoolean();
-        }
-
-        @Override
-        public CompletableFuture<Process> onExit() {
-            return exit;
-        }
-
-        @Override
-        public OutputStream getOutputStream() {
-            return OutputStream.nullOutputStream();
-        }
-
-        @Override
-        public InputStream getInputStream() {
-            return InputStream.nullInputStream();
-        }
-
-        @Override
-        public InputStream getErrorStream() {
-            return InputStream.nullInputStream();
-        }
-
-        @Override
-        public int waitFor() throws InterruptedException {
-            if (interruptOnFirstWait && waits++ == 0) {
-                throw new InterruptedException("the test interrupts the wait");
-            }
-            return 7;
-        }
-
-        @Override
-        public int exitValue() {
-            return 0;
-        }
-
-        @Override
-        public void destroy() {
-            // nothing runs
-        }
+        expect(mock.exitValue()).andReturn(0).anyTimes();
+        mock.destroy();
+        expectLastCall().anyTimes();
+        replay(mock);
+        return mock;
     }
 
     /** A lock manager that records the keys acquired and knows which transactions are open. */

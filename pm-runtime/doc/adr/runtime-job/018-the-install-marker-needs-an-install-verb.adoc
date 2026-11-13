@@ -1,0 +1,71 @@
+= ADR 018: The npm Install Marker Needs an Install Verb
+:nofooter:
+
+== Status
+
+Accepted. Supersedes in part link:016-the-npm-passing-summary-is-the-success-marker.adoc[ADR `runtime-job/016`]: the
+bullet of its Decision that makes the install family's completion line the successful-install marker now holds only for
+a job whose verb is an install.
+
+== Date
+
+2026-11-13
+
+== Context
+
+ADR `runtime-job/016` made the install family's completion line (`added|removed|changed N packages`,
+`up to date, audited N packages`) the success marker of a clean install, and `BuildOutputParser.npm` dispatches a log
+that carries the line to `NpmErrorParser`. The line is printed by `npm install` and `npm ci` whatever the job runs
+afterwards. A job of another verb — `npm:module-tests`, say — whose command runs `npm ci` before a test runner no scanner
+of `core.build` reads (mocha, vitest) leaves the completion line as the only marker in its log; the dispatch reached the
+npm error parser, the line set the marker, and a zero exit settled `succeeded` (Outcome Derivation, row 7) although
+nothing read the test run. The three-layer analysis of PLAN-V2-127 named it.
+
+The verb is readable at the adapter: the job record carries the budget key `<build_system>:<verb>[@<module_id>]`
+(Timeouts & Budgets § Job Budgets), whose first component the adapter already reads as the build system. The install
+verbs are `install` and `clean-install` of the Canonical Build Verb Set (Job Runtime § Confinement and Environment).
+
+== Decision
+
+* `BuildOutputParser` reads the verb from the budget key beside the build system: the text between the first `:` and
+  the `@` of a module, or the rest of the key.
+* When the npm branch dispatches a log to `NpmErrorParser` and the verb is neither `install` nor `clean-install`, the
+  adapter builds the `JobEvidence.ParseResult` with `successMarker` false. The parsed build, its diagnostics, the
+  contradicting evidence and the dispatch order stay as they are; the `INSTALL_SUMMARY` dispatch alternative stays.
+* No signature changes: neither `SubprocessJobRunner.OutputParser`, nor `ParsedBuild`, nor `NpmErrorParser`, and
+  `OutcomeDerivation` is untouched. The marker is suppressed in the result the adapter builds.
+* A test runner no scanner reads after `npm ci` under a non-install verb therefore stays `indeterminate` (row 8). An
+  install-only log under `npm:install` or `npm:clean-install@<module>` still settles `succeeded`.
+
+== Alternatives Considered
+
+* *Drop the completion line as a marker.* A clean `npm install` job would be `indeterminate` again, which ADR 016 decided
+  against; the line is the install's own completion and proves exactly that job.
+* *Read the line only when it is the last line of the log.* A runner that prints nothing a scanner reads can still end
+  right after the install, and the position of a line does not say which tool the verb names.
+* *Change `NpmErrorParser` to take the verb.* The parser is a pure function of the log text and knows no job; the job is
+  the adapter's input (ADR `runtime-job/015`), so the decision belongs there and no parser signature changes.
+* *Read the verb as a marker for every npm tool.* It would make every zero exit under an install verb `succeeded`
+  whatever its log, the premise ADR 016 refused: the log, not the verb, proves a success. Here the verb only *restricts*
+  a marker the log printed.
+
+== Consequences
+
+* `BuildOutputParserTest` pins both sides: a log with an `added N packages` line followed by an unscanned runner's
+  output under `npm:module-tests` with exit 0 gives no marker, while an install-only log under `npm:install` and
+  `npm:clean-install@<module>` still does, and the npm error diagnostics are kept under a non-install verb.
+* A job whose log carries a scanner's own marker (Jest, TAP, `tsc`, ESLint) is unaffected: those markers are dispatched
+  before the npm error parser.
+* The rest of ADR 016 stands.
+
+== Source
+
+* Plan link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-138-secret-redactor-hardening.md[PLAN-V2-138]
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers];
+  link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#canonical-build-verbs[Job Runtime § Canonical Build Verb Set];
+  link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#job-budgets[Timeouts & Budgets § Job Budgets]
+* Supersedes in part: link:016-the-npm-passing-summary-is-the-success-marker.adoc[ADR `runtime-job/016`]
+* The parser seam: link:015-the-parser-seam-carries-the-job-and-settlement-replacements.adoc[ADR `runtime-job/015`]
+* Developer guide: link:../../developer/runtime-job.adoc[`runtime.job`];
+  link:../../../../pm-core/doc/developer/core-build.adoc[`core.build`]
+* Origin: the three-layer analysis of PLAN-V2-127

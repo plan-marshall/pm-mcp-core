@@ -10,6 +10,13 @@
 package de.planmarshall.core.store;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.createNiceMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -76,7 +83,8 @@ class AuditLogTest {
     private String principal;
     private LockKey auditKey;
     private RecordingLockManager locks;
-    private RecordingAnchor anchor;
+    private AnchorState anchorState;
+    private AuditAnchor anchor;
     private AuditLog log;
 
     @BeforeEach
@@ -85,15 +93,16 @@ class AuditLogTest {
         Files.createDirectories(base.resolve("logs"));
         auditKey = LockKey.auditLog(base);
         locks = new RecordingLockManager();
-        anchor = new RecordingAnchor(Optional.empty());
+        anchorState = new AnchorState(Optional.empty());
+        anchor = anchor(anchorState);
         log = new AuditLog(base, anchor, CLOCK, principal);
     }
 
     /**
-     * The anchor of the tests: it records its calls and the last line of the log it sees before an append, and
-     * answers a predecessor it was given.
+     * What the anchor mock records: its calls in order, the last line of the log it sees before an append, the record
+     * and the line hash it is handed after one.
      */
-    private static final class RecordingAnchor implements AuditAnchor {
+    private static final class AnchorState {
 
         private final List<String> calls = new ArrayList<>();
         private final Optional<String> predecessor;
@@ -102,52 +111,52 @@ class AuditLogTest {
         private AuditRecord appended;
         private String lineHash;
 
-        private RecordingAnchor(Optional<String> predecessor) {
+        private AnchorState(Optional<String> predecessor) {
             this.predecessor = predecessor;
-        }
-
-        @Override
-        public void beforeAppend(LockTransaction transaction, AuditLog auditLog) {
-            calls.add("beforeAppend");
-            var lines = auditLog.read(transaction).lines();
-            lastBefore = lines.isEmpty() ? null
-                    : AuditCodec.readRecord(auditLog.logFile(), lines.getLast().content());
-            if (failure != null) {
-                throw failure;
-            }
-        }
-
-        @Override
-        public Optional<String> emptyLogPredecessor() {
-            calls.add("emptyLogPredecessor");
-            return predecessor;
-        }
-
-        @Override
-        public void afterAppend(LockTransaction transaction, AuditLog auditLog, AuditRecord auditRecord, String hash) {
-            calls.add("afterAppend");
-            appended = auditRecord;
-            lineHash = hash;
         }
     }
 
-    /** The anchor whose predecessor cannot be read, so the in-log write of a repair record fails. */
-    private static final class FailingPredecessorAnchor implements AuditAnchor {
+    /**
+     * @param state the state the mock records into, and the predecessor it answers
+     * @return an EasyMock anchor whose call answers record the call's arguments
+     */
+    private static AuditAnchor anchor(AnchorState state) {
+        AuditAnchor anchor = createMock(AuditAnchor.class);
+        anchor.beforeAppend(anyObject(LockTransaction.class), anyObject(AuditLog.class));
+        expectLastCall().andAnswer(() -> {
+            state.calls.add("beforeAppend");
+            var log = (AuditLog) getCurrentArguments()[1];
+            var lines = log.read((LockTransaction) getCurrentArguments()[0]).lines();
+            state.lastBefore = lines.isEmpty() ? null
+                    : AuditCodec.readRecord(log.logFile(), lines.getLast().content());
+            if (state.failure != null) {
+                throw state.failure;
+            }
+            return null;
+        }).anyTimes();
+        expect(anchor.emptyLogPredecessor()).andAnswer(() -> {
+            state.calls.add("emptyLogPredecessor");
+            return state.predecessor;
+        }).anyTimes();
+        anchor.afterAppend(anyObject(LockTransaction.class), anyObject(AuditLog.class),
+                anyObject(AuditRecord.class), anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            state.calls.add("afterAppend");
+            state.appended = (AuditRecord) getCurrentArguments()[2];
+            state.lineHash = (String) getCurrentArguments()[3];
+            return null;
+        }).anyTimes();
+        replay(anchor);
+        return anchor;
+    }
 
-        @Override
-        public void beforeAppend(LockTransaction transaction, AuditLog auditLog) {
-            // nothing to anchor
-        }
-
-        @Override
-        public Optional<String> emptyLogPredecessor() {
-            throw new UncheckedIOException(new IOException("the audit index cannot be read"));
-        }
-
-        @Override
-        public void afterAppend(LockTransaction transaction, AuditLog auditLog, AuditRecord auditRecord, String hash) {
-            // nothing to anchor
-        }
+    /** @return an EasyMock anchor whose predecessor cannot be read, so the in-log write of a repair record fails */
+    private static AuditAnchor failingPredecessor() {
+        AuditAnchor anchor = createNiceMock(AuditAnchor.class);
+        expect(anchor.emptyLogPredecessor())
+                .andThrow(new UncheckedIOException(new IOException("the audit index cannot be read")));
+        replay(anchor);
+        return anchor;
     }
 
     private AuditRecord template(String event) {
@@ -267,7 +276,7 @@ class AuditLogTest {
                     () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason(),
                             "the fault names the missing lock"),
                     () -> assertFalse(Files.exists(log.logFile()), "nothing was written"),
-                    () -> assertEquals(List.of(), anchor.calls, "the anchor was not called"));
+                    () -> assertEquals(List.of(), anchorState.calls, "the anchor was not called"));
         }
 
         @Test
@@ -301,16 +310,16 @@ class AuditLogTest {
 
             assertAll("the anchor sees each append in order",
                     () -> assertEquals(List.of("beforeAppend", "emptyLogPredecessor", "afterAppend", "beforeAppend",
-                            "afterAppend"), anchor.calls, "the anchor is called around each append"),
-                    () -> assertEquals(second, anchor.appended, "the anchor sees the appended record"),
-                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(1)), anchor.lineHash,
+                            "afterAppend"), anchorState.calls, "the anchor is called around each append"),
+                    () -> assertEquals(second, anchorState.appended, "the anchor sees the appended record"),
+                    () -> assertEquals(AuditCodec.sha256Hex(lines().get(1)), anchorState.lineHash,
                             "the anchor sees the hash of the written line"));
         }
 
         @Test
         @DisplayName("an empty log chains its first record to the anchor's predecessor when it has one")
         void emptyLogPredecessor() {
-            var anchored = new AuditLog(base, new RecordingAnchor(Optional.of(ANCHORED)), CLOCK, principal);
+            var anchored = new AuditLog(base, anchor(new AnchorState(Optional.of(ANCHORED))), CLOCK, principal);
 
             var first = append(anchored, template("first"));
             var second = append(anchored, template("second"));
@@ -411,9 +420,9 @@ class AuditLogTest {
             tearTail();
             stopAfterCut();
             var intent = Files.readAllBytes(intentFile());
-            var stopping = new RecordingAnchor(Optional.empty());
-            stopping.failure = new AuditSinkDoubles.ProcessStopped();
-            var stopped = new AuditLog(base, stopping, CLOCK, principal);
+            var stoppingState = new AnchorState(Optional.empty());
+            stoppingState.failure = new AuditSinkDoubles.ProcessStopped();
+            var stopped = new AuditLog(base, anchor(stoppingState), CLOCK, principal);
             var stoppedRecord = template("stopped");
             assertThrows(AuditSinkDoubles.ProcessStopped.class, () -> append(stopped, stoppedRecord),
                     "the append stops after the in-log write");
@@ -438,7 +447,7 @@ class AuditLogTest {
         @Test
         @DisplayName("a torn first line of an empty log chains its repair record to the anchor's predecessor")
         void tornFirstLineAfterRotation() throws Exception {
-            var anchored = new AuditLog(base, new RecordingAnchor(Optional.of(ANCHORED)), CLOCK, principal);
+            var anchored = new AuditLog(base, anchor(new AnchorState(Optional.of(ANCHORED))), CLOCK, principal);
             tearTail();
 
             var first = append(anchored, template("first"));
@@ -470,7 +479,7 @@ class AuditLogTest {
                     () -> assertEquals(List.of("first", AuditRecord.EVENT_CHECKPOINT, AuditEvent.JSONL_TAIL_REPAIRED,
                                     "second"), records.stream().map(AuditRecord::event).toList(),
                             "the repair sits after the checkpoint"),
-                    () -> assertEquals(records.get(2), anchor.lastBefore,
+                    () -> assertEquals(records.get(2), anchorState.lastBefore,
                             "the anchor saw the repair record, not the checkpoint, as the last line"),
                     () -> assertEquals(second, records.getLast(), "the new record is last"),
                     () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
@@ -480,7 +489,7 @@ class AuditLogTest {
         @Test
         @DisplayName("a repair record that cannot be written into the log stays owed and the append is not carried out")
         void inLogWriteFails() throws Exception {
-            var failing = new AuditLog(base, new FailingPredecessorAnchor(), CLOCK, principal);
+            var failing = new AuditLog(base, failingPredecessor(), CLOCK, principal);
             tearTail();
             var auditRecord = template("first");
 
@@ -504,7 +513,7 @@ class AuditLogTest {
         @DisplayName("is chained, returns the hash of its written line, and never calls the anchor")
         void appended() {
             append(template("first"));
-            anchor.calls.clear();
+            anchorState.calls.clear();
 
             String hash;
             try (var transaction = locks.openTransaction()) {
@@ -517,7 +526,7 @@ class AuditLogTest {
                     () -> assertEquals(AuditCodec.sha256Hex(lines().getLast()), written,
                             "the returned hash is that of its line"),
                     () -> assertTrue(records().getLast().isCheckpoint(), "the last record is the checkpoint"),
-                    () -> assertEquals(List.of(), anchor.calls, "the anchor was not called"),
+                    () -> assertEquals(List.of(), anchorState.calls, "the anchor was not called"),
                     () -> assertChained(AuditCodec.GENESIS_HASH));
         }
 
@@ -566,7 +575,8 @@ class AuditLogTest {
         @Test
         @DisplayName("is formed as the sink forms it, chained to the anchor's predecessor, and never calls the anchor")
         void appended() {
-            var anchored = new RecordingAnchor(Optional.of(ANCHORED));
+            var state = new AnchorState(Optional.of(ANCHORED));
+            var anchored = anchor(state);
             log = new AuditLog(base, anchored, CLOCK, principal);
             var event = owed();
 
@@ -587,7 +597,7 @@ class AuditLogTest {
                             "the scope type is that of the sink"),
                     () -> assertEquals(principal, appended.actor(), "the actor is the OS principal"),
                     () -> assertEquals(event.details(), appended.details(), "the details are those of the event"),
-                    () -> assertEquals(List.of("emptyLogPredecessor"), anchored.calls,
+                    () -> assertEquals(List.of("emptyLogPredecessor"), state.calls,
                             "the anchor was asked for the predecessor only, never before or after an append"));
         }
 

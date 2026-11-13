@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static de.planmarshall.core.store.QuestionRecordCodecTest.asked;
+import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -24,8 +25,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.service.AuditSink;
 
 /**
  * The fixtures of the question-log tests (PM-WF-12, PM-IMPL-2): a plan scope with its question log, a transaction per
@@ -47,7 +51,7 @@ abstract class QuestionLogFixture {
     JournalScope scope;
     QuestionLog log;
     RecordingLockManager locks;
-    RecordingAuditSink audit;
+    AuditSink audit;
 
     @BeforeEach
     void createScope() throws IOException {
@@ -56,7 +60,7 @@ abstract class QuestionLogFixture {
         Files.createDirectories(scope.journalFile().getParent());
         log = new QuestionLog(scope);
         locks = new RecordingLockManager();
-        audit = new RecordingAuditSink();
+        audit = AuditSinkDoubles.capturing(newCapture(CaptureType.ALL));
     }
 
     /**
