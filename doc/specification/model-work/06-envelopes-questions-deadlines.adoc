@@ -262,94 +262,18 @@ The questions of one creation (one `ask` or `ask:TASK-NNN`, one `submit` with it
 
 *None fits*: _none fits_ is offered for a decision only where a role can ask anew or a quorum can vote again: where the decision names a role that asked it (a worker's question), which then asks anew: the decision closes with the answer `none_fits`, and the task that continues the work carries it in `facts.answers` with its `ask` link offered again within the question bound (<<question-bound>>); or where a quorum is declared for a decision a server rule raised or a quorum escalated and has not yet voted again on it, which then votes again on a new revision, at most once per decision; that vote never decides: the revision goes to the operator with the votes shown to the operator only, and no worker or role reads them. Otherwise it is not offered and the decision stays open. _Later_ leaves the decision open and changes nothing.
 
-[[question-envelope-schema]]*The model-supplied schema*: a worker supplies a decision as the named parameter schema `decision-envelope` (link:../hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Hypermedia Format Specification, Named Parameter Schemas]), whose parts take the named schema `question-envelope`; neither carries a server-owned field. Every part a model supplies states its recommendation, exactly one recommended option for the answer types `one` and `several`, else the payload is rejected with `invalid_link_args`; a server-raised decision carries the same fields from its primitive.
+[[question-envelope-schema]]*The model-supplied schema*: a worker supplies a decision as the named parameter schema `decision-envelope` (link:../hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Hypermedia Format Specification, Named Parameter Schemas]), whose parts take the named schema `question-envelope`; neither carries a server-owned field. Every part a model supplies states its recommendation, exactly one recommended option for the answer types `one` and `several`, else the payload is rejected with `invalid_link_args`; a server-raised decision carries the same fields from its primitive. The schema of a decision is the file `decision-envelope-v1.schema.json` in `pm-workflow/src/main/resources/de/planmarshall/workflow/question/`, beside the question codec of `de.planmarshall.workflow.question` (the codec is not built yet):
 
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decision-envelope-v1.json",
-  "title": "DecisionEnvelope",
-  "type": "object",
-  "required": ["title", "header", "description", "evidence", "blocks", "reversibility", "parts"],
-  "additionalProperties": false,
-  "properties": {
-    "title": { "type": "string", "minLength": 3, "maxLength": 80 },
-    "header": { "type": "string", "minLength": 3, "maxLength": 200 },
-    "description": { "type": "string", "minLength": 10, "maxLength": 4000, "description": "Why the decision is needed now." },
-    "evidence": { "type": "array", "maxItems": 20, "items": { "type": "string", "pattern": "^pm://", "maxLength": 512 } },
-    "blocks": { "type": "string", "enum": ["plan", "task", "nothing"] },
-    "reversibility": { "type": "string", "enum": ["reversible", "costly", "irreversible"] },
-    "revisits": { "type": ["string", "null"], "pattern": "^D-[0-9]{4,7}$", "description": "Optional: the standing decision of the scope the decision reopens; its choice must be one option of the first part, and an answer that chooses another option appends a correction to it (model-work/11, Corrections)." },
-    "parts": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/question-envelope-v1.json" } }
-  }
-}
+include::../../../pm-workflow/src/main/resources/de/planmarshall/workflow/question/decision-envelope-v1.schema.json[]
 ----
+
+A part of a decision takes the schema `question-envelope-v1.schema.json` in `pm-workflow/src/main/resources/de/planmarshall/workflow/question/`, beside the question codec of `de.planmarshall.workflow.question` (the codec is not built yet):
 
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/question-envelope-v1.json",
-  "title": "QuestionEnvelope",
-  "type": "object",
-  "required": ["question_text", "decision_kind", "answer_type", "options", "recommendation", "own_words", "note", "delegation"],
-  "additionalProperties": false,
-  "properties": {
-    "part_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "A key the dependency of another part of the same envelope names; replaced by the question_id when the server persists the part." },
-    "question_text": { "type": "string", "minLength": 10, "maxLength": 500 },
-    "decision_kind": {
-      "type": "string",
-      "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"],
-      "description": "What the question decides (model-work/10, Decision Kinds)."
-    },
-    "answer_type": { "type": "string", "enum": ["one", "several", "value"] },
-    "value_schema": {
-      "type": ["object", "null"],
-      "description": "For answer_type value only: {type: text, max_length} | {type: integer, minimum, maximum} | {type: key, keys[]}; null otherwise."
-    },
-    "options": {
-      "type": "array",
-      "maxItems": 5,
-      "description": "Two to five for one and several, none for value.",
-      "items": {
-        "type": "object",
-        "required": ["branch_key", "label", "description", "consequences"],
-        "additionalProperties": false,
-        "properties": {
-          "branch_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "Deterministic enum key bound to a state transition or parameter assignment." },
-          "label": { "type": "string", "minLength": 2, "maxLength": 80 },
-          "description": { "type": "string", "minLength": 5, "maxLength": 240, "description": "The option's trade-off." },
-          "consequences": { "type": "string", "minLength": 5, "maxLength": 500 },
-          "preview": { "type": ["string", "null"], "maxLength": 4000, "description": "A diff, a text, or a pm:// URI." }
-        }
-      }
-    },
-    "depends_on": {
-      "type": ["object", "null"],
-      "required": ["part_key", "options"],
-      "additionalProperties": false,
-      "properties": {
-        "part_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
-        "options": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" } }
-      }
-    },
-    "recommendation": {
-      "type": ["object", "null"],
-      "required": ["branch_key", "confidence", "rationale"],
-      "additionalProperties": false,
-      "properties": {
-        "branch_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
-        "confidence": { "type": "integer", "minimum": 0, "maximum": 100, "description": "The asker's confidence that the recommended option is right." },
-        "rationale": { "type": "string", "minLength": 10, "maxLength": 500, "description": "Why the recommended option, naming the evidence." }
-      },
-      "description": "Required for one and several; null for value."
-    },
-    "own_words": { "type": "boolean" },
-    "note": { "type": "boolean" },
-    "delegation": { "type": "boolean" }
-  }
-}
+include::../../../pm-workflow/src/main/resources/de/planmarshall/workflow/question/question-envelope-v1.schema.json[]
 ----
 
 [#question-delivery]

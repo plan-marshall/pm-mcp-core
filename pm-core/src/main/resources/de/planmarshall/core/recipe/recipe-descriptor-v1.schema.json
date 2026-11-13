@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/recipe-descriptor-v1.json",
+  "title": "RecipeDescriptor",
+  "type": "object",
+  "required": [
+    "format_version",
+    "recipe_key",
+    "display_name",
+    "description",
+    "scope",
+    "default_change_type",
+    "target_harvester",
+    "deliverable_template",
+    "pr_title_template"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "recipe_key": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$", "maxLength": 37, "description": "Registry key as in plan-marshall (e.g. code-review); at most 37 characters so the recipe plan ID fits the plan_id grammar (identifiers.adoc, recipe_key)." },
+    "display_name": { "type": "string", "minLength": 3, "maxLength": 100 },
+    "description": { "type": "string", "description": "What the recipe does, shown at the operator's choice." },
+    "domain": { "type": "string", "description": "Optional domain; a domain recipe is offered in a project where its domain is active." },
+    "scope": { "type": "string", "enum": ["module", "codebase_wide"] },
+    "default_change_type": { "type": "string" },
+    "pr_title_template": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 72,
+      "description": "Conventional Commit title with {parameter} placeholders bound from recipe_params, rendered deterministically when the recipe's plan is created (recipe.create) into status.metadata.pr_title (phase-workflows.adoc, Plan Source Contracts). An unbound placeholder or a rendered title that fails ConventionalCommitValidator refuses the recipe descriptor at load time."
+    },
+    "lane": { "type": "object", "description": "Optional execution-profile seed (posture and per-step overrides), lowest precedence." },
+    "skill_uri": {
+      "type": "string",
+      "pattern": "^skill://pm/recipe/[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "parameters_schema": {
+      "type": "object",
+      "description": "Free per-recipe input schema (a JSON Schema 2020-12 object schema) for recipe_params; there is no fixed parameter vocabulary (no global scope x thoroughness matrix). An enum may declare its options server-resolved with x-pm-options (closed set: domains, profiles, skills:<domain>, modules, base_branches). The start's recipe choice validates recipe_params against it and refuses a violation; defaults declared in it are applied by the server. Absent means the recipe takes no parameters and any non-empty recipe_params is refused.",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "object" }
+      }
+    },
+    "target_harvester": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "discovered_modules",
+            "module_packages",
+            "markdown_sections",
+            "ascii_diagram_blocks",
+            "stalled_lessons",
+            "footprint_diff",
+            "project_script",
+            "request_scoped"
+          ],
+          "description": "request_scoped: no harvest runs; the recipe takes the sources of a request, gathered at the start like a plan's, and its deliverables come from the pre-diagnosed request (named files, root cause, exact change), as for surgical-fix."
+        },
+        "project_script_id": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "description": "Key of the enrolled project script (project_scripts of enrolments/<project_id>.json, whose binding must be worker_kind recipe_harvester with this recipe as target); required when kind == 'project_script'."
+        }
+      }
+    },
+    "deliverable_template": {
+      "type": "object",
+      "required": ["granularity", "profile", "title_pattern", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "granularity": {
+          "type": "string",
+          "enum": ["per_target", "per_module", "single_plan_wide"]
+        },
+        "profile": {
+          "type": "string",
+          "enum": ["implementation", "module_testing", "integration_testing", "verification", "documentation"],
+          "description": "Task profile of the generated deliverables; equals the task profile enum (store-schemas.adoc, Task Record)."
+        },
+        "title_pattern": { "type": "string" },
+        "steps": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

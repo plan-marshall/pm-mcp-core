@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/endpoint-profile.json",
+  "title": "EndpointProfile",
+  "type": "object",
+  "required": ["profile_kind", "schema_version", "harness_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
+  "additionalProperties": false,
+  "properties": {
+    "profile_kind": { "type": "string", "const": "endpoint" },
+    "schema_version": { "type": "integer", "const": 1 },
+    "harness_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "icon": { "description": "As the icon of a harness profile (Harness Profile Schema)." },
+    "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
+    "identity": {
+      "type": "object",
+      "required": ["version_probe", "version_pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "version_probe": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "version_pattern": { "type": "string" }
+      }
+    },
+    "update_evidence": { "description": "As headless.update_evidence of a harness profile (Update Evidence)." },
+    "endpoint": {
+      "type": "object",
+      "required": ["protocol", "base_url", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol": { "type": "string", "enum": ["openai_chat"], "description": "The request and answer format; a new protocol is a change of this list and of the code, made once for all endpoints." },
+        "base_url": { "type": "string", "pattern": "^http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}$" },
+        "readiness_path": { "type": ["string", "null"], "pattern": "^/[A-Za-z0-9._/-]{0,127}$", "description": "A path answering 200 once the program serves; null: the models path is the readiness check." },
+        "models_path": { "type": "string", "pattern": "^/[A-Za-z0-9._/-]{0,127}$" },
+        "models_pointer": { "type": "string", "description": "JSON Pointer to the array of model objects in the answer of models_path; each object's id is a model id." },
+        "result_schema": { "type": "string", "enum": ["enforced", "advisory", "none"], "description": "Measured: enforced, the endpoint holds its answer to a JSON Schema sent with the request; advisory, it accepts the schema and does not hold to it; none, it refuses it. The server validates every answer itself in each case." },
+        "context_tokens": { "type": "integer", "minimum": 1024, "description": "Measured: the largest request, prompt and answer together, the endpoint accepts." },
+        "answer_reserve_tokens": { "type": "integer", "minimum": 64, "description": "The part of context_tokens kept for the answer." },
+        "request_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 3600 }
+      }
+    },
+    "model_tiers": { "description": "As headless.model_tiers of a harness profile (Model Tiers & Models of a Harness)." },
+    "weights_probe": { "$ref": "#/$defs/weights_probe" }
+  },
+  "$defs": {
+    "weights_probe": {
+      "type": ["object", "null"],
+      "description": "How the identity of a model's weights is read (Weights Identity); null: the harness reports none.",
+      "required": ["source", "pointer", "argv", "pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "enum": ["models_listing", "argv"] },
+        "pointer": { "type": ["string", "null"], "description": "For models_listing: the JSON Pointer, relative to a model object of the listing, to its weights identity." },
+        "argv": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 }, "description": "For argv: a probe run without a shell, with the slot {{model}}." },
+        "pattern": { "type": ["string", "null"], "description": "For argv: the pattern whose first group in the probe's output is the weights identity." }
+      }
+    }
+  }
+}

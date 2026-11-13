@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/project-script-input-v1.json",
+  "title": "ProjectScriptInput",
+  "type": "object",
+  "required": [
+    "format_version",
+    "job_id",
+    "worker_kind",
+    "workspace_root",
+    "worktree_path",
+    "worktree_sha",
+    "parameters",
+    "changed_files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "job_id": { "type": "string", "pattern": "^[bcglpv]-[0-9a-f]{16}$" },
+    "plan_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+    "worker_kind": {
+      "type": "string",
+      "enum": ["finalize_step", "recipe_harvester", "log_parser", "module_discovery", "edge_resolver"]
+    },
+    "workspace_root": { "type": "string" },
+    "worktree_path": { "type": "string" },
+    "worktree_sha": { "type": "string" },
+    "base_commit_sha": { "type": ["string", "null"] },
+    "parameters": {
+      "type": "object",
+      "description": "Validated step or recipe parameters declared in the descriptor's parameter schema."
+    },
+    "changed_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "log_file_path": {
+      "type": ["string", "null"],
+      "description": "Populated when worker_kind == 'log_parser': the read-only path of the CI or build log in the plan's evidence directory, fetched by the server (through the provider module for a CI log)."
+    }
+  }
+}

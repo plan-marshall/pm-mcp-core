@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/domain-descriptor-v1.json",
+  "title": "DomainDescriptor",
+  "type": "object",
+  "required": [
+    "format_version",
+    "domain_id",
+    "display_name",
+    "provides_file_globs",
+    "skills_by_profile",
+    "applicability_rules"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "skillRef": { "type": "string", "pattern": "^skill://pm/domain/[a-z][a-z0-9-]{1,31}/[a-z0-9][a-z0-9-]*$" },
+    "profileSkills": {
+      "type": "object",
+      "required": ["defaults", "optionals"],
+      "additionalProperties": false,
+      "properties": {
+        "defaults": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/skillRef" } },
+        "optionals": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/skillRef" } }
+      }
+    },
+    "activatableProfile": {
+      "type": "string",
+      "enum": ["implementation", "module_testing", "integration_testing", "quality", "security", "documentation"]
+    },
+    "when": {
+      "type": "object",
+      "description": "AND of every present predicate; an empty object matches every module.",
+      "additionalProperties": false,
+      "properties": {
+        "build_system": { "type": "string", "enum": ["maven", "gradle", "npm", "pyproject", "documentation", "marshall-plugin", "none"], "description": "Holds when the value is a member of the module's build systems; none holds for a module with no build system." },
+        "packaging_equals": { "type": "string", "minLength": 1 },
+        "packaging_not_equals": { "type": "string", "minLength": 1 },
+        "dependency_contains": { "type": "string", "minLength": 1, "description": "Substring of at least one declared dependency coordinate of the module." },
+        "path_matches": { "type": "string", "minLength": 1, "description": "Domain-detection glob against the module path." },
+        "file_exists": { "type": "string", "minLength": 1, "description": "Module-relative path that must exist." }
+      }
+    }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$",
+      "description": "identifiers.adoc, domain_id"
+    },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "additive_to": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z][a-z0-9-]{1,31}$",
+      "description": "domain_id of the parent domain this additive domain extends (java-cui -> java, javascript-cui -> javascript); null for a standalone domain."
+    },
+    "always_on": {
+      "type": "boolean",
+      "default": false,
+      "description": "Descriptor default of the always_on inclusion leg: the domain joins every plan's domain set and is exempt from narrowing."
+    },
+    "provides_file_globs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Domain-detection globs (distinct from build-map fnmatch globs)."
+    },
+    "skills_by_profile": {
+      "type": "object",
+      "description": "Per profile a {defaults, optionals} pair. core is merged into every profile (its defaults into each profile's defaults, its optionals into each profile's optionals) and is never activated on its own. Every listed profile other than core names at least one skill in defaults or optionals; a profile without skills is absent here and declared in minimal_profiles; the completeness check requires implementation and module_testing to be either listed here or declared minimal.",
+      "additionalProperties": false,
+      "properties": {
+        "core": { "$ref": "#/$defs/profileSkills" },
+        "implementation": { "$ref": "#/$defs/profileSkills" },
+        "module_testing": { "$ref": "#/$defs/profileSkills" },
+        "integration_testing": { "$ref": "#/$defs/profileSkills" },
+        "quality": { "$ref": "#/$defs/profileSkills" },
+        "security": { "$ref": "#/$defs/profileSkills" },
+        "documentation": { "$ref": "#/$defs/profileSkills" }
+      }
+    },
+    "minimal_profiles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/activatableProfile" },
+      "description": "Profiles the domain deliberately ships without skills. A profile listed here must be absent from skills_by_profile; readers (task skill resolution, posture preview, pm_skills) render it as minimal, never as an empty or missing profile."
+    },
+    "triage_skill": {
+      "type": ["string", "null"],
+      "pattern": "^skill://pm/triage/[a-z0-9][a-z0-9-]*$"
+    },
+    "arch_gate": {
+      "type": ["object", "null"],
+      "required": ["engine", "canonical_verb", "finding_category"],
+      "additionalProperties": false,
+      "properties": {
+        "engine": { "type": "string", "enum": ["archunit", "import-linter", "dependency-cruiser"] },
+        "canonical_verb": { "type": "string", "const": "arch-gate" },
+        "finding_category": { "type": "string", "const": "arch-constraint" }
+      }
+    },
+    "applicability_rules": {
+      "type": "array",
+      "description": "Axis-A applicability rules (applies_to_module) evaluated against each discovered module; they decide profile activation and gate which build.map routes filed under this domain are seeded. A module matches the domain when at least one rule matches (OR across rules).",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "when", "activate_profiles"],
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+          "when": { "$ref": "#/$defs/when" },
+          "activate_profiles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/activatableProfile" }
+          },
+          "promote_optional_skills_to_default": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/skillRef" }
+          }
+        }
+      }
+    },
+    "technique_preconditions": {
+      "type": "array",
+      "description": "Section-level preconditions of prescriptive techniques in this domain's vocabulary skills (Technique Preconditions below); the predicate grammar is the applicability rules' when object.",
+      "items": {
+        "type": "object",
+        "required": ["skill", "section", "technique", "when"],
+        "additionalProperties": false,
+        "properties": {
+          "skill": { "$ref": "#/$defs/skillRef" },
+          "section": { "type": "string", "description": "Section anchor of the skill's section index (mcp-tools.adoc, pm_skill section parameter)." },
+          "technique": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$", "description": "Technique identifier shared by every skill section that prescribes the same technique." },
+          "when": { "$ref": "#/$defs/when" }
+        }
+      }
+    },
+    "edge_resolvers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["maven", "gradle", "npm", "pyproject", "python", "markdown", "documentation", "lsp", "project-script"]
+      }
+    },
+    "claim_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path_prefix", "target_module"],
+        "additionalProperties": false,
+        "properties": {
+          "path_prefix": { "type": "string", "minLength": 1 },
+          "target_module": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "domain_verbs": {
+      "type": "array",
+      "description": "Domain verb IDs: marker-detect (invoked via search-markers), rewrite-log-parse (invoked via parse-rewrite-log), and the documentation verbs asciidoc.validate, asciidoc.verify-links, asciidoc.format (Documentation Domain Verbs).",
+      "items": { "type": "string", "enum": ["marker-detect", "rewrite-log-parse", "asciidoc.validate", "asciidoc.verify-links", "asciidoc.format"] }
+    }
+  }
+}

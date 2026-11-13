@@ -429,16 +429,10 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |
 |
 
-|link:schema-files-other-specifications.adoc[`schema-files-other-specifications`]
-|The 14 schema blocks of the domain extensions, the harness profiles and the model work as files
-|`open`
-|`schema-files-foundation`
-|none: the way a specification states a schema, a limit and a list (ADR 009)
-
 |link:adoc-reading-retired.adoc[`adoc-reading-retired`]
 |`SpecificationDocument` and `pm.specification.root` deleted, the `**/doc/**` entry removed from the docs-only include list, the ADRs of the docs-only skip marked superseded
 |`open`
-|`schema-files-tested-records`; `schema-files-other-specifications`
+|`schema-files-tested-records`
 |none: the way a specification states a schema, a limit and a list (ADR 009)
 
 |===

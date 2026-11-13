@@ -1,0 +1,25 @@
+{
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/log-parser-facts-v1.json",
+  "title": "LogParserFacts",
+  "type": "object",
+  "required": ["failures"],
+  "additionalProperties": false,
+  "properties": {
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["compile", "test", "lint", "policy", "unknown"], "description": "The check's failure_kind; infra is set by the server for a failed gather constituent, and a timed-out check is failure_class timed_out, never a kind." },
+          "file": { "type": ["string", "null"], "description": "Repository-relative path; a path outside the repository is dropped by the server." },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "message": { "type": "string", "minLength": 1, "maxLength": 400, "description": "One line; redacted by the server." },
+          "log_line_from": { "type": ["integer", "null"], "minimum": 1, "description": "First log line of the excerpt that shows the failure." },
+          "log_line_to": { "type": ["integer", "null"], "minimum": 1 }
+        }
+      }
+    }
+  }
+}

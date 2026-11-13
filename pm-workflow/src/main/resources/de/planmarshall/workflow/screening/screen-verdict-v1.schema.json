@@ -1,0 +1,33 @@
+{
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/screen-verdict-v1.json",
+  "type": "object",
+  "required": ["items"],
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item_id", "verdict", "spans"],
+        "additionalProperties": false,
+        "properties": {
+          "item_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$" },
+          "verdict": { "type": "string", "enum": ["clean", "suspicious"] },
+          "spans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["start", "end", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "start": { "type": "integer", "minimum": 0 },
+                "end": { "type": "integer", "minimum": 0 },
+                "reason": { "type": "string", "maxLength": 200 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

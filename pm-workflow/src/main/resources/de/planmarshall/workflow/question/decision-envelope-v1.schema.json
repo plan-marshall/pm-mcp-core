@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decision-envelope-v1.json",
+  "title": "DecisionEnvelope",
+  "type": "object",
+  "required": ["title", "header", "description", "evidence", "blocks", "reversibility", "parts"],
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 3, "maxLength": 80 },
+    "header": { "type": "string", "minLength": 3, "maxLength": 200 },
+    "description": { "type": "string", "minLength": 10, "maxLength": 4000, "description": "Why the decision is needed now." },
+    "evidence": { "type": "array", "maxItems": 20, "items": { "type": "string", "pattern": "^pm://", "maxLength": 512 } },
+    "blocks": { "type": "string", "enum": ["plan", "task", "nothing"] },
+    "reversibility": { "type": "string", "enum": ["reversible", "costly", "irreversible"] },
+    "revisits": { "type": ["string", "null"], "pattern": "^D-[0-9]{4,7}$", "description": "Optional: the standing decision of the scope the decision reopens; its choice must be one option of the first part, and an answer that chooses another option appends a correction to it (model-work/11, Corrections)." },
+    "parts": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/question-envelope-v1.json" } }
+  }
+}

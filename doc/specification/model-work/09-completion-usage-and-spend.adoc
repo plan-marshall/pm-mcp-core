@@ -74,28 +74,11 @@ Every task except a `zero_tool` worker's (the screener's, the judge's) works in 
 === Worker Result & Usage Parsing
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-3[PM-WATCH-DISP-3]_
 
-*Result*: A fresh `writer` or `read_only` worker ends with the structured output `job-result`, validated by the server; it is display text and evidence, never the route and never a deliverable. A warm worker ends when the server answers its wait with `end` and has no final result.
+*Result*: A fresh `writer` or `read_only` worker ends with the structured output `job-result`, validated by the server; it is display text and evidence, never the route and never a deliverable. A warm worker ends when the server answers its wait with `end` and has no final result. The schema of the result is the file `job-result-v1.schema.json` in `pm-workflow/src/main/resources/de/planmarshall/workflow/model/`, beside the model codec of `de.planmarshall.workflow.model` (the codec is not built yet):
 
 [source,json]
 ----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/job-result-v1.json",
-  "title": "JobResult",
-  "type": "object",
-  "required": ["status", "display_detail"],
-  "additionalProperties": false,
-  "properties": {
-    "status": { "type": "string", "enum": ["success", "error"], "description": "The worker's own report; evidence only." },
-    "display_detail": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 80,
-      "pattern": "^[\\x20-\\x7E]+(?<!\\.)$",
-      "description": "Concise single-line ASCII summary (1..80 chars) without a trailing period."
-    }
-  }
-}
+include::../../../pm-workflow/src/main/resources/de/planmarshall/workflow/model/job-result-v1.schema.json[]
 ----
 
 *Deliberate change vs. `plan-marshall`*: the shape mirrors the `plan-marshall` `execution-context` return (`status`, and `display_detail` of at most 80 ASCII characters on a single line without a trailing period; `plan-marshall` `marketplace/bundles/plan-marshall/agents/execution-context.md:141-152`), but results travel through the entity-scoped `submit` links, the harness's cancellation is observed by the server as the worker's fate, and `blocked` and `loop_back` are not statuses: a worker that cannot proceed follows `ask`, `infeasible:TASK-NNN`, or `yield:envelope-N`, or records its result through its `submit`; loop-backs are decided by the remediation policies and triage.
