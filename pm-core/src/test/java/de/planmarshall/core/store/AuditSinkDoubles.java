@@ -32,8 +32,8 @@ import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 
 /**
- * EasyMock audit sinks for the store tests: the failure script a test asks for, expressed as a mock's expectations,
- * so no hand-written sink carries the behaviour.
+ * EasyMock audit sinks for the store tests: the accepting sink a test captures into, and the failure script a test asks
+ * for, expressed as a mock's expectations, so no hand-written sink carries the behaviour.
  */
 @UtilityClass
 class AuditSinkDoubles {

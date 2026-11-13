@@ -126,17 +126,17 @@ class ActivityRecorderTest {
 
         recorder.append(task, generation, toolCall(tool, target));
         recorder.append(task, generation, toolCall(tool, target));
-        assertEquals(0, signals.size());
+        assertEquals(0, signals.size(), "the third entry raises the first signal");
 
         recorder.append(task, generation, toolCall(tool, target));
         recorder.append(task, generation, toolCall(tool, target));
 
-        assertEquals(1, signals.size());
+        assertEquals(1, signals.size(), "a holding signal is reported once");
         assertAll(
-                () -> assertEquals("repeating", signals.getFirst().signal),
-                () -> assertEquals("show", signals.getFirst().action),
-                () -> assertEquals(3.0, signals.getFirst().measurement),
-                () -> assertEquals(3.0, signals.getFirst().threshold));
+                () -> assertEquals("repeating", signals.getFirst().signal, "the signal is the repeating one"),
+                () -> assertEquals("show", signals.getFirst().action, "the action is the show of the role"),
+                () -> assertEquals(3.0, signals.getFirst().measurement, "the measurement is the third entry"),
+                () -> assertEquals(3.0, signals.getFirst().threshold, "the threshold is the third entry"));
     }
 
     @Test
@@ -150,8 +150,8 @@ class ActivityRecorderTest {
         var entry = toolCall(tool, target);
         assertThrows(IllegalStateException.class,
                 () -> recorder.append(task, generation, entry));
-        assertTrue(journal.entries(task).isEmpty());
-        assertTrue(signals.isEmpty());
+        assertTrue(journal.entries(task).isEmpty(), "an unreadable task writes no entry");
+        assertTrue(signals.isEmpty(), "an unreadable task raises no signal");
     }
 
     private WorkerProtocol protocol() {

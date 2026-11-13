@@ -114,8 +114,8 @@ class PeriodicSweepTest {
     }
 
     private SweepStep step(SweepStep.Name name, String tag) {
-        return step(name, tag,
-                (_, _) -> new Outcome.Done(Generators.letterStrings(3, 30).next()));
+        var report = new Outcome.Done(Generators.letterStrings(3, 30).next());
+        return step(name, tag, (_, _) -> report);
     }
 
     private SweepStep step(SweepStep.Name name, String tag, BiFunction<String, Instant, Outcome> body) {

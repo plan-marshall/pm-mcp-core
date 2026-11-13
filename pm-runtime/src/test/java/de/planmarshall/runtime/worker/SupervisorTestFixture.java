@@ -16,6 +16,7 @@ import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.newCapture;
 import static org.easymock.EasyMock.replay;
 
 import java.io.IOException;
@@ -33,6 +34,8 @@ import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.easymock.Capture;
+import org.easymock.CaptureType;
 
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
@@ -46,6 +49,7 @@ import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.role.RoleSkill;
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
@@ -64,6 +68,7 @@ import de.planmarshall.runtime.launch.PromptComposer;
 import de.planmarshall.runtime.launch.ResolvedSkill;
 import de.planmarshall.runtime.launch.SkillSource;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.test.AuditSinkDoubles;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
@@ -151,7 +156,9 @@ final class SupervisorTestFixture {
 
     final JobTokenStore jobTokens = new JobTokenStore();
 
-    final List<AuditEvent> events = new CopyOnWriteArrayList<>();
+    final Capture<AuditEvent> events = newCapture(CaptureType.ALL);
+
+    final AuditSink eventSink = AuditSinkDoubles.capturing(events);
 
     final List<String> order = new CopyOnWriteArrayList<>();
 
@@ -215,10 +222,10 @@ final class SupervisorTestFixture {
                     Map.of()));
         }
         var verifier = new HarnessVerifier(store, file -> Optional.of(sha), (file, argv, pattern) -> Optional.of(
-                "1.5.0"), (evidence, file) -> true, events::add, clock);
+                "1.5.0"), (evidence, file) -> true, eventSink, clock);
         return new SupervisorEnvironment(project, enrolment, base, base.resolve("home"), base.resolve("runtime"),
                 base.resolve("run").resolve("pm.sock"), SHIM, skillSource, profile, verifier, new LaunchComposer(),
-                starter, stateWriter, jobTokens, slots, protocol, events::add, clock, timers,
+                starter, stateWriter, jobTokens, slots, protocol, eventSink, clock, timers,
                 new FileLockManager(event -> {
                 }), guard, gate);
     }

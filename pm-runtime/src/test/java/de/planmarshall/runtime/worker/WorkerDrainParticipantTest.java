@@ -98,7 +98,7 @@ class WorkerDrainParticipantTest {
 
         assertFalse(quiet);
         assertFalse(ending.endRequested(generation.generationId()), "a running task is not ended early");
-        assertTrue(fixture.cancels.isEmpty());
+        assertTrue(fixture.cancels.isEmpty(), "a running task is not cancelled");
     }
 
     @Test
@@ -174,9 +174,11 @@ class WorkerDrainParticipantTest {
     }
 
     private void assertAllTerminated(WorkerGeneration generation, List<String> terminated) {
-        assertEquals(List.of(generation.generationId()), terminated);
-        assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(generation.generationId()));
-        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels);
+        assertEquals(List.of(generation.generationId()), terminated, "one worker reports its generation");
+        assertEquals(Optional.of(EndCause.DRAIN), ending.requestedCause(generation.generationId()),
+                "the end is requested with the drain cause");
+        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels,
+                "the end cancels the worker with supervisor end");
     }
 
     /**

@@ -186,7 +186,7 @@ class SupervisorScenarioTest {
 
             assertAll(
                     () -> assertEquals("resume: session-42", resumed, "the resume reads the harness's scripted stream"),
-                    () -> assertEquals(1, fixture.starts.size(), "one worker started"),
+                    () -> assertEquals(1, fixture.starts.size(), "one worker is started by the supervisor"),
                     () -> assertEquals(started.generation().generationId(),
                             fixture.starts.getFirst().launch().generationId(),
                             "the recorded start belongs to the generation"),
@@ -223,7 +223,7 @@ class SupervisorScenarioTest {
         var fixture = new SupervisorTestFixture(base);
         var parameters = parameters(OptionalInt.empty(), false);
         var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol,
-                fixture.events::add, fixture.clock);
+                fixture.eventSink, fixture.clock);
         var environment = fixture.environment(guard, SupervisorEnvironment.EligibilityGate.open());
         var supervisor = new WorkerSupervisor(environment);
         var role = fixture.role(RoleClass.WRITER, RoleForm.WARM, 1);
@@ -240,7 +240,7 @@ class SupervisorScenarioTest {
         }
         var heldBeforeTheChange = guard.holds(role.artifact().name(), SupervisorTestFixture.CLIENT);
         var cause = recycling.afterTaskClosed(generation, changedDigest);
-        var failedStarts = fixture.events.stream()
+        var failedStarts = fixture.events.getValues().stream()
                 .filter(event -> AuditEvent.WORKER_START_FAILED.equals(event.event()))
                 .count();
 
@@ -406,7 +406,7 @@ class SupervisorScenarioTest {
             assertAll(
                     () -> assertEquals(executable, matched.orElseThrow().path(),
                             "the first process of the tree that runs the enrolled file matches"),
-                    () -> assertEquals(1, fixture.startedAgents.size(), "exactly one signal"),
+                    () -> assertEquals(1, fixture.startedAgents.size(), "exactly one agent-started signal is raised"),
                     () -> assertEquals(executable.toString(),
                             fixture.startedAgents.getFirst().executable(),
                             "the signal names the executable of the recorded tree"),
@@ -440,7 +440,7 @@ class SupervisorScenarioTest {
 
             assertAll(
                     () -> assertTrue(matched.isEmpty(), "the same path with another digest is not the enrolled file"),
-                    () -> assertTrue(fixture.startedAgents.isEmpty(), "no signal"),
+                    () -> assertTrue(fixture.startedAgents.isEmpty(), "no agent-started signal is raised"),
                     () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
                             "the worker is not ended"));
             ProcessHandle.of(childPid).ifPresent(ProcessHandle::destroyForcibly);

@@ -28,9 +28,8 @@ import de.planmarshall.core.role.RoleResolver;
 import de.planmarshall.core.role.RoleSkill;
 
 /**
- * The fixtures of the model-caller tests (test helper): an effective role of any class and form, a resolver over a map of
- * roles, a recorder of the qualification lookup and the availability guard. The task queue is an EasyMock double the
- * test creates.
+ * The fixtures of the model-caller tests (test helper): an effective role of any class and form and a resolver over a map
+ * of roles. The task queue, the qualification lookup and the availability guard are EasyMock doubles the test creates.
  * <p>
  * The fixtures name a generic harness and generic roles; a test that needs a role the specification fixes by name (the
  * judge, the steward) names it explicitly.

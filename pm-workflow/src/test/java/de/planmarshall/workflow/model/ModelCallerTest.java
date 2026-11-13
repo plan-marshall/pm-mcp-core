@@ -82,12 +82,14 @@ class ModelCallerTest {
                 () -> assertEquals(RoleForm.FRESH, queued.form()),
                 () -> assertFalse(queued.formDowngraded()),
                 () -> assertEquals(role.configurationDigest(), request.configurationDigest()),
-                () -> assertEquals(role.qualificationDigest(), fixtures.digests().getFirst()),
+                () -> assertEquals(role.qualificationDigest(), fixtures.digests().getFirst(),
+                        "the lookup is asked with the role's digest"),
                 () -> assertEquals(ModelFixtures.HARNESS, request.harness()),
                 () -> assertEquals(ModelFixtures.MODEL, request.model()),
                 () -> assertEquals(STATE, request.stateId()),
                 () -> assertFalse(request.consultation()),
-                () -> assertEquals(IMPLEMENT, fixtures.looked().getFirst()));
+                () -> assertEquals(IMPLEMENT, fixtures.looked().getFirst(),
+                        "the qualification lookup is asked for the role"));
     }
 
     @Test

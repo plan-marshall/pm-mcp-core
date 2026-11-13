@@ -80,9 +80,9 @@ class WorkerSupervisorStartTest {
 
         assertAll(
                 () -> assertEquals(2, outcomes.size(), "the third task waits for the next free worker"),
-                () -> assertEquals(2, started(outcomes)),
-                () -> assertEquals(2, fixture.starts.size()),
-                () -> assertTrue(fixture.refusals.isEmpty()));
+                () -> assertEquals(2, started(outcomes), "two of the three tasks start a worker"),
+                () -> assertEquals(2, fixture.starts.size(), "the third task waits for a free worker"),
+                () -> assertTrue(fixture.refusals.isEmpty(), "no request is refused"));
     }
 
     @Test
@@ -110,9 +110,9 @@ class WorkerSupervisorStartTest {
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role), fixture.freshRequest(role)));
 
         assertAll(
-                () -> assertEquals(1, outcomes.size()),
-                () -> assertEquals(1, started(outcomes)),
-                () -> assertEquals(1, fixture.starts.size()));
+                () -> assertEquals(1, outcomes.size(), "the artifact's count admits one worker"),
+                () -> assertEquals(1, started(outcomes), "one worker of the count starts"),
+                () -> assertEquals(1, fixture.starts.size(), "exactly one start is issued"));
     }
 
     @Test
@@ -124,8 +124,9 @@ class WorkerSupervisorStartTest {
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role)));
 
         assertAll(
-                () -> assertEquals(WorkerStartRefusal.ROLE_GUARD_HELD, declined(outcomes)),
-                () -> assertTrue(fixture.starts.isEmpty()),
+                () -> assertEquals(WorkerStartRefusal.ROLE_GUARD_HELD, declined(outcomes),
+                        "a held guard declines the start"),
+                () -> assertTrue(fixture.starts.isEmpty(), "a held guard starts no worker"),
                 () -> assertTrue(fixture.claimed.isEmpty(), "the guard is consulted before the slot"));
     }
 
@@ -134,7 +135,7 @@ class WorkerSupervisorStartTest {
     void aThrowingStartRestartsTheProbeBackoff() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var guard = new StartFailureGuard(fixture.project, List::of, fixture.protocol,
-                fixture.events::add, fixture.clock);
+                fixture.eventSink, fixture.clock);
         hold(guard, role);
         fixture.advance(StartFailureGuard.PROBE_BACKOFF);
         fixture.startFailure = new IllegalStateException(startFailure);
@@ -165,9 +166,10 @@ class WorkerSupervisorStartTest {
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role)));
 
         assertAll(
-                () -> assertEquals(WorkerStartRefusal.HARNESS_INELIGIBLE, declined(outcomes)),
-                () -> assertTrue(fixture.starts.isEmpty()),
-                () -> assertTrue(fixture.claimed.isEmpty()));
+                () -> assertEquals(WorkerStartRefusal.HARNESS_INELIGIBLE, declined(outcomes),
+                        "an ineligible harness declines the start"),
+                () -> assertTrue(fixture.starts.isEmpty(), "an ineligible harness starts no worker"),
+                () -> assertTrue(fixture.claimed.isEmpty(), "no model slot is claimed"));
     }
 
     @Test
@@ -180,9 +182,10 @@ class WorkerSupervisorStartTest {
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role)));
 
         assertAll(
-                () -> assertEquals(WorkerStartRefusal.NO_MODEL_SLOT, declined(outcomes)),
-                () -> assertTrue(fixture.starts.isEmpty()),
-                () -> assertTrue(fixture.refusals.isEmpty()),
+                () -> assertEquals(WorkerStartRefusal.NO_MODEL_SLOT, declined(outcomes),
+                        "a refused slot declines the start"),
+                () -> assertTrue(fixture.starts.isEmpty(), "a refused slot starts no worker"),
+                () -> assertTrue(fixture.refusals.isEmpty(), "nothing is refused to the job runner"),
                 () -> assertEquals(1, fixture.withdrawn.size(),
                         "the queued entry of the declined start leaves the FIFO"));
     }
@@ -197,9 +200,11 @@ class WorkerSupervisorStartTest {
         var outcomes = supervisor.start(List.of(fixture.freshRequest(role)));
 
         assertAll(
-                () -> assertEquals(WorkerStartRefusal.LAUNCH_REFUSED, declined(outcomes)),
-                () -> assertEquals(1, fixture.refusals.size()),
-                () -> assertEquals("harness_not_enrolled", fixture.refusals.getFirst().reason().code()),
+                () -> assertEquals(WorkerStartRefusal.LAUNCH_REFUSED, declined(outcomes),
+                        "a refused launch declines the start"),
+                () -> assertEquals(1, fixture.refusals.size(), "the refused job is recorded once"),
+                () -> assertEquals("harness_not_enrolled", fixture.refusals.getFirst().reason().code(),
+                        "the refusal names the unenrolled harness"),
                 () -> assertTrue(fixture.refusals.getFirst().workerBlock().contains("generation_id"),
                         "the refused record carries the worker block"),
                 () -> assertEquals(1, fixture.released.size(), "the refused start returns its slot"));

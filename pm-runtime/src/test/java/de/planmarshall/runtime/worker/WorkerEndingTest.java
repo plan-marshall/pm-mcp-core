@@ -85,8 +85,8 @@ class WorkerEndingTest {
         var terminal = ending.exited(generation);
 
         var write = fixture.writes.getFirst();
-        assertEquals(1, fixture.writes.size());
-        assertTrue(terminal.lifecycle().terminal());
+        assertEquals(1, fixture.writes.size(), "the terminal state is written once");
+        assertTrue(terminal.lifecycle().terminal(), "the worker reaches its terminal lifecycle");
         assertEquals(switch (cause) {
             case START_FAILURE -> WorkerLifecycle.START_FAILED;
             case LOST -> WorkerLifecycle.LOST;
@@ -133,9 +133,10 @@ class WorkerEndingTest {
         ending.exited(generation);
 
         var write = fixture.writes.getFirst();
-        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels);
-        assertEquals(WorkerState.State.LOST, write.state());
-        assertEquals(WorkerState.EndReason.SILENCE, write.endReason());
+        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels,
+                "the silence loss cancels with supervisor end");
+        assertEquals(WorkerState.State.LOST, write.state(), "the lost worker writes its lost state");
+        assertEquals(WorkerState.EndReason.SILENCE, write.endReason(), "the write names the silence");
     }
 
     @Test
@@ -152,7 +153,8 @@ class WorkerEndingTest {
 
         assertTrue(fixture.cancels.isEmpty(), "the end is requested first, not forced");
         timers.fireDue(SupervisorTestFixture.NOW.plus(TerminationProtocol.GRACE_PERIOD));
-        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels);
+        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels,
+                "the grace expiry forces the end");
     }
 
     @Test
@@ -168,8 +170,9 @@ class WorkerEndingTest {
         ending.end(generation, EndCause.PAUSE_AT_ONCE);
         timers.fireDue(SupervisorTestFixture.NOW.plus(TerminationProtocol.GRACE_PERIOD));
 
-        assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer());
-        assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.cancels);
+        assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer(), "a pause at once spends no re-offer");
+        assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.cancels,
+                "the pause cancels with the paused-now cause");
     }
 
     @Test

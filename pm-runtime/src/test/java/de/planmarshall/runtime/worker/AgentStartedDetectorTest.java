@@ -109,7 +109,7 @@ class AgentStartedDetectorTest {
                 () -> assertEquals(ProcessExecutable.DIGEST_PREFIX + sha256(executable),
                         matched.orElseThrow().digest(), "the enrolment's digest is compared with the file's"),
                 () -> assertTrue(again.isEmpty(), "one started agent never raises the signal twice"),
-                () -> assertEquals(1, fixture.startedAgents.size(), "exactly one signal"),
+                () -> assertEquals(1, fixture.startedAgents.size(), "exactly one agent-started signal is raised"),
                 () -> assertEquals(generation.generationId(), signal.generationId()),
                 () -> assertEquals(queueTask, signal.queueTaskId(), "the signal names the task it holds"),
                 () -> assertEquals(attempt, signal.attempt()),
@@ -139,7 +139,7 @@ class AgentStartedDetectorTest {
 
         assertAll(
                 () -> assertTrue(matched.isEmpty(), "the same path with another digest is not the enrolled file"),
-                () -> assertTrue(fixture.startedAgents.isEmpty(), "no signal"),
+                () -> assertTrue(fixture.startedAgents.isEmpty(), "no agent-started signal is raised"),
                 () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(),
                         "the worker is not ended"));
     }
@@ -159,7 +159,7 @@ class AgentStartedDetectorTest {
 
         assertAll(
                 () -> assertEquals(operator, matched.orElseThrow().path(), "the operator binary matched"),
-                () -> assertEquals(1, fixture.startedAgents.size(), "one signal"),
+                () -> assertEquals(1, fixture.startedAgents.size(), "one agent-started signal is raised"),
                 () -> assertEquals(Optional.of(EndCause.OFF_TRACK), ending.requestedCause(generation.generationId())));
     }
 
@@ -179,7 +179,7 @@ class AgentStartedDetectorTest {
 
         assertAll(
                 () -> assertTrue(matched.isEmpty(), "the installed file's digest decides the match"),
-                () -> assertTrue(fixture.startedAgents.isEmpty(), "no signal"),
+                () -> assertTrue(fixture.startedAgents.isEmpty(), "no agent-started signal is raised"),
                 () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(), "no end"));
     }
 
@@ -221,7 +221,7 @@ class AgentStartedDetectorTest {
 
         assertAll(
                 () -> assertTrue(matched.isEmpty(), "no enrolled executable and no operator binary in the tree"),
-                () -> assertTrue(fixture.startedAgents.isEmpty(), "no signal"),
+                () -> assertTrue(fixture.startedAgents.isEmpty(), "no agent-started signal is raised"),
                 () -> assertTrue(ending.requestedCause(generation.generationId()).isEmpty(), "no end"));
     }
 

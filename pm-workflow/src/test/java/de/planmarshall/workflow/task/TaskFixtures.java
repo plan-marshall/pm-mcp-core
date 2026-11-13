@@ -12,13 +12,14 @@ package de.planmarshall.workflow.task;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.replay;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Set;
 
 import de.cuioss.test.generator.Generators;
 import de.planmarshall.core.queue.QueueTaskRecord;
@@ -124,12 +125,13 @@ final class TaskFixtures {
     }
 
     /**
-     * @param paused whether the plan is paused; the test flips the flag, the mock answers from it
-     * @return an EasyMock pause port that answers every read from the flag
+     * @param paused the plans that are paused; the test adds and removes a plan id, the mock answers from the set
+     * @return an EasyMock pause port that answers each read by the plan id it is asked about
      */
-    static PlanPause pause(AtomicBoolean paused) {
+    static PlanPause pause(Set<String> paused) {
         PlanPause pause = createMock(PlanPause.class);
-        expect(pause.isPaused(anyObject(String.class))).andAnswer(paused::get).anyTimes();
+        expect(pause.isPaused(anyObject(String.class)))
+                .andAnswer(() -> paused.contains((String) getCurrentArguments()[0])).anyTimes();
         replay(pause);
         return pause;
     }

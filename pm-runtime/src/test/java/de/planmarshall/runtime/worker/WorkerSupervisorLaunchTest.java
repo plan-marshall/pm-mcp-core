@@ -95,10 +95,11 @@ class WorkerSupervisorLaunchTest {
         assertAll(
                 () -> assertEquals(WorkerStartRefusal.LAUNCH_REFUSED,
                         assertInstanceOf(StartOutcome.Declined.class, outcomes.getFirst()).reason()),
-                () -> assertEquals(1, fixture.refusals.size()),
-                () -> assertEquals("prompt_composition_failed", fixture.refusals.getFirst().reason().code()),
-                () -> assertTrue(fixture.starts.isEmpty()),
-                () -> assertEquals(1, fixture.released.size()));
+                () -> assertEquals(1, fixture.refusals.size(), "the failed launch is refused once"),
+                () -> assertEquals("prompt_composition_failed", fixture.refusals.getFirst().reason().code(),
+                        "the refusal names the prompt composition"),
+                () -> assertTrue(fixture.starts.isEmpty(), "no worker is started for a refused launch"),
+                () -> assertEquals(1, fixture.released.size(), "the refused launch returns its slot"));
     }
 
     @Test

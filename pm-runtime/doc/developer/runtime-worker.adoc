@@ -423,8 +423,7 @@ start is a real process whose behaviour they observe rather than assume.
 [horizontal]
 link:{test}/SupervisorTestFixture.java[`SupervisorTestFixture`]:: Builds the real launch contracts over a temporary base
 and its EasyMock doubles of the starter, the model slots, the task protocol and the state writer record the composed
-starts, the ends, the slots and the terminal writes in the fixture's one order list, which the end path's test asserts.
-Its `order` list is the one place the end path's order is asserted.
+starts, the ends, the slots and the terminal writes in the fixture's one `order` list, which the end path's test asserts.
 link:{test}/VirtualClock.java[`VirtualClock`]:: Implements both `InstantSource` and `WorkerTimers`. A scenario moves the
 clock and every timer scheduled at or before the new instant fires in order; a timer scheduled while the clock is being
 moved is picked up by the same move, so a re-armed deadline is never missed.

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.HashSet;
 
 
 import org.junit.jupiter.api.DisplayName;
@@ -104,12 +104,13 @@ class TaskProtocolOfferTest {
         var locks = new TestLocks();
         var queue = QueueStore.ofProject(base, "project-a", locks);
         queue.create(TaskFixtures.queued("qt-0000000000000001", TaskFixtures.ROLE).build());
-        var paused = new AtomicBoolean(true);
+        var paused = new HashSet<String>();
+        paused.add(TaskFixtures.PLAN);
         var protocol = TaskProtocol.builder(queue, locks).pause(TaskFixtures.pause(paused)).build();
 
         var whilePaused = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT);
         var queuedWhilePaused = queue.records().getFirst().status();
-        paused.set(false);
+        paused.remove(TaskFixtures.PLAN);
         var afterStart = protocol.wait(TaskFixtures.waitFor(TaskFixtures.GENERATION), TaskFixtures.AT.plusSeconds(1));
 
         assertAll(
