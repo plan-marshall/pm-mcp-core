@@ -507,7 +507,29 @@ No module ADR is owed: no base class of a package changes.
   code of a kept finding is no precedent for a new class.
 * The published test surface of `pm-runtime` is unchanged, so the assembly needs no change.
 * The kept findings stay recorded here with their reasons and leads; a later plan that takes one up starts from its row.
-* The measured effect of the rework per module is added by the final measurement of the plan.
+* The measured effect of the rework per module is small, because the rework changed little code: its only code change
+  is the fixture of the three `QuestionLogRecordReader` test classes of `pm-runtime` (<<f10>>). Every other finding was
+  kept with its reason, and the value of this ADR lies in the target design and the leads it records, not in time. The
+  figures are those of the final measurement in
+  <<024-verify-duration-measured-and-cut.adoc#final-measurement,ADR 024 § The Final Measurement>> (three idle runs of
+  `verify -Ppre-commit` and one of the coverage lane on the final tree):
++
+[cols="2,3,4",options="header"]
+|===
+|Module |Change of the rework |Measured effect
+
+|`pm-runtime`
+|three test classes take a `@TempDir` in place of `TestBases`; no test, assertion or lane changed
+|none separable: the module took 86 s, 86 s and 84 s, a spread of 2 s; the changed classes start no process and wait
+for no bound, so whatever the change saves lies below that spread and was not measured on its own. The drop against
+run 6 (101 s) comes from the tests `main` deleted and the shorter bounds of `LspClientTest` (ADR 024, row 10), not from
+this ADR. 10150 tests in the repository, of which the rework added and removed none; instruction and branch coverage 91.21 % and 83.19 %, not
+below the baseline.
+
+|`pm-core`, `pm-workflow`, the provider modules, the root and the aggregator
+|none
+|none: their figures in ADR 024 are the effect of ADR 024, change A, and of `main`; coverage per module unchanged.
+|===
 
 == Source
 

@@ -660,6 +660,38 @@ and the retained test that failed).
 4+|none
 |===
 
+[#rebaseline]
+=== The Test Counts after the Rebase
+
+The counts of <<baseline-tests>> (10239 tests in run 4) and of runs 6 to 9 (10200 tests) were taken before the branch
+was brought onto `main` at `e07bf737`. On the rebased tree the coverage lane executes 10150 tests, all green, with no
+file rewritten (coverage lane after the rework of ADR
+link:025-test-design-layering-base-classes-and-fixtures.adoc[025], 155 s wrapper, load average about 5 at the start).
+The 50 fewer tests are the classes `main` deleted with #396 and #397 before the rebase; this plan removed, merged and
+moved no test, so both retention tables (above and in ADR 025) stay empty. The 10150 tests replace the pre-rebase
+figures as the test count every later figure of this plan is compared with.
+
+The quality baseline of <<baseline-quality>> stays the floor. On the rebased tree after the rework, no module is below
+it:
+
+[cols="2,2,2",options="header"]
+|===
+|Module |Instruction coverage |Branch coverage
+
+|`pm-core` |92.89 % (116447 of 125359) |85.96 % (8884 of 10335)
+|`pm-workflow` |93.27 % (60441 of 64799) |85.23 % (4877 of 5722)
+|`pm-runtime` |91.21 % (55188 of 60507) |83.19 % (3791 of 4557)
+|`pm-provider-git` |92.69 % (3223 of 3477) |80.45 % (251 of 312)
+|`pm-provider-http` |96.28 % (1321 of 1372) |93.89 % (123 of 131)
+|`pm-provider-ci` |97.38 % (1488 of 1528) |88.89 % (200 of 225)
+|`pm-provider-github` |98.92 % (3010 of 3043) |89.67 % (191 of 213)
+|`pm-provider-gitlab` |98.22 % (2147 of 2186) |88.95 % (153 of 172)
+|`pm-provider-sonar` |100.00 % (512 of 512) |94.23 % (49 of 52)
+|===
+
+The instruction and branch totals of `pm-core` and `pm-runtime` are smaller than in the baseline because #396 and #397
+deleted main classes with their tests; the rates are the comparable figure.
+
 [#operator-leads]
 === Leads for the Operator
 
@@ -688,6 +720,102 @@ Findings outside this repository's own configuration are not changed by this pla
   gain; after change A the remaining two did not justify their risk (<<build-level-changes>>).
 
 == Consequences
+
+[#final-measurement]
+=== The Final Measurement
+
+The final tree of the plan (the branch on `main` at `00feac45` with every change of this plan; only the documentation
+of the last step was still uncommitted, no source among it) was measured exactly as the baseline: the full reactor,
+routed through the build daemon, the load average (1, 5 and 15 minutes) read before and after each run, the host
+checked for a competing Maven process at the start. No Maven process ran at the start of any run, and the one-minute
+load was below 5 at every start.
+
+[cols="1,3,1,1,4,2",options="header"]
+|===
+|Run |Command |Wrapper |Maven total |Host load |Classification
+
+|F1
+|`verify -Ppre-commit`
+|235 s
+|3:54 min
+|before 1.93 3.66 6.82; after 3.02 3.79 6.17 (another plan's Maven build started right after the run)
+|idle
+
+|F2
+|`verify -Ppre-commit`
+|239 s
+|3:58 min
+|before 1.22 3.81 5.21; after 6.38 4.88 5.31 (three Maven processes of other plans appeared at or after the end)
+|idle at the start, others at the end
+
+|F3
+|`verify -Ppre-commit`
+|229 s
+|3:47 min
+|before 1.23 2.76 3.90; after 5.01 3.91 4.12, no Maven process after the run
+|idle
+
+|F4
+|`verify -Pcoverage`
+|123 s
+|2:02 min
+|before 2.13 3.21 3.85; after 3.90 3.52 3.89 (three Maven processes of other plans present after the run)
+|idle at the start
+|===
+
+Every run executed 10150 tests, all green, and the gate rewrote no file. The median of F1 to F3 is *235 s* (3:54 min):
+the target of 600 s is met with 365 s to spare, and the daemon's bound of 1120 s with 885 s, so the full gate runs whole
+inside the daemon without a split per module. Against the idle reference of 650 s and 654 s (runs 2 and 3) the gate
+is about 64 % shorter; against the median of runs 6 to 8 (247 s, change A alone, before the rebase) it is 12 s shorter,
+which the tests `main` deleted with #396 and #397 and the shorter bounds of `LspClientTest` (<<test-level-changes>>,
+row 10) account for.
+
+Before and after per module and phase. _Before_ is the idle reference run 3 with its test phase from the two-part split
+of <<baseline-modules>>; _after_ is F1 to F3 and their median. The final runs were not split into phases again: the
+plan changed no compilation, plugin execution or packaging, so the work outside test execution is taken as that of run 5,
+and the test phase after is the median less that figure. Because run 5 was loaded, both test-phase columns are lower
+bounds. Maven prints `pm-runtime` in whole seconds.
+
+[cols="2,1,1,1,1,1,1,1,1",options="header"]
+|===
+|Module |Before (run 3) |F1 |F2 |F3 |Median after |Change |Test phase before |Test phase after
+
+|`pm-mcp-core` (root) |13.5 s |13.8 s |13.2 s |13.6 s |13.6 s |±0 |none |none
+|`pm-core` |240 s |42.2 s |45.1 s |40.2 s |42.2 s |−198 s (−82 %) |208 s |10.0 s
+|`pm-workflow` |99 s |25.6 s |28.9 s |26.6 s |26.6 s |−72 s (−73 %) |81 s |9.0 s
+|`pm-providers` (aggregator) |1.8 s |1.8 s |1.9 s |2.4 s |1.9 s |±0 |none |none
+|`pm-provider-git` |17.0 s |9.8 s |10.3 s |10.7 s |10.3 s |−6.7 s (−39 %) |10.1 s |3.4 s
+|`pm-provider-http` |10.7 s |9.0 s |7.3 s |6.9 s |7.3 s |−3.4 s (−32 %) |4.7 s |1.3 s
+|`pm-provider-ci` |8.5 s |8.0 s |7.4 s |6.2 s |7.4 s |−1.1 s (−13 %) |2.3 s |1.2 s
+|`pm-provider-github` |16.3 s |12.0 s |13.8 s |12.2 s |12.2 s |−4.1 s (−25 %) |10.0 s |5.9 s
+|`pm-provider-gitlab` |18.6 s |16.5 s |16.5 s |17.0 s |16.5 s |−2.1 s (−11 %) |12.7 s |10.6 s
+|`pm-provider-sonar` |8.1 s |8.4 s |7.0 s |7.2 s |7.2 s |−0.9 s (−11 %) |3.0 s |2.1 s
+|`pm-runtime` |213 s |86 s |86 s |84 s |86 s |−127 s (−60 %) |190 s |63 s
+|*Sum* |*647 s* |*233 s* |*237 s* |*227 s* |*231 s* (sum of the medians) |*−416 s* |*522 s* |*107 s*
+|===
+
+The coverage lane, before (run 4) and after (F4):
+
+[cols="2,1,1",options="header"]
+|===
+|Module |Before (run 4) |After (F4)
+
+|`pm-core` |577 s |18.2 s
+|`pm-workflow` |201 s |9.3 s
+|`pm-runtime` |418 s |65 s
+|`pm-provider-git` .6+|between 4.7 s and 23.2 s each (not recorded per module) |3.8 s
+|`pm-provider-http` |2.6 s
+|`pm-provider-ci` |1.2 s
+|`pm-provider-github` |7.3 s
+|`pm-provider-gitlab` |11.2 s
+|`pm-provider-sonar` |2.8 s
+|*Whole lane* |*1278 s* (21:17 min) |*123 s* (2:02 min)
+|===
+
+The coverage per module of F4 is the table of <<rebaseline>> rate for rate: no module is below the quality baseline of
+<<baseline-quality>>.
+
+=== What Follows
 
 * Every later figure of this plan is compared with the idle reference of 650 s and with the quality baseline per module;
   coverage per module may not fall below it.
