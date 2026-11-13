@@ -119,31 +119,34 @@ class EndpointProfileSchemaParityTest {
         var projected = components(EndpointProfile.class);
         var expected = new ArrayList<>(projected);
         expected.remove(READER_ID_MEMBER);
+        var readerDocument = EndpointProfileFixtures.VALID;
+        var harnessDocument = renamed(readerDocument);
+        var fileRefusesReader = !schemaValid(readerDocument);
+        var fileAcceptsHarness = schemaValid(harnessDocument);
+        var profile = EndpointProfileFixtures.valid();
 
         assertAll(
                 () -> assertTrue(properties.contains(ID_MEMBER), "The file names the id as the harness does"),
                 () -> assertFalse(properties.contains(READER_ID_MEMBER), "The file does not name the reader's id"),
                 () -> assertTrue(properties.containsAll(expected), "The projection's members are the file's"),
-                () -> assertFalse(schemaValid(EndpointProfileFixtures.VALID),
-                        "The file refuses the reader's document (pinned drift)"),
-                () -> assertEquals("local-runner",
-                        EndpointProfile.of(EndpointProfileFixtures.valid()).clientId(),
+                () -> assertTrue(fileRefusesReader, "The file refuses the reader's document (pinned drift)"),
+                () -> assertEquals("local-runner", EndpointProfile.of(profile).clientId(),
                         "The reader accepts the reader's document"),
-                () -> assertTrue(schemaValid(renamed(EndpointProfileFixtures.VALID)),
-                        "The file accepts the harness-named document"),
-                () -> assertThrows(ProfileRefusal.class,
-                        () -> EndpointProfileFixtures.validate(renamed(EndpointProfileFixtures.VALID)),
+                () -> assertTrue(fileAcceptsHarness, "The file accepts the harness-named document"),
+                () -> assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(harnessDocument),
                         "The reader refuses the harness-named document (pinned drift)"));
     }
 
     @Test
     @DisplayName("an undeclared member is refused by the file and the reader")
     void unknownMember() {
+        var harnessDocument = renamed(EndpointProfileFixtures.VALID);
+        var fileRefusesHarness = !schemaValid(undeclared(harnessDocument));
+        var readerDocument = undeclared(EndpointProfileFixtures.VALID);
+
         assertAll(
-                () -> assertFalse(schemaValid(undeclared(renamed(EndpointProfileFixtures.VALID))),
-                        "The file refuses the undeclared member"),
-                () -> assertThrows(ProfileRefusal.class,
-                        () -> EndpointProfileFixtures.validate(undeclared(EndpointProfileFixtures.VALID)),
+                () -> assertTrue(fileRefusesHarness, "The file refuses the undeclared member"),
+                () -> assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(readerDocument),
                         "The reader refuses the undeclared member"));
     }
 

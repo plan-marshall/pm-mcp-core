@@ -95,16 +95,21 @@ class RoleArtifactSchemaParityTest {
                         .get("minimum")).intValue(), "The lowest budget floor is sixty"),
                 () -> assertEquals(86400, ((Number) SchemaResource.object(properties.get("budget_floor_seconds"))
                         .get("maximum")).intValue(), "The highest budget floor is one day"));
+        var belowCount = with(Map.of("count", "0"));
+        var aboveCount = with(Map.of("count", "17"));
+        var highestCount = with(Map.of("count", "16"));
+        var belowFloor = with(Map.of("budget_floor_seconds", "59"));
+        var aboveFloor = with(Map.of("budget_floor_seconds", "86401"));
         assertAll(
-                () -> assertThrows(RoleRefusal.class, () -> read(with(Map.of("count", "0"))),
+                () -> assertThrows(RoleRefusal.class, () -> read(belowCount),
                         "The reader refuses a count below one"),
-                () -> assertThrows(RoleRefusal.class, () -> read(with(Map.of("count", "17"))),
+                () -> assertThrows(RoleRefusal.class, () -> read(aboveCount),
                         "The reader refuses a count above sixteen"),
-                () -> assertDoesNotThrow(() -> read(with(Map.of("count", "16"))),
+                () -> assertDoesNotThrow(() -> read(highestCount),
                         "The reader accepts the highest count"),
-                () -> assertThrows(RoleRefusal.class, () -> read(with(Map.of("budget_floor_seconds", "59"))),
+                () -> assertThrows(RoleRefusal.class, () -> read(belowFloor),
                         "The reader refuses a budget floor below sixty"),
-                () -> assertThrows(RoleRefusal.class, () -> read(with(Map.of("budget_floor_seconds", "86401"))),
+                () -> assertThrows(RoleRefusal.class, () -> read(aboveFloor),
                         "The reader refuses a budget floor above a day"));
     }
 
