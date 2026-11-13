@@ -94,11 +94,9 @@ class EndpointProfileSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the profile kind, the schema version and the protocol are the reader's constants")
+    @DisplayName("the profile kind and the schema version are the reader's constants")
     void constants() {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
-        var endpoint = SchemaResource.object(properties.get("endpoint"));
-        var protocol = SchemaResource.object(SchemaResource.object(endpoint.get("properties")).get("protocol"));
 
         assertAll(
                 () -> assertEquals(ProfileValidator.PROFILE_KIND_ENDPOINT,
@@ -106,10 +104,25 @@ class EndpointProfileSchemaParityTest {
                         "The profile kind is the reader's"),
                 () -> assertEquals(ProfileValidator.SCHEMA_VERSION,
                         ((Number) SchemaResource.object(properties.get("schema_version")).get("const")).intValue(),
-                        "The schema version is the reader's"),
+                        "The schema version is the reader's"));
+    }
+
+    @Test
+    @DisplayName("the one protocol the file names is the one the reader accepts")
+    void protocols() {
+        var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
+        var endpoint = SchemaResource.object(SchemaResource.object(properties.get("endpoint")).get("properties"));
+        var other = EndpointProfileFixtures.variant("\"protocol\": \"openai_chat\"", "\"protocol\": \"system_one\"");
+        var fileAcceptsOther = schemaValid(renamed(other));
+
+        assertAll(
                 () -> assertEquals(Set.of("openai_chat"),
-                        Set.copyOf(names(SchemaResource.array(protocol.get("enum")))),
-                        "The one protocol is the reader's (no type constant exists)"));
+                        Set.copyOf(names(SchemaResource.array(
+                                SchemaResource.object(endpoint.get("protocol")).get("enum")))),
+                        "The file names the reader's one protocol (no constant exists)"),
+                () -> assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(other),
+                        "The reader refuses another protocol"),
+                () -> assertFalse(fileAcceptsOther, "The file refuses another protocol"));
     }
 
     @Test
