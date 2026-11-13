@@ -44,7 +44,8 @@ public class HarnessListings {
      * @param scan            the scan the list shows
      * @param enrolments      the enrolled harnesses by harness id, as the caller read them from the store
      * @param storeUnreadable whether the enrolment store could not be read
-     * @return the list, with each harness's recorded usage coverage at the version it was enrolled with
+     * @return the scan's rows, with each harness's recorded usage coverage at the version it was enrolled with, plus a
+     *         row for every enrolment whose harness the scan has no candidate for
      * @throws NullPointerException if a component is {@code null}
      */
     public static HarnessList of(HarnessScan scan, Map<String, HarnessEnrolment> enrolments, boolean storeUnreadable) {

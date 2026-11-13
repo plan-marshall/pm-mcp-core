@@ -23,6 +23,8 @@ import java.util.Objects;
  * its token usage for that version.
  * <p>
  * The list keeps the scan's order — the order of the harness ids — so a client shows one order whichever set it reads.
+ * Every row the scan produced is here; a caller may add a row the scan has no candidate for, which is how an enrolled
+ * harness the scan no longer finds stays visible (see `HarnessListings` in `pm-runtime`).
  * The usage coverage is keyed by the harness <em>and</em> the version it was recorded for: a coverage recorded for one
  * version is never shown beside another, because the figures a harness reports change with its output format. A harness
  * no verification recorded at that version is {@code not_reported}, never {@code complete}. Where the enrolment store
@@ -44,12 +46,12 @@ public record HarnessList(List<HarnessListEntry> entries) {
 
         /**
          * @throws NullPointerException     if a component is {@code null}
-         * @throws IllegalArgumentException if the harness id or the version is blank
+         * @throws IllegalArgumentException if the harness id or the version is empty
          */
         public Key {
             Objects.requireNonNull(harnessId, "harnessId");
             Objects.requireNonNull(version, "version");
-            if (harnessId.isBlank() || version.isBlank()) {
+            if (harnessId.isEmpty() || version.isEmpty()) {
                 throw new IllegalArgumentException("A usage coverage is filed under a harness and a version");
             }
         }

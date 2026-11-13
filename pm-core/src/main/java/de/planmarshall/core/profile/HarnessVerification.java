@@ -65,8 +65,8 @@ public class HarnessVerification {
      * @return the validated draft
      * @throws HarnessVerificationRefusal if the state is not {@code harness.verify-profile}, the consent is not the kind
      *                                    {@code verify_harness_profile}, the answer was {@code no} or a
-     *                                    {@code yes_remember}, or the shown tokens do not cover exactly the stages the
-     *                                    run will execute
+     *                                    {@code yes_remember}, or the shown tokens do not cover exactly the stage list
+     *                                    the caller declared
      * @throws ProfileRefusal             if the draft does not validate as a profile
      * @throws NullPointerException       if a required argument is {@code null}
      */

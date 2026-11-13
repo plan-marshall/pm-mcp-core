@@ -53,7 +53,7 @@ boolean defaultHarness, HarnessUsageCoverage usage) {
         if (harnessId.isBlank() || displayName.isBlank() || installHint.isBlank()) {
             throw new IllegalArgumentException("A harness list entry names its harness and its hint");
         }
-        if (version.isBlank() != (executablePath == null)) {
+        if (version.isEmpty() != (executablePath == null)) {
             throw new IllegalArgumentException("A row carries a path exactly when it carries a version: " + harnessId);
         }
         if (workerEligible && !supported) {
