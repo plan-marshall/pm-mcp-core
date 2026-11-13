@@ -2,10 +2,10 @@
   "id": "PLAN-V2-40",
   "slug": "envelope-packing",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-40-envelope-packing",
+  "pr": "#402",
+  "landing": "landings/PLAN-V2-40.md",
   "seq": 40
 }
