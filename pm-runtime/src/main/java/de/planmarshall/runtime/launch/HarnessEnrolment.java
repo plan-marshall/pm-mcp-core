@@ -104,10 +104,12 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
      * @param version  the version probed after an accepted self-update
      * @param sha256   the digest of the changed executable
      * @param updateTo the instant of the accepted self-update
-     * @return the entry with the new build of the same harness; a report measured on another version is dropped
+     * @return the entry with the new build of the same harness; a report measured on another build — another version or
+     *         another executable digest — is dropped
      */
     public HarnessEnrolment updated(String version, String sha256, Instant updateTo) {
-        var report = version.equals(this.version) ? usageReport : NO_REPORT_FOR_A_NEW_BUILD;
+        var sameBuild = version.equals(this.version) && sha256.equals(this.sha256);
+        var report = sameBuild ? usageReport : NO_REPORT_FOR_A_NEW_BUILD;
         return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, report,
                 events, weights);
     }

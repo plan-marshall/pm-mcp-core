@@ -98,12 +98,12 @@ public record HarnessProbe(List<String> chosen, List<String> failed) {
 
     /**
      * @param harnessId the harness the operator wants to leave out at {@code harness.blocked}
-     * @return whether it may be left out: its probe failed and more than one harness was chosen, so a harness the step
-     *         can go on with always remains. A harness that passed is never left out — leaving out the usable one would
-     *         carry a failed harness to {@code harness.confirm}
+     * @return whether it may be left out: its probe failed and at least one chosen harness passed, so a usable harness
+     *         always remains. A harness that passed is never left out — leaving out the usable one would carry a failed
+     *         harness to {@code harness.confirm}
      */
     public boolean canLeaveOut(String harnessId) {
-        return failed.contains(harnessId) && chosen.size() > 1;
+        return failed.contains(harnessId) && chosen.size() > failed.size();
     }
 
     /**

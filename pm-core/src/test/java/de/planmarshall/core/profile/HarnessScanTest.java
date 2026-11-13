@@ -159,15 +159,18 @@ class HarnessScanTest {
     void lastChosenHarnessCannotBeLeftOut() {
         var probe = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(BBB_ID));
         var single = new HarnessProbe(List.of(AAA_ID), List.of(AAA_ID));
+        var allFailed = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(AAA_ID, BBB_ID));
         var failedMayGo = probe.canLeaveOut(BBB_ID);
         var passedMayNotGo = probe.canLeaveOut(AAA_ID);
         var singleMayNotGo = single.canLeaveOut(AAA_ID);
+        var allFailedMayNotGo = allFailed.canLeaveOut(AAA_ID);
         var unknownMayNotGo = probe.canLeaveOut("h-other");
 
         assertAll(
                 () -> assertTrue(failedMayGo, "A failed harness beside a passed one may be left out"),
                 () -> assertFalse(passedMayNotGo, "The harness that passed is never left out"),
                 () -> assertFalse(singleMayNotGo, "The last chosen harness cannot be left out"),
+                () -> assertFalse(allFailedMayNotGo, "No harness is left out when every one failed"),
                 () -> assertFalse(unknownMayNotGo, "A harness that was not chosen cannot be left out"));
     }
 
