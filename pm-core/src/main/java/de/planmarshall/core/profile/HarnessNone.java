@@ -31,7 +31,7 @@ import java.util.Objects;
 public record HarnessNone(List<InstallHint> known) {
 
     /** The two actions of the step, in the order the catalogue names them. */
-    public static final List<String> ACTIONS = List.of("recheck", "add");
+    public static final List<String> STEP_ACTIONS = List.of("recheck", "add");
 
     /**
      * How to install one known harness: its harness id and its profile's {@code headless.install_hint}.
@@ -81,6 +81,6 @@ public record HarnessNone(List<InstallHint> known) {
 
     /** @return the actions the step offers, {@code recheck} then {@code add} */
     public List<String> actions() {
-        return ACTIONS;
+        return STEP_ACTIONS;
     }
 }

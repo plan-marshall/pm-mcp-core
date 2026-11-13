@@ -20,6 +20,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,8 +47,9 @@ class HarnessScanTest {
     @DisplayName("the candidates are listed in the order of their harness ids")
     void candidatesListedByHarnessId() {
         var scan = new HarnessScan(List.of(found(BBB_ID), found(AAA_ID)));
+        var ids = scan.harnessIds();
 
-        assertEquals(List.of(AAA_ID, BBB_ID), scan.harnessIds(), "The candidates follow the harness id order");
+        assertEquals(List.of(AAA_ID, BBB_ID), ids, "The candidates follow the harness id order");
     }
 
     @Test
@@ -55,39 +57,45 @@ class HarnessScanTest {
     void onlySelectableCandidatesPreselected() {
         var scan = new HarnessScan(List.of(found(BBB_ID), candidate("h-zz", true, VERSION, false, false),
                 candidate("h-aa", true, VERSION, true, false), candidate("h-mm", false, null, false, false)));
+        var preselected = scan.preselected().stream().map(HarnessCandidate::harnessId).toList();
 
-        assertEquals(List.of(BBB_ID), scan.preselected().stream().map(HarnessCandidate::harnessId).toList(),
-                "Only one candidate may be selected");
+        assertEquals(List.of(BBB_ID), preselected, "Only one candidate may be selected");
     }
 
     @Test
     @DisplayName("the default is the first preselected harness in id order")
     void defaultIsFirstPreselected() {
         var scan = new HarnessScan(List.of(found(BBB_ID), found(AAA_ID)));
+        var defaultHarness = scan.defaultHarness();
 
-        assertEquals(AAA_ID, scan.defaultHarness().orElseThrow(), "The default follows the id order");
+        assertEquals(Optional.of(AAA_ID), defaultHarness, "The default follows the id order");
     }
 
     @Test
     @DisplayName("a scan that found nothing continues at harness.none")
     void scanWithoutFoundHarnessGoesToNone() {
         var scan = new HarnessScan(List.of(candidate(AAA_ID, false, null, false, false)));
+        var outcome = scan.outcome();
+        var none = scan.none();
+        var defaultHarness = scan.defaultHarness();
 
         assertAll(
-                () -> assertEquals(HarnessScan.Outcome.NONE_FOUND, scan.outcome(),
+                () -> assertEquals(HarnessScan.Outcome.NONE_FOUND, outcome,
                         "A scan without a found harness is none_found"),
-                () -> assertTrue(scan.none().isPresent(), "The step renders the harness.none wait"),
-                () -> assertTrue(scan.defaultHarness().isEmpty(), "No harness becomes the default"));
+                () -> assertTrue(none.isPresent(), "The step renders the harness.none wait"),
+                () -> assertTrue(defaultHarness.isEmpty(), "No harness becomes the default"));
     }
 
     @Test
     @DisplayName("a scan that found a harness continues at harness.choose")
     void scanWithFoundHarnessGoesToChoose() {
         var scan = new HarnessScan(List.of(found(AAA_ID)));
+        var outcome = scan.outcome();
+        var none = scan.none();
 
         assertAll(
-                () -> assertEquals(HarnessScan.Outcome.FOUND, scan.outcome(), "A found harness is the found outcome"),
-                () -> assertFalse(scan.none().isPresent(), "No harness.none wait is rendered"));
+                () -> assertEquals(HarnessScan.Outcome.FOUND, outcome, "A found harness is the found outcome"),
+                () -> assertFalse(none.isPresent(), "No harness.none wait is rendered"));
     }
 
     @Test
@@ -96,11 +104,13 @@ class HarnessScanTest {
         var scan = new HarnessScan(List.of(candidate(BBB_ID, false, null, false, false),
                 candidate(AAA_ID, false, null, false, false)));
         var none = scan.none().orElseThrow();
+        var actions = none.actions();
+        var first = none.known().getFirst();
 
         assertAll(
-                () -> assertEquals(List.of("recheck", "add"), none.actions(), "The wait offers recheck and add"),
-                () -> assertEquals(AAA_ID, none.known().get(0).harnessId(), "The hints follow the id order"),
-                () -> assertEquals(HINT, none.known().get(0).installHint(), "The hint is the profile's own"));
+                () -> assertEquals(List.of("recheck", "add"), actions, "The wait offers recheck and add"),
+                () -> assertEquals(AAA_ID, first.harnessId(), "The hints follow the id order"),
+                () -> assertEquals(HINT, first.installHint(), "The hint is the profile's own"));
     }
 
     @ParameterizedTest(name = "probe of {0} chosen with {1} failed answers {2}")
@@ -108,8 +118,9 @@ class HarnessScanTest {
     @DisplayName("the probe transition follows the chosen and failed harnesses")
     void probeTransitionFollowsTheTwoSets(int chosen, int failed, Outcome expected) {
         var probe = new HarnessProbe(ids(chosen), ids(failed));
+        var outcome = probe.outcome();
 
-        assertEquals(expected, probe.outcome(), "The transition counts the failed harnesses");
+        assertEquals(expected, outcome, "The transition counts the failed harnesses");
     }
 
     @Test
@@ -117,24 +128,25 @@ class HarnessScanTest {
     void probeWithEveryHarnessFailingRestsInNone() {
         var allFailed = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(AAA_ID, BBB_ID));
         var oneFailed = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(BBB_ID));
+        var none = allFailed.none(List.of(found(AAA_ID), found(BBB_ID)));
+        var hints = none.orElseThrow().known().stream().map(HarnessNone.InstallHint::harnessId).toList();
+        var allFailedRest = allFailed.restsInNone();
+        var allFailedState = allFailed.outcome().nextState();
+        var oneFailedState = oneFailed.outcome().nextState();
 
         assertAll(
-                () -> assertTrue(allFailed.restsInNone(), "No usable harness is left after the probe"),
-                () -> assertEquals("harness.none", allFailed.outcome().nextState(), "The step rests in harness.none"),
-                () -> assertEquals("harness.blocked", oneFailed.outcome().nextState(), "A partly failed probe blocks"),
-                () -> assertEquals(List.of(AAA_ID, BBB_ID),
-                        allFailed.none(List.of(found(AAA_ID), found(BBB_ID))).orElseThrow().known().stream()
-                                .map(HarnessNone.InstallHint::harnessId).toList(),
-                        "The failed probe's wait names the install hints"),
-                () -> assertTrue(oneFailed.none(List.of(found(AAA_ID), found(BBB_ID))).isEmpty(),
-                        "A usable harness leaves no harness.none wait"));
+                () -> assertTrue(allFailedRest, "No usable harness is left after the probe"),
+                () -> assertEquals("harness.none", allFailedState, "The step rests in harness.none"),
+                () -> assertEquals("harness.blocked", oneFailedState, "A partly failed probe blocks"),
+                () -> assertEquals(List.of(AAA_ID, BBB_ID), hints, "The failed probe's wait names the install hints"));
     }
 
     @Test
     @DisplayName("the probe compares sets, so a duplicated id cannot flip the transition")
     void probeComparesSetsNotListSizes() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(AAA_ID, AAA_ID)),
+        var failedTwice = List.of(AAA_ID, AAA_ID);
+
+        assertThrows(IllegalArgumentException.class, () -> new HarnessProbe(List.of(AAA_ID, BBB_ID), failedTwice),
                 "A harness named twice among the failed is refused");
     }
 
@@ -155,40 +167,45 @@ class HarnessScanTest {
     @DisplayName("the harness.none wait refuses a failed harness without a profile")
     void noneRefusesAFailedHarnessWithoutProfile() {
         var probe = new HarnessProbe(List.of(AAA_ID, BBB_ID), List.of(AAA_ID, BBB_ID));
+        var onlyOneCandidate = List.of(found(AAA_ID));
 
-        assertThrows(IllegalArgumentException.class, () -> probe.none(List.of(found(AAA_ID))),
+        assertThrows(IllegalArgumentException.class, () -> probe.none(onlyOneCandidate),
                 "A failed harness's install hint must be nameable");
     }
 
     @Test
     @DisplayName("a profile that is offered for workers must be found and supported")
     void candidateRefusesWorkerEligibilityWithoutSupport() {
+        var foundWithoutPath = HarnessCandidate.builder()
+                .harnessId(AAA_ID)
+                .displayName("Harness")
+                .found(true)
+                .version(VERSION)
+                .executablePath(null)
+                .supported(true)
+                .workerEligible(true)
+                .installHint(HINT);
+
         assertAll(
-                () -> assertThrows(IllegalArgumentException.class, () -> candidate(AAA_ID, false, null, true, true),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> candidate(AAA_ID, false, null, true, true),
                         "An unfound harness cannot serve workers"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> candidate(AAA_ID, true, VERSION, false, true),
                         "An unsupported harness cannot serve workers"),
-                () -> assertThrows(IllegalArgumentException.class, () -> candidate(AAA_ID, false, VERSION, false, false),
-                        "A harness that was not found has no version"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> HarnessCandidate.builder()
-                                .harnessId(AAA_ID)
-                                .displayName("Harness")
-                                .found(true)
-                                .version(VERSION)
-                                .executablePath(null)
-                                .supported(true)
-                                .workerEligible(true)
-                                .installHint(HINT)
-                                .build(),
+                        () -> candidate(AAA_ID, false, VERSION, false, false),
+                        "A harness that was not found has no version"),
+                () -> assertThrows(IllegalArgumentException.class, foundWithoutPath::build,
                         "A found harness names the path it was found at"));
     }
 
     @Test
     @DisplayName("two profiles of one harness id are refused")
     void scanRefusesDuplicateHarnessIds() {
-        assertThrows(IllegalArgumentException.class, () -> new HarnessScan(List.of(found(AAA_ID), found(AAA_ID))),
+        var twice = List.of(found(AAA_ID), found(AAA_ID));
+
+        assertThrows(IllegalArgumentException.class, () -> new HarnessScan(twice),
                 "Two candidates of one harness id are refused");
     }
 

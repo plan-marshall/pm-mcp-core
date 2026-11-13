@@ -120,7 +120,7 @@ public record HarnessList(List<HarnessListEntry> entries) {
         if (version.isEmpty()) {
             return HarnessUsageCoverage.nothingRecorded();
         }
-        return recorded.getOrDefault(new Key(candidate.harnessId(), version),
+        return Objects.requireNonNullElse(recorded.get(new Key(candidate.harnessId(), version)),
                 HarnessUsageCoverage.nothingRecorded());
     }
 

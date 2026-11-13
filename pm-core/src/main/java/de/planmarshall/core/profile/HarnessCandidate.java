@@ -51,38 +51,9 @@ public record HarnessCandidate(String harnessId, String displayName, boolean fou
      *                                  supported while it was not found
      */
     public HarnessCandidate {
-        Objects.requireNonNull(harnessId, "harnessId");
-        if (!HARNESS_ID.matcher(harnessId).matches()) {
-            throw new IllegalArgumentException("Not a harness id: " + harnessId);
-        }
-        Objects.requireNonNull(displayName, "displayName");
-        if (displayName.isBlank()) {
-            throw new IllegalArgumentException("A harness candidate names its display name");
-        }
-        Objects.requireNonNull(installHint, "installHint");
-        if (installHint.isBlank()) {
-            throw new IllegalArgumentException("A harness candidate carries its install hint: " + harnessId);
-        }
-        if (found && (version == null || executablePath == null)) {
-            throw new IllegalArgumentException(
-                    "A found harness names the path and the version it probed: " + harnessId);
-        }
-        if (!found && (version != null || executablePath != null)) {
-            throw new IllegalArgumentException(
-                    "A harness that was not found has no path and no version: " + harnessId);
-        }
-        if (version != null && version.isBlank()) {
-            throw new IllegalArgumentException("A probed version must not be blank: " + harnessId);
-        }
-        if (executablePath != null && executablePath.isBlank()) {
-            throw new IllegalArgumentException("A found executable path must not be blank: " + harnessId);
-        }
-        if (!found && supported) {
-            throw new IllegalArgumentException("A harness that was not found is not supported: " + harnessId);
-        }
-        if (workerEligible && !supported) {
-            throw new IllegalArgumentException("A harness offered for workers is supported: " + harnessId);
-        }
+        requireNames(harnessId, displayName, installHint);
+        requireFoundShape(harnessId, found, version, executablePath);
+        requireSelectability(harnessId, found, supported, workerEligible);
     }
 
     /**
@@ -91,5 +62,48 @@ public record HarnessCandidate(String harnessId, String displayName, boolean fou
      */
     public boolean selectable() {
         return found && supported && workerEligible;
+    }
+
+    private static void requireNames(String harnessId, String displayName, String installHint) {
+        Objects.requireNonNull(harnessId, "harnessId");
+        Objects.requireNonNull(displayName, "displayName");
+        Objects.requireNonNull(installHint, "installHint");
+        if (!HARNESS_ID.matcher(harnessId).matches()) {
+            throw new IllegalArgumentException("Not a harness id: " + harnessId);
+        }
+        if (displayName.isBlank()) {
+            throw new IllegalArgumentException("A harness candidate names its display name");
+        }
+        if (installHint.isBlank()) {
+            throw new IllegalArgumentException("A harness candidate carries its install hint: " + harnessId);
+        }
+    }
+
+    private static void requireFoundShape(String harnessId, boolean found, @Nullable String version,
+            @Nullable String executablePath) {
+        if (found != (version != null)) {
+            throw new IllegalArgumentException(
+                    "A harness carries a version exactly when it was found: " + harnessId);
+        }
+        if (found != (executablePath != null)) {
+            throw new IllegalArgumentException(
+                    "A harness carries a path exactly when it was found: " + harnessId);
+        }
+        if (version != null && version.isBlank()) {
+            throw new IllegalArgumentException("A probed version must not be blank: " + harnessId);
+        }
+        if (executablePath != null && executablePath.isBlank()) {
+            throw new IllegalArgumentException("A found executable path must not be blank: " + harnessId);
+        }
+    }
+
+    private static void requireSelectability(String harnessId, boolean found, boolean supported,
+            boolean workerEligible) {
+        if (supported && !found) {
+            throw new IllegalArgumentException("A harness that was not found is not supported: " + harnessId);
+        }
+        if (workerEligible && !supported) {
+            throw new IllegalArgumentException("A harness offered for workers is supported: " + harnessId);
+        }
     }
 }

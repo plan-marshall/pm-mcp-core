@@ -25,12 +25,13 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.config.ConsentGate;
 import de.planmarshall.core.config.ConsentKind;
+import de.planmarshall.core.profile.HarnessVerification.Request;
 
 /**
  * The admission of a verification of an unknown harness (PM-CLIENT-5, Harness Profiles § Unknown Harness; State
  * Catalogue § {@code harness.add-consent} to § {@code harness.verify-profile}): the state, the consent kind that is never
- * remembered, the answer with the expected tokens of exactly the stages the run executes, and the draft that must
- * validate as a profile before anything runs.
+ * remembered, the answer with the expected tokens of exactly the stages the caller declares as the run's, and the draft
+ * that must validate as a profile before anything runs.
  */
 @EnableGeneratorController
 @DisplayName("Verification of an unknown harness")
@@ -44,20 +45,19 @@ class HarnessVerificationTest {
     @Test
     @DisplayName("a yes with the expected tokens admits the validated draft")
     void yesWithTokensAdmitsTheValidatedDraft() {
-        var profile = HarnessVerification.admit(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                ConsentGate.Answer.YES, STAGES, tokens(), ProfileFixtures.validBytes(), "draft/acme-cli.json",
-                ProfileRules.none());
+        var profile = HarnessVerification.admit(request(ConsentGate.Answer.YES, STAGES, tokens()));
+        var clientId = ProfileValidator.clientId(profile);
 
-        assertEquals("acme-cli", ProfileValidator.clientId(profile), "The admitted draft is the validated one");
+        assertEquals("acme-cli", clientId, "The admitted draft is the validated one");
     }
 
     @Test
     @DisplayName("the verification runs only from harness.verify-profile")
     void verificationRunsOnlyFromItsOwnState() {
         var refusal = assertThrows(HarnessVerificationRefusal.class,
-                () -> HarnessVerification.admit(HarnessVerification.CONSENT_STATE,
+                () -> HarnessVerification.admit(new Request(HarnessVerification.CONSENT_STATE,
                         ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, tokens(),
-                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none()),
+                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none())),
                 "The consent state itself does not run the stages");
 
         assertEquals(HarnessVerificationRefusal.WRONG_STATE, refusal.code(), "The refusal names the state rule");
@@ -67,9 +67,9 @@ class HarnessVerificationTest {
     @DisplayName("the verification is refused under another consent kind")
     void verificationRefusedUnderAnotherKind() {
         var refusal = assertThrows(HarnessVerificationRefusal.class,
-                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE, ConsentKind.SCAN_HARNESSES,
-                        ConsentGate.Answer.YES, STAGES, tokens(), ProfileFixtures.validBytes(), "draft/acme-cli.json",
-                        ProfileRules.none()),
+                () -> HarnessVerification.admit(new Request(HarnessVerification.VERIFY_STATE,
+                        ConsentKind.SCAN_HARNESSES, ConsentGate.Answer.YES, STAGES, tokens(),
+                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none())),
                 "A wider consent covers no verification");
 
         assertEquals(HarnessVerificationRefusal.WRONG_KIND, refusal.code(), "The refusal names the kind rule");
@@ -78,18 +78,17 @@ class HarnessVerificationTest {
     @Test
     @DisplayName("the consent kind is never remembered, so every run asks again")
     void consentKindIsNeverRemembered() {
+        var rememberable = ConsentKind.VERIFY_HARNESS_PROFILE.rememberable();
+        var remembered = ConsentKind.VERIFY_HARNESS_PROFILE.remembered();
+        var refusal = assertThrows(HarnessVerificationRefusal.class,
+                () -> HarnessVerification.admit(request(ConsentGate.Answer.YES_REMEMBER, STAGES, tokens())),
+                "A yes_remember is refused for this kind");
+
         assertAll(
-                () -> assertFalse(ConsentKind.VERIFY_HARNESS_PROFILE.rememberable(), "The kind is never remembered"),
-                () -> assertEquals(ConsentKind.Remembered.NEVER, ConsentKind.VERIFY_HARNESS_PROFILE.remembered(),
+                () -> assertFalse(rememberable, "The kind is never remembered"),
+                () -> assertEquals(ConsentKind.Remembered.NEVER, remembered,
                         "The kind is recorded as never remembered"),
-                () -> assertEquals(HarnessVerificationRefusal.REMEMBERED,
-                        assertThrows(HarnessVerificationRefusal.class,
-                                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES_REMEMBER, STAGES,
-                                        tokens(), ProfileFixtures.validBytes(), "draft/acme-cli.json",
-                                        ProfileRules.none()),
-                                "A yes_remember is refused for this kind")
-                                .code(),
+                () -> assertEquals(HarnessVerificationRefusal.REMEMBERED, refusal.code(),
                         "The refusal names the remembered consent"));
     }
 
@@ -97,58 +96,45 @@ class HarnessVerificationTest {
     @DisplayName("a no answer runs no stage")
     void noAnswerRunsNoStage() {
         var refusal = assertThrows(HarnessVerificationRefusal.class,
-                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.NO, STAGES, tokens(),
-                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none()),
+                () -> HarnessVerification.admit(request(ConsentGate.Answer.NO, STAGES, tokens())),
                 "A declined consent admits nothing");
 
         assertEquals(HarnessVerificationRefusal.DECLINED, refusal.code(), "The refusal names the declined answer");
     }
 
     @Test
-    @DisplayName("the tokens must cover exactly the stages the run executes")
-    void tokensCoverExactlyTheExecutedStages() {
+    @DisplayName("the tokens must cover exactly the stages the caller declared")
+    void tokensCoverExactlyTheDeclaredStages() {
         var subset = new LinkedHashMap<String, Long>();
         subset.put("identity", IDENTITY_TOKENS);
-
         var extra = new LinkedHashMap<>(tokens());
         extra.put("egress", IDENTITY_TOKENS);
 
+        var subsetRefusal = assertThrows(HarnessVerificationRefusal.class,
+                () -> HarnessVerification.admit(request(ConsentGate.Answer.YES, STAGES, subset)),
+                "A consent that showed a subset prices stages it never showed");
+        var extraRefusal = assertThrows(HarnessVerificationRefusal.class,
+                () -> HarnessVerification.admit(request(ConsentGate.Answer.YES, STAGES, extra)),
+                "A token of a stage the run does not execute is refused");
+        var emptyRefusal = assertThrows(HarnessVerificationRefusal.class,
+                () -> HarnessVerification.admit(request(ConsentGate.Answer.YES, STAGES, Map.of())),
+                "A consent without tokens is refused");
+
         assertAll(
-                () -> assertEquals(HarnessVerificationRefusal.TOKENS_MISSING,
-                        assertThrows(HarnessVerificationRefusal.class,
-                                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, subset,
-                                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none()),
-                                "A consent that showed a subset prices stages it never showed")
-                                .code(),
-                        "The refusal names the token rule"),
-                () -> assertEquals(HarnessVerificationRefusal.TOKENS_MISSING,
-                        assertThrows(HarnessVerificationRefusal.class,
-                                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, extra,
-                                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none()),
-                                "A token of a stage the run does not execute is refused")
-                                .code(),
-                        "The refusal names the token rule"),
-                () -> assertEquals(HarnessVerificationRefusal.TOKENS_MISSING,
-                        assertThrows(HarnessVerificationRefusal.class,
-                                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, Map.of(),
-                                        ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none()),
-                                "A consent without tokens is refused")
-                                .code(),
-                        "The refusal names the missing tokens"));
+                () -> assertEquals(HarnessVerificationRefusal.TOKENS_MISSING, subsetRefusal.code(),
+                        "The subset refusal names the token rule"),
+                () -> assertEquals(HarnessVerificationRefusal.TOKENS_MISSING, extraRefusal.code(),
+                        "The extra refusal names the token rule"),
+                () -> assertEquals(HarnessVerificationRefusal.TOKENS_MISSING, emptyRefusal.code(),
+                        "The empty refusal names the missing tokens"));
     }
 
     @Test
     @DisplayName("a stage outside the closed list is refused")
     void unknownStageRefused() {
         var refusal = assertThrows(HarnessVerificationRefusal.class,
-                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, List.of("no_such_stage"),
-                        Map.of("no_such_stage", IDENTITY_TOKENS), ProfileFixtures.validBytes(), "draft/acme-cli.json",
-                        ProfileRules.none()),
+                () -> HarnessVerification.admit(request(ConsentGate.Answer.YES, List.of("no_such_stage"),
+                        Map.of("no_such_stage", IDENTITY_TOKENS))),
                 "A stage outside the verification's closed list is refused");
 
         assertEquals(HarnessVerificationRefusal.TOKENS_MISSING, refusal.code(), "The refusal names the token rule");
@@ -158,11 +144,10 @@ class HarnessVerificationTest {
     @DisplayName("a draft that is not a profile is refused before anything runs")
     void invalidDraftRefusedBeforeAnythingRuns() {
         var invalid = ProfileFixtures.valid().remove("/schema_version").bytes();
+        var request = new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
+                ConsentGate.Answer.YES, STAGES, tokens(), invalid, "draft/acme-cli.json", ProfileRules.none());
 
-        assertThrows(ProfileRefusal.class,
-                () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                        ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, tokens(), invalid,
-                        "draft/acme-cli.json", ProfileRules.none()),
+        assertThrows(ProfileRefusal.class, () -> HarnessVerification.admit(request),
                 "The draft is validated as a profile first");
     }
 
@@ -171,20 +156,23 @@ class HarnessVerificationTest {
     void missingDraftNameOrRulesRefused() {
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, tokens(),
-                                ProfileFixtures.validBytes(), null, ProfileRules.none()),
+                        () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
+                                ConsentGate.Answer.YES, STAGES, tokens(), ProfileFixtures.validBytes(), null,
+                                ProfileRules.none()),
                         "A verification names the draft it validates"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, tokens(),
-                                ProfileFixtures.validBytes(), "draft/acme-cli.json", null),
+                        () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
+                                ConsentGate.Answer.YES, STAGES, tokens(), ProfileFixtures.validBytes(),
+                                "draft/acme-cli.json", null),
                         "A verification names the rules it validates with"),
                 () -> assertDoesNotThrow(
-                        () -> HarnessVerification.admit(HarnessVerification.VERIFY_STATE,
-                                ConsentKind.VERIFY_HARNESS_PROFILE, ConsentGate.Answer.YES, STAGES, tokens(),
-                                ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none()),
+                        () -> HarnessVerification.admit(request(ConsentGate.Answer.YES, STAGES, tokens())),
                         "The complete admission still passes"));
+    }
+
+    private static Request request(ConsentGate.Answer answer, List<String> stages, Map<String, Long> stageTokens) {
+        return new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE, answer, stages,
+                stageTokens, ProfileFixtures.validBytes(), "draft/acme-cli.json", ProfileRules.none());
     }
 
     private static Map<String, Long> tokens() {

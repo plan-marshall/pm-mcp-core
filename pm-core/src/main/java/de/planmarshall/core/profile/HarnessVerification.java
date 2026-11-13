@@ -9,7 +9,9 @@
  */
 package de.planmarshall.core.profile;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,6 +53,8 @@ public class HarnessVerification {
     public static final String VERIFY_STATE = "harness.verify-profile";
 
     /**
+     * One verification of an unknown harness, as its caller states it.
+     *
      * @param state       the state the verification was asked from
      * @param kind        the consent kind the caller asked for
      * @param answer      the operator's answer to that consent
@@ -62,30 +66,43 @@ public class HarnessVerification {
      * @param draft       the draft profile document, UTF-8 encoded
      * @param draftName   the draft, as a refusal names it
      * @param rules       what the installation knows beyond the draft
+     * @since 0.1
+     */
+    public record Request(String state, ConsentKind kind, ConsentGate.Answer answer, List<String> stages,
+    Map<String, Long> stageTokens, byte[] draft, String draftName, ProfileRules rules) {
+
+        /**
+         * @throws NullPointerException if a required component is {@code null}
+         */
+        public Request {
+            Objects.requireNonNull(state, "state");
+            Objects.requireNonNull(kind, "kind");
+            Objects.requireNonNull(answer, "answer");
+            stages = List.copyOf(Objects.requireNonNull(stages, "stages"));
+            stageTokens = Collections.unmodifiableMap(
+                    new LinkedHashMap<>(Objects.requireNonNull(stageTokens, "stageTokens")));
+            Objects.requireNonNull(draft, "draft");
+            Objects.requireNonNull(draftName, "draftName");
+            Objects.requireNonNull(rules, "rules");
+        }
+    }
+
+    /**
+     * @param request the verification the caller asks for
      * @return the validated draft
      * @throws HarnessVerificationRefusal if the state is not {@code harness.verify-profile}, the consent is not the kind
      *                                    {@code verify_harness_profile}, the answer was {@code no} or a
      *                                    {@code yes_remember}, or the shown tokens do not cover exactly the stage list
      *                                    the caller declared
      * @throws ProfileRefusal             if the draft does not validate as a profile
-     * @throws NullPointerException       if a required argument is {@code null}
      */
-    public static JsonNode admit(String state, ConsentKind kind, ConsentGate.Answer answer, List<String> stages,
-            Map<String, Long> stageTokens, byte[] draft, String draftName, ProfileRules rules) {
-        Objects.requireNonNull(state, "state");
-        Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(answer, "answer");
-        Objects.requireNonNull(stages, "stages");
-        Objects.requireNonNull(stageTokens, "stageTokens");
-        Objects.requireNonNull(draft, "draft");
-        Objects.requireNonNull(draftName, "draftName");
-        Objects.requireNonNull(rules, "rules");
-        requireState(state);
-        requireKind(kind);
-        requireAnswer(answer);
-        requireStages(stages);
-        requireStageTokens(stages, stageTokens);
-        return ProfileValidator.validate(draft, draftName, rules);
+    public static JsonNode admit(Request request) {
+        requireState(request.state());
+        requireKind(request.kind());
+        requireAnswer(request.answer());
+        requireStages(request.stages());
+        requireStageTokens(request.stages(), request.stageTokens());
+        return ProfileValidator.validate(request.draft(), request.draftName(), request.rules());
     }
 
     private static void requireState(String state) {
@@ -104,13 +121,12 @@ public class HarnessVerification {
     }
 
     private static void requireAnswer(ConsentGate.Answer answer) {
-        switch (answer) {
-            case YES -> {
-                return;
-            }
-            case NO -> throw new HarnessVerificationRefusal(HarnessVerificationRefusal.DECLINED,
+        if (answer == ConsentGate.Answer.NO) {
+            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.DECLINED,
                     "The operator answered 'no', so no stage runs and the form stays");
-            case YES_REMEMBER -> throw new HarnessVerificationRefusal(HarnessVerificationRefusal.REMEMBERED,
+        }
+        if (answer == ConsentGate.Answer.YES_REMEMBER) {
+            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.REMEMBERED,
                     "The consent kind '%s' is never remembered, so a 'yes_remember' is refused"
                             .formatted(ConsentKind.VERIFY_HARNESS_PROFILE.wireName()));
         }
@@ -136,7 +152,7 @@ public class HarnessVerification {
     private static void requireStageTokens(List<String> stages, Map<String, Long> stageTokens) {
         if (!new HashSet<>(stages).equals(stageTokens.keySet())) {
             throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
-                    "The consent states the expected tokens of exactly the stages the run executes: %s, not %s"
+                    "The consent prices exactly the stage list the caller declared: %s, not %s"
                             .formatted(stages, stageTokens.keySet()));
         }
         for (var entry : stageTokens.entrySet()) {
