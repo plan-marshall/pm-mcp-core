@@ -12,8 +12,9 @@ package de.planmarshall.core.store;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import lombok.Builder;
+
+import de.planmarshall.core.id.RoleName;
 
 /**
  * The operator's level for role qualification (Store Schemas § Operator Local Configuration,
@@ -42,8 +43,6 @@ boolean skipDecisions) {
     /** The compiled default of {@code allowed_gap}. */
     public static final int DEFAULT_ALLOWED_GAP = 5;
 
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-
     /**
      * @throws NullPointerException     if the roles are {@code null}
      * @throws IllegalArgumentException if a level lies outside {@code 0} to {@code 100}, a role breaks its grammar, or
@@ -58,7 +57,7 @@ boolean skipDecisions) {
             throw new IllegalArgumentException("'allowed_gap' lies outside 0 to 100: " + allowedGap);
         }
         for (var role : skipRoles) {
-            if (!ROLE.matcher(role).matches()) {
+            if (!RoleName.matches(role)) {
                 throw new IllegalArgumentException("Not a role name: " + role);
             }
         }

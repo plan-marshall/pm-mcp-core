@@ -33,10 +33,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.role.EffortValue;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StrictJson;
@@ -56,8 +56,6 @@ public class RoleAssignmentsCodec {
 
     /** The format version of the role assignment store. */
     public static final int FORMAT_VERSION = 1;
-
-    private static final Pattern ROLE_NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     private static final String FIELD_REVISION = "revision";
     private static final String FIELD_ROLES = "roles";
@@ -235,7 +233,7 @@ public class RoleAssignmentsCodec {
     }
 
     static void requireRoleName(String role) {
-        if (!ROLE_NAME.matcher(role).matches()) {
+        if (!RoleName.matches(role)) {
             throw new IllegalArgumentException("Not a role name of an assignment: " + role);
         }
     }

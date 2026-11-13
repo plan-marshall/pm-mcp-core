@@ -25,6 +25,8 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
+
 /**
  * One line of the question log {@code questions.jsonl} of a scope (PM-WF-12, PM-IMPL-2): one event of one question,
  * the part of a decision.
@@ -86,7 +88,6 @@ Instant at) {
     public static final int FORMAT_VERSION = 1;
 
     private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
-    private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern PLAN_TASK_ID = Pattern.compile("TASK-\\d{3,}");
     private static final Pattern DECISION_ID = Pattern.compile("D-\\d{4,7}");
     private static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
@@ -474,7 +475,7 @@ Instant at) {
             @Nullable String decisionId, @Nullable String deviceId, @Nullable String amendmentId,
             @Nullable String reason) {
         if (askingRole != null) {
-            requireMatch(ROLE, askingRole, "role");
+            requireMatch(RoleName.PATTERN, askingRole, "role");
         }
         if (phase != null && phase.isEmpty()) {
             throw new IllegalArgumentException("The phase of a question is empty");

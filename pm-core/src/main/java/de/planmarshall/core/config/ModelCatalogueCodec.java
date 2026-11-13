@@ -36,11 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.HarnessId;
 import de.planmarshall.core.role.ModelCatalogue;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StrictJson;
@@ -60,8 +60,6 @@ public class ModelCatalogueCodec {
 
     /** The format version of the model catalogue. */
     public static final int FORMAT_VERSION = 1;
-
-    private static final Pattern CLIENT_ID = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     private static final String FIELD_REVISION = "revision";
     private static final String FIELD_HARNESSES = "harnesses";
@@ -229,7 +227,7 @@ public class ModelCatalogueCodec {
     }
 
     static void requireClientId(String harness) {
-        if (!CLIENT_ID.matcher(harness).matches()) {
+        if (!HarnessId.matches(harness)) {
             throw new IllegalArgumentException("Not a client id of an enrolled harness: " + harness);
         }
     }

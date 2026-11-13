@@ -20,6 +20,8 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.HarnessId;
+
 /**
  * The measurements of one instrument check of a judge configuration (Store Schemas § Judge Check Record; Model Work
  * § Judge Instrument Check), and whether they pass the check now.
@@ -38,7 +40,6 @@ public final class JudgeCheck {
     public static final int FORMAT_VERSION = 1;
 
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
-    private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9-]{1,31}");
 
     private JudgeCheck() {
     }
@@ -68,7 +69,7 @@ public final class JudgeCheck {
          */
         public Record {
             require(qualificationDigest, DIGEST, "qualification_digest");
-            require(harness, NAME, "harness");
+            require(harness, HarnessId.PATTERN, "harness");
             Objects.requireNonNull(model, "model");
             if (model.isEmpty()) {
                 throw new IllegalArgumentException("'model' must not be empty");

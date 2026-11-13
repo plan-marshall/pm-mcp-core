@@ -17,6 +17,8 @@ import java.util.regex.Pattern;
 import lombok.Builder;
 import lombok.With;
 
+import de.planmarshall.core.id.HarnessId;
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 
 /**
@@ -48,8 +50,6 @@ HarnessUsage usage, int idleWakeups, Instant recordedAt) {
     public static final String POPULATION = "worker_idle";
 
     private static final Pattern JOB_ID_PATTERN = Pattern.compile("l-[0-9a-f]{16}");
-    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern HARNESS_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final int MAX_HARNESS_VERSION = 64;
     private static final int MAX_MODEL = 128;
 
@@ -60,8 +60,8 @@ HarnessUsage usage, int idleWakeups, Instant recordedAt) {
      */
     public WorkerIdleRow {
         requirePattern(jobId, JOB_ID_PATTERN, "job_id");
-        requirePattern(role, ROLE_PATTERN, "role");
-        requirePattern(harness, HARNESS_PATTERN, "harness");
+        requirePattern(role, RoleName.PATTERN, "role");
+        requirePattern(harness, HarnessId.PATTERN, "harness");
         Objects.requireNonNull(harnessVersion, "harness_version");
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(usage, "usage");

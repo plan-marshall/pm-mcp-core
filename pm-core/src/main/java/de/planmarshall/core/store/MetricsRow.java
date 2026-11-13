@@ -19,6 +19,8 @@ import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.HarnessId;
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 
 /**
@@ -81,8 +83,6 @@ SpendClass spendClass, Population population, HarnessUsage usage,
 
     private static final Pattern QUEUE_TASK_ID_PATTERN = Pattern.compile("qt-[0-9a-f]{16}");
     private static final Pattern JOB_ID_PATTERN = Pattern.compile("l-[0-9a-f]{16}");
-    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern HARNESS_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern ENVELOPE_ID_PATTERN = Pattern.compile("envelope-\\d+");
     private static final int MAX_HARNESS_VERSION = 64;
     private static final int MAX_MODEL = 128;
@@ -418,7 +418,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
      */
     public MetricsRow {
         requirePattern(queueTaskId, QUEUE_TASK_ID_PATTERN, "queue_task_id");
-        requirePattern(role, ROLE_PATTERN, "role");
+        requirePattern(role, RoleName.PATTERN, "role");
         Objects.requireNonNull(outcome, "outcome");
         Objects.requireNonNull(causeClass, "cause_class");
         Objects.requireNonNull(spendClass, "spend_class");
@@ -429,7 +429,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
         requireRefusedColumns(causeClass, jobId, generationId, harness, harnessVersion, model, form, durationBasis);
         requireOptionalPattern(jobId, JOB_ID_PATTERN, "job_id");
         requireOptionalPattern(generationId, JOB_ID_PATTERN, "generation_id");
-        requireOptionalPattern(harness, HARNESS_PATTERN, "harness");
+        requireOptionalPattern(harness, HarnessId.PATTERN, "harness");
         requireOptionalPattern(stepId, null, "step_id");
         requireOptionalPattern(envelopeId, ENVELOPE_ID_PATTERN, "envelope_id");
         requireOptionalPattern(consultationOf, QUEUE_TASK_ID_PATTERN, "consultation_of");

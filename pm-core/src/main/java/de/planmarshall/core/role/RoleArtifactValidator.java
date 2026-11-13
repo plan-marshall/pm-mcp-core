@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
 import de.planmarshall.core.profile.ProfileRefusal;
@@ -55,7 +56,6 @@ public final class RoleArtifactValidator {
 
     private static final Set<String> OFF_TRACK_MEMBERS = Set.of("threshold", "action");
 
-    private static final Pattern ROLE_NAME = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
     private static final Pattern TOOL = Pattern.compile("^[A-Za-z][A-Za-z0-9_.-]{0,63}$");
     private static final Pattern SKILL_URI = Pattern.compile("^skill://pm/[a-z0-9][a-z0-9_/-]*/SKILL\\.md$");
@@ -116,7 +116,7 @@ public final class RoleArtifactValidator {
             var formatVersion = (int) integer(required(artifact, "format_version"), "/format_version",
                     "format_version", FORMAT_VERSION, FORMAT_VERSION);
             var name = text(required(artifact, "name"), "/name", "name", 32);
-            if (!ROLE_NAME.matcher(name).matches()) {
+            if (!RoleName.matches(name)) {
                 throw invalid("/name", "not a role name: '%s'".formatted(name));
             }
             if (!name.equals(role)) {

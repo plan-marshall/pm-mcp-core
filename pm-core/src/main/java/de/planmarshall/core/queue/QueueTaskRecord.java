@@ -19,6 +19,8 @@ import lombok.Builder;
 import lombok.With;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.RoleName;
+
 /**
  * One queue task record {@code queue/<queue_task_id>.json} (Store Schemas § Queue Task Record): the delivery of one
  * unit of model work, its lease, its attempts, the signals raised on its workers and its consultations.
@@ -75,7 +77,6 @@ Instant createdAt, @Nullable Instant closedAt) {
     /** The format version of a queue task record that is read and written. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Pattern ROLE_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern ENTITY_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}");
     private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
@@ -791,7 +792,7 @@ Instant createdAt, @Nullable Instant closedAt) {
             if (QueueTaskId.parse(consultationId).isEmpty()) {
                 throw new IllegalArgumentException("Not a queue task id: " + consultationId);
             }
-            requireMatch(ROLE_PATTERN, Objects.requireNonNull(role, "role"), "role");
+            requireMatch(RoleName.PATTERN, Objects.requireNonNull(role, "role"), "role");
             requireGeneration(askedBy, "consultations.asked_by");
             Objects.requireNonNull(askedAt, "askedAt");
             Objects.requireNonNull(status, "status");
@@ -818,7 +819,7 @@ Instant createdAt, @Nullable Instant closedAt) {
             throw new IllegalArgumentException("Not a queue task id: " + queueTaskId);
         }
         Objects.requireNonNull(kind, "kind");
-        requireMatch(ROLE_PATTERN, Objects.requireNonNull(role, "role"), "role");
+        requireMatch(RoleName.PATTERN, Objects.requireNonNull(role, "role"), "role");
         Objects.requireNonNull(scope, "scope");
         requireMatch(ENTITY_PATTERN, Objects.requireNonNull(entity, "entity"), "entity");
         Objects.requireNonNull(stateId, "stateId");
