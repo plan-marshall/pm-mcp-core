@@ -1,0 +1,135 @@
+= ADR 026: The Kept Hand-Written Test Doubles Are a Closed List
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-13, the day of the merge; the decision takes effect with the merge of the pull request that carries it.
+
+== Context
+
+PLAN-V2-106 (#355) was to replace the hand-written test doubles by EasyMock doubles. It converted nine classes and
+kept twenty-nine, because its deliverable allowed every "real in-memory implementation that many tests share" to stay
+with a stated reason, and its Done-when scan was satisfied by any stated reason. The analysis of that landing
+(`landings/PLAN-V2-106.md`) read the kept classes and found that about half are pure or scripted recorders of the kind
+the pull request itself converted: a list of appended records, a numbered answer, a captured argument. ADR
+link:025-test-design-layering-base-classes-and-fixtures.adoc[025] records the same population as finding F9 and leaves
+the replacement to "a plan that takes the classes up for a reason of their own"; its element S5 asks for one home per
+shared fixture or double and EasyMock for the rest. The operator's decision of 2026-10-30 ("replace the fakes") stands.
+
+PLAN-V2-136 is that plan. It closes the keep vocabulary, converts every other class the scan finds and every
+fixture-resident double the scan missed, and makes its Done-when a scan whose result is the closed list and nothing
+else, so the condition cannot be met without converting.
+
+== Decision
+
+=== What a hand-written double is
+
+A hand-written double is a class, record, enum, anonymous class or lambda that implements a production interface or
+abstract class by hand and keeps state or records calls. A static factory that returns an EasyMock mock is not a
+hand-written double: `de.planmarshall.core.store.AuditSinkDoubles` and `de.planmarshall.runtime.test.AuditSinkDoubles`
+are the precedent. A helper class that builds EasyMock expectations, including `ProcessCallDoubles` of `pm-runtime`,
+is not one either.
+
+=== The scan and its exclusion
+
+The population is found by:
+
+[source,text]
+----
+git grep -n -E '(class|record|interface|enum) (Fake|Stub|Recording|Failing)' -- '*/src/test/java/*.java' ':!*/testing/generators/*'
+----
+
+At `6937efe4` (the merge commit of PLAN-V2-106) it found 36 declarations with the exclusion and 38 without it. The two
+extra are `FailingExitCodeGenerator` and `FailingExitCodeGeneratorTest` under `pm-runtime/.../testing/generators/`:
+`TypedGenerator<Integer>` test data, not a double of a production interface. The path `*/testing/generators/*` is
+therefore excluded from the scan, and only that path.
+
+=== The closed list of sound keeps
+
+A hand-written double stays only for one of three reasons: **(S1)** it is a protocol or process stand-in that an
+interface double cannot restate (a socket bus, a shell launcher); **(S2)** it is a stateful in-memory implementation
+whose answers follow from its history across calls, so a mock would reimplement that state in `andAnswer`; **(S3)** it
+is a simulation of an OS or time source that advances with the calls. A recorder of arguments, a scripted answer, a
+numbered answer or a flag a test sets before the call does not qualify: `Capture`, `andReturn`, `andAnswer` and
+`andStubReturn` express those.
+
+[cols="1,4,2,5",options="header"]
+|===
+|# |Class |Users |Reason
+
+|K1 |`pm-runtime` `credentials.dbus.FakeBus` |5 files |S1: a Unix-domain-socket D-Bus server (shared test JAR)
+|K2 |`pm-runtime` `credentials.FakeSecretService` |3 |S1/S2: the in-memory `org.freedesktop.secrets` service on that bus (shared test JAR)
+|K3 |`pm-runtime` `job.FakePmExec` |8 |S1: a real `/bin/sh` launcher script; not an interface
+|K4 |`pm-core` `core.store.RecordingLockManager` |34 |S2: `holds` follows `acquire` and `close` of each open transaction; `held()` and `acquisitions()` are asserted by the store tests
+|K5 |`pm-runtime` `credentials.FakeOsStore` (in `CredentialStoreMoveTest`) |1 |S2: an in-memory `SecretStore` with five fault-injection states that change what later calls answer
+|K6 |`pm-core` `role.corpus.FakeRepository`, `FakeLfs` |1 |S2: in-memory keyed stores with keyed failure injection the test fills before the import runs
+|K7 |`RecordingSignals` (3) and `FakeTime` (2) of the process-table, termination and recovery tests |3 |S3: the simulated process table (a SIGTERM removes the group or pid) and the virtual clock that only the protocol's pauses advance
+|K8 |`pm-runtime` `job.SubprocessJobRunnerTest.RecordingLocks` |1 |S2: a decorator over the real lock manager of the fixture with one-shot hooks that tests re-arm from inside a hook; EasyMock has no spy
+|K9 |`pm-runtime` `start.RuntimeDrainTest.FakeParticipant` |1 |S2, a close call: the drain participants share one ordered `calls` list that the test asserts whole
+|F1 |`pm-workflow` `scenario.ScenarioFixtures.ScriptedQuestionRecordReader` |1 |S2: the replay harness grows the per-question answers while the engine runs
+|F2 |`pm-workflow` `consult.ConsultTestLocks` |2 |S2: an in-memory `LockManager` (the semantics of K4)
+|F3 |`TestLocks` (four declarations, one per module package) |3, 4, 1, 8 |S2: in-memory `LockManager`; a shared one is not publishable, because the generator artifacts carry generators only
+|===
+
+The one non-double class: the `TypedGenerator` implementations and their tests under `testing/generators/` are test
+data and are excluded from the scan (above).
+
+=== The converted population
+
+Every other class the scan finds, and every fixture-resident double it misses, is an EasyMock double. In
+PLAN-V2-136 that is: `pm-core` `core.store.RecordingAuditSink` and `AuditLogTest.RecordingAnchor` and
+`FailingPredecessorAnchor`; `pm-workflow` the four port doubles of `EngineFixtures`, the three of
+`ScenarioFixtures`, `ModelFixtures.Qualifications` and `Guard`, and `TaskFixtures.Paused`; `pm-runtime`
+`lock.RecordingAuditSink`, `RecoveryStepFixtures.RecordingAuditSink`, `SupervisorTestFixture.FakeStarter`,
+`FakeSlots`, `RecordingProtocol` and `RecordingStateWriter`, the three per-test `RecordingProtocol` classes,
+`NoSignals`, `SilentProtocol`, `RecordingTimers`, `RecordingGuard`, both `RecordingStep` records,
+`start.RecordingProcessCall`, `SubprocessJobRunnerTest.StubProcess` and `CredentialStoreMoveTest.FakeKeyrings`.
+
+`StubProcess` was the one class gated by a hypothesis: whether the managed EasyMock can create a class mock of
+`java.lang.Process` on Java 25. The first `createMock(Process.class)` of the conversion compiled and its tests ran, so
+the hypothesis is confirmed and the class is converted; there is no K10.
+
+=== The published surface
+
+The doubles that are published to the assembly keep their public signatures: `FakeBus`, `FakeSecretService` and
+`FakePmExec` are K1 to K3 and stay, and `TestBases` is untouched. Every converted class is package-private
+(`SupervisorTestFixture`, `RecordingProcessCall`, `lock.RecordingAuditSink` and `RecoveryStepFixtures` are `final class`
+without `public`), so no consumer of the `pm-runtime:tests` jar can name one. **Owed outside this repository: none.**
+The assembly checkout `plan-marshall-mcp` was not searched; the claim is about the declarations, not about a search.
+
+== Alternatives Considered
+
+* *Keep the open vocabulary with a stated reason per class.* Not taken: that is PLAN-V2-106's rule, and the analysis
+  showed a reason was accepted for recorders the pull request itself converted.
+* *Add `StubProcess` as K10 for the Java-25 class-mock risk.* Not taken: the risk is refuted by the first
+  `createMock(Process.class)`.
+* *Keep one lock-manager implementation shared across the module packages.* Not taken: no artifact publishes fixtures;
+  the generator artifacts carry generators only (ADR link:012-generator-artifacts.adoc[012]).
+* *Replace `FakeBus` and `FakeSecretService` by EasyMock doubles.* Not taken: `FakeBus` is the evidence of the D-Bus
+  wire codec and both are published (ADR link:025-test-design-layering-base-classes-and-fixtures.adoc[025], S8).
+
+== Consequences
+
+* A new hand-written double is refused by the repository rule (`CLAUDE.md` § Code Standards); a test that needs a
+  double uses EasyMock or a factory that returns one.
+* The list K1 to K9 and F1 to F3 is closed. A class that does not qualify for S1, S2 or S3 is converted; a class the
+  operator wants to keep needs a new ADR that supersedes this one and names the reason.
+* The scan is the Done-when of a conversion plan: it returns the fourteen declarations of the closed list and no other
+  line, so a conversion cannot be claimed without removing the class from the scan.
+* A consumer of the `pm-runtime:tests` jar sees no change: the converted classes were package-private and the
+  published fakes keep their signatures.
+* The unscanned population is out of scope by decision: about forty hand-written implementations whose names do not
+  match the scan (`HoldingEverything`, `OneLock`, `InMemoryLockManager`, the clocks, the keyrings) stay until a plan
+  widens the scan by role (`implements <production interface>`) or touches them.
+
+== Source
+
+The plan `PLAN-V2-136` (`easymock-for-fakes-residue`) of the epic `pm-mcp-core-m2-m4-v2`; the analysis of PLAN-V2-106
+(`landings/PLAN-V2-106.md`, layers 1 to 3) and the merged pull request #355 (`6937efe4`); ADR
+link:025-test-design-layering-base-classes-and-fixtures.adoc[025] finding F9 and element S5; ADR
+link:012-generator-artifacts.adoc[012] (the published test artifacts); the operator decision of 2026-10-30 ("replace
+the fakes"); the test rules of link:../../CLAUDE.md[`CLAUDE.md`] § Code Standards.
