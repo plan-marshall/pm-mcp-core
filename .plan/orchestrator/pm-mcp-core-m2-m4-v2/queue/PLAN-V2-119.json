@@ -2,10 +2,10 @@
   "id": "PLAN-V2-119",
   "slug": "schema-files-other-specifications",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-119-schema-files-other-specifications",
+  "pr": "#404",
+  "landing": "landings/PLAN-V2-119.md",
   "seq": 107
 }
