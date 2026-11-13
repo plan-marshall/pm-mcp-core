@@ -9,6 +9,15 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyBoolean;
+import static org.easymock.EasyMock.anyInt;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -58,9 +67,9 @@ import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
- * The supervisor test fixture: the real launch contracts over a temporary base, a fake job starter that records the
- * composed starts and ends, a fake model-slot admission, a recording state writer and the one order list the end path's
- * collaborators append to.
+ * The supervisor test fixture: the real launch contracts over a temporary base, an EasyMock job starter that records the
+ * composed starts and ends, an EasyMock model-slot admission, an EasyMock state writer and the one order list the end
+ * path's collaborators append to.
  * <p>
  * The identifiers of one fixture — its project, plan, digest and generation — are drawn when the fixture is constructed;
  * a test that builds it in its {@code @BeforeEach} draws them under the per-test seed, and a test that builds it in the
@@ -95,13 +104,50 @@ final class SupervisorTestFixture {
 
     final Path workdir;
 
-    final FakeStarter starter = new FakeStarter();
+    /** The worker starts the starter was asked for, in order. */
+    final List<WorkerStart> starts = new CopyOnWriteArrayList<>();
 
-    final FakeSlots slots = new FakeSlots();
+    /** The refusals the starter answered, in order. */
+    final List<WorkerStart.Refusal> refusals = new CopyOnWriteArrayList<>();
 
-    final RecordingProtocol protocol = new RecordingProtocol();
+    /** The cancel causes the starter was asked for, in order. */
+    final List<JobRunner.CancelCause> cancels = new CopyOnWriteArrayList<>();
 
-    final RecordingStateWriter stateWriter = new RecordingStateWriter();
+    /** The failure the starter raises instead of answering; a test drives a start path that throws. */
+    RuntimeException startFailure;
+
+    /** The model-slot leases the admission granted, in order. */
+    final List<ModelSlots.Lease> claimed = new CopyOnWriteArrayList<>();
+
+    /** The model-slot leases the admission released, in order. */
+    final List<ModelSlots.Lease> released = new CopyOnWriteArrayList<>();
+
+    /** The generations whose slot was withdrawn, in order. */
+    final List<String> withdrawn = new CopyOnWriteArrayList<>();
+
+    /** The plans whose slots were released, in order. */
+    final List<String> releasedPlans = new CopyOnWriteArrayList<>();
+
+    /** Whether the admission grants a slot; a test turns it off for the refused path. */
+    boolean grant = true;
+
+    /** The role of the head of the FIFO; {@code null} while no worker waits for a slot. */
+    String waitingRole;
+
+    /** The generations the protocol fenced, in order. */
+    final List<String> fences = new CopyOnWriteArrayList<>();
+
+    /** Whether the job token was already revoked at each fence, in order. */
+    final List<Boolean> revokedAtFence = new CopyOnWriteArrayList<>();
+
+    /** The {@code agent_started} signals the protocol reported, in order. */
+    final List<AgentStarted> startedAgents = new CopyOnWriteArrayList<>();
+
+    /** The role and harness of every closed-unavailable report, in order. */
+    final List<String> closedUnavailable = new CopyOnWriteArrayList<>();
+
+    /** The terminal-state writes, in order. */
+    final List<Write> writes = new CopyOnWriteArrayList<>();
 
     final JobTokenStore jobTokens = new JobTokenStore();
 
@@ -110,6 +156,14 @@ final class SupervisorTestFixture {
     final List<String> order = new CopyOnWriteArrayList<>();
 
     final List<LossSignal> signals = new CopyOnWriteArrayList<>();
+
+    final SupervisorEnvironment.WorkerStarter starter = starter();
+
+    final ModelSlots slots = slots();
+
+    final WorkerProtocol protocol = protocol();
+
+    final SupervisorEnvironment.WorkerStateWriter stateWriter = stateWriter();
 
     final ProjectEnrolment enrolment;
 
@@ -252,130 +306,98 @@ final class SupervisorTestFixture {
         return uri -> Optional.ofNullable(resolved.get(uri));
     }
 
-    /**
-     * A job starter that records the calls and answers the request's own generation, so no process is spawned.
-     */
-    final class FakeStarter implements SupervisorEnvironment.WorkerStarter {
-
-        final List<WorkerStart> starts = new CopyOnWriteArrayList<>();
-
-        final List<WorkerStart.Refusal> refusals = new CopyOnWriteArrayList<>();
-
-        final List<JobRunner.CancelCause> cancels = new CopyOnWriteArrayList<>();
-
-        /** The failure this starter raises instead of answering, so a test can drive a start path that throws. */
-        RuntimeException startFailure;
-
-        @Override
-        public JobRunner.StartResult startWorker(WorkerStart request) {
+    private SupervisorEnvironment.WorkerStarter starter() {
+        SupervisorEnvironment.WorkerStarter mock = createMock(SupervisorEnvironment.WorkerStarter.class);
+        expect(mock.startWorker(anyObject(WorkerStart.class))).andAnswer(() -> {
+            var request = (WorkerStart) getCurrentArguments()[0];
             starts.add(request);
             if (startFailure != null) {
                 throw startFailure;
             }
             return new JobRunner.StartResult.Started(JobId.parse(request.launch().generationId()).orElseThrow());
-        }
-
-        @Override
-        public JobId refuseWorker(WorkerStart.Refusal refusal) {
+        }).anyTimes();
+        expect(mock.refuseWorker(anyObject(WorkerStart.Refusal.class))).andAnswer(() -> {
+            var refusal = (WorkerStart.Refusal) getCurrentArguments()[0];
             refusals.add(refusal);
             return JobId.parse(refusal.generationId()).orElseThrow();
-        }
-
-        @Override
-        public boolean cancel(JobId jobId, JobRunner.CancelCause cause) {
-            cancels.add(cause);
-            order.add("cancel:" + jobId.value());
+        }).anyTimes();
+        expect(mock.cancel(anyObject(JobId.class), anyObject(JobRunner.CancelCause.class))).andAnswer(() -> {
+            var arguments = getCurrentArguments();
+            cancels.add((JobRunner.CancelCause) arguments[1]);
+            order.add("cancel:" + ((JobId) arguments[0]).value());
             return true;
-        }
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
-    /**
-     * A model-slot admission that grants while {@link #grant} is {@code true} and records the releases and whether the
-     * job token was revoked before one.
-     */
-    final class FakeSlots implements ModelSlots {
-
-        boolean grant = true;
-
-        /** The role of the head of the FIFO; {@code null} while no worker waits for a slot. */
-        String waitingRole;
-
-        final List<Lease> claimed = new CopyOnWriteArrayList<>();
-
-        final List<Lease> released = new CopyOnWriteArrayList<>();
-
-        final List<String> withdrawn = new CopyOnWriteArrayList<>();
-
-        final List<String> releasedPlans = new CopyOnWriteArrayList<>();
-
-        @Override
-        public Optional<Lease> claim(String generationId, String role) {
+    private ModelSlots slots() {
+        ModelSlots mock = createMock(ModelSlots.class);
+        expect(mock.claim(anyObject(String.class), anyObject(String.class))).andAnswer(() -> {
             if (!grant) {
                 return Optional.empty();
             }
-            var lease = new Lease(generationId, role);
+            var arguments = getCurrentArguments();
+            var lease = new ModelSlots.Lease((String) arguments[0], (String) arguments[1]);
             claimed.add(lease);
             return Optional.of(lease);
-        }
-
-        @Override
-        public void withdraw(String generationId) {
-            withdrawn.add(generationId);
-        }
-
-        @Override
-        public void release(Lease lease) {
+        }).anyTimes();
+        expect(mock.nextWaitingRole()).andAnswer(() -> Optional.ofNullable(waitingRole)).anyTimes();
+        mock.withdraw(anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            withdrawn.add((String) getCurrentArguments()[0]);
+            return null;
+        }).anyTimes();
+        mock.release(anyObject(ModelSlots.Lease.class));
+        expectLastCall().andAnswer(() -> {
+            var lease = (ModelSlots.Lease) getCurrentArguments()[0];
             released.add(lease);
             if (!jobTokens.revoked(lease.generationId())) {
                 order.add("release-before-revoke");
             }
             order.add("release");
-        }
-
-        @Override
-        public Optional<String> nextWaitingRole() {
-            return Optional.ofNullable(waitingRole);
-        }
-
-        @Override
-        public void releasePlan(String planId) {
-            releasedPlans.add(planId);
-        }
+            return null;
+        }).anyTimes();
+        mock.releasePlan(anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            releasedPlans.add((String) getCurrentArguments()[0]);
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
-    /** The task protocol boundary, which records the fence, the started agent and whether the token was already revoked. */
-    final class RecordingProtocol implements WorkerProtocol {
-
-        final List<String> fences = new CopyOnWriteArrayList<>();
-
-        final List<Boolean> revokedAtFence = new CopyOnWriteArrayList<>();
-
-        final List<AgentStarted> startedAgents = new CopyOnWriteArrayList<>();
-
-        final List<String> closedUnavailable = new CopyOnWriteArrayList<>();
-
-        @Override
-        public void fence(String generationId) {
-            fences.add(generationId);
-            revokedAtFence.add(jobTokens.revoked(generationId));
+    private WorkerProtocol protocol() {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        mock.fence(anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            var generation = (String) getCurrentArguments()[0];
+            fences.add(generation);
+            revokedAtFence.add(jobTokens.revoked(generation));
             order.add("fence");
-        }
-
-        @Override
-        public void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
-            startedAgents.add(new AgentStarted(generationId, queueTaskId, attempt, executable, at));
+            return null;
+        }).anyTimes();
+        mock.agentStarted(anyObject(String.class), anyObject(String.class), anyInt(), anyObject(String.class),
+                anyObject(Instant.class));
+        expectLastCall().andAnswer(() -> {
+            var arguments = getCurrentArguments();
+            startedAgents.add(new AgentStarted((String) arguments[0], (String) arguments[1], (Integer) arguments[2],
+                    (String) arguments[3], (Instant) arguments[4]));
             order.add("agent_started");
-        }
-
-        @Override
-        public void offTrack(OffTrackReport report) {
+            return null;
+        }).anyTimes();
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().andAnswer(() -> {
             order.add("off_track");
-        }
-
-        @Override
-        public void closeUnavailable(String role, String harness) {
-            closedUnavailable.add(role + "/" + harness);
-        }
+            return null;
+        }).anyTimes();
+        mock.closeUnavailable(anyObject(String.class), anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            closedUnavailable.add(getCurrentArguments()[0] + "/" + getCurrentArguments()[1]);
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     /**
@@ -390,18 +412,21 @@ final class SupervisorTestFixture {
     record AgentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
     }
 
-    /** The terminal-state writer, recording the write and whether the slot was released before it. */
-    final class RecordingStateWriter implements SupervisorEnvironment.WorkerStateWriter {
-
-        final List<Write> writes = new CopyOnWriteArrayList<>();
-
-        @Override
-        public void write(String generationId, WorkerState.State state, Instant at, WorkerState.EndReason endReason,
-                boolean startFailure) {
-            writes.add(new Write(generationId, state, at, endReason, startFailure,
-                    slots.released.stream().anyMatch(lease -> lease.generationId().equals(generationId))));
+    private SupervisorEnvironment.WorkerStateWriter stateWriter() {
+        SupervisorEnvironment.WorkerStateWriter mock = createMock(SupervisorEnvironment.WorkerStateWriter.class);
+        mock.write(anyObject(String.class), anyObject(WorkerState.State.class), anyObject(Instant.class),
+                anyObject(WorkerState.EndReason.class), anyBoolean());
+        expectLastCall().andAnswer(() -> {
+            var arguments = getCurrentArguments();
+            var generation = (String) arguments[0];
+            writes.add(new Write(generation, (WorkerState.State) arguments[1], (Instant) arguments[2],
+                    (WorkerState.EndReason) arguments[3], (Boolean) arguments[4],
+                    released.stream().anyMatch(lease -> lease.generationId().equals(generation))));
             order.add("write");
-        }
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     /**

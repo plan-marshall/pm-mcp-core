@@ -9,6 +9,11 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,7 +56,10 @@ class ActivityRecorderTest {
 
     private static final Instant AT = Instant.parse("2026-10-26T10:00:00Z");
 
-    private final RecordingProtocol protocol = new RecordingProtocol();
+    /** The off-track reports the recorder reported, projected to the values a test asserts. */
+    private final List<Reported> signals = new ArrayList<>();
+
+    private final WorkerProtocol protocol = protocol();
 
     private String task;
 
@@ -118,17 +126,17 @@ class ActivityRecorderTest {
 
         recorder.append(task, generation, toolCall(tool, target));
         recorder.append(task, generation, toolCall(tool, target));
-        assertEquals(0, protocol.signals.size());
+        assertEquals(0, signals.size());
 
         recorder.append(task, generation, toolCall(tool, target));
         recorder.append(task, generation, toolCall(tool, target));
 
-        assertEquals(1, protocol.signals.size());
+        assertEquals(1, signals.size());
         assertAll(
-                () -> assertEquals("repeating", protocol.signals.getFirst().signal),
-                () -> assertEquals("show", protocol.signals.getFirst().action),
-                () -> assertEquals(3.0, protocol.signals.getFirst().measurement),
-                () -> assertEquals(3.0, protocol.signals.getFirst().threshold));
+                () -> assertEquals("repeating", signals.getFirst().signal),
+                () -> assertEquals("show", signals.getFirst().action),
+                () -> assertEquals(3.0, signals.getFirst().measurement),
+                () -> assertEquals(3.0, signals.getFirst().threshold));
     }
 
     @Test
@@ -143,35 +151,20 @@ class ActivityRecorderTest {
         assertThrows(IllegalStateException.class,
                 () -> recorder.append(task, generation, entry));
         assertTrue(journal.entries(task).isEmpty());
-        assertTrue(protocol.signals.isEmpty());
+        assertTrue(signals.isEmpty());
     }
 
-    /** Records what the recorder reports. */
-    private static final class RecordingProtocol implements WorkerProtocol {
-
-        private final List<Reported> signals = new ArrayList<>();
-
-        @Override
-        public void fence(String generationId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void agentStarted(String generationId, String queueTaskId, int attempt, String executable,
-                Instant at) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void offTrack(OffTrackReport report) {
+    private WorkerProtocol protocol() {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().andAnswer(() -> {
+            var report = (WorkerProtocol.OffTrackReport) getCurrentArguments()[0];
             signals.add(new Reported(report.signal(), report.action(), report.measurement(), report.threshold(),
                     report.attempt()));
-        }
-
-        @Override
-        public void closeUnavailable(String role, String harness) {
-            throw new UnsupportedOperationException();
-        }
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 
     private record Reported(String signal, String action, double measurement, double threshold, int attempt) {

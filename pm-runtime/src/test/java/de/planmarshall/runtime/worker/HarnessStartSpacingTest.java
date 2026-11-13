@@ -9,6 +9,8 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.createNiceMock;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -124,7 +126,7 @@ class HarnessStartSpacingTest {
     void aCollisionCountsForTheGuard() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(50));
         var events = new CopyOnWriteArrayList<AuditEvent>();
-        var guard = new StartFailureGuard(project, List::of, new SilentProtocol(), events::add,
+        var guard = new StartFailureGuard(project, List::of, silentProtocol(), events::add,
                 InstantSource.fixed(NOW));
 
         spacing.awaitTurn(client);
@@ -137,27 +139,10 @@ class HarnessStartSpacingTest {
                 () -> assertFalse(guard.holds(role, client), "one collision does not hold the guard"));
     }
 
-    /** The task protocol boundary the collision scenario needs, which closes nothing and fences nothing. */
-    private static final class SilentProtocol implements WorkerProtocol {
-
-        @Override
-        public void fence(String generationId) {
-            // the spacing never fences
-        }
-
-        @Override
-        public void agentStarted(String generationId, String queueTaskId, int attempt, String executable, Instant at) {
-            // detection is another step's contract
-        }
-
-        @Override
-        public void offTrack(OffTrackReport report) {
-            // spacing raises no activity signal
-        }
-
-        @Override
-        public void closeUnavailable(String role, String harness) {
-            // the guard's hold is another step's contract
-        }
+    /** @return an EasyMock protocol that closes nothing and fences nothing */
+    private static WorkerProtocol silentProtocol() {
+        WorkerProtocol mock = createNiceMock(WorkerProtocol.class);
+        replay(mock);
+        return mock;
     }
 }

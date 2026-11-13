@@ -9,6 +9,12 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -71,7 +77,9 @@ class WorkerRecyclingTest {
 
     private SupervisorTestFixture fixture;
 
-    private RecordingGuard guard;
+    private final List<String> cleared = new CopyOnWriteArrayList<>();
+
+    private SupervisorEnvironment.StartGuard guard;
 
     private SupervisorEnvironment environment;
 
@@ -96,7 +104,7 @@ class WorkerRecyclingTest {
         changedDigest = RuntimeGenerators.sha256Digests().next();
         otherWorktree = RuntimeGenerators.words().next();
         waitingRole = "role-" + RuntimeGenerators.words().next();
-        guard = new RecordingGuard();
+        guard = guard();
         environment = fixture.environment(guard, OPEN_GATE);
         supervisor = new WorkerSupervisor(environment);
         ending = new WorkerEnding(environment, () -> false, () -> {
@@ -202,7 +210,7 @@ class WorkerRecyclingTest {
                         "an unchanged digest recycles nothing"),
                 () -> assertEquals(Optional.of(RecycleCause.CONFIGURATION_CHANGED),
                         recycling.afterTaskClosed(closed, changedDigest)),
-                () -> assertEquals(List.of("implementer@claude"), guard.cleared,
+                () -> assertEquals(List.of("implementer@claude"), cleared,
                         "the guard of the role on its harness is cleared"));
     }
 
@@ -231,7 +239,7 @@ class WorkerRecyclingTest {
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.TASKS_PER_GENERATION), cause,
                         "the task bound still recycles the generation"),
-                () -> assertEquals(List.of("implementer@claude"), guard.cleared,
+                () -> assertEquals(List.of("implementer@claude"), cleared,
                         "the changed configuration clears the guard in the same recycle"));
     }
 
@@ -239,7 +247,7 @@ class WorkerRecyclingTest {
     @DisplayName("the idle yield frees the slot of the longest-idle warm worker for another role")
     void idleYieldFreesASlotForAnotherRole() {
         var generation = registered(warm().withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(5L));
-        fixture.slots.waitingRole = waitingRole;
+        fixture.waitingRole = waitingRole;
 
         var cause = recycling.yieldIdleSlot();
         var requested = ending.requestedCause(generation.generationId());
@@ -248,7 +256,7 @@ class WorkerRecyclingTest {
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.IDLE_YIELD), cause),
                 () -> assertEquals(Optional.of(EndCause.RECYCLE), requested),
-                () -> assertEquals(List.of(generation.slot()), fixture.slots.released,
+                () -> assertEquals(List.of(generation.slot()), fixture.released,
                         "the slot of the idle worker is released for the waiting role"));
     }
 
@@ -257,14 +265,14 @@ class WorkerRecyclingTest {
     void idleYieldSparesTheWaitingRoleAndLeases() {
         var generation = registered(warm().withLifecycle(WorkerLifecycle.WAITING).withIdleWakeups(5L));
 
-        fixture.slots.waitingRole = "implementer";
+        fixture.waitingRole = "implementer";
         var sameRole = recycling.yieldIdleSlot();
 
-        fixture.slots.waitingRole = waitingRole;
+        fixture.waitingRole = waitingRole;
         registered(generation.withLeasedTask(firstTask));
         var leased = recycling.yieldIdleSlot();
 
-        fixture.slots.waitingRole = null;
+        fixture.waitingRole = null;
         var nobodyWaits = recycling.yieldIdleSlot();
 
         assertAll(
@@ -311,19 +319,16 @@ class WorkerRecyclingTest {
         return generation;
     }
 
-    /** The start-failure guard of the test: it never holds and records every clear of a role on its harness. */
-    private static final class RecordingGuard implements SupervisorEnvironment.StartGuard {
-
-        private final List<String> cleared = new CopyOnWriteArrayList<>();
-
-        @Override
-        public boolean holds(String role, String harness) {
-            return false;
-        }
-
-        @Override
-        public void clear(String role, String harness) {
-            cleared.add(role + "@" + harness);
-        }
+    /** @return an EasyMock guard that never holds and records every clear of a role on its harness */
+    private SupervisorEnvironment.StartGuard guard() {
+        SupervisorEnvironment.StartGuard mock = createMock(SupervisorEnvironment.StartGuard.class);
+        expect(mock.holds(anyObject(String.class), anyObject(String.class))).andReturn(false).anyTimes();
+        mock.clear(anyObject(String.class), anyObject(String.class));
+        expectLastCall().andAnswer(() -> {
+            cleared.add(getCurrentArguments()[0] + "@" + getCurrentArguments()[1]);
+            return null;
+        }).anyTimes();
+        replay(mock);
+        return mock;
     }
 }

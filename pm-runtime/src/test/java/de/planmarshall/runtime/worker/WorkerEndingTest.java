@@ -84,8 +84,8 @@ class WorkerEndingTest {
         ending.end(generation, cause);
         var terminal = ending.exited(generation);
 
-        var write = fixture.stateWriter.writes.getFirst();
-        assertEquals(1, fixture.stateWriter.writes.size());
+        var write = fixture.writes.getFirst();
+        assertEquals(1, fixture.writes.size());
         assertTrue(terminal.lifecycle().terminal());
         assertEquals(switch (cause) {
             case START_FAILURE -> WorkerLifecycle.START_FAILED;
@@ -115,9 +115,9 @@ class WorkerEndingTest {
         assertTrue(fixture.order.contains("release"), fixture.order::toString);
         assertTrue(fixture.order.contains("write"), fixture.order::toString);
         assertEquals(List.of("fence", "release", "write"), fixture.order);
-        assertEquals(List.of(false), fixture.protocol.revokedAtFence, "the fence precedes the token revocation");
+        assertEquals(List.of(false), fixture.revokedAtFence, "the fence precedes the token revocation");
         assertTrue(fixture.jobTokens.revoked(generation.generationId()), "the token is revoked");
-        assertTrue(fixture.stateWriter.writes.getFirst().slotReleased(), "the slot is released before the write");
+        assertTrue(fixture.writes.getFirst().slotReleased(), "the slot is released before the write");
     }
 
     @Test
@@ -132,8 +132,8 @@ class WorkerEndingTest {
         ending.end(generation, signal);
         ending.exited(generation);
 
-        var write = fixture.stateWriter.writes.getFirst();
-        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.starter.cancels);
+        var write = fixture.writes.getFirst();
+        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels);
         assertEquals(WorkerState.State.LOST, write.state());
         assertEquals(WorkerState.EndReason.SILENCE, write.endReason());
     }
@@ -150,9 +150,9 @@ class WorkerEndingTest {
 
         ending.end(generation, EndCause.DRAIN);
 
-        assertTrue(fixture.starter.cancels.isEmpty(), "the end is requested first, not forced");
+        assertTrue(fixture.cancels.isEmpty(), "the end is requested first, not forced");
         timers.fireDue(SupervisorTestFixture.NOW.plus(TerminationProtocol.GRACE_PERIOD));
-        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.starter.cancels);
+        assertEquals(List.of(JobRunner.CancelCause.SUPERVISOR_END), fixture.cancels);
     }
 
     @Test
@@ -169,7 +169,7 @@ class WorkerEndingTest {
         timers.fireDue(SupervisorTestFixture.NOW.plus(TerminationProtocol.GRACE_PERIOD));
 
         assertFalse(EndCause.PAUSE_AT_ONCE.spendsReoffer());
-        assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.starter.cancels);
+        assertEquals(List.of(JobRunner.CancelCause.PLAN_PAUSED_NOW), fixture.cancels);
     }
 
     @Test
