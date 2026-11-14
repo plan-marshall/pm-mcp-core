@@ -84,6 +84,7 @@ class BuildTimingsSchemaParityTest {
         var defs = SchemaParity.object(schema.get("$defs"));
         var baseline = SchemaParity.object(defs.get("baseline"));
         var keyTimings = SchemaParity.object(defs.get("keyTimings"));
+        var empty = BuildTimings.Baseline.empty();
 
         assertAll(
                 () -> assertEquals(1, SchemaParity.bound(SchemaParity.member(baseline, "learned_seconds"), "minimum"),
@@ -98,8 +99,7 @@ class BuildTimingsSchemaParityTest {
                 () -> assertThrows(IllegalArgumentException.class, () -> new BuildTimings.Baseline(null, -1),
                         "a negative observation count is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new BuildTimings.KeyTimings(BuildTimings.Baseline.empty(),
-                                BuildTimings.Baseline.empty(), BuildTimings.Baseline.empty(), 0L, null),
+                        () -> new BuildTimings.KeyTimings(empty, empty, empty, 0L, null),
                         "an escalation below the minimum is refused"));
     }
 

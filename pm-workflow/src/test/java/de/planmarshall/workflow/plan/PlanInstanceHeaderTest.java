@@ -128,10 +128,10 @@ class PlanInstanceHeaderTest {
         return SchemaResource.array(value).stream().filter(Objects::nonNull).map(String::valueOf).toList();
     }
 
-    private static List<String> closedSetDiffs(List<String> file, List<String> record) {
+    private static List<String> closedSetDiffs(List<String> file, List<String> recorded) {
         var diffs = new ArrayList<String>();
-        file.stream().filter(value -> !record.contains(value)).forEach(value -> diffs.add("file-only:" + value));
-        record.stream().filter(value -> !file.contains(value)).forEach(value -> diffs.add("record-only:" + value));
+        file.stream().filter(value -> !recorded.contains(value)).forEach(value -> diffs.add("file-only:" + value));
+        recorded.stream().filter(value -> !file.contains(value)).forEach(value -> diffs.add("record-only:" + value));
         return diffs;
     }
 
@@ -477,15 +477,15 @@ class PlanInstanceHeaderTest {
         @Test
         @DisplayName("the closed-set comparison reports a value only one side has")
         void closedSetComparisonReportsOneSidedValues() {
-            var record = Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList();
+            var recorded = Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList();
             var file = new ArrayList<>(filePruneReasons());
             file.add("synthetic_reason");
 
             assertAll(
-                    () -> assertEquals(List.of("file-only:synthetic_reason"), closedSetDiffs(file, record),
+                    () -> assertEquals(List.of("file-only:synthetic_reason"), closedSetDiffs(file, recorded),
                             "a file-only value should be reported"),
                     () -> assertEquals(List.of("record-only:posture"),
-                            closedSetDiffs(record.subList(1, record.size()), record),
+                            closedSetDiffs(recorded.subList(1, recorded.size()), recorded),
                             "a record-only value should be reported"));
         }
 
@@ -551,10 +551,10 @@ class PlanInstanceHeaderTest {
         void newFallbackCauseValidates() {
             var cause = new CompositionCause(null, CompositionCause.FallbackCause.OPERATOR_PATH, null, null, null,
                     null, null, null);
-            var record = new CompositionRecord(CompositionEvent.FALLBACK, CompositionRecord.Result.REFUSED,
+            var line = new CompositionRecord(CompositionEvent.FALLBACK, CompositionRecord.Result.REFUSED,
                     null, CompositionEvent.Trigger.SERVER, cause, new TreeMap<>(), null, COMPOSED_AT);
             var writtenCause = SchemaResource.object(SchemaResource.object(
-                    SchemaResource.parse(record.toJson())).get("cause"));
+                    SchemaResource.parse(line.toJson())).get("cause"));
 
             assertAll(
                     () -> assertTrue(fileFallbackCauses().contains("operator_path"),

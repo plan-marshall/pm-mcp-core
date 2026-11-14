@@ -97,6 +97,11 @@ class JudgeCheckSchemaParityTest {
     void boundsAreTheLimits() {
         var schema = SchemaParity.load(SCHEMA);
         var accuracy = SchemaParity.member(schema, "oracle_accuracy");
+        var items = sample().items();
+        var aboveMaximum = BigDecimal.valueOf(101);
+        var scoredOne = Grade.scored(BigDecimal.ONE);
+        var scoredZero = Grade.scored(BigDecimal.ZERO);
+        var measured = TokenTotal.measured(1L);
 
         assertAll(
                 () -> assertEquals(0, SchemaParity.bound(accuracy, "minimum"),
@@ -105,16 +110,16 @@ class JudgeCheckSchemaParityTest {
                         "the accuracy maximum should be 100"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new JudgeCheck.Record(DIGEST, "opencode", "model-1", "corpus-1",
-                                BigDecimal.valueOf(101), BigDecimal.ZERO, BigDecimal.ZERO, 0, CHECKED_AT,
-                                sample().items()),
+                                aboveMaximum, BigDecimal.ZERO, BigDecimal.ZERO, 0, CHECKED_AT,
+                                items),
                         "the record should refuse above the maximum"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new JudgeCheck.Record(DIGEST, "opencode", "model-1", "corpus-1", BigDecimal.ZERO,
-                                BigDecimal.ZERO, BigDecimal.ZERO, -1, CHECKED_AT, sample().items()),
+                                BigDecimal.ZERO, BigDecimal.ZERO, -1, CHECKED_AT, items),
                         "the record should refuse a negative count"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new JudgeCheck.ItemScore("item-1", Label.RIGHT, Grade.scored(BigDecimal.ONE),
-                                Grade.scored(BigDecimal.ZERO), TokenTotal.measured(1), -1L),
+                        () -> new JudgeCheck.ItemScore("item-1", Label.RIGHT, scoredOne,
+                                scoredZero, measured, -1L),
                         "the item should refuse a negative duration"));
     }
 

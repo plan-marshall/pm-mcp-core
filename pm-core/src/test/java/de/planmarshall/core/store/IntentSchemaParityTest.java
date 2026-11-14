@@ -77,8 +77,8 @@ class IntentSchemaParityTest {
         return recordDocument(written());
     }
 
-    private static Map<?, ?> firstItem(Map<?, ?> record, String member) {
-        return SchemaParity.object(SchemaParity.array(record.get(member)).getFirst());
+    private static Map<?, ?> firstItem(Map<?, ?> document, String member) {
+        return SchemaParity.object(SchemaParity.array(document.get(member)).getFirst());
     }
 
     private static Map<?, ?> itemSchema(Map<?, ?> schema, String member) {
@@ -159,9 +159,9 @@ class IntentSchemaParityTest {
     @DisplayName("the members of the record's nested items are the file's")
     void recordItemMembers() {
         var schema = SchemaParity.load(RECORD);
-        var record = recordDocument(writtenWithAdr());
-        var criterion = firstItem(record, "criteria");
-        var choice = firstItem(record, "choices");
+        var document = recordDocument(writtenWithAdr());
+        var criterion = firstItem(document, "criteria");
+        var choice = firstItem(document, "choices");
         var adr = SchemaParity.object(choice.get("adr"));
         var choicesItem = itemSchema(schema, "choices");
         var adrSchema = SchemaParity.object(SchemaParity.object(choicesItem.get("properties")).get("adr"));
@@ -183,9 +183,9 @@ class IntentSchemaParityTest {
     void writtenRecordIsValid() {
         var validator = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
                 .getSchema(SchemaResource.text(RECORD));
-        var record = SchemaParity.text(recordDocument(writtenWithAdr()));
+        var document = SchemaParity.text(recordDocument(writtenWithAdr()));
 
-        assertEquals(Set.of(), validator.validate(record, InputFormat.JSON),
+        assertEquals(Set.of(), validator.validate(document, InputFormat.JSON),
                 "the written record should validate against its file");
     }
 

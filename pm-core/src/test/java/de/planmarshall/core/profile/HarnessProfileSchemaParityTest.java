@@ -72,10 +72,11 @@ class HarnessProfileSchemaParityTest {
     @DisplayName("the validator refuses a member the file does not declare")
     void undeclaredMemberRefused() {
         var document = new String(ProfileFixtures.validBytes(), UTF_8).replaceFirst("\\{", "{\"undeclared\": 1,");
+        var documentBytes = document.getBytes(UTF_8);
+        var rules = ProfileRules.none();
 
         assertThrows(ProfileRefusal.class,
-                () -> ProfileValidator.validate(document.getBytes(UTF_8), "profiles/acme-cli.json",
-                        ProfileRules.none()),
+                () -> ProfileValidator.validate(documentBytes, "profiles/acme-cli.json", rules),
                 "The validator refuses an undeclared member");
     }
 

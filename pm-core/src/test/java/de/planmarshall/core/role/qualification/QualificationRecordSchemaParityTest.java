@@ -115,14 +115,23 @@ class QualificationRecordSchemaParityTest {
         var schema = SchemaParity.load(SCHEMA);
         var ungraded = SchemaParity.member(schema, "ungraded");
         var base = sample();
+        var role = base.role();
+        var digest = base.qualificationDigest();
+        var configuration = base.configuration();
+        var corpusRevision = base.corpusRevision();
+        var missedSources = base.missedSources();
+        var forms = base.forms();
+        var warmFreshGap = base.warmFreshGap();
+        var gradedAt = base.gradedAt();
+        var items = base.items();
 
         assertAll(
                 () -> assertEquals(0, SchemaParity.bound(ungraded, "minimum"),
                         "the ungraded minimum should be zero"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new QualificationRecord(base.role(), base.qualificationDigest(), base.configuration(),
-                                base.corpusRevision(), base.missedSources(), base.forms(), base.warmFreshGap(),
-                                -1, base.gradedAt(), base.items()),
+                        () -> new QualificationRecord(role, digest, configuration,
+                                corpusRevision, missedSources, forms, warmFreshGap,
+                                -1, gradedAt, items),
                         "the record should refuse a negative count"));
     }
 
