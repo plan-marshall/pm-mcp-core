@@ -108,7 +108,7 @@
         },
         "load_directive_template": {
           "type": "string",
-          "description": "Template rendered when a skill references another skill (e.g. 'pm_skill(uri=\"{{uri}}\")')."
+          "description": "Template rendered when a skill references another skill. It must carry the slot '{{uri}}' exactly once, so the rendered directive names the skill it loads (e.g. 'pm_skill(uri=\"{{uri}}\")')."
         },
         "schema_residency": {
           "type": "string",
