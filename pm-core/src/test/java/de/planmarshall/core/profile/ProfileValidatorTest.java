@@ -54,7 +54,8 @@ class ProfileValidatorTest {
                 Arguments.of("pm_skill()", true, "a template without the slot is refused"),
                 Arguments.of("pm_skill(uri=\"{{uri}}\")", false, "the slot exactly once loads"),
                 Arguments.of("pm_skill(uri=\"{{uri}}\", again=\"{{uri}}\")", true, "the slot twice is refused"),
-                Arguments.of("pm_skill(uri=\"{ {uri}}\")", true, "a slot split by a space is refused"));
+                Arguments.of("pm_skill(uri=\"{ {uri}}\")", true, "a slot split by a space is refused"),
+                Arguments.of("pm_skill(uri=\"{{{uri}}}\")", true, "a slot between extra braces is refused"));
     }
 
     @ParameterizedTest(name = "{2}")

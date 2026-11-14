@@ -250,8 +250,12 @@ public final class ProfileValidator {
     private static final Pattern LOOPBACK_URL = Pattern.compile("^http://(127\\.0\\.0\\.1|\\[::1\\]):(\\d{1,5})$");
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}");
 
-    /** The one literal slot the load directive carries; a rendered directive names the skill it loads through it. */
+    /** The one slot the load directive carries; the template names the skill it loads through it. */
     private static final String SKILL_URI_SLOT = "{{uri}}";
+
+    /** The slot as a whole token: a brace beside it is a different spelling, not a second occurrence. */
+    private static final Pattern SKILL_URI_SLOT_TOKEN =
+            Pattern.compile("(?<![{])\\Q" + SKILL_URI_SLOT + "\\E(?![}])");
 
     private ProfileValidator() {
     }
@@ -527,13 +531,13 @@ public final class ProfileValidator {
         }
 
         private void skillUriSlot(String template, String pointer) {
+            var slot = SKILL_URI_SLOT_TOKEN.matcher(template);
             var occurrences = 0;
-            for (var index = template.indexOf(SKILL_URI_SLOT); index >= 0;
-                 index = template.indexOf(SKILL_URI_SLOT, index + SKILL_URI_SLOT.length())) {
+            while (slot.find()) {
                 occurrences++;
             }
             if (occurrences != 1) {
-                throw invalid(pointer, "the load directive names '%s' %d times, not exactly once"
+                throw invalid(pointer, "the load directive carries the slot '%s' %d times, not exactly once"
                         .formatted(SKILL_URI_SLOT, occurrences));
             }
         }
