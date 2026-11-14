@@ -105,8 +105,8 @@ The replacement keeps the label, so a reader still sees what was removed, and re
 |Credential assignment (`password=`, `token:`, `api_key=`, a camelCase `fooSecret=`) and an `Authorization:` header with
 `Bearer`, `Basic` or `Token`
 |the value after the separator; a quoted value runs to its closing quote, across at most one line end as the flag forms
-do, and a quote that does not close on its line or the next masks the rest of its line, so a first word shorter than
-four characters (`token="ab cd ef"`) is masked whole
+do, and a quote that does not close on its line or the next — or whose closing quote a word character follows — masks
+the rest of its line, so a first word shorter than four characters (`token="ab cd ef"`) is masked whole
 |a secret in a query parameter whose name is no listed label; and under an `Authorization:` header of another scheme
 (`Digest`, `Negotiate`) the scheme word is taken as the value and masked, while the credential after it stays readable.
 An unquoted value shorter than four characters stays readable: the minimum is deliberate and an accepted residue.
@@ -143,7 +143,10 @@ because the secret runs to the last `@` of the token.
 most one line end, which may be escaped by a backslash (a shell line continuation) and still counts as the one line end;
 an unclosed quote masks the rest of its line, and an escaped quote (`\"`) is no close
 |a flag outside the list (`--key value`, an operator decision) and `--password-file notes.txt`, a different flag. The
-false-positive cost: usage text such as `--token <token>` masks the placeholder.
+false-positive cost: usage text such as `--token <token>` masks the placeholder. A flag value that closes after a line
+end can take a following label into the masked value when a word character follows the closing quote
+(`--password "abc` / `token="s3cret"`), leaving that later value readable — the pre-existing one-line-end residue; the
+assignment form refuses that close instead.
 
 |PEM private-key block and PGP private-key block (`-----BEGIN PGP PRIVATE KEY BLOCK-----`)
 |the block from its `BEGIN` line to its `END` line; a block without its `END` line is masked to the end of the text (the

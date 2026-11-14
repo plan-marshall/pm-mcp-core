@@ -214,14 +214,17 @@ public final class SecretRedactor {
 
     /**
      * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_VALUE} — across at most one
-     * line end, as the quoted credential flag allows — up to the same closing quote (group 3).
+     * line end, as the quoted credential flag allows — up to the same closing quote (group 3). The lookahead refuses a
+     * closing quote that a word character follows, so a cross-line value cannot swallow the next label and its value
+     * ({@code pass="abc\ntoken="s3cret"} masks both lines); such a value is taken by the unclosed form instead.
      */
-    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_VALUE + "\\3";
+    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_VALUE + "\\3" + "(?![\\w])";
 
     /**
-     * The quoted form of a credential-shaped assignment whose closing quote is missing from its line: the rest of the
-     * line is masked, as {@link #UNCLOSED_CREDENTIAL_FLAG} masks an unclosed flag value. The lookahead refuses the text
-     * exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches a closing quote, so a value that closes keeps its own match.
+     * The quoted form of a credential-shaped assignment whose closing quote is missing from its line — no later quote
+     * on the same line — or whose close the closed form refuses because a word character follows it: the rest of its
+     * line is masked, as {@link #UNCLOSED_CREDENTIAL_FLAG} masks an unclosed flag value. The same-line lookahead refuses
+     * the text exactly when a closing quote still follows on its line, so a value the closed form masked is left alone.
      */
     private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS = List.of(
             unclosedQuotedAssignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
@@ -273,8 +276,8 @@ public final class SecretRedactor {
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
-                + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
+        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?![^\\r\\n]*\\3)"
+                + "([^\\r\\n]*)");
     }
 
     /** The user-information pattern behind one scheme separator: scheme and separator, an optional user, secret. */

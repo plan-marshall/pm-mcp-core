@@ -65,13 +65,14 @@ numbered `Decision` sections below.
    unchanged, and the stored journal text carries no escape sequence. `redactText(String)` leaves escape sequences to
    its caller.
 * *R5: Every stored diagnostic message is redacted before its cut.* `DiagnosticCollector.stored` redacts the message
-   through `SecretRedactor` and then cuts it to the stored length, so every parser of the package — TAP, Jest, ESLint,
-   TypeScript, Maven, Gradle, pyproject and npm — is covered by one seam, and a cut value cannot keep a prefix the
-   redactor would have matched whole. `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent beside the
-   seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest stack blocks and the
-   frames `StackTraceCollector` attaches are masked too. This supersedes the sentence of ADR 006 that those messages are
-   built from dependency names and stay unchanged, and its carried decision that the other parsers' messages stay
-   unredacted.
+   through `SecretRedactor` and then cuts it to the stored length, so every parser that files a diagnostic — TAP, Jest,
+   ESLint, TypeScript, Maven, Gradle, pyproject and npm — is covered by one seam, and a cut value cannot keep a prefix
+   the redactor would have matched whole. `OpenRewriteLogParser` files its own `RewriteFinding` records rather than a
+   diagnostic and does not pass through the seam. `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent
+   beside the seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest stack blocks
+   and the frames `StackTraceCollector` attaches are masked too. This supersedes the sentence of ADR 006 that those
+   messages are built from dependency names and stay unchanged, and its carried decision that the other parsers'
+   messages stay unredacted.
 
 === What stays readable, by decision
 
@@ -99,14 +100,21 @@ numbered `Decision` sections below.
   `BuildLogText.MAX_LINE_LENGTH` head for a provider answer, which applies no 500 cut — so only as much of the partial
   password as fits in that head is carried. It is bounded, not removed — the cut limits the length of the residue, and
   a message whose head holds the URL carries it. The line-bound clause of item 5 below states the order that produces
-  it.
+  it;
+* a later label inside a quoted credential-flag value: a flag value that closes after a line end can take a following
+  label into the masked value when a word character follows the closing quote
+  (`--password "abc` / `token="s3cret"`), so that later value stays readable. The assignment form refuses such a close
+  and falls back to the unclosed rule; the flag form's one-line-end allowance is the pre-existing residue this plan does
+  not change.
 
 === The quoted assignment value runs to its closing quote
 
 An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
 value runs to its own closing quote — across at most one line end, as the quoted credential-flag forms do — and the
-escape handling of the flag form keeps an escaped quote from closing it. A quote that does not close on its line or the
-next masks the rest of its line, as the unclosed credential-flag form does; the lookahead that refuses the closed form
+escape handling of the flag form keeps an escaped quote from closing it. A cross-line close is refused when a word
+character follows the closing quote, so a value cannot swallow the next label and leave that label's value readable; such
+a text is masked by the unclosed form instead. A quote that does not close on its line or the next masks the rest of its
+line, as the unclosed credential-flag form does; the lookahead that refuses the closed form
 keeps the two apart, so a value that closes after an escape pair is never taken for an unclosed one. The four-character
 minimum therefore applies to unquoted values only. The false-positive cost: a short quoted value of an ordinary text is
 masked with its label.

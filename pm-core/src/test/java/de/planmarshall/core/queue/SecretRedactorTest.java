@@ -242,6 +242,26 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a cross-line quoted value does not swallow the label after it")
+    void crossLineQuotedValueDoesNotSwallowTheNextLabel() {
+        // the close is refused when a word character follows it, so the unclosed rule stops at the first line end
+        var redacted = redactValue("pass=\"abc\ntoken=\"s3cret\"");
+
+        assertAll("cross-line quoted value",
+                () -> assertFalse(redacted.contains("s3cret"), "the second credential is still masked"),
+                () -> assertEquals("pass=\"" + SecretRedactor.REDACTED + "\ntoken=\""
+                        + SecretRedactor.REDACTED + "\"", redacted, "each value is masked on its own line"));
+    }
+
+    @Test
+    @DisplayName("a quoted assignment does not swallow a later label on its own line")
+    void quotedAssignmentDoesNotSwallowALaterLabelOnItsLine() {
+        var redacted = redactValue("pass=\"abc token=\"s3cret\"");
+
+        assertFalse(redacted.contains("s3cret"), "a refused close masks the rest of the line");
+    }
+
+    @Test
     @DisplayName("a quoted assignment value across one line end is masked whole")
     void quotedAssignmentAcrossOneLineEnd() {
         // the flag forms allow exactly one line end; the assignment form follows them
