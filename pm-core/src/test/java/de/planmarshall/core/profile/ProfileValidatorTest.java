@@ -441,8 +441,8 @@ class ProfileValidatorTest {
                     .set("/connection/bounded_wait_seconds", 270);
             var progress = ProfileFixtures.valid()
                     .set("/connection/progress_resets_timeout", true)
-                    .set("/connection/idle_timeout_seconds", 240)
-                    .set("/connection/bounded_wait_seconds", 240);
+                    .set("/connection/idle_timeout_seconds", 480)
+                    .set("/connection/bounded_wait_seconds", 480);
             var longest = ProfileFixtures.valid()
                     .set("/connection/progress_resets_timeout", true)
                     .set("/connection/bounded_wait_seconds", 3_600);
@@ -453,8 +453,11 @@ class ProfileValidatorTest {
             assertAll("the connection boundaries",
                     () -> assertEquals(270, connectionValue(atMargin, "bounded_wait_seconds"),
                             "a bounded wait exactly at idle minus 30 loads"),
-                    () -> assertEquals(240, connectionValue(withProgress, "bounded_wait_seconds"),
-                            "progress frames admit the idle timeout as wait"),
+                    () -> assertAll("progress frames admit the idle timeout as wait",
+                            () -> assertEquals(480, connectionValue(withProgress, "idle_timeout_seconds"),
+                                    "the loaded idle timeout is the case's"),
+                            () -> assertEquals(480, connectionValue(withProgress, "bounded_wait_seconds"),
+                                    "the loaded bounded wait is the idle timeout")),
                     () -> assertEquals(3_600, connectionValue(longWait, "bounded_wait_seconds"),
                             "the longest bounded wait loads with progress"));
         }
