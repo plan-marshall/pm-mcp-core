@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 
 import org.easymock.Capture;
@@ -375,8 +376,9 @@ final class EngineFixtures {
 
     /** @return the registry of every primitive of this fixture */
     PrimitiveRegistry registry() {
-        return new PrimitiveRegistry(List.of(step, mark, proceed, note, build, backoff, cap, nextWork, job, enqueue,
-                evaluateChange));
+        return new PrimitiveRegistry(List.of(step.primitive(), mark.primitive(), proceed.primitive(), note.primitive(),
+                build.primitive(), backoff.primitive(), cap.primitive(), nextWork.primitive(), job.primitive(),
+                enqueue.primitive(), evaluateChange.primitive()));
     }
 
     /**
@@ -556,34 +558,37 @@ final class EngineFixtures {
     }
 
     /** A link primitive with one free text parameter; it records the notes it ran with and returns {@code done}. */
-    static final class NoteStep implements Primitive<NoteParams, StepOutcome> {
+    static final class NoteStep {
 
         final List<String> notes = new ArrayList<>();
 
-        @Override
-        public String id() {
-            return "test.note";
+        private final Primitive<NoteParams, StepOutcome> mock = mock();
+
+        @SuppressWarnings("unchecked")
+        private Primitive<NoteParams, StepOutcome> mock() {
+            Primitive<NoteParams, StepOutcome> note = createMock(Primitive.class);
+            expect(note.id()).andReturn("test.note").anyTimes();
+            expect(note.parameterType()).andReturn(NoteParams.class).anyTimes();
+            expect(note.outcomeType()).andReturn(StepOutcome.class).anyTimes();
+            expect(note.awaitedEvent()).andReturn(AwaitedEvent.NONE).anyTimes();
+            expect(note.producedArtifacts()).andReturn(Set.of()).anyTimes();
+            expect(note.requiredArtifacts()).andReturn(Set.of()).anyTimes();
+            expect(note.waivableGates()).andReturn(Set.of()).anyTimes();
+            expect(note.enqueuesJob()).andReturn(false).anyTimes();
+            expect(note.cycleMeasure()).andReturn(CycleMeasure.NONE).anyTimes();
+            expect(note.exhaustionOutcome()).andReturn(Optional.empty()).anyTimes();
+            expect(note.execute(anyObject(WorkflowExecutionContext.class), anyObject(NoteParams.class)))
+                    .andAnswer(() -> {
+                        notes.add(((NoteParams) getCurrentArguments()[1]).note());
+                        return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), null);
+                    }).anyTimes();
+            replay(note);
+            return note;
         }
 
-        @Override
-        public Class<NoteParams> parameterType() {
-            return NoteParams.class;
-        }
-
-        @Override
-        public Class<StepOutcome> outcomeType() {
-            return StepOutcome.class;
-        }
-
-        @Override
-        public PrimitiveResult<StepOutcome> execute(WorkflowExecutionContext context, NoteParams parameters) {
-            notes.add(parameters.note());
-            return new PrimitiveResult<>(StepOutcome.DONE, Map.of(), null);
-        }
-
-        @Override
-        public AwaitedEvent awaitedEvent() {
-            return AwaitedEvent.NONE;
+        /** @return the EasyMock primitive the registry holds */
+        Primitive<NoteParams, StepOutcome> primitive() {
+            return mock;
         }
     }
 
@@ -742,23 +747,53 @@ final class EngineFixtures {
     }
 
     /**
-     * A primitive that returns the outcomes a test scripted, in order, and then its first outcome; it counts its calls.
+     * A scripted primitive: the outcomes a test scripts, in order, then its first outcome; it counts its calls and
+     * records their scopes. The double is an EasyMock primitive; this holder is the script it was recorded with.
      * {@code test.cap} declares an attempt cap with the exhaustion outcome {@code spent}.
      *
      * @param <R> the outcome enum
      */
-    static final class Scripted<R extends Enum<R> & PrimitiveOutcome> implements Primitive<NoParams, R> {
+    static final class Scripted<R extends Enum<R> & PrimitiveOutcome> {
 
         private final String id;
         private final Class<R> outcomeType;
         private final AwaitedEvent awaitedEvent;
         private final Deque<PrimitiveResult<R>> script = new ArrayDeque<>();
         private final List<Optional<String>> scopes = new ArrayList<>();
+        private final Primitive<NoParams, R> mock;
 
         Scripted(String id, Class<R> outcomeType, AwaitedEvent awaitedEvent) {
             this.id = id;
             this.outcomeType = outcomeType;
             this.awaitedEvent = awaitedEvent;
+            mock = mock();
+        }
+
+        @SuppressWarnings("unchecked")
+        private Primitive<NoParams, R> mock() {
+            Primitive<NoParams, R> primitive = createMock(Primitive.class);
+            expect(primitive.id()).andReturn(id).anyTimes();
+            expect(primitive.parameterType()).andReturn(NoParams.class).anyTimes();
+            expect(primitive.outcomeType()).andReturn(outcomeType).anyTimes();
+            expect(primitive.awaitedEvent()).andReturn(awaitedEvent).anyTimes();
+            expect(primitive.producedArtifacts()).andReturn(Set.of()).anyTimes();
+            expect(primitive.requiredArtifacts()).andReturn(Set.of()).anyTimes();
+            expect(primitive.waivableGates()).andReturn(Set.of()).anyTimes();
+            expect(primitive.enqueuesJob()).andReturn(EnqueueOutcome.class.equals(outcomeType)).anyTimes();
+            expect(primitive.cycleMeasure())
+                    .andReturn(CapOutcome.class.equals(outcomeType) ? CycleMeasure.ATTEMPT_CAP : CycleMeasure.NONE)
+                    .anyTimes();
+            expect(primitive.exhaustionOutcome()).andReturn(CapOutcome.class.equals(outcomeType)
+                    ? Optional.of(CapOutcome.SPENT.wireName()) : Optional.empty()).anyTimes();
+            expect(primitive.execute(anyObject(WorkflowExecutionContext.class), anyObject(NoParams.class)))
+                    .andAnswer(() -> {
+                        scopes.add(((WorkflowExecutionContext) getCurrentArguments()[0]).scopeId());
+                        var next = script.poll();
+                        return next != null ? next
+                                : new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
+                    }).anyTimes();
+            replay(primitive);
+            return primitive;
         }
 
         /**
@@ -789,11 +824,6 @@ final class EngineFixtures {
             return this;
         }
 
-        @Override
-        public boolean enqueuesJob() {
-            return EnqueueOutcome.class.equals(outcomeType);
-        }
-
         /** @return how often the primitive ran */
         int calls() {
             return scopes.size();
@@ -804,43 +834,9 @@ final class EngineFixtures {
             return scopes;
         }
 
-        @Override
-        public String id() {
-            return id;
-        }
-
-        @Override
-        public Class<NoParams> parameterType() {
-            return NoParams.class;
-        }
-
-        @Override
-        public Class<R> outcomeType() {
-            return outcomeType;
-        }
-
-        @Override
-        public PrimitiveResult<R> execute(WorkflowExecutionContext context, NoParams parameters) {
-            scopes.add(context.scopeId());
-            var next = script.poll();
-            return next != null ? next
-                    : new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), null);
-        }
-
-        @Override
-        public AwaitedEvent awaitedEvent() {
-            return awaitedEvent;
-        }
-
-        @Override
-        public CycleMeasure cycleMeasure() {
-            return CapOutcome.class.equals(outcomeType) ? CycleMeasure.ATTEMPT_CAP : CycleMeasure.NONE;
-        }
-
-        @Override
-        public Optional<String> exhaustionOutcome() {
-            return CapOutcome.class.equals(outcomeType) ? Optional.of(CapOutcome.SPENT.wireName())
-                    : Optional.empty();
+        /** @return the EasyMock primitive the registry holds */
+        Primitive<NoParams, R> primitive() {
+            return mock;
         }
     }
 
