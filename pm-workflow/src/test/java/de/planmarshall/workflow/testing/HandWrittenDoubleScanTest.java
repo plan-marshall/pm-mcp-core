@@ -48,6 +48,18 @@ class HandWrittenDoubleScanTest {
     private static final Path BASELINE = Path.of("src/test/resources/hand-written-doubles.txt");
     private static final Path FOUND = Path.of("target/hand-written-doubles-found.txt");
 
+    private static final Pattern TYPE_DECLARATION = Pattern.compile("\\b(?:class|enum|record)\\s+(\\w+)");
+    private static final Pattern ANONYMOUS = Pattern.compile("\\bnew\\s+([\\w.]+)\\s*(?:<[^<>]*>)?\\s*\\(");
+    private static final Pattern LAMBDA = Pattern.compile("->|::");
+    private static final Pattern ASSIGNMENT = Pattern.compile("([\\w.]+)\\s+\\w+\\s*=");
+    private static final Pattern PRODUCTION_TYPE = Pattern.compile("\\b(?:interface|abstract\\s+class)\\s+(\\w+)");
+    private static final Pattern GENERICS = Pattern.compile("<[^<>]*>");
+
+    /** The lexical state of {@link #stripNoise(String)}. */
+    private enum State {
+        CODE, LINE_COMMENT, BLOCK_COMMENT, TEXT_BLOCK, STRING, CHARACTER
+    }
+
     @Test
     @DisplayName("the scan detects planted doubles and the test tree matches the baseline")
     void enforcesTheClosedList() throws Exception {
@@ -56,7 +68,7 @@ class HandWrittenDoubleScanTest {
                     public void append(de.planmarshall.core.service.AuditEvent event) {
                     }
                 }
-                """).contains("planted.java#Planted"), "a planted class over a production interface is found");
+                """).contains("planted.java#Planted#1"), "a planted class over a production interface is found");
         assertTrue(scan("planted.java", "class Plain { }").isEmpty(),
                 "a class without a production type is no double");
         assertTrue(scan("planted.java", """
@@ -114,7 +126,7 @@ class HandWrittenDoubleScanTest {
     }
 
     private static List<String> scan(String path, String source, Set<String> production) {
-        var code = stripComments(source);
+        var code = stripNoise(source);
         var found = new ArrayList<String>();
         namedDouble(path, code, production, found);
         anonymousDoubles(path, code, production, found);
@@ -123,26 +135,59 @@ class HandWrittenDoubleScanTest {
     }
 
     private static void namedDouble(String path, String code, Set<String> production, List<String> found) {
-        var declaration = Pattern.compile(
-                "(?s)\\b(?:class|enum|record)\\s+(\\w+)[^{;]*?\\b(?:implements|extends)\\s+([^{]+)\\{");
-        var matcher = declaration.matcher(code);
+        var names = new TreeMap<String, Integer>();
+        var matcher = TYPE_DECLARATION.matcher(code);
         while (matcher.find()) {
-            for (var type : matcher.group(2).split(",")) {
-                if (production.contains(simpleName(type))) {
-                    found.add(path + "#" + matcher.group(1));
+            var brace = code.indexOf('{', matcher.end());
+            var semicolon = code.indexOf(';', matcher.end());
+            if (brace < 0 || semicolon >= 0 && semicolon < brace) {
+                continue;
+            }
+            var header = GENERICS.matcher(code.substring(matcher.end(), brace)).replaceAll("");
+            header = GENERICS.matcher(header).replaceAll("");
+            for (var clause : clauses(header)) {
+                if (production.contains(simpleName(clause))) {
+                    var name = matcher.group(1);
+                    found.add(path + "#" + name + "#" + names.merge(name, 1, Integer::sum));
                     break;
                 }
             }
         }
     }
 
+    /** @return the type lists after {@code implements} and {@code extends}, without generics */
+    private static List<String> clauses(String header) {
+        var clauses = new ArrayList<String>();
+        var implementsAt = header.indexOf("implements");
+        var extendsAt = header.indexOf("extends");
+        if (implementsAt >= 0) {
+            clauses.add(header.substring(implementsAt + "implements".length()));
+        }
+        if (extendsAt >= 0) {
+            clauses.add(header.substring(extendsAt + "extends".length(),
+                    implementsAt > extendsAt ? implementsAt : header.length()));
+        }
+        var types = new ArrayList<String>();
+        for (var clause : clauses) {
+            for (var type : clause.split(",")) {
+                types.add(type.strip());
+            }
+        }
+        return types;
+    }
+
     private static void anonymousDoubles(String path, String code, Set<String> production, List<String> found) {
         var counts = new TreeMap<String, Integer>();
-        var anonymous = Pattern.compile("\\bnew\\s+([\\w.]+)\\s*\\(\\s*\\)\\s*\\{");
-        var matcher = anonymous.matcher(code);
+        var matcher = ANONYMOUS.matcher(code);
         while (matcher.find()) {
             var type = simpleName(matcher.group(1));
-            if (production.contains(type)) {
+            if (!production.contains(type)) {
+                continue;
+            }
+            var close = code.indexOf(')', matcher.end() - 1);
+            var brace = close < 0 ? -1 : code.indexOf('{', close);
+            var semicolon = close < 0 ? -1 : code.indexOf(';', close);
+            if (brace >= 0 && (semicolon < 0 || brace < semicolon)) {
                 found.add(path + "#anonymous:" + type + "#" + counts.merge(type, 1, Integer::sum));
             }
         }
@@ -150,13 +195,17 @@ class HandWrittenDoubleScanTest {
 
     private static void lambdaDoubles(String path, String code, Set<String> production, List<String> found) {
         var counts = new TreeMap<String, Integer>();
-        var lambda = Pattern.compile("(?m)^\\s*(?:@\\w+\\s+)?(?:(?:private|static|final|protected|public)\\s+)*"
-                + "([\\w.]+)\\s+\\w+\\s*=\\s*[^;\\n]*(?:->|::)");
-        var matcher = lambda.matcher(code);
+        var matcher = LAMBDA.matcher(code);
         while (matcher.find()) {
-            var type = simpleName(matcher.group(1));
-            if (production.contains(type)) {
-                found.add(path + "#lambda:" + type + "#" + counts.merge(type, 1, Integer::sum));
+            var start = Math.max(Math.max(code.lastIndexOf(';', matcher.start()),
+                    code.lastIndexOf('{', matcher.start())), code.lastIndexOf('}', matcher.start()));
+            var prefix = code.substring(start + 1, matcher.start());
+            var assignment = ASSIGNMENT.matcher(prefix);
+            if (assignment.find()) {
+                var type = simpleName(assignment.group(1));
+                if (production.contains(type)) {
+                    found.add(path + "#lambda:" + type + "#" + counts.merge(type, 1, Integer::sum));
+                }
             }
         }
     }
@@ -169,8 +218,7 @@ class HandWrittenDoubleScanTest {
             }
             try (Stream<Path> files = Files.walk(root)) {
                 files.filter(path -> path.toString().endsWith(".java")).sorted()
-                        .forEach(path -> collect(production, Pattern.compile(
-                                "\\b(?:interface|abstract\\s+class)\\s+(\\w+)").matcher(stripComments(read(path)))));
+                        .forEach(path -> collect(production, PRODUCTION_TYPE.matcher(stripNoise(read(path)))));
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -185,14 +233,89 @@ class HandWrittenDoubleScanTest {
     }
 
     private static String simpleName(String type) {
-        var withoutGenerics = type.replaceAll("(?s)<.*", "").trim();
+        var withoutGenerics = GENERICS.matcher(type).replaceAll("").strip();
         var lastDot = withoutGenerics.lastIndexOf('.');
         return lastDot < 0 ? withoutGenerics : withoutGenerics.substring(lastDot + 1);
     }
 
-    private static String stripComments(String source) {
-        return source.replaceAll("(?s)\"\"\".*?\"\"\"", "").replaceAll("(?s)/\\*.*?\\*/", "")
-                .replaceAll("//[^\\n]*", "");
+    /**
+     * Blanks comments, text blocks and the content of string and character literals, so a declaration inside one is
+     * not read as code and a comment cannot hide one. A single pass, so a large file cannot exhaust the stack.
+     *
+     * @param source the source text
+     * @return the text without comments and with blanked literal content
+     */
+    private static String stripNoise(String source) {
+        var code = new StringBuilder(source.length());
+        var state = State.CODE;
+        for (var index = 0; index < source.length(); index++) {
+            var current = source.charAt(index);
+            var next = index + 1 < source.length() ? source.charAt(index + 1) : '\0';
+            switch (state) {
+                case CODE -> {
+                    if (current == '/' && next == '/') {
+                        state = State.LINE_COMMENT;
+                        index++;
+                        code.append(' ');
+                    } else if (current == '/' && next == '*') {
+                        state = State.BLOCK_COMMENT;
+                        index++;
+                        code.append(' ');
+                    } else if (current == '"' && next == '"' && index + 2 < source.length()
+                            && source.charAt(index + 2) == '"') {
+                        state = State.TEXT_BLOCK;
+                        index += 2;
+                        code.append(' ');
+                    } else if (current == '"') {
+                        state = State.STRING;
+                        code.append('"');
+                    } else if (current == '\'') {
+                        state = State.CHARACTER;
+                        code.append('\'');
+                    } else {
+                        code.append(current);
+                    }
+                }
+                case LINE_COMMENT -> {
+                    if (current == '\n') {
+                        state = State.CODE;
+                        code.append('\n');
+                    }
+                }
+                case BLOCK_COMMENT -> {
+                    if (current == '*' && next == '/') {
+                        state = State.CODE;
+                        index++;
+                        code.append(' ');
+                    }
+                }
+                case TEXT_BLOCK -> {
+                    if (current == '"' && next == '"' && index + 2 < source.length()
+                            && source.charAt(index + 2) == '"') {
+                        state = State.CODE;
+                        index += 2;
+                        code.append(' ');
+                    }
+                }
+                case STRING -> {
+                    if (current == '\\') {
+                        index++;
+                    } else if (current == '"') {
+                        state = State.CODE;
+                        code.append('"');
+                    }
+                }
+                case CHARACTER -> {
+                    if (current == '\\') {
+                        index++;
+                    } else if (current == '\'') {
+                        state = State.CODE;
+                        code.append('\'');
+                    }
+                }
+            }
+        }
+        return code.toString();
     }
 
     private static String read(Path path) {
