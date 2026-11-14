@@ -249,6 +249,18 @@ class OutboundCallsArchTest {
         return classes().should(NO_CONNECTION_UNEXEMPTED).evaluate(new ClassFileImporter().importClasses(fixture));
     }
 
+    /**
+     * The message of an assertion of the control tests: what the assertion checks, then the failure report of the
+     * evaluation, so a failing control prints the class, the dependency and the call the rule refused.
+     *
+     * @param check  what the assertion checks, 20 to 60 characters
+     * @param result the evaluation whose report the message carries
+     * @return the assertion message
+     */
+    private static String withReport(String check, EvaluationResult result) {
+        return check + System.lineSeparator() + result.getFailureReport();
+    }
+
     private static boolean isInPackage(String packageName, String root) {
         return packageName.equals(root) || packageName.startsWith(root + ".");
     }
@@ -326,9 +338,9 @@ class OutboundCallsArchTest {
         void failsOnFixture(Class<?> fixture, String forbiddenTarget) {
             var result = evaluate(fixture);
 
-            assertTrue(result.hasViolation(), () -> "The rule fails on " + fixture.getSimpleName());
+            assertTrue(result.hasViolation(), withReport("the rule fails on the control fixture", result));
             assertTrue(result.getFailureReport().getDetails().stream().anyMatch(detail -> detail.contains(forbiddenTarget)),
-                    () -> result.getFailureReport().toString());
+                    withReport("the failure report names the forbidden target", result));
         }
 
         @Test
@@ -336,7 +348,7 @@ class OutboundCallsArchTest {
         void holdsOnListeningOnly() {
             var result = evaluate(ListeningOnlyFixture.class);
 
-            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+            assertFalse(result.hasViolation(), withReport("the rule holds on the listening fixture", result));
         }
 
         @Test
@@ -344,7 +356,7 @@ class OutboundCallsArchTest {
         void holdsOnDataTypes() {
             var result = evaluate(DataTypesFixture.class);
 
-            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+            assertFalse(result.hasViolation(), withReport("the rule holds on the client data types", result));
         }
     }
 
@@ -394,9 +406,9 @@ class OutboundCallsArchTest {
         void failsOnFixture(Class<?> fixture, String forbiddenTarget) {
             var result = evaluateDestinations(fixture);
 
-            assertTrue(result.hasViolation(), () -> "The rule fails on " + fixture.getSimpleName());
+            assertTrue(result.hasViolation(), withReport("the rule fails on the control fixture", result));
             assertTrue(result.getFailureReport().getDetails().stream().anyMatch(detail -> detail.contains(forbiddenTarget)),
-                    () -> result.getFailureReport().toString());
+                    withReport("the failure report names the forbidden target", result));
         }
 
         static Stream<Arguments> fixtures() {
@@ -408,7 +420,7 @@ class OutboundCallsArchTest {
         void holdsOnListeningOnly() {
             var result = evaluateDestinations(ListeningOnlyFixture.class);
 
-            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+            assertFalse(result.hasViolation(), withReport("the rule holds on the listening fixture", result));
         }
 
         @Test
@@ -416,7 +428,7 @@ class OutboundCallsArchTest {
         void holdsOnDataTypes() {
             var result = evaluateDestinations(DataTypesFixture.class);
 
-            assertFalse(result.hasViolation(), () -> result.getFailureReport().toString());
+            assertFalse(result.hasViolation(), withReport("the rule holds on the client data types", result));
         }
     }
 }
