@@ -105,19 +105,21 @@ numbered `Decision` sections below.
   label into the masked value when a word character follows the closing quote
   (`--password "abc` / `token="s3cret"`), so that later value stays readable. The assignment form refuses such a close
   and falls back to the unclosed rule; the flag form's one-line-end allowance is the pre-existing residue this plan does
-  not change.
+  not change;
+* a quoted assignment whose closing quote lies on the next line: the assignment form closes on its own line only, so
+  such a value is read as unclosed and only the first line is masked; the continuation stays readable. A close on the
+  next line is indistinguishable from the next label's quote, which the blocked-swallow rule refuses.
 
 === The quoted assignment value runs to its closing quote
 
 An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
-value runs to its own closing quote — across at most one line end, as the quoted credential-flag forms do — and the
-escape handling of the flag form keeps an escaped quote from closing it. A cross-line close is refused when a word
-character follows the closing quote, so a value cannot swallow the next label and leave that label's value readable; such
-a text is masked by the unclosed form instead. A quote that does not close on its line or the next masks the rest of its
-line, as the unclosed credential-flag form does; the lookahead that refuses the closed form
-keeps the two apart, so a value that closes after an escape pair is never taken for an unclosed one. The four-character
-minimum therefore applies to unquoted values only. The false-positive cost: a short quoted value of an ordinary text is
-masked with its label.
+value runs to its own closing quote on its line, and the escape handling of the flag form keeps an escaped quote from
+closing it. A closing quote that a word character follows is refused, because it would swallow the next label and leave
+that label's value readable; such a text is masked by the unclosed form instead, to the end of its line. The assignment
+form closes on its own line only: a value that would close on the next line is read as unclosed, because a cross-line
+close is indistinguishable from the next label's quote, and that residue is named in "What stays readable". The
+four-character minimum therefore applies to unquoted values only. The false-positive costs: a short quoted value of an
+ordinary text is masked with its label, and a refused close masks the rest of its line.
 
 === The matcher is Unicode-aware, and invisible characters are removed
 

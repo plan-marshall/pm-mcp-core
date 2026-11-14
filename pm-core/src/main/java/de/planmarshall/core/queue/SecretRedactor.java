@@ -213,18 +213,17 @@ public final class SecretRedactor {
             CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
-     * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_VALUE} — across at most one
-     * line end, as the quoted credential flag allows — up to the same closing quote (group 3). The lookahead refuses a
-     * closing quote that a word character follows, so a cross-line value cannot swallow the next label and its value
-     * ({@code pass="abc\ntoken="s3cret"} masks both lines); such a value is taken by the unclosed form instead.
+     * The value of a quoted assignment: the plain runs and escape pairs of {@link #QUOTED_LINE} up to the same closing
+     * quote (group 3). The lookahead refuses a closing quote that a word character follows, so a value cannot swallow
+     * the next label and its value ({@code pass="abc token="s3cret"} masks the rest of the line instead).
      */
-    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_VALUE + "\\3" + "(?![\\w])";
+    private static final String QUOTED_ASSIGNMENT_VALUE = QUOTED_LINE + "\\3" + "(?![\\w])";
 
     /**
-     * The quoted form of a credential-shaped assignment whose closing quote is missing from its line — no later quote
-     * on the same line — or whose close the closed form refuses because a word character follows it: the rest of its
-     * line is masked, as {@link #UNCLOSED_CREDENTIAL_FLAG} masks an unclosed flag value. The same-line lookahead refuses
-     * the text exactly when a closing quote still follows on its line, so a value the closed form masked is left alone.
+     * The quoted form of a credential-shaped assignment with no acceptable closing quote on its line: it runs before the
+     * closed form, so a value whose close would swallow a later label — the quote followed by a word character — is
+     * masked to the end of its line instead, and a value the closed form masked is left alone. The lookahead refuses
+     * the text exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches an acceptable close on the line.
      */
     private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS = List.of(
             unclosedQuotedAssignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
@@ -276,8 +275,8 @@ public final class SecretRedactor {
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?![^\\r\\n]*\\3)"
-                + "([^\\r\\n]*)");
+        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
+                + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
     }
 
     /** The user-information pattern behind one scheme separator: scheme and separator, an optional user, secret. */
@@ -308,13 +307,13 @@ public final class SecretRedactor {
         var masked = AUTH_HEADER.matcher(normalized)
                 .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
-        for (var pattern : QUOTED_ASSIGNMENTS) {
-            masked = pattern.matcher(masked)
-                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
-        }
         for (var pattern : UNCLOSED_QUOTED_ASSIGNMENTS) {
             masked = pattern.matcher(masked)
                     .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
+        }
+        for (var pattern : QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
         }
         for (var pattern : ASSIGNMENTS) {
             masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
