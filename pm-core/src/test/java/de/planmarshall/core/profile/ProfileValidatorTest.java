@@ -181,7 +181,13 @@ class ProfileValidatorTest {
                                     .set("/connection/progress_resets_timeout", false)
                                     .set("/connection/bounded_wait_seconds", 240)
                                     .set("/connection/idle_timeout_seconds", 240),
-                            "/connection/bounded_wait_seconds", "a bounded wait not below the idle timeout"),
+                            "/connection/bounded_wait_seconds", "a bounded wait closer than the margin to the idle timeout"),
+                    Arguments.of(ProfileFixtures.valid()
+                                    .set("/connection/progress_resets_timeout", false)
+                                    .set("/connection/idle_timeout_seconds", 300)
+                                    .set("/connection/bounded_wait_seconds", 271),
+                            "/connection/bounded_wait_seconds",
+                            "a bounded wait 29 seconds below the idle timeout"),
                     Arguments.of(ProfileFixtures.valid().set("/headless/models_probe",
                                     map("argv", List.of("acme", "models"), "format", "json", "pointer", null)),
                             "/headless/models_probe/pointer", "a JSON models probe without a pointer"),
@@ -396,6 +402,27 @@ class ProfileValidatorTest {
                     () -> ProfileValidator.validate(prefix.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(signal.bytes(), DOCUMENT, ProfileRules.none()),
                     () -> ProfileValidator.validate(ports.bytes(), DOCUMENT, ProfileRules.none()));
+        }
+
+        @Test
+        @DisplayName("a bounded wait exactly 30 seconds below the idle timeout loads without progress frames")
+        void marginBoundaryAccepted() {
+            var exactly = ProfileFixtures.valid()
+                    .set("/connection/progress_resets_timeout", false)
+                    .set("/connection/idle_timeout_seconds", 300)
+                    .set("/connection/bounded_wait_seconds", 270);
+            var progress = ProfileFixtures.valid()
+                    .set("/connection/progress_resets_timeout", true)
+                    .set("/connection/idle_timeout_seconds", 240)
+                    .set("/connection/bounded_wait_seconds", 240);
+            var longest = ProfileFixtures.valid()
+                    .set("/connection/progress_resets_timeout", true)
+                    .set("/connection/bounded_wait_seconds", 3_600);
+
+            assertAll(
+                    () -> ProfileValidator.validate(exactly.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(progress.bytes(), DOCUMENT, ProfileRules.none()),
+                    () -> ProfileValidator.validate(longest.bytes(), DOCUMENT, ProfileRules.none()));
         }
 
         /** A map that, unlike {@link Map#of}, admits a null value. */
