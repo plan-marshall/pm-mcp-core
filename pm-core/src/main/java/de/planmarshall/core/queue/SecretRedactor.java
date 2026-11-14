@@ -83,18 +83,40 @@ public final class SecretRedactor {
             "(?iU)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
 
     /**
-     * The credential labels, one pattern each: a label's own alternation stays small, so neither the regex nor the
+     * The anchors every assignment form shares: the case-insensitive Unicode mode and the boundary before the label.
+     */
+    private static final String ASSIGNMENT_PREFIX = "(?iU)(?<![a-z0-9])(";
+
+    /** The label of a password-shaped assignment, in the three forms the assignment lists apply. */
+    private static final String LABEL_PASSWORD = "pass(?:[_-]?(?:word|wd|phrase|code|key))?";
+
+    /** The label of a secret-shaped assignment. */
+    private static final String LABEL_SECRET = "secret";
+
+    /** The label of a token-shaped assignment. */
+    private static final String LABEL_TOKEN = "token";
+
+    /** The label of a key-shaped assignment. */
+    private static final String LABEL_KEY = "(?:api|access|private)[_-]?key";
+
+    /** The label of an auth-shaped assignment. */
+    private static final String LABEL_AUTH = "auth";
+
+    /** The camelCase label suffix: a label that follows a letter only when it starts a camelCase word. */
+    private static final String LABEL_CAMEL_CASE = "(?-i:[a-z]+(?=[A-Z]))"
+            + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)";
+
+    /** The credential labels, one entry each, shared by every assignment form so the three lists cannot drift apart. */
+    private static final List<String> ASSIGNMENT_LABELS = List.of(LABEL_PASSWORD, LABEL_SECRET, LABEL_TOKEN, LABEL_KEY,
+            LABEL_AUTH, LABEL_CAMEL_CASE);
+
+    /**
+     * The credential labels as one pattern each: a label's own alternation stays small, so neither the regex nor the
      * reader has to hold a combined 30-branch expression. A label may follow a letter only when it starts a camelCase
      * word, and may be followed by a closing quote before the separator, as a JSON key is.
      */
-    private static final List<Pattern> ASSIGNMENTS = List.of(
-            assignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
-            assignment("secret"),
-            assignment("token"),
-            assignment("(?:api|access|private)[_-]?key"),
-            assignment("auth"),
-            assignment("(?-i:[a-z]+(?=[A-Z]))"
-                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
+    private static final List<Pattern> ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::assignment).toList();
 
     private static final Pattern BEARER = Pattern.compile("(?iU)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
 
@@ -225,28 +247,16 @@ public final class SecretRedactor {
      * masked to the end of its line instead, and a value the closed form masked is left alone. The lookahead refuses
      * the text exactly when {@link #QUOTED_ASSIGNMENT_VALUE} reaches an acceptable close on the line.
      */
-    private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS = List.of(
-            unclosedQuotedAssignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
-            unclosedQuotedAssignment("secret"),
-            unclosedQuotedAssignment("token"),
-            unclosedQuotedAssignment("(?:api|access|private)[_-]?key"),
-            unclosedQuotedAssignment("auth"),
-            unclosedQuotedAssignment("(?-i:[a-z]+(?=[A-Z]))"
-                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
+    private static final List<Pattern> UNCLOSED_QUOTED_ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::unclosedQuotedAssignment).toList();
 
     /**
      * The quoted form of a credential-shaped assignment. A quoted value runs to its own closing quote, so a value whose
      * first word is shorter than the four characters the unquoted form requires ({@code token="ab cd ef"}) is masked
      * whole. The escape handling of {@link #QUOTED_LINE} keeps an escaped quote from closing the value.
      */
-    private static final List<Pattern> QUOTED_ASSIGNMENTS = List.of(
-            quotedAssignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
-            quotedAssignment("secret"),
-            quotedAssignment("token"),
-            quotedAssignment("(?:api|access|private)[_-]?key"),
-            quotedAssignment("auth"),
-            quotedAssignment("(?-i:[a-z]+(?=[A-Z]))"
-                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
+    private static final List<Pattern> QUOTED_ASSIGNMENTS =
+            ASSIGNMENT_LABELS.stream().map(SecretRedactor::quotedAssignment).toList();
 
     /**
      * The head of a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}).
@@ -261,7 +271,7 @@ public final class SecretRedactor {
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE, NPM_ACCESS_TOKEN);
 
     private static Pattern assignment(String label) {
-        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b" + SEPARATOR + VALUE);
     }
 
     /**
@@ -269,13 +279,13 @@ public final class SecretRedactor {
      * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
      */
     private static Pattern quotedAssignment(String label) {
-        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])"
                 + QUOTED_ASSIGNMENT_VALUE);
     }
 
     /** One unclosed quoted assignment: the label, the separator, the opening quote and the rest of its line. */
     private static Pattern unclosedQuotedAssignment(String label) {
-        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])(?!"
                 + QUOTED_ASSIGNMENT_VALUE + ")([^\\r\\n]*)");
     }
 
