@@ -98,6 +98,8 @@ Ask-at-refine, one at a time, each with a recommendation (R07):
 2. **`toBuilder` on `ProjectEnrolment` (Deliverable 3).** It lets `JobEnrolmentFixture` change one component without repeating the fifteen-component constructor (ADR 025 F7); it is a production change of `pm-core` for the sake of a test. Options: add it, or keep the constructor call in the fixture. Recommendation: add it, about 65%, because the record already has `@Builder` and the fixture is the only caller that needs a changed copy; if the operator refuses, the fixture keeps its constructor call and the finding is closed with that reason.
 3. **How far Deliverable 2 goes.** Replace the hand-written classes only where the generated check carries every assertion they carried, or all of them. Recommendation: only where the retention table can name the assertions (the first option), about 80%; a builder class that tests something the generated check cannot (a validation in the compact constructor) stays and is named in the table.
 
+**Ordering decision of 2026-11-14 (issues pass Q3, operator answer 1):** this plan's Deliverable 2 owns the 68 `java:S5778` issues that SonarCloud reports in the `*BuilderContractTest` classes of `pm-core` (45 classes; they are about to be replaced by the generated check, so no edit of them is made to silence the rule): PLAN-V2-114 item 10 (a) to (d) wait for this plan and are cut to what survives its retention table. The count of open issues of `main` therefore stays at about 70 until this plan lands; the gate does not depend on it. State the number of `java:S5778` issues before and after in the pull request body.
+
 ## Hand-Off Command
 
 ```text
