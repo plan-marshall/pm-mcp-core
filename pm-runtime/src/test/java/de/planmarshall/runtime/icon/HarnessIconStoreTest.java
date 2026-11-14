@@ -187,7 +187,8 @@ class HarnessIconStoreTest {
     void refusedCandidateIsLogged() {
         var candidate = svg("<script>alert(1)</script>").getBytes(UTF_8);
 
-        assertThrows(IconRefusal.class, () -> store.accept(HARNESS_ID, candidate), "A script is refused");
+        assertThrows(IconRefusal.class, () -> store.accept(HARNESS_ID, candidate),
+                "A script element is refused by the store");
 
         LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, HARNESS_ID);
         LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, IconRefusal.SVG_ELEMENT_REFUSED);
