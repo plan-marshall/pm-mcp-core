@@ -183,8 +183,8 @@ class IntentRecordTest {
         var why = Generators.letterStrings(10, 60).next();
         var choices = options();
         assertThrows(IllegalArgumentException.class,
-                () -> new Decision("DC-1", why, choices, Decider.MODEL, null, null, adr),
-                "a model decision cannot contradict an ADR");
+                () -> new Decision("DC-1", why, choices, Decider.ROLE, null, null, adr),
+                "a role decision cannot contradict an ADR");
     }
 
     @DisplayName("The epic's required claims are seeded and must appear in the record")
@@ -284,7 +284,7 @@ class IntentRecordTest {
     @Test
     void rendersClarifiedRequest() {
         var intentRecord = withDecisions(List.of(operatorDecision("DC-1", "q-1"),
-                new Decision("DC-2", Generators.letterStrings(10, 60).next(), options(), Decider.MODEL, null,
+                new Decision("DC-2", Generators.letterStrings(10, 60).next(), options(), Decider.ROLE, null,
                         null, null)));
         var store = assertInstanceOf(Accepted.class,
                 accept(null, IntentSubmission.REFINE, revision(1, intentRecord),
@@ -300,9 +300,9 @@ class IntentRecordTest {
         assertTrue(rendered.contains("`CN-1`"), "the render names the constraint CN-1");
         assertTrue(rendered.contains("### Operator Decisions"),
                 "the render has the operator decisions section");
-        assertTrue(rendered.contains("### Model's Calls"), "the render has the model's calls section");
-        assertTrue(rendered.indexOf("### Operator Decisions") < rendered.indexOf("### Model's Calls"),
-                "the operator decisions come before the model's calls");
+        assertTrue(rendered.contains("### Role's Calls"), "the render has the role's calls section");
+        assertTrue(rendered.indexOf("### Operator Decisions") < rendered.indexOf("### Role's Calls"),
+                "the operator decisions come before the role's calls");
         assertTrue(rendered.contains("\"The operator wants the intent visible\" → goal"),
                 "the render states the claim's landing");
     }
@@ -357,8 +357,8 @@ class IntentRecordTest {
         var why = Generators.letterStrings(10, 60).next();
         var choices = options();
         assertThrows(IllegalArgumentException.class,
-                () -> new Decision("DC-1", why, choices, Decider.MODEL, "q-1", null, null),
-                "a model decision carries no question id");
+                () -> new Decision("DC-1", why, choices, Decider.ROLE, "q-1", null, null),
+                "a role decision carries no question id");
     }
 
     @DisplayName("A non-goal names its text")
@@ -451,9 +451,9 @@ class IntentRecordTest {
                 "a current behaviour outside its form is refused");
 
         var conforming = new IntentRecord(valid().why(), valid().goal(), List.of(fix, unchanged),
-                "WHEN a plan is refined THEN THE system writes the record as prose", valid().nonGoals(),
-                valid().constraints(), valid().decisions(), valid().assumptions(), valid().openQuestions(),
-                valid().deferred(), valid().sourceClaims());
+                "WHEN a plan is refined THEN THE system writes the record as prose", valid().repairs(),
+                valid().nonGoals(), valid().constraints(), valid().choices(), valid().assumptions(),
+                valid().openQuestions(), valid().deferred(), valid().sourceClaims());
         assertInstanceOf(Accepted.class,
                 accept(null, IntentSubmission.REFINE, revision(1, conforming), context(FILE)),
                 "the conforming fix and current behaviour is accepted");
@@ -523,16 +523,16 @@ class IntentRecordTest {
 
     private static IntentRecord copy(IntentRecord base, List<Criterion> criteria, String currentBehaviour,
             List<Assumption> assumptions) {
-        return new IntentRecord(base.why(), base.goal(), criteria, currentBehaviour, base.nonGoals(),
-                base.constraints(), base.decisions(), assumptions, base.openQuestions(), base.deferred(),
-                base.sourceClaims());
+        return new IntentRecord(base.why(), base.goal(), criteria, currentBehaviour, base.repairs(),
+                base.nonGoals(), base.constraints(), base.choices(), assumptions, base.openQuestions(),
+                base.deferred(), base.sourceClaims());
     }
 
     private static IntentRecord withoutNonGoals() {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), List.of(),
-                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
-                base.sourceClaims());
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.repairs(),
+                List.of(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
     }
 
     private static List<String> options() {

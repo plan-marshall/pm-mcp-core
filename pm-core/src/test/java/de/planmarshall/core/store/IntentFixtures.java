@@ -51,10 +51,11 @@ final class IntentFixtures {
                 List.of(criterion("AC-1", CriterionKind.NEW, VerifiedBy.TEST),
                         criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST)),
                 null,
+                null,
                 List.of(new NonGoal("NG-1", Generators.letterStrings(5, 40).next())),
                 List.of(new Constraint("CN-1", Generators.letterStrings(10, 60).next(), ConstraintSource.OPERATOR,
                         null)),
-                List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(), options(), Decider.MODEL, null,
+                List.of(new Decision("DC-1", Generators.letterStrings(10, 60).next(), options(), Decider.ROLE, null,
                         null, null)),
                 List.of(new Assumption("AN-1", Generators.letterStrings(5, 40).next(), AssumptionStatus.VERIFIED,
                         false, null)),
@@ -68,25 +69,53 @@ final class IntentFixtures {
         return List.of(Generators.letterStrings(2, 20).next(), Generators.letterStrings(2, 20).next());
     }
 
+    /** The plan this fixture's record repairs; the record carries a {@code fix} criterion for it. */
+    static final String REPAIRED_PLAN = "v2-99-close-the-drift";
+
+    private static final String REPAIR_BEHAVIOUR =
+            "WHEN a record is written THEN THE store keeps the previous record intact";
+
+    /**
+     * @return a record with a {@code fix} criterion and the plan it repairs
+     */
+    static IntentRecord repairing() {
+        var base = valid();
+        var criteria = List.of(criterion("AC-1", CriterionKind.FIX, VerifiedBy.TEST),
+                criterion("AC-2", CriterionKind.UNCHANGED, VerifiedBy.TEST));
+        return new IntentRecord(base.why(), base.goal(), criteria, REPAIR_BEHAVIOUR, REPAIRED_PLAN,
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
+    }
+
+    /**
+     * @return a record with no {@code fix} criterion and a {@code repairs} plan, which the record refuses
+     */
+    static IntentRecord repairsWithoutFix() {
+        var base = valid();
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), null, REPAIRED_PLAN,
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
+    }
+
     static IntentRecord withCriteria(List<Criterion> criteria) {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), criteria, base.currentBehaviour(), base.nonGoals(),
-                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
-                base.sourceClaims());
+        return new IntentRecord(base.why(), base.goal(), criteria, base.currentBehaviour(), base.repairs(),
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
     }
 
     static IntentRecord withDecisions(List<Decision> decisions) {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.nonGoals(),
-                base.constraints(), decisions, base.assumptions(), base.openQuestions(), base.deferred(),
-                base.sourceClaims());
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.repairs(),
+                base.nonGoals(), base.constraints(), decisions, base.assumptions(), base.openQuestions(),
+                base.deferred(), base.sourceClaims());
     }
 
     static IntentRecord withClaims(List<SourceClaim> claims) {
         var base = valid();
-        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.nonGoals(),
-                base.constraints(), base.decisions(), base.assumptions(), base.openQuestions(), base.deferred(),
-                claims);
+        return new IntentRecord(base.why(), base.goal(), base.criteria(), base.currentBehaviour(), base.repairs(),
+                base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
+                base.deferred(), claims);
     }
 
     static Criterion criterion(String id, CriterionKind kind, VerifiedBy verifiedBy) {
