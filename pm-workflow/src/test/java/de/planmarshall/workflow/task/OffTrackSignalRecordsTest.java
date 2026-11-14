@@ -53,7 +53,8 @@ class OffTrackSignalRecordsTest {
                 .action(action)
                 .measurement(1)
                 .threshold(2);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing signal");
 
         assertEquals("signal", exception.getMessage(), "the builder names the missing signal");
     }

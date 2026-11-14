@@ -72,7 +72,8 @@ class ConsultationRequestRecordsTest {
                 .formDowngraded(false)
                 .declaredRoles(List.of(role))
                 .at(at);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing question");
 
         assertEquals("question", exception.getMessage(), "the builder names the missing question");
     }

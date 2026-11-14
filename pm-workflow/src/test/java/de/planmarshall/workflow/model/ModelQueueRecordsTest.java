@@ -80,7 +80,8 @@ class ModelQueueRecordsTest {
                 .model(model)
                 .effort(effort)
                 .consultation(false);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing state");
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }
@@ -117,7 +118,8 @@ class ModelQueueRecordsTest {
                 .entityKey(entityKey)
                 .role(role)
                 .reason(reason);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing state");
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }

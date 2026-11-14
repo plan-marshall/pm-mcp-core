@@ -72,6 +72,7 @@ class DbusMessageRecordsTest {
                 .serial(1L)
                 .replySerial(0L)
                 .signature("s");
-        assertThrows(NullPointerException.class, builder::build);
+        assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing message body");
     }
 }

@@ -57,7 +57,8 @@ class ModelWaitRecordsTest {
                 .startedAt(startedAt)
                 .window(window)
                 .interval(interval);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing call");
 
         assertEquals("call", exception.getMessage(), "the builder names the missing call");
     }

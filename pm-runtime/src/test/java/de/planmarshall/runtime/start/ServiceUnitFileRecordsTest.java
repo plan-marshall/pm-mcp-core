@@ -51,7 +51,8 @@ class ServiceUnitFileRecordsTest {
         var builder = ServiceUnitFile.builder()
                 .home(Path.of("/home/builder"))
                 .daemon(Path.of("/opt/pm/bin/pm-mcpd"));
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing platform");
 
         assertEquals("platform", refusal.getMessage(), "the refusal names the platform");
     }

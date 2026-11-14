@@ -86,7 +86,8 @@ class InstanceAnnotationsRecordsTest {
     void instanceAnnotationsBuilderRefusesMissingPlanId() {
         var builder = InstanceAnnotations.builder()
                 .event(Generators.letterStrings(1, 20).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing plan id");
 
         assertEquals("planId", exception.getMessage(), "the builder names the missing plan id");
     }

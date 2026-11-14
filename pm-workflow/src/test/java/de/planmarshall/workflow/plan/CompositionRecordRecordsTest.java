@@ -59,7 +59,8 @@ class CompositionRecordRecordsTest {
                 .trigger(CompositionEvent.Trigger.SERVER)
                 .inputDigests(new TreeMap<>())
                 .recordedAt(Instant.EPOCH);
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing event");
 
         assertEquals("event", exception.getMessage(), "the builder names the missing event");
     }

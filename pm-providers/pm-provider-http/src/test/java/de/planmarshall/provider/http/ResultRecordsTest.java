@@ -54,7 +54,8 @@ class ResultRecordsTest {
     @DisplayName("the builder refuses a missing outcome like the constructor")
     void resultBuilderRefusesMissingOutcome() {
         var builder = Result.<String>builder().value("v").complete(true).detail("");
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing outcome");
 
         assertEquals("outcome", refusal.getMessage(), "the refusal names the missing outcome");
     }

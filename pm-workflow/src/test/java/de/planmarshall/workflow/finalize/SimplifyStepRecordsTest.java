@@ -49,7 +49,8 @@ class SimplifyStepRecordsTest {
     void reviewTaskBuilderRefusesMissingRole() {
         var builder = SimplifyStep.ReviewTask.builder()
                 .skill(Generators.letterStrings(1, 40).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing role");
 
         assertEquals("role", exception.getMessage(), "the builder names the missing role");
     }

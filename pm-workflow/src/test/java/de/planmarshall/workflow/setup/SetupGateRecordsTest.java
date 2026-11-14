@@ -53,7 +53,8 @@ class SetupGateRecordsTest {
                 .httpStatus(SetupGate.CONFLICT)
                 .missingStep(Generators.letterStrings(1, 20).next())
                 .clients(List.of());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing reason");
 
         assertEquals("reason", exception.getMessage(), "the builder names the missing reason");
     }

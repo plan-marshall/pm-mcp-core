@@ -79,7 +79,8 @@ class WorkerStartRecordsTest {
     @DisplayName("the worker start builder refuses a missing launch like the constructor")
     void workerStartBuilderRefusesMissingLaunch() {
         var builder = WorkerStart.builder();
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing launch");
 
         assertEquals("launch", refusal.getMessage(), "the refusal names the missing launch");
     }
@@ -132,7 +133,8 @@ class WorkerStartRecordsTest {
                 .workerBlock("{}")
                 .reason(reason)
                 .detail(Generators.letterStrings(1, 40).next());
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing generation");
 
         assertEquals("generationId", refusal.getMessage(), "the refusal names the generation id");
     }

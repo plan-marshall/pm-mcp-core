@@ -68,7 +68,8 @@ class CredentialStoreAspectRecordsTest {
                 .detail(Generators.letterStrings(1, 40).next())
                 .lines(List.of())
                 .moveEntries(OptionalInt.of(Generators.integers(0, 10_000).next()));
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing next state");
 
         assertEquals("next", refusal.getMessage(), "the refusal names the missing next state");
     }

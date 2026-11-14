@@ -59,7 +59,8 @@ class JobRequestRecordsTest {
                 .liveWorktrees(Set.of(Path.of("/tmp", Generators.letterStrings(1, 20).next())))
                 .modules(Set.of(Generators.letterStrings(1, 20).next()))
                 .target(target);
-        var refusal = assertThrows(NullPointerException.class, builder::build);
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing project id");
 
         assertEquals("projectId", refusal.getMessage(), "the refusal names the project id");
     }

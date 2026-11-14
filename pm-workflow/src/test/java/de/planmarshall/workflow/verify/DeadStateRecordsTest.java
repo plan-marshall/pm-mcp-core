@@ -56,7 +56,8 @@ class DeadStateRecordsTest {
                 .location(location)
                 .assignment(assignment)
                 .run(Generators.integers(1, 100).next());
-        var exception = assertThrows(NullPointerException.class, builder::build);
+        var exception = assertThrows(NullPointerException.class, builder::build,
+                "the builder names the missing state");
 
         assertEquals("stateId", exception.getMessage(), "the builder names the missing state id");
     }
