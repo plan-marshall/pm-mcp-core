@@ -52,6 +52,9 @@ class HandWrittenDoubleScanTest {
     private static final Pattern CLASS = Pattern.compile("\\bclass\\s+(\\w+)");
     private static final Pattern GENERICS = Pattern.compile("<[^<>]*>");
 
+    private static final Set<String> MODIFIERS = Set.of("public", "protected", "private", "static", "final",
+            "abstract", "sealed", "strictfp", "non");
+
     /** The lexical state of {@link #stripNoise(String)}. */
     private enum State {
         CODE, LINE_COMMENT, BLOCK_COMMENT, TEXT_BLOCK, STRING, CHARACTER
@@ -93,6 +96,9 @@ class HandWrittenDoubleScanTest {
                 """).isEmpty(), "an escaped text-block delimiter hides its content");
         assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
                 "an abstract class's modifier order does not hide it");
+        assertTrue(productionNames("class Ports { public abstract @SuppressWarnings({\"unused\"})"
+                + " static class Port { } }").contains("Port"),
+                "an annotated abstract class is a production type");
         assertTrue(scan("planted.java", """
                         class Holder {
                             de.planmarshall.core.service.AuditSink unused, sink = event -> {
@@ -302,7 +308,7 @@ class HandWrittenDoubleScanTest {
 
     /**
      * @param code the source text
-     * @return the names of its interfaces and abstract classes, whatever their modifier order
+     * @return the names of its interfaces and abstract classes, whatever their modifier and annotation order
      */
     static Set<String> productionNames(String code) {
         var names = new TreeSet<String>();
@@ -312,13 +318,70 @@ class HandWrittenDoubleScanTest {
         }
         var classes = CLASS.matcher(code);
         while (classes.find()) {
-            var start = Math.max(Math.max(code.lastIndexOf(';', classes.start()),
-                    code.lastIndexOf('{', classes.start())), code.lastIndexOf('}', classes.start()));
-            if (code.substring(start + 1, classes.start()).contains("abstract")) {
+            if (abstractBefore(code, classes.start())) {
                 names.add(classes.group(1));
             }
         }
         return names;
+    }
+
+    /** @return whether the declaration header before {@code class} carries {@code abstract} in any modifier order */
+    private static boolean abstractBefore(String code, int classStart) {
+        var index = classStart - 1;
+        while (index >= 0) {
+            while (index >= 0 && Character.isWhitespace(code.charAt(index))) {
+                index--;
+            }
+            if (index < 0) {
+                return false;
+            }
+            if (code.charAt(index) == ')') {
+                var depth = 0;
+                var cursor = index;
+                for (; cursor >= 0; cursor--) {
+                    if (code.charAt(cursor) == ')') {
+                        depth++;
+                    } else if (code.charAt(cursor) == '(') {
+                        depth--;
+                        if (depth == 0) {
+                            break;
+                        }
+                    }
+                }
+                if (cursor < 0) {
+                    return false;
+                }
+                var nameStart = cursor - 1;
+                while (nameStart >= 0 && (Character.isJavaIdentifierPart(code.charAt(nameStart))
+                        || code.charAt(nameStart) == '.')) {
+                    nameStart--;
+                }
+                if (nameStart < 0 || code.charAt(nameStart) != '@') {
+                    return false;
+                }
+                index = nameStart - 1;
+                continue;
+            }
+            if (!Character.isJavaIdentifierPart(code.charAt(index))) {
+                return false;
+            }
+            var end = index + 1;
+            while (index >= 0 && Character.isJavaIdentifierPart(code.charAt(index))) {
+                index--;
+            }
+            var word = code.substring(index + 1, end);
+            if ("abstract".equals(word)) {
+                return true;
+            }
+            if (index >= 0 && code.charAt(index) == '@') {
+                index--;
+                continue;
+            }
+            if (!MODIFIERS.contains(word)) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private static String simpleName(String type) {
