@@ -14,6 +14,8 @@ import java.util.Objects;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.queue.SecretRedactor;
+
 /**
  * One structured diagnostic of a build log: where the tool pointed and what it said.
  * <p>
@@ -31,11 +33,13 @@ import org.jspecify.annotations.Nullable;
  * @param file       the source file the diagnostic points into, or {@code null} when the tool named none
  * @param line       the line in {@code file}, or {@code null} when the tool named none
  * @param column     the column in {@code line}, or {@code null} when the tool named none
- * @param message    the diagnostic text with the tool's level prefix removed, never blank
+ * @param message    the diagnostic text with the tool's level prefix removed, never blank; its credential shapes are
+ *                   redacted at {@link DiagnosticCollector#stored(String)}
  * @param category   the category the compiled table assigned, never {@code null}
  * @param severity   how serious the parser rates the diagnostic — the level the tool printed where it prints one (Maven),
  *                   the category otherwise (Gradle)
- * @param stackTrace the frames collected for this diagnostic joined by {@code \n}, or {@code null} when there were none
+ * @param stackTrace the frames collected for this diagnostic joined by {@code \n}, or {@code null} when there were none;
+ *                   its credential shapes are redacted here, so no producer can store an unmasked frame
  * @since 0.1
  */
 @Builder
@@ -59,6 +63,9 @@ Severity severity,
         Objects.requireNonNull(message, "message");
         Objects.requireNonNull(category, "category");
         Objects.requireNonNull(severity, "severity");
+        if (stackTrace != null) {
+            stackTrace = SecretRedactor.redactText(stackTrace).orElseThrow();
+        }
         if (message.isBlank()) {
             throw new IllegalArgumentException("a diagnostic message must not be blank");
         }

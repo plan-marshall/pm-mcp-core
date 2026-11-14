@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.build.BuildLogText;
 import de.planmarshall.core.config.Consent;
 import de.planmarshall.core.config.ConsentGate;
 import de.planmarshall.core.config.ConsentStore;
@@ -230,6 +231,26 @@ class ProviderVerificationTest {
                         "nor an argument of the other line"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                         WARN.PROVIDER_VERIFICATION_FAILED.resolveIdentifierString()));
+    }
+
+    @Test
+    @DisplayName("an unbounded provider answer is cut at the line bound before it is redacted")
+    void answerIsBounded() {
+        originReachable = false;
+        originDetail = "Authorization: Bearer abcdefgh12345678 " + "x".repeat(BuildLogText.MAX_LINE_LENGTH);
+
+        var result = verify(defaults(ProviderVariant.NATIVE, "github"), ConsentGate.Answer.YES);
+
+        var origin = result.lines().getFirst();
+        assertAll(
+                () -> assertTrue(origin.answer().length() <= BuildLogText.MAX_LINE_LENGTH,
+                        "the answer is cut at the line bound"),
+                () -> assertTrue(origin.answer().length() < originDetail.length(),
+                        "the unbounded answer is shortened"),
+                () -> assertFalse(origin.answer().contains("abcdefgh12345678"),
+                        "the bearer value must not reach the line"),
+                () -> assertTrue(origin.answer().contains("[redacted]"),
+                        "the answer keeps its label with the value redacted"));
     }
 
     @Test

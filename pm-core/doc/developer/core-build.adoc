@@ -226,7 +226,8 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   adapter admits that marker only for a job whose verb is `install` or `clean-install`
   (link:../../../pm-runtime/doc/adr/runtime-job/018-the-install-marker-needs-an-install-verb.adoc[ADR `runtime-job/018`]).
   Every message of the parser — the generic block's, the `ERESOLVE` and the `E404` one — is redacted through
-  `SecretRedactor` before it is cut to the stored length, so a truncated message cannot keep half a secret. The
+  `SecretRedactor` before it is cut to the stored length, so a truncated message cannot keep half a secret; this parser
+  shares that seam (`DiagnosticCollector.stored`) with every other parser of the package. The
   `ERESOLVE` and `E404` messages are not built from dependency names alone: the quoted specifier and the peer and `from`
   tokens are log text and can carry a registry URL with user information.
 * *TypeScript* — the two `tsc` diagnostic forms, each a `COMPILATION_ERROR` carrying file, line, column and
@@ -265,6 +266,12 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   captured-output sections), and — for a collection error whose summary line carries no message tail — the exception line
   of the block's `E` gutter. A trailing `@<group>` of a pytest-xdist node id is stripped before the block is looked up, and
   a node id that carries a space or the ` - ` delimiter is split outside its parameter brackets.
+
+*Every stored diagnostic is redacted.* `DiagnosticCollector.stored` redacts a message through `SecretRedactor` before it
+cuts it to the stored length, so the TAP, Jest, ESLint, TypeScript, Maven and Gradle messages — and the npm ones — reach
+neither the model nor a store unmasked, and a truncated message cannot keep half a secret. `Diagnostic` redacts its
+collected `stackTrace` in its constructor, so the TAP and Jest frames and the frames `StackTraceCollector` attaches to a
+Maven or Gradle issue are covered by the same rule.
 
 === Counts of the Six
 

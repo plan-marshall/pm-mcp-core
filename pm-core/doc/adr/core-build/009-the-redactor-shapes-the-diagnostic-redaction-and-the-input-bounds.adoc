@@ -64,10 +64,14 @@ numbered `Decision` sections below.
    uses — before it redacts them, and applies each part's bound after the redaction as before. The label patterns are
    unchanged, and the stored journal text carries no escape sequence. `redactText(String)` leaves escape sequences to
    its caller.
-* *R5: Every npm message is redacted before its cut.* `NpmErrorParser` routes the `E404` and `ERESOLVE` messages through
-   the same `storedRedacted` as the generic block's (redact, then the stored-length cut). This supersedes the sentence of
-   ADR 006 that those messages are built from dependency names and stay unchanged. The other parsers' messages at
-   `DiagnosticCollector.stored` remain the carried decision of ADR 006.
+* *R5: Every stored diagnostic message is redacted before its cut.* `DiagnosticCollector.stored` redacts the message
+   through `SecretRedactor` and then cuts it to the stored length, so every parser of the package — TAP, Jest, ESLint,
+   TypeScript, Maven, Gradle, pyproject and npm — is covered by one seam, and a cut value cannot keep a prefix the
+   redactor would have matched whole. `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent beside the
+   seam. `Diagnostic` redacts its collected `stackTrace` in its constructor, so the TAP and Jest stack blocks and the
+   frames `StackTraceCollector` attaches are masked too. This supersedes the sentence of ADR 006 that those messages are
+   built from dependency names and stay unchanged, and its carried decision that the other parsers' messages stay
+   unredacted.
 
 === What stays readable, by decision
 
@@ -138,7 +142,8 @@ without an `END` and a 3 700-marker input must redact within a stated bound that
 a fixed input of `MAX_LINE_LENGTH` characters (`a.a.a…`, the same run followed by `://`, and the run `x://y:x://y:…`
 without any `@`, the shape that is scanned back from every scheme start) is redacted through `redactText` and its
 unchanged result asserted.
-The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and this plan does not bound that
+The residue: `ProviderVerification` redacts a probe answer the assembly supplies, and the answer is cut at
+`BuildLogText.MAX_LINE_LENGTH` characters — never splitting a surrogate pair — before the redaction, which bounds that
 input.
 
 === The package dependency `core.queue → core.build`
@@ -277,8 +282,9 @@ line cut was corrected to name the input size as its bound.
 * Remaining, outside this plan: `JobLog.MAX_BYTES` of `pm-runtime` still narrows its limit with
   `Math.toIntExact(LimitProperties.read(..))`, and so do the three limit reads of `pm-workflow`
   (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`, `UnitFrontmatterReader.MAX_FRONTMATTER_LINES` and `MAX_ECHO_LENGTH`); they
-  are an open follow-up for `readInt`. `ProviderVerification`'s input stays unbounded. The other parsers'
-  messages at `DiagnosticCollector.stored` stay unredacted (ADR 006).
+  are an open follow-up for `readInt`. Every parser's stored message is redacted at `DiagnosticCollector.stored`, and a
+  diagnostic's collected stack trace at the `Diagnostic` constructor; `ProviderVerification`'s answer is cut at the line
+  bound before its redaction.
 * The plan carried nine deliverables against a soft cap of about six; the rationale is recorded in its outline, and no
   cut was made.
 
