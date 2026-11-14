@@ -49,6 +49,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Messages say what is checked, not that it failed:** 'the refusal names the store file', not 'assertion failed'.
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
 - **Read the landing analyses of PLAN-V2-85 and PLAN-V2-86 at the outline** (`landings/PLAN-V2-85.md`, Wa68; `landings/PLAN-V2-86.md`, Wa72): PLAN-V2-86 already gave every assertion of its 58 second-half classes a message of 20 to 60 characters (a scanner found 0 missing or out of range in 1406), so this plan's scope shrinks to the first half (PLAN-V2-85's classes: `AuditLogTest:269`, `BuildTimingsStoreTest:138`, `LessonStoreTest:181`, `LockOrderTest:95-98` and the others in Wa68) and to any new class since; count again at the head of `main` before editing and drop what is already met.
+- **No more than 100 files per pull request** (the watch of the epic ledger; recurred for PLAN-V2-87, 97, 98, 99). CodeRabbit refuses a larger pull request ("Too many files"): cut the plan into pull requests by deliverable or by module before the first one is opened, as PLAN-V2-84, 87 and 125 were; each pull request is complete (a green build) on its own.
 
 ## Claim Labels
 
