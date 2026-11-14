@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -49,7 +48,8 @@ class HandWrittenDoubleScanTest {
     private static final Pattern TYPE_DECLARATION = Pattern.compile("\\b(?:class|enum|record)\\s+(\\w+)");
     private static final Pattern NEW = Pattern.compile("\\bnew\\s+");
     private static final Pattern LAMBDA = Pattern.compile("->|::");
-    private static final Pattern PRODUCTION_TYPE = Pattern.compile("\\b(?:interface|abstract\\s+class)\\s+(\\w+)");
+    private static final Pattern INTERFACE = Pattern.compile("\\binterface\\s+(\\w+)");
+    private static final Pattern CLASS = Pattern.compile("\\bclass\\s+(\\w+)");
     private static final Pattern GENERICS = Pattern.compile("<[^<>]*>");
 
     /** The lexical state of {@link #stripNoise(String)}. */
@@ -83,6 +83,14 @@ class HandWrittenDoubleScanTest {
                         }
                         """).contains("planted.java#lambda:AuditSink#1"),
                 "a planted lambda of a production type is found");
+        assertTrue(scan("planted.java", "class Holder {\n    String s = \"\"\"\n        \\\"\"\"\n"
+                + "        class Phantom implements AuditSink {}\n        \"\"\";\n}\n").isEmpty(),
+                "an escaped text-block delimiter hides its content");
+        assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
+                "an abstract class's modifier order does not hide it");
+        assertTrue(scan("planted.java", "class Holder {\n    de.planmarshall.core.service.AuditSink unused,"
+                + " sink = event -> {\n    };\n}\n").contains("planted.java#lambda:AuditSink#1"),
+                "a multi-declarator field's lambda is found");
 
         Set<String> found = new TreeSet<>(scanModule());
         Set<String> baseline = baseline();
@@ -242,6 +250,19 @@ class HandWrittenDoubleScanTest {
             while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
                 index--;
             }
+            while (index >= 0 && prefix.charAt(index) == ',') {
+                index--;
+                while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
+                    index--;
+                }
+                while (index >= 0 && (Character.isJavaIdentifierPart(prefix.charAt(index))
+                        || prefix.charAt(index) == '.')) {
+                    index--;
+                }
+                while (index >= 0 && Character.isWhitespace(prefix.charAt(index))) {
+                    index--;
+                }
+            }
             var typeEnd = index + 1;
             while (index >= 0 && (Character.isJavaIdentifierPart(prefix.charAt(index))
                     || prefix.charAt(index) == '.')) {
@@ -262,7 +283,7 @@ class HandWrittenDoubleScanTest {
             }
             try (Stream<Path> files = Files.walk(root)) {
                 files.filter(path -> path.toString().endsWith(".java")).sorted()
-                        .forEach(path -> collect(production, PRODUCTION_TYPE.matcher(stripNoise(read(path)))));
+                        .forEach(path -> production.addAll(productionNames(stripNoise(read(path)))));
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -270,10 +291,25 @@ class HandWrittenDoubleScanTest {
         return production;
     }
 
-    private static void collect(Set<String> production, Matcher matcher) {
-        while (matcher.find()) {
-            production.add(matcher.group(1));
+    /**
+     * @param code the source text
+     * @return the names of its interfaces and abstract classes, whatever their modifier order
+     */
+    static Set<String> productionNames(String code) {
+        var names = new TreeSet<String>();
+        var interfaces = INTERFACE.matcher(code);
+        while (interfaces.find()) {
+            names.add(interfaces.group(1));
         }
+        var classes = CLASS.matcher(code);
+        while (classes.find()) {
+            var start = Math.max(Math.max(code.lastIndexOf(';', classes.start()),
+                    code.lastIndexOf('{', classes.start())), code.lastIndexOf('}', classes.start()));
+            if (code.substring(start + 1, classes.start()).contains("abstract")) {
+                names.add(classes.group(1));
+            }
+        }
+        return names;
     }
 
     private static String simpleName(String type) {
@@ -334,7 +370,9 @@ class HandWrittenDoubleScanTest {
                     }
                 }
                 case TEXT_BLOCK -> {
-                    if (current == '"' && next == '"' && index + 2 < source.length()
+                    if (current == '\\') {
+                        index++;
+                    } else if (current == '"' && next == '"' && index + 2 < source.length()
                             && source.charAt(index + 2) == '"') {
                         state = State.CODE;
                         index += 2;
