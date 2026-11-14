@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -87,7 +89,7 @@ class PlanSchemaFilesTest {
 
     @Test
     @DisplayName("the table is the package's whole schema set")
-    void tableIsTheWholePackage() throws IOException {
+    void tableIsTheWholePackage() throws Exception {
         var derived = resourcesUnder(PACKAGE);
 
         assertEquals(derived, new TreeSet<>(SCHEMAS), "the table should be the package's whole set");

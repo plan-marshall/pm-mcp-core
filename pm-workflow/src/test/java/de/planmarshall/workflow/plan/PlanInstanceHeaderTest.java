@@ -539,7 +539,7 @@ class PlanInstanceHeaderTest {
         @DisplayName("the fallback causes are the fallback_cause enum of the file, in its order")
         void fallbackCausesClosed() {
             assertEquals(fileFallbackCauses(), Arrays.stream(CompositionCause.FallbackCause.values())
-                    .map(CompositionCause.FallbackCause::wireName).toList(),
+                            .map(CompositionCause.FallbackCause::wireName).toList(),
                     "the fallback causes should equal the file's");
         }
 

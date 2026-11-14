@@ -121,7 +121,7 @@ class UnreadSchemaFilesTest {
 
     @Test
     @DisplayName("the table covers every codec-less file of the two small packages")
-    void tableCoversTheSmallPackages() throws IOException {
+    void tableCoversTheSmallPackages() throws Exception {
         var derived = new TreeSet<>(resourcesUnder(FINDINGS));
         derived.addAll(resourcesUnder(QUALIFICATION));
         derived.removeAll(CODEC_BACKED);
@@ -135,7 +135,7 @@ class UnreadSchemaFilesTest {
 
     @Test
     @DisplayName("the declared ids are unique across every schema file")
-    void idsAreUnique() throws IOException {
+    void idsAreUnique() throws Exception {
         var seen = new LinkedHashSet<>();
         var duplicates = new LinkedHashSet<>();
         for (var resource : allSchemaFiles()) {
