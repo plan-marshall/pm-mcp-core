@@ -250,15 +250,21 @@ allowlist sends a refused name to the name server itself, so `<data>.attacker.ex
 On macOS the lookup goes to `mDNSResponder` over Mach IPC, which the network rules of the sandbox profile do not
 govern. On Linux the network namespace has no name server, but the systemd-resolved, `nscd`, and system bus sockets
 are pathname sockets that Landlock governs only from ABI 9, and the C library finds them by itself. A fourth hazard
-the other way round: an admitted name whose record points to `127.0.0.1` leads a tunnel to the runtime's listeners.
+the other way round: an admitted name whose record points to `127.0.0.1` leads a tunnel to the runtime's listeners,
+and an IPv6 record that carries a private IPv4 address (NAT64, 6to4) passes an IPv6 check and reaches the local
+network through a translating gateway.
 Guard:: A proxy test sends `CONNECT` for a refused name to a proxy whose resolver is a recording fixture and asserts
-that the fixture saw no query, and for an admitted name that resolves to `127.0.0.1`, `169.254.169.254`, and
-`10.0.0.1` asserts `address_not_public` with no connection opened. A worker fixture on macOS calls `getaddrinfo` for
-an arbitrary name and fails; on Linux from Landlock ABI 9 the same lookup fails, below ABI 9 it succeeds through the
+that the fixture saw no query, and for an admitted name that resolves to `127.0.0.1`, `169.254.169.254`, `10.0.0.1`,
+a multicast address, or an IPv6 form that carries one of them (`::ffff:127.0.0.1`, `64:ff9b::a00:1`,
+`2002:a00:1::`, a Teredo address whose client is `10.0.0.1`) asserts `address_not_public` with no connection
+opened; Java turns only the IPv4-mapped form into an `Inet4Address` by itself. A worker fixture on macOS calls
+`getaddrinfo` for an arbitrary name and fails; on Linux from Landlock ABI 9 the same lookup fails, below ABI 9 it succeeds through the
 resolver socket and the test asserts exactly that, so a kernel upgrade turns the assertion over by itself. Positive
 control: the worker's harness reaches its endpoint through the proxy in both platforms.
 Source:: doc/articles/openshell-rogue-agents-openshell.adoc (plan-marshall-documentation); OpenShell routes every
 query to a resolver of its supervisor and checks a DNS round trip before an agent starts.
+doc/articles/browser-built-for-agents-obscura.adoc (plan-marshall-documentation): Obscura checks an IPv4 address
+carried in IPv6 as the address it carries.
 
 [#PM-WATCH-JOB-41]
 === PM-WATCH-JOB-41: Below Landlock ABI 3 a job truncates what it cannot write
