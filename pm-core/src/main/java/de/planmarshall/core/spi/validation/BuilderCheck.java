@@ -248,13 +248,29 @@ public final class BuilderCheck {
                 .orElse(0) + 1;
         var decisions = new ArrayList<>(intentRecord.choices());
         for (var question : minor) {
-            decisions.add(new Decision("DC-" + next++, "from the builder check: " + question.decision(),
-                    List.of(), Decider.ROLE, null, null, null));
+            decisions.add(Decision.builder()
+                    .id("DC-" + next++)
+                    .text("from the builder check: " + question.decision())
+                    .optionsWeighed(List.of())
+                    .decider(Decider.ROLE)
+                    .questionId(null)
+                    .evidence(null)
+                    .adr(null)
+                    .build());
         }
-        return new IntentRecord(intentRecord.why(), intentRecord.goal(), intentRecord.criteria(),
-                intentRecord.currentBehaviour(), intentRecord.repairs(), intentRecord.nonGoals(),
-                intentRecord.constraints(), decisions,
-                intentRecord.assumptions(), intentRecord.openQuestions(), intentRecord.deferred(),
-                intentRecord.sourceClaims());
+        return IntentRecord.builder()
+                .why(intentRecord.why())
+                .goal(intentRecord.goal())
+                .criteria(intentRecord.criteria())
+                .currentBehaviour(intentRecord.currentBehaviour())
+                .repairs(intentRecord.repairs())
+                .nonGoals(intentRecord.nonGoals())
+                .constraints(intentRecord.constraints())
+                .choices(decisions)
+                .assumptions(intentRecord.assumptions())
+                .openQuestions(intentRecord.openQuestions())
+                .deferred(intentRecord.deferred())
+                .sourceClaims(intentRecord.sourceClaims())
+                .build();
     }
 }

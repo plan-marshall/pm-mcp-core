@@ -331,12 +331,26 @@ public final class TaskProtocol {
     }
 
     private static QueueTaskRecord lease(QueueTaskRecord task, WaitRequest request, Instant at) {
-        var attempt = new Attempt(task.attempts().size() + 1, request.generationId(), request.generationId(),
-                request.generationDigest(), at, null, null, null, false);
+        var attempt = Attempt.builder()
+                .attempt(task.attempts().size() + 1)
+                .generationId(request.generationId())
+                .jobId(request.generationId())
+                .configurationDigest(request.generationDigest())
+                .offeredAt(at)
+                .acknowledgedAt(null)
+                .endedAt(null)
+                .end(null)
+                .counts(false)
+                .build();
         var attempts = new ArrayList<>(task.attempts());
         attempts.add(attempt);
         return task.withStatus(Status.OFFERED)
-                .withLease(new Lease(request.generationId(), request.generationId(), at, null))
+                .withLease(Lease.builder()
+                        .generationId(request.generationId())
+                        .jobId(request.generationId())
+                        .leasedAt(at)
+                        .acknowledgedAt(null)
+                        .build())
                 .withAttempts(attempts);
     }
 
@@ -572,8 +586,12 @@ public final class TaskProtocol {
                 return new CallResult.Accepted(task.withStatus(Status.EXECUTING));
             }
             if (task.status() == Status.OFFERED) {
-                var lease = new Lease(task.lease().generationId(), task.lease().jobId(),
-                        task.lease().leasedAt(), at);
+                var lease = Lease.builder()
+                        .generationId(task.lease().generationId())
+                        .jobId(task.lease().jobId())
+                        .leasedAt(task.lease().leasedAt())
+                        .acknowledgedAt(at)
+                        .build();
                 return new CallResult.Accepted(task.withStatus(Status.EXECUTING).withLease(lease)
                         .withAttempts(acknowledged(task.attempts(), at)));
             }
@@ -648,9 +666,17 @@ public final class TaskProtocol {
 
     private static QueueTaskRecord applyFallback(QueueTaskRecord task, FallbackReason reason, Instant at) {
         var continuation = task.continuation();
-        var dropped = new Continuation(continuation.questionId(), continuation.form(), continuation.holdUntil(),
-                null, continuation.suspendedAt(), continuation.resumeUntil(), continuation.suspendedDigest(),
-                continuation.suspendedHead(), reason);
+        var dropped = Continuation.builder()
+                .questionId(continuation.questionId())
+                .form(continuation.form())
+                .holdUntil(continuation.holdUntil())
+                .sessionId(null)
+                .suspendedAt(continuation.suspendedAt())
+                .resumeUntil(continuation.resumeUntil())
+                .suspendedDigest(continuation.suspendedDigest())
+                .suspendedHead(continuation.suspendedHead())
+                .fallbackReason(reason)
+                .build();
         var asked = task.withContinuation(dropped).withQuestionId(continuation.questionId());
         var attemptsEnded = asked.attempts().isEmpty() || asked.currentAttempt().orElseThrow().end() != null
                 ? asked : asked.withAttempts(ended(asked.attempts(), AttemptEnd.CLOSED, at));
@@ -748,8 +774,14 @@ public final class TaskProtocol {
                 return new CallResult.Accepted(task);
             }
             var signals = new ArrayList<>(task.signals());
-            signals.add(new Signal(signal.signal(), attempt.attempt(), signal.action(), signal.measurement(),
-                    signal.threshold(), at));
+            signals.add(Signal.builder()
+                    .signal(signal.signal())
+                    .attempt(attempt.attempt())
+                    .action(signal.action())
+                    .measurement(signal.measurement())
+                    .threshold(signal.threshold())
+                    .at(at)
+                    .build());
             var recordedTask = task.withSignals(signals);
             if (signal.action() != SignalAction.RESTART && signal.action() != SignalAction.YIELD) {
                 return new CallResult.Accepted(recordedTask);
@@ -901,8 +933,17 @@ public final class TaskProtocol {
         }
         var updated = new ArrayList<>(attempts);
         var last = updated.getLast();
-        updated.set(updated.size() - 1, new Attempt(last.attempt(), last.generationId(), last.jobId(),
-                last.configurationDigest(), last.offeredAt(), at, last.endedAt(), last.end(), last.counts()));
+        updated.set(updated.size() - 1, Attempt.builder()
+                .attempt(last.attempt())
+                .generationId(last.generationId())
+                .jobId(last.jobId())
+                .configurationDigest(last.configurationDigest())
+                .offeredAt(last.offeredAt())
+                .acknowledgedAt(at)
+                .endedAt(last.endedAt())
+                .end(last.end())
+                .counts(last.counts())
+                .build());
         return updated;
     }
 
@@ -912,8 +953,17 @@ public final class TaskProtocol {
         }
         var updated = new ArrayList<>(attempts);
         var last = updated.getLast();
-        updated.set(updated.size() - 1, new Attempt(last.attempt(), last.generationId(), last.jobId(),
-                last.configurationDigest(), last.offeredAt(), last.acknowledgedAt(), at, end, end.counts()));
+        updated.set(updated.size() - 1, Attempt.builder()
+                .attempt(last.attempt())
+                .generationId(last.generationId())
+                .jobId(last.jobId())
+                .configurationDigest(last.configurationDigest())
+                .offeredAt(last.offeredAt())
+                .acknowledgedAt(last.acknowledgedAt())
+                .endedAt(at)
+                .end(end)
+                .counts(end.counts())
+                .build());
         return updated;
     }
 

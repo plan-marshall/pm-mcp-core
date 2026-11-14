@@ -57,7 +57,12 @@ public final class WaitSelection {
         }
         var window = call == ModelCall.PM_BUILD ? settings.progressWaitMax() : connection.boundedWait();
         var interval = effectiveInterval(window, settings.progressInterval());
-        return new ModelWait.Progress(call, clock.now(), window, interval);
+        return ModelWait.Progress.builder()
+                .call(call)
+                .startedAt(clock.now())
+                .window(window)
+                .interval(interval)
+                .build();
     }
 
     /**

@@ -411,9 +411,14 @@ public final class AuditRotation {
     /** Enters the closed log in the index and renames it. */
     private void close(LockTransaction transaction, AuditLog log, String firstEventId, String checkpointEventId,
             long recordCount, String checkpointHash) {
-        index.append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
-                AuditIndexEntry.rotatedFileName(firstEventId), firstEventId, checkpointEventId, recordCount,
-                checkpointHash), DEFERRED);
+        index.append(transaction, AuditIndexEntry.builder()
+                .prevHash(AuditCodec.GENESIS_HASH)
+                .file(AuditIndexEntry.rotatedFileName(firstEventId))
+                .firstEventId(firstEventId)
+                .lastEventId(checkpointEventId)
+                .recordCount(recordCount)
+                .checkpointHash(checkpointHash)
+                .build(), DEFERRED);
         rename(transaction, log, firstEventId, recordCount);
     }
 

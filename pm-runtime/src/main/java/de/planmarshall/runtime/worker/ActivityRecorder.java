@@ -89,9 +89,16 @@ public final class ActivityRecorder {
                     facts.predictedCostTokens(), facts.unplannedChanges()));
         });
         for (var signal : detected) {
-            protocol.offTrack(new WorkerProtocol.OffTrackReport(generationId, queueTaskId, facts.attempt(),
-                    signal.signal().wireName(), signal.action().wireName(), signal.measurement(),
-                    signal.threshold(), clock.instant()));
+            protocol.offTrack(WorkerProtocol.OffTrackReport.builder()
+                    .generationId(generationId)
+                    .queueTaskId(queueTaskId)
+                    .attempt(facts.attempt())
+                    .signal(signal.signal().wireName())
+                    .action(signal.action().wireName())
+                    .measurement(signal.measurement())
+                    .threshold(signal.threshold())
+                    .at(clock.instant())
+                    .build());
             reported.computeIfAbsent(key, ignored -> EnumSet.noneOf(RoleArtifact.OffTrackSignal.class))
                     .add(signal.signal());
         }

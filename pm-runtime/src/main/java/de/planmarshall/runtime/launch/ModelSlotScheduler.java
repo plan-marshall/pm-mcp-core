@@ -236,8 +236,15 @@ public final class ModelSlotScheduler {
                 return new Revision<>(reaped, new Deferred(WRITER_HOLDS_PLAN));
             }
             var enqueued = new ArrayList<>(reaped.waiting());
-            var entry = new Waiting(request.owner(), request.jobId(), request.role(), request.workerClass(),
-                    request.form(), request.planId(), now);
+            var entry = Waiting.builder()
+                    .owner(request.owner())
+                    .jobId(request.jobId())
+                    .role(request.role())
+                    .workerClass(request.workerClass())
+                    .form(request.form())
+                    .planId(request.planId())
+                    .enqueuedAt(now)
+                    .build();
             enqueued.add(entry);
             var admitted = admit(new Document(reaped.slots(), enqueued), now);
             return new Revision<>(admitted.document(), admitted.outcomeOf(request.jobId()));
@@ -314,8 +321,16 @@ public final class ModelSlotScheduler {
         var admitted = new ArrayList<Lease>();
         while (slots.size() < slotCount && !waiting.isEmpty()) {
             var head = waiting.removeFirst();
-            slots.add(new Lease(head.owner(), head.jobId(), head.role(), head.workerClass(), head.form(), head.planId(),
-                    now, null));
+            slots.add(Lease.builder()
+                    .owner(head.owner())
+                    .jobId(head.jobId())
+                    .role(head.role())
+                    .workerClass(head.workerClass())
+                    .form(head.form())
+                    .planId(head.planId())
+                    .acquiredAt(now)
+                    .leaseExpiresAt(null)
+                    .build());
             admitted.add(slots.getLast());
         }
         return new AdmissionResult(new Document(slots, waiting), admitted);
