@@ -36,13 +36,13 @@ Five deliverables, one commit each, in this order.
 
 1. **The proxy's name and address rules (the tests first).** In `WorkerEgressProxy` (`pm-runtime`): match the name **before any resolution** (case-folded, one trailing dot removed; an IP literal is never a name that matches a list of names); resolve through an **injected resolver seam** and refuse an address that is not public (loopback, link-local, private, CGNAT, unspecified, multicast, an IPv6 address that embeds a non-public IPv4) with the reason `address_not_public`; **connect to the address that was checked**, never to the name again; `AuditEvent.egressRefused` carries the closed reason. **Test order:** the recording-resolver fixture the specification asks for: a name that resolves first to a public and then to a private address connects to the checked one; each refusal class with a matched control; an IP literal; a trailing dot.
    - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
-   - Persona: implementer (the lens: security-expert; the tests: module-tester)
+   - Persona: implementer
 2. **The record and the report.** `partial(abi=2)` in `Confinement` and the schema pattern (the file `job-record.schema.json` and its parity test move together); a consistency check (`confined` implies ABI 3 or more; below it the level is `partial`); the members `seccomp`, `egress` and `git_metadata` in the job record and its codec (the specification, `store-schemas/10`; coordinate with PLAN-V2-59, which writes `egress: unenforced` and with 134, which carries `git_metadata`: the outline reads their landing state and **does not redo what they delivered**); `LaunchReport` accepts the real `pm-exec` members `pm_exec` and `no_new_privs` and the specification's `seccomp` and `git_metadata`: **ask-at-refine:** who aligns the shape, the runtime (accept and ignore the two members as optional) or `pm-mcp-clients` (add the specification's members and drop the others); recommendation: the runtime accepts them as optional and the clients are told, about 55%; `FakePmExec` carries the real shape. **Test order:** the parity test and the reader refuse the old shapes; the real report from a recorded `pm-exec` output parses.
    - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
-   - Persona: implementer (the lens: security-expert; the tests: module-tester)
+   - Persona: implementer
 3. **The self-check runner and its state.** The runtime's self-check of the confinement (a launcher mode that reports what it could establish) and its result seam: the parsing of the result, its effect on the job's recorded level, and the refusal when the check reports less than the profile needs; the check itself is `pm-exec`'s mode (`exec-hardening`, open): built here as a port over the fixture launcher, with the on-host run owed.
    - Skills: pm-dev-java:java-core, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
-   - Persona: implementer (the tests: module-tester)
+   - Persona: implementer
 4. **The CLI git identity (Task 12), or its removal from the package.** **Ask-at-refine:** build the CLI variant beside the JGit one (`pm-provider-git`: no JGit in `pm-core` or `pm-workflow`, the module rules of `CLAUDE.md`), or move the task to the plan that needs it (`PLAN-V2-20`, `git-commit-primitives`); recommendation: move it to PLAN-V2-20 and record that in the package row, about 65%.
    - Skills: pm-dev-java:java-core, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
    - Persona: implementer
@@ -59,6 +59,7 @@ Five deliverables, one commit each, in this order.
 - **Do not redo PLAN-V2-59 and 134:** read their landing state first; the proxy has no production caller and this plan does not wire one (59's spec forbids it).
 - Accepted residual risks (below Landlock ABI 3 truncation, below 6 signals, below 9 pathname sockets) are recorded, not claimed.
 - No dependency or plugin is added; no hand-written test double (EasyMock only); where the project analyses its pull requests with Sonar, read it over plain HTTP (`pullRequest=N`, never `branch=<feature>`): an open issue is fixed in a pushed commit or dismissed with a stated reason `{issue-key}: {reason}` through `plan-marshall:workflow-integration-sonar:sonar_rest transition --issue-key {key} --transition {falsepositive|wontfix}`.
+- **Review lens:** `plan-marshall:persona-security-expert` is the lens of the deliverables that parse or confine untrusted input (read it as the R20 paragraph says); the `Persona:` lines name the work identity only (the persona grammar takes a plain name).
 
 ## Claim Labels
 
