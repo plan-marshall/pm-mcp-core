@@ -68,7 +68,7 @@ artifact; a new generator for a type of this module goes into this module's arti
   scope, because the assembly already consumes `TestBases` and the fakes there; the generator package joins it.
   PLAN-V2-106 started the replacement of the hand-written fakes by EasyMock doubles; PLAN-V2-136 completed it and keeps
   `FakeBus`, `FakeSecretService` and `FakePmExec` as the closed list of ADR
-  link:026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026] (corrected 2026-11-14, PR #NNN).
+  link:026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026] (corrected 2026-11-14, PR #416).
 * In this plan `pm-workflow` and `pm-runtime` declare `pm-core:tests` and consume it, and `pm-provider-github` and
   `pm-provider-gitlab` declare `pm-provider-http:tests` and consume it for the endpoint of their mock server.
   `pm-provider-sonar` may consume the shared-HTTP artifact but builds no shared-HTTP type by hand in its own tests, so

@@ -26,7 +26,7 @@ refinement of PLAN-21 (question q3).
   and `Unreadable` with the reason when the record exists and cannot be read.
 * The pending entry store of `pm-runtime` implements the port; no class of `pm-core` does. The tests of `pm-workflow`
   answer the port with the EasyMock double `EngineFixtures.answerEntry`, which took the place of the hand-written
-  `FixedPendingEntryReader` (ADR `doc/adr/026`, PLAN-V2-136; corrected 2026-11-14, PR #NNN).
+  `FixedPendingEntryReader` (ADR `doc/adr/026`, PLAN-V2-136; corrected 2026-11-14, PR #416).
 
 == Alternatives Considered
 

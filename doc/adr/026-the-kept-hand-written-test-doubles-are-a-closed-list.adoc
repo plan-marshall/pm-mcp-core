@@ -117,7 +117,7 @@ below).
 
 === The 2026-11-14 amendment
 
-A read-only landing analysis of PLAN-V2-136 of 2026-11-14 found the residue this amendment records (PR #NNN).
+A read-only landing analysis of PLAN-V2-136 of 2026-11-14 found the residue this amendment records (PR #416).
 
 * *Converted, not kept:* the scripted primitive doubles the name scan missed — `EngineFixtures.Scripted`,
   `EngineFixtures.NoteStep` and `DefaultPlanPrimitives.Scripted` — are EasyMock doubles now. The class of each name is a
