@@ -119,6 +119,10 @@ Documents:
 
 No work package file of `doc/plans/` covers this plan; `phase-sub-workflows` stays open (its assembly halves, the landing variant inlined, the standalone verification of composed files: the operator confirms). Like PLAN-95 it has no package file and no index row; R05's reduction applies to the sections it touches only.
 
+## Re-ground before the emit (2026-11-14, issues pass; BINDING)
+
+The spec has no grounding stamp. **Its Deliverable 1, "the local unpushed commit `852e58d3`", is already shipped as #236** (`PlanInstanceComposer.java:145`) and `852e58d3` does not exist in this repository: drop that deliverable. Residue (2) is real at the head (the position rule over `(unit, state)` and the nested policy calls in the header: `PlanInstanceComposer.java:147-149`, `DiffSummary.byCallSite`); the `store-schemas/14` schema blocks the spec names are schema files since PLAN-V2-115 to 119. A read-only re-ground against the head (as PLAN-V2-39, 06, 68 and 123 had) is the first step before this plan is emitted; the orchestrator does it at the emit.
+
 ## Hand-Off Command
 
 ```text

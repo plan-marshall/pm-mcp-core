@@ -50,6 +50,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
 - **Read `landings/PLAN-V2-92.md` (Wa75) at the outline:** PLAN-V2-92 converted the provider module tests and kept every assertion message within 20 to 60 characters (none outside in its 35 files), so the provider part of this plan is largely met; the verify-first clause shrinks it to what is still open. Where an assertion used the result's detail as its message (`result.detail()` in `JGitOperationsTest`, `GitIdentityTest`), do not replace it by a static text that drops the diagnostic.
 - **Read `landings/PLAN-V2-93.md` (Wa79) at the outline:** PLAN-V2-93 converted the HTTP tests and left 22 assertion messages under 20 characters in `GitHubClientTest`, `InstallationTokensTest`, `GitLabClientTest`, `HuggingFaceSourceRepositoryTest` and `LfsBatchClientTest` (lines in finding 5) and one over 60 in `JudgmentEndpointTest:300`; take them with the rest of the provider and runtime classes, and keep the boundaries and `detail()` diagnostics of those classes.
+- **No more than 100 files per pull request** (the watch of the epic ledger; recurred for PLAN-V2-87, 97, 98, 99). CodeRabbit refuses a larger pull request ("Too many files"): cut the plan into pull requests by deliverable or by module before the first one is opened, as PLAN-V2-84, 87 and 125 were; each pull request is complete (a green build) on its own.
 
 ## Claim Labels
 

@@ -48,6 +48,7 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`, named
 - **Test code only;** no assertion is changed except by adding the message argument (and reordering arguments where JUnit needs it).
 - **Messages say what is checked, not that it failed:** 'the refusal names the store file', not 'assertion failed'.
 - **Mechanical, so conflict-prone:** the plan starts from the head of `main` after its dependencies and merges the base before its gate.
+- **No more than 100 files per pull request** (the watch of the epic ledger; recurred for PLAN-V2-87, 97, 98, 99). CodeRabbit refuses a larger pull request ("Too many files"): cut the plan into pull requests by deliverable or by module before the first one is opened, as PLAN-V2-84, 87 and 125 were; each pull request is complete (a green build) on its own.
 
 ## Claim Labels
 
