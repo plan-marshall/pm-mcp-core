@@ -142,6 +142,8 @@ The shared-file rule of the orchestrator: a plan that shares a file with this on
 - Depends on (shipped): the token-usage package (PLAN-61, closed by PLAN-107 #215), PLAN-V2-83, 97, 99, 106.
 - Proposed order at emit: after the cross-repo pull request and after PLAN-V2-100, 108, 127, 129, 114, 125 and 126; PLAN-V2-59, 63, 68, 39, 71, 06 and 47 in the queue order (this plan takes the later position unless the operator says otherwise); PLAN-V2-119 before this plan.
 
+**Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** **#417 inserted one line at `harness-profiles/01-profile-schema.adoc:306`** (the bullet `[[observed-file-changes]]`): every citation of this spec into that file at line 306 or later is one line later at the head (`:862`→`:863`, `:863`→`:864`, `:877`→`:878`, `:324`→`:325`, `:327`→`:328`, `:803`→`:804`, `:941`→`:942`, `:1026`→`:1027`); `store-schemas/16-task-queue.adoc:49` was reworded (a `file_changed` entry is also appended by the runtime; the `model_differs` statement is unaffected). The outline re-reads every line before it edits.
+
 ## Hand-Off Command
 
 ```text

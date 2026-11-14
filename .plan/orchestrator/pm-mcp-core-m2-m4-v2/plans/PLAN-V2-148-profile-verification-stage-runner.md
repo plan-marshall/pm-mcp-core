@@ -89,6 +89,8 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 - Overlaps at class level, decided by the gate at emit: 146 and 147 (above), #418, 134 and 59 (`SubprocessJobRunner`, `JobRecord`), 135 (`usage`), 126 and 141 (the `worker` and `job` test trees), 17 (consumes the probe classes).
 - Not here: the `harness.verify-profile` sub-workflow, the verbs `pm-operator profile verify/install/show/remove` and the install verb (`plan-marshall-mcp` and `pm-mcp-clients`), the supervision loop, the kernel enforcement (`pm-exec`), the real recordings and live runs, Tasks 1 `abi=2`, 3 gaps, 9 to 12 of the confinement package (PLAN-V2-149).
 
+**Corrections of 2026-11-14 after the impact analysis of the specification pull requests #414, #417 and #419 (`landings/SPEC-PRS-2026-11-14.md`; BINDING over any contradicting older text of this spec).** (a) **Line shifts of #417:** the stage table is `01-profile-schema.adoc:356-411` and "How it runs" `:352` (each one line later than cited above). (b) **The `egress` stage and the loopback decoys now meet the extended `address_not_public` rule** (#419): a decoy that listens on the loopback and is reached through `WorkerEgressProxy` is an address the proxy refuses, so the stage needs either the injected resolver seam of PLAN-V2-149 Deliverable 1 or a decoy that is not on a non-public address; **this plan depends on PLAN-V2-149 Deliverable 1 for the `egress` stage** (the order: 149 before 148's Deliverable 5) and the outline states how the decoy is reached.
+
 ## Hand-Off Command
 
 ```text
