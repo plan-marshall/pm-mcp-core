@@ -97,7 +97,8 @@ final class IntentFixtures {
                 base.deferred(), base.sourceClaims());
     }
 
-    static IntentRecord withCriteria(List<Criterion> criteria) {        var base = valid();
+    static IntentRecord withCriteria(List<Criterion> criteria) {
+        var base = valid();
         return new IntentRecord(base.why(), base.goal(), criteria, base.currentBehaviour(), base.repairs(),
                 base.nonGoals(), base.constraints(), base.choices(), base.assumptions(), base.openQuestions(),
                 base.deferred(), base.sourceClaims());
