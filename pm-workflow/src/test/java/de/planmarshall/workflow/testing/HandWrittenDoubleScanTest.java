@@ -23,6 +23,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -84,12 +86,12 @@ class HandWrittenDoubleScanTest {
                         """).contains("planted.java#lambda:AuditSink#1"),
                 "a planted lambda of a production type is found");
         assertTrue(scan("planted.java", "class Holder {\n    String s = \"\"\"\n        \\\"\"\"\n"
-                + "        class Phantom implements AuditSink {}\n        \"\"\";\n}\n").isEmpty(),
+                        + "        class Phantom implements AuditSink {}\n        \"\"\";\n}\n").isEmpty(),
                 "an escaped text-block delimiter hides its content");
         assertTrue(productionNames("public abstract static class Port { }").contains("Port"),
                 "an abstract class's modifier order does not hide it");
         assertTrue(scan("planted.java", "class Holder {\n    de.planmarshall.core.service.AuditSink unused,"
-                + " sink = event -> {\n    };\n}\n").contains("planted.java#lambda:AuditSink#1"),
+                        + " sink = event -> {\n    };\n}\n").contains("planted.java#lambda:AuditSink#1"),
                 "a multi-declarator field's lambda is found");
 
         Set<String> found = new TreeSet<>(scanModule());
