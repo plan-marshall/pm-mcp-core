@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The harness list of the onboarding's {@code harness.choose} step and of the machine's settings (PM-CLIENT-5, Harness
@@ -23,13 +24,13 @@ import java.util.Objects;
  * its token usage for that version.
  * <p>
  * The list keeps the scan's order — the order of the harness ids — so a client shows one order whichever set it reads.
- * Every row the scan produced is here; a caller may add a row the scan has no candidate for, which is how an enrolled
- * harness the scan no longer finds stays visible (see `HarnessListings` in `pm-runtime`).
- * The usage coverage is keyed by the harness <em>and</em> the version it was recorded for: a coverage recorded for one
- * version is never shown beside another, because the figures a harness reports change with its output format. A harness
- * no verification recorded at that version is {@code not_reported}, never {@code complete}. Where the enrolment store
- * could not be read, every entry carries {@code harness_store_unreadable} instead of an empty map, because the refusal is
- * a fact about the list and an empty map is not.
+ * Every row the scan produced is here, and a caller adds the rows of an enrolled harness the scan has no candidate for,
+ * so the operator sees what the machine still holds. The usage coverage is keyed by the harness <em>and</em> the version
+ * it was recorded for: a coverage recorded for one version is never shown beside another, because the figures a harness
+ * reports change with its output format. A harness no verification recorded at that version is {@code not_reported},
+ * never {@code complete}. Where the enrolment store could not be read, every entry carries
+ * {@code harness_store_unreadable} instead of an empty map, because the refusal is a fact about the list and an empty map
+ * is not.
  *
  * @param entries the entries, in the order of their harness ids
  * @since 0.1
@@ -76,13 +77,17 @@ public record HarnessList(List<HarnessListEntry> entries) {
     /**
      * @param scan            the scan the list shows
      * @param recorded        the usage coverage per harness and version, as the harness's verification recorded it
+     * @param enrolled        the ids the machine's harness store holds, so a row the scan found nothing for still shows
+     *                        that the machine has an enrolment to remove
      * @param storeUnreadable whether the enrolment store could not be read
      * @return the list, in the order of the harness ids
      * @throws NullPointerException if a component is {@code null}
      */
-    public static HarnessList of(HarnessScan scan, Map<Key, HarnessUsageCoverage> recorded, boolean storeUnreadable) {
+    public static HarnessList of(HarnessScan scan, Map<Key, HarnessUsageCoverage> recorded, Set<String> enrolled,
+            boolean storeUnreadable) {
         Objects.requireNonNull(scan, "scan");
         Objects.requireNonNull(recorded, "recorded");
+        Objects.requireNonNull(enrolled, "enrolled");
         var defaultHarness = scan.defaultHarness();
         var entries = new ArrayList<HarnessListEntry>();
         for (var candidate : scan.candidates()) {
@@ -96,6 +101,7 @@ public record HarnessList(List<HarnessListEntry> entries) {
                     .supported(candidate.supported())
                     .workerEligible(candidate.workerEligible())
                     .defaultHarness(defaultHarness.filter(candidate.harnessId()::equals).isPresent())
+                    .enrolled(enrolled.contains(candidate.harnessId()))
                     .usage(coverage)
                     .build());
         }

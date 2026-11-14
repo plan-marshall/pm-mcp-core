@@ -10,6 +10,7 @@
 package de.planmarshall.core.profile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -43,7 +44,12 @@ List<ProfileStages.StartContext> startContext) {
         PARTIAL("partial"),
         /** No report figure is reported or not applicable. */
         NOT_REPORTED("not_reported"),
-        /** The enrolment store could not be read; shown instead of an empty map. */
+        /**
+         * The enrolment store could not be read; shown instead of an empty map. The wire name is the refusal code the
+         * enrolment store raises for the same fault ({@code LaunchRefusal.HARNESS_STORE_UNREADABLE}); this module cannot
+         * name that constant, because {@code pm-runtime} depends on {@code pm-core} and never the reverse, so the value
+         * is spelled here and the two are kept equal by the client contract.
+         */
         UNREADABLE("harness_store_unreadable");
 
         private final String wireName;
@@ -86,17 +92,24 @@ List<ProfileStages.StartContext> startContext) {
     }
 
     /**
-     * @param result the result of the verification stage {@code usage}
-     * @return the coverage of the harness's report, with the start context the stage measured
+     * The one derivation of a harness's usage coverage from the figures it reports.
+     *
+     * @param statusesByFigure the status of each report figure, keyed by the profile schema's figure name
+     *                         ({@code input_tokens}, {@code output_tokens}, …) and valued {@code reported},
+     *                         {@code not_applicable} or {@code missing}; a figure the map does not name is
+     *                         {@code missing}
+     * @param startContext     the start context per class and model; empty where none was recorded
+     * @return the coverage of the harness's report, with the missing figures in schema order
+     * @throws NullPointerException if a component is {@code null}
      */
-    public static HarnessUsageCoverage of(ProfileStages.UsageResult result) {
-        var status = switch (result.coverage()) {
-            case COMPLETE -> Status.COMPLETE;
-            case PARTIAL -> Status.PARTIAL;
-            case NOT_REPORTED -> Status.NOT_REPORTED;
-        };
-        List<String> missing = status == Status.PARTIAL ? result.missingFigures() : List.of();
-        return new HarnessUsageCoverage(status, missing, result.startContext());
+    public static HarnessUsageCoverage ofFigures(Map<String, String> statusesByFigure,
+            List<ProfileStages.StartContext> startContext) {
+        var missing = ProfileStages.REPORT_FIGURES.stream()
+                .filter(figure -> "missing".equals(statusesByFigure.getOrDefault(figure, "missing")))
+                .toList();
+        var status = missing.size() == ProfileStages.REPORT_FIGURES.size() ? Status.NOT_REPORTED
+                : missing.isEmpty() ? Status.COMPLETE : Status.PARTIAL;
+        return new HarnessUsageCoverage(status, status == Status.PARTIAL ? missing : List.of(), startContext);
     }
 
     /**

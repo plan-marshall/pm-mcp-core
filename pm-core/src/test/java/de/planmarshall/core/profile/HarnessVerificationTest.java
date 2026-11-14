@@ -131,15 +131,48 @@ class HarnessVerificationTest {
                 Map.of("no_such_stage", IDENTITY_TOKENS));
         var refusal = refusalOf(request, "A stage outside the verification's closed list is refused");
 
-        assertEquals(HarnessVerificationRefusal.TOKENS_MISSING, refusal.code(), "The refusal names the token rule");
+        assertEquals(HarnessVerificationRefusal.STAGE_UNKNOWN, refusal.code(),
+                "An unknown stage names its own refusal");
+    }
+
+    @Test
+    @DisplayName("a run that names no stage is refused")
+    void emptyStageListRefused() {
+        var request = request(ConsentGate.Answer.YES, List.of(), Map.of());
+        var refusal = refusalOf(request, "A verification without a stage cannot be admitted");
+
+        assertEquals(HarnessVerificationRefusal.STAGES_MISSING, refusal.code(),
+                "An empty run names at least one stage");
+    }
+
+    @Test
+    @DisplayName("a stage named twice in the run is refused")
+    void duplicatedStageRefused() {
+        var twice = List.of("identity", "identity");
+        var request = request(ConsentGate.Answer.YES, twice, Map.of("identity", IDENTITY_TOKENS));
+        var refusal = refusalOf(request, "A stage named twice cannot be admitted");
+
+        assertEquals(HarnessVerificationRefusal.STAGE_DUPLICATED, refusal.code(),
+                "A duplicated stage is refused as such");
+    }
+
+    @Test
+    @DisplayName("a stage token that is not a count is refused")
+    void tokenNotACountRefused() {
+        var negative = new LinkedHashMap<String, Long>();
+        negative.put("identity", -1L);
+        var request = request(ConsentGate.Answer.YES, List.of("identity"), negative);
+        var refusal = refusalOf(request, "A negative token count cannot be admitted");
+
+        assertEquals(HarnessVerificationRefusal.TOKEN_NOT_A_COUNT, refusal.code(),
+                "A negative token count is refused as such");
     }
 
     @Test
     @DisplayName("a draft that is not a profile is refused before anything runs")
     void invalidDraftRefusedBeforeAnythingRuns() {
         var invalid = new String(ProfileFixtures.valid().remove("/schema_version").bytes(), StandardCharsets.UTF_8);
-        var request = new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                ConsentGate.Answer.YES, STAGES, tokens(), invalid, "draft/acme-cli.json", ProfileRules.none());
+        var request = requestBuilder(ConsentGate.Answer.YES, STAGES, tokens()).draft(invalid).build();
 
         assertThrows(ProfileRefusal.class, () -> HarnessVerification.admit(request),
                 "The draft is validated as a profile first");
@@ -149,18 +182,14 @@ class HarnessVerificationTest {
     @DisplayName("a missing draft name or rule set is refused before the draft is read")
     void missingDraftNameOrRulesRefused() {
         var stageTokens = tokens();
-        var draftText = draft();
-        var noRules = ProfileRules.none();
         var complete = request(ConsentGate.Answer.YES, STAGES, stageTokens);
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                                ConsentGate.Answer.YES, STAGES, stageTokens, draftText, null, noRules),
+                        () -> requestBuilder(ConsentGate.Answer.YES, STAGES, stageTokens).draftName(null).build(),
                         "A verification names the draft it validates"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE,
-                                ConsentGate.Answer.YES, STAGES, stageTokens, draftText, "draft/acme-cli.json", null),
+                        () -> requestBuilder(ConsentGate.Answer.YES, STAGES, stageTokens).rules(null).build(),
                         "A verification names the rules it validates with"),
                 () -> assertDoesNotThrow(() -> HarnessVerification.admit(complete),
                         "The complete admission still passes"));
@@ -171,8 +200,20 @@ class HarnessVerificationTest {
     }
 
     private static Request request(ConsentGate.Answer answer, List<String> stages, Map<String, Long> stageTokens) {
-        return new Request(HarnessVerification.VERIFY_STATE, ConsentKind.VERIFY_HARNESS_PROFILE, answer, stages,
-                stageTokens, draft(), "draft/acme-cli.json", ProfileRules.none());
+        return requestBuilder(answer, stages, stageTokens).build();
+    }
+
+    private static Request.RequestBuilder requestBuilder(ConsentGate.Answer answer, List<String> stages,
+            Map<String, Long> stageTokens) {
+        return Request.builder()
+                .state(HarnessVerification.VERIFY_STATE)
+                .kind(ConsentKind.VERIFY_HARNESS_PROFILE)
+                .answer(answer)
+                .stages(stages)
+                .stageTokens(stageTokens)
+                .draft(draft())
+                .draftName("draft/acme-cli.json")
+                .rules(ProfileRules.none());
     }
 
     private static Request requestFrom(String state) {
@@ -180,8 +221,7 @@ class HarnessVerificationTest {
     }
 
     private static Request requestFrom(String state, ConsentKind kind) {
-        return new Request(state, kind, ConsentGate.Answer.YES, STAGES, tokens(), draft(), "draft/acme-cli.json",
-                ProfileRules.none());
+        return requestBuilder(ConsentGate.Answer.YES, STAGES, tokens()).state(state).kind(kind).build();
     }
 
     private static String draft() {

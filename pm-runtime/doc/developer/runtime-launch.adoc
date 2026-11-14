@@ -235,9 +235,14 @@ ones the harness reports, not their values: two runs of different prompts legiti
 context only one run measured is not a repeated measurement, so it is refused too.
 
 The operator verb that writes the enrolment, the profile and the report under the store's lock stays in
-`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a report measured on the
-previous build (`HarnessEnrolment.updated`), so a list never shows an old version's coverage beside a new build.
-`VerifiedUsageTest` covers the mapping, the cost left out, the start context across the seam and both refusals.
+`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a **VERIFIED** report measured
+on the previous build — another version or another executable digest — so a list never shows an old build's measurement
+beside a new one; a **DECLARED** report is the profile's own declaration, not a measurement, and stays.
+`VerifiedUsageTest` covers the mapping, the cost left out, the start context across the seam and both refusals;
+`HarnessListingsTest` covers both sources across a self-update.
+
+`HarnessListings` and `VerifiedUsage` have no production caller yet: the assembly (`plan-marshall-mcp`) consumes them when
+it builds the onboarding step and the install verb.
 
 link:../adr/runtime-launch/008-a-verified-usage-report-is-installed-from-a-repeated-evaluation.adoc[ADR 008]: a verified
 usage report is installed only from a repeated evaluation.
