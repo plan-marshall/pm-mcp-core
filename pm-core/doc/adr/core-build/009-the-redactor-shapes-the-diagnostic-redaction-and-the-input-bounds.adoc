@@ -44,9 +44,10 @@ numbered `Decision` sections below.
 * *R1: URL user information.* `URL_USER_INFORMATION` and `URL_USER_INFORMATION_ENCODED` mask a password that holds a raw `/`, `?` or `#`, runs the password
    to the last `@` of the token (a raw `@` inside it is masked with it), lets the user hold a raw `@` (the user runs to
    the first colon), and accepts the percent-encoded separator `%3A%2F%2F`. The scheme, the user and the host stay
-   readable, and a percent-encoded password stays masked whole. The user still excludes whitespace, `/`, `?`, `#` and
-   `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's control) stays
-   readable.
+   readable, and a percent-encoded password stays masked whole. The user is optional, so the empty-user form
+   `https://:secret@host` (Azure DevOps, git credential helpers) is masked too. The user still excludes whitespace, `/`,
+   `?`, `#` and `:`, so a query or fragment that carries a colon and an `@` before any user information (ADR 006's
+   control) stays readable.
 * *R2: Credential flags.* The three flag patterns are case-insensitive; the closed list gains `auth-token`, `api-key`,
    `apikey`, `access-token`, `client-secret` and `otp`, and not `key`. An unquoted value runs to the next whitespace and
    may hold a `,`, a `;` or a quote; a quoted value keeps its escape pairs (read as an unrolled loop) and may run across one line end to
@@ -84,7 +85,27 @@ numbered `Decision` sections below.
 * a PEM or PGP block whose `BEGIN` line lies before the excerpt's window: the window is not widened to reach the marker;
 * a secret in an unlabelled query parameter, a bare JSON Web Token, an AWS access-key id, and the credential after the
   scheme word of an `Authorization:` header of a scheme other than `Bearer`, `Basic` or `Token` (the scheme word is
-  taken as the value and masked) — shapes no anchored pattern marks, left for a later decision.
+  taken as the value and masked) — shapes no anchored pattern marks, left for a later decision;
+* an unquoted assignment value shorter than four characters, a bearer value under eight characters and a secret with no
+  label — the deliberate minimum, kept as an accepted residue. A quoted assignment value is not subject to that
+  minimum (see below).
+
+=== The quoted assignment value runs to its closing quote
+
+An assignment whose value is quoted (`token="ab cd ef"`, `password="my pass phrase"`) masks the whole quoted value: the
+value runs to its own closing quote, as the quoted credential-flag forms do, and the escape handling of the flag form
+keeps an escaped quote from closing it. The four-character minimum therefore applies to unquoted values only. The
+false-positive cost: a short quoted value of an ordinary text is masked with its label.
+
+=== The matcher is Unicode-aware, and invisible characters are removed
+
+The label and separator classes match their Unicode forms (`\s`, `\S`, `\w` and `\b`), so a no-break space (`U+00A0`) or
+a narrow no-break space (`U+202F`) between a label and its separator is an ordinary space. The invisible formatting
+characters — the zero-width space and joiners (`U+200B` to `U+200D`), the bidi controls (`U+200E` to `U+200F`, `U+202A`
+to `U+202E`), the word joiner (`U+2060`), the soft hyphen (`U+00AD`) and the byte-order mark (`U+FEFF`) — are removed
+before the shapes are matched, so a label split by one of them (`pass<U+200B>word=value`) is matched and a stored text
+carries none of them. They are invisible, so removing one costs no evidence. The false-positive cost: a text that
+carries an invisible character loses it, and a quoted assignment whose first word is short is masked whole.
 
 === Decision 1: the input is bounded on every path, and the key-block scan is linear
 
@@ -220,6 +241,9 @@ line cut was corrected to name the input size as its bound.
   would cost the evidence of every clone and registry URL; the operator kept it readable and it is named as residue.
 * *Add `--key` to the flag list.* It would mask the value of every tool's `--key` option (a cache key, a sort key); the
   operator kept the list closed without it.
+* *Leave the matcher ASCII-only and record the residue.* The operator chose to widen it: a no-break space or a
+  zero-width character is what an accident produces when text passes through a word processor or a terminal, and the
+  cost is only a wider notion of whitespace and word characters.
 * *Accept an `npm_` run of any length.* A package or variable named `npm_<something>` would lose its text; the exact length
   is the documented token shape.
 * *Strip escape sequences inside the label patterns.* Every label pattern would carry an optional escape run between its

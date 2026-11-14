@@ -41,6 +41,12 @@ import de.planmarshall.core.build.BuildLogText;
  * hash, a commit id, a path and a prose sentence that merely contains the word {@code token} or {@code PRIVATE KEY} are
  * not secrets and stay readable.
  * <p>
+ * The patterns are Unicode-aware: {@code \s}, {@code \S}, {@code \w} and {@code \b} match their Unicode forms, so a
+ * no-break space cannot separate a label from its value, and a quoted assignment value runs to its closing quote. The
+ * invisible formatting characters — the zero-width space and joiners, the bidi controls, the soft hyphen and the
+ * byte-order mark — are removed before the shapes are matched, so one of them cannot split a label; none of them is
+ * visible, so removing one costs no evidence.
+ * <p>
  * The replacement keeps the label so the reader knows what was removed: {@code "Authorization: Bearer …"} becomes
  * {@code "Authorization: Bearer [redacted]"}, {@code "https://user:secret@host"} keeps its scheme and user, and a key
  * block is replaced whole (an unclosed block masks from its {@code BEGIN} line to the end of the text).
@@ -60,12 +66,20 @@ public final class SecretRedactor {
     /** The text that replaces a redacted value. */
     public static final String REDACTED = "[redacted]";
 
+    /**
+     * The invisible characters removed before any shape is matched: the soft hyphen, the zero-width space, the
+     * zero-width joiners and marks, the bidi controls and the byte-order mark. A label split by one of them is still a
+     * label, and a stored text that carries them carries no evidence.
+     */
+    private static final Pattern INVISIBLE =
+            Pattern.compile("[\\u00AD\\u200B-\\u200F\\u202A-\\u202E\\u2060\\uFEFF]");
+
     private static final String SEPARATOR = "([\"']?\\s*[:=]\\s*[\"']?)";
 
     private static final String VALUE = "([^\\s\"',;]{4,})";
 
     private static final Pattern AUTH_HEADER = Pattern.compile(
-            "(?i)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
+            "(?iU)\\b(authorization)\\b(\\s*[:=]\\s*)((?i:bearer|basic|token)\\s+)?([^\\s\"',;]{4,})");
 
     /**
      * The credential labels, one pattern each: a label's own alternation stays small, so neither the regex nor the
@@ -81,7 +95,7 @@ public final class SecretRedactor {
             assignment("(?-i:[a-z]+(?=[A-Z]))"
                     + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
 
-    private static final Pattern BEARER = Pattern.compile("(?i)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
+    private static final Pattern BEARER = Pattern.compile("(?iU)\\b(bearer\\s+)([\\w.~+/=-]{8,})");
 
     private static final Pattern TOKEN_SHAPE = Pattern.compile(
             "\\b(?:sk|ghp|gho|ghu|ghs|ghr|github_pat|xox[abprs])[-_][\\w-]{12,}");
@@ -109,7 +123,8 @@ public final class SecretRedactor {
      * </ul>
      * The scheme starts where no scheme character precedes it. The user excludes whitespace, {@code /}, {@code ?},
      * {@code #} and {@code :}, so a query or fragment that carries a colon and an {@code @} before any user information
-     * ({@code https://host/p?at=a:b@c}) stays readable.
+     * ({@code https://host/p?at=a:b@c}) stays readable. The user is optional, so the empty-user form
+     * {@code https://:secret@host} (Azure DevOps, git credential helpers) is masked as well.
      * <p>
      * What stays readable, and why: the single-user form {@code https://<token>@host} has no colon and so no secret
      * part (an operator decision; the token there is a known residue), {@code scheme://host:8080/path} has no
@@ -181,7 +196,8 @@ public final class SecretRedactor {
     private static final String QUOTED_VALUE = QUOTED_LINE + "(?:" + QUOTED_LINE_END + QUOTED_LINE + ")?";
 
     private static final Pattern QUOTED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_VALUE + ")\\3", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(" + QUOTED_VALUE + ")\\3",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     /**
      * A quoted flag value whose quote does not close on its own line or the next: the lookahead refuses the value
@@ -190,10 +206,25 @@ public final class SecretRedactor {
      * value that closes after one line end, escaped or not, is left to the quoted form.
      */
     private static final Pattern UNCLOSED_CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_VALUE + "\\3)([^\\r\\n]*)", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([\"'])(?!" + QUOTED_VALUE + "\\3)([^\\r\\n]*)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
 
     private static final Pattern CREDENTIAL_FLAG = Pattern.compile(
-            CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE);
+            CREDENTIAL_FLAG_HEAD + "([^\\s\"']\\S*)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+
+    /**
+     * The quoted form of a credential-shaped assignment. A quoted value runs to its own closing quote, so a value whose
+     * first word is shorter than the four characters the unquoted form requires ({@code token="ab cd ef"}) is masked
+     * whole. The escape handling of {@link #QUOTED_LINE} keeps an escaped quote from closing the value.
+     */
+    private static final List<Pattern> QUOTED_ASSIGNMENTS = List.of(
+            quotedAssignment("pass(?:[_-]?(?:word|wd|phrase|code|key))?"),
+            quotedAssignment("secret"),
+            quotedAssignment("token"),
+            quotedAssignment("(?:api|access|private)[_-]?key"),
+            quotedAssignment("auth"),
+            quotedAssignment("(?-i:[a-z]+(?=[A-Z]))"
+                    + "(?:Secret|Token|Password|Passwd|Passphrase|Passcode|Passkey|ApiKey|AccessKey|PrivateKey)"));
 
     /**
      * The head of a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}).
@@ -208,12 +239,22 @@ public final class SecretRedactor {
     private static final List<Pattern> REPLACEMENTS = List.of(TOKEN_SHAPE, NPM_ACCESS_TOKEN);
 
     private static Pattern assignment(String label) {
-        return Pattern.compile("(?i)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
+        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b" + SEPARATOR + VALUE);
     }
 
-    /** The user-information pattern behind one scheme separator: scheme and separator, user, secret. */
+    /**
+     * The quoted form of one credential label: the label, the separator, the opening quote and the value up to the same
+     * closing quote, read through the escape pairs of {@link #QUOTED_LINE}.
+     */
+    private static Pattern quotedAssignment(String label) {
+        return Pattern.compile("(?iU)(?<![a-z0-9])(" + label + ")\\b([\"']?\\s*[:=]\\s*)([\"'])"
+                + QUOTED_LINE + "\\3");
+    }
+
+    /** The user-information pattern behind one scheme separator: scheme and separator, an optional user, secret. */
     private static Pattern urlUserInformation(String schemeSeparator) {
-        return Pattern.compile("(?i)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+" + schemeSeparator + ")([^\\s/?#:]++):(\\S+)@");
+        return Pattern.compile("(?iU)(?<![a-z0-9+.-])([a-z][a-z0-9+.-]*+" + schemeSeparator
+                + ")(?:([^\\s/?#:]++))?:(\\S+)@");
     }
 
     /** The replacement prefix that keeps groups 1 to 3 and masks the group that follows them. */
@@ -234,8 +275,14 @@ public final class SecretRedactor {
         if (value.isEmpty()) {
             return Optional.of(value);
         }
-        var masked = AUTH_HEADER.matcher(value).replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
+        var normalized = INVISIBLE.matcher(value).replaceAll("");
+        var masked = AUTH_HEADER.matcher(normalized)
+                .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED));
         masked = BEARER.matcher(masked).replaceAll("$1" + Matcher.quoteReplacement(REDACTED));
+        for (var pattern : QUOTED_ASSIGNMENTS) {
+            masked = pattern.matcher(masked)
+                    .replaceAll(KEEP_THREE_GROUPS + Matcher.quoteReplacement(REDACTED) + "$3");
+        }
         for (var pattern : ASSIGNMENTS) {
             masked = pattern.matcher(masked).replaceAll("$1$2" + Matcher.quoteReplacement(REDACTED));
         }

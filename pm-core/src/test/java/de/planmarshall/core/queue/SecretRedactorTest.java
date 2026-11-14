@@ -208,6 +208,70 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("an empty user in a URL is masked (the Azure DevOps and credential-helper form)")
+    void urlUserInformationEmptyUser() {
+        assertAll("URL with an empty user",
+                () -> assertEquals("clone https://:" + SecretRedactor.REDACTED + "@host/repo",
+                        redactValue("clone https://:token-value@host/repo"),
+                        "an empty user does not leave the secret readable"),
+                () -> assertEquals("https%3A%2F%2F:" + SecretRedactor.REDACTED + "@host",
+                        redactValue("https%3A%2F%2F:token-value@host"),
+                        "the percent-encoded separator accepts an empty user too"));
+    }
+
+    @Test
+    @DisplayName("an unquoted assignment shorter than four characters stays readable (the deliberate minimum)")
+    void shortUnquotedAssignmentStaysReadable() {
+        assertEquals("token =x", redactValue("token =x"),
+                "the four-character minimum is an accepted residue");
+    }
+
+    @Test
+    @DisplayName("a quoted assignment whose first word is short is masked whole")
+    void shortQuotedAssignment() {
+        assertAll("short quoted assignments",
+                () -> assertEquals("token=\"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("token=\"ab cd ef\""),
+                        "a two-character first word no longer stops the mask"),
+                () -> assertEquals("password=\"" + SecretRedactor.REDACTED + "\"",
+                        redactValue("password=\"my pass phrase\""),
+                        "a three-character first word no longer stops the mask"),
+                () -> assertEquals("{\"token\": \"" + SecretRedactor.REDACTED + "\"}",
+                        redactValue("{\"token\": \"a b\"}"),
+                        "a one-character quoted JSON value is masked"));
+    }
+
+    @Test
+    @DisplayName("a non-ASCII space in a credential assignment does not hide the value")
+    void assignmentWithNonAsciiSpace() {
+        // U+00A0 NO-BREAK SPACE and U+202F NARROW NO-BREAK SPACE are not matched by an ASCII-only \s
+        assertAll("Unicode whitespace in a credential assignment",
+                () -> assertEquals("password\u00A0=" + SecretRedactor.REDACTED,
+                        redactValue("password\u00A0=abcd1234"),
+                        "a no-break space before the separator is matched"),
+                () -> assertEquals("token \u202F= " + SecretRedactor.REDACTED,
+                        redactValue("token \u202F= abcd1234"),
+                        "a narrow no-break space after the label is matched"));
+    }
+
+    @Test
+    @DisplayName("invisible formatting characters do not hide a credential")
+    void assignmentWithInvisibleCharacters() {
+        // U+200B ZERO WIDTH SPACE inside the label; U+FEFF ZERO WIDTH NO-BREAK SPACE in the separator
+        var zeroWidthLabel = redactValue("pass\u200Bword=abcd1234");
+        var byteOrderMark = redactValue("token\uFEFF=abcd1234");
+
+        assertAll("invisible characters in a credential assignment",
+                () -> assertEquals("password=" + SecretRedactor.REDACTED, zeroWidthLabel,
+                        "a zero-width space inside the label is removed before the match"),
+                () -> assertFalse(zeroWidthLabel.contains("abcd1234"), "the value after a split label is gone"),
+                () -> assertEquals("token=" + SecretRedactor.REDACTED, byteOrderMark,
+                        "a byte-order mark after the label is removed before the match"),
+                () -> assertFalse(byteOrderMark.contains("\uFEFF"), "the stored text carries no invisible character"));
+    }
+
+
+    @Test
     @DisplayName("a credential flag with a space is redacted and keeps the flag")
     void spacedCredentialFlags() {
         assertAll("spaced credential flags",
